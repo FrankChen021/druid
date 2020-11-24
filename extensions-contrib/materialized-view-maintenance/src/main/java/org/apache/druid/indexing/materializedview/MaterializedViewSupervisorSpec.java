@@ -26,13 +26,27 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.data.input.impl.DimensionSchema;
 import org.apache.druid.data.input.impl.DimensionsSpec;
+import org.apache.druid.discovery.DruidLeaderClient;
 import org.apache.druid.indexer.HadoopIOConfig;
 import org.apache.druid.indexer.HadoopIngestionSpec;
 import org.apache.druid.indexer.HadoopTuningConfig;
 import org.apache.druid.indexer.hadoop.DatasourceIngestionSpec;
+import org.apache.druid.indexing.common.RetryPolicyFactory;
+import org.apache.druid.indexing.common.SegmentLoaderFactory;
+import org.apache.druid.indexing.common.TaskToolbox;
+import org.apache.druid.indexing.common.task.AbstractBatchIndexTask;
 import org.apache.druid.indexing.common.task.HadoopIndexTask;
+import org.apache.druid.indexing.common.task.IndexTask;
+import org.apache.druid.indexing.common.task.TaskResource;
+import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIOConfig;
+import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIngestionSpec;
+import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTask;
+import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexTuningConfig;
+import org.apache.druid.indexing.input.DruidInputSource;
+import org.apache.druid.indexing.input.DruidSegmentInputFormat;
 import org.apache.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
 import org.apache.druid.indexing.overlord.TaskMaster;
 import org.apache.druid.indexing.overlord.TaskStorage;
@@ -45,6 +59,7 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.metadata.MetadataSupervisorManager;
 import org.apache.druid.metadata.SqlSegmentsMetadataManager;
 import org.apache.druid.query.aggregation.AggregatorFactory;
+import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.segment.indexing.granularity.ArbitraryGranularitySpec;
 import org.apache.druid.segment.realtime.firehose.ChatHandlerProvider;
@@ -53,11 +68,13 @@ import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.timeline.DataSegment;
 import org.joda.time.Interval;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class MaterializedViewSupervisorSpec implements SupervisorSpec
 {
@@ -85,6 +102,10 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
   private final ChatHandlerProvider chatHandlerProvider;
   private final SupervisorStateManagerConfig supervisorStateManagerConfig;
   private final boolean suspended;
+  private final SegmentLoaderFactory segmentLoaderFactory;
+  private final RetryPolicyFactory retryPolicyFactory;
+  private final CoordinatorClient client;
+  private final IndexIO indexIO;
 
   public MaterializedViewSupervisorSpec(
       @JsonProperty("baseDataSource") String baseDataSource,
@@ -106,7 +127,11 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
       @JacksonInject MaterializedViewTaskConfig config,
       @JacksonInject AuthorizerMapper authorizerMapper,
       @JacksonInject ChatHandlerProvider chatHandlerProvider,
-      @JacksonInject SupervisorStateManagerConfig supervisorStateManagerConfig
+      @JacksonInject SupervisorStateManagerConfig supervisorStateManagerConfig,
+      @JacksonInject SegmentLoaderFactory segmentLoaderFactory,
+      @JacksonInject RetryPolicyFactory retryPolicyFactory,
+      @JacksonInject CoordinatorClient coordinatorClient,
+      @JacksonInject IndexIO indexIO
   )
   {
     Preconditions.checkArgument(
@@ -159,9 +184,13 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
     for (DimensionSchema schema : dimensionsSpec.getDimensions()) {
       dimensions.add(schema.getName());
     }
+    this.segmentLoaderFactory = segmentLoaderFactory;
+    this.retryPolicyFactory = retryPolicyFactory;
+    this.client = coordinatorClient;
+    this.indexIO = indexIO;
   }
 
-  public HadoopIndexTask createTask(Interval interval, String version, List<DataSegment> segments)
+  public AbstractBatchIndexTask createTask(Interval interval, String version, List<DataSegment> segments)
   {
     String taskId = StringUtils.format("%s_%s_%s", TASK_PREFIX, dataSourceName, DateTimes.nowUtc());
 
@@ -240,21 +269,71 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
     // generate HadoopIngestionSpec
     HadoopIngestionSpec spec = new HadoopIngestionSpec(dataSchema, hadoopIOConfig, tuningConfigForTask);
 
-    // generate HadoopIndexTask
-    HadoopIndexTask task = new HadoopIndexTask(
-        taskId,
-        spec,
-        hadoopCoordinates,
-        hadoopDependencyCoordinates,
-        classpathPrefix,
-        objectMapper,
-        context,
-        authorizerMapper,
-        chatHandlerProvider
-    );
-
+    ParallelIndexIOConfig ioConfig = createIoConfig(indexIO, dataSchema, interval,
+                                                    this.client,
+                                                    this.segmentLoaderFactory,
+                                                    this.retryPolicyFactory);
+    ParallelIndexIngestionSpec spec2 = new ParallelIndexIngestionSpec(dataSchema, ioConfig, ParallelIndexTuningConfig.defaultConfig());
+    ParallelIndexSupervisorTask task = new ParallelIndexSupervisorTask(taskId,
+                                                                       dataSourceName,
+                                                                       new TaskResource("group", 1),
+                                                                       spec2,
+                                                                       context);
     return task;
+
+//    IndexTask.IndexTuningConfig tuningConfig = new IndexTask.IndexTuningConfig();
+//    IndexTask.IndexIOConfig ioConfig2 = new IndexTask.IndexIOConfig(null,
+//                                                                    new DruidInputSource());
+//    IndexTask.IndexIngestionSpec spec3 = new IndexTask.IndexIngestionSpec(dataSchema, ioConfig, tuningConfig);
+//    IndexTask indexTask = new IndexTask(taskId, new TaskResource("task", 1),
+//                                        spec3,
+//                                        context);
+//    return indexTask;
+
+//    // generate HadoopIndexTask
+//    HadoopIndexTask task = new HadoopIndexTask(
+//        taskId,
+//        spec,
+//        hadoopCoordinates,
+//        hadoopDependencyCoordinates,
+//        classpathPrefix,
+//        objectMapper,
+//        context,
+//        authorizerMapper,
+//        chatHandlerProvider
+//    );
+//
+//    return task;
   }
+
+  private static ParallelIndexIOConfig createIoConfig(
+      IndexIO indexIO,
+      DataSchema dataSchema,
+      Interval interval,
+      CoordinatorClient coordinatorClient,
+      SegmentLoaderFactory segmentLoaderFactory,
+      RetryPolicyFactory retryPolicyFactory
+  )
+  {
+    return new ParallelIndexIOConfig(
+        null,
+        new DruidInputSource(
+            dataSchema.getDataSource(),
+            interval,
+            null,
+            null,
+            dataSchema.getDimensionsSpec().getDimensionNames(),
+            Arrays.stream(dataSchema.getAggregators()).map(AggregatorFactory::getName).collect(Collectors.toList()),
+            indexIO,
+            coordinatorClient,
+            segmentLoaderFactory,
+            retryPolicyFactory
+        ),
+        null,
+        false
+    );
+  }
+
 
   public Set<String> getDimensions()
   {
@@ -390,7 +469,11 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
         config,
         authorizerMapper,
         chatHandlerProvider,
-        supervisorStateManagerConfig
+        supervisorStateManagerConfig,
+        this.segmentLoaderFactory,
+        this.retryPolicyFactory,
+        this.client,
+        this.indexIO
     );
   }
 
@@ -417,7 +500,11 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
         config,
         authorizerMapper,
         chatHandlerProvider,
-        supervisorStateManagerConfig
+        supervisorStateManagerConfig,
+        this.segmentLoaderFactory,
+        this.retryPolicyFactory,
+        this.client,
+        this.indexIO
     );
   }
 
