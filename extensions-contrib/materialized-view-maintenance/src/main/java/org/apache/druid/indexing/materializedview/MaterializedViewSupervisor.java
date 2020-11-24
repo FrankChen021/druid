@@ -28,7 +28,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.druid.indexer.TaskStatus;
-import org.apache.druid.indexing.common.task.HadoopIndexTask;
+import org.apache.druid.indexing.common.task.AbstractBatchIndexTask;
+import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.indexing.overlord.DataSourceMetadata;
 import org.apache.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
 import org.apache.druid.indexing.overlord.Segments;
@@ -83,7 +84,7 @@ public class MaterializedViewSupervisor implements Supervisor
   private final String supervisorId;
   private final int maxTaskCount;
   private final long minDataLagMs;
-  private final Map<Interval, HadoopIndexTask> runningTasks = new HashMap<>();
+  private final Map<Interval, Task> runningTasks = new HashMap<>();
   private final Map<Interval, String> runningVersion = new HashMap<>();
   // taskLock is used to synchronize runningTask and runningVersion
   private final Object taskLock = new Object();
@@ -291,7 +292,7 @@ public class MaterializedViewSupervisor implements Supervisor
   {
     synchronized (taskLock) {
       List<Interval> intervalsToRemove = new ArrayList<>();
-      for (Map.Entry<Interval, HadoopIndexTask> entry : runningTasks.entrySet()) {
+      for (Map.Entry<Interval, Task> entry : runningTasks.entrySet()) {
         Optional<TaskStatus> taskStatus = taskStorage.getStatus(entry.getValue().getId());
         if (!taskStatus.isPresent() || !taskStatus.get().isRunnable()) {
           intervalsToRemove.add(entry.getKey());
@@ -316,7 +317,7 @@ public class MaterializedViewSupervisor implements Supervisor
   }
 
   @VisibleForTesting
-  Pair<Map<Interval, HadoopIndexTask>, Map<Interval, String>> getRunningTasks()
+  Pair<Map<Interval, Task>, Map<Interval, String>> getRunningTasks()
   {
     return new Pair<>(runningTasks, runningVersion);
   }
@@ -407,7 +408,7 @@ public class MaterializedViewSupervisor implements Supervisor
   {
     for (Map.Entry<Interval, String> entry : sortedToBuildVersion.entrySet()) {
       if (runningTasks.size() < maxTaskCount) {
-        HadoopIndexTask task = spec.createTask(entry.getKey(), entry.getValue(), baseSegments.get(entry.getKey()));
+        AbstractBatchIndexTask task = spec.createTask(entry.getKey(), entry.getValue(), baseSegments.get(entry.getKey()));
         try {
           if (taskMaster.getTaskQueue().isPresent()) {
             taskMaster.getTaskQueue().get().add(task);
@@ -481,7 +482,7 @@ public class MaterializedViewSupervisor implements Supervisor
 
   private void clearTasks()
   {
-    for (HadoopIndexTask task : runningTasks.values()) {
+    for (Task task : runningTasks.values()) {
       if (taskMaster.getTaskQueue().isPresent()) {
         taskMaster.getTaskQueue().get().shutdown(task.getId(), "killing all tasks");
       }
