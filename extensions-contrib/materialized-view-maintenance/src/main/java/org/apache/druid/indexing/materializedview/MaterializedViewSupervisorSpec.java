@@ -37,6 +37,7 @@ import org.apache.druid.indexer.hadoop.DatasourceIngestionSpec;
 import org.apache.druid.indexing.common.RetryPolicyFactory;
 import org.apache.druid.indexing.common.SegmentLoaderFactory;
 import org.apache.druid.indexing.common.task.AbstractBatchIndexTask;
+import org.apache.druid.indexing.common.task.IndexTask;
 import org.apache.druid.indexing.common.task.TaskResource;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIOConfig;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIngestionSpec;
@@ -266,46 +267,67 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
     // generate HadoopIngestionSpec
     HadoopIngestionSpec spec = new HadoopIngestionSpec(dataSchema, hadoopIOConfig, tuningConfigForTask);
 
-    ParallelIndexIOConfig ioConfig = createIoConfig(indexIO, dataSchema, interval,
-                                                    this.client,
-                                                    this.segmentLoaderFactory,
-                                                    this.retryPolicyFactory);
-    ParallelIndexTuningConfig tt;
-    ParallelIndexIngestionSpec spec2 = new ParallelIndexIngestionSpec(dataSchema, ioConfig,
-    new ParallelIndexTuningConfig(
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        (int)this.context.getOrDefault("maxTaskCount", 2),
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-    ));
-    ParallelIndexSupervisorTask task = new ParallelIndexSupervisorTask(taskId,
-                                                                       dataSourceName,
-                                                                       new TaskResource("group", 1),
-                                                                       spec2,
-                                                                       context);
-    return task;
+    IndexTask.IndexIngestionSpec spec3 = new IndexTask.IndexIngestionSpec(dataSchema,
+                                                                          new IndexTask.IndexIOConfig(null,
+                                                                                                      new DruidInputSource(
+                                                                                                          dataSchema.getDataSource(),
+                                                                                                          interval,
+                                                                                                          null,
+                                                                                                          null,
+                                                                                                          dataSchema.getDimensionsSpec().getDimensionNames(),
+                                                                                                          Arrays.stream(dataSchema.getAggregators()).map(AggregatorFactory::getName).collect(Collectors.toList()),
+                                                                                                          indexIO,
+                                                                                                          this.client,
+                                                                                                          segmentLoaderFactory,
+                                                                                                          retryPolicyFactory
+                                                                                                      ),
+                                                                                                      null,
+                                                                                                      false),
+                                                                          new IndexTask.IndexTuningConfig());
+    IndexTask indexTask = new IndexTask(taskId,
+                                        new TaskResource("group", 1),
+                                        spec3,
+                                        context);
+    return indexTask;
+//    ParallelIndexIOConfig ioConfig = createIoConfig(indexIO, dataSchema, interval,
+//                                                    this.client,
+//                                                    this.segmentLoaderFactory,
+//                                                    this.retryPolicyFactory);
+//    ParallelIndexIngestionSpec spec2 = new ParallelIndexIngestionSpec(dataSchema, ioConfig,
+//    new ParallelIndexTuningConfig(
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        (int)this.context.getOrDefault("maxTaskCount", 2),
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null,
+//        null
+//    ));
+//    ParallelIndexSupervisorTask task = new ParallelIndexSupervisorTask(taskId,
+//                                                                       dataSourceName,
+//                                                                       new TaskResource("group", 1),
+//                                                                       spec2,
+//                                                                       context);
+//    return task;
   }
 
   private static ParallelIndexIOConfig createIoConfig(
