@@ -145,7 +145,11 @@ public class MaterializedViewSupervisorSpecTest
         new MaterializedViewTaskConfig(),
         EasyMock.createMock(AuthorizerMapper.class),
         new NoopChatHandlerProvider(),
-        new SupervisorStateManagerConfig()
+        new SupervisorStateManagerConfig(),
+        null,
+        null,
+        null,
+        null
     );
     MaterializedViewSupervisorSpec spec = objectMapper.readValue(supervisorStr, MaterializedViewSupervisorSpec.class);
     Assert.assertEquals(expected.getBaseDataSource(), spec.getBaseDataSource());
@@ -249,7 +253,11 @@ public class MaterializedViewSupervisorSpecTest
         new MaterializedViewTaskConfig(),
         EasyMock.createMock(AuthorizerMapper.class),
         new NoopChatHandlerProvider(),
-        new SupervisorStateManagerConfig()
+        new SupervisorStateManagerConfig(),
+        null,
+        null,
+        null,
+        null
     );
   }
 
@@ -296,7 +304,11 @@ public class MaterializedViewSupervisorSpecTest
         new MaterializedViewTaskConfig(),
         EasyMock.createMock(AuthorizerMapper.class),
         new NoopChatHandlerProvider(),
-        new SupervisorStateManagerConfig()
+        new SupervisorStateManagerConfig(),
+        null,
+        null,
+        null,
+        null
     );
   }
 }
