@@ -32,6 +32,8 @@ import org.apache.druid.indexer.HadoopIngestionSpec;
 import org.apache.druid.indexer.HadoopTuningConfig;
 import org.apache.druid.indexer.TaskStatus;
 import org.apache.druid.indexing.common.task.HadoopIndexTask;
+import org.apache.druid.indexing.common.task.IndexTask;
+import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
 import org.apache.druid.indexing.overlord.TaskMaster;
 import org.apache.druid.indexing.overlord.TaskQueue;
@@ -268,8 +270,8 @@ public class MaterializedViewSupervisorTest
             .anyTimes();
     EasyMock.replay(taskStorage);
 
-    Pair<Map<Interval, HadoopIndexTask>, Map<Interval, String>> runningTasksPair = supervisor.getRunningTasks();
-    Map<Interval, HadoopIndexTask> runningTasks = runningTasksPair.lhs;
+    Pair<Map<Interval, Task>, Map<Interval, String>> runningTasksPair = supervisor.getRunningTasks();
+    Map<Interval, Task> runningTasks = runningTasksPair.lhs;
     Map<Interval, String> runningVersion = runningTasksPair.rhs;
 
     DataSchema dataSchema = new DataSchema(
@@ -342,7 +344,7 @@ public class MaterializedViewSupervisorTest
         )
     );
 
-    HadoopIndexTask task = spec.createTask(
+    Task task = spec.createTask(
         Intervals.of("2015-01-02T00Z/2015-01-03T00Z"),
         "2015-01-03",
         baseSegments
