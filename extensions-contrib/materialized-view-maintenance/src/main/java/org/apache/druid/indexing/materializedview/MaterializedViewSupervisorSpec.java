@@ -34,6 +34,7 @@ import org.apache.druid.indexer.HadoopIOConfig;
 import org.apache.druid.indexer.HadoopIngestionSpec;
 import org.apache.druid.indexer.HadoopTuningConfig;
 import org.apache.druid.indexer.hadoop.DatasourceIngestionSpec;
+import org.apache.druid.indexer.hadoop.WindowedDataSegment;
 import org.apache.druid.indexing.common.RetryPolicyFactory;
 import org.apache.druid.indexing.common.SegmentLoaderFactory;
 import org.apache.druid.indexing.common.task.AbstractBatchIndexTask;
@@ -43,6 +44,7 @@ import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIOConfi
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIngestionSpec;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTask;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexTuningConfig;
+import org.apache.druid.indexing.firehose.WindowedSegmentId;
 import org.apache.druid.indexing.input.DruidInputSource;
 import org.apache.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
 import org.apache.druid.indexing.overlord.TaskMaster;
@@ -66,6 +68,7 @@ import org.apache.druid.timeline.DataSegment;
 import org.joda.time.Interval;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -270,9 +273,9 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
     IndexTask.IndexIngestionSpec spec3 = new IndexTask.IndexIngestionSpec(dataSchema,
                                                                           new IndexTask.IndexIOConfig(null,
                                                                                                       new DruidInputSource(
-                                                                                                          dataSchema.getDataSource(),
+                                                                                                          baseDataSource,
                                                                                                           interval,
-                                                                                                          null,
+                                                                                                          segments.stream().map(s->new WindowedSegmentId(s.getId().toString(),Collections.singletonList(s.getInterval()))).collect(Collectors.toList()),
                                                                                                           null,
                                                                                                           dataSchema.getDimensionsSpec().getDimensionNames(),
                                                                                                           Arrays.stream(dataSchema.getAggregators()).map(AggregatorFactory::getName).collect(Collectors.toList()),
