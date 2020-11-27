@@ -123,7 +123,11 @@ public class MaterializedViewSupervisorTest
         new MaterializedViewTaskConfig(),
         EasyMock.createMock(AuthorizerMapper.class),
         EasyMock.createMock(ChatHandlerProvider.class),
-        new SupervisorStateManagerConfig()
+        new SupervisorStateManagerConfig(),
+        null,
+        null,
+        null,
+        null
     );
     derivativeDatasourceName = spec.getDataSourceName();
     supervisor = (MaterializedViewSupervisor) spec.createSupervisor();
@@ -340,7 +344,11 @@ public class MaterializedViewSupervisorTest
         new MaterializedViewTaskConfig(),
         EasyMock.createMock(AuthorizerMapper.class),
         EasyMock.createMock(ChatHandlerProvider.class),
-        new SupervisorStateManagerConfig()
+        new SupervisorStateManagerConfig(),
+        null,
+        null,
+        null,
+        null
     );
     MaterializedViewSupervisor supervisor = (MaterializedViewSupervisor) suspended.createSupervisor();
 
