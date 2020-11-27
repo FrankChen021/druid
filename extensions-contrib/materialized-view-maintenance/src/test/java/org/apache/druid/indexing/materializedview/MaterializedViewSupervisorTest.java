@@ -32,6 +32,7 @@ import org.apache.druid.indexer.HadoopIngestionSpec;
 import org.apache.druid.indexer.HadoopTuningConfig;
 import org.apache.druid.indexer.TaskStatus;
 import org.apache.druid.indexing.common.task.HadoopIndexTask;
+import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
 import org.apache.druid.indexing.overlord.TaskMaster;
 import org.apache.druid.indexing.overlord.TaskQueue;
@@ -83,6 +84,7 @@ public class MaterializedViewSupervisorTest
   private TaskQueue taskQueue;
   private MaterializedViewSupervisor supervisor;
   private String derivativeDatasourceName;
+  private MaterializedViewSupervisorSpec spec;
   private final ObjectMapper objectMapper = TestHelper.makeJsonMapper();
 
   @Before
@@ -103,7 +105,7 @@ public class MaterializedViewSupervisorTest
     taskQueue = EasyMock.createMock(TaskQueue.class);
     taskQueue.start();
     objectMapper.registerSubtypes(new NamedType(HashBasedNumberedShardSpec.class, "hashed"));
-    MaterializedViewSupervisorSpec spec = new MaterializedViewSupervisorSpec(
+    spec = new MaterializedViewSupervisorSpec(
         "base",
         new DimensionsSpec(Collections.singletonList(new StringDimensionSchema("dim")), null, null),
         new AggregatorFactory[]{new LongSumAggregatorFactory("m1", "m1")},
@@ -267,8 +269,8 @@ public class MaterializedViewSupervisorTest
             .anyTimes();
     EasyMock.replay(taskStorage);
 
-    Pair<Map<Interval, HadoopIndexTask>, Map<Interval, String>> runningTasksPair = supervisor.getRunningTasks();
-    Map<Interval, HadoopIndexTask> runningTasks = runningTasksPair.lhs;
+    Pair<Map<Interval, Task>, Map<Interval, String>> runningTasksPair = supervisor.getRunningTasks();
+    Map<Interval, Task> runningTasks = runningTasksPair.lhs;
     Map<Interval, String> runningVersion = runningTasksPair.rhs;
 
     DataSchema dataSchema = new DataSchema(
@@ -319,6 +321,35 @@ public class MaterializedViewSupervisorTest
     Assert.assertEquals(expectedRunningTasks, runningTasks);
     Assert.assertEquals(expectedRunningVersion, runningVersion);
 
+  }
+
+  /**
+   * Verifies that creating HadoopIndexTask compleates without raising exception.
+   */
+  @Test
+  public void testCreateTask()
+  {
+    List<DataSegment> baseSegments = Collections.singletonList(
+        new DataSegment(
+            "base",
+            Intervals.of("2015-01-02T00Z/2015-01-03T00Z"),
+            "2015-01-03",
+            ImmutableMap.of(),
+            ImmutableList.of("dim1", "dim2"),
+            ImmutableList.of("m1"),
+            new HashBasedNumberedShardSpec(0, 1, 0, 1, null, null, null),
+            9,
+            1024
+        )
+    );
+
+    Task task = spec.createTask(
+        Intervals.of("2015-01-02T00Z/2015-01-03T00Z"),
+        "2015-01-03",
+        baseSegments
+    );
+
+    Assert.assertNotNull(task);
   }
 
   @Test
