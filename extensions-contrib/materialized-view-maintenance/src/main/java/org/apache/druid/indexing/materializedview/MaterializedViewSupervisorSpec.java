@@ -29,24 +29,19 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.data.input.impl.DimensionSchema;
 import org.apache.druid.data.input.impl.DimensionsSpec;
-import org.apache.druid.discovery.DruidLeaderClient;
 import org.apache.druid.indexer.HadoopIOConfig;
 import org.apache.druid.indexer.HadoopIngestionSpec;
 import org.apache.druid.indexer.HadoopTuningConfig;
 import org.apache.druid.indexer.hadoop.DatasourceIngestionSpec;
 import org.apache.druid.indexing.common.RetryPolicyFactory;
 import org.apache.druid.indexing.common.SegmentLoaderFactory;
-import org.apache.druid.indexing.common.TaskToolbox;
 import org.apache.druid.indexing.common.task.AbstractBatchIndexTask;
-import org.apache.druid.indexing.common.task.HadoopIndexTask;
-import org.apache.druid.indexing.common.task.IndexTask;
 import org.apache.druid.indexing.common.task.TaskResource;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIOConfig;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIngestionSpec;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTask;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexTuningConfig;
 import org.apache.druid.indexing.input.DruidInputSource;
-import org.apache.druid.indexing.input.DruidSegmentInputFormat;
 import org.apache.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
 import org.apache.druid.indexing.overlord.TaskMaster;
 import org.apache.druid.indexing.overlord.TaskStorage;
@@ -280,30 +275,6 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
                                                                        spec2,
                                                                        context);
     return task;
-
-//    IndexTask.IndexTuningConfig tuningConfig = new IndexTask.IndexTuningConfig();
-//    IndexTask.IndexIOConfig ioConfig2 = new IndexTask.IndexIOConfig(null,
-//                                                                    new DruidInputSource());
-//    IndexTask.IndexIngestionSpec spec3 = new IndexTask.IndexIngestionSpec(dataSchema, ioConfig, tuningConfig);
-//    IndexTask indexTask = new IndexTask(taskId, new TaskResource("task", 1),
-//                                        spec3,
-//                                        context);
-//    return indexTask;
-
-//    // generate HadoopIndexTask
-//    HadoopIndexTask task = new HadoopIndexTask(
-//        taskId,
-//        spec,
-//        hadoopCoordinates,
-//        hadoopDependencyCoordinates,
-//        classpathPrefix,
-//        objectMapper,
-//        context,
-//        authorizerMapper,
-//        chatHandlerProvider
-//    );
-//
-//    return task;
   }
 
   private static ParallelIndexIOConfig createIoConfig(
