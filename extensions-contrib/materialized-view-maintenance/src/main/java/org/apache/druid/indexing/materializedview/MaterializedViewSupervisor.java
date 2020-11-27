@@ -305,6 +305,7 @@ public class MaterializedViewSupervisor implements Supervisor
 
       if (runningTasks.size() == maxTaskCount) {
         //if the number of running tasks reach the max task count, supervisor won't submit new tasks.
+        log.info("running tasks %d, maxCount %d", runningTasks.size(), maxTaskCount);
         return;
       }
       Pair<SortedMap<Interval, String>, Map<Interval, List<DataSegment>>> toBuildIntervalAndBaseSegments =
@@ -406,7 +407,7 @@ public class MaterializedViewSupervisor implements Supervisor
       Map<Interval, List<DataSegment>> baseSegments
   )
   {
-    log.info("submitTasks %s", baseSegments);
+    log.info("submitTasks %s, %s", sortedToBuildVersion, baseSegments);
     for (Map.Entry<Interval, String> entry : sortedToBuildVersion.entrySet()) {
       if (runningTasks.size() < maxTaskCount) {
         AbstractBatchIndexTask task = spec.createTask(entry.getKey(), entry.getValue(), baseSegments.get(entry.getKey()));
