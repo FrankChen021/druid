@@ -274,8 +274,8 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
                                                                           new IndexTask.IndexIOConfig(null,
                                                                                                       new DruidInputSource(
                                                                                                           baseDataSource,
-                                                                                                          interval,
                                                                                                           null,
+                                                                                                          segments.stream().map(segment->new WindowedSegmentId(segment.getId().toString(), Collections.singletonList(segment.getInterval()))).collect(Collectors.toList()),
                                                                                                           null,
                                                                                                           dataSchema.getDimensionsSpec().getDimensionNames(),
                                                                                                           Arrays.stream(dataSchema.getAggregators()).map(AggregatorFactory::getName).collect(Collectors.toList()),
