@@ -275,7 +275,7 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
                                                                                                       new DruidInputSource(
                                                                                                           baseDataSource,
                                                                                                           interval,
-                                                                                                          segments.stream().map(s->new WindowedSegmentId(s.getId().toString(),Collections.singletonList(s.getInterval()))).collect(Collectors.toList()),
+                                                                                                          null,
                                                                                                           null,
                                                                                                           dataSchema.getDimensionsSpec().getDimensionNames(),
                                                                                                           Arrays.stream(dataSchema.getAggregators()).map(AggregatorFactory::getName).collect(Collectors.toList()),
