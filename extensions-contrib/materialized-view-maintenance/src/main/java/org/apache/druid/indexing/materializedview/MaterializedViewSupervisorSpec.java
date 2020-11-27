@@ -270,7 +270,36 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
                                                     this.client,
                                                     this.segmentLoaderFactory,
                                                     this.retryPolicyFactory);
-    ParallelIndexIngestionSpec spec2 = new ParallelIndexIngestionSpec(dataSchema, ioConfig, ParallelIndexTuningConfig.defaultConfig());
+    ParallelIndexTuningConfig tt;
+    ParallelIndexIngestionSpec spec2 = new ParallelIndexIngestionSpec(dataSchema, ioConfig,
+    new ParallelIndexTuningConfig(
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        (int)this.context.getOrDefault("maxTaskCount", 2),
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    ));
     ParallelIndexSupervisorTask task = new ParallelIndexSupervisorTask(taskId,
                                                                        dataSourceName,
                                                                        new TaskResource("group", 1),
