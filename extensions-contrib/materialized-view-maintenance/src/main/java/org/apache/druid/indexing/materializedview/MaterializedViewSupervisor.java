@@ -406,9 +406,11 @@ public class MaterializedViewSupervisor implements Supervisor
       Map<Interval, List<DataSegment>> baseSegments
   )
   {
+    log.info("submitTasks %s", baseSegments);
     for (Map.Entry<Interval, String> entry : sortedToBuildVersion.entrySet()) {
       if (runningTasks.size() < maxTaskCount) {
         AbstractBatchIndexTask task = spec.createTask(entry.getKey(), entry.getValue(), baseSegments.get(entry.getKey()));
+        log.info("add task %s", task.getId());
         try {
           if (taskMaster.getTaskQueue().isPresent()) {
             taskMaster.getTaskQueue().get().add(task);
