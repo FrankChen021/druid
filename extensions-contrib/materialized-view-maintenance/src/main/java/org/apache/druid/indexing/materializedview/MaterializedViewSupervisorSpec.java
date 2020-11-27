@@ -29,6 +29,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.data.input.impl.DimensionSchema;
 import org.apache.druid.data.input.impl.DimensionsSpec;
+import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.indexer.HadoopIOConfig;
 import org.apache.druid.indexer.HadoopIngestionSpec;
 import org.apache.druid.indexer.HadoopTuningConfig;
@@ -234,10 +235,12 @@ public class MaterializedViewSupervisorSpec implements SupervisorSpec
     // generate DataSchema
     DataSchema dataSchema = new DataSchema(
         dataSourceName,
-        parser,
+        new TimestampSpec(null, null, null),
+        dimensionsSpec,
         aggregators,
         granularitySpec,
         TransformSpec.NONE,
+        null,
         objectMapper
     );
 
