@@ -1240,7 +1240,7 @@ public class IndexTask extends AbstractBatchIndexTask implements ChatHandler
       );
     }
 
-    public IndexTuningConfig()
+    private IndexTuningConfig()
     {
       this(null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
