@@ -19,18 +19,19 @@
 
 package org.apache.druid.query.aggregation.first;
 
+import org.apache.druid.collections.SerializablePair;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.query.aggregation.BufferAggregator;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.BaseLongColumnValueSelector;
-import org.apache.druid.segment.BaseNullableColumnValueSelector;
+import org.apache.druid.segment.BaseObjectColumnValueSelector;
 
 import java.nio.ByteBuffer;
 
 /**
  * Base type for buffer based 'first' aggregator for primitive numeric column selectors
  */
-public abstract class NumericFirstBufferAggregator<TSelector extends BaseNullableColumnValueSelector>
+public abstract class NumericFirstBufferAggregator
     implements BufferAggregator
 {
   static final int NULL_OFFSET = Long.BYTES;
@@ -39,9 +40,9 @@ public abstract class NumericFirstBufferAggregator<TSelector extends BaseNullabl
   private final boolean useDefault = NullHandling.replaceWithDefault();
   private final BaseLongColumnValueSelector timeSelector;
 
-  final TSelector valueSelector;
+  final BaseObjectColumnValueSelector<?> valueSelector;
 
-  public NumericFirstBufferAggregator(BaseLongColumnValueSelector timeSelector, TSelector valueSelector)
+  public NumericFirstBufferAggregator(BaseLongColumnValueSelector timeSelector, BaseObjectColumnValueSelector<?> valueSelector)
   {
     this.timeSelector = timeSelector;
     this.valueSelector = valueSelector;
@@ -55,13 +56,13 @@ public abstract class NumericFirstBufferAggregator<TSelector extends BaseNullabl
   /**
    * Place the primitive value in the buffer at the position of {@link #VALUE_OFFSET}
    */
-  abstract void putValue(ByteBuffer buf, int position);
+  abstract void putValue(ByteBuffer buf, int position, Object value);
 
-  void updateTimeWithValue(ByteBuffer buf, int position, long time)
+  void updateTimeWithValue(ByteBuffer buf, int position, long time, Object value)
   {
     buf.putLong(position, time);
     buf.put(position + NULL_OFFSET, NullHandling.IS_NOT_NULL_BYTE);
-    putValue(buf, position + VALUE_OFFSET);
+    putValue(buf, position + VALUE_OFFSET, value);
   }
 
   void updateTimeWithNull(ByteBuffer buf, int position, long time)
@@ -89,8 +90,12 @@ public abstract class NumericFirstBufferAggregator<TSelector extends BaseNullabl
     long time = timeSelector.getLong();
     long firstTime = buf.getLong(position);
     if (time < firstTime) {
-      if (useDefault || !valueSelector.isNull()) {
-        updateTimeWithValue(buf, position, time);
+      Object obj = valueSelector.getObject();
+      if (useDefault || obj != null) {
+        updateTimeWithValue(buf,
+                            position,
+                            time,
+                            obj instanceof SerializablePair ? ((SerializablePair) obj).getRhs() : obj);
       } else {
         updateTimeWithNull(buf, position, time);
       }

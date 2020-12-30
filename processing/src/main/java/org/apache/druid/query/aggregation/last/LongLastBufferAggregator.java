@@ -21,12 +21,14 @@ package org.apache.druid.query.aggregation.last;
 
 import org.apache.druid.collections.SerializablePair;
 import org.apache.druid.segment.BaseLongColumnValueSelector;
+import org.apache.druid.segment.BaseObjectColumnValueSelector;
 
 import java.nio.ByteBuffer;
 
-public class LongLastBufferAggregator extends NumericLastBufferAggregator<BaseLongColumnValueSelector>
+public class LongLastBufferAggregator extends NumericLastBufferAggregator
 {
-  public LongLastBufferAggregator(BaseLongColumnValueSelector timeSelector, BaseLongColumnValueSelector valueSelector)
+  public LongLastBufferAggregator(BaseLongColumnValueSelector timeSelector,
+                                  BaseObjectColumnValueSelector valueSelector)
   {
     super(timeSelector, valueSelector);
   }
@@ -38,9 +40,9 @@ public class LongLastBufferAggregator extends NumericLastBufferAggregator<BaseLo
   }
 
   @Override
-  void putValue(ByteBuffer buf, int position)
+  void putValue(ByteBuffer buf, int position, Object value)
   {
-    buf.putLong(position, valueSelector.getLong());
+    buf.putLong(position, (long) value);
   }
 
   @Override

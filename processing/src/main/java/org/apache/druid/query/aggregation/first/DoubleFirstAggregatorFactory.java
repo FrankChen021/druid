@@ -32,6 +32,7 @@ import org.apache.druid.query.aggregation.BufferAggregator;
 import org.apache.druid.query.aggregation.SerializablePairLongDoubleSerde;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.BaseDoubleColumnValueSelector;
+import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.NilColumnValueSelector;
@@ -111,7 +112,7 @@ public class DoubleFirstAggregatorFactory extends AggregatorFactory
   @Override
   public BufferAggregator factorizeBuffered(ColumnSelectorFactory metricFactory)
   {
-    final BaseDoubleColumnValueSelector valueSelector = metricFactory.makeColumnValueSelector(fieldName);
+    final BaseObjectColumnValueSelector valueSelector = metricFactory.makeColumnValueSelector(fieldName);
     if (valueSelector instanceof NilColumnValueSelector) {
       return NIL_BUFFER_AGGREGATOR;
     } else {
@@ -190,10 +191,9 @@ public class DoubleFirstAggregatorFactory extends AggregatorFactory
         return new DoubleFirstBufferAggregator(null, null)
         {
           @Override
-          public void putValue(ByteBuffer buf, int position)
+          public void putValue(ByteBuffer buf, int position, Object value)
           {
-            SerializablePair<Long, Double> pair = selector.getObject();
-            buf.putDouble(position, pair.rhs);
+            buf.putDouble(position, (double) value);
           }
 
           @Override
@@ -203,7 +203,7 @@ public class DoubleFirstAggregatorFactory extends AggregatorFactory
             long firstTime = buf.getLong(position);
             if (pair.lhs < firstTime) {
               if (pair.rhs != null) {
-                updateTimeWithValue(buf, position, pair.lhs);
+                updateTimeWithValue(buf, position, pair.lhs, pair.rhs);
               } else {
                 updateTimeWithNull(buf, position, pair.lhs);
               }

@@ -20,16 +20,16 @@
 package org.apache.druid.query.aggregation.last;
 
 import org.apache.druid.collections.SerializablePair;
-import org.apache.druid.segment.BaseFloatColumnValueSelector;
 import org.apache.druid.segment.BaseLongColumnValueSelector;
+import org.apache.druid.segment.BaseObjectColumnValueSelector;
 
 import java.nio.ByteBuffer;
 
-public class FloatLastBufferAggregator extends NumericLastBufferAggregator<BaseFloatColumnValueSelector>
+public class FloatLastBufferAggregator extends NumericLastBufferAggregator
 {
   public FloatLastBufferAggregator(
       BaseLongColumnValueSelector timeSelector,
-      BaseFloatColumnValueSelector valueSelector
+      BaseObjectColumnValueSelector valueSelector
   )
   {
     super(timeSelector, valueSelector);
@@ -42,9 +42,9 @@ public class FloatLastBufferAggregator extends NumericLastBufferAggregator<BaseF
   }
 
   @Override
-  void putValue(ByteBuffer buf, int position)
+  void putValue(ByteBuffer buf, int position, Object value)
   {
-    buf.putFloat(position, valueSelector.getFloat());
+    buf.putFloat(position, (float) value);
   }
 
   @Override
