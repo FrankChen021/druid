@@ -227,6 +227,12 @@ public class RowSignature implements ColumnInspector
       return this;
     }
 
+    public void add(String columnName, ValueType columnType, String complexTypeName)
+    {
+      Preconditions.checkNotNull(columnName, "'columnName' must be non-null");
+      columnTypeList.add(Pair.of(columnName, columnType));
+    }
+
     public Builder addAll(final RowSignature other)
     {
       for (String columnName : other.getColumnNames()) {

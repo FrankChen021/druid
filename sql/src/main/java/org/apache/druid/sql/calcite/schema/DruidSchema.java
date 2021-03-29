@@ -695,7 +695,12 @@ public class DruidSchema extends AbstractSchema
         valueType = ValueType.COMPLEX;
       }
 
-      rowSignatureBuilder.add(entry.getKey(), valueType);
+      if (valueType.equals(ValueType.COMPLEX)) {
+        // pass the raw complex type name into RowSignature so that finalized type could be inferred
+        rowSignatureBuilder.add(entry.getKey(), valueType, entry.getValue().getType());
+      } else {
+        rowSignatureBuilder.add(entry.getKey(), valueType);
+      }
     }
     return rowSignatureBuilder.build();
   }

@@ -999,9 +999,10 @@ public abstract class IncrementalIndex<AggregatorType> extends AbstractIndex imp
         capabilities = ColumnCapabilitiesImpl.createSimpleNumericColumnCapabilities(valueType);
         this.type = valueType.toString();
       } else if (ValueType.COMPLEX.equals(valueType)) {
-        capabilities = ColumnCapabilitiesImpl.createSimpleNumericColumnCapabilities(ValueType.COMPLEX)
-                                             .setHasNulls(ColumnCapabilities.Capable.TRUE);
         String complexTypeName = factory.getComplexTypeName();
+        capabilities = ColumnCapabilitiesImpl.createSimpleNumericColumnCapabilities(ValueType.COMPLEX)
+                                             .setHasNulls(ColumnCapabilities.Capable.TRUE)
+                                             .setComplexTypeName(complexTypeName);
         ComplexMetricSerde serde = ComplexMetrics.getSerdeForType(complexTypeName);
         if (serde != null) {
           this.type = serde.getTypeName();
