@@ -25,10 +25,13 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import org.apache.druid.java.util.common.IAE;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -66,6 +69,15 @@ public class DockerConfigProvider implements IntegrationTestingConfigProvider
   @Override
   public IntegrationTestingConfig get()
   {
+    try {
+      InetAddress.getByName(dockerIp);
+    }
+    catch (UnknownHostException e) {
+      throw new IAE(
+          "Unable to resolve dockerIp[%s]. Have you set DOCKER_IP env variable to your system? Pls check README.md for more information.",
+          dockerIp
+      );
+    }
     return new IntegrationTestingConfig()
     {
       @Override
