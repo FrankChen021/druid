@@ -25,6 +25,8 @@ import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.segment.BaseLongColumnValueSelector;
 import org.apache.druid.segment.ColumnValueSelector;
 
+import javax.annotation.Nullable;
+
 /**
  * Base type for on heap 'first' aggregator for primitive numeric column selectors
  */
@@ -35,8 +37,8 @@ public abstract class NumericFirstAggregator implements Aggregator
   private final ColumnValueSelector valueSelector;
   private final boolean needsFoldCheck;
 
-  long firstTime;
-  boolean rhsNull;
+  private long firstTime;
+  private boolean rhsNull;
 
   public NumericFirstAggregator(
       BaseLongColumnValueSelector timeSelector,
@@ -55,9 +57,19 @@ public abstract class NumericFirstAggregator implements Aggregator
   /**
    * Store the current primitive typed 'first' value
    */
-  abstract void setCurrentValue(ColumnValueSelector valueSelector);
+  abstract void setFirstValue(ColumnValueSelector valueSelector);
 
-  abstract void setCurrentValue(Number number);
+  /**
+   * Store a non-null first value
+   */
+  abstract void setFirstValue(Number firstValue);
+
+  abstract Number getFirstValue();
+
+  /**
+   * get paire object based on given inputs
+   */
+  abstract SerializablePair<Long, ? extends Number> getPairObject(long time, @Nullable Number firstValue);
 
   @Override
   public void aggregate()
@@ -78,9 +90,12 @@ public abstract class NumericFirstAggregator implements Aggregator
           // rhs might be NULL under SQL-compatibility mode
           if (pair.rhs == null) {
             rhsNull = true;
+
+            // set default value to 0
+            setFirstValue(0);
           } else {
             rhsNull = false;
-            setCurrentValue(pair.rhs);
+            setFirstValue(pair.rhs);
           }
         }
 
@@ -92,9 +107,10 @@ public abstract class NumericFirstAggregator implements Aggregator
     if (time < firstTime) {
       firstTime = time;
       if (useDefault || !valueSelector.isNull()) {
-        setCurrentValue(valueSelector);
+        setFirstValue(valueSelector);
         rhsNull = false;
       } else {
+        setFirstValue(0);
         rhsNull = true;
       }
     }
@@ -104,5 +120,12 @@ public abstract class NumericFirstAggregator implements Aggregator
   public void close()
   {
     // nothing to close
+  }
+
+  @Nullable
+  @Override
+  public Object get()
+  {
+    return getPairObject(firstTime, rhsNull && !useDefault ? null : this.getFirstValue());
   }
 }

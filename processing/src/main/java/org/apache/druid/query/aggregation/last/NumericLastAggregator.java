@@ -25,6 +25,8 @@ import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.segment.BaseLongColumnValueSelector;
 import org.apache.druid.segment.ColumnValueSelector;
 
+import javax.annotation.Nullable;
+
 /**
  * Base type for on heap 'last' aggregator for primitive numeric column selectors..
  * <p>
@@ -36,8 +38,8 @@ public abstract class NumericLastAggregator implements Aggregator
   private final BaseLongColumnValueSelector timeSelector;
   private final boolean needsFoldCheck;
   private final ColumnValueSelector valueSelector;
-  long lastTime;
-  boolean rhsNull;
+  private long lastTime;
+  private boolean rhsNull;
 
   public NumericLastAggregator(
       BaseLongColumnValueSelector timeSelector,
@@ -57,7 +59,7 @@ public abstract class NumericLastAggregator implements Aggregator
   public void aggregate()
   {
     if (needsFoldCheck) {
-      // Need to read this first (before time), just in case it's a SerializablePairLongString (we don't know; it's
+      // Need to read this first (before time), just in case it's a SerializablePair (we don't know; it's
       // detected at query time).
       final Object object = valueSelector.getObject();
 
@@ -71,9 +73,12 @@ public abstract class NumericLastAggregator implements Aggregator
           // rhs might be NULL under SQL-compatibility mode
           if (pair.rhs == null) {
             rhsNull = true;
+
+            // set default vale
+            setLastValue(0);
           } else {
             rhsNull = false;
-            setCurrentValue(pair.rhs);
+            setLastValue(pair.rhs);
           }
         }
         return;
@@ -84,9 +89,10 @@ public abstract class NumericLastAggregator implements Aggregator
     if (time >= lastTime) {
       lastTime = time;
       if (useDefault || !valueSelector.isNull()) {
-        setCurrentValue(valueSelector);
+        setLastValue(valueSelector);
         rhsNull = false;
       } else {
+        setLastValue(0);
         rhsNull = true;
       }
     }
@@ -101,7 +107,18 @@ public abstract class NumericLastAggregator implements Aggregator
   /**
    * Store the current primitive typed 'first' value
    */
-  abstract void setCurrentValue(ColumnValueSelector valueSelector);
+  abstract void setLastValue(ColumnValueSelector valueSelector);
 
-  abstract void setCurrentValue(Number number);
+  abstract void setLastValue(Number lastValue);
+
+  abstract Number getLastValue();
+
+  abstract SerializablePair<Long, ? extends Number> getPairObject(long lastTime, @Nullable Number lastValue);
+
+  @Nullable
+  @Override
+  public Object get()
+  {
+    return getPairObject(lastTime, rhsNull && !useDefault ? null : this.getLastValue());
+  }
 }

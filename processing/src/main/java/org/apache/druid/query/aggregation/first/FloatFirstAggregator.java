@@ -19,9 +19,12 @@
 
 package org.apache.druid.query.aggregation.first;
 
+import org.apache.druid.collections.SerializablePair;
 import org.apache.druid.query.aggregation.SerializablePairLongFloat;
 import org.apache.druid.segment.BaseLongColumnValueSelector;
 import org.apache.druid.segment.ColumnValueSelector;
+
+import javax.annotation.Nullable;
 
 public class FloatFirstAggregator extends NumericFirstAggregator
 {
@@ -38,21 +41,27 @@ public class FloatFirstAggregator extends NumericFirstAggregator
   }
 
   @Override
-  void setCurrentValue(ColumnValueSelector valueSelector)
+  void setFirstValue(ColumnValueSelector valueSelector)
   {
     firstValue = valueSelector.getFloat();
   }
 
   @Override
-  void setCurrentValue(Number number)
+  void setFirstValue(Number firstValue)
   {
-    firstValue = number.floatValue();
+    this.firstValue = firstValue.floatValue();
   }
 
   @Override
-  public Object get()
+  Number getFirstValue()
   {
-    return new SerializablePairLongFloat(firstTime, rhsNull ? null : firstValue);
+    return firstValue;
+  }
+
+  @Override
+  public SerializablePair<Long, ? extends Number> getPairObject(long firstTime, @Nullable Number firstValue)
+  {
+    return new SerializablePairLongFloat(firstTime, (Float) firstValue);
   }
 
   @Override

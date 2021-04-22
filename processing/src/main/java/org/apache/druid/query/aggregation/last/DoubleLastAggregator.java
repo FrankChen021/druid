@@ -19,38 +19,49 @@
 
 package org.apache.druid.query.aggregation.last;
 
+import org.apache.druid.collections.SerializablePair;
 import org.apache.druid.query.aggregation.SerializablePairLongDouble;
 import org.apache.druid.segment.BaseLongColumnValueSelector;
 import org.apache.druid.segment.ColumnValueSelector;
+
+import javax.annotation.Nullable;
 
 public class DoubleLastAggregator extends NumericLastAggregator
 {
   double lastValue;
 
-  public DoubleLastAggregator(BaseLongColumnValueSelector timeSelector,
-                              ColumnValueSelector valueSelector,
-                              boolean needsFoldCheck)
+  public DoubleLastAggregator(
+      BaseLongColumnValueSelector timeSelector,
+      ColumnValueSelector valueSelector,
+      boolean needsFoldCheck
+  )
   {
     super(timeSelector, valueSelector, needsFoldCheck);
     lastValue = 0;
   }
 
   @Override
-  void setCurrentValue(ColumnValueSelector valueSelector)
+  void setLastValue(ColumnValueSelector valueSelector)
   {
     lastValue = valueSelector.getDouble();
   }
 
   @Override
-  void setCurrentValue(Number number)
+  void setLastValue(Number lastValue)
   {
-    lastValue = number.doubleValue();
+    this.lastValue = lastValue.doubleValue();
   }
 
   @Override
-  public Object get()
+  Number getLastValue()
   {
-    return new SerializablePairLongDouble(lastTime, rhsNull ? null : lastValue);
+    return lastValue;
+  }
+
+  @Override
+  SerializablePair<Long, ? extends Number> getPairObject(long lastTime, @Nullable Number lastValue)
+  {
+    return new SerializablePairLongDouble(lastTime, (Double) lastValue);
   }
 
   @Override
