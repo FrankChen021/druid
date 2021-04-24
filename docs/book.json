@@ -1,0 +1,27 @@
+{
+  "plugins": [
+    "-search",
+    "highlight",
+    "livereload",
+    "search-pro",
+    "code",
+    "tbfed-pagefooter",
+    "anchor-navigation-ex",
+    "auto-scroll-table",
+    "hide-element",
+    "github"
+  ],
+  "pluginsConfig": {
+    "tbfed-pagefooter": {
+      "copyright":"Copyright <a target=\"_blank\" href=\"https://druid.org.cn\">druid.org.cn</a> 2021 .本文翻译自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>",
+      "modify_label": "更新于：",
+      "modify_format": "YYYY-MM-DD HH:mm:ss"
+    },
+    "hide-element": {
+      "elements": [".gitbook-link"]
+    },
+    "github": {
+      "url": "https://github.com/apache/druid"
+    }
+  }
+}

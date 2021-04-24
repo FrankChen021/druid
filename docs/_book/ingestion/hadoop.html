@@ -1,0 +1,2836 @@
+
+<!DOCTYPE HTML>
+<html lang="" >
+    <head>
+        <meta charset="UTF-8">
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <title>从Hadoop导入 · GitBook</title>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="description" content="">
+        <meta name="generator" content="GitBook 3.2.3">
+        
+        
+        
+    
+    <link rel="stylesheet" href="../gitbook/style.css">
+
+    
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-highlight/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-search-pro/search.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-code/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-tbfed-pagefooter/footer.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-anchor-navigation-ex/style/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-auto-scroll-table/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-fontsettings/website.css">
+                
+            
+        
+
+    
+
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+
+        
+    
+    
+    <meta name="HandheldFriendly" content="true"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon-precomposed" sizes="152x152" href="../gitbook/images/apple-touch-icon-precomposed-152.png">
+    <link rel="shortcut icon" href="../gitbook/images/favicon.ico" type="image/x-icon">
+
+    
+    <link rel="next" href="tasks.html" />
+    
+    
+    <link rel="prev" href="native-batch.html" />
+    
+
+    </head>
+    <body>
+        
+<div class="book">
+    <div class="book-summary">
+        
+            
+<div id="book-search-input" role="search">
+    <input type="text" placeholder="Type to search" />
+</div>
+
+            
+                <nav role="navigation">
+                
+
+
+<ul class="summary">
+    
+    
+
+    
+
+    
+        
+        
+    
+        <li class="chapter " data-level="1.1" data-path="../">
+            
+                <a href="../">
+            
+                    
+                    前言
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2" >
+            
+                <span>
+            
+                    
+                    开始
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.2.1" data-path="../design/">
+            
+                <a href="../design/">
+            
+                    
+                    Apache Druid简介
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.2" data-path="../tutorials/">
+            
+                <a href="../tutorials/">
+            
+                    
+                    快速入门
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.3" data-path="../tutorials/docker.html">
+            
+                <a href="../tutorials/docker.html">
+            
+                    
+                    Docker
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.4" data-path="../operations/single-server.html">
+            
+                <a href="../operations/single-server.html">
+            
+                    
+                    单机部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.5" data-path="../tutorials/cluster.html">
+            
+                <a href="../tutorials/cluster.html">
+            
+                    
+                    集群模式部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3" >
+            
+                <span>
+            
+                    
+                    指南
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.3.1" data-path="../tutorials/tutorial-batch.html">
+            
+                <a href="../tutorials/tutorial-batch.html">
+            
+                    
+                    从本地文件摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.2" data-path="../tutorials/tutorial-kafka.html">
+            
+                <a href="../tutorials/tutorial-kafka.html">
+            
+                    
+                    从Kafka摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.3" data-path="../tutorials/tutorial-batch-hadoop.html">
+            
+                <a href="../tutorials/tutorial-batch-hadoop.html">
+            
+                    
+                    从Haddop摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.4" data-path="../tutorials/tutorial-query.html">
+            
+                <a href="../tutorials/tutorial-query.html">
+            
+                    
+                    查询数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.5" data-path="../tutorials/tutorial-rollup.html">
+            
+                <a href="../tutorials/tutorial-rollup.html">
+            
+                    
+                    预聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.6" data-path="../tutorials/tutorial-retention.html">
+            
+                <a href="../tutorials/tutorial-retention.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.7" data-path="../tutorials/tutorial-update-data.html">
+            
+                <a href="../tutorials/tutorial-update-data.html">
+            
+                    
+                    更新数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.8" data-path="../tutorials/tutorial-compaction.html">
+            
+                <a href="../tutorials/tutorial-compaction.html">
+            
+                    
+                    数据文件合并
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.9" data-path="../tutorials/tutorial-delete-data.html">
+            
+                <a href="../tutorials/tutorial-delete-data.html">
+            
+                    
+                    删除数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.10" data-path="../tutorials/tutorial-ingestion-spec.html">
+            
+                <a href="../tutorials/tutorial-ingestion-spec.html">
+            
+                    
+                    编写数据摄入规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.11" data-path="../tutorials/tutorial-transform-spec.html">
+            
+                <a href="../tutorials/tutorial-transform-spec.html">
+            
+                    
+                    转换摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.12" data-path="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                <a href="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                    
+                    设置Kerberos认证的HDFS作为深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4" >
+            
+                <span>
+            
+                    
+                    设计
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.4.1" data-path="../design/architecture.html">
+            
+                <a href="../design/architecture.html">
+            
+                    
+                    整体架构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.2" data-path="../design/segments.html">
+            
+                <a href="../design/segments.html">
+            
+                    
+                    存储结构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.3" data-path="../design/processes">
+            
+                <span>
+            
+                    
+                    进程与服务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.4" data-path="../dependencies/deep-storage.html">
+            
+                <a href="../dependencies/deep-storage.html">
+            
+                    
+                    深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.5" data-path="../dependencies/metadata-storage.html">
+            
+                <a href="../dependencies/metadata-storage.html">
+            
+                    
+                    元数据存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.6" data-path="../dependencies/zookeeper.html">
+            
+                <a href="../dependencies/zookeeper.html">
+            
+                    
+                    Zookeeper
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5" >
+            
+                <span>
+            
+                    
+                    数据摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.1" data-path="./">
+            
+                <a href="./">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.2" data-path="data-formats.html">
+            
+                <a href="data-formats.html">
+            
+                    
+                    数据格式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.3" data-path="schema-design.html">
+            
+                <a href="schema-design.html">
+            
+                    
+                    Schema定义
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.4" data-path="data-management.html">
+            
+                <a href="data-management.html">
+            
+                    
+                    数据管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5" >
+            
+                <span>
+            
+                    
+                    实时摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.5.1" data-path="../development/extensions-core/kafka-ingestion.html">
+            
+                <a href="../development/extensions-core/kafka-ingestion.html">
+            
+                    
+                    从Kafka摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.2" data-path="../development/extensions-core/kinesis-ingestion.html">
+            
+                <a href="../development/extensions-core/kinesis-ingestion.html">
+            
+                    
+                    从Amazon Kinesis摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.3" data-path="tranquility.html">
+            
+                <a href="tranquility.html">
+            
+                    
+                    从Tranqulity摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.4" data-path="standalone-realtime.html">
+            
+                <a href="standalone-realtime.html">
+            
+                    
+                    独立实时模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6" >
+            
+                <span>
+            
+                    
+                    批量导入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.6.1" data-path="native-batch.html">
+            
+                <a href="native-batch.html">
+            
+                    
+                    本地模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter active" data-level="1.5.6.2" data-path="hadoop.html">
+            
+                <a href="hadoop.html">
+            
+                    
+                    从Hadoop导入
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.7" data-path="tasks.html">
+            
+                <a href="tasks.html">
+            
+                    
+                    Druid中的任务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.8" data-path="faq.html">
+            
+                <a href="faq.html">
+            
+                    
+                    FAQ
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6" >
+            
+                <span>
+            
+                    
+                    数据查询
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.1" data-path="../querying/sql.html">
+            
+                <a href="../querying/sql.html">
+            
+                    
+                    通过SQL查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.2" data-path="../querying/querying.html">
+            
+                <a href="../querying/querying.html">
+            
+                    
+                    通过JSON查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.3" data-path="../querying/query-execution.html">
+            
+                <a href="../querying/query-execution.html">
+            
+                    
+                    查询执行流程
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4" >
+            
+                <span>
+            
+                    
+                    主要概念
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.4.1" data-path="../querying/datasource.html">
+            
+                <a href="../querying/datasource.html">
+            
+                    
+                    数据源(datasource)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.2" data-path="../querying/joins.html">
+            
+                <a href="../querying/joins.html">
+            
+                    
+                    联合查询(join)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.3" data-path="../querying/lookups.html">
+            
+                <a href="../querying/lookups.html">
+            
+                    
+                    字典查询(lookups)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.4" data-path="../querying/multi-value-dimensions.html">
+            
+                <a href="../querying/multi-value-dimensions.html">
+            
+                    
+                    结构化列值(multi-value-dimensions)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.5" data-path="../querying/multitenancy.html">
+            
+                <a href="../querying/multitenancy.html">
+            
+                    
+                    多租户
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.6" data-path="../querying/caching.html">
+            
+                <a href="../querying/caching.html">
+            
+                    
+                    查询缓存
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.7" data-path="../querying/query-context.html">
+            
+                <a href="../querying/query-context.html">
+            
+                    
+                    查询上下文
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5" >
+            
+                <span>
+            
+                    
+                    JSON查询类型
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.5.1" data-path="../querying/timeseriesquery.html">
+            
+                <a href="../querying/timeseriesquery.html">
+            
+                    
+                    Timeseries
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.2" data-path="../querying/topnquery.html">
+            
+                <a href="../querying/topnquery.html">
+            
+                    
+                    TopN
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.3" data-path="../querying/groupbyquery.html">
+            
+                <a href="../querying/groupbyquery.html">
+            
+                    
+                    GroupBy
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.4" data-path="../querying/scan-query.html">
+            
+                <a href="../querying/scan-query.html">
+            
+                    
+                    Scan
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.5" data-path="../querying/searchquery.html">
+            
+                <a href="../querying/searchquery.html">
+            
+                    
+                    Search
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.6" data-path="../querying/timeboundaryquery.html">
+            
+                <a href="../querying/timeboundaryquery.html">
+            
+                    
+                    TimeBoundary
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.7" data-path="../querying/segmentmetadataquery.html">
+            
+                <a href="../querying/segmentmetadataquery.html">
+            
+                    
+                    SegmentMetaData
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.8" data-path="../querying/datasourcemetadataquery.html">
+            
+                <a href="../querying/datasourcemetadataquery.html">
+            
+                    
+                    DatasourceMetadata
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6" >
+            
+                <span>
+            
+                    
+                    JSON查询结构
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.6.1" data-path="../querying/filters.html">
+            
+                <a href="../querying/filters.html">
+            
+                    
+                    过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.2" data-path="../querying/granularities.html">
+            
+                <a href="../querying/granularities.html">
+            
+                    
+                    时间粒度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.3" data-path="../querying/dimensionspecs.html">
+            
+                <a href="../querying/dimensionspecs.html">
+            
+                    
+                    数据维度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.4" data-path="../querying/aggregations.html">
+            
+                <a href="../querying/aggregations.html">
+            
+                    
+                    聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.5" data-path="../querying/post-aggregations.html">
+            
+                <a href="../querying/post-aggregations.html">
+            
+                    
+                    后置聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.6" data-path="../misc/math-expr.html">
+            
+                <a href="../misc/math-expr.html">
+            
+                    
+                    数学函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.7" data-path="../querying/having.html">
+            
+                <a href="../querying/having.html">
+            
+                    
+                    表达式与函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.8" data-path="../querying/limitspec.html">
+            
+                <a href="../querying/limitspec.html">
+            
+                    
+                    Having过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.9" data-path="../querying/topnmetricspec.html">
+            
+                <a href="../querying/topnmetricspec.html">
+            
+                    
+                    TopN排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.10" data-path="../querying/sorting-orders.html">
+            
+                <a href="../querying/sorting-orders.html">
+            
+                    
+                    排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.11" data-path="../querying/virtual-columns.html">
+            
+                <a href="../querying/virtual-columns.html">
+            
+                    
+                    虚拟字段
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.12" data-path="../development/geo.html">
+            
+                <a href="../development/geo.html">
+            
+                    
+                    空间过滤
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7" >
+            
+                <span>
+            
+                    
+                    配置
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.7.1" data-path="../configuration/">
+            
+                <a href="../configuration/">
+            
+                    
+                    概述
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.2" data-path="../development/extensions.html">
+            
+                <a href="../development/extensions.html">
+            
+                    
+                    扩展组件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.3" data-path="../configuration/logging.html">
+            
+                <a href="../configuration/logging.html">
+            
+                    
+                    运行日志
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8" >
+            
+                <span>
+            
+                    
+                    运维
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.1" data-path="../operations/druid-console.html">
+            
+                <a href="../operations/druid-console.html">
+            
+                    
+                    Web控制台
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2" data-path="../operations/getting-started.html">
+            
+                <a href="../operations/getting-started.html">
+            
+                    
+                    快速开始
+            
+                </a>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1" >
+            
+                <span>
+            
+                    
+                    安全
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1.1" data-path="../operations/security-overview.html">
+            
+                <a href="../operations/security-overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.2" data-path="../operations/security-user-auth.html">
+            
+                <a href="../operations/security-user-auth.html">
+            
+                    
+                    用户认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.3" data-path="../operations/auth-ldap.html">
+            
+                <a href="../operations/auth-ldap.html">
+            
+                    
+                    LDAP认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.4" data-path="../operations/password-provider.html">
+            
+                <a href="../operations/password-provider.html">
+            
+                    
+                    密码管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.5" data-path="../design/auth.html">
+            
+                <a href="../design/auth.html">
+            
+                    
+                    认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.6" data-path="../operations/tls-support.html">
+            
+                <a href="../operations/tls-support.html">
+            
+                    
+                    TLS加密支持
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2" >
+            
+                <span>
+            
+                    
+                    性能
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.2.1" data-path="../operations/basic-cluster-tuning.html">
+            
+                <a href="../operations/basic-cluster-tuning.html">
+            
+                    
+                    集群调优
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.2" data-path="../operations/segment-optimization.html">
+            
+                <a href="../operations/segment-optimization.html">
+            
+                    
+                    数据段文件优化
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.3" data-path="../operations/http-compression.html">
+            
+                <a href="../operations/http-compression.html">
+            
+                    
+                    HTTP压缩
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.3" data-path="../operations/api-reference.html">
+            
+                <a href="../operations/api-reference.html">
+            
+                    
+                    API手册
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.4" data-path="../operations/high-availability.html">
+            
+                <a href="../operations/high-availability.html">
+            
+                    
+                    高可用
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.5" data-path="../operations/rolling-updates.html">
+            
+                <a href="../operations/rolling-updates.html">
+            
+                    
+                    滚动版本升级
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.6" data-path="../operations/rule-configuration.html">
+            
+                <a href="../operations/rule-configuration.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.7" data-path="../operations/metrics.html">
+            
+                <a href="../operations/metrics.html">
+            
+                    
+                    应用指标
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.8" data-path="../operations/alerts.html">
+            
+                <a href="../operations/alerts.html">
+            
+                    
+                    告警
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.9" data-path="../operations/other-hadoop.html">
+            
+                <a href="../operations/other-hadoop.html">
+            
+                    
+                    Hadoop相关
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.10.1" data-path="../operations/management-uis.html">
+            
+                <a href="../operations/management-uis.html">
+            
+                    
+                    管理界面
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.2" data-path="../operations/dump-segment.html">
+            
+                <a href="../operations/dump-segment.html">
+            
+                    
+                    导出数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.3" data-path="../operations/reset-cluster.html">
+            
+                <a href="../operations/reset-cluster.html">
+            
+                    
+                    重置集群
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.4" data-path="../operations/insert-segment-to-db.html">
+            
+                <a href="../operations/insert-segment-to-db.html">
+            
+                    
+                    插入数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.5" data-path="../operations/pull-deps.html">
+            
+                <a href="../operations/pull-deps.html">
+            
+                    
+                    pull-deps工具
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.6" data-path="../operations/deep-storage-migration.html">
+            
+                <a href="../operations/deep-storage-migration.html">
+            
+                    
+                    迁移深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.7" data-path="../operations/export-metadata.html">
+            
+                <a href="../operations/export-metadata.html">
+            
+                    
+                    导出元数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.8" data-path="../operations/metadata-migration.html">
+            
+                <a href="../operations/metadata-migration.html">
+            
+                    
+                    元数据迁移
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.9" data-path="../operations/use_sbt_to_build_fat_jar.html">
+            
+                <a href="../operations/use_sbt_to_build_fat_jar.html">
+            
+                    
+                    打包fat jar
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9" >
+            
+                <span>
+            
+                    
+                    Druid开发
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.9.1" data-path="../development/overview.html">
+            
+                <a href="../development/overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.2" data-path="../development/modules.html">
+            
+                <a href="../development/modules.html">
+            
+                    
+                    模块
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.3" data-path="../development/javascript.html">
+            
+                <a href="../development/javascript.html">
+            
+                    
+                    javascript
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.4" data-path="../development/build.html">
+            
+                <a href="../development/build.html">
+            
+                    
+                    构建
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.5" data-path="../development/versioning.html">
+            
+                <a href="../development/versioning.html">
+            
+                    
+                    版本
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.6" data-path="../development/experimental.html">
+            
+                <a href="../development/experimental.html">
+            
+                    
+                    实验功能
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.10.1" data-path="../misc/papers-and-talks.html">
+            
+                <a href="../misc/papers-and-talks.html">
+            
+                    
+                    论文与演讲
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+    
+
+    <li class="divider"></li>
+
+    <li>
+        <a href="https://www.gitbook.com" target="blank" class="gitbook-link">
+            Published with GitBook
+        </a>
+    </li>
+</ul>
+
+
+                </nav>
+            
+        
+    </div>
+
+    <div class="book-body">
+        
+            <div class="body-inner">
+                
+                    
+
+<div class="book-header" role="navigation">
+    
+
+    <!-- Title -->
+    <h1>
+        <i class="fa fa-circle-o-notch fa-spin"></i>
+        <a href=".." >从Hadoop导入</a>
+    </h1>
+</div>
+
+
+
+
+                    <div class="page-wrapper" tabindex="-1" role="main">
+                        <div class="page-inner">
+                            
+<div id="book-search-results">
+    <div class="search-noresults">
+    
+                                <section class="normal markdown-section">
+                                
+                                <div id="anchor-navigation-ex-navbar"><i class="fa fa-navicon"></i><ul><ul><li><span class="title-icon "></span><a href="#tutorial"><b>1.1. </b>Tutorial</a></li><li><span class="title-icon "></span><a href="#task-syntax"><b>1.2. </b>Task syntax</a></li><li><span class="title-icon "></span><a href="#dataschema"><b>1.3. </b>dataSchema</a></li><li><span class="title-icon "></span><a href="#ioconfig"><b>1.4. </b>ioConfig</a></li><ul><li><span class="title-icon "></span><a href="#inputspec"><b>1.4.1. </b>inputSpec</a></li></ul><li><span class="title-icon "></span><a href="#tuningconfig"><b>1.5. </b>tuningConfig</a></li><ul><li><span class="title-icon "></span><a href="#jobproperties"><b>1.5.1. </b>jobProperties</a></li></ul><li><span class="title-icon "></span><a href="#partitionsspec"><b>1.6. </b>partitionsSpec</a></li><ul><li><span class="title-icon "></span><a href="#hash-based-partitioning"><b>1.6.1. </b>Hash-based partitioning</a></li><li><span class="title-icon "></span><a href="#single-dimension-range-partitioning"><b>1.6.2. </b>Single-dimension range partitioning</a></li></ul><li><span class="title-icon "></span><a href="#remote-hadoop-clusters"><b>1.7. </b>Remote Hadoop clusters</a></li><li><span class="title-icon "></span><a href="#elastic-mapreduce"><b>1.8. </b>Elastic MapReduce</a></li><li><span class="title-icon "></span><a href="#kerberized-hadoop-clusters"><b>1.9. </b>Kerberized Hadoop clusters</a></li><ul><li><span class="title-icon "></span><a href="#loading-from-s3-with-emr"><b>1.9.1. </b>Loading from S3 with EMR</a></li></ul><li><span class="title-icon "></span><a href="#using-other-hadoop-distributions"><b>1.10. </b>Using other Hadoop distributions</a></li><li><span class="title-icon "></span><a href="#command-line-non-task-version"><b>1.11. </b>Command line (non-task) version</a></li><ul><li><span class="title-icon "></span><a href="#options"><b>1.11.1. </b>Options</a></li><li><span class="title-icon "></span><a href="#spec-file"><b>1.11.2. </b>Spec file</a></li></ul></ul></ul></div><a href="#" id="anchorNavigationExGoTop"><i class="fa fa-arrow-up"></i></a><!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one
+  ~ or more contributor license agreements.  See the NOTICE file
+  ~ distributed with this work for additional information
+  ~ regarding copyright ownership.  The ASF licenses this file
+  ~ to you under the Apache License, Version 2.0 (the
+  ~ "License"); you may not use this file except in compliance
+  ~ with the License.  You may obtain a copy of the License at
+  ~
+  ~   http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing,
+  ~ software distributed under the License is distributed on an
+  ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  ~ KIND, either express or implied.  See the License for the
+  ~ specific language governing permissions and limitations
+  ~ under the License.
+  -->
+<p>Apache Hadoop-based batch ingestion in Apache Druid is supported via a Hadoop-ingestion task. These tasks can be posted to a running
+instance of a Druid <a href="../design/overlord.md">Overlord</a>. Please refer to our <a href="./#batch">Hadoop-based vs. native batch comparison table</a> for
+comparisons between Hadoop-based, native batch (simple), and native batch (parallel) ingestion.</p>
+<p>To run a Hadoop-based ingestion task, write an ingestion spec as specified below. Then POST it to the
+<a href="../operations/api-reference.html#tasks"><code>/druid/indexer/v1/task</code></a> endpoint on the Overlord, or use the
+<code>bin/post-index-task</code> script included with Druid.</p>
+<h2 id="tutorial"><a name="tutorial" class="anchor-navigation-ex-anchor" href="#tutorial"><i class="fa fa-link" aria-hidden="true"></i></a>1.1. Tutorial</h2>
+<p>This page contains reference documentation for Hadoop-based ingestion.
+For a walk-through instead, check out the <a href="../tutorials/tutorial-batch-hadoop.html">Loading from Apache Hadoop</a> tutorial.</p>
+<h2 id="task-syntax"><a name="task-syntax" class="anchor-navigation-ex-anchor" href="#task-syntax"><i class="fa fa-link" aria-hidden="true"></i></a>1.2. Task syntax</h2>
+<p>A sample task is shown below:</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;index_hadoop&quot;</span>,
+  <span class="hljs-string">&quot;spec&quot;</span> : {
+    <span class="hljs-string">&quot;dataSchema&quot;</span> : {
+      <span class="hljs-string">&quot;dataSource&quot;</span> : <span class="hljs-string">&quot;wikipedia&quot;</span>,
+      <span class="hljs-string">&quot;parser&quot;</span> : {
+        <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;hadoopyString&quot;</span>,
+        <span class="hljs-string">&quot;parseSpec&quot;</span> : {
+          <span class="hljs-string">&quot;format&quot;</span> : <span class="hljs-string">&quot;json&quot;</span>,
+          <span class="hljs-string">&quot;timestampSpec&quot;</span> : {
+            <span class="hljs-string">&quot;column&quot;</span> : <span class="hljs-string">&quot;timestamp&quot;</span>,
+            <span class="hljs-string">&quot;format&quot;</span> : <span class="hljs-string">&quot;auto&quot;</span>
+          },
+          <span class="hljs-string">&quot;dimensionsSpec&quot;</span> : {
+            <span class="hljs-string">&quot;dimensions&quot;</span>: [<span class="hljs-string">&quot;page&quot;</span>,<span class="hljs-string">&quot;language&quot;</span>,<span class="hljs-string">&quot;user&quot;</span>,<span class="hljs-string">&quot;unpatrolled&quot;</span>,<span class="hljs-string">&quot;newPage&quot;</span>,<span class="hljs-string">&quot;robot&quot;</span>,<span class="hljs-string">&quot;anonymous&quot;</span>,<span class="hljs-string">&quot;namespace&quot;</span>,<span class="hljs-string">&quot;continent&quot;</span>,<span class="hljs-string">&quot;country&quot;</span>,<span class="hljs-string">&quot;region&quot;</span>,<span class="hljs-string">&quot;city&quot;</span>],
+            <span class="hljs-string">&quot;dimensionExclusions&quot;</span> : [],
+            <span class="hljs-string">&quot;spatialDimensions&quot;</span> : []
+          }
+        }
+      },
+      <span class="hljs-string">&quot;metricsSpec&quot;</span> : [
+        {
+          <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;count&quot;</span>,
+          <span class="hljs-string">&quot;name&quot;</span> : <span class="hljs-string">&quot;count&quot;</span>
+        },
+        {
+          <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;doubleSum&quot;</span>,
+          <span class="hljs-string">&quot;name&quot;</span> : <span class="hljs-string">&quot;added&quot;</span>,
+          <span class="hljs-string">&quot;fieldName&quot;</span> : <span class="hljs-string">&quot;added&quot;</span>
+        },
+        {
+          <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;doubleSum&quot;</span>,
+          <span class="hljs-string">&quot;name&quot;</span> : <span class="hljs-string">&quot;deleted&quot;</span>,
+          <span class="hljs-string">&quot;fieldName&quot;</span> : <span class="hljs-string">&quot;deleted&quot;</span>
+        },
+        {
+          <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;doubleSum&quot;</span>,
+          <span class="hljs-string">&quot;name&quot;</span> : <span class="hljs-string">&quot;delta&quot;</span>,
+          <span class="hljs-string">&quot;fieldName&quot;</span> : <span class="hljs-string">&quot;delta&quot;</span>
+        }
+      ],
+      <span class="hljs-string">&quot;granularitySpec&quot;</span> : {
+        <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;uniform&quot;</span>,
+        <span class="hljs-string">&quot;segmentGranularity&quot;</span> : <span class="hljs-string">&quot;DAY&quot;</span>,
+        <span class="hljs-string">&quot;queryGranularity&quot;</span> : <span class="hljs-string">&quot;NONE&quot;</span>,
+        <span class="hljs-string">&quot;intervals&quot;</span> : [ <span class="hljs-string">&quot;2013-08-31/2013-09-01&quot;</span> ]
+      }
+    },
+    <span class="hljs-string">&quot;ioConfig&quot;</span> : {
+      <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;hadoop&quot;</span>,
+      <span class="hljs-string">&quot;inputSpec&quot;</span> : {
+        <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;static&quot;</span>,
+        <span class="hljs-string">&quot;paths&quot;</span> : <span class="hljs-string">&quot;/MyDirectory/example/wikipedia_data.json&quot;</span>
+      }
+    },
+    <span class="hljs-string">&quot;tuningConfig&quot;</span> : {
+      <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;hadoop&quot;</span>
+    }
+  },
+  <span class="hljs-string">&quot;hadoopDependencyCoordinates&quot;</span>: <span class="xml"><span class="hljs-tag">&lt;<span class="hljs-name">my_hadoop_version</span>&gt;</span>
+}
+</span></code></pre>
+<table>
+<thead>
+<tr>
+<th>property</th>
+<th>description</th>
+<th>required?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>The task type, this should always be &quot;index_hadoop&quot;.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>spec</td>
+<td>A Hadoop Index Spec. See <a href="./">Ingestion</a></td>
+<td>yes</td>
+</tr>
+<tr>
+<td>hadoopDependencyCoordinates</td>
+<td>A JSON array of Hadoop dependency coordinates that Druid will use, this property will override the default Hadoop coordinates. Once specified, Druid will look for those Hadoop dependencies from the location specified by <code>druid.extensions.hadoopDependenciesDir</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td>classpathPrefix</td>
+<td>Classpath that will be prepended for the Peon process.</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>Also note that Druid automatically computes the classpath for Hadoop job containers that run in the Hadoop cluster. But in case of conflicts between Hadoop and Druid&apos;s dependencies, you can manually specify the classpath by setting <code>druid.extensions.hadoopContainerDruidClasspath</code> property. See the extensions config in <a href="../configuration/#extensions">base druid configuration</a>.</p>
+<h2 id="dataschema"><a name="dataschema" class="anchor-navigation-ex-anchor" href="#dataschema"><i class="fa fa-link" aria-hidden="true"></i></a>1.3. dataSchema</h2>
+<p>This field is required. See the <a href="./#legacy-dataschema-spec"><code>dataSchema</code></a> section of the main ingestion page for details on
+what it should contain.</p>
+<h2 id="ioconfig"><a name="ioconfig" class="anchor-navigation-ex-anchor" href="#ioconfig"><i class="fa fa-link" aria-hidden="true"></i></a>1.4. ioConfig</h2>
+<p>This field is required.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>String</td>
+<td>This should always be &apos;hadoop&apos;.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>inputSpec</td>
+<td>Object</td>
+<td>A specification of where to pull the data in from. See below.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>segmentOutputPath</td>
+<td>String</td>
+<td>The path to dump segments into.</td>
+<td>Only used by the <a href="#cli">Command-line Hadoop indexer</a>. This field must be null otherwise.</td>
+</tr>
+<tr>
+<td>metadataUpdateSpec</td>
+<td>Object</td>
+<td>A specification of how to update the metadata for the druid cluster these segments belong to.</td>
+<td>Only used by the <a href="#cli">Command-line Hadoop indexer</a>. This field must be null otherwise.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="inputspec"><a name="inputspec" class="anchor-navigation-ex-anchor" href="#inputspec"><i class="fa fa-link" aria-hidden="true"></i></a>1.4.1. inputSpec</h3>
+<p>There are multiple types of inputSpecs:</p>
+<h4 id="static"><a name="static" class="anchor-navigation-ex-anchor" href="#static"><i class="fa fa-link" aria-hidden="true"></i></a><code>static</code></h4>
+<p>A type of inputSpec where a static path to the data files is provided.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>inputFormat</td>
+<td>String</td>
+<td>Specifies the Hadoop InputFormat class to use. e.g. <code>org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td>paths</td>
+<td>Array of String</td>
+<td>A String of input paths indicating where the raw data is located.</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<p>For example, using the static input paths:</p>
+<pre><code>&quot;paths&quot; : &quot;hdfs://path/to/data/is/here/data.gz,hdfs://path/to/data/is/here/moredata.gz,hdfs://path/to/data/is/here/evenmoredata.gz&quot;
+</code></pre><p>You can also read from cloud storage such as AWS S3 or Google Cloud Storage.
+To do so, you need to install the necessary library under Druid&apos;s classpath in <em>all MiddleManager or Indexer processes</em>.
+For S3, you can run the below command to install the <a href="https://hadoop.apache.org/docs/current/hadoop-aws/tools/hadoop-aws/" target="_blank">Hadoop AWS module</a>.</p>
+<pre><code class="lang-bash">java -classpath <span class="hljs-string">&quot;<span class="hljs-variable">${DRUID_HOME}</span>lib/*&quot;</span> org.apache.druid.cli.Main tools pull-deps -h <span class="hljs-string">&quot;org.apache.hadoop:hadoop-aws:<span class="hljs-variable">${HADOOP_VERSION}</span>&quot;</span>;
+cp <span class="hljs-variable">${DRUID_HOME}</span>/hadoop-dependencies/hadoop-aws/<span class="hljs-variable">${HADOOP_VERSION}</span>/hadoop-aws-<span class="hljs-variable">${HADOOP_VERSION}</span>.jar <span class="hljs-variable">${DRUID_HOME}</span>/extensions/druid-hdfs-storage/
+</code></pre>
+<p>Once you install the Hadoop AWS module in all MiddleManager and Indexer processes, you can put
+your S3 paths in the inputSpec with the below job properties.
+For more configurations, see the <a href="https://hadoop.apache.org/docs/current/hadoop-aws/tools/hadoop-aws/" target="_blank">Hadoop AWS module</a>.</p>
+<pre><code>&quot;paths&quot; : &quot;s3a://billy-bucket/the/data/is/here/data.gz,s3a://billy-bucket/the/data/is/here/moredata.gz,s3a://billy-bucket/the/data/is/here/evenmoredata.gz&quot;
+</code></pre><pre><code class="lang-json"><span class="hljs-string">&quot;jobProperties&quot;</span> : {
+  <span class="hljs-string">&quot;fs.s3a.impl&quot;</span> : <span class="hljs-string">&quot;org.apache.hadoop.fs.s3a.S3AFileSystem&quot;</span>,
+  <span class="hljs-string">&quot;fs.AbstractFileSystem.s3a.impl&quot;</span> : <span class="hljs-string">&quot;org.apache.hadoop.fs.s3a.S3A&quot;</span>,
+  <span class="hljs-string">&quot;fs.s3a.access.key&quot;</span> : <span class="hljs-string">&quot;YOUR_ACCESS_KEY&quot;</span>,
+  <span class="hljs-string">&quot;fs.s3a.secret.key&quot;</span> : <span class="hljs-string">&quot;YOUR_SECRET_KEY&quot;</span>
+}
+</code></pre>
+<p>For Google Cloud Storage, you need to install <a href="https://github.com/GoogleCloudPlatform/bigdata-interop/blob/master/gcs/INSTALL.md" target="_blank">GCS connector jar</a>
+under <code>${DRUID_HOME}/hadoop-dependencies</code> in <em>all MiddleManager or Indexer processes</em>.
+Once you install the GCS Connector jar in all MiddleManager and Indexer processes, you can put
+your Google Cloud Storage paths in the inputSpec with the below job properties.
+For more configurations, see the <a href="https://github.com/GoogleCloudPlatform/bigdata-interop/blob/master/gcs/INSTALL.md#configure-hadoop" target="_blank">instructions to configure Hadoop</a>,
+<a href="https://github.com/GoogleCloudDataproc/hadoop-connectors/blob/v2.0.0/gcs/conf/gcs-core-default.xml" target="_blank">GCS core default</a>
+and <a href="https://github.com/GoogleCloudPlatform/bdutil/blob/master/conf/hadoop2/gcs-core-template.xml" target="_blank">GCS core template</a>.</p>
+<pre><code>&quot;paths&quot; : &quot;gs://billy-bucket/the/data/is/here/data.gz,gs://billy-bucket/the/data/is/here/moredata.gz,gs://billy-bucket/the/data/is/here/evenmoredata.gz&quot;
+</code></pre><pre><code class="lang-json"><span class="hljs-string">&quot;jobProperties&quot;</span> : {
+  <span class="hljs-string">&quot;fs.gs.impl&quot;</span> : <span class="hljs-string">&quot;com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem&quot;</span>,
+  <span class="hljs-string">&quot;fs.AbstractFileSystem.gs.impl&quot;</span> : <span class="hljs-string">&quot;com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS&quot;</span>
+}
+</code></pre>
+<h4 id="granularity"><a name="granularity" class="anchor-navigation-ex-anchor" href="#granularity"><i class="fa fa-link" aria-hidden="true"></i></a><code>granularity</code></h4>
+<p>A type of inputSpec that expects data to be organized in directories according to datetime using the path format: <code>y=XXXX/m=XX/d=XX/H=XX/M=XX/S=XX</code> (where date is represented by lowercase and time is represented by uppercase).</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>dataGranularity</td>
+<td>String</td>
+<td>Specifies the granularity to expect the data at, e.g. hour means to expect directories <code>y=XXXX/m=XX/d=XX/H=XX</code>.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>inputFormat</td>
+<td>String</td>
+<td>Specifies the Hadoop InputFormat class to use. e.g. <code>org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td>inputPath</td>
+<td>String</td>
+<td>Base path to append the datetime path to.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>filePattern</td>
+<td>String</td>
+<td>Pattern that files should match to be included.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>pathFormat</td>
+<td>String</td>
+<td>Joda datetime format for each directory. Default value is <code>&quot;&apos;y&apos;=yyyy/&apos;m&apos;=MM/&apos;d&apos;=dd/&apos;H&apos;=HH&quot;</code>, or see <a href="http://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html" target="_blank">Joda documentation</a></td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>For example, if the sample config were run with the interval 2012-06-01/2012-06-02, it would expect data at the paths:</p>
+<pre><code>s3n://billy-bucket/the/data/is/here/y=2012/m=06/d=01/H=00
+s3n://billy-bucket/the/data/is/here/y=2012/m=06/d=01/H=01
+...
+s3n://billy-bucket/the/data/is/here/y=2012/m=06/d=01/H=23
+</code></pre><h4 id="datasource"><a name="datasource" class="anchor-navigation-ex-anchor" href="#datasource"><i class="fa fa-link" aria-hidden="true"></i></a><code>dataSource</code></h4>
+<p>This is a type of <code>inputSpec</code> that reads data already stored inside Druid. This is used to allow &quot;re-indexing&quot; data and for &quot;delta-ingestion&quot; described later in <code>multi</code> type inputSpec.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>String.</td>
+<td>This should always be &apos;dataSource&apos;.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>ingestionSpec</td>
+<td>JSON object.</td>
+<td>Specification of Druid segments to be loaded. See below.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>maxSplitSize</td>
+<td>Number</td>
+<td>Enables combining multiple segments into single Hadoop InputSplit according to size of segments. With -1, druid calculates max split size based on user specified number of map task(mapred.map.tasks or mapreduce.job.maps). By default, one split is made for one segment. maxSplitSize is specified in bytes.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>useNewAggs</td>
+<td>Boolean</td>
+<td>If &quot;false&quot;, then list of aggregators in &quot;metricsSpec&quot; of hadoop indexing task must be same as that used in original indexing task while ingesting raw data. Default value is &quot;false&quot;. This field can be set to &quot;true&quot; when &quot;inputSpec&quot; type is &quot;dataSource&quot; and not &quot;multi&quot; to enable arbitrary aggregators while reindexing. See below for &quot;multi&quot; type support for delta-ingestion.</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>Here is what goes inside <code>ingestionSpec</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>dataSource</td>
+<td>String</td>
+<td>Druid dataSource name from which you are loading the data.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>intervals</td>
+<td>List</td>
+<td>A list of strings representing ISO-8601 Intervals.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>segments</td>
+<td>List</td>
+<td>List of segments from which to read data from, by default it is obtained automatically. You can obtain list of segments to put here by making a POST query to Coordinator at url /druid/coordinator/v1/metadata/datasources/segments?full with list of intervals specified in the request payload, e.g. [&quot;2012-01-01T00:00:00.000/2012-01-03T00:00:00.000&quot;, &quot;2012-01-05T00:00:00.000/2012-01-07T00:00:00.000&quot;]. You may want to provide this list manually in order to ensure that segments read are exactly same as they were at the time of task submission, task would fail if the list provided by the user does not match with state of database when the task actually runs.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>filter</td>
+<td>JSON</td>
+<td>See <a href="../querying/filters.html">Filters</a></td>
+<td>no</td>
+</tr>
+<tr>
+<td>dimensions</td>
+<td>Array of String</td>
+<td>Name of dimension columns to load. By default, the list will be constructed from parseSpec. If parseSpec does not have an explicit list of dimensions then all the dimension columns present in stored data will be read.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>metrics</td>
+<td>Array of String</td>
+<td>Name of metric columns to load. By default, the list will be constructed from the &quot;name&quot; of all the configured aggregators.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>ignoreWhenNoSegments</td>
+<td>boolean</td>
+<td>Whether to ignore this ingestionSpec if no segments were found. Default behavior is to throw error when no segments were found.</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>For example</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;ioConfig&quot;</span> : {
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;hadoop&quot;</span>,
+  <span class="hljs-string">&quot;inputSpec&quot;</span> : {
+    <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;dataSource&quot;</span>,
+    <span class="hljs-string">&quot;ingestionSpec&quot;</span> : {
+      <span class="hljs-string">&quot;dataSource&quot;</span>: <span class="hljs-string">&quot;wikipedia&quot;</span>,
+      <span class="hljs-string">&quot;intervals&quot;</span>: [<span class="hljs-string">&quot;2014-10-20T00:00:00Z/P2W&quot;</span>]
+    }
+  },
+  ...
+}
+</code></pre>
+<h4 id="multi"><a name="multi" class="anchor-navigation-ex-anchor" href="#multi"><i class="fa fa-link" aria-hidden="true"></i></a><code>multi</code></h4>
+<p>This is a composing inputSpec to combine other inputSpecs. This inputSpec is used for delta ingestion. You can also use a <code>multi</code> inputSpec to combine data from multiple dataSources. However, each particular dataSource can only be specified one time.
+Note that, &quot;useNewAggs&quot; must be set to default value false to support delta-ingestion.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>children</td>
+<td>Array of JSON objects</td>
+<td>List of JSON objects containing other inputSpecs.</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<p>For example:</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;ioConfig&quot;</span> : {
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;hadoop&quot;</span>,
+  <span class="hljs-string">&quot;inputSpec&quot;</span> : {
+    <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;multi&quot;</span>,
+    <span class="hljs-string">&quot;children&quot;</span>: [
+      {
+        <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;dataSource&quot;</span>,
+        <span class="hljs-string">&quot;ingestionSpec&quot;</span> : {
+          <span class="hljs-string">&quot;dataSource&quot;</span>: <span class="hljs-string">&quot;wikipedia&quot;</span>,
+          <span class="hljs-string">&quot;intervals&quot;</span>: [<span class="hljs-string">&quot;2012-01-01T00:00:00.000/2012-01-03T00:00:00.000&quot;</span>, <span class="hljs-string">&quot;2012-01-05T00:00:00.000/2012-01-07T00:00:00.000&quot;</span>],
+          <span class="hljs-string">&quot;segments&quot;</span>: [
+            {
+              <span class="hljs-string">&quot;dataSource&quot;</span>: <span class="hljs-string">&quot;test1&quot;</span>,
+              <span class="hljs-string">&quot;interval&quot;</span>: <span class="hljs-string">&quot;2012-01-01T00:00:00.000/2012-01-03T00:00:00.000&quot;</span>,
+              <span class="hljs-string">&quot;version&quot;</span>: <span class="hljs-string">&quot;v2&quot;</span>,
+              <span class="hljs-string">&quot;loadSpec&quot;</span>: {
+                <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;local&quot;</span>,
+                <span class="hljs-string">&quot;path&quot;</span>: <span class="hljs-string">&quot;/tmp/index1.zip&quot;</span>
+              },
+              <span class="hljs-string">&quot;dimensions&quot;</span>: <span class="hljs-string">&quot;host&quot;</span>,
+              <span class="hljs-string">&quot;metrics&quot;</span>: <span class="hljs-string">&quot;visited_sum,unique_hosts&quot;</span>,
+              <span class="hljs-string">&quot;shardSpec&quot;</span>: {
+                <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;none&quot;</span>
+              },
+              <span class="hljs-string">&quot;binaryVersion&quot;</span>: <span class="hljs-number">9</span>,
+              <span class="hljs-string">&quot;size&quot;</span>: <span class="hljs-number">2</span>,
+              <span class="hljs-string">&quot;identifier&quot;</span>: <span class="hljs-string">&quot;test1_2000-01-01T00:00:00.000Z_3000-01-01T00:00:00.000Z_v2&quot;</span>
+            }
+          ]
+        }
+      },
+      {
+        <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;static&quot;</span>,
+        <span class="hljs-string">&quot;paths&quot;</span>: <span class="hljs-string">&quot;/path/to/more/wikipedia/data/&quot;</span>
+      }
+    ]
+  },
+  ...
+}
+</code></pre>
+<p>It is STRONGLY RECOMMENDED to provide list of segments in <code>dataSource</code> inputSpec explicitly so that your delta ingestion task is idempotent. You can obtain that list of segments by making following call to the Coordinator.
+POST <code>/druid/coordinator/v1/metadata/datasources/{dataSourceName}/segments?full</code>
+Request Body: [interval1, interval2,...] for example [&quot;2012-01-01T00:00:00.000/2012-01-03T00:00:00.000&quot;, &quot;2012-01-05T00:00:00.000/2012-01-07T00:00:00.000&quot;]</p>
+<h2 id="tuningconfig"><a name="tuningconfig" class="anchor-navigation-ex-anchor" href="#tuningconfig"><i class="fa fa-link" aria-hidden="true"></i></a>1.5. tuningConfig</h2>
+<p>The tuningConfig is optional and default parameters will be used if no tuningConfig is specified.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>workingPath</td>
+<td>String</td>
+<td>The working path to use for intermediate results (results between Hadoop jobs).</td>
+<td>Only used by the <a href="#cli">Command-line Hadoop indexer</a>. The default is &apos;/tmp/druid-indexing&apos;. This field must be null otherwise.</td>
+</tr>
+<tr>
+<td>version</td>
+<td>String</td>
+<td>The version of created segments. Ignored for HadoopIndexTask unless useExplicitVersion is set to true</td>
+<td>no (default == datetime that indexing starts at)</td>
+</tr>
+<tr>
+<td>partitionsSpec</td>
+<td>Object</td>
+<td>A specification of how to partition each time bucket into segments. Absence of this property means no partitioning will occur. See <a href="#partitionsspec"><code>partitionsSpec</code></a> below.</td>
+<td>no (default == &apos;hashed&apos;)</td>
+</tr>
+<tr>
+<td>maxRowsInMemory</td>
+<td>Integer</td>
+<td>The number of rows to aggregate before persisting. Note that this is the number of post-aggregation rows which may not be equal to the number of input events due to roll-up. This is used to manage the required JVM heap size. Normally user does not need to set this, but depending on the nature of data, if rows are short in terms of bytes, user may not want to store a million rows in memory and this value should be set.</td>
+<td>no (default == 1000000)</td>
+</tr>
+<tr>
+<td>maxBytesInMemory</td>
+<td>Long</td>
+<td>The number of bytes to aggregate in heap memory before persisting. Normally this is computed internally and user does not need to set it. This is based on a rough estimate of memory usage and not actual usage. The maximum heap memory usage for indexing is maxBytesInMemory * (2 + maxPendingPersists).</td>
+<td>no (default == One-sixth of max JVM memory)</td>
+</tr>
+<tr>
+<td>leaveIntermediate</td>
+<td>Boolean</td>
+<td>Leave behind intermediate files (for debugging) in the workingPath when a job completes, whether it passes or fails.</td>
+<td>no (default == false)</td>
+</tr>
+<tr>
+<td>cleanupOnFailure</td>
+<td>Boolean</td>
+<td>Clean up intermediate files when a job fails (unless leaveIntermediate is on).</td>
+<td>no (default == true)</td>
+</tr>
+<tr>
+<td>overwriteFiles</td>
+<td>Boolean</td>
+<td>Override existing files found during indexing.</td>
+<td>no (default == false)</td>
+</tr>
+<tr>
+<td>ignoreInvalidRows</td>
+<td>Boolean</td>
+<td>DEPRECATED. Ignore rows found to have problems. If false, any exception encountered during parsing will be thrown and will halt ingestion; if true, unparseable rows and fields will be skipped. If <code>maxParseExceptions</code> is defined, this property is ignored.</td>
+<td>no (default == false)</td>
+</tr>
+<tr>
+<td>combineText</td>
+<td>Boolean</td>
+<td>Use CombineTextInputFormat to combine multiple files into a file split. This can speed up Hadoop jobs when processing a large number of small files.</td>
+<td>no (default == false)</td>
+</tr>
+<tr>
+<td>useCombiner</td>
+<td>Boolean</td>
+<td>Use Hadoop combiner to merge rows at mapper if possible.</td>
+<td>no (default == false)</td>
+</tr>
+<tr>
+<td>jobProperties</td>
+<td>Object</td>
+<td>A map of properties to add to the Hadoop job configuration, see below for details.</td>
+<td>no (default == null)</td>
+</tr>
+<tr>
+<td>indexSpec</td>
+<td>Object</td>
+<td>Tune how data is indexed. See <a href="./#indexspec"><code>indexSpec</code></a> on the main ingestion page for more information.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>indexSpecForIntermediatePersists</td>
+<td>Object</td>
+<td>defines segment storage format options to be used at indexing time for intermediate persisted temporary segments. this can be used to disable dimension/metric compression on intermediate segments to reduce memory required for final merging. however, disabling compression on intermediate segments might increase page cache use while they are used before getting merged into final segment published, see <a href="./#indexspec"><code>indexSpec</code></a> for possible values.</td>
+<td>no (default = same as indexSpec)</td>
+</tr>
+<tr>
+<td>numBackgroundPersistThreads</td>
+<td>Integer</td>
+<td>The number of new background threads to use for incremental persists. Using this feature causes a notable increase in memory pressure and CPU usage but will make the job finish more quickly. If changing from the default of 0 (use current thread for persists), we recommend setting it to 1.</td>
+<td>no (default == 0)</td>
+</tr>
+<tr>
+<td>forceExtendableShardSpecs</td>
+<td>Boolean</td>
+<td>Forces use of extendable shardSpecs. Hash-based partitioning always uses an extendable shardSpec. For single-dimension partitioning, this option should be set to true to use an extendable shardSpec. For partitioning, please check <a href="#partitionsspec">Partitioning specification</a>. This option can be useful when you need to append more data to existing dataSource.</td>
+<td>no (default = false)</td>
+</tr>
+<tr>
+<td>useExplicitVersion</td>
+<td>Boolean</td>
+<td>Forces HadoopIndexTask to use version.</td>
+<td>no (default = false)</td>
+</tr>
+<tr>
+<td>logParseExceptions</td>
+<td>Boolean</td>
+<td>If true, log an error message when a parsing exception occurs, containing information about the row where the error occurred.</td>
+<td>no(default = false)</td>
+</tr>
+<tr>
+<td>maxParseExceptions</td>
+<td>Integer</td>
+<td>The maximum number of parse exceptions that can occur before the task halts ingestion and fails. Overrides <code>ignoreInvalidRows</code> if <code>maxParseExceptions</code> is defined.</td>
+<td>no(default = unlimited)</td>
+</tr>
+<tr>
+<td>useYarnRMJobStatusFallback</td>
+<td>Boolean</td>
+<td>If the Hadoop jobs created by the indexing task are unable to retrieve their completion status from the JobHistory server, and this parameter is true, the indexing task will try to fetch the application status from <code>http://&lt;yarn-rm-address&gt;/ws/v1/cluster/apps/&lt;application-id&gt;</code>, where <code>&lt;yarn-rm-address&gt;</code> is the value of <code>yarn.resourcemanager.webapp.address</code> in your Hadoop configuration. This flag is intended as a fallback for cases where an indexing task&apos;s jobs succeed, but the JobHistory server is unavailable, causing the indexing task to fail because it cannot determine the job statuses.</td>
+<td>no (default = true)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="jobproperties"><a name="jobproperties" class="anchor-navigation-ex-anchor" href="#jobproperties"><i class="fa fa-link" aria-hidden="true"></i></a>1.5.1. jobProperties</h3>
+<pre><code class="lang-json">   <span class="hljs-string">&quot;tuningConfig&quot;</span> : {
+     <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;hadoop&quot;</span>,
+     <span class="hljs-string">&quot;jobProperties&quot;</span>: {
+       <span class="hljs-string">&quot;&lt;hadoop-property-a&gt;&quot;</span>: <span class="hljs-string">&quot;&lt;value-a&gt;&quot;</span>,
+       <span class="hljs-string">&quot;&lt;hadoop-property-b&gt;&quot;</span>: <span class="hljs-string">&quot;&lt;value-b&gt;&quot;</span>
+     }
+   }
+</code></pre>
+<p>Hadoop&apos;s <a href="https://hadoop.apache.org/docs/stable/hadoop-mapreduce-client/hadoop-mapreduce-client-core/mapred-default.xml" target="_blank">MapReduce documentation</a> lists the possible configuration parameters.</p>
+<p>With some Hadoop distributions, it may be necessary to set <code>mapreduce.job.classpath</code> or <code>mapreduce.job.user.classpath.first</code>
+to avoid class loading issues. See the <a href="../operations/other-hadoop.html">working with different Hadoop versions documentation</a>
+for more details.</p>
+<h2 id="partitionsspec"><a name="partitionsspec" class="anchor-navigation-ex-anchor" href="#partitionsspec"><i class="fa fa-link" aria-hidden="true"></i></a>1.6. partitionsSpec</h2>
+<p>Segments are always partitioned based on timestamp (according to the granularitySpec) and may be further partitioned in
+some other way depending on partition type. Druid supports two types of partitioning strategies: <code>hashed</code> (based on the
+hash of all dimensions in each row), and <code>single_dim</code> (based on ranges of a single dimension).</p>
+<p>Hashed partitioning is recommended in most cases, as it will improve indexing performance and create more uniformly
+sized data segments relative to single-dimension partitioning.</p>
+<h3 id="hash-based-partitioning"><a name="hash-based-partitioning" class="anchor-navigation-ex-anchor" href="#hash-based-partitioning"><i class="fa fa-link" aria-hidden="true"></i></a>1.6.1. Hash-based partitioning</h3>
+<pre><code class="lang-json">  <span class="hljs-string">&quot;partitionsSpec&quot;</span>: {
+     <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;hashed&quot;</span>,
+     <span class="hljs-string">&quot;targetRowsPerSegment&quot;</span>: <span class="hljs-number">5000000</span>
+   }
+</code></pre>
+<p>Hashed partitioning works by first selecting a number of segments, and then partitioning rows across those segments
+according to the hash of all dimensions in each row. The number of segments is determined automatically based on the
+cardinality of the input set and a target partition size.</p>
+<p>The configuration options are:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>Type of partitionSpec to be used.</td>
+<td>&quot;hashed&quot;</td>
+</tr>
+<tr>
+<td>targetRowsPerSegment</td>
+<td>Target number of rows to include in a partition, should be a number that targets segments of 500MB~1GB. Defaults to 5000000 if <code>numShards</code> is not set.</td>
+<td>either this or <code>numShards</code></td>
+</tr>
+<tr>
+<td>targetPartitionSize</td>
+<td>Deprecated. Renamed to <code>targetRowsPerSegment</code>. Target number of rows to include in a partition, should be a number that targets segments of 500MB~1GB.</td>
+<td>either this or <code>numShards</code></td>
+</tr>
+<tr>
+<td>maxRowsPerSegment</td>
+<td>Deprecated. Renamed to <code>targetRowsPerSegment</code>. Target number of rows to include in a partition, should be a number that targets segments of 500MB~1GB.</td>
+<td>either this or <code>numShards</code></td>
+</tr>
+<tr>
+<td>numShards</td>
+<td>Specify the number of partitions directly, instead of a target partition size. Ingestion will run faster, since it can skip the step necessary to select a number of partitions automatically.</td>
+<td>either this or <code>maxRowsPerSegment</code></td>
+</tr>
+<tr>
+<td>partitionDimensions</td>
+<td>The dimensions to partition on. Leave blank to select all dimensions. Only used with <code>numShards</code>, will be ignored when <code>targetRowsPerSegment</code> is set.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>partitionFunction</td>
+<td>A function to compute hash of partition dimensions. See <a href="#hash-partition-function">Hash partition function</a></td>
+<td><code>murmur3_32_abs</code></td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<h5 id="hash-partition-function"><a name="hash-partition-function" class="anchor-navigation-ex-anchor" href="#hash-partition-function"><i class="fa fa-link" aria-hidden="true"></i></a>Hash partition function</h5>
+<p>In hash partitioning, the partition function is used to compute hash of partition dimensions. The partition dimension
+values are first serialized into a byte array as a whole, and then the partition function is applied to compute hash of
+the byte array.
+Druid currently supports only one partition function.</p>
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>murmur3_32_abs</code></td>
+<td>Applies an absolute value function to the result of <a href="https://guava.dev/releases/16.0/api/docs/com/google/common/hash/Hashing.html#murmur3_32(" target="_blank"><code>murmur3_32</code></a>).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="single-dimension-range-partitioning"><a name="single-dimension-range-partitioning" class="anchor-navigation-ex-anchor" href="#single-dimension-range-partitioning"><i class="fa fa-link" aria-hidden="true"></i></a>1.6.2. Single-dimension range partitioning</h3>
+<pre><code class="lang-json">  <span class="hljs-string">&quot;partitionsSpec&quot;</span>: {
+     <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;single_dim&quot;</span>,
+     <span class="hljs-string">&quot;targetRowsPerSegment&quot;</span>: <span class="hljs-number">5000000</span>
+   }
+</code></pre>
+<p>Single-dimension range partitioning works by first selecting a dimension to partition on, and then separating that dimension
+into contiguous ranges. Each segment will contain all rows with values of that dimension in that range. For example,
+your segments may be partitioned on the dimension &quot;host&quot; using the ranges &quot;a.example.com&quot; to &quot;f.example.com&quot; and
+&quot;f.example.com&quot; to &quot;z.example.com&quot;. By default, the dimension to use is determined automatically, although you can
+override it with a specific dimension.</p>
+<p>The configuration options are:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>Type of partitionSpec to be used.</td>
+<td>&quot;single_dim&quot;</td>
+</tr>
+<tr>
+<td>targetRowsPerSegment</td>
+<td>Target number of rows to include in a partition, should be a number that targets segments of 500MB~1GB.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>targetPartitionSize</td>
+<td>Deprecated. Renamed to <code>targetRowsPerSegment</code>. Target number of rows to include in a partition, should be a number that targets segments of 500MB~1GB.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>maxRowsPerSegment</td>
+<td>Maximum number of rows to include in a partition. Defaults to 50% larger than the <code>targetRowsPerSegment</code>.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>maxPartitionSize</td>
+<td>Deprecated. Use <code>maxRowsPerSegment</code> instead. Maximum number of rows to include in a partition. Defaults to 50% larger than the <code>targetPartitionSize</code>.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>partitionDimension</td>
+<td>The dimension to partition on. Leave blank to select a dimension automatically.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>assumeGrouped</td>
+<td>Assume that input data has already been grouped on time and dimensions. Ingestion will run faster, but may choose sub-optimal partitions if this assumption is violated.</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<h2 id="remote-hadoop-clusters"><a name="remote-hadoop-clusters" class="anchor-navigation-ex-anchor" href="#remote-hadoop-clusters"><i class="fa fa-link" aria-hidden="true"></i></a>1.7. Remote Hadoop clusters</h2>
+<p>If you have a remote Hadoop cluster, make sure to include the folder holding your configuration <code>*.xml</code> files in your Druid <code>_common</code> configuration folder.</p>
+<p>If you are having dependency problems with your version of Hadoop and the version compiled with Druid, please see <a href="../operations/other-hadoop.html">these docs</a>.</p>
+<h2 id="elastic-mapreduce"><a name="elastic-mapreduce" class="anchor-navigation-ex-anchor" href="#elastic-mapreduce"><i class="fa fa-link" aria-hidden="true"></i></a>1.8. Elastic MapReduce</h2>
+<p>If your cluster is running on Amazon Web Services, you can use Elastic MapReduce (EMR) to index data
+from S3. To do this:</p>
+<ul>
+<li>Create a persistent, <a href="http://docs.aws.amazon.com/ElasticMapReduce/latest/ManagementGuide/emr-plan-longrunning-transient" target="_blank">long-running cluster</a>.</li>
+<li>When creating your cluster, enter the following configuration. If you&apos;re using the wizard, this
+should be in advanced mode under &quot;Edit software settings&quot;:</li>
+</ul>
+<pre><code>classification=yarn-site,properties=[mapreduce.reduce.memory.mb=6144,mapreduce.reduce.java.opts=-server -Xms2g -Xmx2g -Duser.timezone=UTC -Dfile.encoding=UTF-8 -XX:+PrintGCDetails -XX:+PrintGCTimeStamps,mapreduce.map.java.opts=758,mapreduce.map.java.opts=-server -Xms512m -Xmx512m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -XX:+PrintGCDetails -XX:+PrintGCTimeStamps,mapreduce.task.timeout=1800000]
+</code></pre><ul>
+<li>Follow the instructions under
+<a href="../tutorials/cluster.html#hadoop">Configure for connecting to Hadoop</a> using the XML files from <code>/etc/hadoop/conf</code>
+on your EMR master.</li>
+</ul>
+<h2 id="kerberized-hadoop-clusters"><a name="kerberized-hadoop-clusters" class="anchor-navigation-ex-anchor" href="#kerberized-hadoop-clusters"><i class="fa fa-link" aria-hidden="true"></i></a>1.9. Kerberized Hadoop clusters</h2>
+<p>By default druid can use the existing TGT kerberos ticket available in local kerberos key cache.
+Although TGT ticket has a limited life cycle,
+therefore you need to call <code>kinit</code> command periodically to ensure validity of TGT ticket.
+To avoid this extra external cron job script calling <code>kinit</code> periodically,
+ you can provide the principal name and keytab location and druid will do the authentication transparently at startup and job launching time.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Possible Values</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>druid.hadoop.security.kerberos.principal</code></td>
+<td><code>druid@EXAMPLE.COM</code></td>
+<td>Principal user name</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>druid.hadoop.security.kerberos.keytab</code></td>
+<td><code>/etc/security/keytabs/druid.headlessUser.keytab</code></td>
+<td>Path to keytab file</td>
+<td>empty</td>
+</tr>
+</tbody>
+</table>
+<h3 id="loading-from-s3-with-emr"><a name="loading-from-s3-with-emr" class="anchor-navigation-ex-anchor" href="#loading-from-s3-with-emr"><i class="fa fa-link" aria-hidden="true"></i></a>1.9.1. Loading from S3 with EMR</h3>
+<ul>
+<li>In the <code>jobProperties</code> field in the <code>tuningConfig</code> section of your Hadoop indexing task, add:</li>
+</ul>
+<pre><code>&quot;jobProperties&quot; : {
+   &quot;fs.s3.awsAccessKeyId&quot; : &quot;YOUR_ACCESS_KEY&quot;,
+   &quot;fs.s3.awsSecretAccessKey&quot; : &quot;YOUR_SECRET_KEY&quot;,
+   &quot;fs.s3.impl&quot; : &quot;org.apache.hadoop.fs.s3native.NativeS3FileSystem&quot;,
+   &quot;fs.s3n.awsAccessKeyId&quot; : &quot;YOUR_ACCESS_KEY&quot;,
+   &quot;fs.s3n.awsSecretAccessKey&quot; : &quot;YOUR_SECRET_KEY&quot;,
+   &quot;fs.s3n.impl&quot; : &quot;org.apache.hadoop.fs.s3native.NativeS3FileSystem&quot;,
+   &quot;io.compression.codecs&quot; : &quot;org.apache.hadoop.io.compress.GzipCodec,org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.BZip2Codec,org.apache.hadoop.io.compress.SnappyCodec&quot;
+}
+</code></pre><p>Note that this method uses Hadoop&apos;s built-in S3 filesystem rather than Amazon&apos;s EMRFS, and is not compatible
+with Amazon-specific features such as S3 encryption and consistent views. If you need to use these
+features, you will need to make the Amazon EMR Hadoop JARs available to Druid through one of the
+mechanisms described in the <a href="#using-other-hadoop-distributions">Using other Hadoop distributions</a> section.</p>
+<h2 id="using-other-hadoop-distributions"><a name="using-other-hadoop-distributions" class="anchor-navigation-ex-anchor" href="#using-other-hadoop-distributions"><i class="fa fa-link" aria-hidden="true"></i></a>1.10. Using other Hadoop distributions</h2>
+<p>Druid works out of the box with many Hadoop distributions.</p>
+<p>If you are having dependency conflicts between Druid and your version of Hadoop, you can try
+searching for a solution in the <a href="https://groups.google.com/forum/#!forum/druid-user" target="_blank">Druid user groups</a>, or reading the
+Druid <a href="../operations/other-hadoop.html">Different Hadoop Versions</a> documentation.</p>
+<p><a name="cli"></a></p>
+<h2 id="command-line-non-task-version"><a name="command-line-non-task-version" class="anchor-navigation-ex-anchor" href="#command-line-non-task-version"><i class="fa fa-link" aria-hidden="true"></i></a>1.11. Command line (non-task) version</h2>
+<p>To run:</p>
+<pre><code>java -Xmx256m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -classpath lib/*:&lt;hadoop_config_dir&gt; org.apache.druid.cli.Main index hadoop &lt;spec_file&gt;
+</code></pre><h3 id="options"><a name="options" class="anchor-navigation-ex-anchor" href="#options"><i class="fa fa-link" aria-hidden="true"></i></a>1.11.1. Options</h3>
+<ul>
+<li>&quot;--coordinate&quot; - provide a version of Apache Hadoop to use. This property will override the default Hadoop coordinates. Once specified, Apache Druid will look for those Hadoop dependencies from the location specified by <code>druid.extensions.hadoopDependenciesDir</code>.</li>
+<li>&quot;--no-default-hadoop&quot; - don&apos;t pull down the default hadoop version</li>
+</ul>
+<h3 id="spec-file"><a name="spec-file" class="anchor-navigation-ex-anchor" href="#spec-file"><i class="fa fa-link" aria-hidden="true"></i></a>1.11.2. Spec file</h3>
+<p>The spec file needs to contain a JSON object where the contents are the same as the &quot;spec&quot; field in the Hadoop index task. See <a href="hadoop.html">Hadoop Batch Ingestion</a> for details on the spec format.</p>
+<p>In addition, a <code>metadataUpdateSpec</code> and <code>segmentOutputPath</code> field needs to be added to the ioConfig:</p>
+<pre><code>      &quot;ioConfig&quot; : {
+        ...
+        &quot;metadataUpdateSpec&quot; : {
+          &quot;type&quot;:&quot;mysql&quot;,
+          &quot;connectURI&quot; : &quot;jdbc:mysql://localhost:3306/druid&quot;,
+          &quot;password&quot; : &quot;diurd&quot;,
+          &quot;segmentTable&quot; : &quot;druid_segments&quot;,
+          &quot;user&quot; : &quot;druid&quot;
+        },
+        &quot;segmentOutputPath&quot; : &quot;/MyDirectory/data/index/output&quot;
+      },
+</code></pre><p>and a <code>workingPath</code> field needs to be added to the tuningConfig:</p>
+<pre><code>  &quot;tuningConfig&quot; : {
+   ...
+    &quot;workingPath&quot;: &quot;/tmp&quot;,
+    ...
+  }
+</code></pre><h4 id="metadata-update-job-spec"><a name="metadata-update-job-spec" class="anchor-navigation-ex-anchor" href="#metadata-update-job-spec"><i class="fa fa-link" aria-hidden="true"></i></a>Metadata Update Job Spec</h4>
+<p>This is a specification of the properties that tell the job how to update metadata such that the Druid cluster will see the output segments and load them.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>String</td>
+<td>&quot;metadata&quot; is the only value available.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>connectURI</td>
+<td>String</td>
+<td>A valid JDBC url to metadata storage.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>user</td>
+<td>String</td>
+<td>Username for db.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>password</td>
+<td>String</td>
+<td>password for db.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>segmentTable</td>
+<td>String</td>
+<td>Table to use in DB.</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<p>These properties should parrot what you have configured for your <a href="../design/coordinator.md">Coordinator</a>.</p>
+<h4 id="segmentoutputpath-config"><a name="segmentoutputpath-config" class="anchor-navigation-ex-anchor" href="#segmentoutputpath-config"><i class="fa fa-link" aria-hidden="true"></i></a>segmentOutputPath Config</h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>segmentOutputPath</td>
+<td>String</td>
+<td>the path to dump segments into.</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<h4 id="workingpath-config"><a name="workingpath-config" class="anchor-navigation-ex-anchor" href="#workingpath-config"><i class="fa fa-link" aria-hidden="true"></i></a>workingPath Config</h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>workingPath</td>
+<td>String</td>
+<td>the working path to use for intermediate results (results between Hadoop jobs).</td>
+<td>no (default == &apos;/tmp/druid-indexing&apos;)</td>
+</tr>
+</tbody>
+</table>
+<p>Please note that the command line Hadoop indexer doesn&apos;t have the locking capabilities of the indexing service, so if you choose to use it,
+you have to take caution to not override segments created by real-time processing (if you that a real-time pipeline set up).</p>
+<footer class="page-footer"><span class="copyright">Copyright <a target="_blank" href="https://druid.org.cn">druid.org.cn</a> 2021 .&#x672C;&#x6587;&#x7FFB;&#x8BD1;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/ingestion/hadoop.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
+2021-04-23 21:43:10
+</span></footer>
+                                
+                                </section>
+                            
+    </div>
+    <div class="search-results">
+        <div class="has-results">
+            
+            <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+            <ul class="search-results-list"></ul>
+            
+        </div>
+        <div class="no-results">
+            
+            <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+            
+        </div>
+    </div>
+</div>
+
+                        </div>
+                    </div>
+                
+            </div>
+
+            
+                
+                <a href="native-batch.html" class="navigation navigation-prev " aria-label="Previous page: 本地模式">
+                    <i class="fa fa-angle-left"></i>
+                </a>
+                
+                
+                <a href="tasks.html" class="navigation navigation-next " aria-label="Next page: Druid中的任务">
+                    <i class="fa fa-angle-right"></i>
+                </a>
+                
+            
+        
+    </div>
+
+    <script>
+        var gitbook = gitbook || [];
+        gitbook.push(function() {
+            gitbook.page.hasChanged({"page":{"id":"hadoop","title":"从Hadoop导入","sidebar_label":"Hadoop-based","level":"1.5.6.2","depth":3,"next":{"title":"Druid中的任务","level":"1.5.7","depth":2,"path":"ingestion/tasks.md","ref":"ingestion/tasks.md","articles":[]},"previous":{"title":"本地模式","level":"1.5.6.1","depth":3,"path":"ingestion/native-batch.md","ref":"ingestion/native-batch.md","articles":[]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"Copyright <a target=\"_blank\" href=\"https://druid.org.cn\">druid.org.cn</a> 2021 .本文翻译自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"ingestion/hadoop.md","mtime":"2021-04-23T13:43:10.293Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-04-24T03:56:48.676Z"},"basePath":"..","book":{"language":""}});
+        });
+    </script>
+</div>
+
+        
+    <script src="../gitbook/gitbook.js"></script>
+    <script src="../gitbook/theme.js"></script>
+    
+        
+        <script src="../gitbook/gitbook-plugin-livereload/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/search.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-code/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-auto-scroll-table/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-hide-element/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-github/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-sharing/buttons.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+        
+    
+
+    </body>
+</html>
+

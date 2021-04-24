@@ -1,0 +1,2720 @@
+
+<!DOCTYPE HTML>
+<html lang="" >
+    <head>
+        <meta charset="UTF-8">
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <title>从Amazon Kinesis摄入 · GitBook</title>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="description" content="">
+        <meta name="generator" content="GitBook 3.2.3">
+        
+        
+        
+    
+    <link rel="stylesheet" href="../../gitbook/style.css">
+
+    
+            
+                
+                <link rel="stylesheet" href="../../gitbook/gitbook-plugin-highlight/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../../gitbook/gitbook-plugin-search-pro/search.css">
+                
+            
+                
+                <link rel="stylesheet" href="../../gitbook/gitbook-plugin-code/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../../gitbook/gitbook-plugin-tbfed-pagefooter/footer.css">
+                
+            
+                
+                <link rel="stylesheet" href="../../gitbook/gitbook-plugin-anchor-navigation-ex/style/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../../gitbook/gitbook-plugin-auto-scroll-table/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../../gitbook/gitbook-plugin-fontsettings/website.css">
+                
+            
+        
+
+    
+
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+
+        
+    
+    
+    <meta name="HandheldFriendly" content="true"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon-precomposed" sizes="152x152" href="../../gitbook/images/apple-touch-icon-precomposed-152.png">
+    <link rel="shortcut icon" href="../../gitbook/images/favicon.ico" type="image/x-icon">
+
+    
+    <link rel="next" href="../../ingestion/tranquility.html" />
+    
+    
+    <link rel="prev" href="kafka-ingestion.html" />
+    
+
+    </head>
+    <body>
+        
+<div class="book">
+    <div class="book-summary">
+        
+            
+<div id="book-search-input" role="search">
+    <input type="text" placeholder="Type to search" />
+</div>
+
+            
+                <nav role="navigation">
+                
+
+
+<ul class="summary">
+    
+    
+
+    
+
+    
+        
+        
+    
+        <li class="chapter " data-level="1.1" data-path="../../">
+            
+                <a href="../../">
+            
+                    
+                    前言
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2" >
+            
+                <span>
+            
+                    
+                    开始
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.2.1" data-path="../../design/">
+            
+                <a href="../../design/">
+            
+                    
+                    Apache Druid简介
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.2" data-path="../../tutorials/">
+            
+                <a href="../../tutorials/">
+            
+                    
+                    快速入门
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.3" data-path="../../tutorials/docker.html">
+            
+                <a href="../../tutorials/docker.html">
+            
+                    
+                    Docker
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.4" data-path="../../operations/single-server.html">
+            
+                <a href="../../operations/single-server.html">
+            
+                    
+                    单机部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.5" data-path="../../tutorials/cluster.html">
+            
+                <a href="../../tutorials/cluster.html">
+            
+                    
+                    集群模式部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3" >
+            
+                <span>
+            
+                    
+                    指南
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.3.1" data-path="../../tutorials/tutorial-batch.html">
+            
+                <a href="../../tutorials/tutorial-batch.html">
+            
+                    
+                    从本地文件摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.2" data-path="../../tutorials/tutorial-kafka.html">
+            
+                <a href="../../tutorials/tutorial-kafka.html">
+            
+                    
+                    从Kafka摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.3" data-path="../../tutorials/tutorial-batch-hadoop.html">
+            
+                <a href="../../tutorials/tutorial-batch-hadoop.html">
+            
+                    
+                    从Haddop摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.4" data-path="../../tutorials/tutorial-query.html">
+            
+                <a href="../../tutorials/tutorial-query.html">
+            
+                    
+                    查询数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.5" data-path="../../tutorials/tutorial-rollup.html">
+            
+                <a href="../../tutorials/tutorial-rollup.html">
+            
+                    
+                    预聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.6" data-path="../../tutorials/tutorial-retention.html">
+            
+                <a href="../../tutorials/tutorial-retention.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.7" data-path="../../tutorials/tutorial-update-data.html">
+            
+                <a href="../../tutorials/tutorial-update-data.html">
+            
+                    
+                    更新数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.8" data-path="../../tutorials/tutorial-compaction.html">
+            
+                <a href="../../tutorials/tutorial-compaction.html">
+            
+                    
+                    数据文件合并
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.9" data-path="../../tutorials/tutorial-delete-data.html">
+            
+                <a href="../../tutorials/tutorial-delete-data.html">
+            
+                    
+                    删除数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.10" data-path="../../tutorials/tutorial-ingestion-spec.html">
+            
+                <a href="../../tutorials/tutorial-ingestion-spec.html">
+            
+                    
+                    编写数据摄入规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.11" data-path="../../tutorials/tutorial-transform-spec.html">
+            
+                <a href="../../tutorials/tutorial-transform-spec.html">
+            
+                    
+                    转换摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.12" data-path="../../tutorials/tutorial-kerberos-hadoop.html">
+            
+                <a href="../../tutorials/tutorial-kerberos-hadoop.html">
+            
+                    
+                    设置Kerberos认证的HDFS作为深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4" >
+            
+                <span>
+            
+                    
+                    设计
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.4.1" data-path="../../design/architecture.html">
+            
+                <a href="../../design/architecture.html">
+            
+                    
+                    整体架构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.2" data-path="../../design/segments.html">
+            
+                <a href="../../design/segments.html">
+            
+                    
+                    存储结构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.3" data-path="../../design/processes">
+            
+                <span>
+            
+                    
+                    进程与服务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.4" data-path="../../dependencies/deep-storage.html">
+            
+                <a href="../../dependencies/deep-storage.html">
+            
+                    
+                    深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.5" data-path="../../dependencies/metadata-storage.html">
+            
+                <a href="../../dependencies/metadata-storage.html">
+            
+                    
+                    元数据存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.6" data-path="../../dependencies/zookeeper.html">
+            
+                <a href="../../dependencies/zookeeper.html">
+            
+                    
+                    Zookeeper
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5" >
+            
+                <span>
+            
+                    
+                    数据摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.1" data-path="../../ingestion/">
+            
+                <a href="../../ingestion/">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.2" data-path="../../ingestion/data-formats.html">
+            
+                <a href="../../ingestion/data-formats.html">
+            
+                    
+                    数据格式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.3" data-path="../../ingestion/schema-design.html">
+            
+                <a href="../../ingestion/schema-design.html">
+            
+                    
+                    Schema定义
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.4" data-path="../../ingestion/data-management.html">
+            
+                <a href="../../ingestion/data-management.html">
+            
+                    
+                    数据管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5" >
+            
+                <span>
+            
+                    
+                    实时摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.5.1" data-path="kafka-ingestion.html">
+            
+                <a href="kafka-ingestion.html">
+            
+                    
+                    从Kafka摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter active" data-level="1.5.5.2" data-path="kinesis-ingestion.html">
+            
+                <a href="kinesis-ingestion.html">
+            
+                    
+                    从Amazon Kinesis摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.3" data-path="../../ingestion/tranquility.html">
+            
+                <a href="../../ingestion/tranquility.html">
+            
+                    
+                    从Tranqulity摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.4" data-path="../../ingestion/standalone-realtime.html">
+            
+                <a href="../../ingestion/standalone-realtime.html">
+            
+                    
+                    独立实时模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6" >
+            
+                <span>
+            
+                    
+                    批量导入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.6.1" data-path="../../ingestion/native-batch.html">
+            
+                <a href="../../ingestion/native-batch.html">
+            
+                    
+                    本地模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6.2" data-path="../../ingestion/hadoop.html">
+            
+                <a href="../../ingestion/hadoop.html">
+            
+                    
+                    从Hadoop导入
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.7" data-path="../../ingestion/tasks.html">
+            
+                <a href="../../ingestion/tasks.html">
+            
+                    
+                    Druid中的任务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.8" data-path="../../ingestion/faq.html">
+            
+                <a href="../../ingestion/faq.html">
+            
+                    
+                    FAQ
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6" >
+            
+                <span>
+            
+                    
+                    数据查询
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.1" data-path="../../querying/sql.html">
+            
+                <a href="../../querying/sql.html">
+            
+                    
+                    通过SQL查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.2" data-path="../../querying/querying.html">
+            
+                <a href="../../querying/querying.html">
+            
+                    
+                    通过JSON查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.3" data-path="../../querying/query-execution.html">
+            
+                <a href="../../querying/query-execution.html">
+            
+                    
+                    查询执行流程
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4" >
+            
+                <span>
+            
+                    
+                    主要概念
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.4.1" data-path="../../querying/datasource.html">
+            
+                <a href="../../querying/datasource.html">
+            
+                    
+                    数据源(datasource)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.2" data-path="../../querying/joins.html">
+            
+                <a href="../../querying/joins.html">
+            
+                    
+                    联合查询(join)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.3" data-path="../../querying/lookups.html">
+            
+                <a href="../../querying/lookups.html">
+            
+                    
+                    字典查询(lookups)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.4" data-path="../../querying/multi-value-dimensions.html">
+            
+                <a href="../../querying/multi-value-dimensions.html">
+            
+                    
+                    结构化列值(multi-value-dimensions)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.5" data-path="../../querying/multitenancy.html">
+            
+                <a href="../../querying/multitenancy.html">
+            
+                    
+                    多租户
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.6" data-path="../../querying/caching.html">
+            
+                <a href="../../querying/caching.html">
+            
+                    
+                    查询缓存
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.7" data-path="../../querying/query-context.html">
+            
+                <a href="../../querying/query-context.html">
+            
+                    
+                    查询上下文
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5" >
+            
+                <span>
+            
+                    
+                    JSON查询类型
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.5.1" data-path="../../querying/timeseriesquery.html">
+            
+                <a href="../../querying/timeseriesquery.html">
+            
+                    
+                    Timeseries
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.2" data-path="../../querying/topnquery.html">
+            
+                <a href="../../querying/topnquery.html">
+            
+                    
+                    TopN
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.3" data-path="../../querying/groupbyquery.html">
+            
+                <a href="../../querying/groupbyquery.html">
+            
+                    
+                    GroupBy
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.4" data-path="../../querying/scan-query.html">
+            
+                <a href="../../querying/scan-query.html">
+            
+                    
+                    Scan
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.5" data-path="../../querying/searchquery.html">
+            
+                <a href="../../querying/searchquery.html">
+            
+                    
+                    Search
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.6" data-path="../../querying/timeboundaryquery.html">
+            
+                <a href="../../querying/timeboundaryquery.html">
+            
+                    
+                    TimeBoundary
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.7" data-path="../../querying/segmentmetadataquery.html">
+            
+                <a href="../../querying/segmentmetadataquery.html">
+            
+                    
+                    SegmentMetaData
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.8" data-path="../../querying/datasourcemetadataquery.html">
+            
+                <a href="../../querying/datasourcemetadataquery.html">
+            
+                    
+                    DatasourceMetadata
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6" >
+            
+                <span>
+            
+                    
+                    JSON查询结构
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.6.1" data-path="../../querying/filters.html">
+            
+                <a href="../../querying/filters.html">
+            
+                    
+                    过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.2" data-path="../../querying/granularities.html">
+            
+                <a href="../../querying/granularities.html">
+            
+                    
+                    时间粒度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.3" data-path="../../querying/dimensionspecs.html">
+            
+                <a href="../../querying/dimensionspecs.html">
+            
+                    
+                    数据维度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.4" data-path="../../querying/aggregations.html">
+            
+                <a href="../../querying/aggregations.html">
+            
+                    
+                    聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.5" data-path="../../querying/post-aggregations.html">
+            
+                <a href="../../querying/post-aggregations.html">
+            
+                    
+                    后置聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.6" data-path="../../misc/math-expr.html">
+            
+                <a href="../../misc/math-expr.html">
+            
+                    
+                    数学函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.7" data-path="../../querying/having.html">
+            
+                <a href="../../querying/having.html">
+            
+                    
+                    表达式与函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.8" data-path="../../querying/limitspec.html">
+            
+                <a href="../../querying/limitspec.html">
+            
+                    
+                    Having过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.9" data-path="../../querying/topnmetricspec.html">
+            
+                <a href="../../querying/topnmetricspec.html">
+            
+                    
+                    TopN排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.10" data-path="../../querying/sorting-orders.html">
+            
+                <a href="../../querying/sorting-orders.html">
+            
+                    
+                    排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.11" data-path="../../querying/virtual-columns.html">
+            
+                <a href="../../querying/virtual-columns.html">
+            
+                    
+                    虚拟字段
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.12" data-path="../geo.html">
+            
+                <a href="../geo.html">
+            
+                    
+                    空间过滤
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7" >
+            
+                <span>
+            
+                    
+                    配置
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.7.1" data-path="../../configuration/">
+            
+                <a href="../../configuration/">
+            
+                    
+                    概述
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.2" data-path="../extensions.html">
+            
+                <a href="../extensions.html">
+            
+                    
+                    扩展组件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.3" data-path="../../configuration/logging.html">
+            
+                <a href="../../configuration/logging.html">
+            
+                    
+                    运行日志
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8" >
+            
+                <span>
+            
+                    
+                    运维
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.1" data-path="../../operations/druid-console.html">
+            
+                <a href="../../operations/druid-console.html">
+            
+                    
+                    Web控制台
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2" data-path="../../operations/getting-started.html">
+            
+                <a href="../../operations/getting-started.html">
+            
+                    
+                    快速开始
+            
+                </a>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1" >
+            
+                <span>
+            
+                    
+                    安全
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1.1" data-path="../../operations/security-overview.html">
+            
+                <a href="../../operations/security-overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.2" data-path="../../operations/security-user-auth.html">
+            
+                <a href="../../operations/security-user-auth.html">
+            
+                    
+                    用户认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.3" data-path="../../operations/auth-ldap.html">
+            
+                <a href="../../operations/auth-ldap.html">
+            
+                    
+                    LDAP认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.4" data-path="../../operations/password-provider.html">
+            
+                <a href="../../operations/password-provider.html">
+            
+                    
+                    密码管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.5" data-path="../../design/auth.html">
+            
+                <a href="../../design/auth.html">
+            
+                    
+                    认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.6" data-path="../../operations/tls-support.html">
+            
+                <a href="../../operations/tls-support.html">
+            
+                    
+                    TLS加密支持
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2" >
+            
+                <span>
+            
+                    
+                    性能
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.2.1" data-path="../../operations/basic-cluster-tuning.html">
+            
+                <a href="../../operations/basic-cluster-tuning.html">
+            
+                    
+                    集群调优
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.2" data-path="../../operations/segment-optimization.html">
+            
+                <a href="../../operations/segment-optimization.html">
+            
+                    
+                    数据段文件优化
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.3" data-path="../../operations/http-compression.html">
+            
+                <a href="../../operations/http-compression.html">
+            
+                    
+                    HTTP压缩
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.3" data-path="../../operations/api-reference.html">
+            
+                <a href="../../operations/api-reference.html">
+            
+                    
+                    API手册
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.4" data-path="../../operations/high-availability.html">
+            
+                <a href="../../operations/high-availability.html">
+            
+                    
+                    高可用
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.5" data-path="../../operations/rolling-updates.html">
+            
+                <a href="../../operations/rolling-updates.html">
+            
+                    
+                    滚动版本升级
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.6" data-path="../../operations/rule-configuration.html">
+            
+                <a href="../../operations/rule-configuration.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.7" data-path="../../operations/metrics.html">
+            
+                <a href="../../operations/metrics.html">
+            
+                    
+                    应用指标
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.8" data-path="../../operations/alerts.html">
+            
+                <a href="../../operations/alerts.html">
+            
+                    
+                    告警
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.9" data-path="../../operations/other-hadoop.html">
+            
+                <a href="../../operations/other-hadoop.html">
+            
+                    
+                    Hadoop相关
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.10.1" data-path="../../operations/management-uis.html">
+            
+                <a href="../../operations/management-uis.html">
+            
+                    
+                    管理界面
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.2" data-path="../../operations/dump-segment.html">
+            
+                <a href="../../operations/dump-segment.html">
+            
+                    
+                    导出数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.3" data-path="../../operations/reset-cluster.html">
+            
+                <a href="../../operations/reset-cluster.html">
+            
+                    
+                    重置集群
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.4" data-path="../../operations/insert-segment-to-db.html">
+            
+                <a href="../../operations/insert-segment-to-db.html">
+            
+                    
+                    插入数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.5" data-path="../../operations/pull-deps.html">
+            
+                <a href="../../operations/pull-deps.html">
+            
+                    
+                    pull-deps工具
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.6" data-path="../../operations/deep-storage-migration.html">
+            
+                <a href="../../operations/deep-storage-migration.html">
+            
+                    
+                    迁移深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.7" data-path="../../operations/export-metadata.html">
+            
+                <a href="../../operations/export-metadata.html">
+            
+                    
+                    导出元数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.8" data-path="../../operations/metadata-migration.html">
+            
+                <a href="../../operations/metadata-migration.html">
+            
+                    
+                    元数据迁移
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.9" data-path="../../operations/use_sbt_to_build_fat_jar.html">
+            
+                <a href="../../operations/use_sbt_to_build_fat_jar.html">
+            
+                    
+                    打包fat jar
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9" >
+            
+                <span>
+            
+                    
+                    Druid开发
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.9.1" data-path="../overview.html">
+            
+                <a href="../overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.2" data-path="../modules.html">
+            
+                <a href="../modules.html">
+            
+                    
+                    模块
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.3" data-path="../javascript.html">
+            
+                <a href="../javascript.html">
+            
+                    
+                    javascript
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.4" data-path="../build.html">
+            
+                <a href="../build.html">
+            
+                    
+                    构建
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.5" data-path="../versioning.html">
+            
+                <a href="../versioning.html">
+            
+                    
+                    版本
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.6" data-path="../experimental.html">
+            
+                <a href="../experimental.html">
+            
+                    
+                    实验功能
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.10.1" data-path="../../misc/papers-and-talks.html">
+            
+                <a href="../../misc/papers-and-talks.html">
+            
+                    
+                    论文与演讲
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+    
+
+    <li class="divider"></li>
+
+    <li>
+        <a href="https://www.gitbook.com" target="blank" class="gitbook-link">
+            Published with GitBook
+        </a>
+    </li>
+</ul>
+
+
+                </nav>
+            
+        
+    </div>
+
+    <div class="book-body">
+        
+            <div class="body-inner">
+                
+                    
+
+<div class="book-header" role="navigation">
+    
+
+    <!-- Title -->
+    <h1>
+        <i class="fa fa-circle-o-notch fa-spin"></i>
+        <a href="../.." >从Amazon Kinesis摄入</a>
+    </h1>
+</div>
+
+
+
+
+                    <div class="page-wrapper" tabindex="-1" role="main">
+                        <div class="page-inner">
+                            
+<div id="book-search-results">
+    <div class="search-noresults">
+    
+                                <section class="normal markdown-section">
+                                
+                                <div id="anchor-navigation-ex-navbar"><i class="fa fa-navicon"></i><ul><ul><li><span class="title-icon "></span><a href="#submitting-a-supervisor-spec"><b>1.1. </b>Submitting a Supervisor Spec</a></li><li><span class="title-icon "></span><a href="#supervisor-spec"><b>1.2. </b>Supervisor Spec</a></li><ul><li><span class="title-icon "></span><a href="#kinesissupervisorioconfig"><b>1.2.1. </b>KinesisSupervisorIOConfig</a></li><li><span class="title-icon "></span><a href="#kinesissupervisortuningconfig"><b>1.2.2. </b>KinesisSupervisorTuningConfig</a></li></ul><li><span class="title-icon "></span><a href="#operations"><b>1.3. </b>Operations</a></li><ul><li><span class="title-icon "></span><a href="#aws-authentication"><b>1.3.1. </b>AWS Authentication</a></li><li><span class="title-icon "></span><a href="#getting-supervisor-status-report"><b>1.3.2. </b>Getting Supervisor Status Report</a></li><li><span class="title-icon "></span><a href="#updating-existing-supervisors"><b>1.3.3. </b>Updating Existing Supervisors</a></li><li><span class="title-icon "></span><a href="#suspending-and-resuming-supervisors"><b>1.3.4. </b>Suspending and Resuming Supervisors</a></li><li><span class="title-icon "></span><a href="#resetting-supervisors"><b>1.3.5. </b>Resetting Supervisors</a></li><li><span class="title-icon "></span><a href="#terminating-supervisors"><b>1.3.6. </b>Terminating Supervisors</a></li><li><span class="title-icon "></span><a href="#capacity-planning"><b>1.3.7. </b>Capacity Planning</a></li><li><span class="title-icon "></span><a href="#supervisor-persistence"><b>1.3.8. </b>Supervisor Persistence</a></li><li><span class="title-icon "></span><a href="#schemaconfiguration-changes"><b>1.3.9. </b>Schema/Configuration Changes</a></li><li><span class="title-icon "></span><a href="#deployment-notes"><b>1.3.10. </b>Deployment Notes</a></li><li><span class="title-icon "></span><a href="#determining-fetch-settings"><b>1.3.11. </b>Determining Fetch Settings</a></li></ul><li><span class="title-icon "></span><a href="#deaggregation"><b>1.4. </b>Deaggregation</a></li><li><span class="title-icon "></span><a href="#resharding"><b>1.5. </b>Resharding</a></li></ul></ul></div><a href="#" id="anchorNavigationExGoTop"><i class="fa fa-arrow-up"></i></a><!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one
+  ~ or more contributor license agreements.  See the NOTICE file
+  ~ distributed with this work for additional information
+  ~ regarding copyright ownership.  The ASF licenses this file
+  ~ to you under the Apache License, Version 2.0 (the
+  ~ "License"); you may not use this file except in compliance
+  ~ with the License.  You may obtain a copy of the License at
+  ~
+  ~   http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing,
+  ~ software distributed under the License is distributed on an
+  ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  ~ KIND, either express or implied.  See the License for the
+  ~ specific language governing permissions and limitations
+  ~ under the License.
+  -->
+<p>Similar to the <a href="kafka-ingestion.html">Kafka indexing service</a>, the Kinesis indexing service enables the configuration of <em>supervisors</em> on the Overlord, which facilitate ingestion from
+Kinesis by managing the creation and lifetime of Kinesis indexing tasks. These indexing tasks read events using Kinesis&apos;s own
+Shards and Sequence Number mechanism and are therefore able to provide guarantees of exactly-once ingestion.
+The supervisor oversees the state of the indexing tasks to coordinate handoffs, manage failures,
+and ensure that the scalability and replication requirements are maintained.</p>
+<p>The Kinesis indexing service is provided as the <code>druid-kinesis-indexing-service</code> core Apache Druid extension (see
+<a href="../extensions.html#loading-extensions">Including Extensions</a>). Please note that this is
+currently designated as an <em>experimental feature</em> and is subject to the usual
+<a href="../experimental.html">experimental caveats</a>.</p>
+<h2 id="submitting-a-supervisor-spec"><a name="submitting-a-supervisor-spec" class="anchor-navigation-ex-anchor" href="#submitting-a-supervisor-spec"><i class="fa fa-link" aria-hidden="true"></i></a>1.1. Submitting a Supervisor Spec</h2>
+<p>The Kinesis indexing service requires that the <code>druid-kinesis-indexing-service</code> extension be loaded on both the Overlord
+and the MiddleManagers. A supervisor for a dataSource is started by submitting a supervisor spec via HTTP POST to
+<code>http://&lt;OVERLORD_IP&gt;:&lt;OVERLORD_PORT&gt;/druid/indexer/v1/supervisor</code>, for example:</p>
+<pre><code>curl -X POST -H &apos;Content-Type: application/json&apos; -d @supervisor-spec.json http://localhost:8090/druid/indexer/v1/supervisor
+</code></pre><p>A sample supervisor spec is shown below:</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;kinesis&quot;</span>,
+  <span class="hljs-string">&quot;dataSchema&quot;</span>: {
+    <span class="hljs-string">&quot;dataSource&quot;</span>: <span class="hljs-string">&quot;metrics-kinesis&quot;</span>,
+    <span class="hljs-string">&quot;timestampSpec&quot;</span>: {
+      <span class="hljs-string">&quot;column&quot;</span>: <span class="hljs-string">&quot;timestamp&quot;</span>,
+      <span class="hljs-string">&quot;format&quot;</span>: <span class="hljs-string">&quot;auto&quot;</span>
+    },
+    <span class="hljs-string">&quot;dimensionsSpec&quot;</span>: {
+      <span class="hljs-string">&quot;dimensions&quot;</span>: [],
+      <span class="hljs-string">&quot;dimensionExclusions&quot;</span>: [
+        <span class="hljs-string">&quot;timestamp&quot;</span>,
+        <span class="hljs-string">&quot;value&quot;</span>
+      ]
+    },
+    <span class="hljs-string">&quot;metricsSpec&quot;</span>: [
+      {
+        <span class="hljs-string">&quot;name&quot;</span>: <span class="hljs-string">&quot;count&quot;</span>,
+        <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;count&quot;</span>
+      },
+      {
+        <span class="hljs-string">&quot;name&quot;</span>: <span class="hljs-string">&quot;value_sum&quot;</span>,
+        <span class="hljs-string">&quot;fieldName&quot;</span>: <span class="hljs-string">&quot;value&quot;</span>,
+        <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;doubleSum&quot;</span>
+      },
+      {
+        <span class="hljs-string">&quot;name&quot;</span>: <span class="hljs-string">&quot;value_min&quot;</span>,
+        <span class="hljs-string">&quot;fieldName&quot;</span>: <span class="hljs-string">&quot;value&quot;</span>,
+        <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;doubleMin&quot;</span>
+      },
+      {
+        <span class="hljs-string">&quot;name&quot;</span>: <span class="hljs-string">&quot;value_max&quot;</span>,
+        <span class="hljs-string">&quot;fieldName&quot;</span>: <span class="hljs-string">&quot;value&quot;</span>,
+        <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;doubleMax&quot;</span>
+      }
+    ],
+    <span class="hljs-string">&quot;granularitySpec&quot;</span>: {
+      <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;uniform&quot;</span>,
+      <span class="hljs-string">&quot;segmentGranularity&quot;</span>: <span class="hljs-string">&quot;HOUR&quot;</span>,
+      <span class="hljs-string">&quot;queryGranularity&quot;</span>: <span class="hljs-string">&quot;NONE&quot;</span>
+    }
+  },
+  <span class="hljs-string">&quot;ioConfig&quot;</span>: {
+    <span class="hljs-string">&quot;stream&quot;</span>: <span class="hljs-string">&quot;metrics&quot;</span>,
+    <span class="hljs-string">&quot;inputFormat&quot;</span>: {
+      <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;json&quot;</span>
+    },
+    <span class="hljs-string">&quot;endpoint&quot;</span>: <span class="hljs-string">&quot;kinesis.us-east-1.amazonaws.com&quot;</span>,
+    <span class="hljs-string">&quot;taskCount&quot;</span>: <span class="hljs-number">1</span>,
+    <span class="hljs-string">&quot;replicas&quot;</span>: <span class="hljs-number">1</span>,
+    <span class="hljs-string">&quot;taskDuration&quot;</span>: <span class="hljs-string">&quot;PT1H&quot;</span>,
+    <span class="hljs-string">&quot;recordsPerFetch&quot;</span>: <span class="hljs-number">2000</span>,
+    <span class="hljs-string">&quot;fetchDelayMillis&quot;</span>: <span class="hljs-number">1000</span>
+  },
+  <span class="hljs-string">&quot;tuningConfig&quot;</span>: {
+    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;kinesis&quot;</span>,
+    <span class="hljs-string">&quot;maxRowsPerSegment&quot;</span>: <span class="hljs-number">5000000</span>
+  }
+}
+</code></pre>
+<h2 id="supervisor-spec"><a name="supervisor-spec" class="anchor-navigation-ex-anchor" href="#supervisor-spec"><i class="fa fa-link" aria-hidden="true"></i></a>1.2. Supervisor Spec</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>The supervisor type, this should always be <code>kinesis</code>.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>dataSchema</code></td>
+<td>The schema that will be used by the Kinesis indexing task during ingestion. See <a href="../../ingestion/#dataschema"><code>dataSchema</code></a>.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>ioConfig</code></td>
+<td>A KinesisSupervisorIOConfig object for configuring Kafka connection and I/O-related settings for the supervisor and indexing task. See <a href="#kinesissupervisorioconfig">KinesisSupervisorIOConfig</a> below.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>tuningConfig</code></td>
+<td>A KinesisSupervisorTuningConfig object for configuring performance-related settings for the supervisor and indexing tasks. See <a href="#kinesissupervisortuningconfig">KinesisSupervisorTuningConfig</a> below.</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<h3 id="kinesissupervisorioconfig"><a name="kinesissupervisorioconfig" class="anchor-navigation-ex-anchor" href="#kinesissupervisorioconfig"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.1. KinesisSupervisorIOConfig</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>stream</code></td>
+<td>String</td>
+<td>The Kinesis stream to read.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>inputFormat</code></td>
+<td>Object</td>
+<td><a href="../../ingestion/data-formats.html#input-format"><code>inputFormat</code></a> to specify how to parse input data. See <a href="#specifying-data-format">the below section</a> for details about specifying the input format.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>endpoint</code></td>
+<td>String</td>
+<td>The AWS Kinesis stream endpoint for a region. You can find a list of endpoints <a href="http://docs.aws.amazon.com/general/latest/gr/rande.html#ak_region" target="_blank">here</a>.</td>
+<td>no (default == kinesis.us-east-1.amazonaws.com)</td>
+</tr>
+<tr>
+<td><code>replicas</code></td>
+<td>Integer</td>
+<td>The number of replica sets, where 1 means a single set of tasks (no replication). Replica tasks will always be assigned to different workers to provide resiliency against process failure.</td>
+<td>no (default == 1)</td>
+</tr>
+<tr>
+<td><code>taskCount</code></td>
+<td>Integer</td>
+<td>The maximum number of <em>reading</em> tasks in a <em>replica set</em>. This means that the maximum number of reading tasks will be <code>taskCount * replicas</code> and the total number of tasks (<em>reading</em> + <em>publishing</em>) will be higher than this. See <a href="#capacity-planning">Capacity Planning</a> below for more details. The number of reading tasks will be less than <code>taskCount</code> if <code>taskCount &gt; {numKinesisShards}</code>.</td>
+<td>no (default == 1)</td>
+</tr>
+<tr>
+<td><code>taskDuration</code></td>
+<td>ISO8601 Period</td>
+<td>The length of time before tasks stop reading and begin publishing their segment.</td>
+<td>no (default == PT1H)</td>
+</tr>
+<tr>
+<td><code>startDelay</code></td>
+<td>ISO8601 Period</td>
+<td>The period to wait before the supervisor starts managing tasks.</td>
+<td>no (default == PT5S)</td>
+</tr>
+<tr>
+<td><code>period</code></td>
+<td>ISO8601 Period</td>
+<td>How often the supervisor will execute its management logic. Note that the supervisor will also run in response to certain events (such as tasks succeeding, failing, and reaching their taskDuration) so this value specifies the maximum time between iterations.</td>
+<td>no (default == PT30S)</td>
+</tr>
+<tr>
+<td><code>useEarliestSequenceNumber</code></td>
+<td>Boolean</td>
+<td>If a supervisor is managing a dataSource for the first time, it will obtain a set of starting sequence numbers from Kinesis. This flag determines whether it retrieves the earliest or latest sequence numbers in Kinesis. Under normal circumstances, subsequent tasks will start from where the previous segments ended so this flag will only be used on first run.</td>
+<td>no (default == false)</td>
+</tr>
+<tr>
+<td><code>completionTimeout</code></td>
+<td>ISO8601 Period</td>
+<td>The length of time to wait before declaring a publishing task as failed and terminating it. If this is set too low, your tasks may never publish. The publishing clock for a task begins roughly after <code>taskDuration</code> elapses.</td>
+<td>no (default == PT6H)</td>
+</tr>
+<tr>
+<td><code>lateMessageRejectionPeriod</code></td>
+<td>ISO8601 Period</td>
+<td>Configure tasks to reject messages with timestamps earlier than this period before the task was created; for example if this is set to <code>PT1H</code> and the supervisor creates a task at <em>2016-01-01T12:00Z</em>, messages with timestamps earlier than <em>2016-01-01T11:00Z</em> will be dropped. This may help prevent concurrency issues if your data stream has late messages and you have multiple pipelines that need to operate on the same segments (e.g. a realtime and a nightly batch ingestion pipeline).</td>
+<td>no (default == none)</td>
+</tr>
+<tr>
+<td><code>earlyMessageRejectionPeriod</code></td>
+<td>ISO8601 Period</td>
+<td>Configure tasks to reject messages with timestamps later than this period after the task reached its taskDuration; for example if this is set to <code>PT1H</code>, the taskDuration is set to <code>PT1H</code> and the supervisor creates a task at <em>2016-01-01T12:00Z</em>, messages with timestamps later than <em>2016-01-01T14:00Z</em> will be dropped. <strong>Note:</strong> Tasks sometimes run past their task duration, for example, in cases of supervisor failover. Setting earlyMessageRejectionPeriod too low may cause messages to be dropped unexpectedly whenever a task runs past its originally configured task duration.</td>
+<td>no (default == none)</td>
+</tr>
+<tr>
+<td><code>recordsPerFetch</code></td>
+<td>Integer</td>
+<td>The number of records to request per GetRecords call to Kinesis. See &apos;Determining Fetch Settings&apos; below.</td>
+<td>no (default == 2000)</td>
+</tr>
+<tr>
+<td><code>fetchDelayMillis</code></td>
+<td>Integer</td>
+<td>Time in milliseconds to wait between subsequent GetRecords calls to Kinesis. See &apos;Determining Fetch Settings&apos; below.</td>
+<td>no (default == 1000)</td>
+</tr>
+<tr>
+<td><code>awsAssumedRoleArn</code></td>
+<td>String</td>
+<td>The AWS assumed role to use for additional permissions.</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>awsExternalId</code></td>
+<td>String</td>
+<td>The AWS external id to use for additional permissions.</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>deaggregate</code></td>
+<td>Boolean</td>
+<td>Whether to use the de-aggregate function of the KCL. See below for details.</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<h4 id="specifying-data-format"><a name="specifying-data-format" class="anchor-navigation-ex-anchor" href="#specifying-data-format"><i class="fa fa-link" aria-hidden="true"></i></a>Specifying data format</h4>
+<p>Kinesis indexing service supports both <a href="../../ingestion/data-formats.html#input-format"><code>inputFormat</code></a> and <a href="../../ingestion/data-formats.html#parser"><code>parser</code></a> to specify the data format.
+The <code>inputFormat</code> is a new and recommended way to specify the data format for Kinesis indexing service,
+but unfortunately, it doesn&apos;t support all data formats supported by the legacy <code>parser</code>.
+(They will be supported in the future.)</p>
+<p>The supported <code>inputFormat</code>s include <a href="../../ingestion/data-formats.html#csv"><code>csv</code></a>,
+<a href="../../ingestion/data-formats.html#tsv-delimited"><code>delimited</code></a>, and <a href="../../ingestion/data-formats.html#json"><code>json</code></a>.
+You can also read <a href="../../ingestion/data-formats.html#avro-stream-parser"><code>avro_stream</code></a>,
+<a href="../../ingestion/data-formats.html#protobuf-parser"><code>protobuf</code></a>,
+and <a href="../extensions-contrib/thrift.md"><code>thrift</code></a> formats using <code>parser</code>.</p>
+<p><a name="tuningconfig"></a></p>
+<h3 id="kinesissupervisortuningconfig"><a name="kinesissupervisortuningconfig" class="anchor-navigation-ex-anchor" href="#kinesissupervisortuningconfig"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.2. KinesisSupervisorTuningConfig</h3>
+<p>The tuningConfig is optional and default parameters will be used if no tuningConfig is specified.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>String</td>
+<td>The indexing task type, this should always be <code>kinesis</code>.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>maxRowsInMemory</code></td>
+<td>Integer</td>
+<td>The number of rows to aggregate before persisting. This number is the post-aggregation rows, so it is not equivalent to the number of input events, but the number of aggregated rows that those events result in. This is used to manage the required JVM heap size. Maximum heap memory usage for indexing scales with maxRowsInMemory * (2 + maxPendingPersists).</td>
+<td>no (default == 100000)</td>
+</tr>
+<tr>
+<td><code>maxBytesInMemory</code></td>
+<td>Long</td>
+<td>The number of bytes to aggregate in heap memory before persisting. This is based on a rough estimate of memory usage and not actual usage. Normally this is computed internally and user does not need to set it. The maximum heap memory usage for indexing is maxBytesInMemory * (2 + maxPendingPersists).</td>
+<td>no (default == One-sixth of max JVM memory)</td>
+</tr>
+<tr>
+<td><code>maxRowsPerSegment</code></td>
+<td>Integer</td>
+<td>The number of rows to aggregate into a segment; this number is post-aggregation rows. Handoff will happen either if <code>maxRowsPerSegment</code> or <code>maxTotalRows</code> is hit or every <code>intermediateHandoffPeriod</code>, whichever happens earlier.</td>
+<td>no (default == 5000000)</td>
+</tr>
+<tr>
+<td><code>maxTotalRows</code></td>
+<td>Long</td>
+<td>The number of rows to aggregate across all segments; this number is post-aggregation rows. Handoff will happen either if <code>maxRowsPerSegment</code> or <code>maxTotalRows</code> is hit or every <code>intermediateHandoffPeriod</code>, whichever happens earlier.</td>
+<td>no (default == unlimited)</td>
+</tr>
+<tr>
+<td><code>intermediatePersistPeriod</code></td>
+<td>ISO8601 Period</td>
+<td>The period that determines the rate at which intermediate persists occur.</td>
+<td>no (default == PT10M)</td>
+</tr>
+<tr>
+<td><code>maxPendingPersists</code></td>
+<td>Integer</td>
+<td>Maximum number of persists that can be pending but not started. If this limit would be exceeded by a new intermediate persist, ingestion will block until the currently-running persist finishes. Maximum heap memory usage for indexing scales with maxRowsInMemory * (2 + maxPendingPersists).</td>
+<td>no (default == 0, meaning one persist can be running concurrently with ingestion, and none can be queued up)</td>
+</tr>
+<tr>
+<td><code>indexSpec</code></td>
+<td>Object</td>
+<td>Tune how data is indexed. See <a href="#indexspec">IndexSpec</a> for more information.</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>indexSpecForIntermediatePersists</code></td>
+<td></td>
+<td>Defines segment storage format options to be used at indexing time for intermediate persisted temporary segments. This can be used to disable dimension/metric compression on intermediate segments to reduce memory required for final merging. However, disabling compression on intermediate segments might increase page cache use while they are used before getting merged into final segment published, see <a href="#indexspec">IndexSpec</a> for possible values.</td>
+<td>no (default = same as indexSpec)</td>
+</tr>
+<tr>
+<td><code>reportParseExceptions</code></td>
+<td>Boolean</td>
+<td>If true, exceptions encountered during parsing will be thrown and will halt ingestion; if false, unparseable rows and fields will be skipped.</td>
+<td>no (default == false)</td>
+</tr>
+<tr>
+<td><code>handoffConditionTimeout</code></td>
+<td>Long</td>
+<td>Milliseconds to wait for segment handoff. It must be &gt;= 0, where 0 means to wait forever.</td>
+<td>no (default == 0)</td>
+</tr>
+<tr>
+<td><code>resetOffsetAutomatically</code></td>
+<td>Boolean</td>
+<td>Controls behavior when Druid needs to read Kinesis messages that are no longer available.<br><br>If false, the exception will bubble up, which will cause your tasks to fail and ingestion to halt. If this occurs, manual intervention is required to correct the situation; potentially using the <a href="../../operations/api-reference.html#supervisors">Reset Supervisor API</a>. This mode is useful for production, since it will make you aware of issues with ingestion.<br><br>If true, Druid will automatically reset to the earlier or latest sequence number available in Kinesis, based on the value of the <code>useEarliestSequenceNumber</code> property (earliest if true, latest if false). Please note that this can lead to data being <em>DROPPED</em> (if <code>useEarliestSequenceNumber</code> is false) or <em>DUPLICATED</em> (if <code>useEarliestSequenceNumber</code> is true) without your knowledge. Messages will be logged indicating that a reset has occurred, but ingestion will continue. This mode is useful for non-production situations, since it will make Druid attempt to recover from problems automatically, even if they lead to quiet dropping or duplicating of data.</td>
+<td>no (default == false)</td>
+</tr>
+<tr>
+<td><code>skipSequenceNumberAvailabilityCheck</code></td>
+<td>Boolean</td>
+<td>Whether to enable checking if the current sequence number is still available in a particular Kinesis shard. If set to false, the indexing task will attempt to reset the current sequence number (or not), depending on the value of <code>resetOffsetAutomatically</code>.</td>
+<td>no (default == false)</td>
+</tr>
+<tr>
+<td><code>workerThreads</code></td>
+<td>Integer</td>
+<td>The number of threads that the supervisor uses to handle requests/responses for worker tasks, along with any other internal asynchronous operation.</td>
+<td>no (default == min(10, taskCount))</td>
+</tr>
+<tr>
+<td><code>chatThreads</code></td>
+<td>Integer</td>
+<td>The number of threads that will be used for communicating with indexing tasks.</td>
+<td>no (default == min(10, taskCount * replicas))</td>
+</tr>
+<tr>
+<td><code>chatRetries</code></td>
+<td>Integer</td>
+<td>The number of times HTTP requests to indexing tasks will be retried before considering tasks unresponsive.</td>
+<td>no (default == 8)</td>
+</tr>
+<tr>
+<td><code>httpTimeout</code></td>
+<td>ISO8601 Period</td>
+<td>How long to wait for a HTTP response from an indexing task.</td>
+<td>no (default == PT10S)</td>
+</tr>
+<tr>
+<td><code>shutdownTimeout</code></td>
+<td>ISO8601 Period</td>
+<td>How long to wait for the supervisor to attempt a graceful shutdown of tasks before exiting.</td>
+<td>no (default == PT80S)</td>
+</tr>
+<tr>
+<td><code>recordBufferSize</code></td>
+<td>Integer</td>
+<td>Size of the buffer (number of events) used between the Kinesis fetch threads and the main ingestion thread.</td>
+<td>no (default == 10000)</td>
+</tr>
+<tr>
+<td><code>recordBufferOfferTimeout</code></td>
+<td>Integer</td>
+<td>Length of time in milliseconds to wait for space to become available in the buffer before timing out.</td>
+<td>no (default == 5000)</td>
+</tr>
+<tr>
+<td><code>recordBufferFullWait</code></td>
+<td>Integer</td>
+<td>Length of time in milliseconds to wait for the buffer to drain before attempting to fetch records from Kinesis again.</td>
+<td>no (default == 5000)</td>
+</tr>
+<tr>
+<td><code>fetchSequenceNumberTimeout</code></td>
+<td>Integer</td>
+<td>Length of time in milliseconds to wait for Kinesis to return the earliest or latest sequence number for a shard. Kinesis will not return the latest sequence number if no data is actively being written to that shard. In this case, this fetch call will repeatedly timeout and retry until fresh data is written to the stream.</td>
+<td>no (default == 60000)</td>
+</tr>
+<tr>
+<td><code>fetchThreads</code></td>
+<td>Integer</td>
+<td>Size of the pool of threads fetching data from Kinesis. There is no benefit in having more threads than Kinesis shards.</td>
+<td>no (default == procs * 2, where &quot;procs&quot; is the number of processors on the server that the task is running on)</td>
+</tr>
+<tr>
+<td><code>segmentWriteOutMediumFactory</code></td>
+<td>Object</td>
+<td>Segment write-out medium to use when creating segments. See below for more information.</td>
+<td>no (not specified by default, the value from <code>druid.peon.defaultSegmentWriteOutMediumFactory.type</code> is used)</td>
+</tr>
+<tr>
+<td><code>intermediateHandoffPeriod</code></td>
+<td>ISO8601 Period</td>
+<td>How often the tasks should hand off segments. Handoff will happen either if <code>maxRowsPerSegment</code> or <code>maxTotalRows</code> is hit or every <code>intermediateHandoffPeriod</code>, whichever happens earlier.</td>
+<td>no (default == P2147483647D)</td>
+</tr>
+<tr>
+<td><code>logParseExceptions</code></td>
+<td>Boolean</td>
+<td>If true, log an error message when a parsing exception occurs, containing information about the row where the error occurred.</td>
+<td>no, default == false</td>
+</tr>
+<tr>
+<td><code>maxParseExceptions</code></td>
+<td>Integer</td>
+<td>The maximum number of parse exceptions that can occur before the task halts ingestion and fails. Overridden if <code>reportParseExceptions</code> is set.</td>
+<td>no, unlimited default</td>
+</tr>
+<tr>
+<td><code>maxSavedParseExceptions</code></td>
+<td>Integer</td>
+<td>When a parse exception occurs, Druid can keep track of the most recent parse exceptions. &quot;maxSavedParseExceptions&quot; limits how many exception instances will be saved. These saved exceptions will be made available after the task finishes in the <a href="../../ingestion/tasks.html#reports">task completion report</a>. Overridden if <code>reportParseExceptions</code> is set.</td>
+<td>no, default == 0</td>
+</tr>
+<tr>
+<td><code>maxRecordsPerPoll</code></td>
+<td>Integer</td>
+<td>The maximum number of records/events to be fetched from buffer per poll. The actual maximum will be <code>Max(maxRecordsPerPoll, Max(bufferSize, 1))</code></td>
+<td>no, default == 100</td>
+</tr>
+<tr>
+<td><code>repartitionTransitionDuration</code></td>
+<td>ISO8601 Period</td>
+<td>When shards are split or merged, the supervisor will recompute shard -&gt; task group mappings, and signal any running tasks created under the old mappings to stop early at (current time + <code>repartitionTransitionDuration</code>). Stopping the tasks early allows Druid to begin reading from the new shards more quickly. The repartition transition wait time controlled by this property gives the stream additional time to write records to the new shards after the split/merge, which helps avoid the issues with empty shard handling described at <a href="https://github.com/apache/druid/issues/7600" target="_blank">https://github.com/apache/druid/issues/7600</a>.</td>
+<td>no, (default == PT2M)</td>
+</tr>
+<tr>
+<td><code>offsetFetchPeriod</code></td>
+<td>ISO8601 Period</td>
+<td>How often the supervisor queries Kinesis and the indexing tasks to fetch current offsets and calculate lag.</td>
+<td>no (default == PT30S, min == PT5S)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="indexspec"><a name="indexspec" class="anchor-navigation-ex-anchor" href="#indexspec"><i class="fa fa-link" aria-hidden="true"></i></a>IndexSpec</h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bitmap</td>
+<td>Object</td>
+<td>Compression format for bitmap indexes. Should be a JSON object. See <a href="#bitmap-types">Bitmap types</a> below for options.</td>
+<td>no (defaults to Roaring)</td>
+</tr>
+<tr>
+<td>dimensionCompression</td>
+<td>String</td>
+<td>Compression format for dimension columns. Choose from <code>LZ4</code>, <code>LZF</code>, or <code>uncompressed</code>.</td>
+<td>no (default == <code>LZ4</code>)</td>
+</tr>
+<tr>
+<td>metricCompression</td>
+<td>String</td>
+<td>Compression format for primitive type metric columns. Choose from <code>LZ4</code>, <code>LZF</code>, <code>uncompressed</code>, or <code>none</code>.</td>
+<td>no (default == <code>LZ4</code>)</td>
+</tr>
+<tr>
+<td>longEncoding</td>
+<td>String</td>
+<td>Encoding format for metric and dimension columns with type long. Choose from <code>auto</code> or <code>longs</code>. <code>auto</code> encodes the values using sequence number or lookup table depending on column cardinality, and store them with variable size. <code>longs</code> stores the value as is with 8 bytes each.</td>
+<td>no (default == <code>longs</code>)</td>
+</tr>
+</tbody>
+</table>
+<h5 id="bitmap-types"><a name="bitmap-types" class="anchor-navigation-ex-anchor" href="#bitmap-types"><i class="fa fa-link" aria-hidden="true"></i></a>Bitmap types</h5>
+<p>For Roaring bitmaps:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>String</td>
+<td>Must be <code>roaring</code>.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>compressRunOnSerialization</code></td>
+<td>Boolean</td>
+<td>Use a run-length encoding where it is estimated as more space efficient.</td>
+<td>no (default == <code>true</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>For Concise bitmaps:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>String</td>
+<td>Must be <code>concise</code>.</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<h4 id="segmentwriteoutmediumfactory"><a name="segmentwriteoutmediumfactory" class="anchor-navigation-ex-anchor" href="#segmentwriteoutmediumfactory"><i class="fa fa-link" aria-hidden="true"></i></a>SegmentWriteOutMediumFactory</h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>String</td>
+<td>See <a href="../../configuration/#segmentwriteoutmediumfactory">Additional Peon Configuration: SegmentWriteOutMediumFactory</a> for explanation and available options.</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<h2 id="operations"><a name="operations" class="anchor-navigation-ex-anchor" href="#operations"><i class="fa fa-link" aria-hidden="true"></i></a>1.3. Operations</h2>
+<p>This section gives descriptions of how some supervisor APIs work specifically in Kinesis Indexing Service.
+For all supervisor APIs, please check <a href="../../operations/api-reference.html#supervisors">Supervisor APIs</a>.</p>
+<h3 id="aws-authentication"><a name="aws-authentication" class="anchor-navigation-ex-anchor" href="#aws-authentication"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.1. AWS Authentication</h3>
+<p>To authenticate with AWS, you must provide your AWS access key and AWS secret key via runtime.properties, for example:</p>
+<pre><code>-Ddruid.kinesis.accessKey=123 -Ddruid.kinesis.secretKey=456
+</code></pre><p>The AWS access key ID and secret access key are used for Kinesis API requests. If this is not provided, the service will
+look for credentials set in environment variables, in the default profile configuration file, and from the EC2 instance
+profile provider (in this order).</p>
+<h3 id="getting-supervisor-status-report"><a name="getting-supervisor-status-report" class="anchor-navigation-ex-anchor" href="#getting-supervisor-status-report"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.2. Getting Supervisor Status Report</h3>
+<p><code>GET /druid/indexer/v1/supervisor/&lt;supervisorId&gt;/status</code> returns a snapshot report of the current state of the tasks
+managed by the given supervisor. This includes the latest sequence numbers as reported by Kinesis. Unlike the Kafka
+Indexing Service, Kinesis reports lag metrics measured in time difference in milliseconds between the current sequence number and latest sequence number, rather than message count.</p>
+<p>The status report also contains the supervisor&apos;s state and a list of recently thrown exceptions (reported as
+<code>recentErrors</code>, whose max size can be controlled using the <code>druid.supervisor.maxStoredExceptionEvents</code> configuration).
+There are two fields related to the supervisor&apos;s state - <code>state</code> and <code>detailedState</code>. The <code>state</code> field will always be
+one of a small number of generic states that are applicable to any type of supervisor, while the <code>detailedState</code> field
+will contain a more descriptive, implementation-specific state that may provide more insight into the supervisor&apos;s
+activities than the generic <code>state</code> field.</p>
+<p>The list of possible <code>state</code> values are: [<code>PENDING</code>, <code>RUNNING</code>, <code>SUSPENDED</code>, <code>STOPPING</code>, <code>UNHEALTHY_SUPERVISOR</code>, <code>UNHEALTHY_TASKS</code>]</p>
+<p>The list of <code>detailedState</code> values and their corresponding <code>state</code> mapping is as follows:</p>
+<table>
+<thead>
+<tr>
+<th>Detailed State</th>
+<th>Corresponding State</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>UNHEALTHY_SUPERVISOR</td>
+<td>UNHEALTHY_SUPERVISOR</td>
+<td>The supervisor has encountered errors on the past <code>druid.supervisor.unhealthinessThreshold</code> iterations</td>
+</tr>
+<tr>
+<td>UNHEALTHY_TASKS</td>
+<td>UNHEALTHY_TASKS</td>
+<td>The last <code>druid.supervisor.taskUnhealthinessThreshold</code> tasks have all failed</td>
+</tr>
+<tr>
+<td>UNABLE_TO_CONNECT_TO_STREAM</td>
+<td>UNHEALTHY_SUPERVISOR</td>
+<td>The supervisor is encountering connectivity issues with Kinesis and has not successfully connected in the past</td>
+</tr>
+<tr>
+<td>LOST_CONTACT_WITH_STREAM</td>
+<td>UNHEALTHY_SUPERVISOR</td>
+<td>The supervisor is encountering connectivity issues with Kinesis but has successfully connected in the past</td>
+</tr>
+<tr>
+<td>PENDING (first iteration only)</td>
+<td>PENDING</td>
+<td>The supervisor has been initialized and hasn&apos;t started connecting to the stream</td>
+</tr>
+<tr>
+<td>CONNECTING_TO_STREAM (first iteration only)</td>
+<td>RUNNING</td>
+<td>The supervisor is trying to connect to the stream and update partition data</td>
+</tr>
+<tr>
+<td>DISCOVERING_INITIAL_TASKS (first iteration only)</td>
+<td>RUNNING</td>
+<td>The supervisor is discovering already-running tasks</td>
+</tr>
+<tr>
+<td>CREATING_TASKS (first iteration only)</td>
+<td>RUNNING</td>
+<td>The supervisor is creating tasks and discovering state</td>
+</tr>
+<tr>
+<td>RUNNING</td>
+<td>RUNNING</td>
+<td>The supervisor has started tasks and is waiting for taskDuration to elapse</td>
+</tr>
+<tr>
+<td>SUSPENDED</td>
+<td>SUSPENDED</td>
+<td>The supervisor has been suspended</td>
+</tr>
+<tr>
+<td>STOPPING</td>
+<td>STOPPING</td>
+<td>The supervisor is stopping</td>
+</tr>
+</tbody>
+</table>
+<p>On each iteration of the supervisor&apos;s run loop, the supervisor completes the following tasks in sequence:
+  1) Fetch the list of shards from Kinesis and determine the starting sequence number for each shard (either based on the
+  last processed sequence number if continuing, or starting from the beginning or ending of the stream if this is a new stream).
+  2) Discover any running indexing tasks that are writing to the supervisor&apos;s datasource and adopt them if they match
+  the supervisor&apos;s configuration, else signal them to stop.
+  3) Send a status request to each supervised task to update our view of the state of the tasks under our supervision.
+  4) Handle tasks that have exceeded <code>taskDuration</code> and should transition from the reading to publishing state.
+  5) Handle tasks that have finished publishing and signal redundant replica tasks to stop.
+  6) Handle tasks that have failed and clean up the supervisor&apos;s internal state.
+  7) Compare the list of healthy tasks to the requested <code>taskCount</code> and <code>replicas</code> configurations and create additional tasks if required.</p>
+<p>The <code>detailedState</code> field will show additional values (those marked with &quot;first iteration only&quot;) the first time the
+supervisor executes this run loop after startup or after resuming from a suspension. This is intended to surface
+initialization-type issues, where the supervisor is unable to reach a stable state (perhaps because it can&apos;t connect to
+Kinesis, it can&apos;t read from the stream, or it can&apos;t communicate with existing tasks). Once the supervisor is stable -
+that is, once it has completed a full execution without encountering any issues - <code>detailedState</code> will show a <code>RUNNING</code>
+state until it is stopped, suspended, or hits a failure threshold and transitions to an unhealthy state.</p>
+<h3 id="updating-existing-supervisors"><a name="updating-existing-supervisors" class="anchor-navigation-ex-anchor" href="#updating-existing-supervisors"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.3. Updating Existing Supervisors</h3>
+<p><code>POST /druid/indexer/v1/supervisor</code> can be used to update existing supervisor spec.
+Calling this endpoint when there is already an existing supervisor for the same dataSource will cause:</p>
+<ul>
+<li>The running supervisor to signal its managed tasks to stop reading and begin publishing.</li>
+<li>The running supervisor to exit.</li>
+<li>A new supervisor to be created using the configuration provided in the request body. This supervisor will retain the
+existing publishing tasks and will create new tasks starting at the sequence numbers the publishing tasks ended on.</li>
+</ul>
+<p>Seamless schema migrations can thus be achieved by simply submitting the new schema using this endpoint.</p>
+<h3 id="suspending-and-resuming-supervisors"><a name="suspending-and-resuming-supervisors" class="anchor-navigation-ex-anchor" href="#suspending-and-resuming-supervisors"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.4. Suspending and Resuming Supervisors</h3>
+<p>You can suspend and resume a supervisor using <code>POST /druid/indexer/v1/supervisor/&lt;supervisorId&gt;/suspend</code> and <code>POST /druid/indexer/v1/supervisor/&lt;supervisorId&gt;/resume</code>, respectively.</p>
+<p>Note that the supervisor itself will still be operating and emitting logs and metrics,
+it will just ensure that no indexing tasks are running until the supervisor is resumed.</p>
+<h3 id="resetting-supervisors"><a name="resetting-supervisors" class="anchor-navigation-ex-anchor" href="#resetting-supervisors"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.5. Resetting Supervisors</h3>
+<p>The <code>POST /druid/indexer/v1/supervisor/&lt;supervisorId&gt;/reset</code> operation clears stored 
+sequence numbers, causing the supervisor to start reading from either the earliest or 
+latest sequence numbers in Kinesis (depending on the value of <code>useEarliestSequenceNumber</code>). 
+After clearing stored sequence numbers, the supervisor kills and recreates active tasks, 
+so that tasks begin reading from valid sequence numbers. </p>
+<p>Use care when using this operation! Resetting the supervisor may cause Kinesis messages 
+to be skipped or read twice, resulting in missing or duplicate data. </p>
+<p>The reason for using this operation is to recover from a state in which the supervisor 
+ceases operating due to missing sequence numbers. The indexing service keeps track of the latest 
+persisted sequence number in order to provide exactly-once ingestion guarantees across 
+tasks. </p>
+<p>Subsequent tasks must start reading from where the previous task completed in 
+order for the generated segments to be accepted. If the messages at the expected starting sequence numbers are 
+no longer available in Kinesis (typically because the message retention period has elapsed or the topic was 
+removed and re-created) the supervisor will refuse to start and in-flight tasks will fail. This operation 
+enables you to recover from this condition. </p>
+<p>Note that the supervisor must be running for this endpoint to be available.</p>
+<h3 id="terminating-supervisors"><a name="terminating-supervisors" class="anchor-navigation-ex-anchor" href="#terminating-supervisors"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.6. Terminating Supervisors</h3>
+<p>The <code>POST /druid/indexer/v1/supervisor/&lt;supervisorId&gt;/terminate</code> operation terminates a supervisor and causes
+all associated indexing tasks managed by this supervisor to immediately stop and begin
+publishing their segments. This supervisor will still exist in the metadata store and its history may be retrieved
+with the supervisor history API, but will not be listed in the &apos;get supervisors&apos; API response nor can its configuration
+or status report be retrieved. The only way this supervisor can start again is by submitting a functioning supervisor
+spec to the create API.</p>
+<h3 id="capacity-planning"><a name="capacity-planning" class="anchor-navigation-ex-anchor" href="#capacity-planning"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.7. Capacity Planning</h3>
+<p>Kinesis indexing tasks run on MiddleManagers and are thus limited by the resources available in the MiddleManager
+cluster. In particular, you should make sure that you have sufficient worker capacity (configured using the
+<code>druid.worker.capacity</code> property) to handle the configuration in the supervisor spec. Note that worker capacity is
+shared across all types of indexing tasks, so you should plan your worker capacity to handle your total indexing load
+(e.g. batch processing, realtime tasks, merging tasks, etc.). If your workers run out of capacity, Kinesis indexing tasks
+will queue and wait for the next available worker. This may cause queries to return partial results but will not result
+in data loss (assuming the tasks run before Kinesis purges those sequence numbers).</p>
+<p>A running task will normally be in one of two states: <em>reading</em> or <em>publishing</em>. A task will remain in reading state for
+<code>taskDuration</code>, at which point it will transition to publishing state. A task will remain in publishing state for as long
+as it takes to generate segments, push segments to deep storage, and have them be loaded and served by a Historical process
+(or until <code>completionTimeout</code> elapses).</p>
+<p>The number of reading tasks is controlled by <code>replicas</code> and <code>taskCount</code>. In general, there will be <code>replicas * taskCount</code>
+reading tasks, the exception being if taskCount &gt; {numKinesisShards} in which case {numKinesisShards} tasks will
+be used instead. When <code>taskDuration</code> elapses, these tasks will transition to publishing state and <code>replicas * taskCount</code>
+new reading tasks will be created. Therefore to allow for reading tasks and publishing tasks to run concurrently, there
+should be a minimum capacity of:</p>
+<pre><code>workerCapacity = 2 * replicas * taskCount
+</code></pre><p>This value is for the ideal situation in which there is at most one set of tasks publishing while another set is reading.
+In some circumstances, it is possible to have multiple sets of tasks publishing simultaneously. This would happen if the
+time-to-publish (generate segment, push to deep storage, loaded on Historical) &gt; <code>taskDuration</code>. This is a valid
+scenario (correctness-wise) but requires additional worker capacity to support. In general, it is a good idea to have
+<code>taskDuration</code> be large enough that the previous set of tasks finishes publishing before the current set begins.</p>
+<h3 id="supervisor-persistence"><a name="supervisor-persistence" class="anchor-navigation-ex-anchor" href="#supervisor-persistence"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.8. Supervisor Persistence</h3>
+<p>When a supervisor spec is submitted via the <code>POST /druid/indexer/v1/supervisor</code> endpoint, it is persisted in the
+configured metadata database. There can only be a single supervisor per dataSource, and submitting a second spec for
+the same dataSource will overwrite the previous one.</p>
+<p>When an Overlord gains leadership, either by being started or as a result of another Overlord failing, it will spawn
+a supervisor for each supervisor spec in the metadata database. The supervisor will then discover running Kinesis indexing
+tasks and will attempt to adopt them if they are compatible with the supervisor&apos;s configuration. If they are not
+compatible because they have a different ingestion spec or shard allocation, the tasks will be killed and the
+supervisor will create a new set of tasks. In this way, the supervisors are persistent across Overlord restarts and
+fail-overs.</p>
+<p>A supervisor is stopped via the <code>POST /druid/indexer/v1/supervisor/&lt;supervisorId&gt;/terminate</code> endpoint. This places a
+tombstone marker in the database (to prevent the supervisor from being reloaded on a restart) and then gracefully
+shuts down the currently running supervisor. When a supervisor is shut down in this way, it will instruct its
+managed tasks to stop reading and begin publishing their segments immediately. The call to the shutdown endpoint will
+return after all tasks have been signalled to stop but before the tasks finish publishing their segments.</p>
+<h3 id="schemaconfiguration-changes"><a name="schemaconfiguration-changes" class="anchor-navigation-ex-anchor" href="#schemaconfiguration-changes"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.9. Schema/Configuration Changes</h3>
+<p>Schema and configuration changes are handled by submitting the new supervisor spec via the same
+<code>POST /druid/indexer/v1/supervisor</code> endpoint used to initially create the supervisor. The Overlord will initiate a
+graceful shutdown of the existing supervisor which will cause the tasks being managed by that supervisor to stop reading
+and begin publishing their segments. A new supervisor will then be started which will create a new set of tasks that
+will start reading from the sequence numbers where the previous now-publishing tasks left off, but using the updated schema.
+In this way, configuration changes can be applied without requiring any pause in ingestion.</p>
+<h3 id="deployment-notes"><a name="deployment-notes" class="anchor-navigation-ex-anchor" href="#deployment-notes"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.10. Deployment Notes</h3>
+<h4 id="on-the-subject-of-segments"><a name="on-the-subject-of-segments" class="anchor-navigation-ex-anchor" href="#on-the-subject-of-segments"><i class="fa fa-link" aria-hidden="true"></i></a>On the Subject of Segments</h4>
+<p>Each Kinesis Indexing Task puts events consumed from Kinesis Shards assigned to it in a single segment for each segment
+granular interval until maxRowsPerSegment, maxTotalRows or intermediateHandoffPeriod limit is reached, at this point a new shard
+for this segment granularity is created for further events. Kinesis Indexing Task also does incremental hand-offs which
+means that all the segments created by a task will not be held up till the task duration is over. As soon as maxRowsPerSegment,
+maxTotalRows or intermediateHandoffPeriod limit is hit, all the segments held by the task at that point in time will be handed-off
+and new set of segments will be created for further events. This means that the task can run for longer durations of time
+without accumulating old segments locally on Middle Manager processes and it is encouraged to do so.</p>
+<p>Kinesis Indexing Service may still produce some small segments. Lets say the task duration is 4 hours, segment granularity
+is set to an HOUR and Supervisor was started at 9:10 then after 4 hours at 13:10, new set of tasks will be started and
+events for the interval 13:00 - 14:00 may be split across previous and new set of tasks. If you see it becoming a problem then
+one can schedule re-indexing tasks be run to merge segments together into new segments of an ideal size (in the range of ~500-700 MB per segment).
+Details on how to optimize the segment size can be found on <a href="../../operations/segment-optimization.html">Segment size optimization</a>.
+There is also ongoing work to support automatic segment compaction of sharded segments as well as compaction not requiring
+Hadoop (see <a href="https://github.com/apache/druid/pull/5102" target="_blank">here</a>).</p>
+<h3 id="determining-fetch-settings"><a name="determining-fetch-settings" class="anchor-navigation-ex-anchor" href="#determining-fetch-settings"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.11. Determining Fetch Settings</h3>
+<p>Internally, the Kinesis Indexing Service uses the Kinesis Record Supplier abstraction for fetching Kinesis data records and storing the records
+locally. The way the Kinesis Record Supplier fetches records is to have a separate thread run the fetching operation per each Kinesis Shard, the
+max number of threads is determined by <code>fetchThreads</code>. For example, a Kinesis stream with 3 shards will have 3 threads, each fetching from a shard separately.
+There is a delay between each fetching operation, which is controlled by <code>fetchDelayMillis</code>. The maximum number of records to be fetched per thread per
+operation is controlled by <code>recordsPerFetch</code>. Note that this is not the same as <code>maxRecordsPerPoll</code>.</p>
+<p>The records fetched by each thread will be pushed to a queue in the order that they are fetched. The records are stored in this queue until <code>poll()</code> is called
+by either the supervisor or the indexing task. <code>poll()</code> will attempt to drain the internal buffer queue up to a limit of <code>max(maxRecordsPerPoll, q.size())</code>.
+Here <code>maxRecordsPerPoll</code> controls the theoretical maximum records to drain out of the buffer queue, so setting this parameter to a reasonable value is essential
+in preventing the queue from overflowing or memory exceeding heap size.</p>
+<p>Kinesis places the following restrictions on calls to fetch records:</p>
+<ul>
+<li>Each data record can be up to 1 MB in size.</li>
+<li>Each shard can support up to 5 transactions per second for reads.</li>
+<li>Each shard can read up to 2 MB per second.</li>
+<li>The maximum size of data that GetRecords can return is 10 MB.</li>
+</ul>
+<p>Values for <code>recordsPerFetch</code> and <code>fetchDelayMillis</code> should be chosen to maximize throughput under the above constraints.
+The values that you choose will depend on the average size of a record and the number of consumers you have reading from
+a given shard (which will be <code>replicas</code> unless you have other consumers also reading from this Kinesis stream).</p>
+<p>If the above limits are violated, AWS will throw ProvisionedThroughputExceededException errors on subsequent calls to
+read data. When this happens, the Kinesis indexing service will pause by <code>fetchDelayMillis</code> and then attempt the call
+again.</p>
+<p>Internally, each indexing task maintains a buffer that stores the fetched but not yet processed record. <code>recordsPerFetch</code> and <code>fetchDelayMillis</code>
+control this behavior. The number of records that the indexing task fetch from the buffer is controlled by <code>maxRecordsPerPoll</code>, which
+determines the number of records to be processed per each ingestion loop in the task.</p>
+<h2 id="deaggregation"><a name="deaggregation" class="anchor-navigation-ex-anchor" href="#deaggregation"><i class="fa fa-link" aria-hidden="true"></i></a>1.4. Deaggregation</h2>
+<p>See <a href="https://github.com/apache/druid/issues/6714" target="_blank">issue</a></p>
+<p>The Kinesis indexing service supports de-aggregation of multiple rows packed into a single record by the Kinesis
+Producer Library&apos;s aggregate method for more efficient data transfer. Currently, enabling the de-aggregate functionality
+requires the user to manually provide the Kinesis Client Library on the classpath, since this library has a license not
+compatible with Apache projects.</p>
+<p>To enable this feature, add the <code>amazon-kinesis-client</code> (tested on version <code>1.9.2</code>) jar file (<a href="https://mvnrepository.com/artifact/com.amazonaws/amazon-kinesis-client/1.9.2" target="_blank">link</a>) under <code>dist/druid/extensions/druid-kinesis-indexing-service/</code>.
+Then when submitting a supervisor-spec, set <code>deaggregate</code> to true.</p>
+<h2 id="resharding"><a name="resharding" class="anchor-navigation-ex-anchor" href="#resharding"><i class="fa fa-link" aria-hidden="true"></i></a>1.5. Resharding</h2>
+<p>When changing the shard count for a Kinesis stream, there will be a window of time around the resharding operation with early shutdown of Kinesis ingestion tasks and possible task failures.</p>
+<p>The early shutdowns and task failures are expected, and they occur because the supervisor will update the shard -&gt; task group mappings as shards are closed and fully read, to ensure that tasks are not running 
+with an assignment of closed shards that have been fully read and to ensure a balanced distribution of active shards across tasks. </p>
+<p>This window with early task shutdowns and possible task failures will conclude when:</p>
+<ul>
+<li>All closed shards have been fully read and the Kinesis ingestion tasks have published the data from those shards, committing the &quot;closed&quot; state to metadata storage</li>
+<li>Any remaining tasks that had inactive shards in the assignment have been shutdown (these tasks would have been created before the closed shards were completely drained)</li>
+</ul>
+<footer class="page-footer"><span class="copyright">Copyright <a target="_blank" href="https://druid.org.cn">druid.org.cn</a> 2021 .&#x672C;&#x6587;&#x7FFB;&#x8BD1;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/development/extensions-core/kinesis-ingestion.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
+2021-04-23 21:43:10
+</span></footer>
+                                
+                                </section>
+                            
+    </div>
+    <div class="search-results">
+        <div class="has-results">
+            
+            <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+            <ul class="search-results-list"></ul>
+            
+        </div>
+        <div class="no-results">
+            
+            <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+            
+        </div>
+    </div>
+</div>
+
+                        </div>
+                    </div>
+                
+            </div>
+
+            
+                
+                <a href="kafka-ingestion.html" class="navigation navigation-prev " aria-label="Previous page: 从Kafka摄入">
+                    <i class="fa fa-angle-left"></i>
+                </a>
+                
+                
+                <a href="../../ingestion/tranquility.html" class="navigation navigation-next " aria-label="Next page: 从Tranqulity摄入">
+                    <i class="fa fa-angle-right"></i>
+                </a>
+                
+            
+        
+    </div>
+
+    <script>
+        var gitbook = gitbook || [];
+        gitbook.push(function() {
+            gitbook.page.hasChanged({"page":{"id":"kinesis-ingestion","title":"从Amazon Kinesis摄入","sidebar_label":"Amazon Kinesis","level":"1.5.5.2","depth":3,"next":{"title":"从Tranqulity摄入","level":"1.5.5.3","depth":3,"path":"ingestion/tranquility.md","ref":"ingestion/tranquility.md","articles":[]},"previous":{"title":"从Kafka摄入","level":"1.5.5.1","depth":3,"path":"development/extensions-core/kafka-ingestion.md","ref":"development/extensions-core/kafka-ingestion.md","articles":[]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"Copyright <a target=\"_blank\" href=\"https://druid.org.cn\">druid.org.cn</a> 2021 .本文翻译自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"development/extensions-core/kinesis-ingestion.md","mtime":"2021-04-23T13:43:10.287Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-04-24T03:56:48.676Z"},"basePath":"../..","book":{"language":""}});
+        });
+    </script>
+</div>
+
+        
+    <script src="../../gitbook/gitbook.js"></script>
+    <script src="../../gitbook/theme.js"></script>
+    
+        
+        <script src="../../gitbook/gitbook-plugin-livereload/plugin.js"></script>
+        
+    
+        
+        <script src="../../gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+        
+    
+        
+        <script src="../../gitbook/gitbook-plugin-search-pro/search.js"></script>
+        
+    
+        
+        <script src="../../gitbook/gitbook-plugin-code/plugin.js"></script>
+        
+    
+        
+        <script src="../../gitbook/gitbook-plugin-auto-scroll-table/plugin.js"></script>
+        
+    
+        
+        <script src="../../gitbook/gitbook-plugin-hide-element/plugin.js"></script>
+        
+    
+        
+        <script src="../../gitbook/gitbook-plugin-github/plugin.js"></script>
+        
+    
+        
+        <script src="../../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+        
+    
+        
+        <script src="../../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+        
+    
+        
+        <script src="../../gitbook/gitbook-plugin-sharing/buttons.js"></script>
+        
+    
+        
+        <script src="../../gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+        
+    
+
+    </body>
+</html>
+

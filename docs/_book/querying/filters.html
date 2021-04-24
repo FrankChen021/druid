@@ -1,0 +1,2499 @@
+
+<!DOCTYPE HTML>
+<html lang="" >
+    <head>
+        <meta charset="UTF-8">
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <title>过滤器 · GitBook</title>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="description" content="">
+        <meta name="generator" content="GitBook 3.2.3">
+        
+        
+        
+    
+    <link rel="stylesheet" href="../gitbook/style.css">
+
+    
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-highlight/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-search-pro/search.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-code/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-tbfed-pagefooter/footer.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-anchor-navigation-ex/style/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-auto-scroll-table/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-fontsettings/website.css">
+                
+            
+        
+
+    
+
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+
+        
+    
+    
+    <meta name="HandheldFriendly" content="true"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon-precomposed" sizes="152x152" href="../gitbook/images/apple-touch-icon-precomposed-152.png">
+    <link rel="shortcut icon" href="../gitbook/images/favicon.ico" type="image/x-icon">
+
+    
+    <link rel="next" href="granularities.html" />
+    
+    
+
+    </head>
+    <body>
+        
+<div class="book">
+    <div class="book-summary">
+        
+            
+<div id="book-search-input" role="search">
+    <input type="text" placeholder="Type to search" />
+</div>
+
+            
+                <nav role="navigation">
+                
+
+
+<ul class="summary">
+    
+    
+
+    
+
+    
+        
+        
+    
+        <li class="chapter " data-level="1.1" data-path="../">
+            
+                <a href="../">
+            
+                    
+                    前言
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2" >
+            
+                <span>
+            
+                    
+                    开始
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.2.1" data-path="../design/">
+            
+                <a href="../design/">
+            
+                    
+                    Apache Druid简介
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.2" data-path="../tutorials/">
+            
+                <a href="../tutorials/">
+            
+                    
+                    快速入门
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.3" data-path="../tutorials/docker.html">
+            
+                <a href="../tutorials/docker.html">
+            
+                    
+                    Docker
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.4" data-path="../operations/single-server.html">
+            
+                <a href="../operations/single-server.html">
+            
+                    
+                    单机部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.5" data-path="../tutorials/cluster.html">
+            
+                <a href="../tutorials/cluster.html">
+            
+                    
+                    集群模式部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3" >
+            
+                <span>
+            
+                    
+                    指南
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.3.1" data-path="../tutorials/tutorial-batch.html">
+            
+                <a href="../tutorials/tutorial-batch.html">
+            
+                    
+                    从本地文件摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.2" data-path="../tutorials/tutorial-kafka.html">
+            
+                <a href="../tutorials/tutorial-kafka.html">
+            
+                    
+                    从Kafka摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.3" data-path="../tutorials/tutorial-batch-hadoop.html">
+            
+                <a href="../tutorials/tutorial-batch-hadoop.html">
+            
+                    
+                    从Haddop摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.4" data-path="../tutorials/tutorial-query.html">
+            
+                <a href="../tutorials/tutorial-query.html">
+            
+                    
+                    查询数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.5" data-path="../tutorials/tutorial-rollup.html">
+            
+                <a href="../tutorials/tutorial-rollup.html">
+            
+                    
+                    预聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.6" data-path="../tutorials/tutorial-retention.html">
+            
+                <a href="../tutorials/tutorial-retention.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.7" data-path="../tutorials/tutorial-update-data.html">
+            
+                <a href="../tutorials/tutorial-update-data.html">
+            
+                    
+                    更新数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.8" data-path="../tutorials/tutorial-compaction.html">
+            
+                <a href="../tutorials/tutorial-compaction.html">
+            
+                    
+                    数据文件合并
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.9" data-path="../tutorials/tutorial-delete-data.html">
+            
+                <a href="../tutorials/tutorial-delete-data.html">
+            
+                    
+                    删除数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.10" data-path="../tutorials/tutorial-ingestion-spec.html">
+            
+                <a href="../tutorials/tutorial-ingestion-spec.html">
+            
+                    
+                    编写数据摄入规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.11" data-path="../tutorials/tutorial-transform-spec.html">
+            
+                <a href="../tutorials/tutorial-transform-spec.html">
+            
+                    
+                    转换摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.12" data-path="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                <a href="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                    
+                    设置Kerberos认证的HDFS作为深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4" >
+            
+                <span>
+            
+                    
+                    设计
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.4.1" data-path="../design/architecture.html">
+            
+                <a href="../design/architecture.html">
+            
+                    
+                    整体架构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.2" data-path="../design/segments.html">
+            
+                <a href="../design/segments.html">
+            
+                    
+                    存储结构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.3" data-path="../design/processes">
+            
+                <span>
+            
+                    
+                    进程与服务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.4" data-path="../dependencies/deep-storage.html">
+            
+                <a href="../dependencies/deep-storage.html">
+            
+                    
+                    深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.5" data-path="../dependencies/metadata-storage.html">
+            
+                <a href="../dependencies/metadata-storage.html">
+            
+                    
+                    元数据存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.6" data-path="../dependencies/zookeeper.html">
+            
+                <a href="../dependencies/zookeeper.html">
+            
+                    
+                    Zookeeper
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5" >
+            
+                <span>
+            
+                    
+                    数据摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.1" data-path="../ingestion/">
+            
+                <a href="../ingestion/">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.2" data-path="../ingestion/data-formats.html">
+            
+                <a href="../ingestion/data-formats.html">
+            
+                    
+                    数据格式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.3" data-path="../ingestion/schema-design.html">
+            
+                <a href="../ingestion/schema-design.html">
+            
+                    
+                    Schema定义
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.4" data-path="../ingestion/data-management.html">
+            
+                <a href="../ingestion/data-management.html">
+            
+                    
+                    数据管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5" >
+            
+                <span>
+            
+                    
+                    实时摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.5.1" data-path="../development/extensions-core/kafka-ingestion.html">
+            
+                <a href="../development/extensions-core/kafka-ingestion.html">
+            
+                    
+                    从Kafka摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.2" data-path="../development/extensions-core/kinesis-ingestion.html">
+            
+                <a href="../development/extensions-core/kinesis-ingestion.html">
+            
+                    
+                    从Amazon Kinesis摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.3" data-path="../ingestion/tranquility.html">
+            
+                <a href="../ingestion/tranquility.html">
+            
+                    
+                    从Tranqulity摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.4" data-path="../ingestion/standalone-realtime.html">
+            
+                <a href="../ingestion/standalone-realtime.html">
+            
+                    
+                    独立实时模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6" >
+            
+                <span>
+            
+                    
+                    批量导入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.6.1" data-path="../ingestion/native-batch.html">
+            
+                <a href="../ingestion/native-batch.html">
+            
+                    
+                    本地模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6.2" data-path="../ingestion/hadoop.html">
+            
+                <a href="../ingestion/hadoop.html">
+            
+                    
+                    从Hadoop导入
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.7" data-path="../ingestion/tasks.html">
+            
+                <a href="../ingestion/tasks.html">
+            
+                    
+                    Druid中的任务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.8" data-path="../ingestion/faq.html">
+            
+                <a href="../ingestion/faq.html">
+            
+                    
+                    FAQ
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6" >
+            
+                <span>
+            
+                    
+                    数据查询
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.1" data-path="sql.html">
+            
+                <a href="sql.html">
+            
+                    
+                    通过SQL查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.2" data-path="querying.html">
+            
+                <a href="querying.html">
+            
+                    
+                    通过JSON查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.3" data-path="query-execution.html">
+            
+                <a href="query-execution.html">
+            
+                    
+                    查询执行流程
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4" >
+            
+                <span>
+            
+                    
+                    主要概念
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.4.1" data-path="datasource.html">
+            
+                <a href="datasource.html">
+            
+                    
+                    数据源(datasource)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.2" data-path="joins.html">
+            
+                <a href="joins.html">
+            
+                    
+                    联合查询(join)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.3" data-path="lookups.html">
+            
+                <a href="lookups.html">
+            
+                    
+                    字典查询(lookups)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.4" data-path="multi-value-dimensions.html">
+            
+                <a href="multi-value-dimensions.html">
+            
+                    
+                    结构化列值(multi-value-dimensions)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.5" data-path="multitenancy.html">
+            
+                <a href="multitenancy.html">
+            
+                    
+                    多租户
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.6" data-path="caching.html">
+            
+                <a href="caching.html">
+            
+                    
+                    查询缓存
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.7" data-path="query-context.html">
+            
+                <a href="query-context.html">
+            
+                    
+                    查询上下文
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5" >
+            
+                <span>
+            
+                    
+                    JSON查询类型
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.5.1" data-path="timeseriesquery.html">
+            
+                <a href="timeseriesquery.html">
+            
+                    
+                    Timeseries
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.2" data-path="topnquery.html">
+            
+                <a href="topnquery.html">
+            
+                    
+                    TopN
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.3" data-path="groupbyquery.html">
+            
+                <a href="groupbyquery.html">
+            
+                    
+                    GroupBy
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.4" data-path="scan-query.html">
+            
+                <a href="scan-query.html">
+            
+                    
+                    Scan
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.5" data-path="searchquery.html">
+            
+                <a href="searchquery.html">
+            
+                    
+                    Search
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.6" data-path="timeboundaryquery.html">
+            
+                <a href="timeboundaryquery.html">
+            
+                    
+                    TimeBoundary
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.7" data-path="segmentmetadataquery.html">
+            
+                <a href="segmentmetadataquery.html">
+            
+                    
+                    SegmentMetaData
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.8" data-path="datasourcemetadataquery.html">
+            
+                <a href="datasourcemetadataquery.html">
+            
+                    
+                    DatasourceMetadata
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6" >
+            
+                <span>
+            
+                    
+                    JSON查询结构
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter active" data-level="1.6.6.1" data-path="filters.html">
+            
+                <a href="filters.html">
+            
+                    
+                    过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.2" data-path="granularities.html">
+            
+                <a href="granularities.html">
+            
+                    
+                    时间粒度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.3" data-path="dimensionspecs.html">
+            
+                <a href="dimensionspecs.html">
+            
+                    
+                    数据维度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.4" data-path="aggregations.html">
+            
+                <a href="aggregations.html">
+            
+                    
+                    聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.5" data-path="post-aggregations.html">
+            
+                <a href="post-aggregations.html">
+            
+                    
+                    后置聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.6" data-path="../misc/math-expr.html">
+            
+                <a href="../misc/math-expr.html">
+            
+                    
+                    数学函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.7" data-path="having.html">
+            
+                <a href="having.html">
+            
+                    
+                    表达式与函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.8" data-path="limitspec.html">
+            
+                <a href="limitspec.html">
+            
+                    
+                    Having过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.9" data-path="topnmetricspec.html">
+            
+                <a href="topnmetricspec.html">
+            
+                    
+                    TopN排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.10" data-path="sorting-orders.html">
+            
+                <a href="sorting-orders.html">
+            
+                    
+                    排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.11" data-path="virtual-columns.html">
+            
+                <a href="virtual-columns.html">
+            
+                    
+                    虚拟字段
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.12" data-path="../development/geo.html">
+            
+                <a href="../development/geo.html">
+            
+                    
+                    空间过滤
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7" >
+            
+                <span>
+            
+                    
+                    配置
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.7.1" data-path="../configuration/">
+            
+                <a href="../configuration/">
+            
+                    
+                    概述
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.2" data-path="../development/extensions.html">
+            
+                <a href="../development/extensions.html">
+            
+                    
+                    扩展组件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.3" data-path="../configuration/logging.html">
+            
+                <a href="../configuration/logging.html">
+            
+                    
+                    运行日志
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8" >
+            
+                <span>
+            
+                    
+                    运维
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.1" data-path="../operations/druid-console.html">
+            
+                <a href="../operations/druid-console.html">
+            
+                    
+                    Web控制台
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2" data-path="../operations/getting-started.html">
+            
+                <a href="../operations/getting-started.html">
+            
+                    
+                    快速开始
+            
+                </a>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1" >
+            
+                <span>
+            
+                    
+                    安全
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1.1" data-path="../operations/security-overview.html">
+            
+                <a href="../operations/security-overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.2" data-path="../operations/security-user-auth.html">
+            
+                <a href="../operations/security-user-auth.html">
+            
+                    
+                    用户认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.3" data-path="../operations/auth-ldap.html">
+            
+                <a href="../operations/auth-ldap.html">
+            
+                    
+                    LDAP认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.4" data-path="../operations/password-provider.html">
+            
+                <a href="../operations/password-provider.html">
+            
+                    
+                    密码管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.5" data-path="../design/auth.html">
+            
+                <a href="../design/auth.html">
+            
+                    
+                    认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.6" data-path="../operations/tls-support.html">
+            
+                <a href="../operations/tls-support.html">
+            
+                    
+                    TLS加密支持
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2" >
+            
+                <span>
+            
+                    
+                    性能
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.2.1" data-path="../operations/basic-cluster-tuning.html">
+            
+                <a href="../operations/basic-cluster-tuning.html">
+            
+                    
+                    集群调优
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.2" data-path="../operations/segment-optimization.html">
+            
+                <a href="../operations/segment-optimization.html">
+            
+                    
+                    数据段文件优化
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.3" data-path="../operations/http-compression.html">
+            
+                <a href="../operations/http-compression.html">
+            
+                    
+                    HTTP压缩
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.3" data-path="../operations/api-reference.html">
+            
+                <a href="../operations/api-reference.html">
+            
+                    
+                    API手册
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.4" data-path="../operations/high-availability.html">
+            
+                <a href="../operations/high-availability.html">
+            
+                    
+                    高可用
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.5" data-path="../operations/rolling-updates.html">
+            
+                <a href="../operations/rolling-updates.html">
+            
+                    
+                    滚动版本升级
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.6" data-path="../operations/rule-configuration.html">
+            
+                <a href="../operations/rule-configuration.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.7" data-path="../operations/metrics.html">
+            
+                <a href="../operations/metrics.html">
+            
+                    
+                    应用指标
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.8" data-path="../operations/alerts.html">
+            
+                <a href="../operations/alerts.html">
+            
+                    
+                    告警
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.9" data-path="../operations/other-hadoop.html">
+            
+                <a href="../operations/other-hadoop.html">
+            
+                    
+                    Hadoop相关
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.10.1" data-path="../operations/management-uis.html">
+            
+                <a href="../operations/management-uis.html">
+            
+                    
+                    管理界面
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.2" data-path="../operations/dump-segment.html">
+            
+                <a href="../operations/dump-segment.html">
+            
+                    
+                    导出数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.3" data-path="../operations/reset-cluster.html">
+            
+                <a href="../operations/reset-cluster.html">
+            
+                    
+                    重置集群
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.4" data-path="../operations/insert-segment-to-db.html">
+            
+                <a href="../operations/insert-segment-to-db.html">
+            
+                    
+                    插入数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.5" data-path="../operations/pull-deps.html">
+            
+                <a href="../operations/pull-deps.html">
+            
+                    
+                    pull-deps工具
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.6" data-path="../operations/deep-storage-migration.html">
+            
+                <a href="../operations/deep-storage-migration.html">
+            
+                    
+                    迁移深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.7" data-path="../operations/export-metadata.html">
+            
+                <a href="../operations/export-metadata.html">
+            
+                    
+                    导出元数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.8" data-path="../operations/metadata-migration.html">
+            
+                <a href="../operations/metadata-migration.html">
+            
+                    
+                    元数据迁移
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.9" data-path="../operations/use_sbt_to_build_fat_jar.html">
+            
+                <a href="../operations/use_sbt_to_build_fat_jar.html">
+            
+                    
+                    打包fat jar
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9" >
+            
+                <span>
+            
+                    
+                    Druid开发
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.9.1" data-path="../development/overview.html">
+            
+                <a href="../development/overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.2" data-path="../development/modules.html">
+            
+                <a href="../development/modules.html">
+            
+                    
+                    模块
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.3" data-path="../development/javascript.html">
+            
+                <a href="../development/javascript.html">
+            
+                    
+                    javascript
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.4" data-path="../development/build.html">
+            
+                <a href="../development/build.html">
+            
+                    
+                    构建
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.5" data-path="../development/versioning.html">
+            
+                <a href="../development/versioning.html">
+            
+                    
+                    版本
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.6" data-path="../development/experimental.html">
+            
+                <a href="../development/experimental.html">
+            
+                    
+                    实验功能
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.10.1" data-path="../misc/papers-and-talks.html">
+            
+                <a href="../misc/papers-and-talks.html">
+            
+                    
+                    论文与演讲
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+    
+
+    <li class="divider"></li>
+
+    <li>
+        <a href="https://www.gitbook.com" target="blank" class="gitbook-link">
+            Published with GitBook
+        </a>
+    </li>
+</ul>
+
+
+                </nav>
+            
+        
+    </div>
+
+    <div class="book-body">
+        
+            <div class="body-inner">
+                
+                    
+
+<div class="book-header" role="navigation">
+    
+
+    <!-- Title -->
+    <h1>
+        <i class="fa fa-circle-o-notch fa-spin"></i>
+        <a href=".." >过滤器</a>
+    </h1>
+</div>
+
+
+
+
+                    <div class="page-wrapper" tabindex="-1" role="main">
+                        <div class="page-inner">
+                            
+<div id="book-search-results">
+    <div class="search-noresults">
+    
+                                <section class="normal markdown-section">
+                                
+                                <div id="anchor-navigation-ex-navbar"><i class="fa fa-navicon"></i><ul><ul><ul><li><span class="title-icon "></span><a href="#selector-filter"><b>1.1.1. </b>Selector filter</a></li><li><span class="title-icon "></span><a href="#column-comparison-filter"><b>1.1.2. </b>Column Comparison filter</a></li><li><span class="title-icon "></span><a href="#regular-expression-filter"><b>1.1.3. </b>Regular expression filter</a></li><li><span class="title-icon "></span><a href="#logical-expression-filters"><b>1.1.4. </b>Logical expression filters</a></li><li><span class="title-icon "></span><a href="#javascript-filter"><b>1.1.5. </b>JavaScript filter</a></li><li><span class="title-icon "></span><a href="#extraction-filter"><b>1.1.6. </b>Extraction filter</a></li><li><span class="title-icon "></span><a href="#search-filter"><b>1.1.7. </b>Search filter</a></li><li><span class="title-icon "></span><a href="#in-filter"><b>1.1.8. </b>In filter</a></li><li><span class="title-icon "></span><a href="#like-filter"><b>1.1.9. </b>Like filter</a></li><li><span class="title-icon "></span><a href="#bound-filter"><b>1.1.10. </b>Bound filter</a></li><li><span class="title-icon "></span><a href="#interval-filter"><b>1.1.11. </b>Interval Filter</a></li><li><span class="title-icon "></span><a href="#filtering-with-extraction-functions"><b>1.1.12. </b>Filtering with Extraction Functions</a></li></ul><li><span class="title-icon "></span><a href="#column-types"><b>1.2. </b>Column types</a></li><ul><li><span class="title-icon "></span><a href="#filtering-on-numeric-columns"><b>1.2.1. </b>Filtering on numeric columns</a></li><li><span class="title-icon "></span><a href="#filtering-on-the-timestamp-column"><b>1.2.2. </b>Filtering on the Timestamp Column</a></li><li><span class="title-icon "></span><a href="#true-filter"><b>1.2.3. </b>True Filter</a></li></ul></ul></ul></div><a href="#" id="anchorNavigationExGoTop"><i class="fa fa-arrow-up"></i></a><!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one
+  ~ or more contributor license agreements.  See the NOTICE file
+  ~ distributed with this work for additional information
+  ~ regarding copyright ownership.  The ASF licenses this file
+  ~ to you under the Apache License, Version 2.0 (the
+  ~ "License"); you may not use this file except in compliance
+  ~ with the License.  You may obtain a copy of the License at
+  ~
+  ~   http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing,
+  ~ software distributed under the License is distributed on an
+  ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  ~ KIND, either express or implied.  See the License for the
+  ~ specific language governing permissions and limitations
+  ~ under the License.
+  -->
+<blockquote>
+<p>Apache Druid supports two query languages: <a href="sql.html">Druid SQL</a> and <a href="querying.html">native queries</a>.
+This document describes the native
+language. For information about aggregators available in SQL, refer to the
+<a href="sql.html#scalar-functions">SQL documentation</a>.</p>
+</blockquote>
+<p>A filter is a JSON object indicating which rows of data should be included in the computation for a query. It&#x2019;s essentially the equivalent of the WHERE clause in SQL. Apache Druid supports the following types of filters.</p>
+<p><strong>Note</strong></p>
+<p>Filters are commonly applied on dimensions, but can be applied on aggregated metrics, for example, see <a href="aggregations.html#filtered-aggregator">filtered-aggregator</a> and <a href="having.html">having-filters</a>.</p>
+<h3 id="selector-filter"><a name="selector-filter" class="anchor-navigation-ex-anchor" href="#selector-filter"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.1. Selector filter</h3>
+<p>The simplest filter is a selector filter. The selector filter will match a specific dimension with a specific value. Selector filters can be used as the base filters for more complex Boolean expressions of filters.</p>
+<p>The grammar for a SELECTOR filter is as follows:</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;filter&quot;</span>: { <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;selector&quot;</span>, <span class="hljs-string">&quot;dimension&quot;</span>: &lt;dimension_string&gt;, &quot;value&quot;: &lt;dimension_value_string&gt; }
+</code></pre>
+<p>This is the equivalent of <code>WHERE &lt;dimension_string&gt; = &apos;&lt;dimension_value_string&gt;&apos;</code>.</p>
+<p>The selector filter supports the use of extraction functions, see <a href="#filtering-with-extraction-functions">Filtering with Extraction Functions</a> for details.</p>
+<h3 id="column-comparison-filter"><a name="column-comparison-filter" class="anchor-navigation-ex-anchor" href="#column-comparison-filter"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.2. Column Comparison filter</h3>
+<p>The column comparison filter is similar to the selector filter, but instead compares dimensions to each other. For example:</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;filter&quot;</span>: { <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;columnComparison&quot;</span>, <span class="hljs-string">&quot;dimensions&quot;</span>: [&lt;dimension_a&gt;, &lt;dimension_b&gt;] }
+</code></pre>
+<p>This is the equivalent of <code>WHERE &lt;dimension_a&gt; = &lt;dimension_b&gt;</code>.</p>
+<p><code>dimensions</code> is list of <a href="dimensionspecs.html">DimensionSpecs</a>, making it possible to apply an extraction function if needed.</p>
+<h3 id="regular-expression-filter"><a name="regular-expression-filter" class="anchor-navigation-ex-anchor" href="#regular-expression-filter"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.3. Regular expression filter</h3>
+<p>The regular expression filter is similar to the selector filter, but using regular expressions. It matches the specified dimension with the given pattern. The pattern can be any standard <a href="http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html" target="_blank">Java regular expression</a>.</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;filter&quot;</span>: { <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;regex&quot;</span>, <span class="hljs-string">&quot;dimension&quot;</span>: &lt;dimension_string&gt;, &quot;pattern&quot;: &lt;pattern_string&gt; }
+</code></pre>
+<p>The regex filter supports the use of extraction functions, see <a href="#filtering-with-extraction-functions">Filtering with Extraction Functions</a> for details.</p>
+<h3 id="logical-expression-filters"><a name="logical-expression-filters" class="anchor-navigation-ex-anchor" href="#logical-expression-filters"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.4. Logical expression filters</h3>
+<h4 id="and"><a name="and" class="anchor-navigation-ex-anchor" href="#and"><i class="fa fa-link" aria-hidden="true"></i></a>AND</h4>
+<p>The grammar for an AND filter is as follows:</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;filter&quot;</span>: { <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;and&quot;</span>, <span class="hljs-string">&quot;fields&quot;</span>: [&lt;filter&gt;, &lt;filter&gt;, ...] }
+</code></pre>
+<p>The filters in fields can be any other filter defined on this page.</p>
+<h4 id="or"><a name="or" class="anchor-navigation-ex-anchor" href="#or"><i class="fa fa-link" aria-hidden="true"></i></a>OR</h4>
+<p>The grammar for an OR filter is as follows:</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;filter&quot;</span>: { <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;or&quot;</span>, <span class="hljs-string">&quot;fields&quot;</span>: [&lt;filter&gt;, &lt;filter&gt;, ...] }
+</code></pre>
+<p>The filters in fields can be any other filter defined on this page.</p>
+<h4 id="not"><a name="not" class="anchor-navigation-ex-anchor" href="#not"><i class="fa fa-link" aria-hidden="true"></i></a>NOT</h4>
+<p>The grammar for a NOT filter is as follows:</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;filter&quot;</span>: { <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;not&quot;</span>, <span class="hljs-string">&quot;field&quot;</span>: <span class="xml"><span class="hljs-tag">&lt;<span class="hljs-name">filter</span>&gt;</span> }
+</span></code></pre>
+<p>The filter specified at field can be any other filter defined on this page.</p>
+<h3 id="javascript-filter"><a name="javascript-filter" class="anchor-navigation-ex-anchor" href="#javascript-filter"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.5. JavaScript filter</h3>
+<p>The JavaScript filter matches a dimension against the specified JavaScript function predicate. The filter matches values for which the function returns true.</p>
+<p>The function takes a single argument, the dimension value, and returns either true or false.</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;javascript&quot;</span>,
+  <span class="hljs-string">&quot;dimension&quot;</span> : <span class="xml"><span class="hljs-tag">&lt;<span class="hljs-name">dimension_string</span>&gt;</span>,
+  &quot;function&quot; : &quot;function(value) { <span class="hljs-tag">&lt;<span class="hljs-name">...</span>&gt;</span> }&quot;
+}
+</span></code></pre>
+<p><strong>Example</strong>
+The following matches any dimension values for the dimension <code>name</code> between <code>&apos;bar&apos;</code> and <code>&apos;foo&apos;</code></p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;javascript&quot;</span>,
+  <span class="hljs-string">&quot;dimension&quot;</span> : <span class="hljs-string">&quot;name&quot;</span>,
+  <span class="hljs-string">&quot;function&quot;</span> : <span class="hljs-string">&quot;function(x) { return(x &gt;= &apos;bar&apos; &amp;&amp; x &lt;= &apos;foo&apos;) }&quot;</span>
+}
+</code></pre>
+<p>The JavaScript filter supports the use of extraction functions, see <a href="#filtering-with-extraction-functions">Filtering with Extraction Functions</a> for details.</p>
+<blockquote>
+<p>JavaScript-based functionality is disabled by default. Please refer to the Druid <a href="../development/javascript.html">JavaScript programming guide</a> for guidelines about using Druid&apos;s JavaScript functionality, including instructions on how to enable it.</p>
+</blockquote>
+<h3 id="extraction-filter"><a name="extraction-filter" class="anchor-navigation-ex-anchor" href="#extraction-filter"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.6. Extraction filter</h3>
+<blockquote>
+<p>The extraction filter is now deprecated. The selector filter with an extraction function specified
+provides identical functionality and should be used instead.</p>
+</blockquote>
+<p>Extraction filter matches a dimension using some specific <a href="dimensionspecs.html#extraction-functions">Extraction function</a>.
+The following filter matches the values for which the extraction function has transformation entry <code>input_key=output_value</code> where
+<code>output_value</code> is equal to the filter <code>value</code> and <code>input_key</code> is present as dimension.</p>
+<p><strong>Example</strong>
+The following matches dimension values in <code>[product_1, product_3, product_5]</code> for the column <code>product</code></p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;filter&quot;</span>: {
+        <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;extraction&quot;</span>,
+        <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;product&quot;</span>,
+        <span class="hljs-string">&quot;value&quot;</span>: <span class="hljs-string">&quot;bar_1&quot;</span>,
+        <span class="hljs-string">&quot;extractionFn&quot;</span>: {
+            <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;lookup&quot;</span>,
+            <span class="hljs-string">&quot;lookup&quot;</span>: {
+                <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;map&quot;</span>,
+                <span class="hljs-string">&quot;map&quot;</span>: {
+                    <span class="hljs-string">&quot;product_1&quot;</span>: <span class="hljs-string">&quot;bar_1&quot;</span>,
+                    <span class="hljs-string">&quot;product_5&quot;</span>: <span class="hljs-string">&quot;bar_1&quot;</span>,
+                    <span class="hljs-string">&quot;product_3&quot;</span>: <span class="hljs-string">&quot;bar_1&quot;</span>
+                }
+            }
+        }
+    }
+}
+</code></pre>
+<h3 id="search-filter"><a name="search-filter" class="anchor-navigation-ex-anchor" href="#search-filter"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.7. Search filter</h3>
+<p>Search filters can be used to filter on partial string matches.</p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;filter&quot;</span>: {
+        <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;search&quot;</span>,
+        <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;product&quot;</span>,
+        <span class="hljs-string">&quot;query&quot;</span>: {
+          <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;insensitive_contains&quot;</span>,
+          <span class="hljs-string">&quot;value&quot;</span>: <span class="hljs-string">&quot;foo&quot;</span>
+        }
+    }
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>property</th>
+<th>description</th>
+<th>required?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>This String should always be &quot;search&quot;.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>dimension</td>
+<td>The dimension to perform the search over.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>query</td>
+<td>A JSON object for the type of search. See below for more information.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>extractionFn</td>
+<td><a href="#filtering-with-extraction-functions">Extraction function</a> to apply to the dimension</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>The search filter supports the use of extraction functions, see <a href="#filtering-with-extraction-functions">Filtering with Extraction Functions</a> for details.</p>
+<h4 id="search-query-spec"><a name="search-query-spec" class="anchor-navigation-ex-anchor" href="#search-query-spec"><i class="fa fa-link" aria-hidden="true"></i></a>Search query spec</h4>
+<h5 id="contains"><a name="contains" class="anchor-navigation-ex-anchor" href="#contains"><i class="fa fa-link" aria-hidden="true"></i></a>Contains</h5>
+<table>
+<thead>
+<tr>
+<th>property</th>
+<th>description</th>
+<th>required?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>This String should always be &quot;contains&quot;.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>value</td>
+<td>A String value to run the search over.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>caseSensitive</td>
+<td>Whether two string should be compared as case sensitive or not</td>
+<td>no (default == false)</td>
+</tr>
+</tbody>
+</table>
+<h5 id="insensitive-contains"><a name="insensitive-contains" class="anchor-navigation-ex-anchor" href="#insensitive-contains"><i class="fa fa-link" aria-hidden="true"></i></a>Insensitive Contains</h5>
+<table>
+<thead>
+<tr>
+<th>property</th>
+<th>description</th>
+<th>required?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>This String should always be &quot;insensitive_contains&quot;.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>value</td>
+<td>A String value to run the search over.</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<p>Note that an &quot;insensitive_contains&quot; search is equivalent to a &quot;contains&quot; search with &quot;caseSensitive&quot;: false (or not
+provided).</p>
+<h5 id="fragment"><a name="fragment" class="anchor-navigation-ex-anchor" href="#fragment"><i class="fa fa-link" aria-hidden="true"></i></a>Fragment</h5>
+<table>
+<thead>
+<tr>
+<th>property</th>
+<th>description</th>
+<th>required?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>This String should always be &quot;fragment&quot;.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>values</td>
+<td>A JSON array of String values to run the search over.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>caseSensitive</td>
+<td>Whether strings should be compared as case sensitive or not. Default: false(insensitive)</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<h3 id="in-filter"><a name="in-filter" class="anchor-navigation-ex-anchor" href="#in-filter"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.8. In filter</h3>
+<p>In filter can be used to express the following SQL query:</p>
+<pre><code class="lang-sql"> <span class="hljs-keyword">SELECT</span> <span class="hljs-keyword">COUNT</span>(*) <span class="hljs-keyword">AS</span> <span class="hljs-string">&apos;Count&apos;</span> <span class="hljs-keyword">FROM</span> <span class="hljs-string">`table`</span> <span class="hljs-keyword">WHERE</span> <span class="hljs-string">`outlaw`</span> <span class="hljs-keyword">IN</span> (<span class="hljs-string">&apos;Good&apos;</span>, <span class="hljs-string">&apos;Bad&apos;</span>, <span class="hljs-string">&apos;Ugly&apos;</span>)
+</code></pre>
+<p>The grammar for a IN filter is as follows:</p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;in&quot;</span>,
+    <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;outlaw&quot;</span>,
+    <span class="hljs-string">&quot;values&quot;</span>: [<span class="hljs-string">&quot;Good&quot;</span>, <span class="hljs-string">&quot;Bad&quot;</span>, <span class="hljs-string">&quot;Ugly&quot;</span>]
+}
+</code></pre>
+<p>The IN filter supports the use of extraction functions, see <a href="#filtering-with-extraction-functions">Filtering with Extraction Functions</a> for details.</p>
+<p>If an empty <code>values</code> array is passed to the IN filter, it will simply return an empty result.
+If the <code>dimension</code> is a multi-valued dimension, the IN filter will return true if one of the dimension values is
+in the <code>values</code> array.</p>
+<h3 id="like-filter"><a name="like-filter" class="anchor-navigation-ex-anchor" href="#like-filter"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.9. Like filter</h3>
+<p>Like filters can be used for basic wildcard searches. They are equivalent to the SQL LIKE operator. Special characters
+supported are &quot;%&quot; (matches any number of characters) and &quot;_&quot; (matches any one character).</p>
+<table>
+<thead>
+<tr>
+<th>property</th>
+<th>type</th>
+<th>description</th>
+<th>required?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>String</td>
+<td>This should always be &quot;like&quot;.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>dimension</td>
+<td>String</td>
+<td>The dimension to filter on</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>pattern</td>
+<td>String</td>
+<td>LIKE pattern, such as &quot;foo%&quot; or &quot;___bar&quot;.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>escape</td>
+<td>String</td>
+<td>An escape character that can be used to escape special characters.</td>
+<td>no</td>
+</tr>
+<tr>
+<td>extractionFn</td>
+<td><a href="#filtering-with-extraction-functions">Extraction function</a></td>
+<td>Extraction function to apply to the dimension</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>Like filters support the use of extraction functions, see <a href="#filtering-with-extraction-functions">Filtering with Extraction Functions</a> for details.</p>
+<p>This Like filter expresses the condition <code>last_name LIKE &quot;D%&quot;</code> (i.e. last_name starts with &quot;D&quot;).</p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;like&quot;</span>,
+    <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;last_name&quot;</span>,
+    <span class="hljs-string">&quot;pattern&quot;</span>: <span class="hljs-string">&quot;D%&quot;</span>
+}
+</code></pre>
+<h3 id="bound-filter"><a name="bound-filter" class="anchor-navigation-ex-anchor" href="#bound-filter"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.10. Bound filter</h3>
+<p>Bound filters can be used to filter on ranges of dimension values. It can be used for comparison filtering like
+greater than, less than, greater than or equal to, less than or equal to, and &quot;between&quot; (if both &quot;lower&quot; and
+&quot;upper&quot; are set).</p>
+<table>
+<thead>
+<tr>
+<th>property</th>
+<th>type</th>
+<th>description</th>
+<th>required?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>String</td>
+<td>This should always be &quot;bound&quot;.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>dimension</td>
+<td>String</td>
+<td>The dimension to filter on</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>lower</td>
+<td>String</td>
+<td>The lower bound for the filter</td>
+<td>no</td>
+</tr>
+<tr>
+<td>upper</td>
+<td>String</td>
+<td>The upper bound for the filter</td>
+<td>no</td>
+</tr>
+<tr>
+<td>lowerStrict</td>
+<td>Boolean</td>
+<td>Perform strict comparison on the lower bound (&quot;&gt;&quot; instead of &quot;&gt;=&quot;)</td>
+<td>no, default: false</td>
+</tr>
+<tr>
+<td>upperStrict</td>
+<td>Boolean</td>
+<td>Perform strict comparison on the upper bound (&quot;&lt;&quot; instead of &quot;&lt;=&quot;)</td>
+<td>no, default: false</td>
+</tr>
+<tr>
+<td>ordering</td>
+<td>String</td>
+<td>Specifies the sorting order to use when comparing values against the bound. Can be one of the following values: &quot;lexicographic&quot;, &quot;alphanumeric&quot;, &quot;numeric&quot;, &quot;strlen&quot;, &quot;version&quot;. See <a href="sorting-orders.html">Sorting Orders</a> for more details.</td>
+<td>no, default: &quot;lexicographic&quot;</td>
+</tr>
+<tr>
+<td>extractionFn</td>
+<td><a href="#filtering-with-extraction-functions">Extraction function</a></td>
+<td>Extraction function to apply to the dimension</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>Bound filters support the use of extraction functions, see <a href="#filtering-with-extraction-functions">Filtering with Extraction Functions</a> for details.</p>
+<p>The following bound filter expresses the condition <code>21 &lt;= age &lt;= 31</code>:</p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;bound&quot;</span>,
+    <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;age&quot;</span>,
+    <span class="hljs-string">&quot;lower&quot;</span>: <span class="hljs-string">&quot;21&quot;</span>,
+    <span class="hljs-string">&quot;upper&quot;</span>: <span class="hljs-string">&quot;31&quot;</span> ,
+    <span class="hljs-string">&quot;ordering&quot;</span>: <span class="hljs-string">&quot;numeric&quot;</span>
+}
+</code></pre>
+<p>This filter expresses the condition <code>foo &lt;= name &lt;= hoo</code>, using the default lexicographic sorting order.</p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;bound&quot;</span>,
+    <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;name&quot;</span>,
+    <span class="hljs-string">&quot;lower&quot;</span>: <span class="hljs-string">&quot;foo&quot;</span>,
+    <span class="hljs-string">&quot;upper&quot;</span>: <span class="hljs-string">&quot;hoo&quot;</span>
+}
+</code></pre>
+<p>Using strict bounds, this filter expresses the condition <code>21 &lt; age &lt; 31</code></p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;bound&quot;</span>,
+    <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;age&quot;</span>,
+    <span class="hljs-string">&quot;lower&quot;</span>: <span class="hljs-string">&quot;21&quot;</span>,
+    <span class="hljs-string">&quot;lowerStrict&quot;</span>: <span class="hljs-literal">true</span>,
+    <span class="hljs-string">&quot;upper&quot;</span>: <span class="hljs-string">&quot;31&quot;</span> ,
+    <span class="hljs-string">&quot;upperStrict&quot;</span>: <span class="hljs-literal">true</span>,
+    <span class="hljs-string">&quot;ordering&quot;</span>: <span class="hljs-string">&quot;numeric&quot;</span>
+}
+</code></pre>
+<p>The user can also specify a one-sided bound by omitting &quot;upper&quot; or &quot;lower&quot;. This filter expresses <code>age &lt; 31</code>.</p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;bound&quot;</span>,
+    <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;age&quot;</span>,
+    <span class="hljs-string">&quot;upper&quot;</span>: <span class="hljs-string">&quot;31&quot;</span> ,
+    <span class="hljs-string">&quot;upperStrict&quot;</span>: <span class="hljs-literal">true</span>,
+    <span class="hljs-string">&quot;ordering&quot;</span>: <span class="hljs-string">&quot;numeric&quot;</span>
+}
+</code></pre>
+<p>Likewise, this filter expresses <code>age &gt;= 18</code></p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;bound&quot;</span>,
+    <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;age&quot;</span>,
+    <span class="hljs-string">&quot;lower&quot;</span>: <span class="hljs-string">&quot;18&quot;</span> ,
+    <span class="hljs-string">&quot;ordering&quot;</span>: <span class="hljs-string">&quot;numeric&quot;</span>
+}
+</code></pre>
+<h3 id="interval-filter"><a name="interval-filter" class="anchor-navigation-ex-anchor" href="#interval-filter"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.11. Interval Filter</h3>
+<p>The Interval filter enables range filtering on columns that contain long millisecond values, with the boundaries specified as ISO 8601 time intervals. It is suitable for the <code>__time</code> column, long metric columns, and dimensions with values that can be parsed as long milliseconds.</p>
+<p>This filter converts the ISO 8601 intervals to long millisecond start/end ranges and translates to an OR of Bound filters on those millisecond ranges, with numeric comparison. The Bound filters will have left-closed and right-open matching (i.e., start &lt;= time &lt; end).</p>
+<table>
+<thead>
+<tr>
+<th>property</th>
+<th>type</th>
+<th>description</th>
+<th>required?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>type</td>
+<td>String</td>
+<td>This should always be &quot;interval&quot;.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>dimension</td>
+<td>String</td>
+<td>The dimension to filter on</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>intervals</td>
+<td>Array</td>
+<td>A JSON array containing ISO-8601 interval strings. This defines the time ranges to filter on.</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>extractionFn</td>
+<td><a href="#filtering-with-extraction-functions">Extraction function</a></td>
+<td>Extraction function to apply to the dimension</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>The interval filter supports the use of extraction functions, see <a href="#filtering-with-extraction-functions">Filtering with Extraction Functions</a> for details.</p>
+<p>If an extraction function is used with this filter, the extraction function should output values that are parseable as long milliseconds.</p>
+<p>The following example filters on the time ranges of October 1-7, 2014 and November 15-16, 2014.</p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;interval&quot;</span>,
+    <span class="hljs-string">&quot;dimension&quot;</span> : <span class="hljs-string">&quot;__time&quot;</span>,
+    <span class="hljs-string">&quot;intervals&quot;</span> : [
+      <span class="hljs-string">&quot;2014-10-01T00:00:00.000Z/2014-10-07T00:00:00.000Z&quot;</span>,
+      <span class="hljs-string">&quot;2014-11-15T00:00:00.000Z/2014-11-16T00:00:00.000Z&quot;</span>
+    ]
+}
+</code></pre>
+<p>The filter above is equivalent to the following OR of Bound filters:</p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;or&quot;</span>,
+    <span class="hljs-string">&quot;fields&quot;</span>: [
+      {
+        <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;bound&quot;</span>,
+        <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;__time&quot;</span>,
+        <span class="hljs-string">&quot;lower&quot;</span>: <span class="hljs-string">&quot;1412121600000&quot;</span>,
+        <span class="hljs-string">&quot;lowerStrict&quot;</span>: <span class="hljs-literal">false</span>,
+        <span class="hljs-string">&quot;upper&quot;</span>: <span class="hljs-string">&quot;1412640000000&quot;</span> ,
+        <span class="hljs-string">&quot;upperStrict&quot;</span>: <span class="hljs-literal">true</span>,
+        <span class="hljs-string">&quot;ordering&quot;</span>: <span class="hljs-string">&quot;numeric&quot;</span>
+      },
+      {
+         <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;bound&quot;</span>,
+         <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;__time&quot;</span>,
+         <span class="hljs-string">&quot;lower&quot;</span>: <span class="hljs-string">&quot;1416009600000&quot;</span>,
+         <span class="hljs-string">&quot;lowerStrict&quot;</span>: <span class="hljs-literal">false</span>,
+         <span class="hljs-string">&quot;upper&quot;</span>: <span class="hljs-string">&quot;1416096000000&quot;</span> ,
+         <span class="hljs-string">&quot;upperStrict&quot;</span>: <span class="hljs-literal">true</span>,
+         <span class="hljs-string">&quot;ordering&quot;</span>: <span class="hljs-string">&quot;numeric&quot;</span>
+      }
+    ]
+}
+</code></pre>
+<h3 id="filtering-with-extraction-functions"><a name="filtering-with-extraction-functions" class="anchor-navigation-ex-anchor" href="#filtering-with-extraction-functions"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.12. Filtering with Extraction Functions</h3>
+<p>All filters except the &quot;spatial&quot; filter support extraction functions.
+An extraction function is defined by setting the &quot;extractionFn&quot; field on a filter.
+See <a href="dimensionspecs.html#extraction-functions">Extraction function</a> for more details on extraction functions.</p>
+<p>If specified, the extraction function will be used to transform input values before the filter is applied.
+The example below shows a selector filter combined with an extraction function. This filter will transform input values
+according to the values defined in the lookup map; transformed values will then be matched with the string &quot;bar_1&quot;.</p>
+<p><strong>Example</strong>
+The following matches dimension values in <code>[product_1, product_3, product_5]</code> for the column <code>product</code></p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;filter&quot;</span>: {
+        <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;selector&quot;</span>,
+        <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;product&quot;</span>,
+        <span class="hljs-string">&quot;value&quot;</span>: <span class="hljs-string">&quot;bar_1&quot;</span>,
+        <span class="hljs-string">&quot;extractionFn&quot;</span>: {
+            <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;lookup&quot;</span>,
+            <span class="hljs-string">&quot;lookup&quot;</span>: {
+                <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;map&quot;</span>,
+                <span class="hljs-string">&quot;map&quot;</span>: {
+                    <span class="hljs-string">&quot;product_1&quot;</span>: <span class="hljs-string">&quot;bar_1&quot;</span>,
+                    <span class="hljs-string">&quot;product_5&quot;</span>: <span class="hljs-string">&quot;bar_1&quot;</span>,
+                    <span class="hljs-string">&quot;product_3&quot;</span>: <span class="hljs-string">&quot;bar_1&quot;</span>
+                }
+            }
+        }
+    }
+}
+</code></pre>
+<h2 id="column-types"><a name="column-types" class="anchor-navigation-ex-anchor" href="#column-types"><i class="fa fa-link" aria-hidden="true"></i></a>1.2. Column types</h2>
+<p>Druid supports filtering on timestamp, string, long, and float columns.</p>
+<p>Note that only string columns have bitmap indexes. Therefore, queries that filter on other column types will need to
+scan those columns.</p>
+<h3 id="filtering-on-numeric-columns"><a name="filtering-on-numeric-columns" class="anchor-navigation-ex-anchor" href="#filtering-on-numeric-columns"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.1. Filtering on numeric columns</h3>
+<p>When filtering on numeric columns, you can write filters as if they were strings. In most cases, your filter will be
+converted into a numeric predicate and will be applied to the numeric column values directly. In some cases (such as
+the &quot;regex&quot; filter) the numeric column values will be converted to strings during the scan.</p>
+<p>For example, filtering on a specific value, <code>myFloatColumn = 10.1</code>:</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;filter&quot;</span>: {
+  <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;selector&quot;</span>,
+  <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;myFloatColumn&quot;</span>,
+  <span class="hljs-string">&quot;value&quot;</span>: <span class="hljs-string">&quot;10.1&quot;</span>
+}
+</code></pre>
+<p>Filtering on a range of values, <code>10 &lt;= myFloatColumn &lt; 20</code>:</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;filter&quot;</span>: {
+  <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;bound&quot;</span>,
+  <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;myFloatColumn&quot;</span>,
+  <span class="hljs-string">&quot;ordering&quot;</span>: <span class="hljs-string">&quot;numeric&quot;</span>,
+  <span class="hljs-string">&quot;lower&quot;</span>: <span class="hljs-string">&quot;10&quot;</span>,
+  <span class="hljs-string">&quot;lowerStrict&quot;</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-string">&quot;upper&quot;</span>: <span class="hljs-string">&quot;20&quot;</span>,
+  <span class="hljs-string">&quot;upperStrict&quot;</span>: <span class="hljs-literal">true</span>
+}
+</code></pre>
+<h3 id="filtering-on-the-timestamp-column"><a name="filtering-on-the-timestamp-column" class="anchor-navigation-ex-anchor" href="#filtering-on-the-timestamp-column"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.2. Filtering on the Timestamp Column</h3>
+<p>Query filters can also be applied to the timestamp column. The timestamp column has long millisecond values. To refer
+to the timestamp column, use the string <code>__time</code> as the dimension name. Like numeric dimensions, timestamp filters
+should be specified as if the timestamp values were strings.</p>
+<p>If the user wishes to interpret the timestamp with a specific format, timezone, or locale, the <a href="dimensionspecs.html#time-format-extraction-function">Time Format Extraction Function</a> is useful.</p>
+<p>For example, filtering on a long timestamp value:</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;filter&quot;</span>: {
+  <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;selector&quot;</span>,
+  <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;__time&quot;</span>,
+  <span class="hljs-string">&quot;value&quot;</span>: <span class="hljs-string">&quot;124457387532&quot;</span>
+}
+</code></pre>
+<p>Filtering on day of week:</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;filter&quot;</span>: {
+  <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;selector&quot;</span>,
+  <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;__time&quot;</span>,
+  <span class="hljs-string">&quot;value&quot;</span>: <span class="hljs-string">&quot;Friday&quot;</span>,
+  <span class="hljs-string">&quot;extractionFn&quot;</span>: {
+    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;timeFormat&quot;</span>,
+    <span class="hljs-string">&quot;format&quot;</span>: <span class="hljs-string">&quot;EEEE&quot;</span>,
+    <span class="hljs-string">&quot;timeZone&quot;</span>: <span class="hljs-string">&quot;America/New_York&quot;</span>,
+    <span class="hljs-string">&quot;locale&quot;</span>: <span class="hljs-string">&quot;en&quot;</span>
+  }
+}
+</code></pre>
+<p>Filtering on a set of ISO 8601 intervals:</p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;interval&quot;</span>,
+    <span class="hljs-string">&quot;dimension&quot;</span> : <span class="hljs-string">&quot;__time&quot;</span>,
+    <span class="hljs-string">&quot;intervals&quot;</span> : [
+      <span class="hljs-string">&quot;2014-10-01T00:00:00.000Z/2014-10-07T00:00:00.000Z&quot;</span>,
+      <span class="hljs-string">&quot;2014-11-15T00:00:00.000Z/2014-11-16T00:00:00.000Z&quot;</span>
+    ]
+}
+</code></pre>
+<h3 id="true-filter"><a name="true-filter" class="anchor-navigation-ex-anchor" href="#true-filter"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.3. True Filter</h3>
+<p>The true filter is a filter which matches all values.  It can be used to temporarily disable other filters without removing the filter.</p>
+<pre><code class="lang-json">
+{ <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;true&quot;</span> }
+</code></pre>
+<footer class="page-footer"><span class="copyright">Copyright <a target="_blank" href="https://druid.org.cn">druid.org.cn</a> 2021 .&#x672C;&#x6587;&#x7FFB;&#x8BD1;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/querying/filters.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
+2021-04-23 21:43:10
+</span></footer>
+                                
+                                </section>
+                            
+    </div>
+    <div class="search-results">
+        <div class="has-results">
+            
+            <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+            <ul class="search-results-list"></ul>
+            
+        </div>
+        <div class="no-results">
+            
+            <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+            
+        </div>
+    </div>
+</div>
+
+                        </div>
+                    </div>
+                
+            </div>
+
+            
+                
+                
+                <a href="granularities.html" class="navigation navigation-next navigation-unique" aria-label="Next page: 时间粒度">
+                    <i class="fa fa-angle-right"></i>
+                </a>
+                
+            
+        
+    </div>
+
+    <script>
+        var gitbook = gitbook || [];
+        gitbook.push(function() {
+            gitbook.page.hasChanged({"page":{"id":"filters","title":"过滤器","sidebar_label":"Filters","level":"1.6.6.1","depth":3,"next":{"title":"时间粒度","level":"1.6.6.2","depth":3,"path":"querying/granularities.md","ref":"querying/granularities.md","articles":[]},"previous":{"title":"JSON查询结构","level":"1.6.6","depth":2,"ref":"","articles":[{"title":"过滤器","level":"1.6.6.1","depth":3,"path":"querying/filters.md","ref":"querying/filters.md","articles":[]},{"title":"时间粒度","level":"1.6.6.2","depth":3,"path":"querying/granularities.md","ref":"querying/granularities.md","articles":[]},{"title":"数据维度","level":"1.6.6.3","depth":3,"path":"querying/dimensionspecs.md","ref":"querying/dimensionspecs.md","articles":[]},{"title":"聚合","level":"1.6.6.4","depth":3,"path":"querying/aggregations.md","ref":"querying/aggregations.md","articles":[]},{"title":"后置聚合","level":"1.6.6.5","depth":3,"path":"querying/post-aggregations.md","ref":"querying/post-aggregations.md","articles":[]},{"title":"数学函数","level":"1.6.6.6","depth":3,"path":"misc/math-expr.md","ref":"misc/math-expr.md","articles":[]},{"title":"表达式与函数","level":"1.6.6.7","depth":3,"path":"querying/having.md","ref":"querying/having.md","articles":[]},{"title":"Having过滤器","level":"1.6.6.8","depth":3,"path":"querying/limitspec.md","ref":"querying/limitspec.md","articles":[]},{"title":"TopN排序","level":"1.6.6.9","depth":3,"path":"querying/topnmetricspec.md","ref":"querying/topnmetricspec.md","articles":[]},{"title":"排序","level":"1.6.6.10","depth":3,"path":"querying/sorting-orders.md","ref":"querying/sorting-orders.md","articles":[]},{"title":"虚拟字段","level":"1.6.6.11","depth":3,"path":"querying/virtual-columns.md","ref":"querying/virtual-columns.md","articles":[]},{"title":"空间过滤","level":"1.6.6.12","depth":3,"path":"development/geo.md","ref":"development/geo.md","articles":[]}]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"Copyright <a target=\"_blank\" href=\"https://druid.org.cn\">druid.org.cn</a> 2021 .本文翻译自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"querying/filters.md","mtime":"2021-04-23T13:43:10.308Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-04-24T03:56:48.676Z"},"basePath":"..","book":{"language":""}});
+        });
+    </script>
+</div>
+
+        
+    <script src="../gitbook/gitbook.js"></script>
+    <script src="../gitbook/theme.js"></script>
+    
+        
+        <script src="../gitbook/gitbook-plugin-livereload/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/search.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-code/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-auto-scroll-table/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-hide-element/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-github/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-sharing/buttons.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+        
+    
+
+    </body>
+</html>
+

@@ -1,0 +1,2119 @@
+
+<!DOCTYPE HTML>
+<html lang="" >
+    <head>
+        <meta charset="UTF-8">
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <title>存储结构 · GitBook</title>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="description" content="">
+        <meta name="generator" content="GitBook 3.2.3">
+        
+        
+        
+    
+    <link rel="stylesheet" href="../gitbook/style.css">
+
+    
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-highlight/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-search-pro/search.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-code/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-tbfed-pagefooter/footer.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-anchor-navigation-ex/style/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-auto-scroll-table/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-fontsettings/website.css">
+                
+            
+        
+
+    
+
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+
+        
+    
+    
+    <meta name="HandheldFriendly" content="true"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon-precomposed" sizes="152x152" href="../gitbook/images/apple-touch-icon-precomposed-152.png">
+    <link rel="shortcut icon" href="../gitbook/images/favicon.ico" type="image/x-icon">
+
+    
+    <link rel="next" href="processes" />
+    
+    
+    <link rel="prev" href="architecture.html" />
+    
+
+    </head>
+    <body>
+        
+<div class="book">
+    <div class="book-summary">
+        
+            
+<div id="book-search-input" role="search">
+    <input type="text" placeholder="Type to search" />
+</div>
+
+            
+                <nav role="navigation">
+                
+
+
+<ul class="summary">
+    
+    
+
+    
+
+    
+        
+        
+    
+        <li class="chapter " data-level="1.1" data-path="../">
+            
+                <a href="../">
+            
+                    
+                    前言
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2" >
+            
+                <span>
+            
+                    
+                    开始
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.2.1" data-path="./">
+            
+                <a href="./">
+            
+                    
+                    Apache Druid简介
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.2" data-path="../tutorials/">
+            
+                <a href="../tutorials/">
+            
+                    
+                    快速入门
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.3" data-path="../tutorials/docker.html">
+            
+                <a href="../tutorials/docker.html">
+            
+                    
+                    Docker
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.4" data-path="../operations/single-server.html">
+            
+                <a href="../operations/single-server.html">
+            
+                    
+                    单机部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.5" data-path="../tutorials/cluster.html">
+            
+                <a href="../tutorials/cluster.html">
+            
+                    
+                    集群模式部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3" >
+            
+                <span>
+            
+                    
+                    指南
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.3.1" data-path="../tutorials/tutorial-batch.html">
+            
+                <a href="../tutorials/tutorial-batch.html">
+            
+                    
+                    从本地文件摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.2" data-path="../tutorials/tutorial-kafka.html">
+            
+                <a href="../tutorials/tutorial-kafka.html">
+            
+                    
+                    从Kafka摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.3" data-path="../tutorials/tutorial-batch-hadoop.html">
+            
+                <a href="../tutorials/tutorial-batch-hadoop.html">
+            
+                    
+                    从Haddop摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.4" data-path="../tutorials/tutorial-query.html">
+            
+                <a href="../tutorials/tutorial-query.html">
+            
+                    
+                    查询数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.5" data-path="../tutorials/tutorial-rollup.html">
+            
+                <a href="../tutorials/tutorial-rollup.html">
+            
+                    
+                    预聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.6" data-path="../tutorials/tutorial-retention.html">
+            
+                <a href="../tutorials/tutorial-retention.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.7" data-path="../tutorials/tutorial-update-data.html">
+            
+                <a href="../tutorials/tutorial-update-data.html">
+            
+                    
+                    更新数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.8" data-path="../tutorials/tutorial-compaction.html">
+            
+                <a href="../tutorials/tutorial-compaction.html">
+            
+                    
+                    数据文件合并
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.9" data-path="../tutorials/tutorial-delete-data.html">
+            
+                <a href="../tutorials/tutorial-delete-data.html">
+            
+                    
+                    删除数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.10" data-path="../tutorials/tutorial-ingestion-spec.html">
+            
+                <a href="../tutorials/tutorial-ingestion-spec.html">
+            
+                    
+                    编写数据摄入规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.11" data-path="../tutorials/tutorial-transform-spec.html">
+            
+                <a href="../tutorials/tutorial-transform-spec.html">
+            
+                    
+                    转换摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.12" data-path="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                <a href="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                    
+                    设置Kerberos认证的HDFS作为深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4" >
+            
+                <span>
+            
+                    
+                    设计
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.4.1" data-path="architecture.html">
+            
+                <a href="architecture.html">
+            
+                    
+                    整体架构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter active" data-level="1.4.2" data-path="segments.html">
+            
+                <a href="segments.html">
+            
+                    
+                    存储结构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.3" data-path="processes">
+            
+                <span>
+            
+                    
+                    进程与服务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.4" data-path="../dependencies/deep-storage.html">
+            
+                <a href="../dependencies/deep-storage.html">
+            
+                    
+                    深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.5" data-path="../dependencies/metadata-storage.html">
+            
+                <a href="../dependencies/metadata-storage.html">
+            
+                    
+                    元数据存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.6" data-path="../dependencies/zookeeper.html">
+            
+                <a href="../dependencies/zookeeper.html">
+            
+                    
+                    Zookeeper
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5" >
+            
+                <span>
+            
+                    
+                    数据摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.1" data-path="../ingestion/">
+            
+                <a href="../ingestion/">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.2" data-path="../ingestion/data-formats.html">
+            
+                <a href="../ingestion/data-formats.html">
+            
+                    
+                    数据格式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.3" data-path="../ingestion/schema-design.html">
+            
+                <a href="../ingestion/schema-design.html">
+            
+                    
+                    Schema定义
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.4" data-path="../ingestion/data-management.html">
+            
+                <a href="../ingestion/data-management.html">
+            
+                    
+                    数据管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5" >
+            
+                <span>
+            
+                    
+                    实时摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.5.1" data-path="../development/extensions-core/kafka-ingestion.html">
+            
+                <a href="../development/extensions-core/kafka-ingestion.html">
+            
+                    
+                    从Kafka摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.2" data-path="../development/extensions-core/kinesis-ingestion.html">
+            
+                <a href="../development/extensions-core/kinesis-ingestion.html">
+            
+                    
+                    从Amazon Kinesis摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.3" data-path="../ingestion/tranquility.html">
+            
+                <a href="../ingestion/tranquility.html">
+            
+                    
+                    从Tranqulity摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.4" data-path="../ingestion/standalone-realtime.html">
+            
+                <a href="../ingestion/standalone-realtime.html">
+            
+                    
+                    独立实时模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6" >
+            
+                <span>
+            
+                    
+                    批量导入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.6.1" data-path="../ingestion/native-batch.html">
+            
+                <a href="../ingestion/native-batch.html">
+            
+                    
+                    本地模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6.2" data-path="../ingestion/hadoop.html">
+            
+                <a href="../ingestion/hadoop.html">
+            
+                    
+                    从Hadoop导入
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.7" data-path="../ingestion/tasks.html">
+            
+                <a href="../ingestion/tasks.html">
+            
+                    
+                    Druid中的任务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.8" data-path="../ingestion/faq.html">
+            
+                <a href="../ingestion/faq.html">
+            
+                    
+                    FAQ
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6" >
+            
+                <span>
+            
+                    
+                    数据查询
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.1" data-path="../querying/sql.html">
+            
+                <a href="../querying/sql.html">
+            
+                    
+                    通过SQL查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.2" data-path="../querying/querying.html">
+            
+                <a href="../querying/querying.html">
+            
+                    
+                    通过JSON查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.3" data-path="../querying/query-execution.html">
+            
+                <a href="../querying/query-execution.html">
+            
+                    
+                    查询执行流程
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4" >
+            
+                <span>
+            
+                    
+                    主要概念
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.4.1" data-path="../querying/datasource.html">
+            
+                <a href="../querying/datasource.html">
+            
+                    
+                    数据源(datasource)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.2" data-path="../querying/joins.html">
+            
+                <a href="../querying/joins.html">
+            
+                    
+                    联合查询(join)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.3" data-path="../querying/lookups.html">
+            
+                <a href="../querying/lookups.html">
+            
+                    
+                    字典查询(lookups)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.4" data-path="../querying/multi-value-dimensions.html">
+            
+                <a href="../querying/multi-value-dimensions.html">
+            
+                    
+                    结构化列值(multi-value-dimensions)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.5" data-path="../querying/multitenancy.html">
+            
+                <a href="../querying/multitenancy.html">
+            
+                    
+                    多租户
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.6" data-path="../querying/caching.html">
+            
+                <a href="../querying/caching.html">
+            
+                    
+                    查询缓存
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.7" data-path="../querying/query-context.html">
+            
+                <a href="../querying/query-context.html">
+            
+                    
+                    查询上下文
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5" >
+            
+                <span>
+            
+                    
+                    JSON查询类型
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.5.1" data-path="../querying/timeseriesquery.html">
+            
+                <a href="../querying/timeseriesquery.html">
+            
+                    
+                    Timeseries
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.2" data-path="../querying/topnquery.html">
+            
+                <a href="../querying/topnquery.html">
+            
+                    
+                    TopN
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.3" data-path="../querying/groupbyquery.html">
+            
+                <a href="../querying/groupbyquery.html">
+            
+                    
+                    GroupBy
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.4" data-path="../querying/scan-query.html">
+            
+                <a href="../querying/scan-query.html">
+            
+                    
+                    Scan
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.5" data-path="../querying/searchquery.html">
+            
+                <a href="../querying/searchquery.html">
+            
+                    
+                    Search
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.6" data-path="../querying/timeboundaryquery.html">
+            
+                <a href="../querying/timeboundaryquery.html">
+            
+                    
+                    TimeBoundary
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.7" data-path="../querying/segmentmetadataquery.html">
+            
+                <a href="../querying/segmentmetadataquery.html">
+            
+                    
+                    SegmentMetaData
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.8" data-path="../querying/datasourcemetadataquery.html">
+            
+                <a href="../querying/datasourcemetadataquery.html">
+            
+                    
+                    DatasourceMetadata
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6" >
+            
+                <span>
+            
+                    
+                    JSON查询结构
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.6.1" data-path="../querying/filters.html">
+            
+                <a href="../querying/filters.html">
+            
+                    
+                    过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.2" data-path="../querying/granularities.html">
+            
+                <a href="../querying/granularities.html">
+            
+                    
+                    时间粒度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.3" data-path="../querying/dimensionspecs.html">
+            
+                <a href="../querying/dimensionspecs.html">
+            
+                    
+                    数据维度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.4" data-path="../querying/aggregations.html">
+            
+                <a href="../querying/aggregations.html">
+            
+                    
+                    聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.5" data-path="../querying/post-aggregations.html">
+            
+                <a href="../querying/post-aggregations.html">
+            
+                    
+                    后置聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.6" data-path="../misc/math-expr.html">
+            
+                <a href="../misc/math-expr.html">
+            
+                    
+                    数学函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.7" data-path="../querying/having.html">
+            
+                <a href="../querying/having.html">
+            
+                    
+                    表达式与函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.8" data-path="../querying/limitspec.html">
+            
+                <a href="../querying/limitspec.html">
+            
+                    
+                    Having过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.9" data-path="../querying/topnmetricspec.html">
+            
+                <a href="../querying/topnmetricspec.html">
+            
+                    
+                    TopN排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.10" data-path="../querying/sorting-orders.html">
+            
+                <a href="../querying/sorting-orders.html">
+            
+                    
+                    排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.11" data-path="../querying/virtual-columns.html">
+            
+                <a href="../querying/virtual-columns.html">
+            
+                    
+                    虚拟字段
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.12" data-path="../development/geo.html">
+            
+                <a href="../development/geo.html">
+            
+                    
+                    空间过滤
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7" >
+            
+                <span>
+            
+                    
+                    配置
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.7.1" data-path="../configuration/">
+            
+                <a href="../configuration/">
+            
+                    
+                    概述
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.2" data-path="../development/extensions.html">
+            
+                <a href="../development/extensions.html">
+            
+                    
+                    扩展组件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.3" data-path="../configuration/logging.html">
+            
+                <a href="../configuration/logging.html">
+            
+                    
+                    运行日志
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8" >
+            
+                <span>
+            
+                    
+                    运维
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.1" data-path="../operations/druid-console.html">
+            
+                <a href="../operations/druid-console.html">
+            
+                    
+                    Web控制台
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2" data-path="../operations/getting-started.html">
+            
+                <a href="../operations/getting-started.html">
+            
+                    
+                    快速开始
+            
+                </a>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1" >
+            
+                <span>
+            
+                    
+                    安全
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1.1" data-path="../operations/security-overview.html">
+            
+                <a href="../operations/security-overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.2" data-path="../operations/security-user-auth.html">
+            
+                <a href="../operations/security-user-auth.html">
+            
+                    
+                    用户认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.3" data-path="../operations/auth-ldap.html">
+            
+                <a href="../operations/auth-ldap.html">
+            
+                    
+                    LDAP认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.4" data-path="../operations/password-provider.html">
+            
+                <a href="../operations/password-provider.html">
+            
+                    
+                    密码管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.5" data-path="auth.html">
+            
+                <a href="auth.html">
+            
+                    
+                    认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.6" data-path="../operations/tls-support.html">
+            
+                <a href="../operations/tls-support.html">
+            
+                    
+                    TLS加密支持
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2" >
+            
+                <span>
+            
+                    
+                    性能
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.2.1" data-path="../operations/basic-cluster-tuning.html">
+            
+                <a href="../operations/basic-cluster-tuning.html">
+            
+                    
+                    集群调优
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.2" data-path="../operations/segment-optimization.html">
+            
+                <a href="../operations/segment-optimization.html">
+            
+                    
+                    数据段文件优化
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.3" data-path="../operations/http-compression.html">
+            
+                <a href="../operations/http-compression.html">
+            
+                    
+                    HTTP压缩
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.3" data-path="../operations/api-reference.html">
+            
+                <a href="../operations/api-reference.html">
+            
+                    
+                    API手册
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.4" data-path="../operations/high-availability.html">
+            
+                <a href="../operations/high-availability.html">
+            
+                    
+                    高可用
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.5" data-path="../operations/rolling-updates.html">
+            
+                <a href="../operations/rolling-updates.html">
+            
+                    
+                    滚动版本升级
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.6" data-path="../operations/rule-configuration.html">
+            
+                <a href="../operations/rule-configuration.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.7" data-path="../operations/metrics.html">
+            
+                <a href="../operations/metrics.html">
+            
+                    
+                    应用指标
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.8" data-path="../operations/alerts.html">
+            
+                <a href="../operations/alerts.html">
+            
+                    
+                    告警
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.9" data-path="../operations/other-hadoop.html">
+            
+                <a href="../operations/other-hadoop.html">
+            
+                    
+                    Hadoop相关
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.10.1" data-path="../operations/management-uis.html">
+            
+                <a href="../operations/management-uis.html">
+            
+                    
+                    管理界面
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.2" data-path="../operations/dump-segment.html">
+            
+                <a href="../operations/dump-segment.html">
+            
+                    
+                    导出数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.3" data-path="../operations/reset-cluster.html">
+            
+                <a href="../operations/reset-cluster.html">
+            
+                    
+                    重置集群
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.4" data-path="../operations/insert-segment-to-db.html">
+            
+                <a href="../operations/insert-segment-to-db.html">
+            
+                    
+                    插入数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.5" data-path="../operations/pull-deps.html">
+            
+                <a href="../operations/pull-deps.html">
+            
+                    
+                    pull-deps工具
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.6" data-path="../operations/deep-storage-migration.html">
+            
+                <a href="../operations/deep-storage-migration.html">
+            
+                    
+                    迁移深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.7" data-path="../operations/export-metadata.html">
+            
+                <a href="../operations/export-metadata.html">
+            
+                    
+                    导出元数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.8" data-path="../operations/metadata-migration.html">
+            
+                <a href="../operations/metadata-migration.html">
+            
+                    
+                    元数据迁移
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.9" data-path="../operations/use_sbt_to_build_fat_jar.html">
+            
+                <a href="../operations/use_sbt_to_build_fat_jar.html">
+            
+                    
+                    打包fat jar
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9" >
+            
+                <span>
+            
+                    
+                    Druid开发
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.9.1" data-path="../development/overview.html">
+            
+                <a href="../development/overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.2" data-path="../development/modules.html">
+            
+                <a href="../development/modules.html">
+            
+                    
+                    模块
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.3" data-path="../development/javascript.html">
+            
+                <a href="../development/javascript.html">
+            
+                    
+                    javascript
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.4" data-path="../development/build.html">
+            
+                <a href="../development/build.html">
+            
+                    
+                    构建
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.5" data-path="../development/versioning.html">
+            
+                <a href="../development/versioning.html">
+            
+                    
+                    版本
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.6" data-path="../development/experimental.html">
+            
+                <a href="../development/experimental.html">
+            
+                    
+                    实验功能
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.10.1" data-path="../misc/papers-and-talks.html">
+            
+                <a href="../misc/papers-and-talks.html">
+            
+                    
+                    论文与演讲
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+    
+
+    <li class="divider"></li>
+
+    <li>
+        <a href="https://www.gitbook.com" target="blank" class="gitbook-link">
+            Published with GitBook
+        </a>
+    </li>
+</ul>
+
+
+                </nav>
+            
+        
+    </div>
+
+    <div class="book-body">
+        
+            <div class="body-inner">
+                
+                    
+
+<div class="book-header" role="navigation">
+    
+
+    <!-- Title -->
+    <h1>
+        <i class="fa fa-circle-o-notch fa-spin"></i>
+        <a href=".." >存储结构</a>
+    </h1>
+</div>
+
+
+
+
+                    <div class="page-wrapper" tabindex="-1" role="main">
+                        <div class="page-inner">
+                            
+<div id="book-search-results">
+    <div class="search-noresults">
+    
+                                <section class="normal markdown-section">
+                                
+                                <div id="anchor-navigation-ex-navbar"><i class="fa fa-navicon"></i><ul><ul><ul><li><span class="title-icon "></span><a href="#a-segment-files-core-data-structures"><b>1.1.1. </b>A segment file&apos;s core data structures</a></li><li><span class="title-icon "></span><a href="#multi-value-columns"><b>1.1.2. </b>Multi-value columns</a></li></ul><li><span class="title-icon "></span><a href="#sql-compatible-null-handling"><b>1.2. </b>SQL Compatible Null Handling</a></li><li><span class="title-icon "></span><a href="#naming-convention"><b>1.3. </b>Naming Convention</a></li><li><span class="title-icon "></span><a href="#segment-components"><b>1.4. </b>Segment Components</a></li><li><span class="title-icon "></span><a href="#format-of-a-column"><b>1.5. </b>Format of a column</a></li><ul><li><span class="title-icon "></span><a href="#compression"><b>1.5.1. </b>Compression</a></li></ul><li><span class="title-icon "></span><a href="#sharding-data-to-create-segments"><b>1.6. </b>Sharding Data to Create Segments</a></li><ul><li><span class="title-icon "></span><a href="#sharding"><b>1.6.1. </b>Sharding</a></li></ul><li><span class="title-icon "></span><a href="#schema-changes"><b>1.7. </b>Schema changes</a></li><li><span class="title-icon "></span><a href="#replacing-segments"><b>1.8. </b>Replacing segments</a></li><li><span class="title-icon "></span><a href="#different-schemas-among-segments"><b>1.9. </b>Different schemas among segments</a></li></ul></ul></div><a href="#" id="anchorNavigationExGoTop"><i class="fa fa-arrow-up"></i></a><!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one
+  ~ or more contributor license agreements.  See the NOTICE file
+  ~ distributed with this work for additional information
+  ~ regarding copyright ownership.  The ASF licenses this file
+  ~ to you under the Apache License, Version 2.0 (the
+  ~ "License"); you may not use this file except in compliance
+  ~ with the License.  You may obtain a copy of the License at
+  ~
+  ~   http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing,
+  ~ software distributed under the License is distributed on an
+  ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  ~ KIND, either express or implied.  See the License for the
+  ~ specific language governing permissions and limitations
+  ~ under the License.
+  -->
+<p>Apache Druid stores its index in <em>segment files</em>, which are partitioned by
+time. In a basic setup, one segment file is created for each time
+interval, where the time interval is configurable in the
+<code>segmentGranularity</code> parameter of the
+<a href="../ingestion/#granularityspec"><code>granularitySpec</code></a>.  For Druid to
+operate well under heavy query load, it is important for the segment
+file size to be within the recommended range of 300MB-700MB. If your
+segment files are larger than this range, then consider either
+changing the granularity of the time interval or partitioning your
+data and tweaking the <code>targetPartitionSize</code> in your <code>partitionsSpec</code>
+(a good starting point for this parameter is 5 million rows).  See the
+sharding section below and the &apos;Partitioning specification&apos; section of
+the <a href="../ingestion/hadoop.html#partitionsspec">Batch ingestion</a> documentation
+for more information.</p>
+<h3 id="a-segment-files-core-data-structures"><a name="a-segment-files-core-data-structures" class="anchor-navigation-ex-anchor" href="#a-segment-files-core-data-structures"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.1. A segment file&apos;s core data structures</h3>
+<p>Here we describe the internal structure of segment files, which is
+essentially <em>columnar</em>: the data for each column is laid out in
+separate data structures. By storing each column separately, Druid can
+decrease query latency by scanning only those columns actually needed
+for a query.  There are three basic column types: the timestamp
+column, dimension columns, and metric columns, as illustrated in the
+image below:</p>
+<p><img src="../assets/druid-column-types.png" alt="Druid column types" title="Druid Column Types"></p>
+<p>The timestamp and metric columns are simple: behind the scenes each of
+these is an array of integer or floating point values compressed with
+LZ4. Once a query knows which rows it needs to select, it simply
+decompresses these, pulls out the relevant rows, and applies the
+desired aggregation operator. As with all columns, if a query doesn&#x2019;t
+require a column, then that column&#x2019;s data is just skipped over.</p>
+<p>Dimensions columns are different because they support filter and
+group-by operations, so each dimension requires the following
+three data structures:</p>
+<ol>
+<li>A dictionary that maps values (which are always treated as strings) to integer IDs,</li>
+<li>A list of the column&#x2019;s values, encoded using the dictionary in 1, and</li>
+<li>For each distinct value in the column, a bitmap that indicates which rows contain that value.</li>
+</ol>
+<p>Why these three data structures? The dictionary simply maps string
+values to integer ids so that the values in (2) and (3) can be
+represented compactly. The bitmaps in (3) -- also known as <em>inverted
+indexes</em> allow for quick filtering operations (specifically, bitmaps
+are convenient for quickly applying AND and OR operators). Finally,
+the list of values in (2) is needed for <em>group by</em> and <em>TopN</em>
+queries. In other words, queries that solely aggregate metrics based
+on filters do not need to touch the list of dimension values stored in (2).</p>
+<p>To get a concrete sense of these data structures, consider the &#x2018;page&#x2019;
+column from the example data above.  The three data structures that
+represent this dimension are illustrated in the diagram below.</p>
+<pre><code>1: Dictionary that encodes column values
+  {
+    &quot;Justin Bieber&quot;: 0,
+    &quot;Ke$ha&quot;:         1
+  }
+
+2: Column data
+  [0,
+   0,
+   1,
+   1]
+
+3: Bitmaps - one for each unique value of the column
+  value=&quot;Justin Bieber&quot;: [1,1,0,0]
+  value=&quot;Ke$ha&quot;:         [0,0,1,1]
+</code></pre><p>Note that the bitmap is different from the first two data structures:
+whereas the first two grow linearly in the size of the data (in the
+worst case), the size of the bitmap section is the product of data
+size * column cardinality. Compression will help us here though
+because we know that for each row in &apos;column data&apos;, there will only be a
+single bitmap that has non-zero entry. This means that high cardinality
+columns will have extremely sparse, and therefore highly compressible,
+bitmaps. Druid exploits this using compression algorithms that are
+specially suited for bitmaps, such as roaring bitmap compression.</p>
+<h3 id="multi-value-columns"><a name="multi-value-columns" class="anchor-navigation-ex-anchor" href="#multi-value-columns"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.2. Multi-value columns</h3>
+<p>If a data source makes use of multi-value columns, then the data
+structures within the segment files look a bit different. Let&apos;s
+imagine that in the example above, the second row were tagged with
+both the &apos;Ke$ha&apos; <em>and</em> &apos;Justin Bieber&apos; topics. In this case, the three
+data structures would now look as follows:</p>
+<pre><code>1: Dictionary that encodes column values
+  {
+    &quot;Justin Bieber&quot;: 0,
+    &quot;Ke$ha&quot;:         1
+  }
+
+2: Column data
+  [0,
+   [0,1],  &lt;--Row value of multi-value column can have array of values
+   1,
+   1]
+
+3: Bitmaps - one for each unique value
+  value=&quot;Justin Bieber&quot;: [1,1,0,0]
+  value=&quot;Ke$ha&quot;:         [0,1,1,1]
+                            ^
+                            |
+                            |
+    Multi-value column has multiple non-zero entries
+</code></pre><p>Note the changes to the second row in the column data and the Ke$ha
+bitmap. If a row has more than one value for a column, its entry in
+the &apos;column data&apos; is an array of values. Additionally, a row with <em>n</em>
+values in &apos;column data&apos; will have <em>n</em> non-zero valued entries in
+bitmaps.</p>
+<h2 id="sql-compatible-null-handling"><a name="sql-compatible-null-handling" class="anchor-navigation-ex-anchor" href="#sql-compatible-null-handling"><i class="fa fa-link" aria-hidden="true"></i></a>1.2. SQL Compatible Null Handling</h2>
+<p>By default, Druid string dimension columns use the values <code>&apos;&apos;</code> and <code>null</code> interchangeably and numeric and metric columns can not represent <code>null</code> at all, instead coercing nulls to <code>0</code>. However, Druid also provides a SQL compatible null handling mode, which must be enabled at the system level, through <code>druid.generic.useDefaultValueForNull</code>. This setting, when set to <code>false</code>, will allow Druid to <em>at ingestion time</em> create segments whose string columns can distinguish <code>&apos;&apos;</code> from <code>null</code>, and numeric columns which can represent <code>null</code> valued rows instead of <code>0</code>.</p>
+<p>String dimension columns contain no additional column structures in this mode, instead just reserving an additional dictionary entry for the <code>null</code> value. Numeric columns however will be stored in the segment with an additional bitmap whose set bits indicate <code>null</code> valued rows. In addition to slightly increased segment sizes, SQL compatible null handling can incur a performance cost at query time as well, due to the need to check the null bitmap. This performance cost only occurs for columns that actually contain nulls.</p>
+<h2 id="naming-convention"><a name="naming-convention" class="anchor-navigation-ex-anchor" href="#naming-convention"><i class="fa fa-link" aria-hidden="true"></i></a>1.3. Naming Convention</h2>
+<p>Identifiers for segments are typically constructed using the segment datasource, interval start time (in ISO 8601 format), interval end time (in ISO 8601 format), and a version. If data is additionally sharded beyond a time range, the segment identifier will also contain a partition number.</p>
+<p>An example segment identifier may be:
+datasource_intervalStart_intervalEnd_version_partitionNum</p>
+<h2 id="segment-components"><a name="segment-components" class="anchor-navigation-ex-anchor" href="#segment-components"><i class="fa fa-link" aria-hidden="true"></i></a>1.4. Segment Components</h2>
+<p>Behind the scenes, a segment is comprised of several files, listed below.</p>
+<ul>
+<li><p><code>version.bin</code></p>
+<p>  4 bytes representing the current segment version as an integer. E.g., for v9 segments, the version is 0x0, 0x0, 0x0, 0x9</p>
+</li>
+<li><p><code>meta.smoosh</code></p>
+<p>  A file with metadata (filenames and offsets) about the contents of the other <code>smoosh</code> files</p>
+</li>
+<li><p><code>XXXXX.smoosh</code></p>
+<p>  There are some number of these files, which are concatenated binary data</p>
+<p>  The <code>smoosh</code> files represent multiple files &quot;smooshed&quot; together in order to minimize the number of file descriptors that must be open to house the data. They are files of up to 2GB in size (to match the limit of a memory mapped ByteBuffer in Java). The <code>smoosh</code> files house individual files for each of the columns in the data as well as an <code>index.drd</code> file with extra metadata about the segment.</p>
+<p>  There is also a special column called <code>__time</code> that refers to the time column of the segment. This will hopefully become less and less special as the code evolves, but for now it&#x2019;s as special as my Mommy always told me I am.</p>
+</li>
+</ul>
+<p>In the codebase, segments have an internal format version. The current segment format version is <code>v9</code>.</p>
+<h2 id="format-of-a-column"><a name="format-of-a-column" class="anchor-navigation-ex-anchor" href="#format-of-a-column"><i class="fa fa-link" aria-hidden="true"></i></a>1.5. Format of a column</h2>
+<p>Each column is stored as two parts:</p>
+<ol>
+<li>A Jackson-serialized ColumnDescriptor</li>
+<li>The rest of the binary for the column</li>
+</ol>
+<p>A ColumnDescriptor is essentially an object that allows us to use Jackson&apos;s polymorphic deserialization to add new and interesting methods of serialization with minimal impact to the code. It consists of some metadata about the column (what type is it, is it multi-value, etc.) and then a list of serialization/deserialization logic that can deserialize the rest of the binary.</p>
+<h3 id="compression"><a name="compression" class="anchor-navigation-ex-anchor" href="#compression"><i class="fa fa-link" aria-hidden="true"></i></a>1.5.1. Compression</h3>
+<p>Druid compresses blocks of values for string, long, float, and double columns, using <a href="https://github.com/lz4/lz4-java" target="_blank">LZ4</a> by default, and bitmaps for string columns and numeric null values are compressed using <a href="https://github.com/RoaringBitmap/RoaringBitmap" target="_blank">Roaring</a>. We recommend sticking with these defaults unless experimental verification with your own data and query patterns suggest that non-default options will perform better in your specific case. For example, for bitmap in string columns, the differences between using Roaring and CONCISE are most pronounced for high cardinality columns. In this case, Roaring is substantially faster on filters that match a lot of values, but in some cases CONCISE can have a lower footprint due to the overhead of the Roaring format (but is still slower when lots of values are matched). Currently, compression is configured on at the segment level rather than individual columns, see <a href="../ingestion/#indexspec">IndexSpec</a> for more details.</p>
+<h2 id="sharding-data-to-create-segments"><a name="sharding-data-to-create-segments" class="anchor-navigation-ex-anchor" href="#sharding-data-to-create-segments"><i class="fa fa-link" aria-hidden="true"></i></a>1.6. Sharding Data to Create Segments</h2>
+<h3 id="sharding"><a name="sharding" class="anchor-navigation-ex-anchor" href="#sharding"><i class="fa fa-link" aria-hidden="true"></i></a>1.6.1. Sharding</h3>
+<p>Multiple segments may exist for the same interval of time for the same datasource. These segments form a <code>block</code> for an interval.
+Depending on the type of <code>shardSpec</code> that is used to shard the data, Druid queries may only complete if a <code>block</code> is complete. That is to say, if a block consists of 3 segments, such as:</p>
+<p><code>sampleData_2011-01-01T02:00:00:00Z_2011-01-01T03:00:00:00Z_v1_0</code></p>
+<p><code>sampleData_2011-01-01T02:00:00:00Z_2011-01-01T03:00:00:00Z_v1_1</code></p>
+<p><code>sampleData_2011-01-01T02:00:00:00Z_2011-01-01T03:00:00:00Z_v1_2</code></p>
+<p>All 3 segments must be loaded before a query for the interval <code>2011-01-01T02:00:00:00Z_2011-01-01T03:00:00:00Z</code> completes.</p>
+<p>The exception to this rule is with using linear shard specs. Linear shard specs do not force &apos;completeness&apos; and queries can complete even if shards are not loaded in the system.
+For example, if your real-time ingestion creates 3 segments that were sharded with linear shard spec, and only two of the segments were loaded in the system, queries would return results only for those 2 segments.</p>
+<h2 id="schema-changes"><a name="schema-changes" class="anchor-navigation-ex-anchor" href="#schema-changes"><i class="fa fa-link" aria-hidden="true"></i></a>1.7. Schema changes</h2>
+<h2 id="replacing-segments"><a name="replacing-segments" class="anchor-navigation-ex-anchor" href="#replacing-segments"><i class="fa fa-link" aria-hidden="true"></i></a>1.8. Replacing segments</h2>
+<p>Druid uniquely
+identifies segments using the datasource, interval, version, and partition number. The partition number is only visible in the segment id if
+there are multiple segments created for some granularity of time. For example, if you have hourly segments, but you
+have more data in an hour than a single segment can hold, you can create multiple segments for the same hour. These segments will share
+the same datasource, interval, and version, but have linearly increasing partition numbers.</p>
+<pre><code>foo_2015-01-01/2015-01-02_v1_0
+foo_2015-01-01/2015-01-02_v1_1
+foo_2015-01-01/2015-01-02_v1_2
+</code></pre><p>In the example segments above, the <code>dataSource = foo</code>, <code>interval = 2015-01-01/2015-01-02</code>, <code>version = v1</code>, and <code>partitionNum = 0</code>.
+If at some later point in time, you reindex the data with a new schema, the newly created segments will have a higher version id.</p>
+<pre><code>foo_2015-01-01/2015-01-02_v2_0
+foo_2015-01-01/2015-01-02_v2_1
+foo_2015-01-01/2015-01-02_v2_2
+</code></pre><p>Druid batch indexing (either Hadoop-based or IndexTask-based) guarantees atomic updates on an interval-by-interval basis.
+In our example, until all <code>v2</code> segments for <code>2015-01-01/2015-01-02</code> are loaded in a Druid cluster, queries exclusively use <code>v1</code> segments.
+Once all <code>v2</code> segments are loaded and queryable, all queries ignore <code>v1</code> segments and switch to the <code>v2</code> segments.
+Shortly afterwards, the <code>v1</code> segments are unloaded from the cluster.</p>
+<p>Note that updates that span multiple segment intervals are only atomic within each interval. They are not atomic across the entire update.
+For example, you have segments such as the following:</p>
+<pre><code>foo_2015-01-01/2015-01-02_v1_0
+foo_2015-01-02/2015-01-03_v1_1
+foo_2015-01-03/2015-01-04_v1_2
+</code></pre><p><code>v2</code> segments will be loaded into the cluster as soon as they are built and replace <code>v1</code> segments for the period of time the
+segments overlap. Before v2 segments are completely loaded, your cluster may have a mixture of <code>v1</code> and <code>v2</code> segments.</p>
+<pre><code>foo_2015-01-01/2015-01-02_v1_0
+foo_2015-01-02/2015-01-03_v2_1
+foo_2015-01-03/2015-01-04_v1_2
+</code></pre><p>In this case, queries may hit a mixture of <code>v1</code> and <code>v2</code> segments.</p>
+<h2 id="different-schemas-among-segments"><a name="different-schemas-among-segments" class="anchor-navigation-ex-anchor" href="#different-schemas-among-segments"><i class="fa fa-link" aria-hidden="true"></i></a>1.9. Different schemas among segments</h2>
+<p>Druid segments for the same datasource may have different schemas. If a string column (dimension) exists in one segment but not
+another, queries that involve both segments still work. Queries for the segment missing the dimension will behave as if the dimension has only null values.
+Similarly, if one segment has a numeric column (metric) but another does not, queries on the segment missing the
+metric will generally &quot;do the right thing&quot;. Aggregations over this missing metric behave as if the metric were missing.</p>
+<footer class="page-footer"><span class="copyright">Copyright <a target="_blank" href="https://druid.org.cn">druid.org.cn</a> 2021 .&#x672C;&#x6587;&#x7FFB;&#x8BD1;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/design/segments.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
+2020-10-12 09:28:46
+</span></footer>
+                                
+                                </section>
+                            
+    </div>
+    <div class="search-results">
+        <div class="has-results">
+            
+            <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+            <ul class="search-results-list"></ul>
+            
+        </div>
+        <div class="no-results">
+            
+            <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+            
+        </div>
+    </div>
+</div>
+
+                        </div>
+                    </div>
+                
+            </div>
+
+            
+                
+                <a href="architecture.html" class="navigation navigation-prev " aria-label="Previous page: 整体架构">
+                    <i class="fa fa-angle-left"></i>
+                </a>
+                
+                
+                <a href="processes" class="navigation navigation-next " aria-label="Next page: 进程与服务">
+                    <i class="fa fa-angle-right"></i>
+                </a>
+                
+            
+        
+    </div>
+
+    <script>
+        var gitbook = gitbook || [];
+        gitbook.push(function() {
+            gitbook.page.hasChanged({"page":{"id":"segments","title":"存储结构","level":"1.4.2","depth":2,"next":{"title":"进程与服务","level":"1.4.3","depth":2,"path":"design/processes","ref":"design/processes","articles":[]},"previous":{"title":"整体架构","level":"1.4.1","depth":2,"path":"design/architecture.md","ref":"design/architecture.md","articles":[]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"Copyright <a target=\"_blank\" href=\"https://druid.org.cn\">druid.org.cn</a> 2021 .本文翻译自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"design/segments.md","mtime":"2020-10-12T01:28:46.000Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-04-24T03:56:48.676Z"},"basePath":"..","book":{"language":""}});
+        });
+    </script>
+</div>
+
+        
+    <script src="../gitbook/gitbook.js"></script>
+    <script src="../gitbook/theme.js"></script>
+    
+        
+        <script src="../gitbook/gitbook-plugin-livereload/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/search.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-code/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-auto-scroll-table/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-hide-element/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-github/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-sharing/buttons.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+        
+    
+
+    </body>
+</html>
+

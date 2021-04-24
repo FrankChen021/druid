@@ -1,0 +1,2258 @@
+
+<!DOCTYPE HTML>
+<html lang="" >
+    <head>
+        <meta charset="UTF-8">
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <title>Druid中的任务 · GitBook</title>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="description" content="">
+        <meta name="generator" content="GitBook 3.2.3">
+        
+        
+        
+    
+    <link rel="stylesheet" href="../gitbook/style.css">
+
+    
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-highlight/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-search-pro/search.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-code/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-tbfed-pagefooter/footer.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-anchor-navigation-ex/style/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-auto-scroll-table/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-fontsettings/website.css">
+                
+            
+        
+
+    
+
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+
+        
+    
+    
+    <meta name="HandheldFriendly" content="true"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon-precomposed" sizes="152x152" href="../gitbook/images/apple-touch-icon-precomposed-152.png">
+    <link rel="shortcut icon" href="../gitbook/images/favicon.ico" type="image/x-icon">
+
+    
+    <link rel="next" href="faq.html" />
+    
+    
+    <link rel="prev" href="hadoop.html" />
+    
+
+    </head>
+    <body>
+        
+<div class="book">
+    <div class="book-summary">
+        
+            
+<div id="book-search-input" role="search">
+    <input type="text" placeholder="Type to search" />
+</div>
+
+            
+                <nav role="navigation">
+                
+
+
+<ul class="summary">
+    
+    
+
+    
+
+    
+        
+        
+    
+        <li class="chapter " data-level="1.1" data-path="../">
+            
+                <a href="../">
+            
+                    
+                    前言
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2" >
+            
+                <span>
+            
+                    
+                    开始
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.2.1" data-path="../design/">
+            
+                <a href="../design/">
+            
+                    
+                    Apache Druid简介
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.2" data-path="../tutorials/">
+            
+                <a href="../tutorials/">
+            
+                    
+                    快速入门
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.3" data-path="../tutorials/docker.html">
+            
+                <a href="../tutorials/docker.html">
+            
+                    
+                    Docker
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.4" data-path="../operations/single-server.html">
+            
+                <a href="../operations/single-server.html">
+            
+                    
+                    单机部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.5" data-path="../tutorials/cluster.html">
+            
+                <a href="../tutorials/cluster.html">
+            
+                    
+                    集群模式部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3" >
+            
+                <span>
+            
+                    
+                    指南
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.3.1" data-path="../tutorials/tutorial-batch.html">
+            
+                <a href="../tutorials/tutorial-batch.html">
+            
+                    
+                    从本地文件摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.2" data-path="../tutorials/tutorial-kafka.html">
+            
+                <a href="../tutorials/tutorial-kafka.html">
+            
+                    
+                    从Kafka摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.3" data-path="../tutorials/tutorial-batch-hadoop.html">
+            
+                <a href="../tutorials/tutorial-batch-hadoop.html">
+            
+                    
+                    从Haddop摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.4" data-path="../tutorials/tutorial-query.html">
+            
+                <a href="../tutorials/tutorial-query.html">
+            
+                    
+                    查询数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.5" data-path="../tutorials/tutorial-rollup.html">
+            
+                <a href="../tutorials/tutorial-rollup.html">
+            
+                    
+                    预聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.6" data-path="../tutorials/tutorial-retention.html">
+            
+                <a href="../tutorials/tutorial-retention.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.7" data-path="../tutorials/tutorial-update-data.html">
+            
+                <a href="../tutorials/tutorial-update-data.html">
+            
+                    
+                    更新数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.8" data-path="../tutorials/tutorial-compaction.html">
+            
+                <a href="../tutorials/tutorial-compaction.html">
+            
+                    
+                    数据文件合并
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.9" data-path="../tutorials/tutorial-delete-data.html">
+            
+                <a href="../tutorials/tutorial-delete-data.html">
+            
+                    
+                    删除数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.10" data-path="../tutorials/tutorial-ingestion-spec.html">
+            
+                <a href="../tutorials/tutorial-ingestion-spec.html">
+            
+                    
+                    编写数据摄入规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.11" data-path="../tutorials/tutorial-transform-spec.html">
+            
+                <a href="../tutorials/tutorial-transform-spec.html">
+            
+                    
+                    转换摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.12" data-path="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                <a href="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                    
+                    设置Kerberos认证的HDFS作为深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4" >
+            
+                <span>
+            
+                    
+                    设计
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.4.1" data-path="../design/architecture.html">
+            
+                <a href="../design/architecture.html">
+            
+                    
+                    整体架构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.2" data-path="../design/segments.html">
+            
+                <a href="../design/segments.html">
+            
+                    
+                    存储结构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.3" data-path="../design/processes">
+            
+                <span>
+            
+                    
+                    进程与服务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.4" data-path="../dependencies/deep-storage.html">
+            
+                <a href="../dependencies/deep-storage.html">
+            
+                    
+                    深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.5" data-path="../dependencies/metadata-storage.html">
+            
+                <a href="../dependencies/metadata-storage.html">
+            
+                    
+                    元数据存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.6" data-path="../dependencies/zookeeper.html">
+            
+                <a href="../dependencies/zookeeper.html">
+            
+                    
+                    Zookeeper
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5" >
+            
+                <span>
+            
+                    
+                    数据摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.1" data-path="./">
+            
+                <a href="./">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.2" data-path="data-formats.html">
+            
+                <a href="data-formats.html">
+            
+                    
+                    数据格式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.3" data-path="schema-design.html">
+            
+                <a href="schema-design.html">
+            
+                    
+                    Schema定义
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.4" data-path="data-management.html">
+            
+                <a href="data-management.html">
+            
+                    
+                    数据管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5" >
+            
+                <span>
+            
+                    
+                    实时摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.5.1" data-path="../development/extensions-core/kafka-ingestion.html">
+            
+                <a href="../development/extensions-core/kafka-ingestion.html">
+            
+                    
+                    从Kafka摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.2" data-path="../development/extensions-core/kinesis-ingestion.html">
+            
+                <a href="../development/extensions-core/kinesis-ingestion.html">
+            
+                    
+                    从Amazon Kinesis摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.3" data-path="tranquility.html">
+            
+                <a href="tranquility.html">
+            
+                    
+                    从Tranqulity摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.4" data-path="standalone-realtime.html">
+            
+                <a href="standalone-realtime.html">
+            
+                    
+                    独立实时模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6" >
+            
+                <span>
+            
+                    
+                    批量导入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.6.1" data-path="native-batch.html">
+            
+                <a href="native-batch.html">
+            
+                    
+                    本地模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6.2" data-path="hadoop.html">
+            
+                <a href="hadoop.html">
+            
+                    
+                    从Hadoop导入
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter active" data-level="1.5.7" data-path="tasks.html">
+            
+                <a href="tasks.html">
+            
+                    
+                    Druid中的任务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.8" data-path="faq.html">
+            
+                <a href="faq.html">
+            
+                    
+                    FAQ
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6" >
+            
+                <span>
+            
+                    
+                    数据查询
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.1" data-path="../querying/sql.html">
+            
+                <a href="../querying/sql.html">
+            
+                    
+                    通过SQL查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.2" data-path="../querying/querying.html">
+            
+                <a href="../querying/querying.html">
+            
+                    
+                    通过JSON查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.3" data-path="../querying/query-execution.html">
+            
+                <a href="../querying/query-execution.html">
+            
+                    
+                    查询执行流程
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4" >
+            
+                <span>
+            
+                    
+                    主要概念
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.4.1" data-path="../querying/datasource.html">
+            
+                <a href="../querying/datasource.html">
+            
+                    
+                    数据源(datasource)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.2" data-path="../querying/joins.html">
+            
+                <a href="../querying/joins.html">
+            
+                    
+                    联合查询(join)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.3" data-path="../querying/lookups.html">
+            
+                <a href="../querying/lookups.html">
+            
+                    
+                    字典查询(lookups)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.4" data-path="../querying/multi-value-dimensions.html">
+            
+                <a href="../querying/multi-value-dimensions.html">
+            
+                    
+                    结构化列值(multi-value-dimensions)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.5" data-path="../querying/multitenancy.html">
+            
+                <a href="../querying/multitenancy.html">
+            
+                    
+                    多租户
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.6" data-path="../querying/caching.html">
+            
+                <a href="../querying/caching.html">
+            
+                    
+                    查询缓存
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.7" data-path="../querying/query-context.html">
+            
+                <a href="../querying/query-context.html">
+            
+                    
+                    查询上下文
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5" >
+            
+                <span>
+            
+                    
+                    JSON查询类型
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.5.1" data-path="../querying/timeseriesquery.html">
+            
+                <a href="../querying/timeseriesquery.html">
+            
+                    
+                    Timeseries
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.2" data-path="../querying/topnquery.html">
+            
+                <a href="../querying/topnquery.html">
+            
+                    
+                    TopN
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.3" data-path="../querying/groupbyquery.html">
+            
+                <a href="../querying/groupbyquery.html">
+            
+                    
+                    GroupBy
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.4" data-path="../querying/scan-query.html">
+            
+                <a href="../querying/scan-query.html">
+            
+                    
+                    Scan
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.5" data-path="../querying/searchquery.html">
+            
+                <a href="../querying/searchquery.html">
+            
+                    
+                    Search
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.6" data-path="../querying/timeboundaryquery.html">
+            
+                <a href="../querying/timeboundaryquery.html">
+            
+                    
+                    TimeBoundary
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.7" data-path="../querying/segmentmetadataquery.html">
+            
+                <a href="../querying/segmentmetadataquery.html">
+            
+                    
+                    SegmentMetaData
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.8" data-path="../querying/datasourcemetadataquery.html">
+            
+                <a href="../querying/datasourcemetadataquery.html">
+            
+                    
+                    DatasourceMetadata
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6" >
+            
+                <span>
+            
+                    
+                    JSON查询结构
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.6.1" data-path="../querying/filters.html">
+            
+                <a href="../querying/filters.html">
+            
+                    
+                    过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.2" data-path="../querying/granularities.html">
+            
+                <a href="../querying/granularities.html">
+            
+                    
+                    时间粒度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.3" data-path="../querying/dimensionspecs.html">
+            
+                <a href="../querying/dimensionspecs.html">
+            
+                    
+                    数据维度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.4" data-path="../querying/aggregations.html">
+            
+                <a href="../querying/aggregations.html">
+            
+                    
+                    聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.5" data-path="../querying/post-aggregations.html">
+            
+                <a href="../querying/post-aggregations.html">
+            
+                    
+                    后置聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.6" data-path="../misc/math-expr.html">
+            
+                <a href="../misc/math-expr.html">
+            
+                    
+                    数学函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.7" data-path="../querying/having.html">
+            
+                <a href="../querying/having.html">
+            
+                    
+                    表达式与函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.8" data-path="../querying/limitspec.html">
+            
+                <a href="../querying/limitspec.html">
+            
+                    
+                    Having过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.9" data-path="../querying/topnmetricspec.html">
+            
+                <a href="../querying/topnmetricspec.html">
+            
+                    
+                    TopN排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.10" data-path="../querying/sorting-orders.html">
+            
+                <a href="../querying/sorting-orders.html">
+            
+                    
+                    排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.11" data-path="../querying/virtual-columns.html">
+            
+                <a href="../querying/virtual-columns.html">
+            
+                    
+                    虚拟字段
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.12" data-path="../development/geo.html">
+            
+                <a href="../development/geo.html">
+            
+                    
+                    空间过滤
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7" >
+            
+                <span>
+            
+                    
+                    配置
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.7.1" data-path="../configuration/">
+            
+                <a href="../configuration/">
+            
+                    
+                    概述
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.2" data-path="../development/extensions.html">
+            
+                <a href="../development/extensions.html">
+            
+                    
+                    扩展组件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.3" data-path="../configuration/logging.html">
+            
+                <a href="../configuration/logging.html">
+            
+                    
+                    运行日志
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8" >
+            
+                <span>
+            
+                    
+                    运维
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.1" data-path="../operations/druid-console.html">
+            
+                <a href="../operations/druid-console.html">
+            
+                    
+                    Web控制台
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2" data-path="../operations/getting-started.html">
+            
+                <a href="../operations/getting-started.html">
+            
+                    
+                    快速开始
+            
+                </a>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1" >
+            
+                <span>
+            
+                    
+                    安全
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1.1" data-path="../operations/security-overview.html">
+            
+                <a href="../operations/security-overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.2" data-path="../operations/security-user-auth.html">
+            
+                <a href="../operations/security-user-auth.html">
+            
+                    
+                    用户认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.3" data-path="../operations/auth-ldap.html">
+            
+                <a href="../operations/auth-ldap.html">
+            
+                    
+                    LDAP认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.4" data-path="../operations/password-provider.html">
+            
+                <a href="../operations/password-provider.html">
+            
+                    
+                    密码管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.5" data-path="../design/auth.html">
+            
+                <a href="../design/auth.html">
+            
+                    
+                    认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.6" data-path="../operations/tls-support.html">
+            
+                <a href="../operations/tls-support.html">
+            
+                    
+                    TLS加密支持
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2" >
+            
+                <span>
+            
+                    
+                    性能
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.2.1" data-path="../operations/basic-cluster-tuning.html">
+            
+                <a href="../operations/basic-cluster-tuning.html">
+            
+                    
+                    集群调优
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.2" data-path="../operations/segment-optimization.html">
+            
+                <a href="../operations/segment-optimization.html">
+            
+                    
+                    数据段文件优化
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.3" data-path="../operations/http-compression.html">
+            
+                <a href="../operations/http-compression.html">
+            
+                    
+                    HTTP压缩
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.3" data-path="../operations/api-reference.html">
+            
+                <a href="../operations/api-reference.html">
+            
+                    
+                    API手册
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.4" data-path="../operations/high-availability.html">
+            
+                <a href="../operations/high-availability.html">
+            
+                    
+                    高可用
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.5" data-path="../operations/rolling-updates.html">
+            
+                <a href="../operations/rolling-updates.html">
+            
+                    
+                    滚动版本升级
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.6" data-path="../operations/rule-configuration.html">
+            
+                <a href="../operations/rule-configuration.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.7" data-path="../operations/metrics.html">
+            
+                <a href="../operations/metrics.html">
+            
+                    
+                    应用指标
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.8" data-path="../operations/alerts.html">
+            
+                <a href="../operations/alerts.html">
+            
+                    
+                    告警
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.9" data-path="../operations/other-hadoop.html">
+            
+                <a href="../operations/other-hadoop.html">
+            
+                    
+                    Hadoop相关
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.10.1" data-path="../operations/management-uis.html">
+            
+                <a href="../operations/management-uis.html">
+            
+                    
+                    管理界面
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.2" data-path="../operations/dump-segment.html">
+            
+                <a href="../operations/dump-segment.html">
+            
+                    
+                    导出数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.3" data-path="../operations/reset-cluster.html">
+            
+                <a href="../operations/reset-cluster.html">
+            
+                    
+                    重置集群
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.4" data-path="../operations/insert-segment-to-db.html">
+            
+                <a href="../operations/insert-segment-to-db.html">
+            
+                    
+                    插入数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.5" data-path="../operations/pull-deps.html">
+            
+                <a href="../operations/pull-deps.html">
+            
+                    
+                    pull-deps工具
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.6" data-path="../operations/deep-storage-migration.html">
+            
+                <a href="../operations/deep-storage-migration.html">
+            
+                    
+                    迁移深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.7" data-path="../operations/export-metadata.html">
+            
+                <a href="../operations/export-metadata.html">
+            
+                    
+                    导出元数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.8" data-path="../operations/metadata-migration.html">
+            
+                <a href="../operations/metadata-migration.html">
+            
+                    
+                    元数据迁移
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.9" data-path="../operations/use_sbt_to_build_fat_jar.html">
+            
+                <a href="../operations/use_sbt_to_build_fat_jar.html">
+            
+                    
+                    打包fat jar
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9" >
+            
+                <span>
+            
+                    
+                    Druid开发
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.9.1" data-path="../development/overview.html">
+            
+                <a href="../development/overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.2" data-path="../development/modules.html">
+            
+                <a href="../development/modules.html">
+            
+                    
+                    模块
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.3" data-path="../development/javascript.html">
+            
+                <a href="../development/javascript.html">
+            
+                    
+                    javascript
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.4" data-path="../development/build.html">
+            
+                <a href="../development/build.html">
+            
+                    
+                    构建
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.5" data-path="../development/versioning.html">
+            
+                <a href="../development/versioning.html">
+            
+                    
+                    版本
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.6" data-path="../development/experimental.html">
+            
+                <a href="../development/experimental.html">
+            
+                    
+                    实验功能
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.10.1" data-path="../misc/papers-and-talks.html">
+            
+                <a href="../misc/papers-and-talks.html">
+            
+                    
+                    论文与演讲
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+    
+
+    <li class="divider"></li>
+
+    <li>
+        <a href="https://www.gitbook.com" target="blank" class="gitbook-link">
+            Published with GitBook
+        </a>
+    </li>
+</ul>
+
+
+                </nav>
+            
+        
+    </div>
+
+    <div class="book-body">
+        
+            <div class="body-inner">
+                
+                    
+
+<div class="book-header" role="navigation">
+    
+
+    <!-- Title -->
+    <h1>
+        <i class="fa fa-circle-o-notch fa-spin"></i>
+        <a href=".." >Druid中的任务</a>
+    </h1>
+</div>
+
+
+
+
+                    <div class="page-wrapper" tabindex="-1" role="main">
+                        <div class="page-inner">
+                            
+<div id="book-search-results">
+    <div class="search-noresults">
+    
+                                <section class="normal markdown-section">
+                                
+                                <div id="anchor-navigation-ex-navbar"><i class="fa fa-navicon"></i><ul><ul><li><span class="title-icon "></span><a href="#task-api"><b>1.1. </b>Task API</a></li><li><span class="title-icon "></span><a href="#task-reports"><b>1.2. </b>Task reports</a></li><ul><li><span class="title-icon "></span><a href="#completion-report"><b>1.2.1. </b>Completion report</a></li><li><span class="title-icon "></span><a href="#live-report"><b>1.2.2. </b>Live report</a></li></ul><li><span class="title-icon "></span><a href="#live-reports"><b>1.3. </b>Live reports</a></li><ul><li><span class="title-icon "></span><a href="#row-stats"><b>1.3.1. </b>Row stats</a></li><li><span class="title-icon "></span><a href="#unparseable-events"><b>1.3.2. </b>Unparseable events</a></li></ul><li><span class="title-icon "></span><a href="#task-lock-system"><b>1.4. </b>Task lock system</a></li><li><span class="title-icon "></span><a href="#overshadowing-between-segments"><b>1.5. </b>&quot;Overshadowing&quot; between segments</a></li><li><span class="title-icon "></span><a href="#locking"><b>1.6. </b>Locking</a></li><li><span class="title-icon "></span><a href="#lock-priority"><b>1.7. </b>Lock priority</a></li><li><span class="title-icon "></span><a href="#context-parameters"><b>1.8. </b>Context parameters</a></li><li><span class="title-icon "></span><a href="#all-task-types"><b>1.9. </b>All task types</a></li><ul><li><span class="title-icon "></span><a href="#index"><b>1.9.1. </b>index</a></li><li><span class="title-icon "></span><a href="#indexparallel"><b>1.9.2. </b>index_parallel</a></li><li><span class="title-icon "></span><a href="#indexsub"><b>1.9.3. </b>index_sub</a></li><li><span class="title-icon "></span><a href="#indexhadoop"><b>1.9.4. </b>index_hadoop</a></li><li><span class="title-icon "></span><a href="#indexkafka"><b>1.9.5. </b>index_kafka</a></li><li><span class="title-icon "></span><a href="#indexkinesis"><b>1.9.6. </b>index_kinesis</a></li><li><span class="title-icon "></span><a href="#indexrealtime"><b>1.9.7. </b>index_realtime</a></li><li><span class="title-icon "></span><a href="#compact"><b>1.9.8. </b>compact</a></li><li><span class="title-icon "></span><a href="#kill"><b>1.9.9. </b>kill</a></li></ul></ul></ul></div><a href="#" id="anchorNavigationExGoTop"><i class="fa fa-arrow-up"></i></a><!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one
+  ~ or more contributor license agreements.  See the NOTICE file
+  ~ distributed with this work for additional information
+  ~ regarding copyright ownership.  The ASF licenses this file
+  ~ to you under the Apache License, Version 2.0 (the
+  ~ "License"); you may not use this file except in compliance
+  ~ with the License.  You may obtain a copy of the License at
+  ~
+  ~   http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing,
+  ~ software distributed under the License is distributed on an
+  ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  ~ KIND, either express or implied.  See the License for the
+  ~ specific language governing permissions and limitations
+  ~ under the License.
+  -->
+<p>Tasks do all <a href="./">ingestion</a>-related work in Druid.</p>
+<p>For batch ingestion, you will generally submit tasks directly to Druid using the
+<a href="../operations/api-reference.html#tasks">Task APIs</a>. For streaming ingestion, tasks are generally submitted for you by a
+supervisor.</p>
+<h2 id="task-api"><a name="task-api" class="anchor-navigation-ex-anchor" href="#task-api"><i class="fa fa-link" aria-hidden="true"></i></a>1.1. Task API</h2>
+<p>Task APIs are available in two main places:</p>
+<ul>
+<li>The <a href="../design/overlord.md">Overlord</a> process offers HTTP APIs to submit tasks, cancel tasks, check their status,
+review logs and reports, and more. Refer to the <a href="../operations/api-reference.html#tasks">Tasks API reference page</a> for a
+full list.</li>
+<li>Druid SQL includes a <a href="../querying/sql.html#tasks-table"><code>sys.tasks</code></a> table that provides information about currently
+running tasks. This table is read-only, and has a limited (but useful!) subset of the full information available through
+the Overlord APIs.</li>
+</ul>
+<p><a name="reports"></a></p>
+<h2 id="task-reports"><a name="task-reports" class="anchor-navigation-ex-anchor" href="#task-reports"><i class="fa fa-link" aria-hidden="true"></i></a>1.2. Task reports</h2>
+<p>A report containing information about the number of rows ingested, and any parse exceptions that occurred is available for both completed tasks and running tasks.</p>
+<p>The reporting feature is supported by the <a href="native-batch.html#simple-task">simple native batch task</a>, the Hadoop batch task, and Kafka and Kinesis ingestion tasks.</p>
+<h3 id="completion-report"><a name="completion-report" class="anchor-navigation-ex-anchor" href="#completion-report"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.1. Completion report</h3>
+<p>After a task completes, a completion report can be retrieved at:</p>
+<pre><code>http://&lt;OVERLORD-HOST&gt;:&lt;OVERLORD-PORT&gt;/druid/indexer/v1/task/&lt;task-id&gt;/reports
+</code></pre><p>An example output is shown below:</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;ingestionStatsAndErrors&quot;</span>: {
+    <span class="hljs-string">&quot;taskId&quot;</span>: <span class="hljs-string">&quot;compact_twitter_2018-09-24T18:24:23.920Z&quot;</span>,
+    <span class="hljs-string">&quot;payload&quot;</span>: {
+      <span class="hljs-string">&quot;ingestionState&quot;</span>: <span class="hljs-string">&quot;COMPLETED&quot;</span>,
+      <span class="hljs-string">&quot;unparseableEvents&quot;</span>: {},
+      <span class="hljs-string">&quot;rowStats&quot;</span>: {
+        <span class="hljs-string">&quot;determinePartitions&quot;</span>: {
+          <span class="hljs-string">&quot;processed&quot;</span>: <span class="hljs-number">0</span>,
+          <span class="hljs-string">&quot;processedWithError&quot;</span>: <span class="hljs-number">0</span>,
+          <span class="hljs-string">&quot;thrownAway&quot;</span>: <span class="hljs-number">0</span>,
+          <span class="hljs-string">&quot;unparseable&quot;</span>: <span class="hljs-number">0</span>
+        },
+        <span class="hljs-string">&quot;buildSegments&quot;</span>: {
+          <span class="hljs-string">&quot;processed&quot;</span>: <span class="hljs-number">5390324</span>,
+          <span class="hljs-string">&quot;processedWithError&quot;</span>: <span class="hljs-number">0</span>,
+          <span class="hljs-string">&quot;thrownAway&quot;</span>: <span class="hljs-number">0</span>,
+          <span class="hljs-string">&quot;unparseable&quot;</span>: <span class="hljs-number">0</span>
+        }
+      },
+      <span class="hljs-string">&quot;errorMsg&quot;</span>: <span class="hljs-literal">null</span>
+    },
+    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;ingestionStatsAndErrors&quot;</span>
+  }
+}
+</code></pre>
+<h3 id="live-report"><a name="live-report" class="anchor-navigation-ex-anchor" href="#live-report"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.2. Live report</h3>
+<p>When a task is running, a live report containing ingestion state, unparseable events and moving average for number of events processed for 1 min, 5 min, 15 min time window can be retrieved at:</p>
+<pre><code>http://&lt;OVERLORD-HOST&gt;:&lt;OVERLORD-PORT&gt;/druid/indexer/v1/task/&lt;task-id&gt;/reports
+</code></pre><p>and </p>
+<pre><code>http://&lt;middlemanager-host&gt;:&lt;worker-port&gt;/druid/worker/v1/chat/&lt;task-id&gt;/liveReports
+</code></pre><p>An example output is shown below:</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;ingestionStatsAndErrors&quot;</span>: {
+    <span class="hljs-string">&quot;taskId&quot;</span>: <span class="hljs-string">&quot;compact_twitter_2018-09-24T18:24:23.920Z&quot;</span>,
+    <span class="hljs-string">&quot;payload&quot;</span>: {
+      <span class="hljs-string">&quot;ingestionState&quot;</span>: <span class="hljs-string">&quot;RUNNING&quot;</span>,
+      <span class="hljs-string">&quot;unparseableEvents&quot;</span>: {},
+      <span class="hljs-string">&quot;rowStats&quot;</span>: {
+        <span class="hljs-string">&quot;movingAverages&quot;</span>: {
+          <span class="hljs-string">&quot;buildSegments&quot;</span>: {
+            <span class="hljs-string">&quot;5m&quot;</span>: {
+              <span class="hljs-string">&quot;processed&quot;</span>: <span class="hljs-number">3.392158326408501</span>,
+              <span class="hljs-string">&quot;unparseable&quot;</span>: <span class="hljs-number">0</span>,
+              <span class="hljs-string">&quot;thrownAway&quot;</span>: <span class="hljs-number">0</span>,
+              <span class="hljs-string">&quot;processedWithError&quot;</span>: <span class="hljs-number">0</span>
+            },
+            <span class="hljs-string">&quot;15m&quot;</span>: {
+              <span class="hljs-string">&quot;processed&quot;</span>: <span class="hljs-number">1.736165476881023</span>,
+              <span class="hljs-string">&quot;unparseable&quot;</span>: <span class="hljs-number">0</span>,
+              <span class="hljs-string">&quot;thrownAway&quot;</span>: <span class="hljs-number">0</span>,
+              <span class="hljs-string">&quot;processedWithError&quot;</span>: <span class="hljs-number">0</span>
+            },
+            <span class="hljs-string">&quot;1m&quot;</span>: {
+              <span class="hljs-string">&quot;processed&quot;</span>: <span class="hljs-number">4.206417693750045</span>,
+              <span class="hljs-string">&quot;unparseable&quot;</span>: <span class="hljs-number">0</span>,
+              <span class="hljs-string">&quot;thrownAway&quot;</span>: <span class="hljs-number">0</span>,
+              <span class="hljs-string">&quot;processedWithError&quot;</span>: <span class="hljs-number">0</span>
+            }
+          }
+        },
+        <span class="hljs-string">&quot;totals&quot;</span>: {
+          <span class="hljs-string">&quot;buildSegments&quot;</span>: {
+            <span class="hljs-string">&quot;processed&quot;</span>: <span class="hljs-number">1994</span>,
+            <span class="hljs-string">&quot;processedWithError&quot;</span>: <span class="hljs-number">0</span>,
+            <span class="hljs-string">&quot;thrownAway&quot;</span>: <span class="hljs-number">0</span>,
+            <span class="hljs-string">&quot;unparseable&quot;</span>: <span class="hljs-number">0</span>
+          }
+        }
+      },
+      <span class="hljs-string">&quot;errorMsg&quot;</span>: <span class="hljs-literal">null</span>
+    },
+    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;ingestionStatsAndErrors&quot;</span>
+  }
+}
+</code></pre>
+<p>A description of the fields:</p>
+<p>The <code>ingestionStatsAndErrors</code> report provides information about row counts and errors.</p>
+<p>The <code>ingestionState</code> shows what step of ingestion the task reached. Possible states include:</p>
+<ul>
+<li><code>NOT_STARTED</code>: The task has not begun reading any rows</li>
+<li><code>DETERMINE_PARTITIONS</code>: The task is processing rows to determine partitioning</li>
+<li><code>BUILD_SEGMENTS</code>: The task is processing rows to construct segments</li>
+<li><code>COMPLETED</code>: The task has finished its work.</li>
+</ul>
+<p>Only batch tasks have the DETERMINE_PARTITIONS phase. Realtime tasks such as those created by the Kafka Indexing Service do not have a DETERMINE_PARTITIONS phase.</p>
+<p><code>unparseableEvents</code> contains lists of exception messages that were caused by unparseable inputs. This can help with identifying problematic input rows. There will be one list each for the DETERMINE_PARTITIONS and BUILD_SEGMENTS phases. Note that the Hadoop batch task does not support saving of unparseable events.</p>
+<p>the <code>rowStats</code> map contains information about row counts. There is one entry for each ingestion phase. The definitions of the different row counts are shown below:</p>
+<ul>
+<li><code>processed</code>: Number of rows successfully ingested without parsing errors</li>
+<li><code>processedWithError</code>: Number of rows that were ingested, but contained a parsing error within one or more columns. This typically occurs where input rows have a parseable structure but invalid types for columns, such as passing in a non-numeric String value for a numeric column.</li>
+<li><code>thrownAway</code>: Number of rows skipped. This includes rows with timestamps that were outside of the ingestion task&apos;s defined time interval and rows that were filtered out with a <a href="./#transformspec"><code>transformSpec</code></a>, but doesn&apos;t include the rows skipped by explicit user configurations. For example, the rows skipped by <code>skipHeaderRows</code> or <code>hasHeaderRow</code> in the CSV format are not counted.</li>
+<li><code>unparseable</code>: Number of rows that could not be parsed at all and were discarded. This tracks input rows without a parseable structure, such as passing in non-JSON data when using a JSON parser.</li>
+</ul>
+<p>The <code>errorMsg</code> field shows a message describing the error that caused a task to fail. It will be null if the task was successful.</p>
+<h2 id="live-reports"><a name="live-reports" class="anchor-navigation-ex-anchor" href="#live-reports"><i class="fa fa-link" aria-hidden="true"></i></a>1.3. Live reports</h2>
+<h3 id="row-stats"><a name="row-stats" class="anchor-navigation-ex-anchor" href="#row-stats"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.1. Row stats</h3>
+<p>The non-parallel <a href="native-batch.html#simple-task">simple native batch task</a>, the Hadoop batch task, and Kafka and Kinesis ingestion tasks support retrieval of row stats while the task is running.</p>
+<p>The live report can be accessed with a GET to the following URL on a Peon running a task:</p>
+<pre><code>http://&lt;middlemanager-host&gt;:&lt;worker-port&gt;/druid/worker/v1/chat/&lt;task-id&gt;/rowStats
+</code></pre><p>An example report is shown below. The <code>movingAverages</code> section contains 1 minute, 5 minute, and 15 minute moving averages of increases to the four row counters, which have the same definitions as those in the completion report. The <code>totals</code> section shows the current totals.</p>
+<pre><code>{
+  &quot;movingAverages&quot;: {
+    &quot;buildSegments&quot;: {
+      &quot;5m&quot;: {
+        &quot;processed&quot;: 3.392158326408501,
+        &quot;unparseable&quot;: 0,
+        &quot;thrownAway&quot;: 0,
+        &quot;processedWithError&quot;: 0
+      },
+      &quot;15m&quot;: {
+        &quot;processed&quot;: 1.736165476881023,
+        &quot;unparseable&quot;: 0,
+        &quot;thrownAway&quot;: 0,
+        &quot;processedWithError&quot;: 0
+      },
+      &quot;1m&quot;: {
+        &quot;processed&quot;: 4.206417693750045,
+        &quot;unparseable&quot;: 0,
+        &quot;thrownAway&quot;: 0,
+        &quot;processedWithError&quot;: 0
+      }
+    }
+  },
+  &quot;totals&quot;: {
+    &quot;buildSegments&quot;: {
+      &quot;processed&quot;: 1994,
+      &quot;processedWithError&quot;: 0,
+      &quot;thrownAway&quot;: 0,
+      &quot;unparseable&quot;: 0
+    }
+  }
+}
+</code></pre><p>For the Kafka Indexing Service, a GET to the following Overlord API will retrieve live row stat reports from each task being managed by the supervisor and provide a combined report.</p>
+<pre><code>http://&lt;OVERLORD-HOST&gt;:&lt;OVERLORD-PORT&gt;/druid/indexer/v1/supervisor/&lt;supervisor-id&gt;/stats
+</code></pre><h3 id="unparseable-events"><a name="unparseable-events" class="anchor-navigation-ex-anchor" href="#unparseable-events"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.2. Unparseable events</h3>
+<p>Lists of recently-encountered unparseable events can be retrieved from a running task with a GET to the following Peon API:</p>
+<pre><code>http://&lt;middlemanager-host&gt;:&lt;worker-port&gt;/druid/worker/v1/chat/&lt;task-id&gt;/unparseableEvents
+</code></pre><p>Note that this functionality is not supported by all task types. Currently, it is only supported by the
+non-parallel <a href="native-batch.html">native batch task</a> (type <code>index</code>) and the tasks created by the Kafka
+and Kinesis indexing services.</p>
+<p><a name="locks"></a></p>
+<h2 id="task-lock-system"><a name="task-lock-system" class="anchor-navigation-ex-anchor" href="#task-lock-system"><i class="fa fa-link" aria-hidden="true"></i></a>1.4. Task lock system</h2>
+<p>This section explains the task locking system in Druid. Druid&apos;s locking system
+and versioning system are tightly coupled with each other to guarantee the correctness of ingested data.</p>
+<h2 id="overshadowing-between-segments"><a name="overshadowing-between-segments" class="anchor-navigation-ex-anchor" href="#overshadowing-between-segments"><i class="fa fa-link" aria-hidden="true"></i></a>1.5. &quot;Overshadowing&quot; between segments</h2>
+<p>You can run a task to overwrite existing data. The segments created by an overwriting task <em>overshadows</em> existing segments.
+Note that the overshadow relation holds only for the same time chunk and the same data source.
+These overshadowed segments are not considered in query processing to filter out stale data.</p>
+<p>Each segment has a <em>major</em> version and a <em>minor</em> version. The major version is
+represented as a timestamp in the format of <a href="https://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat" target="_blank"><code>&quot;yyyy-MM-dd&apos;T&apos;hh:mm:ss&quot;</code></a>
+while the minor version is an integer number. These major and minor versions
+are used to determine the overshadow relation between segments as seen below. </p>
+<p>A segment <code>s1</code> overshadows another <code>s2</code> if</p>
+<ul>
+<li><code>s1</code> has a higher major version than <code>s2</code>, or</li>
+<li><code>s1</code> has the same major version and a higher minor version than <code>s2</code>.</li>
+</ul>
+<p>Here are some examples.</p>
+<ul>
+<li>A segment of the major version of <code>2019-01-01T00:00:00.000Z</code> and the minor version of <code>0</code> overshadows
+another of the major version of <code>2018-01-01T00:00:00.000Z</code> and the minor version of <code>1</code>.</li>
+<li>A segment of the major version of <code>2019-01-01T00:00:00.000Z</code> and the minor version of <code>1</code> overshadows
+another of the major version of <code>2019-01-01T00:00:00.000Z</code> and the minor version of <code>0</code>.</li>
+</ul>
+<h2 id="locking"><a name="locking" class="anchor-navigation-ex-anchor" href="#locking"><i class="fa fa-link" aria-hidden="true"></i></a>1.6. Locking</h2>
+<p>If you are running two or more <a href="tasks.html">druid tasks</a> which generate segments for the same data source and the same time chunk,
+the generated segments could potentially overshadow each other, which could lead to incorrect query results.</p>
+<p>To avoid this problem, tasks will attempt to get locks prior to creating any segment in Druid.
+There are two types of locks, i.e., <em>time chunk lock</em> and <em>segment lock</em>.</p>
+<p>When the time chunk lock is used, a task locks the entire time chunk of a data source where generated segments will be written.
+For example, suppose we have a task ingesting data into the time chunk of <code>2019-01-01T00:00:00.000Z/2019-01-02T00:00:00.000Z</code> of the <code>wikipedia</code> data source.
+With the time chunk locking, this task will lock the entire time chunk of <code>2019-01-01T00:00:00.000Z/2019-01-02T00:00:00.000Z</code> of the <code>wikipedia</code> data source
+before it creates any segments. As long as it holds the lock, any other tasks will be unable to create segments for the same time chunk of the same data source.
+The segments created with the time chunk locking have a <em>higher</em> major version than existing segments. Their minor version is always <code>0</code>.</p>
+<p>When the segment lock is used, a task locks individual segments instead of the entire time chunk.
+As a result, two or more tasks can create segments for the same time chunk of the same data source simultaneously
+if they are reading different segments.
+For example, a Kafka indexing task and a compaction task can always write segments into the same time chunk of the same data source simultaneously.
+The reason for this is because a Kafka indexing task always appends new segments, while a compaction task always overwrites existing segments.
+The segments created with the segment locking have the <em>same</em> major version and a <em>higher</em> minor version.</p>
+<blockquote>
+<p>The segment locking is still experimental. It could have unknown bugs which potentially lead to incorrect query results.</p>
+</blockquote>
+<p>To enable segment locking, you may need to set <code>forceTimeChunkLock</code> to <code>false</code> in the <a href="#context">task context</a>.
+Once <code>forceTimeChunkLock</code> is unset, the task will choose a proper lock type to use automatically.
+Please note that segment lock is not always available. The most common use case where time chunk lock is enforced is
+when an overwriting task changes the segment granularity.
+Also, the segment locking is supported by only native indexing tasks and Kafka/Kinesis indexing tasks.
+Hadoop indexing tasks and <code>index_realtime</code> tasks (used by <a href="tranquility.html">Tranquility</a>) don&apos;t support it yet.</p>
+<p><code>forceTimeChunkLock</code> in the task context is only applied to individual tasks.
+If you want to unset it for all tasks, you would want to set <code>druid.indexer.tasklock.forceTimeChunkLock</code> to false in the <a href="../configuration/#overlord-operations">overlord configuration</a>.</p>
+<p>Lock requests can conflict with each other if two or more tasks try to get locks for the overlapped time chunks of the same data source.
+Note that the lock conflict can happen between different locks types.</p>
+<p>The behavior on lock conflicts depends on the <a href="#lock-priority">task priority</a>.
+If all tasks of conflicting lock requests have the same priority, then the task who requested first will get the lock.
+Other tasks will wait for the task to release the lock.</p>
+<p>If a task of a lower priority asks a lock later than another of a higher priority,
+this task will also wait for the task of a higher priority to release the lock.
+If a task of a higher priority asks a lock later than another of a lower priority,
+then this task will <em>preempt</em> the other task of a lower priority. The lock
+of the lower-prioritized task will be revoked and the higher-prioritized task will acquire a new lock.</p>
+<p>This lock preemption can happen at any time while a task is running except
+when it is <em>publishing segments</em> in a critical section. Its locks become preemptible again once publishing segments is finished.</p>
+<p>Note that locks are shared by the tasks of the same groupId.
+For example, Kafka indexing tasks of the same supervisor have the same groupId and share all locks with each other.</p>
+<p><a name="priority"></a></p>
+<h2 id="lock-priority"><a name="lock-priority" class="anchor-navigation-ex-anchor" href="#lock-priority"><i class="fa fa-link" aria-hidden="true"></i></a>1.7. Lock priority</h2>
+<p>Each task type has a different default lock priority. The below table shows the default priorities of different task types. Higher the number, higher the priority.</p>
+<table>
+<thead>
+<tr>
+<th>task type</th>
+<th>default priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Realtime index task</td>
+<td>75</td>
+</tr>
+<tr>
+<td>Batch index task</td>
+<td>50</td>
+</tr>
+<tr>
+<td>Merge/Append/Compaction task</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Other tasks</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<p>You can override the task priority by setting your priority in the task context as below.</p>
+<pre><code class="lang-json"><span class="hljs-string">&quot;context&quot;</span> : {
+  <span class="hljs-string">&quot;priority&quot;</span> : <span class="hljs-number">100</span>
+}
+</code></pre>
+<p><a name="context"></a></p>
+<h2 id="context-parameters"><a name="context-parameters" class="anchor-navigation-ex-anchor" href="#context-parameters"><i class="fa fa-link" aria-hidden="true"></i></a>1.8. Context parameters</h2>
+<p>The task context is used for various individual task configuration. The following parameters apply to all task types.</p>
+<table>
+<thead>
+<tr>
+<th>property</th>
+<th>default</th>
+<th>description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>taskLockTimeout</td>
+<td>300000</td>
+<td>task lock timeout in millisecond. For more details, see <a href="#locking">Locking</a>.</td>
+</tr>
+<tr>
+<td>forceTimeChunkLock</td>
+<td>true</td>
+<td><em>Setting this to false is still experimental</em><br> Force to always use time chunk lock. If not set, each task automatically chooses a lock type to use. If this set, it will overwrite the <code>druid.indexer.tasklock.forceTimeChunkLock</code> <a href="../configuration/#overlord-operations">configuration for the overlord</a>. See <a href="#locking">Locking</a> for more details.</td>
+</tr>
+<tr>
+<td>priority</td>
+<td>Different based on task types. See <a href="#priority">Priority</a>.</td>
+<td>Task priority</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>When a task acquires a lock, it sends a request via HTTP and awaits until it receives a response containing the lock acquisition result.
+As a result, an HTTP timeout error can occur if <code>taskLockTimeout</code> is greater than <code>druid.server.http.maxIdleTime</code> of Overlords.</p>
+</blockquote>
+<h2 id="all-task-types"><a name="all-task-types" class="anchor-navigation-ex-anchor" href="#all-task-types"><i class="fa fa-link" aria-hidden="true"></i></a>1.9. All task types</h2>
+<h3 id="index"><a name="index" class="anchor-navigation-ex-anchor" href="#index"><i class="fa fa-link" aria-hidden="true"></i></a>1.9.1. index</h3>
+<p>See <a href="native-batch.html#simple-task">Native batch ingestion (simple task)</a>.</p>
+<h3 id="indexparallel"><a name="indexparallel" class="anchor-navigation-ex-anchor" href="#indexparallel"><i class="fa fa-link" aria-hidden="true"></i></a>1.9.2. index_parallel</h3>
+<p>See <a href="native-batch.html#parallel-task">Native batch ingestion (parallel task)</a>.</p>
+<h3 id="indexsub"><a name="indexsub" class="anchor-navigation-ex-anchor" href="#indexsub"><i class="fa fa-link" aria-hidden="true"></i></a>1.9.3. index_sub</h3>
+<p>Submitted automatically, on your behalf, by an <a href="#index_parallel"><code>index_parallel</code></a> task.</p>
+<h3 id="indexhadoop"><a name="indexhadoop" class="anchor-navigation-ex-anchor" href="#indexhadoop"><i class="fa fa-link" aria-hidden="true"></i></a>1.9.4. index_hadoop</h3>
+<p>See <a href="hadoop.html">Hadoop-based ingestion</a>.</p>
+<h3 id="indexkafka"><a name="indexkafka" class="anchor-navigation-ex-anchor" href="#indexkafka"><i class="fa fa-link" aria-hidden="true"></i></a>1.9.5. index_kafka</h3>
+<p>Submitted automatically, on your behalf, by a
+<a href="../development/extensions-core/kafka-ingestion.html">Kafka-based ingestion supervisor</a>.</p>
+<h3 id="indexkinesis"><a name="indexkinesis" class="anchor-navigation-ex-anchor" href="#indexkinesis"><i class="fa fa-link" aria-hidden="true"></i></a>1.9.6. index_kinesis</h3>
+<p>Submitted automatically, on your behalf, by a
+<a href="../development/extensions-core/kinesis-ingestion.html">Kinesis-based ingestion supervisor</a>.</p>
+<h3 id="indexrealtime"><a name="indexrealtime" class="anchor-navigation-ex-anchor" href="#indexrealtime"><i class="fa fa-link" aria-hidden="true"></i></a>1.9.7. index_realtime</h3>
+<p>Submitted automatically, on your behalf, by <a href="tranquility.html">Tranquility</a>.</p>
+<h3 id="compact"><a name="compact" class="anchor-navigation-ex-anchor" href="#compact"><i class="fa fa-link" aria-hidden="true"></i></a>1.9.8. compact</h3>
+<p>Compaction tasks merge all segments of the given interval. See the documentation on
+<a href="data-management.html#compaction-and-reindexing">compaction</a> for details.</p>
+<h3 id="kill"><a name="kill" class="anchor-navigation-ex-anchor" href="#kill"><i class="fa fa-link" aria-hidden="true"></i></a>1.9.9. kill</h3>
+<p>Kill tasks delete all metadata about certain segments and removes them from deep storage.
+See the documentation on <a href="data-management.html#delete">deleting data</a> for details.</p>
+<footer class="page-footer"><span class="copyright">Copyright <a target="_blank" href="https://druid.org.cn">druid.org.cn</a> 2021 .&#x672C;&#x6587;&#x7FFB;&#x8BD1;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/ingestion/tasks.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
+2021-04-23 21:43:10
+</span></footer>
+                                
+                                </section>
+                            
+    </div>
+    <div class="search-results">
+        <div class="has-results">
+            
+            <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+            <ul class="search-results-list"></ul>
+            
+        </div>
+        <div class="no-results">
+            
+            <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+            
+        </div>
+    </div>
+</div>
+
+                        </div>
+                    </div>
+                
+            </div>
+
+            
+                
+                <a href="hadoop.html" class="navigation navigation-prev " aria-label="Previous page: 从Hadoop导入">
+                    <i class="fa fa-angle-left"></i>
+                </a>
+                
+                
+                <a href="faq.html" class="navigation navigation-next " aria-label="Next page: FAQ">
+                    <i class="fa fa-angle-right"></i>
+                </a>
+                
+            
+        
+    </div>
+
+    <script>
+        var gitbook = gitbook || [];
+        gitbook.push(function() {
+            gitbook.page.hasChanged({"page":{"id":"tasks","title":"Druid中的任务","level":"1.5.7","depth":2,"next":{"title":"FAQ","level":"1.5.8","depth":2,"path":"ingestion/faq.md","ref":"ingestion/faq.md","articles":[]},"previous":{"title":"从Hadoop导入","level":"1.5.6.2","depth":3,"path":"ingestion/hadoop.md","ref":"ingestion/hadoop.md","articles":[]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"Copyright <a target=\"_blank\" href=\"https://druid.org.cn\">druid.org.cn</a> 2021 .本文翻译自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"ingestion/tasks.md","mtime":"2021-04-23T13:43:10.296Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-04-24T03:56:48.676Z"},"basePath":"..","book":{"language":""}});
+        });
+    </script>
+</div>
+
+        
+    <script src="../gitbook/gitbook.js"></script>
+    <script src="../gitbook/theme.js"></script>
+    
+        
+        <script src="../gitbook/gitbook-plugin-livereload/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/search.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-code/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-auto-scroll-table/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-hide-element/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-github/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-sharing/buttons.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+        
+    
+
+    </body>
+</html>
+

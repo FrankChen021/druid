@@ -1,0 +1,2121 @@
+
+<!DOCTYPE HTML>
+<html lang="" >
+    <head>
+        <meta charset="UTF-8">
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <title>Schema定义 · GitBook</title>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="description" content="">
+        <meta name="generator" content="GitBook 3.2.3">
+        
+        
+        
+    
+    <link rel="stylesheet" href="../gitbook/style.css">
+
+    
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-highlight/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-search-pro/search.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-code/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-tbfed-pagefooter/footer.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-anchor-navigation-ex/style/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-auto-scroll-table/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-fontsettings/website.css">
+                
+            
+        
+
+    
+
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+
+        
+    
+    
+    <meta name="HandheldFriendly" content="true"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon-precomposed" sizes="152x152" href="../gitbook/images/apple-touch-icon-precomposed-152.png">
+    <link rel="shortcut icon" href="../gitbook/images/favicon.ico" type="image/x-icon">
+
+    
+    <link rel="next" href="data-management.html" />
+    
+    
+    <link rel="prev" href="data-formats.html" />
+    
+
+    </head>
+    <body>
+        
+<div class="book">
+    <div class="book-summary">
+        
+            
+<div id="book-search-input" role="search">
+    <input type="text" placeholder="Type to search" />
+</div>
+
+            
+                <nav role="navigation">
+                
+
+
+<ul class="summary">
+    
+    
+
+    
+
+    
+        
+        
+    
+        <li class="chapter " data-level="1.1" data-path="../">
+            
+                <a href="../">
+            
+                    
+                    前言
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2" >
+            
+                <span>
+            
+                    
+                    开始
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.2.1" data-path="../design/">
+            
+                <a href="../design/">
+            
+                    
+                    Apache Druid简介
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.2" data-path="../tutorials/">
+            
+                <a href="../tutorials/">
+            
+                    
+                    快速入门
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.3" data-path="../tutorials/docker.html">
+            
+                <a href="../tutorials/docker.html">
+            
+                    
+                    Docker
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.4" data-path="../operations/single-server.html">
+            
+                <a href="../operations/single-server.html">
+            
+                    
+                    单机部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.5" data-path="../tutorials/cluster.html">
+            
+                <a href="../tutorials/cluster.html">
+            
+                    
+                    集群模式部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3" >
+            
+                <span>
+            
+                    
+                    指南
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.3.1" data-path="../tutorials/tutorial-batch.html">
+            
+                <a href="../tutorials/tutorial-batch.html">
+            
+                    
+                    从本地文件摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.2" data-path="../tutorials/tutorial-kafka.html">
+            
+                <a href="../tutorials/tutorial-kafka.html">
+            
+                    
+                    从Kafka摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.3" data-path="../tutorials/tutorial-batch-hadoop.html">
+            
+                <a href="../tutorials/tutorial-batch-hadoop.html">
+            
+                    
+                    从Haddop摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.4" data-path="../tutorials/tutorial-query.html">
+            
+                <a href="../tutorials/tutorial-query.html">
+            
+                    
+                    查询数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.5" data-path="../tutorials/tutorial-rollup.html">
+            
+                <a href="../tutorials/tutorial-rollup.html">
+            
+                    
+                    预聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.6" data-path="../tutorials/tutorial-retention.html">
+            
+                <a href="../tutorials/tutorial-retention.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.7" data-path="../tutorials/tutorial-update-data.html">
+            
+                <a href="../tutorials/tutorial-update-data.html">
+            
+                    
+                    更新数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.8" data-path="../tutorials/tutorial-compaction.html">
+            
+                <a href="../tutorials/tutorial-compaction.html">
+            
+                    
+                    数据文件合并
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.9" data-path="../tutorials/tutorial-delete-data.html">
+            
+                <a href="../tutorials/tutorial-delete-data.html">
+            
+                    
+                    删除数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.10" data-path="../tutorials/tutorial-ingestion-spec.html">
+            
+                <a href="../tutorials/tutorial-ingestion-spec.html">
+            
+                    
+                    编写数据摄入规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.11" data-path="../tutorials/tutorial-transform-spec.html">
+            
+                <a href="../tutorials/tutorial-transform-spec.html">
+            
+                    
+                    转换摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.12" data-path="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                <a href="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                    
+                    设置Kerberos认证的HDFS作为深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4" >
+            
+                <span>
+            
+                    
+                    设计
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.4.1" data-path="../design/architecture.html">
+            
+                <a href="../design/architecture.html">
+            
+                    
+                    整体架构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.2" data-path="../design/segments.html">
+            
+                <a href="../design/segments.html">
+            
+                    
+                    存储结构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.3" data-path="../design/processes">
+            
+                <span>
+            
+                    
+                    进程与服务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.4" data-path="../dependencies/deep-storage.html">
+            
+                <a href="../dependencies/deep-storage.html">
+            
+                    
+                    深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.5" data-path="../dependencies/metadata-storage.html">
+            
+                <a href="../dependencies/metadata-storage.html">
+            
+                    
+                    元数据存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.6" data-path="../dependencies/zookeeper.html">
+            
+                <a href="../dependencies/zookeeper.html">
+            
+                    
+                    Zookeeper
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5" >
+            
+                <span>
+            
+                    
+                    数据摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.1" data-path="./">
+            
+                <a href="./">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.2" data-path="data-formats.html">
+            
+                <a href="data-formats.html">
+            
+                    
+                    数据格式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter active" data-level="1.5.3" data-path="schema-design.html">
+            
+                <a href="schema-design.html">
+            
+                    
+                    Schema定义
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.4" data-path="data-management.html">
+            
+                <a href="data-management.html">
+            
+                    
+                    数据管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5" >
+            
+                <span>
+            
+                    
+                    实时摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.5.1" data-path="../development/extensions-core/kafka-ingestion.html">
+            
+                <a href="../development/extensions-core/kafka-ingestion.html">
+            
+                    
+                    从Kafka摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.2" data-path="../development/extensions-core/kinesis-ingestion.html">
+            
+                <a href="../development/extensions-core/kinesis-ingestion.html">
+            
+                    
+                    从Amazon Kinesis摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.3" data-path="tranquility.html">
+            
+                <a href="tranquility.html">
+            
+                    
+                    从Tranqulity摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.4" data-path="standalone-realtime.html">
+            
+                <a href="standalone-realtime.html">
+            
+                    
+                    独立实时模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6" >
+            
+                <span>
+            
+                    
+                    批量导入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.6.1" data-path="native-batch.html">
+            
+                <a href="native-batch.html">
+            
+                    
+                    本地模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6.2" data-path="hadoop.html">
+            
+                <a href="hadoop.html">
+            
+                    
+                    从Hadoop导入
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.7" data-path="tasks.html">
+            
+                <a href="tasks.html">
+            
+                    
+                    Druid中的任务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.8" data-path="faq.html">
+            
+                <a href="faq.html">
+            
+                    
+                    FAQ
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6" >
+            
+                <span>
+            
+                    
+                    数据查询
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.1" data-path="../querying/sql.html">
+            
+                <a href="../querying/sql.html">
+            
+                    
+                    通过SQL查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.2" data-path="../querying/querying.html">
+            
+                <a href="../querying/querying.html">
+            
+                    
+                    通过JSON查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.3" data-path="../querying/query-execution.html">
+            
+                <a href="../querying/query-execution.html">
+            
+                    
+                    查询执行流程
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4" >
+            
+                <span>
+            
+                    
+                    主要概念
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.4.1" data-path="../querying/datasource.html">
+            
+                <a href="../querying/datasource.html">
+            
+                    
+                    数据源(datasource)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.2" data-path="../querying/joins.html">
+            
+                <a href="../querying/joins.html">
+            
+                    
+                    联合查询(join)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.3" data-path="../querying/lookups.html">
+            
+                <a href="../querying/lookups.html">
+            
+                    
+                    字典查询(lookups)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.4" data-path="../querying/multi-value-dimensions.html">
+            
+                <a href="../querying/multi-value-dimensions.html">
+            
+                    
+                    结构化列值(multi-value-dimensions)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.5" data-path="../querying/multitenancy.html">
+            
+                <a href="../querying/multitenancy.html">
+            
+                    
+                    多租户
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.6" data-path="../querying/caching.html">
+            
+                <a href="../querying/caching.html">
+            
+                    
+                    查询缓存
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.7" data-path="../querying/query-context.html">
+            
+                <a href="../querying/query-context.html">
+            
+                    
+                    查询上下文
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5" >
+            
+                <span>
+            
+                    
+                    JSON查询类型
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.5.1" data-path="../querying/timeseriesquery.html">
+            
+                <a href="../querying/timeseriesquery.html">
+            
+                    
+                    Timeseries
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.2" data-path="../querying/topnquery.html">
+            
+                <a href="../querying/topnquery.html">
+            
+                    
+                    TopN
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.3" data-path="../querying/groupbyquery.html">
+            
+                <a href="../querying/groupbyquery.html">
+            
+                    
+                    GroupBy
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.4" data-path="../querying/scan-query.html">
+            
+                <a href="../querying/scan-query.html">
+            
+                    
+                    Scan
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.5" data-path="../querying/searchquery.html">
+            
+                <a href="../querying/searchquery.html">
+            
+                    
+                    Search
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.6" data-path="../querying/timeboundaryquery.html">
+            
+                <a href="../querying/timeboundaryquery.html">
+            
+                    
+                    TimeBoundary
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.7" data-path="../querying/segmentmetadataquery.html">
+            
+                <a href="../querying/segmentmetadataquery.html">
+            
+                    
+                    SegmentMetaData
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.8" data-path="../querying/datasourcemetadataquery.html">
+            
+                <a href="../querying/datasourcemetadataquery.html">
+            
+                    
+                    DatasourceMetadata
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6" >
+            
+                <span>
+            
+                    
+                    JSON查询结构
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.6.1" data-path="../querying/filters.html">
+            
+                <a href="../querying/filters.html">
+            
+                    
+                    过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.2" data-path="../querying/granularities.html">
+            
+                <a href="../querying/granularities.html">
+            
+                    
+                    时间粒度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.3" data-path="../querying/dimensionspecs.html">
+            
+                <a href="../querying/dimensionspecs.html">
+            
+                    
+                    数据维度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.4" data-path="../querying/aggregations.html">
+            
+                <a href="../querying/aggregations.html">
+            
+                    
+                    聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.5" data-path="../querying/post-aggregations.html">
+            
+                <a href="../querying/post-aggregations.html">
+            
+                    
+                    后置聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.6" data-path="../misc/math-expr.html">
+            
+                <a href="../misc/math-expr.html">
+            
+                    
+                    数学函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.7" data-path="../querying/having.html">
+            
+                <a href="../querying/having.html">
+            
+                    
+                    表达式与函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.8" data-path="../querying/limitspec.html">
+            
+                <a href="../querying/limitspec.html">
+            
+                    
+                    Having过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.9" data-path="../querying/topnmetricspec.html">
+            
+                <a href="../querying/topnmetricspec.html">
+            
+                    
+                    TopN排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.10" data-path="../querying/sorting-orders.html">
+            
+                <a href="../querying/sorting-orders.html">
+            
+                    
+                    排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.11" data-path="../querying/virtual-columns.html">
+            
+                <a href="../querying/virtual-columns.html">
+            
+                    
+                    虚拟字段
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.12" data-path="../development/geo.html">
+            
+                <a href="../development/geo.html">
+            
+                    
+                    空间过滤
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7" >
+            
+                <span>
+            
+                    
+                    配置
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.7.1" data-path="../configuration/">
+            
+                <a href="../configuration/">
+            
+                    
+                    概述
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.2" data-path="../development/extensions.html">
+            
+                <a href="../development/extensions.html">
+            
+                    
+                    扩展组件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.3" data-path="../configuration/logging.html">
+            
+                <a href="../configuration/logging.html">
+            
+                    
+                    运行日志
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8" >
+            
+                <span>
+            
+                    
+                    运维
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.1" data-path="../operations/druid-console.html">
+            
+                <a href="../operations/druid-console.html">
+            
+                    
+                    Web控制台
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2" data-path="../operations/getting-started.html">
+            
+                <a href="../operations/getting-started.html">
+            
+                    
+                    快速开始
+            
+                </a>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1" >
+            
+                <span>
+            
+                    
+                    安全
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1.1" data-path="../operations/security-overview.html">
+            
+                <a href="../operations/security-overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.2" data-path="../operations/security-user-auth.html">
+            
+                <a href="../operations/security-user-auth.html">
+            
+                    
+                    用户认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.3" data-path="../operations/auth-ldap.html">
+            
+                <a href="../operations/auth-ldap.html">
+            
+                    
+                    LDAP认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.4" data-path="../operations/password-provider.html">
+            
+                <a href="../operations/password-provider.html">
+            
+                    
+                    密码管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.5" data-path="../design/auth.html">
+            
+                <a href="../design/auth.html">
+            
+                    
+                    认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.6" data-path="../operations/tls-support.html">
+            
+                <a href="../operations/tls-support.html">
+            
+                    
+                    TLS加密支持
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2" >
+            
+                <span>
+            
+                    
+                    性能
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.2.1" data-path="../operations/basic-cluster-tuning.html">
+            
+                <a href="../operations/basic-cluster-tuning.html">
+            
+                    
+                    集群调优
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.2" data-path="../operations/segment-optimization.html">
+            
+                <a href="../operations/segment-optimization.html">
+            
+                    
+                    数据段文件优化
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.3" data-path="../operations/http-compression.html">
+            
+                <a href="../operations/http-compression.html">
+            
+                    
+                    HTTP压缩
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.3" data-path="../operations/api-reference.html">
+            
+                <a href="../operations/api-reference.html">
+            
+                    
+                    API手册
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.4" data-path="../operations/high-availability.html">
+            
+                <a href="../operations/high-availability.html">
+            
+                    
+                    高可用
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.5" data-path="../operations/rolling-updates.html">
+            
+                <a href="../operations/rolling-updates.html">
+            
+                    
+                    滚动版本升级
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.6" data-path="../operations/rule-configuration.html">
+            
+                <a href="../operations/rule-configuration.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.7" data-path="../operations/metrics.html">
+            
+                <a href="../operations/metrics.html">
+            
+                    
+                    应用指标
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.8" data-path="../operations/alerts.html">
+            
+                <a href="../operations/alerts.html">
+            
+                    
+                    告警
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.9" data-path="../operations/other-hadoop.html">
+            
+                <a href="../operations/other-hadoop.html">
+            
+                    
+                    Hadoop相关
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.10.1" data-path="../operations/management-uis.html">
+            
+                <a href="../operations/management-uis.html">
+            
+                    
+                    管理界面
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.2" data-path="../operations/dump-segment.html">
+            
+                <a href="../operations/dump-segment.html">
+            
+                    
+                    导出数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.3" data-path="../operations/reset-cluster.html">
+            
+                <a href="../operations/reset-cluster.html">
+            
+                    
+                    重置集群
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.4" data-path="../operations/insert-segment-to-db.html">
+            
+                <a href="../operations/insert-segment-to-db.html">
+            
+                    
+                    插入数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.5" data-path="../operations/pull-deps.html">
+            
+                <a href="../operations/pull-deps.html">
+            
+                    
+                    pull-deps工具
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.6" data-path="../operations/deep-storage-migration.html">
+            
+                <a href="../operations/deep-storage-migration.html">
+            
+                    
+                    迁移深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.7" data-path="../operations/export-metadata.html">
+            
+                <a href="../operations/export-metadata.html">
+            
+                    
+                    导出元数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.8" data-path="../operations/metadata-migration.html">
+            
+                <a href="../operations/metadata-migration.html">
+            
+                    
+                    元数据迁移
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.9" data-path="../operations/use_sbt_to_build_fat_jar.html">
+            
+                <a href="../operations/use_sbt_to_build_fat_jar.html">
+            
+                    
+                    打包fat jar
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9" >
+            
+                <span>
+            
+                    
+                    Druid开发
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.9.1" data-path="../development/overview.html">
+            
+                <a href="../development/overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.2" data-path="../development/modules.html">
+            
+                <a href="../development/modules.html">
+            
+                    
+                    模块
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.3" data-path="../development/javascript.html">
+            
+                <a href="../development/javascript.html">
+            
+                    
+                    javascript
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.4" data-path="../development/build.html">
+            
+                <a href="../development/build.html">
+            
+                    
+                    构建
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.5" data-path="../development/versioning.html">
+            
+                <a href="../development/versioning.html">
+            
+                    
+                    版本
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.6" data-path="../development/experimental.html">
+            
+                <a href="../development/experimental.html">
+            
+                    
+                    实验功能
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.10.1" data-path="../misc/papers-and-talks.html">
+            
+                <a href="../misc/papers-and-talks.html">
+            
+                    
+                    论文与演讲
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+    
+
+    <li class="divider"></li>
+
+    <li>
+        <a href="https://www.gitbook.com" target="blank" class="gitbook-link">
+            Published with GitBook
+        </a>
+    </li>
+</ul>
+
+
+                </nav>
+            
+        
+    </div>
+
+    <div class="book-body">
+        
+            <div class="body-inner">
+                
+                    
+
+<div class="book-header" role="navigation">
+    
+
+    <!-- Title -->
+    <h1>
+        <i class="fa fa-circle-o-notch fa-spin"></i>
+        <a href=".." >Schema定义</a>
+    </h1>
+</div>
+
+
+
+
+                    <div class="page-wrapper" tabindex="-1" role="main">
+                        <div class="page-inner">
+                            
+<div id="book-search-results">
+    <div class="search-noresults">
+    
+                                <section class="normal markdown-section">
+                                
+                                <div id="anchor-navigation-ex-navbar"><i class="fa fa-navicon"></i><ul><ul><li><span class="title-icon "></span><a href="#druids-data-model"><b>1.1. </b>Druid&apos;s data model</a></li><li><span class="title-icon "></span><a href="#if-youre-coming-from-a"><b>1.2. </b>If you&apos;re coming from a...</a></li><ul><li><span class="title-icon "></span><a href="#relational-model"><b>1.2.1. </b>Relational model</a></li><li><span class="title-icon "></span><a href="#time-series-model"><b>1.2.2. </b>Time series model</a></li><li><span class="title-icon "></span><a href="#log-aggregation-model"><b>1.2.3. </b>Log aggregation model</a></li></ul><li><span class="title-icon "></span><a href="#general-tips-and-best-practices"><b>1.3. </b>General tips and best practices</a></li><ul><li><span class="title-icon "></span><a href="#rollup"><b>1.3.1. </b>Rollup</a></li><li><span class="title-icon "></span><a href="#partitioning-and-sorting"><b>1.3.2. </b>Partitioning and sorting</a></li><li><span class="title-icon "></span><a href="#sketches-for-high-cardinality-columns"><b>1.3.3. </b>Sketches for high cardinality columns</a></li><li><span class="title-icon "></span><a href="#string-vs-numeric-dimensions"><b>1.3.4. </b>String vs numeric dimensions</a></li><li><span class="title-icon "></span><a href="#secondary-timestamps"><b>1.3.5. </b>Secondary timestamps</a></li><li><span class="title-icon "></span><a href="#nested-dimensions"><b>1.3.6. </b>Nested dimensions</a></li><li><span class="title-icon "></span><a href="#counting-the-number-of-ingested-events"><b>1.3.7. </b>Counting the number of ingested events</a></li><li><span class="title-icon "></span><a href="#schema-less-dimensions"><b>1.3.8. </b>Schema-less dimensions</a></li><li><span class="title-icon "></span><a href="#including-the-same-column-as-a-dimension-and-a-metric"><b>1.3.9. </b>Including the same column as a dimension and a metric</a></li></ul></ul></ul></div><a href="#" id="anchorNavigationExGoTop"><i class="fa fa-arrow-up"></i></a><!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one
+  ~ or more contributor license agreements.  See the NOTICE file
+  ~ distributed with this work for additional information
+  ~ regarding copyright ownership.  The ASF licenses this file
+  ~ to you under the Apache License, Version 2.0 (the
+  ~ "License"); you may not use this file except in compliance
+  ~ with the License.  You may obtain a copy of the License at
+  ~
+  ~   http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing,
+  ~ software distributed under the License is distributed on an
+  ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  ~ KIND, either express or implied.  See the License for the
+  ~ specific language governing permissions and limitations
+  ~ under the License.
+  -->
+<h2 id="druids-data-model"><a name="druids-data-model" class="anchor-navigation-ex-anchor" href="#druids-data-model"><i class="fa fa-link" aria-hidden="true"></i></a>1.1. Druid&apos;s data model</h2>
+<p>For general information, check out the documentation on <a href="./#data-model">Druid&apos;s data model</a> on the main
+ingestion overview page. The rest of this page discusses tips for users coming from other kinds of systems, as well as
+general tips and common practices.</p>
+<ul>
+<li>Druid data is stored in <a href="./#datasources">datasources</a>, which are similar to tables in a traditional RDBMS.</li>
+<li>Druid datasources can be ingested with or without <a href="#rollup">rollup</a>. With rollup enabled, Druid partially aggregates your data during ingestion, potentially reducing its row count, decreasing storage footprint, and improving query performance. With rollup disabled, Druid stores one row for each row in your input data, without any pre-aggregation.</li>
+<li>Every row in Druid must have a timestamp. Data is always partitioned by time, and every query has a time filter. Query results can also be broken down by time buckets like minutes, hours, days, and so on.</li>
+<li>All columns in Druid datasources, other than the timestamp column, are either dimensions or metrics. This follows the <a href="https://en.wikipedia.org/wiki/Online_analytical_processing#Overview_of_OLAP_systems" target="_blank">standard naming convention</a> of OLAP data.</li>
+<li>Typical production datasources have tens to hundreds of columns.</li>
+<li><a href="./#dimensions">Dimension columns</a> are stored as-is, so they can be filtered on, grouped by, or aggregated at query time. They are always single Strings, <a href="../querying/multi-value-dimensions.html">arrays of Strings</a>, single Longs, single Doubles or single Floats.</li>
+<li><a href="./#metrics">Metric columns</a> are stored <a href="../querying/aggregations.html">pre-aggregated</a>, so they can only be aggregated at query time (not filtered or grouped by). They are often stored as numbers (integers or floats) but can also be stored as complex objects like <a href="../querying/aggregations.html#approx">HyperLogLog sketches or approximate quantile sketches</a>. Metrics can be configured at ingestion time even when rollup is disabled, but are most useful when rollup is enabled.</li>
+</ul>
+<h2 id="if-youre-coming-from-a"><a name="if-youre-coming-from-a" class="anchor-navigation-ex-anchor" href="#if-youre-coming-from-a"><i class="fa fa-link" aria-hidden="true"></i></a>1.2. If you&apos;re coming from a...</h2>
+<h3 id="relational-model"><a name="relational-model" class="anchor-navigation-ex-anchor" href="#relational-model"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.1. Relational model</h3>
+<p>(Like Hive or PostgreSQL.)</p>
+<p>Druid datasources are generally equivalent to tables in a relational database. Druid <a href="../querying/lookups.html">lookups</a>
+can act similarly to data-warehouse-style dimension tables, but as you&apos;ll see below, denormalization is often
+recommended if you can get away with it.</p>
+<p>Common practice for relational data modeling involves <a href="https://en.wikipedia.org/wiki/Database_normalization" target="_blank">normalization</a>:
+the idea of splitting up data into multiple tables such that data redundancy is reduced or eliminated. For example, in a
+&quot;sales&quot; table, best-practices relational modeling calls for a &quot;product id&quot; column that is a foreign key into a separate
+&quot;products&quot; table, which in turn has &quot;product id&quot;, &quot;product name&quot;, and &quot;product category&quot; columns. This prevents the
+product name and category from needing to be repeated on different rows in the &quot;sales&quot; table that refer to the same
+product.</p>
+<p>In Druid, on the other hand, it is common to use totally flat datasources that do not require joins at query time. In
+the example of the &quot;sales&quot; table, in Druid it would be typical to store &quot;product<em>id&quot;, &quot;product_name&quot;, and
+&quot;product_category&quot; as dimensions directly in a Druid &quot;sales&quot; datasource, without using a separate &quot;products&quot; table.
+Totally flat schemas substantially increase performance, since the need for joins is eliminated at query time. As an
+an added speed boost, this also allows Druid&apos;s query layer to operate directly on compressed dictionary-encoded data.
+Perhaps counter-intuitively, this does _not</em> substantially increase storage footprint relative to normalized schemas,
+since Druid uses dictionary encoding to effectively store just a single integer per row for string columns.</p>
+<p>If necessary, Druid datasources can be partially normalized through the use of <a href="../querying/lookups.html">lookups</a>,
+which are the rough equivalent of dimension tables in a relational database. At query time, you would use Druid&apos;s SQL
+<code>LOOKUP</code> function, or native lookup extraction functions, instead of using the JOIN keyword like you would in a
+relational database. Since lookup tables impose an increase in memory footprint and incur more computational overhead
+at query time, it is only recommended to do this if you need the ability to update a lookup table and have the changes
+reflected immediately for already-ingested rows in your main table.</p>
+<p>Tips for modeling relational data in Druid:</p>
+<ul>
+<li>Druid datasources do not have primary or unique keys, so skip those.</li>
+<li>Denormalize if possible. If you need to be able to update dimension / lookup tables periodically and have those
+changes reflected in already-ingested data, consider partial normalization with <a href="../querying/lookups.html">lookups</a>.</li>
+<li>If you need to join two large distributed tables with each other, you must do this before loading the data into Druid.
+Druid does not support query-time joins of two datasources. Lookups do not help here, since a full copy of each lookup
+table is stored on each Druid server, so they are not a good choice for large tables.</li>
+<li>Consider whether you want to enable <a href="#rollup">rollup</a> for pre-aggregation, or whether you want to disable
+rollup and load your existing data as-is. Rollup in Druid is similar to creating a summary table in a relational model.</li>
+</ul>
+<h3 id="time-series-model"><a name="time-series-model" class="anchor-navigation-ex-anchor" href="#time-series-model"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.2. Time series model</h3>
+<p>(Like OpenTSDB or InfluxDB.)</p>
+<p>Similar to time series databases, Druid&apos;s data model requires a timestamp. Druid is not a timeseries database, but
+it is a natural choice for storing timeseries data. Its flexible data model allows it to store both timeseries and
+non-timeseries data, even in the same datasource.</p>
+<p>To achieve best-case compression and query performance in Druid for timeseries data, it is important to partition and
+sort by metric name, like timeseries databases often do. See <a href="./#partitioning">Partitioning and sorting</a> for more details.</p>
+<p>Tips for modeling timeseries data in Druid:</p>
+<ul>
+<li>Druid does not think of data points as being part of a &quot;time series&quot;. Instead, Druid treats each point separately
+for ingestion and aggregation.</li>
+<li>Create a dimension that indicates the name of the series that a data point belongs to. This dimension is often called
+&quot;metric&quot; or &quot;name&quot;. Do not get the dimension named &quot;metric&quot; confused with the concept of Druid metrics. Place this
+first in the list of dimensions in your &quot;dimensionsSpec&quot; for best performance (this helps because it improves locality;
+see <a href="./#partitioning">partitioning and sorting</a> below for details).</li>
+<li>Create other dimensions for attributes attached to your data points. These are often called &quot;tags&quot; in timeseries
+database systems.</li>
+<li>Create <a href="../querying/aggregations.html">metrics</a> corresponding to the types of aggregations that you want to be able
+to query. Typically this includes &quot;sum&quot;, &quot;min&quot;, and &quot;max&quot; (in one of the long, float, or double flavors). If you want to
+be able to compute percentiles or quantiles, use Druid&apos;s <a href="../querying/aggregations.html#approx">approximate aggregators</a>.</li>
+<li>Consider enabling <a href="#rollup">rollup</a>, which will allow Druid to potentially combine multiple points into one
+row in your Druid datasource. This can be useful if you want to store data at a different time granularity than it is
+naturally emitted. It is also useful if you want to combine timeseries and non-timeseries data in the same datasource.</li>
+<li>If you don&apos;t know ahead of time what columns you&apos;ll want to ingest, use an empty dimensions list to trigger
+<a href="#schema-less-dimensions">automatic detection of dimension columns</a>.</li>
+</ul>
+<h3 id="log-aggregation-model"><a name="log-aggregation-model" class="anchor-navigation-ex-anchor" href="#log-aggregation-model"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.3. Log aggregation model</h3>
+<p>(Like Elasticsearch or Splunk.)</p>
+<p>Similar to log aggregation systems, Druid offers inverted indexes for fast searching and filtering. Druid&apos;s search
+capabilities are generally less developed than these systems, and its analytical capabilities are generally more
+developed. The main data modeling differences between Druid and these systems are that when ingesting data into Druid,
+you must be more explicit. Druid columns have types specific upfront and Druid does not, at this time, natively support
+nested data.</p>
+<p>Tips for modeling log data in Druid:</p>
+<ul>
+<li>If you don&apos;t know ahead of time what columns you&apos;ll want to ingest, use an empty dimensions list to trigger
+<a href="#schema-less-dimensions">automatic detection of dimension columns</a>.</li>
+<li>If you have nested data, flatten it using a <a href="./#flattenspec"><code>flattenSpec</code></a>.</li>
+<li>Consider enabling <a href="#rollup">rollup</a> if you have mainly analytical use cases for your log data. This will
+mean you lose the ability to retrieve individual events from Druid, but you potentially gain substantial compression and
+query performance boosts.</li>
+</ul>
+<h2 id="general-tips-and-best-practices"><a name="general-tips-and-best-practices" class="anchor-navigation-ex-anchor" href="#general-tips-and-best-practices"><i class="fa fa-link" aria-hidden="true"></i></a>1.3. General tips and best practices</h2>
+<h3 id="rollup"><a name="rollup" class="anchor-navigation-ex-anchor" href="#rollup"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.1. Rollup</h3>
+<p>Druid can roll up data as it is ingested to minimize the amount of raw data that needs to be stored. This is a form
+of summarization or pre-aggregation. For more details, see the <a href="./#rollup">Rollup</a> section of the ingestion
+documentation.</p>
+<h3 id="partitioning-and-sorting"><a name="partitioning-and-sorting" class="anchor-navigation-ex-anchor" href="#partitioning-and-sorting"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.2. Partitioning and sorting</h3>
+<p>Optimally partitioning and sorting your data can have substantial impact on footprint and performance. For more details,
+see the <a href="./#partitioning">Partitioning</a> section of the ingestion documentation.</p>
+<p><a name="sketches"></a></p>
+<h3 id="sketches-for-high-cardinality-columns"><a name="sketches-for-high-cardinality-columns" class="anchor-navigation-ex-anchor" href="#sketches-for-high-cardinality-columns"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.3. Sketches for high cardinality columns</h3>
+<p>When dealing with high cardinality columns like user IDs or other unique IDs, consider using sketches for approximate
+analysis rather than operating on the actual values. When you ingest data using a sketch, Druid does not store the
+original raw data, but instead stores a &quot;sketch&quot; of it that it can feed into a later computation at query time. Popular
+use cases for sketches include count-distinct and quantile computation. Each sketch is designed for just one particular
+kind of computation.</p>
+<p>In general using sketches serves two main purposes: improving rollup, and reducing memory footprint at
+query time.</p>
+<p>Sketches improve rollup ratios because they allow you to collapse multiple distinct values into the same sketch. For
+example, if you have two rows that are identical except for a user ID (perhaps two users did the same action at the
+same time), storing them in a count-distinct sketch instead of as-is means you can store the data in one row instead of
+two. You won&apos;t be able to retrieve the user IDs or compute exact distinct counts, but you&apos;ll still be able to compute
+approximate distinct counts, and you&apos;ll reduce your storage footprint.</p>
+<p>Sketches reduce memory footprint at query time because they limit the amount of data that needs to be shuffled between
+servers. For example, in a quantile computation, instead of needing to send all data points to a central location
+so they can be sorted and the quantile can be computed, Druid instead only needs to send a sketch of the points. This
+can reduce data transfer needs to mere kilobytes.</p>
+<p>For details about the sketches available in Druid, see the
+<a href="../querying/aggregations.html#approx">approximate aggregators</a> page.</p>
+<p>If you prefer videos, take a look at <a href="https://www.youtube.com/watch?v=Hpd3f_MLdXo" target="_blank">Not exactly!</a>, a conference talk
+about sketches in Druid.</p>
+<h3 id="string-vs-numeric-dimensions"><a name="string-vs-numeric-dimensions" class="anchor-navigation-ex-anchor" href="#string-vs-numeric-dimensions"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.4. String vs numeric dimensions</h3>
+<p>If the user wishes to ingest a column as a numeric-typed dimension (Long, Double or Float), it is necessary to specify the type of the column in the <code>dimensions</code> section of the <code>dimensionsSpec</code>. If the type is omitted, Druid will ingest a column as the default String type.</p>
+<p>There are performance tradeoffs between string and numeric columns. Numeric columns are generally faster to group on
+than string columns. But unlike string columns, numeric columns don&apos;t have indexes, so they can be slower to filter on.
+You may want to experiment to find the optimal choice for your use case.</p>
+<p>For details about how to configure numeric dimensions, see the <a href="./#dimensionsspec"><code>dimensionsSpec</code></a> documentation.</p>
+<h3 id="secondary-timestamps"><a name="secondary-timestamps" class="anchor-navigation-ex-anchor" href="#secondary-timestamps"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.5. Secondary timestamps</h3>
+<p>Druid schemas must always include a primary timestamp. The primary timestamp is used for
+<a href="./#partitioning">partitioning and sorting</a> your data, so it should be the timestamp that you will most often filter on.
+Druid is able to rapidly identify and retrieve data corresponding to time ranges of the primary timestamp column.</p>
+<p>If your data has more than one timestamp, you can ingest the others as secondary timestamps. The best way to do this
+is to ingest them as <a href="./#dimensionsspec">long-typed dimensions</a> in milliseconds format.
+If necessary, you can get them into this format using a <a href="./#transformspec"><code>transformSpec</code></a> and
+<a href="../misc/math-expr.html">expressions</a> like <code>timestamp_parse</code>, which returns millisecond timestamps.</p>
+<p>At query time, you can query secondary timestamps with <a href="../querying/sql.html#time-functions">SQL time functions</a>
+like <code>MILLIS_TO_TIMESTAMP</code>, <code>TIME_FLOOR</code>, and others. If you&apos;re using native Druid queries, you can use
+<a href="../misc/math-expr.html">expressions</a>.</p>
+<h3 id="nested-dimensions"><a name="nested-dimensions" class="anchor-navigation-ex-anchor" href="#nested-dimensions"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.6. Nested dimensions</h3>
+<p>At the time of this writing, Druid does not support nested dimensions. Nested dimensions need to be flattened. For example,
+if you have data of the following form:</p>
+<pre><code>{&quot;foo&quot;:{&quot;bar&quot;: 3}}
+</code></pre><p>then before indexing it, you should transform it to:</p>
+<pre><code>{&quot;foo_bar&quot;: 3}
+</code></pre><p>Druid is capable of flattening JSON, Avro, or Parquet input data.
+Please read about <a href="./#flattenspec"><code>flattenSpec</code></a> for more details.</p>
+<p><a name="counting"></a></p>
+<h3 id="counting-the-number-of-ingested-events"><a name="counting-the-number-of-ingested-events" class="anchor-navigation-ex-anchor" href="#counting-the-number-of-ingested-events"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.7. Counting the number of ingested events</h3>
+<p>When rollup is enabled, count aggregators at query time do not actually tell you the number of rows that have been
+ingested. They tell you the number of rows in the Druid datasource, which may be smaller than the number of rows
+ingested.</p>
+<p>In this case, a count aggregator at <em>ingestion</em> time can be used to count the number of events. However, it is important to note
+that when you query for this metric, you should use a <code>longSum</code> aggregator. A <code>count</code> aggregator at query time will return
+the number of Druid rows for the time interval, which can be used to determine what the roll-up ratio was.</p>
+<p>To clarify with an example, if your ingestion spec contains:</p>
+<pre><code>...
+&quot;metricsSpec&quot; : [
+      {
+        &quot;type&quot; : &quot;count&quot;,
+        &quot;name&quot; : &quot;count&quot;
+      },
+...
+</code></pre><p>You should query for the number of ingested rows with:</p>
+<pre><code>...
+&quot;aggregations&quot;: [
+    { &quot;type&quot;: &quot;longSum&quot;, &quot;name&quot;: &quot;numIngestedEvents&quot;, &quot;fieldName&quot;: &quot;count&quot; },
+...
+</code></pre><h3 id="schema-less-dimensions"><a name="schema-less-dimensions" class="anchor-navigation-ex-anchor" href="#schema-less-dimensions"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.8. Schema-less dimensions</h3>
+<p>If the <code>dimensions</code> field is left empty in your ingestion spec, Druid will treat every column that is not the timestamp column,
+a dimension that has been excluded, or a metric column as a dimension.</p>
+<p>Note that when using schema-less ingestion, all dimensions will be ingested as String-typed dimensions.</p>
+<h3 id="including-the-same-column-as-a-dimension-and-a-metric"><a name="including-the-same-column-as-a-dimension-and-a-metric" class="anchor-navigation-ex-anchor" href="#including-the-same-column-as-a-dimension-and-a-metric"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.9. Including the same column as a dimension and a metric</h3>
+<p>One workflow with unique IDs is to be able to filter on a particular ID, while still being able to do fast unique counts on the ID column.
+If you are not using schema-less dimensions, this use case is supported by setting the <code>name</code> of the metric to something different than the dimension.
+If you are using schema-less dimensions, the best practice here is to include the same column twice, once as a dimension, and as a <code>hyperUnique</code> metric. This may involve
+some work at ETL time.</p>
+<p>As an example, for schema-less dimensions, repeat the same column:</p>
+<pre><code>{&quot;device_id_dim&quot;:123, &quot;device_id_met&quot;:123}
+</code></pre><p>and in your <code>metricsSpec</code>, include:</p>
+<pre><code>{ &quot;type&quot; : &quot;hyperUnique&quot;, &quot;name&quot; : &quot;devices&quot;, &quot;fieldName&quot; : &quot;device_id_met&quot; }
+</code></pre><p><code>device_id_dim</code> should automatically get picked up as a dimension.</p>
+<footer class="page-footer"><span class="copyright">Copyright <a target="_blank" href="https://druid.org.cn">druid.org.cn</a> 2021 .&#x672C;&#x6587;&#x7FFB;&#x8BD1;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/ingestion/schema-design.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
+2021-03-09 21:27:36
+</span></footer>
+                                
+                                </section>
+                            
+    </div>
+    <div class="search-results">
+        <div class="has-results">
+            
+            <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+            <ul class="search-results-list"></ul>
+            
+        </div>
+        <div class="no-results">
+            
+            <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+            
+        </div>
+    </div>
+</div>
+
+                        </div>
+                    </div>
+                
+            </div>
+
+            
+                
+                <a href="data-formats.html" class="navigation navigation-prev " aria-label="Previous page: 数据格式">
+                    <i class="fa fa-angle-left"></i>
+                </a>
+                
+                
+                <a href="data-management.html" class="navigation navigation-next " aria-label="Next page: 数据管理">
+                    <i class="fa fa-angle-right"></i>
+                </a>
+                
+            
+        
+    </div>
+
+    <script>
+        var gitbook = gitbook || [];
+        gitbook.push(function() {
+            gitbook.page.hasChanged({"page":{"id":"schema-design","title":"Schema定义","level":"1.5.3","depth":2,"next":{"title":"数据管理","level":"1.5.4","depth":2,"path":"ingestion/data-management.md","ref":"ingestion/data-management.md","articles":[]},"previous":{"title":"数据格式","level":"1.5.2","depth":2,"path":"ingestion/data-formats.md","ref":"ingestion/data-formats.md","articles":[]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"Copyright <a target=\"_blank\" href=\"https://druid.org.cn\">druid.org.cn</a> 2021 .本文翻译自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"ingestion/schema-design.md","mtime":"2021-03-09T13:27:36.000Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-04-24T03:56:48.676Z"},"basePath":"..","book":{"language":""}});
+        });
+    </script>
+</div>
+
+        
+    <script src="../gitbook/gitbook.js"></script>
+    <script src="../gitbook/theme.js"></script>
+    
+        
+        <script src="../gitbook/gitbook-plugin-livereload/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/search.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-code/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-auto-scroll-table/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-hide-element/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-github/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-sharing/buttons.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+        
+    
+
+    </body>
+</html>
+

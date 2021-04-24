@@ -1,0 +1,3167 @@
+
+<!DOCTYPE HTML>
+<html lang="" >
+    <head>
+        <meta charset="UTF-8">
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <title>应用指标 · GitBook</title>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="description" content="">
+        <meta name="generator" content="GitBook 3.2.3">
+        
+        
+        
+    
+    <link rel="stylesheet" href="../gitbook/style.css">
+
+    
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-highlight/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-search-pro/search.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-code/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-tbfed-pagefooter/footer.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-anchor-navigation-ex/style/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-auto-scroll-table/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-fontsettings/website.css">
+                
+            
+        
+
+    
+
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+
+        
+    
+    
+    <meta name="HandheldFriendly" content="true"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon-precomposed" sizes="152x152" href="../gitbook/images/apple-touch-icon-precomposed-152.png">
+    <link rel="shortcut icon" href="../gitbook/images/favicon.ico" type="image/x-icon">
+
+    
+    <link rel="next" href="alerts.html" />
+    
+    
+    <link rel="prev" href="rule-configuration.html" />
+    
+
+    </head>
+    <body>
+        
+<div class="book">
+    <div class="book-summary">
+        
+            
+<div id="book-search-input" role="search">
+    <input type="text" placeholder="Type to search" />
+</div>
+
+            
+                <nav role="navigation">
+                
+
+
+<ul class="summary">
+    
+    
+
+    
+
+    
+        
+        
+    
+        <li class="chapter " data-level="1.1" data-path="../">
+            
+                <a href="../">
+            
+                    
+                    前言
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2" >
+            
+                <span>
+            
+                    
+                    开始
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.2.1" data-path="../design/">
+            
+                <a href="../design/">
+            
+                    
+                    Apache Druid简介
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.2" data-path="../tutorials/">
+            
+                <a href="../tutorials/">
+            
+                    
+                    快速入门
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.3" data-path="../tutorials/docker.html">
+            
+                <a href="../tutorials/docker.html">
+            
+                    
+                    Docker
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.4" data-path="single-server.html">
+            
+                <a href="single-server.html">
+            
+                    
+                    单机部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.5" data-path="../tutorials/cluster.html">
+            
+                <a href="../tutorials/cluster.html">
+            
+                    
+                    集群模式部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3" >
+            
+                <span>
+            
+                    
+                    指南
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.3.1" data-path="../tutorials/tutorial-batch.html">
+            
+                <a href="../tutorials/tutorial-batch.html">
+            
+                    
+                    从本地文件摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.2" data-path="../tutorials/tutorial-kafka.html">
+            
+                <a href="../tutorials/tutorial-kafka.html">
+            
+                    
+                    从Kafka摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.3" data-path="../tutorials/tutorial-batch-hadoop.html">
+            
+                <a href="../tutorials/tutorial-batch-hadoop.html">
+            
+                    
+                    从Haddop摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.4" data-path="../tutorials/tutorial-query.html">
+            
+                <a href="../tutorials/tutorial-query.html">
+            
+                    
+                    查询数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.5" data-path="../tutorials/tutorial-rollup.html">
+            
+                <a href="../tutorials/tutorial-rollup.html">
+            
+                    
+                    预聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.6" data-path="../tutorials/tutorial-retention.html">
+            
+                <a href="../tutorials/tutorial-retention.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.7" data-path="../tutorials/tutorial-update-data.html">
+            
+                <a href="../tutorials/tutorial-update-data.html">
+            
+                    
+                    更新数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.8" data-path="../tutorials/tutorial-compaction.html">
+            
+                <a href="../tutorials/tutorial-compaction.html">
+            
+                    
+                    数据文件合并
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.9" data-path="../tutorials/tutorial-delete-data.html">
+            
+                <a href="../tutorials/tutorial-delete-data.html">
+            
+                    
+                    删除数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.10" data-path="../tutorials/tutorial-ingestion-spec.html">
+            
+                <a href="../tutorials/tutorial-ingestion-spec.html">
+            
+                    
+                    编写数据摄入规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.11" data-path="../tutorials/tutorial-transform-spec.html">
+            
+                <a href="../tutorials/tutorial-transform-spec.html">
+            
+                    
+                    转换摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.12" data-path="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                <a href="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                    
+                    设置Kerberos认证的HDFS作为深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4" >
+            
+                <span>
+            
+                    
+                    设计
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.4.1" data-path="../design/architecture.html">
+            
+                <a href="../design/architecture.html">
+            
+                    
+                    整体架构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.2" data-path="../design/segments.html">
+            
+                <a href="../design/segments.html">
+            
+                    
+                    存储结构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.3" data-path="../design/processes">
+            
+                <span>
+            
+                    
+                    进程与服务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.4" data-path="../dependencies/deep-storage.html">
+            
+                <a href="../dependencies/deep-storage.html">
+            
+                    
+                    深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.5" data-path="../dependencies/metadata-storage.html">
+            
+                <a href="../dependencies/metadata-storage.html">
+            
+                    
+                    元数据存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.6" data-path="../dependencies/zookeeper.html">
+            
+                <a href="../dependencies/zookeeper.html">
+            
+                    
+                    Zookeeper
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5" >
+            
+                <span>
+            
+                    
+                    数据摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.1" data-path="../ingestion/">
+            
+                <a href="../ingestion/">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.2" data-path="../ingestion/data-formats.html">
+            
+                <a href="../ingestion/data-formats.html">
+            
+                    
+                    数据格式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.3" data-path="../ingestion/schema-design.html">
+            
+                <a href="../ingestion/schema-design.html">
+            
+                    
+                    Schema定义
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.4" data-path="../ingestion/data-management.html">
+            
+                <a href="../ingestion/data-management.html">
+            
+                    
+                    数据管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5" >
+            
+                <span>
+            
+                    
+                    实时摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.5.1" data-path="../development/extensions-core/kafka-ingestion.html">
+            
+                <a href="../development/extensions-core/kafka-ingestion.html">
+            
+                    
+                    从Kafka摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.2" data-path="../development/extensions-core/kinesis-ingestion.html">
+            
+                <a href="../development/extensions-core/kinesis-ingestion.html">
+            
+                    
+                    从Amazon Kinesis摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.3" data-path="../ingestion/tranquility.html">
+            
+                <a href="../ingestion/tranquility.html">
+            
+                    
+                    从Tranqulity摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.4" data-path="../ingestion/standalone-realtime.html">
+            
+                <a href="../ingestion/standalone-realtime.html">
+            
+                    
+                    独立实时模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6" >
+            
+                <span>
+            
+                    
+                    批量导入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.6.1" data-path="../ingestion/native-batch.html">
+            
+                <a href="../ingestion/native-batch.html">
+            
+                    
+                    本地模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6.2" data-path="../ingestion/hadoop.html">
+            
+                <a href="../ingestion/hadoop.html">
+            
+                    
+                    从Hadoop导入
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.7" data-path="../ingestion/tasks.html">
+            
+                <a href="../ingestion/tasks.html">
+            
+                    
+                    Druid中的任务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.8" data-path="../ingestion/faq.html">
+            
+                <a href="../ingestion/faq.html">
+            
+                    
+                    FAQ
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6" >
+            
+                <span>
+            
+                    
+                    数据查询
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.1" data-path="../querying/sql.html">
+            
+                <a href="../querying/sql.html">
+            
+                    
+                    通过SQL查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.2" data-path="../querying/querying.html">
+            
+                <a href="../querying/querying.html">
+            
+                    
+                    通过JSON查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.3" data-path="../querying/query-execution.html">
+            
+                <a href="../querying/query-execution.html">
+            
+                    
+                    查询执行流程
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4" >
+            
+                <span>
+            
+                    
+                    主要概念
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.4.1" data-path="../querying/datasource.html">
+            
+                <a href="../querying/datasource.html">
+            
+                    
+                    数据源(datasource)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.2" data-path="../querying/joins.html">
+            
+                <a href="../querying/joins.html">
+            
+                    
+                    联合查询(join)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.3" data-path="../querying/lookups.html">
+            
+                <a href="../querying/lookups.html">
+            
+                    
+                    字典查询(lookups)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.4" data-path="../querying/multi-value-dimensions.html">
+            
+                <a href="../querying/multi-value-dimensions.html">
+            
+                    
+                    结构化列值(multi-value-dimensions)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.5" data-path="../querying/multitenancy.html">
+            
+                <a href="../querying/multitenancy.html">
+            
+                    
+                    多租户
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.6" data-path="../querying/caching.html">
+            
+                <a href="../querying/caching.html">
+            
+                    
+                    查询缓存
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.7" data-path="../querying/query-context.html">
+            
+                <a href="../querying/query-context.html">
+            
+                    
+                    查询上下文
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5" >
+            
+                <span>
+            
+                    
+                    JSON查询类型
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.5.1" data-path="../querying/timeseriesquery.html">
+            
+                <a href="../querying/timeseriesquery.html">
+            
+                    
+                    Timeseries
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.2" data-path="../querying/topnquery.html">
+            
+                <a href="../querying/topnquery.html">
+            
+                    
+                    TopN
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.3" data-path="../querying/groupbyquery.html">
+            
+                <a href="../querying/groupbyquery.html">
+            
+                    
+                    GroupBy
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.4" data-path="../querying/scan-query.html">
+            
+                <a href="../querying/scan-query.html">
+            
+                    
+                    Scan
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.5" data-path="../querying/searchquery.html">
+            
+                <a href="../querying/searchquery.html">
+            
+                    
+                    Search
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.6" data-path="../querying/timeboundaryquery.html">
+            
+                <a href="../querying/timeboundaryquery.html">
+            
+                    
+                    TimeBoundary
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.7" data-path="../querying/segmentmetadataquery.html">
+            
+                <a href="../querying/segmentmetadataquery.html">
+            
+                    
+                    SegmentMetaData
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.8" data-path="../querying/datasourcemetadataquery.html">
+            
+                <a href="../querying/datasourcemetadataquery.html">
+            
+                    
+                    DatasourceMetadata
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6" >
+            
+                <span>
+            
+                    
+                    JSON查询结构
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.6.1" data-path="../querying/filters.html">
+            
+                <a href="../querying/filters.html">
+            
+                    
+                    过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.2" data-path="../querying/granularities.html">
+            
+                <a href="../querying/granularities.html">
+            
+                    
+                    时间粒度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.3" data-path="../querying/dimensionspecs.html">
+            
+                <a href="../querying/dimensionspecs.html">
+            
+                    
+                    数据维度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.4" data-path="../querying/aggregations.html">
+            
+                <a href="../querying/aggregations.html">
+            
+                    
+                    聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.5" data-path="../querying/post-aggregations.html">
+            
+                <a href="../querying/post-aggregations.html">
+            
+                    
+                    后置聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.6" data-path="../misc/math-expr.html">
+            
+                <a href="../misc/math-expr.html">
+            
+                    
+                    数学函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.7" data-path="../querying/having.html">
+            
+                <a href="../querying/having.html">
+            
+                    
+                    表达式与函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.8" data-path="../querying/limitspec.html">
+            
+                <a href="../querying/limitspec.html">
+            
+                    
+                    Having过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.9" data-path="../querying/topnmetricspec.html">
+            
+                <a href="../querying/topnmetricspec.html">
+            
+                    
+                    TopN排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.10" data-path="../querying/sorting-orders.html">
+            
+                <a href="../querying/sorting-orders.html">
+            
+                    
+                    排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.11" data-path="../querying/virtual-columns.html">
+            
+                <a href="../querying/virtual-columns.html">
+            
+                    
+                    虚拟字段
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.12" data-path="../development/geo.html">
+            
+                <a href="../development/geo.html">
+            
+                    
+                    空间过滤
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7" >
+            
+                <span>
+            
+                    
+                    配置
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.7.1" data-path="../configuration/">
+            
+                <a href="../configuration/">
+            
+                    
+                    概述
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.2" data-path="../development/extensions.html">
+            
+                <a href="../development/extensions.html">
+            
+                    
+                    扩展组件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.3" data-path="../configuration/logging.html">
+            
+                <a href="../configuration/logging.html">
+            
+                    
+                    运行日志
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8" >
+            
+                <span>
+            
+                    
+                    运维
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.1" data-path="druid-console.html">
+            
+                <a href="druid-console.html">
+            
+                    
+                    Web控制台
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2" data-path="getting-started.html">
+            
+                <a href="getting-started.html">
+            
+                    
+                    快速开始
+            
+                </a>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1" >
+            
+                <span>
+            
+                    
+                    安全
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1.1" data-path="security-overview.html">
+            
+                <a href="security-overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.2" data-path="security-user-auth.html">
+            
+                <a href="security-user-auth.html">
+            
+                    
+                    用户认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.3" data-path="auth-ldap.html">
+            
+                <a href="auth-ldap.html">
+            
+                    
+                    LDAP认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.4" data-path="password-provider.html">
+            
+                <a href="password-provider.html">
+            
+                    
+                    密码管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.5" data-path="../design/auth.html">
+            
+                <a href="../design/auth.html">
+            
+                    
+                    认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.6" data-path="tls-support.html">
+            
+                <a href="tls-support.html">
+            
+                    
+                    TLS加密支持
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2" >
+            
+                <span>
+            
+                    
+                    性能
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.2.1" data-path="basic-cluster-tuning.html">
+            
+                <a href="basic-cluster-tuning.html">
+            
+                    
+                    集群调优
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.2" data-path="segment-optimization.html">
+            
+                <a href="segment-optimization.html">
+            
+                    
+                    数据段文件优化
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.3" data-path="http-compression.html">
+            
+                <a href="http-compression.html">
+            
+                    
+                    HTTP压缩
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.3" data-path="api-reference.html">
+            
+                <a href="api-reference.html">
+            
+                    
+                    API手册
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.4" data-path="high-availability.html">
+            
+                <a href="high-availability.html">
+            
+                    
+                    高可用
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.5" data-path="rolling-updates.html">
+            
+                <a href="rolling-updates.html">
+            
+                    
+                    滚动版本升级
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.6" data-path="rule-configuration.html">
+            
+                <a href="rule-configuration.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter active" data-level="1.8.2.7" data-path="metrics.html">
+            
+                <a href="metrics.html">
+            
+                    
+                    应用指标
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.8" data-path="alerts.html">
+            
+                <a href="alerts.html">
+            
+                    
+                    告警
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.9" data-path="other-hadoop.html">
+            
+                <a href="other-hadoop.html">
+            
+                    
+                    Hadoop相关
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.10.1" data-path="management-uis.html">
+            
+                <a href="management-uis.html">
+            
+                    
+                    管理界面
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.2" data-path="dump-segment.html">
+            
+                <a href="dump-segment.html">
+            
+                    
+                    导出数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.3" data-path="reset-cluster.html">
+            
+                <a href="reset-cluster.html">
+            
+                    
+                    重置集群
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.4" data-path="insert-segment-to-db.html">
+            
+                <a href="insert-segment-to-db.html">
+            
+                    
+                    插入数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.5" data-path="pull-deps.html">
+            
+                <a href="pull-deps.html">
+            
+                    
+                    pull-deps工具
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.6" data-path="deep-storage-migration.html">
+            
+                <a href="deep-storage-migration.html">
+            
+                    
+                    迁移深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.7" data-path="export-metadata.html">
+            
+                <a href="export-metadata.html">
+            
+                    
+                    导出元数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.8" data-path="metadata-migration.html">
+            
+                <a href="metadata-migration.html">
+            
+                    
+                    元数据迁移
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.9" data-path="use_sbt_to_build_fat_jar.html">
+            
+                <a href="use_sbt_to_build_fat_jar.html">
+            
+                    
+                    打包fat jar
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9" >
+            
+                <span>
+            
+                    
+                    Druid开发
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.9.1" data-path="../development/overview.html">
+            
+                <a href="../development/overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.2" data-path="../development/modules.html">
+            
+                <a href="../development/modules.html">
+            
+                    
+                    模块
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.3" data-path="../development/javascript.html">
+            
+                <a href="../development/javascript.html">
+            
+                    
+                    javascript
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.4" data-path="../development/build.html">
+            
+                <a href="../development/build.html">
+            
+                    
+                    构建
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.5" data-path="../development/versioning.html">
+            
+                <a href="../development/versioning.html">
+            
+                    
+                    版本
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.6" data-path="../development/experimental.html">
+            
+                <a href="../development/experimental.html">
+            
+                    
+                    实验功能
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.10.1" data-path="../misc/papers-and-talks.html">
+            
+                <a href="../misc/papers-and-talks.html">
+            
+                    
+                    论文与演讲
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+    
+
+    <li class="divider"></li>
+
+    <li>
+        <a href="https://www.gitbook.com" target="blank" class="gitbook-link">
+            Published with GitBook
+        </a>
+    </li>
+</ul>
+
+
+                </nav>
+            
+        
+    </div>
+
+    <div class="book-body">
+        
+            <div class="body-inner">
+                
+                    
+
+<div class="book-header" role="navigation">
+    
+
+    <!-- Title -->
+    <h1>
+        <i class="fa fa-circle-o-notch fa-spin"></i>
+        <a href=".." >应用指标</a>
+    </h1>
+</div>
+
+
+
+
+                    <div class="page-wrapper" tabindex="-1" role="main">
+                        <div class="page-inner">
+                            
+<div id="book-search-results">
+    <div class="search-noresults">
+    
+                                <section class="normal markdown-section">
+                                
+                                <div id="anchor-navigation-ex-navbar"><i class="fa fa-navicon"></i><ul><ul><li><span class="title-icon "></span><a href="#available-metrics"><b>1.1. </b>Available Metrics</a></li><li><span class="title-icon "></span><a href="#query-metrics"><b>1.2. </b>Query metrics</a></li><ul><li><span class="title-icon "></span><a href="#broker"><b>1.2.1. </b>Broker</a></li><li><span class="title-icon "></span><a href="#historical"><b>1.2.2. </b>Historical</a></li><li><span class="title-icon "></span><a href="#real-time"><b>1.2.3. </b>Real-time</a></li><li><span class="title-icon "></span><a href="#jetty"><b>1.2.4. </b>Jetty</a></li><li><span class="title-icon "></span><a href="#cache"><b>1.2.5. </b>Cache</a></li></ul><li><span class="title-icon "></span><a href="#sql-metrics"><b>1.3. </b>SQL Metrics</a></li><li><span class="title-icon "></span><a href="#ingestion-metrics-kafka-indexing-service"><b>1.4. </b>Ingestion Metrics (Kafka Indexing Service)</a></li><li><span class="title-icon "></span><a href="#ingestion-metrics-kinesis-indexing-service"><b>1.5. </b>Ingestion Metrics (Kinesis Indexing Service)</a></li><li><span class="title-icon "></span><a href="#ingestion-metrics-realtime-process"><b>1.6. </b>Ingestion metrics (Realtime process)</a></li><li><span class="title-icon "></span><a href="#indexing-service"><b>1.7. </b>Indexing service</a></li><li><span class="title-icon "></span><a href="#shuffle-metrics-native-parallel-task"><b>1.8. </b>Shuffle metrics (Native parallel task)</a></li><li><span class="title-icon "></span><a href="#coordination"><b>1.9. </b>Coordination</a></li><li><span class="title-icon "></span><a href="#general-health"><b>1.10. </b>General Health</a></li><ul><li><span class="title-icon "></span><a href="#historical_1"><b>1.10.1. </b>Historical</a></li><li><span class="title-icon "></span><a href="#jvm"><b>1.10.2. </b>JVM</a></li><li><span class="title-icon "></span><a href="#eventreceiverfirehose"><b>1.10.3. </b>EventReceiverFirehose</a></li></ul><li><span class="title-icon "></span><a href="#sys"><b>1.11. </b>Sys</a></li></ul></ul></div><a href="#" id="anchorNavigationExGoTop"><i class="fa fa-arrow-up"></i></a><!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one
+  ~ or more contributor license agreements.  See the NOTICE file
+  ~ distributed with this work for additional information
+  ~ regarding copyright ownership.  The ASF licenses this file
+  ~ to you under the Apache License, Version 2.0 (the
+  ~ "License"); you may not use this file except in compliance
+  ~ with the License.  You may obtain a copy of the License at
+  ~
+  ~   http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing,
+  ~ software distributed under the License is distributed on an
+  ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  ~ KIND, either express or implied.  See the License for the
+  ~ specific language governing permissions and limitations
+  ~ under the License.
+  -->
+<p>Druid generates metrics related to queries, ingestion, and coordination.</p>
+<p>Metrics are emitted as JSON objects to a runtime log file or over HTTP (to a service such as Apache Kafka). Metric emission is disabled by default.</p>
+<p>All Druid metrics share a common set of fields:</p>
+<ul>
+<li><code>timestamp</code> - the time the metric was created</li>
+<li><code>metric</code> - the name of the metric</li>
+<li><code>service</code> - the service name that emitted the metric</li>
+<li><code>host</code> - the host name that emitted the metric</li>
+<li><code>value</code> - some numeric value associated with the metric</li>
+</ul>
+<p>Metrics may have additional dimensions beyond those listed above.</p>
+<p>Most metric values reset each emission period. By default druid emission period is 1 minute, this can be changed by setting the property <code>druid.monitoring.emissionPeriod</code>.</p>
+<h2 id="available-metrics"><a name="available-metrics" class="anchor-navigation-ex-anchor" href="#available-metrics"><i class="fa fa-link" aria-hidden="true"></i></a>1.1. Available Metrics</h2>
+<h2 id="query-metrics"><a name="query-metrics" class="anchor-navigation-ex-anchor" href="#query-metrics"><i class="fa fa-link" aria-hidden="true"></i></a>1.2. Query metrics</h2>
+<h3 id="broker"><a name="broker" class="anchor-navigation-ex-anchor" href="#broker"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.1. Broker</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>query/time</code></td>
+<td>Milliseconds taken to complete a query.</td>
+<td>Common: dataSource, type, interval, hasFilters, duration, context, remoteAddress, id. Aggregation Queries: numMetrics, numComplexMetrics. GroupBy: numDimensions. TopN: threshold, dimension.</td>
+<td>&lt; 1s</td>
+</tr>
+<tr>
+<td><code>query/bytes</code></td>
+<td>number of bytes returned in query response.</td>
+<td>Common: dataSource, type, interval, hasFilters, duration, context, remoteAddress, id. Aggregation Queries: numMetrics, numComplexMetrics. GroupBy: numDimensions. TopN: threshold, dimension.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/node/time</code></td>
+<td>Milliseconds taken to query individual historical/realtime processes.</td>
+<td>id, status, server.</td>
+<td>&lt; 1s</td>
+</tr>
+<tr>
+<td><code>query/node/bytes</code></td>
+<td>number of bytes returned from querying individual historical/realtime processes.</td>
+<td>id, status, server.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/node/ttfb</code></td>
+<td>Time to first byte. Milliseconds elapsed until Broker starts receiving the response from individual historical/realtime processes.</td>
+<td>id, status, server.</td>
+<td>&lt; 1s</td>
+</tr>
+<tr>
+<td><code>query/node/backpressure</code></td>
+<td>Milliseconds that the channel to this process has spent suspended due to backpressure.</td>
+<td>id, status, server.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/count</code></td>
+<td>number of total queries</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/success/count</code></td>
+<td>number of queries successfully processed</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/failed/count</code></td>
+<td>number of failed queries</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/interrupted/count</code></td>
+<td>number of queries interrupted due to cancellation.</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/timeout/count</code></td>
+<td>number of timed out queries.</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>sqlQuery/time</code></td>
+<td>Milliseconds taken to complete a SQL query.</td>
+<td>id, nativeQueryIds, dataSource, remoteAddress, success.</td>
+<td>&lt; 1s</td>
+</tr>
+<tr>
+<td><code>sqlQuery/bytes</code></td>
+<td>number of bytes returned in SQL query response.</td>
+<td>id, nativeQueryIds, dataSource, remoteAddress, success.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="historical"><a name="historical" class="anchor-navigation-ex-anchor" href="#historical"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.2. Historical</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>query/time</code></td>
+<td>Milliseconds taken to complete a query.</td>
+<td>Common: dataSource, type, interval, hasFilters, duration, context, remoteAddress, id. Aggregation Queries: numMetrics, numComplexMetrics. GroupBy: numDimensions. TopN: threshold, dimension.</td>
+<td>&lt; 1s</td>
+</tr>
+<tr>
+<td><code>query/segment/time</code></td>
+<td>Milliseconds taken to query individual segment. Includes time to page in the segment from disk.</td>
+<td>id, status, segment.</td>
+<td>several hundred milliseconds</td>
+</tr>
+<tr>
+<td><code>query/wait/time</code></td>
+<td>Milliseconds spent waiting for a segment to be scanned.</td>
+<td>id, segment.</td>
+<td>&lt; several hundred milliseconds</td>
+</tr>
+<tr>
+<td><code>segment/scan/pending</code></td>
+<td>Number of segments in queue waiting to be scanned.</td>
+<td></td>
+<td>Close to 0</td>
+</tr>
+<tr>
+<td><code>query/segmentAndCache/time</code></td>
+<td>Milliseconds taken to query individual segment or hit the cache (if it is enabled on the Historical process).</td>
+<td>id, segment.</td>
+<td>several hundred milliseconds</td>
+</tr>
+<tr>
+<td><code>query/cpu/time</code></td>
+<td>Microseconds of CPU time taken to complete a query</td>
+<td>Common: dataSource, type, interval, hasFilters, duration, context, remoteAddress, id. Aggregation Queries: numMetrics, numComplexMetrics. GroupBy: numDimensions. TopN: threshold, dimension.</td>
+<td>Varies</td>
+</tr>
+<tr>
+<td><code>query/count</code></td>
+<td>number of total queries</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/success/count</code></td>
+<td>number of queries successfully processed</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/failed/count</code></td>
+<td>number of failed queries</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/interrupted/count</code></td>
+<td>number of queries interrupted due to cancellation.</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/timeout/count</code></td>
+<td>number of timed out queries.</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="real-time"><a name="real-time" class="anchor-navigation-ex-anchor" href="#real-time"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.3. Real-time</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>query/time</code></td>
+<td>Milliseconds taken to complete a query.</td>
+<td>Common: dataSource, type, interval, hasFilters, duration, context, remoteAddress, id. Aggregation Queries: numMetrics, numComplexMetrics. GroupBy: numDimensions. TopN: threshold, dimension.</td>
+<td>&lt; 1s</td>
+</tr>
+<tr>
+<td><code>query/wait/time</code></td>
+<td>Milliseconds spent waiting for a segment to be scanned.</td>
+<td>id, segment.</td>
+<td>several hundred milliseconds</td>
+</tr>
+<tr>
+<td><code>segment/scan/pending</code></td>
+<td>Number of segments in queue waiting to be scanned.</td>
+<td></td>
+<td>Close to 0</td>
+</tr>
+<tr>
+<td><code>query/count</code></td>
+<td>number of total queries</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/success/count</code></td>
+<td>number of queries successfully processed</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/failed/count</code></td>
+<td>number of failed queries</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/interrupted/count</code></td>
+<td>number of queries interrupted due to cancellation.</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query/timeout/count</code></td>
+<td>number of timed out queries.</td>
+<td>This metric is only available if the QueryCountStatsMonitor module is included.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="jetty"><a name="jetty" class="anchor-navigation-ex-anchor" href="#jetty"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.4. Jetty</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>jetty/numOpenConnections</code></td>
+<td>Number of open jetty connections.</td>
+<td>Not much higher than number of jetty threads.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="cache"><a name="cache" class="anchor-navigation-ex-anchor" href="#cache"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.5. Cache</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>query/cache/delta/*</code></td>
+<td>Cache metrics since the last emission.</td>
+<td></td>
+<td>N/A</td>
+</tr>
+<tr>
+<td><code>query/cache/total/*</code></td>
+<td>Total cache metrics.</td>
+<td></td>
+<td>N/A</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>*/numEntries</code></td>
+<td>Number of cache entries.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>*/sizeBytes</code></td>
+<td>Size in bytes of cache entries.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>*/hits</code></td>
+<td>Number of cache hits.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>*/misses</code></td>
+<td>Number of cache misses.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>*/evictions</code></td>
+<td>Number of cache evictions.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>*/hitRate</code></td>
+<td>Cache hit rate.</td>
+<td></td>
+<td>~40%</td>
+</tr>
+<tr>
+<td><code>*/averageByte</code></td>
+<td>Average cache entry byte size.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>*/timeouts</code></td>
+<td>Number of cache timeouts.</td>
+<td></td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>*/errors</code></td>
+<td>Number of cache errors.</td>
+<td></td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>*/put/ok</code></td>
+<td>Number of new cache entries successfully cached.</td>
+<td></td>
+<td>Varies, but more than zero.</td>
+</tr>
+<tr>
+<td><code>*/put/error</code></td>
+<td>Number of new cache entries that could not be cached due to errors.</td>
+<td></td>
+<td>Varies, but more than zero.</td>
+</tr>
+<tr>
+<td><code>*/put/oversized</code></td>
+<td>Number of potential new cache entries that were skipped due to being too large (based on <code>druid.{broker,historical,realtime}.cache.maxEntrySize</code> properties).</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="memcached-only-metrics"><a name="memcached-only-metrics" class="anchor-navigation-ex-anchor" href="#memcached-only-metrics"><i class="fa fa-link" aria-hidden="true"></i></a>Memcached only metrics</h4>
+<p>Memcached client metrics are reported as per the following. These metrics come directly from the client as opposed to from the cache retrieval layer.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>query/cache/memcached/total</code></td>
+<td>Cache metrics unique to memcached (only if <code>druid.cache.type=memcached</code>) as their actual values</td>
+<td>Variable</td>
+<td>N/A</td>
+</tr>
+<tr>
+<td><code>query/cache/memcached/delta</code></td>
+<td>Cache metrics unique to memcached (only if <code>druid.cache.type=memcached</code>) as their delta from the prior event emission</td>
+<td>Variable</td>
+<td>N/A</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sql-metrics"><a name="sql-metrics" class="anchor-navigation-ex-anchor" href="#sql-metrics"><i class="fa fa-link" aria-hidden="true"></i></a>1.3. SQL Metrics</h2>
+<p>If SQL is enabled, the Broker will emit the following metrics for SQL.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sqlQuery/time</code></td>
+<td>Milliseconds taken to complete a SQL.</td>
+<td>id, nativeQueryIds, dataSource, remoteAddress, success.</td>
+<td>&lt; 1s</td>
+</tr>
+<tr>
+<td><code>sqlQuery/bytes</code></td>
+<td>number of bytes returned in SQL response.</td>
+<td>id, nativeQueryIds, dataSource, remoteAddress, success.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ingestion-metrics-kafka-indexing-service"><a name="ingestion-metrics-kafka-indexing-service" class="anchor-navigation-ex-anchor" href="#ingestion-metrics-kafka-indexing-service"><i class="fa fa-link" aria-hidden="true"></i></a>1.4. Ingestion Metrics (Kafka Indexing Service)</h2>
+<p>These metrics are applicable for the Kafka Indexing Service.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ingest/kafka/lag</code></td>
+<td>Total lag between the offsets consumed by the Kafka indexing tasks and latest offsets in Kafka brokers across all partitions. Minimum emission period for this metric is a minute.</td>
+<td>dataSource.</td>
+<td>Greater than 0, should not be a very high number</td>
+</tr>
+<tr>
+<td><code>ingest/kafka/maxLag</code></td>
+<td>Max lag between the offsets consumed by the Kafka indexing tasks and latest offsets in Kafka brokers across all partitions. Minimum emission period for this metric is a minute.</td>
+<td>dataSource.</td>
+<td>Greater than 0, should not be a very high number</td>
+</tr>
+<tr>
+<td><code>ingest/kafka/avgLag</code></td>
+<td>Average lag between the offsets consumed by the Kafka indexing tasks and latest offsets in Kafka brokers across all partitions. Minimum emission period for this metric is a minute.</td>
+<td>dataSource.</td>
+<td>Greater than 0, should not be a very high number</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ingestion-metrics-kinesis-indexing-service"><a name="ingestion-metrics-kinesis-indexing-service" class="anchor-navigation-ex-anchor" href="#ingestion-metrics-kinesis-indexing-service"><i class="fa fa-link" aria-hidden="true"></i></a>1.5. Ingestion Metrics (Kinesis Indexing Service)</h2>
+<p>These metrics are applicable for the Kinesis Indexing Service.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ingest/kinesis/lag/time</code></td>
+<td>Total lag time in milliseconds between the current message sequence number consumed by the Kinesis indexing tasks and latest sequence number in Kinesis across all shards. Minimum emission period for this metric is a minute.</td>
+<td>dataSource.</td>
+<td>Greater than 0, up to max Kinesis retention period in milliseconds</td>
+</tr>
+<tr>
+<td><code>ingest/kinesis/maxLag/time</code></td>
+<td>Max lag time in milliseconds between the current message sequence number consumed by the Kinesis indexing tasks and latest sequence number in Kinesis across all shards. Minimum emission period for this metric is a minute.</td>
+<td>dataSource.</td>
+<td>Greater than 0, up to max Kinesis retention period in milliseconds</td>
+</tr>
+<tr>
+<td><code>ingest/kinesis/avgLag/time</code></td>
+<td>Average lag time in milliseconds between the current message sequence number consumed by the Kinesis indexing tasks and latest sequence number in Kinesis across all shards. Minimum emission period for this metric is a minute.</td>
+<td>dataSource.</td>
+<td>Greater than 0, up to max Kinesis retention period in milliseconds</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ingestion-metrics-realtime-process"><a name="ingestion-metrics-realtime-process" class="anchor-navigation-ex-anchor" href="#ingestion-metrics-realtime-process"><i class="fa fa-link" aria-hidden="true"></i></a>1.6. Ingestion metrics (Realtime process)</h2>
+<p>These metrics are only available if the RealtimeMetricsMonitor is included in the monitors list for the Realtime process. These metrics are deltas for each emission period.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ingest/events/thrownAway</code></td>
+<td>Number of events rejected because they are outside the windowPeriod.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>ingest/events/unparseable</code></td>
+<td>Number of events rejected because the events are unparseable.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>ingest/events/duplicate</code></td>
+<td>Number of events rejected because the events are duplicated.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>ingest/events/processed</code></td>
+<td>Number of events successfully processed per emission period.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>Equal to your # of events per emission period.</td>
+</tr>
+<tr>
+<td><code>ingest/rows/output</code></td>
+<td>Number of Druid rows persisted.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>Your # of events with rollup.</td>
+</tr>
+<tr>
+<td><code>ingest/persists/count</code></td>
+<td>Number of times persist occurred.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>Depends on configuration.</td>
+</tr>
+<tr>
+<td><code>ingest/persists/time</code></td>
+<td>Milliseconds spent doing intermediate persist.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>Depends on configuration. Generally a few minutes at most.</td>
+</tr>
+<tr>
+<td><code>ingest/persists/cpu</code></td>
+<td>Cpu time in Nanoseconds spent on doing intermediate persist.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>Depends on configuration. Generally a few minutes at most.</td>
+</tr>
+<tr>
+<td><code>ingest/persists/backPressure</code></td>
+<td>Milliseconds spent creating persist tasks and blocking waiting for them to finish.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>0 or very low</td>
+</tr>
+<tr>
+<td><code>ingest/persists/failed</code></td>
+<td>Number of persists that failed.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>ingest/handoff/failed</code></td>
+<td>Number of handoffs that failed.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>ingest/merge/time</code></td>
+<td>Milliseconds spent merging intermediate segments</td>
+<td>dataSource, taskId, taskType.</td>
+<td>Depends on configuration. Generally a few minutes at most.</td>
+</tr>
+<tr>
+<td><code>ingest/merge/cpu</code></td>
+<td>Cpu time in Nanoseconds spent on merging intermediate segments.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>Depends on configuration. Generally a few minutes at most.</td>
+</tr>
+<tr>
+<td><code>ingest/handoff/count</code></td>
+<td>Number of handoffs that happened.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>Varies. Generally greater than 0 once every segment granular period if cluster operating normally</td>
+</tr>
+<tr>
+<td><code>ingest/sink/count</code></td>
+<td>Number of sinks not handoffed.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>1~3</td>
+</tr>
+<tr>
+<td><code>ingest/events/messageGap</code></td>
+<td>Time gap between the data time in event and current system time.</td>
+<td>dataSource, taskId, taskType.</td>
+<td>Greater than 0, depends on the time carried in event</td>
+</tr>
+</tbody>
+</table>
+<p>Note: If the JVM does not support CPU time measurement for the current thread, ingest/merge/cpu and ingest/persists/cpu will be 0.</p>
+<h2 id="indexing-service"><a name="indexing-service" class="anchor-navigation-ex-anchor" href="#indexing-service"><i class="fa fa-link" aria-hidden="true"></i></a>1.7. Indexing service</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>task/run/time</code></td>
+<td>Milliseconds taken to run a task.</td>
+<td>dataSource, taskId, taskType, taskStatus.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>task/action/log/time</code></td>
+<td>Milliseconds taken to log a task action to the audit log.</td>
+<td>dataSource, taskId, taskType</td>
+<td>&lt; 1000 (subsecond)</td>
+</tr>
+<tr>
+<td><code>task/action/run/time</code></td>
+<td>Milliseconds taken to execute a task action.</td>
+<td>dataSource, taskId, taskType</td>
+<td>Varies from subsecond to a few seconds, based on action type.</td>
+</tr>
+<tr>
+<td><code>segment/added/bytes</code></td>
+<td>Size in bytes of new segments created.</td>
+<td>dataSource, taskId, taskType, interval.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/moved/bytes</code></td>
+<td>Size in bytes of segments moved/archived via the Move Task.</td>
+<td>dataSource, taskId, taskType, interval.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/nuked/bytes</code></td>
+<td>Size in bytes of segments deleted via the Kill Task.</td>
+<td>dataSource, taskId, taskType, interval.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>task/success/count</code></td>
+<td>Number of successful tasks per emission period. This metric is only available if the TaskCountStatsMonitor module is included.</td>
+<td>dataSource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>task/failed/count</code></td>
+<td>Number of failed tasks per emission period. This metric is only available if the TaskCountStatsMonitor module is included.</td>
+<td>dataSource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>task/running/count</code></td>
+<td>Number of current running tasks. This metric is only available if the TaskCountStatsMonitor module is included.</td>
+<td>dataSource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>task/pending/count</code></td>
+<td>Number of current pending tasks. This metric is only available if the TaskCountStatsMonitor module is included.</td>
+<td>dataSource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>task/waiting/count</code></td>
+<td>Number of current waiting tasks. This metric is only available if the TaskCountStatsMonitor module is included.</td>
+<td>dataSource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>taskSlot/total/count</code></td>
+<td>Number of total task slots per emission period. This metric is only available if the TaskSlotCountStatsMonitor module is included.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>taskSlot/idle/count</code></td>
+<td>Number of idle task slots per emission period. This metric is only available if the TaskSlotCountStatsMonitor module is included.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>taskSlot/used/count</code></td>
+<td>Number of busy task slots per emission period. This metric is only available if the TaskSlotCountStatsMonitor module is included.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>taskSlot/lazy/count</code></td>
+<td>Number of total task slots in lazy marked MiddleManagers and Indexers per emission period. This metric is only available if the TaskSlotCountStatsMonitor module is included.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>taskSlot/blacklisted/count</code></td>
+<td>Number of total task slots in blacklisted MiddleManagers and Indexers per emission period. This metric is only available if the TaskSlotCountStatsMonitor module is included.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="shuffle-metrics-native-parallel-task"><a name="shuffle-metrics-native-parallel-task" class="anchor-navigation-ex-anchor" href="#shuffle-metrics-native-parallel-task"><i class="fa fa-link" aria-hidden="true"></i></a>1.8. Shuffle metrics (Native parallel task)</h2>
+<p>The shuffle metrics can be enabled by adding <code>org.apache.druid.indexing.worker.shuffle.ShuffleMonitor</code> in <code>druid.monitoring.monitors</code>
+See <a href="../configuration/#enabling-metrics">Enabling Metrics</a> for more details.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ingest/shuffle/bytes</code></td>
+<td>Number of bytes shuffled per emission period.</td>
+<td>supervisorTaskId</td>
+<td>Varies</td>
+</tr>
+<tr>
+<td><code>ingest/shuffle/requests</code></td>
+<td>Number of shuffle requests per emission period.</td>
+<td>supervisorTaskId</td>
+<td>Varies</td>
+</tr>
+</tbody>
+</table>
+<h2 id="coordination"><a name="coordination" class="anchor-navigation-ex-anchor" href="#coordination"><i class="fa fa-link" aria-hidden="true"></i></a>1.9. Coordination</h2>
+<p>These metrics are for the Druid Coordinator and are reset each time the Coordinator runs the coordination logic.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>segment/assigned/count</code></td>
+<td>Number of segments assigned to be loaded in the cluster.</td>
+<td>tier.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/moved/count</code></td>
+<td>Number of segments moved in the cluster.</td>
+<td>tier.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/dropped/count</code></td>
+<td>Number of segments dropped due to being overshadowed.</td>
+<td>tier.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/deleted/count</code></td>
+<td>Number of segments dropped due to rules.</td>
+<td>tier.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/unneeded/count</code></td>
+<td>Number of segments dropped due to being marked as unused.</td>
+<td>tier.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/cost/raw</code></td>
+<td>Used in cost balancing. The raw cost of hosting segments.</td>
+<td>tier.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/cost/normalization</code></td>
+<td>Used in cost balancing. The normalization of hosting segments.</td>
+<td>tier.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/cost/normalized</code></td>
+<td>Used in cost balancing. The normalized cost of hosting segments.</td>
+<td>tier.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/loadQueue/size</code></td>
+<td>Size in bytes of segments to load.</td>
+<td>server.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/loadQueue/failed</code></td>
+<td>Number of segments that failed to load.</td>
+<td>server.</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>segment/loadQueue/count</code></td>
+<td>Number of segments to load.</td>
+<td>server.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/dropQueue/count</code></td>
+<td>Number of segments to drop.</td>
+<td>server.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/size</code></td>
+<td>Total size of used segments in a data source. Emitted only for data sources to which at least one used segment belongs.</td>
+<td>dataSource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/count</code></td>
+<td>Number of used segments belonging to a data source. Emitted only for data sources to which at least one used segment belongs.</td>
+<td>dataSource.</td>
+<td>&lt; max</td>
+</tr>
+<tr>
+<td><code>segment/overShadowed/count</code></td>
+<td>Number of overshadowed segments.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/unavailable/count</code></td>
+<td>Number of segments (not including replicas) left to load until segments that should be loaded in the cluster are available for queries.</td>
+<td>dataSource.</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>segment/underReplicated/count</code></td>
+<td>Number of segments (including replicas) left to load until segments that should be loaded in the cluster are available for queries.</td>
+<td>tier, dataSource.</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>tier/historical/count</code></td>
+<td>Number of available historical nodes in each tier.</td>
+<td>tier.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>tier/replication/factor</code></td>
+<td>Configured maximum replication factor in each tier.</td>
+<td>tier.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>tier/required/capacity</code></td>
+<td>Total capacity in bytes required in each tier.</td>
+<td>tier.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>tier/total/capacity</code></td>
+<td>Total capacity in bytes available in each tier.</td>
+<td>tier.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>compact/task/count</code></td>
+<td>Number of tasks issued in the auto compaction run.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>compactTask/maxSlot/count</code></td>
+<td>Max number of task slots that can be used for auto compaction tasks in the auto compaction run.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>compactTask/availableSlot/count</code></td>
+<td>Number of available task slots that can be used for auto compaction tasks in the auto compaction run. (this is max slot minus any currently running compaction task)</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/waitCompact/bytes</code></td>
+<td>Total bytes of this datasource waiting to be compacted by the auto compaction (only consider intervals/segments that are eligible for auto compaction).</td>
+<td>datasource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/waitCompact/count</code></td>
+<td>Total number of segments of this datasource waiting to be compacted by the auto compaction (only consider intervals/segments that are eligible for auto compaction).</td>
+<td>datasource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>interval/waitCompact/count</code></td>
+<td>Total number of intervals of this datasource waiting to be compacted by the auto compaction (only consider intervals/segments that are eligible for auto compaction).</td>
+<td>datasource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/compacted/bytes</code></td>
+<td>Total bytes of this datasource that are already compacted with the spec set in the auto compaction config.</td>
+<td>datasource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/compacted/count</code></td>
+<td>Total number of segments of this datasource that are already compacted with the spec set in the auto compaction config.</td>
+<td>datasource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>interval/compacted/count</code></td>
+<td>Total number of intervals of this datasource that are already compacted with the spec set in the auto compaction config.</td>
+<td>datasource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/skipCompact/bytes</code></td>
+<td>Total bytes of this datasource that are skipped (not eligible for auto compaction) by the auto compaction.</td>
+<td>datasource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/skipCompact/count</code></td>
+<td>Total number of segments of this datasource that are skipped (not eligible for auto compaction) by the auto compaction.</td>
+<td>datasource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>interval/skipCompact/count</code></td>
+<td>Total number of intervals of this datasource that are skipped (not eligible for auto compaction) by the auto compaction.</td>
+<td>datasource.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>coordinator/time</code></td>
+<td>Approximate Coordinator duty runtime in milliseconds. The duty dimension is the string alias of the Duty that is being run.</td>
+<td>duty.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>coordinator/global/time</code></td>
+<td>Approximate runtime of a full coordination cycle in milliseconds. The <code>dutyGroup</code> dimension indicates what type of coordination this run was. i.e. Historical Management vs Indexing</td>
+<td><code>dutyGroup</code></td>
+<td>Varies.</td>
+</tr>
+</tbody>
+</table>
+<p>If <code>emitBalancingStats</code> is set to <code>true</code> in the Coordinator <a href="../configuration/#dynamic-configuration">dynamic configuration</a>, then <a href="../configuration/logging.html">log entries</a> for class
+<code>org.apache.druid.server.coordinator.duty.EmitClusterStatsAndMetrics</code> will have extra information on balancing
+decisions.</p>
+<h2 id="general-health"><a name="general-health" class="anchor-navigation-ex-anchor" href="#general-health"><i class="fa fa-link" aria-hidden="true"></i></a>1.10. General Health</h2>
+<h3 id="historical_1"><a name="historical_1" class="anchor-navigation-ex-anchor" href="#historical_1"><i class="fa fa-link" aria-hidden="true"></i></a>1.10.1. Historical</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>segment/max</code></td>
+<td>Maximum byte limit available for segments.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/used</code></td>
+<td>Bytes used for served segments.</td>
+<td>dataSource, tier, priority.</td>
+<td>&lt; max</td>
+</tr>
+<tr>
+<td><code>segment/usedPercent</code></td>
+<td>Percentage of space used by served segments.</td>
+<td>dataSource, tier, priority.</td>
+<td>&lt; 100%</td>
+</tr>
+<tr>
+<td><code>segment/count</code></td>
+<td>Number of served segments.</td>
+<td>dataSource, tier, priority.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>segment/pendingDelete</code></td>
+<td>On-disk size in bytes of segments that are waiting to be cleared out</td>
+<td>Varies.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="jvm"><a name="jvm" class="anchor-navigation-ex-anchor" href="#jvm"><i class="fa fa-link" aria-hidden="true"></i></a>1.10.2. JVM</h3>
+<p>These metrics are only available if the JVMMonitor module is included.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>jvm/pool/committed</code></td>
+<td>Committed pool.</td>
+<td>poolKind, poolName.</td>
+<td>close to max pool</td>
+</tr>
+<tr>
+<td><code>jvm/pool/init</code></td>
+<td>Initial pool.</td>
+<td>poolKind, poolName.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>jvm/pool/max</code></td>
+<td>Max pool.</td>
+<td>poolKind, poolName.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>jvm/pool/used</code></td>
+<td>Pool used.</td>
+<td>poolKind, poolName.</td>
+<td>&lt; max pool</td>
+</tr>
+<tr>
+<td><code>jvm/bufferpool/count</code></td>
+<td>Bufferpool count.</td>
+<td>bufferpoolName.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>jvm/bufferpool/used</code></td>
+<td>Bufferpool used.</td>
+<td>bufferpoolName.</td>
+<td>close to capacity</td>
+</tr>
+<tr>
+<td><code>jvm/bufferpool/capacity</code></td>
+<td>Bufferpool capacity.</td>
+<td>bufferpoolName.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>jvm/mem/init</code></td>
+<td>Initial memory.</td>
+<td>memKind.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>jvm/mem/max</code></td>
+<td>Max memory.</td>
+<td>memKind.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>jvm/mem/used</code></td>
+<td>Used memory.</td>
+<td>memKind.</td>
+<td>&lt; max memory</td>
+</tr>
+<tr>
+<td><code>jvm/mem/committed</code></td>
+<td>Committed memory.</td>
+<td>memKind.</td>
+<td>close to max memory</td>
+</tr>
+<tr>
+<td><code>jvm/gc/count</code></td>
+<td>Garbage collection count.</td>
+<td>gcName (cms/g1/parallel/etc.), gcGen (old/young)</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>jvm/gc/cpu</code></td>
+<td>Count of CPU time in Nanoseconds spent on garbage collection. Note: <code>jvm/gc/cpu</code> represents the total time over multiple GC cycles; divide by <code>jvm/gc/count</code> to get the mean GC time per cycle</td>
+<td>gcName, gcGen</td>
+<td>Sum of <code>jvm/gc/cpu</code> should be within 10-30% of sum of <code>jvm/cpu/total</code>, depending on the GC algorithm used (reported by <a href="../configuration/#enabling-metrics"><code>JvmCpuMonitor</code></a>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="eventreceiverfirehose"><a name="eventreceiverfirehose" class="anchor-navigation-ex-anchor" href="#eventreceiverfirehose"><i class="fa fa-link" aria-hidden="true"></i></a>1.10.3. EventReceiverFirehose</h3>
+<p>The following metric is only available if the EventReceiverFirehoseMonitor module is included.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ingest/events/buffered</code></td>
+<td>Number of events queued in the EventReceiverFirehose&apos;s buffer</td>
+<td>serviceName, dataSource, taskId, taskType, bufferCapacity.</td>
+<td>Equal to current # of events in the buffer queue.</td>
+</tr>
+<tr>
+<td><code>ingest/bytes/received</code></td>
+<td>Number of bytes received by the EventReceiverFirehose.</td>
+<td>serviceName, dataSource, taskId, taskType.</td>
+<td>Varies.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sys"><a name="sys" class="anchor-navigation-ex-anchor" href="#sys"><i class="fa fa-link" aria-hidden="true"></i></a>1.11. Sys</h2>
+<p>These metrics are only available if the SysMonitor module is included.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Dimensions</th>
+<th>Normal Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sys/swap/free</code></td>
+<td>Free swap.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/swap/max</code></td>
+<td>Max swap.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/swap/pageIn</code></td>
+<td>Paged in swap.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/swap/pageOut</code></td>
+<td>Paged out swap.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/disk/write/count</code></td>
+<td>Writes to disk.</td>
+<td>fsDevName, fsDirName, fsTypeName, fsSysTypeName, fsOptions.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/disk/read/count</code></td>
+<td>Reads from disk.</td>
+<td>fsDevName, fsDirName, fsTypeName, fsSysTypeName, fsOptions.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/disk/write/size</code></td>
+<td>Bytes written to disk. Can we used to determine how much paging is occurring with regards to segments.</td>
+<td>fsDevName, fsDirName, fsTypeName, fsSysTypeName, fsOptions.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/disk/read/size</code></td>
+<td>Bytes read from disk. Can we used to determine how much paging is occurring with regards to segments.</td>
+<td>fsDevName, fsDirName, fsTypeName, fsSysTypeName, fsOptions.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/net/write/size</code></td>
+<td>Bytes written to the network.</td>
+<td>netName, netAddress, netHwaddr</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/net/read/size</code></td>
+<td>Bytes read from the network.</td>
+<td>netName, netAddress, netHwaddr</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/fs/used</code></td>
+<td>Filesystem bytes used.</td>
+<td>fsDevName, fsDirName, fsTypeName, fsSysTypeName, fsOptions.</td>
+<td>&lt; max</td>
+</tr>
+<tr>
+<td><code>sys/fs/max</code></td>
+<td>Filesystesm bytes max.</td>
+<td>fsDevName, fsDirName, fsTypeName, fsSysTypeName, fsOptions.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/mem/used</code></td>
+<td>Memory used.</td>
+<td></td>
+<td>&lt; max</td>
+</tr>
+<tr>
+<td><code>sys/mem/max</code></td>
+<td>Memory max.</td>
+<td></td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/storage/used</code></td>
+<td>Disk space used.</td>
+<td>fsDirName.</td>
+<td>Varies.</td>
+</tr>
+<tr>
+<td><code>sys/cpu</code></td>
+<td>CPU used.</td>
+<td>cpuName, cpuTime.</td>
+<td>Varies.</td>
+</tr>
+</tbody>
+</table>
+<footer class="page-footer"><span class="copyright">Copyright <a target="_blank" href="https://druid.org.cn">druid.org.cn</a> 2021 .&#x672C;&#x6587;&#x7FFB;&#x8BD1;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/operations/metrics.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
+2021-04-23 21:43:10
+</span></footer>
+                                
+                                </section>
+                            
+    </div>
+    <div class="search-results">
+        <div class="has-results">
+            
+            <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+            <ul class="search-results-list"></ul>
+            
+        </div>
+        <div class="no-results">
+            
+            <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+            
+        </div>
+    </div>
+</div>
+
+                        </div>
+                    </div>
+                
+            </div>
+
+            
+                
+                <a href="rule-configuration.html" class="navigation navigation-prev " aria-label="Previous page: 数据留存规则">
+                    <i class="fa fa-angle-left"></i>
+                </a>
+                
+                
+                <a href="alerts.html" class="navigation navigation-next " aria-label="Next page: 告警">
+                    <i class="fa fa-angle-right"></i>
+                </a>
+                
+            
+        
+    </div>
+
+    <script>
+        var gitbook = gitbook || [];
+        gitbook.push(function() {
+            gitbook.page.hasChanged({"page":{"id":"metrics","title":"应用指标","level":"1.8.2.7","depth":3,"next":{"title":"告警","level":"1.8.2.8","depth":3,"path":"operations/alerts.md","ref":"operations/alerts.md","articles":[]},"previous":{"title":"数据留存规则","level":"1.8.2.6","depth":3,"path":"operations/rule-configuration.md","ref":"operations/rule-configuration.md","articles":[]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"Copyright <a target=\"_blank\" href=\"https://druid.org.cn\">druid.org.cn</a> 2021 .本文翻译自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"operations/metrics.md","mtime":"2021-04-23T13:43:10.301Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-04-24T03:56:48.676Z"},"basePath":"..","book":{"language":""}});
+        });
+    </script>
+</div>
+
+        
+    <script src="../gitbook/gitbook.js"></script>
+    <script src="../gitbook/theme.js"></script>
+    
+        
+        <script src="../gitbook/gitbook-plugin-livereload/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/search.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-code/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-auto-scroll-table/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-hide-element/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-github/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-sharing/buttons.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+        
+    
+
+    </body>
+</html>
+

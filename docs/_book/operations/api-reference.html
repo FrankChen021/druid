@@ -1,0 +1,2819 @@
+
+<!DOCTYPE HTML>
+<html lang="" >
+    <head>
+        <meta charset="UTF-8">
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <title>API手册 · GitBook</title>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="description" content="">
+        <meta name="generator" content="GitBook 3.2.3">
+        
+        
+        
+    
+    <link rel="stylesheet" href="../gitbook/style.css">
+
+    
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-highlight/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-search-pro/search.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-code/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-tbfed-pagefooter/footer.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-anchor-navigation-ex/style/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-auto-scroll-table/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-fontsettings/website.css">
+                
+            
+        
+
+    
+
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+
+        
+    
+    
+    <meta name="HandheldFriendly" content="true"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon-precomposed" sizes="152x152" href="../gitbook/images/apple-touch-icon-precomposed-152.png">
+    <link rel="shortcut icon" href="../gitbook/images/favicon.ico" type="image/x-icon">
+
+    
+    <link rel="next" href="high-availability.html" />
+    
+    
+    <link rel="prev" href="http-compression.html" />
+    
+
+    </head>
+    <body>
+        
+<div class="book">
+    <div class="book-summary">
+        
+            
+<div id="book-search-input" role="search">
+    <input type="text" placeholder="Type to search" />
+</div>
+
+            
+                <nav role="navigation">
+                
+
+
+<ul class="summary">
+    
+    
+
+    
+
+    
+        
+        
+    
+        <li class="chapter " data-level="1.1" data-path="../">
+            
+                <a href="../">
+            
+                    
+                    前言
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2" >
+            
+                <span>
+            
+                    
+                    开始
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.2.1" data-path="../design/">
+            
+                <a href="../design/">
+            
+                    
+                    Apache Druid简介
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.2" data-path="../tutorials/">
+            
+                <a href="../tutorials/">
+            
+                    
+                    快速入门
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.3" data-path="../tutorials/docker.html">
+            
+                <a href="../tutorials/docker.html">
+            
+                    
+                    Docker
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.4" data-path="single-server.html">
+            
+                <a href="single-server.html">
+            
+                    
+                    单机部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.5" data-path="../tutorials/cluster.html">
+            
+                <a href="../tutorials/cluster.html">
+            
+                    
+                    集群模式部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3" >
+            
+                <span>
+            
+                    
+                    指南
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.3.1" data-path="../tutorials/tutorial-batch.html">
+            
+                <a href="../tutorials/tutorial-batch.html">
+            
+                    
+                    从本地文件摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.2" data-path="../tutorials/tutorial-kafka.html">
+            
+                <a href="../tutorials/tutorial-kafka.html">
+            
+                    
+                    从Kafka摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.3" data-path="../tutorials/tutorial-batch-hadoop.html">
+            
+                <a href="../tutorials/tutorial-batch-hadoop.html">
+            
+                    
+                    从Haddop摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.4" data-path="../tutorials/tutorial-query.html">
+            
+                <a href="../tutorials/tutorial-query.html">
+            
+                    
+                    查询数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.5" data-path="../tutorials/tutorial-rollup.html">
+            
+                <a href="../tutorials/tutorial-rollup.html">
+            
+                    
+                    预聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.6" data-path="../tutorials/tutorial-retention.html">
+            
+                <a href="../tutorials/tutorial-retention.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.7" data-path="../tutorials/tutorial-update-data.html">
+            
+                <a href="../tutorials/tutorial-update-data.html">
+            
+                    
+                    更新数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.8" data-path="../tutorials/tutorial-compaction.html">
+            
+                <a href="../tutorials/tutorial-compaction.html">
+            
+                    
+                    数据文件合并
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.9" data-path="../tutorials/tutorial-delete-data.html">
+            
+                <a href="../tutorials/tutorial-delete-data.html">
+            
+                    
+                    删除数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.10" data-path="../tutorials/tutorial-ingestion-spec.html">
+            
+                <a href="../tutorials/tutorial-ingestion-spec.html">
+            
+                    
+                    编写数据摄入规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.11" data-path="../tutorials/tutorial-transform-spec.html">
+            
+                <a href="../tutorials/tutorial-transform-spec.html">
+            
+                    
+                    转换摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.12" data-path="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                <a href="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                    
+                    设置Kerberos认证的HDFS作为深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4" >
+            
+                <span>
+            
+                    
+                    设计
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.4.1" data-path="../design/architecture.html">
+            
+                <a href="../design/architecture.html">
+            
+                    
+                    整体架构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.2" data-path="../design/segments.html">
+            
+                <a href="../design/segments.html">
+            
+                    
+                    存储结构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.3" data-path="../design/processes">
+            
+                <span>
+            
+                    
+                    进程与服务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.4" data-path="../dependencies/deep-storage.html">
+            
+                <a href="../dependencies/deep-storage.html">
+            
+                    
+                    深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.5" data-path="../dependencies/metadata-storage.html">
+            
+                <a href="../dependencies/metadata-storage.html">
+            
+                    
+                    元数据存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.6" data-path="../dependencies/zookeeper.html">
+            
+                <a href="../dependencies/zookeeper.html">
+            
+                    
+                    Zookeeper
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5" >
+            
+                <span>
+            
+                    
+                    数据摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.1" data-path="../ingestion/">
+            
+                <a href="../ingestion/">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.2" data-path="../ingestion/data-formats.html">
+            
+                <a href="../ingestion/data-formats.html">
+            
+                    
+                    数据格式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.3" data-path="../ingestion/schema-design.html">
+            
+                <a href="../ingestion/schema-design.html">
+            
+                    
+                    Schema定义
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.4" data-path="../ingestion/data-management.html">
+            
+                <a href="../ingestion/data-management.html">
+            
+                    
+                    数据管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5" >
+            
+                <span>
+            
+                    
+                    实时摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.5.1" data-path="../development/extensions-core/kafka-ingestion.html">
+            
+                <a href="../development/extensions-core/kafka-ingestion.html">
+            
+                    
+                    从Kafka摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.2" data-path="../development/extensions-core/kinesis-ingestion.html">
+            
+                <a href="../development/extensions-core/kinesis-ingestion.html">
+            
+                    
+                    从Amazon Kinesis摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.3" data-path="../ingestion/tranquility.html">
+            
+                <a href="../ingestion/tranquility.html">
+            
+                    
+                    从Tranqulity摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.4" data-path="../ingestion/standalone-realtime.html">
+            
+                <a href="../ingestion/standalone-realtime.html">
+            
+                    
+                    独立实时模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6" >
+            
+                <span>
+            
+                    
+                    批量导入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.6.1" data-path="../ingestion/native-batch.html">
+            
+                <a href="../ingestion/native-batch.html">
+            
+                    
+                    本地模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6.2" data-path="../ingestion/hadoop.html">
+            
+                <a href="../ingestion/hadoop.html">
+            
+                    
+                    从Hadoop导入
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.7" data-path="../ingestion/tasks.html">
+            
+                <a href="../ingestion/tasks.html">
+            
+                    
+                    Druid中的任务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.8" data-path="../ingestion/faq.html">
+            
+                <a href="../ingestion/faq.html">
+            
+                    
+                    FAQ
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6" >
+            
+                <span>
+            
+                    
+                    数据查询
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.1" data-path="../querying/sql.html">
+            
+                <a href="../querying/sql.html">
+            
+                    
+                    通过SQL查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.2" data-path="../querying/querying.html">
+            
+                <a href="../querying/querying.html">
+            
+                    
+                    通过JSON查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.3" data-path="../querying/query-execution.html">
+            
+                <a href="../querying/query-execution.html">
+            
+                    
+                    查询执行流程
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4" >
+            
+                <span>
+            
+                    
+                    主要概念
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.4.1" data-path="../querying/datasource.html">
+            
+                <a href="../querying/datasource.html">
+            
+                    
+                    数据源(datasource)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.2" data-path="../querying/joins.html">
+            
+                <a href="../querying/joins.html">
+            
+                    
+                    联合查询(join)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.3" data-path="../querying/lookups.html">
+            
+                <a href="../querying/lookups.html">
+            
+                    
+                    字典查询(lookups)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.4" data-path="../querying/multi-value-dimensions.html">
+            
+                <a href="../querying/multi-value-dimensions.html">
+            
+                    
+                    结构化列值(multi-value-dimensions)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.5" data-path="../querying/multitenancy.html">
+            
+                <a href="../querying/multitenancy.html">
+            
+                    
+                    多租户
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.6" data-path="../querying/caching.html">
+            
+                <a href="../querying/caching.html">
+            
+                    
+                    查询缓存
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.7" data-path="../querying/query-context.html">
+            
+                <a href="../querying/query-context.html">
+            
+                    
+                    查询上下文
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5" >
+            
+                <span>
+            
+                    
+                    JSON查询类型
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.5.1" data-path="../querying/timeseriesquery.html">
+            
+                <a href="../querying/timeseriesquery.html">
+            
+                    
+                    Timeseries
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.2" data-path="../querying/topnquery.html">
+            
+                <a href="../querying/topnquery.html">
+            
+                    
+                    TopN
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.3" data-path="../querying/groupbyquery.html">
+            
+                <a href="../querying/groupbyquery.html">
+            
+                    
+                    GroupBy
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.4" data-path="../querying/scan-query.html">
+            
+                <a href="../querying/scan-query.html">
+            
+                    
+                    Scan
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.5" data-path="../querying/searchquery.html">
+            
+                <a href="../querying/searchquery.html">
+            
+                    
+                    Search
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.6" data-path="../querying/timeboundaryquery.html">
+            
+                <a href="../querying/timeboundaryquery.html">
+            
+                    
+                    TimeBoundary
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.7" data-path="../querying/segmentmetadataquery.html">
+            
+                <a href="../querying/segmentmetadataquery.html">
+            
+                    
+                    SegmentMetaData
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.8" data-path="../querying/datasourcemetadataquery.html">
+            
+                <a href="../querying/datasourcemetadataquery.html">
+            
+                    
+                    DatasourceMetadata
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6" >
+            
+                <span>
+            
+                    
+                    JSON查询结构
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.6.1" data-path="../querying/filters.html">
+            
+                <a href="../querying/filters.html">
+            
+                    
+                    过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.2" data-path="../querying/granularities.html">
+            
+                <a href="../querying/granularities.html">
+            
+                    
+                    时间粒度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.3" data-path="../querying/dimensionspecs.html">
+            
+                <a href="../querying/dimensionspecs.html">
+            
+                    
+                    数据维度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.4" data-path="../querying/aggregations.html">
+            
+                <a href="../querying/aggregations.html">
+            
+                    
+                    聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.5" data-path="../querying/post-aggregations.html">
+            
+                <a href="../querying/post-aggregations.html">
+            
+                    
+                    后置聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.6" data-path="../misc/math-expr.html">
+            
+                <a href="../misc/math-expr.html">
+            
+                    
+                    数学函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.7" data-path="../querying/having.html">
+            
+                <a href="../querying/having.html">
+            
+                    
+                    表达式与函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.8" data-path="../querying/limitspec.html">
+            
+                <a href="../querying/limitspec.html">
+            
+                    
+                    Having过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.9" data-path="../querying/topnmetricspec.html">
+            
+                <a href="../querying/topnmetricspec.html">
+            
+                    
+                    TopN排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.10" data-path="../querying/sorting-orders.html">
+            
+                <a href="../querying/sorting-orders.html">
+            
+                    
+                    排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.11" data-path="../querying/virtual-columns.html">
+            
+                <a href="../querying/virtual-columns.html">
+            
+                    
+                    虚拟字段
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.12" data-path="../development/geo.html">
+            
+                <a href="../development/geo.html">
+            
+                    
+                    空间过滤
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7" >
+            
+                <span>
+            
+                    
+                    配置
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.7.1" data-path="../configuration/">
+            
+                <a href="../configuration/">
+            
+                    
+                    概述
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.2" data-path="../development/extensions.html">
+            
+                <a href="../development/extensions.html">
+            
+                    
+                    扩展组件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.3" data-path="../configuration/logging.html">
+            
+                <a href="../configuration/logging.html">
+            
+                    
+                    运行日志
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8" >
+            
+                <span>
+            
+                    
+                    运维
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.1" data-path="druid-console.html">
+            
+                <a href="druid-console.html">
+            
+                    
+                    Web控制台
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2" data-path="getting-started.html">
+            
+                <a href="getting-started.html">
+            
+                    
+                    快速开始
+            
+                </a>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1" >
+            
+                <span>
+            
+                    
+                    安全
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1.1" data-path="security-overview.html">
+            
+                <a href="security-overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.2" data-path="security-user-auth.html">
+            
+                <a href="security-user-auth.html">
+            
+                    
+                    用户认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.3" data-path="auth-ldap.html">
+            
+                <a href="auth-ldap.html">
+            
+                    
+                    LDAP认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.4" data-path="password-provider.html">
+            
+                <a href="password-provider.html">
+            
+                    
+                    密码管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.5" data-path="../design/auth.html">
+            
+                <a href="../design/auth.html">
+            
+                    
+                    认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.6" data-path="tls-support.html">
+            
+                <a href="tls-support.html">
+            
+                    
+                    TLS加密支持
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2" >
+            
+                <span>
+            
+                    
+                    性能
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.2.1" data-path="basic-cluster-tuning.html">
+            
+                <a href="basic-cluster-tuning.html">
+            
+                    
+                    集群调优
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.2" data-path="segment-optimization.html">
+            
+                <a href="segment-optimization.html">
+            
+                    
+                    数据段文件优化
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.3" data-path="http-compression.html">
+            
+                <a href="http-compression.html">
+            
+                    
+                    HTTP压缩
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter active" data-level="1.8.2.3" data-path="api-reference.html">
+            
+                <a href="api-reference.html">
+            
+                    
+                    API手册
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.4" data-path="high-availability.html">
+            
+                <a href="high-availability.html">
+            
+                    
+                    高可用
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.5" data-path="rolling-updates.html">
+            
+                <a href="rolling-updates.html">
+            
+                    
+                    滚动版本升级
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.6" data-path="rule-configuration.html">
+            
+                <a href="rule-configuration.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.7" data-path="metrics.html">
+            
+                <a href="metrics.html">
+            
+                    
+                    应用指标
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.8" data-path="alerts.html">
+            
+                <a href="alerts.html">
+            
+                    
+                    告警
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.9" data-path="other-hadoop.html">
+            
+                <a href="other-hadoop.html">
+            
+                    
+                    Hadoop相关
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.10.1" data-path="management-uis.html">
+            
+                <a href="management-uis.html">
+            
+                    
+                    管理界面
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.2" data-path="dump-segment.html">
+            
+                <a href="dump-segment.html">
+            
+                    
+                    导出数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.3" data-path="reset-cluster.html">
+            
+                <a href="reset-cluster.html">
+            
+                    
+                    重置集群
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.4" data-path="insert-segment-to-db.html">
+            
+                <a href="insert-segment-to-db.html">
+            
+                    
+                    插入数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.5" data-path="pull-deps.html">
+            
+                <a href="pull-deps.html">
+            
+                    
+                    pull-deps工具
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.6" data-path="deep-storage-migration.html">
+            
+                <a href="deep-storage-migration.html">
+            
+                    
+                    迁移深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.7" data-path="export-metadata.html">
+            
+                <a href="export-metadata.html">
+            
+                    
+                    导出元数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.8" data-path="metadata-migration.html">
+            
+                <a href="metadata-migration.html">
+            
+                    
+                    元数据迁移
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.9" data-path="use_sbt_to_build_fat_jar.html">
+            
+                <a href="use_sbt_to_build_fat_jar.html">
+            
+                    
+                    打包fat jar
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9" >
+            
+                <span>
+            
+                    
+                    Druid开发
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.9.1" data-path="../development/overview.html">
+            
+                <a href="../development/overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.2" data-path="../development/modules.html">
+            
+                <a href="../development/modules.html">
+            
+                    
+                    模块
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.3" data-path="../development/javascript.html">
+            
+                <a href="../development/javascript.html">
+            
+                    
+                    javascript
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.4" data-path="../development/build.html">
+            
+                <a href="../development/build.html">
+            
+                    
+                    构建
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.5" data-path="../development/versioning.html">
+            
+                <a href="../development/versioning.html">
+            
+                    
+                    版本
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.6" data-path="../development/experimental.html">
+            
+                <a href="../development/experimental.html">
+            
+                    
+                    实验功能
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.10.1" data-path="../misc/papers-and-talks.html">
+            
+                <a href="../misc/papers-and-talks.html">
+            
+                    
+                    论文与演讲
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+    
+
+    <li class="divider"></li>
+
+    <li>
+        <a href="https://www.gitbook.com" target="blank" class="gitbook-link">
+            Published with GitBook
+        </a>
+    </li>
+</ul>
+
+
+                </nav>
+            
+        
+    </div>
+
+    <div class="book-body">
+        
+            <div class="body-inner">
+                
+                    
+
+<div class="book-header" role="navigation">
+    
+
+    <!-- Title -->
+    <h1>
+        <i class="fa fa-circle-o-notch fa-spin"></i>
+        <a href=".." >API手册</a>
+    </h1>
+</div>
+
+
+
+
+                    <div class="page-wrapper" tabindex="-1" role="main">
+                        <div class="page-inner">
+                            
+<div id="book-search-results">
+    <div class="search-noresults">
+    
+                                <section class="normal markdown-section">
+                                
+                                <div id="anchor-navigation-ex-navbar"><i class="fa fa-navicon"></i><ul><ul><li><span class="title-icon "></span><a href="#common"><b>1.1. </b>Common</a></li><ul><li><span class="title-icon "></span><a href="#process-information"><b>1.1.1. </b>Process information</a></li></ul><li><span class="title-icon "></span><a href="#master-server"><b>1.2. </b>Master Server</a></li><ul><li><span class="title-icon "></span><a href="#coordinator"><b>1.2.1. </b>Coordinator</a></li><li><span class="title-icon "></span><a href="#overlord"><b>1.2.2. </b>Overlord</a></li></ul><li><span class="title-icon "></span><a href="#data-server"><b>1.3. </b>Data Server</a></li><ul><li><span class="title-icon "></span><a href="#middlemanager"><b>1.3.1. </b>MiddleManager</a></li><li><span class="title-icon "></span><a href="#peon"><b>1.3.2. </b>Peon</a></li><li><span class="title-icon "></span><a href="#historical"><b>1.3.3. </b>Historical</a></li></ul><li><span class="title-icon "></span><a href="#query-server"><b>1.4. </b>Query Server</a></li><ul><li><span class="title-icon "></span><a href="#broker"><b>1.4.1. </b>Broker</a></li><li><span class="title-icon "></span><a href="#router"><b>1.4.2. </b>Router</a></li></ul></ul></ul></div><a href="#" id="anchorNavigationExGoTop"><i class="fa fa-arrow-up"></i></a><!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one
+  ~ or more contributor license agreements.  See the NOTICE file
+  ~ distributed with this work for additional information
+  ~ regarding copyright ownership.  The ASF licenses this file
+  ~ to you under the Apache License, Version 2.0 (the
+  ~ "License"); you may not use this file except in compliance
+  ~ with the License.  You may obtain a copy of the License at
+  ~
+  ~   http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing,
+  ~ software distributed under the License is distributed on an
+  ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  ~ KIND, either express or implied.  See the License for the
+  ~ specific language governing permissions and limitations
+  ~ under the License.
+  -->
+<p>This page documents all of the API endpoints for each Druid service type.</p>
+<h2 id="common"><a name="common" class="anchor-navigation-ex-anchor" href="#common"><i class="fa fa-link" aria-hidden="true"></i></a>1.1. Common</h2>
+<p>The following endpoints are supported by all processes.</p>
+<h3 id="process-information"><a name="process-information" class="anchor-navigation-ex-anchor" href="#process-information"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.1. Process information</h3>
+<h4 id="get"><a name="get" class="anchor-navigation-ex-anchor" href="#get"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h4>
+<ul>
+<li><code>/status</code></li>
+</ul>
+<p>Returns the Druid version, loaded extensions, memory used, total memory and other useful information about the process.</p>
+<ul>
+<li><code>/status/health</code></li>
+</ul>
+<p>An endpoint that always returns a boolean &quot;true&quot; value with a 200 OK response, useful for automated health checks.</p>
+<ul>
+<li><code>/status/properties</code></li>
+</ul>
+<p>Returns the current configuration properties of the process.</p>
+<ul>
+<li><code>/status/selfDiscovered/status</code></li>
+</ul>
+<p>Returns a JSON map of the form <code>{&quot;selfDiscovered&quot;: true/false}</code>, indicating whether the node has received a confirmation
+from the central node discovery mechanism (currently ZooKeeper) of the Druid cluster that the node has been added to the
+cluster. It is recommended to not consider a Druid node &quot;healthy&quot; or &quot;ready&quot; in automated deployment/container
+management systems until it returns <code>{&quot;selfDiscovered&quot;: true}</code> from this endpoint. This is because a node may be
+isolated from the rest of the cluster due to network issues and it doesn&apos;t make sense to consider nodes &quot;healthy&quot; in
+this case. Also, when nodes such as Brokers use ZooKeeper segment discovery for building their view of the Druid cluster
+(as opposed to HTTP segment discovery), they may be unusable until the ZooKeeper client is fully initialized and starts
+to receive data from the ZooKeeper cluster. <code>{&quot;selfDiscovered&quot;: true}</code> is a proxy event indicating that the ZooKeeper
+client on the node has started to receive data from the ZooKeeper cluster and it&apos;s expected that all segments and other
+nodes will be discovered by this node timely from this point.</p>
+<ul>
+<li><code>/status/selfDiscovered</code></li>
+</ul>
+<p>Similar to <code>/status/selfDiscovered/status</code>, but returns 200 OK response with empty body if the node has discovered itself
+and 503 SERVICE UNAVAILABLE if the node hasn&apos;t discovered itself yet. This endpoint might be useful because some
+monitoring checks such as AWS load balancer health checks are not able to look at the response body.</p>
+<h2 id="master-server"><a name="master-server" class="anchor-navigation-ex-anchor" href="#master-server"><i class="fa fa-link" aria-hidden="true"></i></a>1.2. Master Server</h2>
+<p>This section documents the API endpoints for the processes that reside on Master servers (Coordinators and Overlords)
+in the suggested <a href="../design/processes.md#server-types">three-server configuration</a>.</p>
+<h3 id="coordinator"><a name="coordinator" class="anchor-navigation-ex-anchor" href="#coordinator"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.1. Coordinator</h3>
+<h4 id="leadership"><a name="leadership" class="anchor-navigation-ex-anchor" href="#leadership"><i class="fa fa-link" aria-hidden="true"></i></a>Leadership</h4>
+<h5 id="get_1"><a name="get_1" class="anchor-navigation-ex-anchor" href="#get_1"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/coordinator/v1/leader</code></li>
+</ul>
+<p>Returns the current leader Coordinator of the cluster.</p>
+<ul>
+<li><code>/druid/coordinator/v1/isLeader</code></li>
+</ul>
+<p>Returns a JSON object with field &quot;leader&quot;, either true or false, indicating if this server is the current leader
+Coordinator of the cluster. In addition, returns HTTP 200 if the server is the current leader and HTTP 404 if not.
+This is suitable for use as a load balancer status check if you only want the active leader to be considered in-service
+at the load balancer.</p>
+<h4 id="segment-loading"><a name="segment-loading" class="anchor-navigation-ex-anchor" href="#segment-loading"><i class="fa fa-link" aria-hidden="true"></i></a>Segment Loading</h4>
+<h5 id="get_2"><a name="get_2" class="anchor-navigation-ex-anchor" href="#get_2"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/coordinator/v1/loadstatus</code></li>
+</ul>
+<p>Returns the percentage of segments actually loaded in the cluster versus segments that should be loaded in the cluster.</p>
+<ul>
+<li><code>/druid/coordinator/v1/loadstatus?simple</code></li>
+</ul>
+<p>Returns the number of segments left to load until segments that should be loaded in the cluster are available for queries. This does not include segment replication counts.</p>
+<ul>
+<li><code>/druid/coordinator/v1/loadstatus?full</code></li>
+</ul>
+<p>Returns the number of segments left to load in each tier until segments that should be loaded in the cluster are all available. This includes segment replication counts.</p>
+<ul>
+<li><code>/druid/coordinator/v1/loadqueue</code></li>
+</ul>
+<p>Returns the ids of segments to load and drop for each Historical process.</p>
+<ul>
+<li><code>/druid/coordinator/v1/loadqueue?simple</code></li>
+</ul>
+<p>Returns the number of segments to load and drop, as well as the total segment load and drop size in bytes for each Historical process.</p>
+<ul>
+<li><code>/druid/coordinator/v1/loadqueue?full</code></li>
+</ul>
+<p>Returns the serialized JSON of segments to load and drop for each Historical process.</p>
+<h4 id="segment-loading-by-datasource"><a name="segment-loading-by-datasource" class="anchor-navigation-ex-anchor" href="#segment-loading-by-datasource"><i class="fa fa-link" aria-hidden="true"></i></a>Segment Loading by Datasource</h4>
+<p>Note that all <em>interval</em> query parameters are ISO 8601 strings (e.g., 2016-06-27/2016-06-28).
+Also note that these APIs only guarantees that the segments are available at the time of the call. 
+Segments can still become missing because of historical process failures or any other reasons afterward.</p>
+<h5 id="get_3"><a name="get_3" class="anchor-navigation-ex-anchor" href="#get_3"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/loadstatus?forceMetadataRefresh={boolean}&amp;interval={myInterval}</code></li>
+</ul>
+<p>Returns the percentage of segments actually loaded in the cluster versus segments that should be loaded in the cluster for the given 
+datasource over the given interval (or last 2 weeks if interval is not given). <code>forceMetadataRefresh</code> is required to be set. 
+Setting <code>forceMetadataRefresh</code> to true will force the coordinator to poll latest segment metadata from the metadata store 
+(Note: <code>forceMetadataRefresh=true</code> refreshes Coordinator&apos;s metadata cache of all datasources. This can be a heavy operation in terms 
+of the load on the metadata store but can be necessary to make sure that we verify all the latest segments&apos; load status)
+Setting <code>forceMetadataRefresh</code> to false will use the metadata cached on the coordinator from the last force/periodic refresh. 
+If no used segments are found for the given inputs, this API returns <code>204 No Content</code></p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/loadstatus?simple&amp;forceMetadataRefresh={boolean}&amp;interval={myInterval}</code></li>
+</ul>
+<p>Returns the number of segments left to load until segments that should be loaded in the cluster are available for the given datasource 
+over the given interval (or last 2 weeks if interval is not given). This does not include segment replication counts. <code>forceMetadataRefresh</code> is required to be set. 
+Setting <code>forceMetadataRefresh</code> to true will force the coordinator to poll latest segment metadata from the metadata store 
+(Note: <code>forceMetadataRefresh=true</code> refreshes Coordinator&apos;s metadata cache of all datasources. This can be a heavy operation in terms 
+of the load on the metadata store but can be necessary to make sure that we verify all the latest segments&apos; load status)
+Setting <code>forceMetadataRefresh</code> to false will use the metadata cached on the coordinator from the last force/periodic refresh. 
+If no used segments are found for the given inputs, this API returns <code>204 No Content</code> </p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/loadstatus?full&amp;forceMetadataRefresh={boolean}&amp;interval={myInterval}</code></li>
+</ul>
+<p>Returns the number of segments left to load in each tier until segments that should be loaded in the cluster are all available for the given datasource 
+over the given interval (or last 2 weeks if interval is not given). This includes segment replication counts. <code>forceMetadataRefresh</code> is required to be set. 
+Setting <code>forceMetadataRefresh</code> to true will force the coordinator to poll latest segment metadata from the metadata store 
+(Note: <code>forceMetadataRefresh=true</code> refreshes Coordinator&apos;s metadata cache of all datasources. This can be a heavy operation in terms 
+of the load on the metadata store but can be necessary to make sure that we verify all the latest segments&apos; load status)
+Setting <code>forceMetadataRefresh</code> to false will use the metadata cached on the coordinator from the last force/periodic refresh. 
+If no used segments are found for the given inputs, this API returns <code>204 No Content</code></p>
+<h4 id="metadata-store-information"><a name="metadata-store-information" class="anchor-navigation-ex-anchor" href="#metadata-store-information"><i class="fa fa-link" aria-hidden="true"></i></a>Metadata store information</h4>
+<h5 id="get_4"><a name="get_4" class="anchor-navigation-ex-anchor" href="#get_4"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/coordinator/v1/metadata/datasources</code></li>
+</ul>
+<p>Returns a list of the names of data sources with at least one used segment in the cluster.</p>
+<ul>
+<li><code>/druid/coordinator/v1/metadata/datasources?includeUnused</code></li>
+</ul>
+<p>Returns a list of the names of data sources, regardless of whether there are used segments belonging to those data
+sources in the cluster or not.</p>
+<ul>
+<li><code>/druid/coordinator/v1/metadata/datasources?full</code></li>
+</ul>
+<p>Returns a list of all data sources with at least one used segment in the cluster. Returns all metadata about those data
+sources as stored in the metadata store.</p>
+<ul>
+<li><code>/druid/coordinator/v1/metadata/datasources/{dataSourceName}</code></li>
+</ul>
+<p>Returns full metadata for a datasource as stored in the metadata store.</p>
+<ul>
+<li><code>/druid/coordinator/v1/metadata/datasources/{dataSourceName}/segments</code></li>
+</ul>
+<p>Returns a list of all segments for a datasource as stored in the metadata store.</p>
+<ul>
+<li><code>/druid/coordinator/v1/metadata/datasources/{dataSourceName}/segments?full</code></li>
+</ul>
+<p>Returns a list of all segments for a datasource with the full segment metadata as stored in the metadata store.</p>
+<ul>
+<li><code>/druid/coordinator/v1/metadata/datasources/{dataSourceName}/segments/{segmentId}</code></li>
+</ul>
+<p>Returns full segment metadata for a specific segment as stored in the metadata store, if the segment is used. If the
+segment is unused, or is unknown, a 404 response is returned.</p>
+<h5 id="post"><a name="post" class="anchor-navigation-ex-anchor" href="#post"><i class="fa fa-link" aria-hidden="true"></i></a>POST</h5>
+<ul>
+<li><code>/druid/coordinator/v1/metadata/datasources/{dataSourceName}/segments</code></li>
+</ul>
+<p>Returns a list of all segments, overlapping with any of given intervals,  for a datasource as stored in the metadata store. Request body is array of string IS0 8601 intervals like [interval1, interval2,...] for example [&quot;2012-01-01T00:00:00.000/2012-01-03T00:00:00.000&quot;, &quot;2012-01-05T00:00:00.000/2012-01-07T00:00:00.000&quot;]</p>
+<ul>
+<li><code>/druid/coordinator/v1/metadata/datasources/{dataSourceName}/segments?full</code></li>
+</ul>
+<p>Returns a list of all segments, overlapping with any of given intervals, for a datasource with the full segment metadata as stored in the metadata store. Request body is array of string ISO 8601 intervals like [interval1, interval2,...] for example [&quot;2012-01-01T00:00:00.000/2012-01-03T00:00:00.000&quot;, &quot;2012-01-05T00:00:00.000/2012-01-07T00:00:00.000&quot;]</p>
+<p><a name="coordinator-datasources"></a></p>
+<h4 id="datasources"><a name="datasources" class="anchor-navigation-ex-anchor" href="#datasources"><i class="fa fa-link" aria-hidden="true"></i></a>Datasources</h4>
+<p>Note that all <em>interval</em> URL parameters are ISO 8601 strings delimited by a <code>_</code> instead of a <code>/</code>
+(e.g., 2016-06-27_2016-06-28).</p>
+<h5 id="get_5"><a name="get_5" class="anchor-navigation-ex-anchor" href="#get_5"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/coordinator/v1/datasources</code></li>
+</ul>
+<p>Returns a list of datasource names found in the cluster.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources?simple</code></li>
+</ul>
+<p>Returns a list of JSON objects containing the name and properties of datasources found in the cluster.  Properties include segment count, total segment byte size, replicated total segment byte size, minTime, and maxTime.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources?full</code></li>
+</ul>
+<p>Returns a list of datasource names found in the cluster with all metadata about those datasources.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}</code></li>
+</ul>
+<p>Returns a JSON object containing the name and properties of a datasource. Properties include segment count, total segment byte size, replicated total segment byte size, minTime, and maxTime.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}?full</code></li>
+</ul>
+<p>Returns full metadata for a datasource .</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/intervals</code></li>
+</ul>
+<p>Returns a set of segment intervals.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/intervals?simple</code></li>
+</ul>
+<p>Returns a map of an interval to a JSON object containing the total byte size of segments and number of segments for that interval.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/intervals?full</code></li>
+</ul>
+<p>Returns a map of an interval to a map of segment metadata to a set of server names that contain the segment for that interval.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/intervals/{interval}</code></li>
+</ul>
+<p>Returns a set of segment ids for an interval.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/intervals/{interval}?simple</code></li>
+</ul>
+<p>Returns a map of segment intervals contained within the specified interval to a JSON object containing the total byte size of segments and number of segments for an interval.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/intervals/{interval}?full</code></li>
+</ul>
+<p>Returns a map of segment intervals contained within the specified interval to a map of segment metadata to a set of server names that contain the segment for an interval.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/intervals/{interval}/serverview</code></li>
+</ul>
+<p>Returns a map of segment intervals contained within the specified interval to information about the servers that contain the segment for an interval.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/segments</code></li>
+</ul>
+<p>Returns a list of all segments for a datasource in the cluster.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/segments?full</code></li>
+</ul>
+<p>Returns a list of all segments for a datasource in the cluster with the full segment metadata.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/segments/{segmentId}</code></li>
+</ul>
+<p>Returns full segment metadata for a specific segment in the cluster.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/tiers</code></li>
+</ul>
+<p>Return the tiers that a datasource exists in.</p>
+<h4 id="note-for-coordinators-post-and-delete-apis"><a name="note-for-coordinators-post-and-delete-apis" class="anchor-navigation-ex-anchor" href="#note-for-coordinators-post-and-delete-apis"><i class="fa fa-link" aria-hidden="true"></i></a>Note for coordinator&apos;s POST and DELETE API&apos;s</h4>
+<p>The segments would be enabled when these API&apos;s are called, but then can be disabled again by the coordinator if any dropRule matches. Segments enabled by these API&apos;s might not be loaded by historical processes if no loadRule matches.  If an indexing or kill task runs at the same time as these API&apos;s are invoked, the behavior is undefined. Some segments might be killed and others might be enabled. It&apos;s also possible that all segments might be disabled but at the same time, the indexing task is able to read data from those segments and succeed.</p>
+<p>Caution : Avoid using indexing or kill tasks and these API&apos;s at the same time for the same datasource and time chunk. (It&apos;s fine if the time chunks or datasource don&apos;t overlap)</p>
+<h5 id="post_1"><a name="post_1" class="anchor-navigation-ex-anchor" href="#post_1"><i class="fa fa-link" aria-hidden="true"></i></a>POST</h5>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}</code></li>
+</ul>
+<p>Marks as used all segments belonging to a data source. Returns a JSON object of the form
+<code>{&quot;numChangedSegments&quot;: &lt;number&gt;}</code> with the number of segments in the database whose state has been changed (that is,
+the segments were marked as used) as the result of this API call.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/segments/{segmentId}</code></li>
+</ul>
+<p>Marks as used a segment of a data source. Returns a JSON object of the form <code>{&quot;segmentStateChanged&quot;: &lt;boolean&gt;}</code> with
+the boolean indicating if the state of the segment has been changed (that is, the segment was marked as used) as the
+result of this API call.</p>
+<ul>
+<li><p><code>/druid/coordinator/v1/datasources/{dataSourceName}/markUsed</code></p>
+</li>
+<li><p><code>/druid/coordinator/v1/datasources/{dataSourceName}/markUnused</code></p>
+</li>
+</ul>
+<p>Marks segments (un)used for a datasource by interval or set of segment Ids.</p>
+<p>When marking used only segments that are not overshadowed will be updated.</p>
+<p>The request payload contains the interval or set of segment Ids to be marked unused.
+Either interval or segment ids should be provided, if both or none are provided in the payload, the API would throw an error (400 BAD REQUEST).</p>
+<p>Interval specifies the start and end times as IS0 8601 strings. <code>interval=(start/end)</code> where start and end both are inclusive and only the segments completely contained within the specified interval will be disabled, partially overlapping segments will not be affected.</p>
+<p>JSON Request Payload:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>interval</code></td>
+<td>The interval for which to mark segments unused</td>
+<td>&quot;2015-09-12T03:00:00.000Z/2015-09-12T05:00:00.000Z&quot;</td>
+</tr>
+<tr>
+<td><code>segmentIds</code></td>
+<td>Set of segment Ids to be marked unused</td>
+<td>[&quot;segmentId1&quot;, &quot;segmentId2&quot;]</td>
+</tr>
+</tbody>
+</table>
+<h5 id="delete"><a name="delete" class="anchor-navigation-ex-anchor" href="#delete"><i class="fa fa-link" aria-hidden="true"></i></a>DELETE</h5>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}</code></li>
+</ul>
+<p>Marks as unused all segments belonging to a data source. Returns a JSON object of the form
+<code>{&quot;numChangedSegments&quot;: &lt;number&gt;}</code> with the number of segments in the database whose state has been changed (that is,
+the segments were marked as unused) as the result of this API call.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/intervals/{interval}</code></li>
+<li><code>@Deprecated. /druid/coordinator/v1/datasources/{dataSourceName}?kill=true&amp;interval={myInterval}</code></li>
+</ul>
+<p>Runs a <a href="../ingestion/tasks.html">Kill task</a> for a given interval and datasource.</p>
+<ul>
+<li><code>/druid/coordinator/v1/datasources/{dataSourceName}/segments/{segmentId}</code></li>
+</ul>
+<p>Marks as unused a segment of a data source. Returns a JSON object of the form <code>{&quot;segmentStateChanged&quot;: &lt;boolean&gt;}</code> with
+the boolean indicating if the state of the segment has been changed (that is, the segment was marked as unused) as the
+result of this API call.</p>
+<h4 id="retention-rules"><a name="retention-rules" class="anchor-navigation-ex-anchor" href="#retention-rules"><i class="fa fa-link" aria-hidden="true"></i></a>Retention Rules</h4>
+<p>Note that all <em>interval</em> URL parameters are ISO 8601 strings delimited by a <code>_</code> instead of a <code>/</code>
+(e.g., 2016-06-27_2016-06-28).</p>
+<h5 id="get_6"><a name="get_6" class="anchor-navigation-ex-anchor" href="#get_6"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/coordinator/v1/rules</code></li>
+</ul>
+<p>Returns all rules as JSON objects for all datasources in the cluster including the default datasource.</p>
+<ul>
+<li><code>/druid/coordinator/v1/rules/{dataSourceName}</code></li>
+</ul>
+<p>Returns all rules for a specified datasource.</p>
+<ul>
+<li><code>/druid/coordinator/v1/rules/{dataSourceName}?full</code></li>
+</ul>
+<p>Returns all rules for a specified datasource and includes default datasource.</p>
+<ul>
+<li><p><code>/druid/coordinator/v1/rules/history?interval=&lt;interval&gt;</code></p>
+<p>Returns audit history of rules for all datasources. default value of interval can be specified by setting <code>druid.audit.manager.auditHistoryMillis</code> (1 week if not configured) in Coordinator runtime.properties</p>
+</li>
+<li><p><code>/druid/coordinator/v1/rules/history?count=&lt;n&gt;</code></p>
+<p>Returns last <n> entries of audit history of rules for all datasources.</n></p>
+</li>
+<li><p><code>/druid/coordinator/v1/rules/{dataSourceName}/history?interval=&lt;interval&gt;</code></p>
+<p>Returns audit history of rules for a specified datasource. default value of interval can be specified by setting <code>druid.audit.manager.auditHistoryMillis</code> (1 week if not configured) in Coordinator runtime.properties</p>
+</li>
+<li><p><code>/druid/coordinator/v1/rules/{dataSourceName}/history?count=&lt;n&gt;</code></p>
+<p>Returns last <n> entries of audit history of rules for a specified datasource.</n></p>
+</li>
+</ul>
+<h5 id="post_2"><a name="post_2" class="anchor-navigation-ex-anchor" href="#post_2"><i class="fa fa-link" aria-hidden="true"></i></a>POST</h5>
+<ul>
+<li><code>/druid/coordinator/v1/rules/{dataSourceName}</code></li>
+</ul>
+<p>POST with a list of rules in JSON form to update rules.</p>
+<p>Optional Header Parameters for auditing the config change can also be specified.</p>
+<table>
+<thead>
+<tr>
+<th>Header Param Name</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X-Druid-Author</code></td>
+<td>author making the config change</td>
+<td>&quot;&quot;</td>
+</tr>
+<tr>
+<td><code>X-Druid-Comment</code></td>
+<td>comment describing the change being done</td>
+<td>&quot;&quot;</td>
+</tr>
+</tbody>
+</table>
+<h4 id="intervals"><a name="intervals" class="anchor-navigation-ex-anchor" href="#intervals"><i class="fa fa-link" aria-hidden="true"></i></a>Intervals</h4>
+<p>Note that all <em>interval</em> URL parameters are ISO 8601 strings delimited by a <code>_</code> instead of a <code>/</code>
+(e.g., 2016-06-27_2016-06-28).</p>
+<h5 id="get_7"><a name="get_7" class="anchor-navigation-ex-anchor" href="#get_7"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/coordinator/v1/intervals</code></li>
+</ul>
+<p>Returns all intervals for all datasources with total size and count.</p>
+<ul>
+<li><code>/druid/coordinator/v1/intervals/{interval}</code></li>
+</ul>
+<p>Returns aggregated total size and count for all intervals that intersect given isointerval.</p>
+<ul>
+<li><code>/druid/coordinator/v1/intervals/{interval}?simple</code></li>
+</ul>
+<p>Returns total size and count for each interval within given isointerval.</p>
+<ul>
+<li><code>/druid/coordinator/v1/intervals/{interval}?full</code></li>
+</ul>
+<p>Returns total size and count for each datasource for each interval within given isointerval.</p>
+<h4 id="compaction-status"><a name="compaction-status" class="anchor-navigation-ex-anchor" href="#compaction-status"><i class="fa fa-link" aria-hidden="true"></i></a>Compaction Status</h4>
+<h5 id="get_8"><a name="get_8" class="anchor-navigation-ex-anchor" href="#get_8"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/coordinator/v1/compaction/progress?dataSource={dataSource}</code></li>
+</ul>
+<p>Returns the total size of segments awaiting compaction for the given dataSource. 
+This is only valid for dataSource which has compaction enabled. </p>
+<h5 id="get_9"><a name="get_9" class="anchor-navigation-ex-anchor" href="#get_9"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/coordinator/v1/compaction/status</code></li>
+</ul>
+<p>Returns the status and statistics from the latest auto compaction run of all dataSources which have/had auto compaction enabled.
+The response payload includes a list of <code>latestStatus</code> objects. Each <code>latestStatus</code> represents the status for a dataSource (which has/had auto compaction enabled). 
+The <code>latestStatus</code> object has the following keys:</p>
+<ul>
+<li><code>dataSource</code>: name of the datasource for this status information</li>
+<li><code>scheduleStatus</code>: auto compaction scheduling status. Possible values are <code>NOT_ENABLED</code> and <code>RUNNING</code>. Returns <code>RUNNING</code> if the dataSource has an active auto compaction config submitted otherwise, <code>NOT_ENABLED</code></li>
+<li><code>bytesAwaitingCompaction</code>: total bytes of this datasource waiting to be compacted by the auto compaction (only consider intervals/segments that are eligible for auto compaction)</li>
+<li><code>bytesCompacted</code>: total bytes of this datasource that are already compacted with the spec set in the auto compaction config.</li>
+<li><code>bytesSkipped</code>: total bytes of this datasource that are skipped (not eligible for auto compaction) by the auto compaction.</li>
+<li><code>segmentCountAwaitingCompaction</code>: total number of segments of this datasource waiting to be compacted by the auto compaction (only consider intervals/segments that are eligible for auto compaction)</li>
+<li><code>segmentCountCompacted</code>: total number of segments of this datasource that are already compacted with the spec set in the auto compaction config.</li>
+<li><code>segmentCountSkipped</code>: total number of segments of this datasource that are skipped (not eligible for auto compaction) by the auto compaction.</li>
+<li><code>intervalCountAwaitingCompaction</code>: total number of intervals of this datasource waiting to be compacted by the auto compaction (only consider intervals/segments that are eligible for auto compaction)</li>
+<li><code>intervalCountCompacted</code>: total number of intervals of this datasource that are already compacted with the spec set in the auto compaction config.</li>
+<li><code>intervalCountSkipped</code>: total number of intervals of this datasource that are skipped (not eligible for auto compaction) by the auto compaction.</li>
+</ul>
+<h5 id="get_10"><a name="get_10" class="anchor-navigation-ex-anchor" href="#get_10"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/coordinator/v1/compaction/status?dataSource={dataSource}</code></li>
+</ul>
+<p>Similar to the API <code>/druid/coordinator/v1/compaction/status</code> above but filters response to only return information for the {dataSource} given. 
+Note that {dataSource} given must have/had auto compaction enabled.</p>
+<h4 id="compaction-configuration"><a name="compaction-configuration" class="anchor-navigation-ex-anchor" href="#compaction-configuration"><i class="fa fa-link" aria-hidden="true"></i></a>Compaction Configuration</h4>
+<h5 id="get_11"><a name="get_11" class="anchor-navigation-ex-anchor" href="#get_11"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/coordinator/v1/config/compaction</code></li>
+</ul>
+<p>Returns all compaction configs.</p>
+<ul>
+<li><code>/druid/coordinator/v1/config/compaction/{dataSource}</code></li>
+</ul>
+<p>Returns a compaction config of a dataSource.</p>
+<h5 id="post_3"><a name="post_3" class="anchor-navigation-ex-anchor" href="#post_3"><i class="fa fa-link" aria-hidden="true"></i></a>POST</h5>
+<ul>
+<li><code>/druid/coordinator/v1/config/compaction/taskslots?ratio={someRatio}&amp;max={someMaxSlots}</code></li>
+</ul>
+<p>Update the capacity for compaction tasks. <code>ratio</code> and <code>max</code> are used to limit the max number of compaction tasks.
+They mean the ratio of the total task slots to the compaction task slots and the maximum number of task slots for compaction tasks, respectively.
+The actual max number of compaction tasks is <code>min(max, ratio * total task slots)</code>.
+Note that <code>ratio</code> and <code>max</code> are optional and can be omitted. If they are omitted, default values (0.1 and unbounded)
+will be set for them.</p>
+<ul>
+<li><code>/druid/coordinator/v1/config/compaction</code></li>
+</ul>
+<p>Creates or updates the compaction config for a dataSource.
+See <a href="../configuration/#compaction-dynamic-configuration">Compaction Configuration</a> for configuration details.</p>
+<h5 id="delete_1"><a name="delete_1" class="anchor-navigation-ex-anchor" href="#delete_1"><i class="fa fa-link" aria-hidden="true"></i></a>DELETE</h5>
+<ul>
+<li><code>/druid/coordinator/v1/config/compaction/{dataSource}</code></li>
+</ul>
+<p>Removes the compaction config for a dataSource.</p>
+<h4 id="server-information"><a name="server-information" class="anchor-navigation-ex-anchor" href="#server-information"><i class="fa fa-link" aria-hidden="true"></i></a>Server information</h4>
+<h5 id="get_12"><a name="get_12" class="anchor-navigation-ex-anchor" href="#get_12"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/coordinator/v1/servers</code></li>
+</ul>
+<p>Returns a list of servers URLs using the format <code>{hostname}:{port}</code>. Note that
+processes that run with different types will appear multiple times with different
+ports.</p>
+<ul>
+<li><code>/druid/coordinator/v1/servers?simple</code></li>
+</ul>
+<p>Returns a list of server data objects in which each object has the following keys:</p>
+<ul>
+<li><code>host</code>: host URL include (<code>{hostname}:{port}</code>)</li>
+<li><code>type</code>: process type (<code>indexer-executor</code>, <code>historical</code>)</li>
+<li><code>currSize</code>: storage size currently used</li>
+<li><code>maxSize</code>: maximum storage size</li>
+<li><code>priority</code></li>
+<li><code>tier</code></li>
+</ul>
+<h3 id="overlord"><a name="overlord" class="anchor-navigation-ex-anchor" href="#overlord"><i class="fa fa-link" aria-hidden="true"></i></a>1.2.2. Overlord</h3>
+<h4 id="leadership_1"><a name="leadership_1" class="anchor-navigation-ex-anchor" href="#leadership_1"><i class="fa fa-link" aria-hidden="true"></i></a>Leadership</h4>
+<h5 id="get_13"><a name="get_13" class="anchor-navigation-ex-anchor" href="#get_13"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/indexer/v1/leader</code></li>
+</ul>
+<p>Returns the current leader Overlord of the cluster. If you have multiple Overlords, just one is leading at any given time. The others are on standby.</p>
+<ul>
+<li><code>/druid/indexer/v1/isLeader</code></li>
+</ul>
+<p>This returns a JSON object with field &quot;leader&quot;, either true or false. In addition, this call returns HTTP 200 if the
+server is the current leader and HTTP 404 if not. This is suitable for use as a load balancer status check if you
+only want the active leader to be considered in-service at the load balancer.</p>
+<h4 id="tasks"><a name="tasks" class="anchor-navigation-ex-anchor" href="#tasks"><i class="fa fa-link" aria-hidden="true"></i></a>Tasks</h4>
+<p>Note that all <em>interval</em> URL parameters are ISO 8601 strings delimited by a <code>_</code> instead of a <code>/</code>
+(e.g., 2016-06-27_2016-06-28).</p>
+<h5 id="get_14"><a name="get_14" class="anchor-navigation-ex-anchor" href="#get_14"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/indexer/v1/tasks</code></li>
+</ul>
+<p>Retrieve list of tasks. Accepts query string parameters <code>state</code>, <code>datasource</code>, <code>createdTimeInterval</code>, <code>max</code>, and <code>type</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Query Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>state</code></td>
+<td>filter list of tasks by task state, valid options are <code>running</code>, <code>complete</code>, <code>waiting</code>, and <code>pending</code>.</td>
+</tr>
+<tr>
+<td><code>datasource</code></td>
+<td>return tasks filtered by Druid datasource.</td>
+</tr>
+<tr>
+<td><code>createdTimeInterval</code></td>
+<td>return tasks created within the specified interval.</td>
+</tr>
+<tr>
+<td><code>max</code></td>
+<td>maximum number of <code>&quot;complete&quot;</code> tasks to return. Only applies when <code>state</code> is set to <code>&quot;complete&quot;</code>.</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>filter tasks by task type. See <a href="../ingestion/tasks.html">task documentation</a> for more details.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>/druid/indexer/v1/completeTasks</code></li>
+</ul>
+<p>Retrieve list of complete tasks. Equivalent to <code>/druid/indexer/v1/tasks?state=complete</code>.</p>
+<ul>
+<li><code>/druid/indexer/v1/runningTasks</code></li>
+</ul>
+<p>Retrieve list of running tasks. Equivalent to <code>/druid/indexer/v1/tasks?state=running</code>.</p>
+<ul>
+<li><code>/druid/indexer/v1/waitingTasks</code></li>
+</ul>
+<p>Retrieve list of waiting tasks. Equivalent to <code>/druid/indexer/v1/tasks?state=waiting</code>.</p>
+<ul>
+<li><code>/druid/indexer/v1/pendingTasks</code></li>
+</ul>
+<p>Retrieve list of pending tasks. Equivalent to <code>/druid/indexer/v1/tasks?state=pending</code>.</p>
+<ul>
+<li><code>/druid/indexer/v1/task/{taskId}</code></li>
+</ul>
+<p>Retrieve the &apos;payload&apos; of a task.</p>
+<ul>
+<li><code>/druid/indexer/v1/task/{taskId}/status</code></li>
+</ul>
+<p>Retrieve the status of a task.</p>
+<ul>
+<li><code>/druid/indexer/v1/task/{taskId}/segments</code></li>
+</ul>
+<p>Retrieve information about the segments of a task.</p>
+<blockquote>
+<p>This API is deprecated and will be removed in future releases.</p>
+</blockquote>
+<ul>
+<li><code>/druid/indexer/v1/task/{taskId}/reports</code></li>
+</ul>
+<p>Retrieve a <a href="../ingestion/tasks.html#task-reports">task completion report</a> for a task. Only works for completed tasks.</p>
+<h5 id="post_4"><a name="post_4" class="anchor-navigation-ex-anchor" href="#post_4"><i class="fa fa-link" aria-hidden="true"></i></a>POST</h5>
+<ul>
+<li><code>/druid/indexer/v1/task</code></li>
+</ul>
+<p>Endpoint for submitting tasks and supervisor specs to the Overlord. Returns the taskId of the submitted task.</p>
+<ul>
+<li><code>/druid/indexer/v1/task/{taskId}/shutdown</code></li>
+</ul>
+<p>Shuts down a task.</p>
+<ul>
+<li><code>/druid/indexer/v1/datasources/{dataSource}/shutdownAllTasks</code></li>
+</ul>
+<p>Shuts down all tasks for a dataSource.</p>
+<ul>
+<li><code>/druid/indexer/v1/taskStatus</code></li>
+</ul>
+<p>Retrieve list of task status objects for list of task id strings in request body.</p>
+<h5 id="delete_2"><a name="delete_2" class="anchor-navigation-ex-anchor" href="#delete_2"><i class="fa fa-link" aria-hidden="true"></i></a>DELETE</h5>
+<ul>
+<li><code>/druid/indexer/v1/pendingSegments/{dataSource}</code></li>
+</ul>
+<p>Manually clean up pending segments table in metadata storage for <code>datasource</code>. Returns a JSON object response with
+<code>numDeleted</code> and count of rows deleted from the pending segments table. This API is used by the
+<code>druid.coordinator.kill.pendingSegments.on</code> <a href="../configuration/#coordinator-operation">coordinator setting</a>
+which automates this operation to perform periodically.</p>
+<h4 id="supervisors"><a name="supervisors" class="anchor-navigation-ex-anchor" href="#supervisors"><i class="fa fa-link" aria-hidden="true"></i></a>Supervisors</h4>
+<h5 id="get_15"><a name="get_15" class="anchor-navigation-ex-anchor" href="#get_15"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/indexer/v1/supervisor</code></li>
+</ul>
+<p>Returns a list of strings of the currently active supervisor ids.</p>
+<ul>
+<li><code>/druid/indexer/v1/supervisor?full</code></li>
+</ul>
+<p>Returns a list of objects of the currently active supervisors.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>String</td>
+<td>supervisor unique identifier</td>
+</tr>
+<tr>
+<td><code>state</code></td>
+<td>String</td>
+<td>basic state of the supervisor. Available states:<code>UNHEALTHY_SUPERVISOR</code>, <code>UNHEALTHY_TASKS</code>, <code>PENDING</code>, <code>RUNNING</code>, <code>SUSPENDED</code>, <code>STOPPING</code>. Check <a href="../development/extensions-core/kafka-ingestion.html#operations">Kafka Docs</a> for details.</td>
+</tr>
+<tr>
+<td><code>detailedState</code></td>
+<td>String</td>
+<td>supervisor specific state. (See documentation of specific supervisor for details), e.g. <a href="../development/extensions-core/kafka-ingestion.html">Kafka</a> or <a href="../development/extensions-core/kinesis-ingestion.html">Kinesis</a>)</td>
+</tr>
+<tr>
+<td><code>healthy</code></td>
+<td>Boolean</td>
+<td>true or false indicator of overall supervisor health</td>
+</tr>
+<tr>
+<td><code>spec</code></td>
+<td>SupervisorSpec</td>
+<td>json specification of supervisor (See Supervisor Configuration for details)</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>/druid/indexer/v1/supervisor?state=true</code></li>
+</ul>
+<p>Returns a list of objects of the currently active supervisors and their current state.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>String</td>
+<td>supervisor unique identifier</td>
+</tr>
+<tr>
+<td><code>state</code></td>
+<td>String</td>
+<td>basic state of the supervisor. Available states: <code>UNHEALTHY_SUPERVISOR</code>, <code>UNHEALTHY_TASKS</code>, <code>PENDING</code>, <code>RUNNING</code>, <code>SUSPENDED</code>, <code>STOPPING</code>. Check <a href="../development/extensions-core/kafka-ingestion.html#operations">Kafka Docs</a> for details.</td>
+</tr>
+<tr>
+<td><code>detailedState</code></td>
+<td>String</td>
+<td>supervisor specific state. (See documentation of the specific supervisor for details, e.g. <a href="../development/extensions-core/kafka-ingestion.html">Kafka</a> or <a href="../development/extensions-core/kinesis-ingestion.html">Kinesis</a>)</td>
+</tr>
+<tr>
+<td><code>healthy</code></td>
+<td>Boolean</td>
+<td>true or false indicator of overall supervisor health</td>
+</tr>
+<tr>
+<td><code>suspended</code></td>
+<td>Boolean</td>
+<td>true or false indicator of whether the supervisor is in suspended state</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>/druid/indexer/v1/supervisor/&lt;supervisorId&gt;</code></li>
+</ul>
+<p>Returns the current spec for the supervisor with the provided ID.</p>
+<ul>
+<li><code>/druid/indexer/v1/supervisor/&lt;supervisorId&gt;/status</code></li>
+</ul>
+<p>Returns the current status of the supervisor with the provided ID.</p>
+<ul>
+<li><code>/druid/indexer/v1/supervisor/history</code></li>
+</ul>
+<p>Returns an audit history of specs for all supervisors (current and past).</p>
+<ul>
+<li><code>/druid/indexer/v1/supervisor/&lt;supervisorId&gt;/history</code></li>
+</ul>
+<p>Returns an audit history of specs for the supervisor with the provided ID.</p>
+<h5 id="post_5"><a name="post_5" class="anchor-navigation-ex-anchor" href="#post_5"><i class="fa fa-link" aria-hidden="true"></i></a>POST</h5>
+<ul>
+<li><code>/druid/indexer/v1/supervisor</code></li>
+</ul>
+<p>Create a new supervisor or update an existing one.</p>
+<ul>
+<li><code>/druid/indexer/v1/supervisor/&lt;supervisorId&gt;/suspend</code></li>
+</ul>
+<p>Suspend the current running supervisor of the provided ID. Responds with updated SupervisorSpec.</p>
+<ul>
+<li><code>/druid/indexer/v1/supervisor/suspendAll</code></li>
+</ul>
+<p>Suspend all supervisors at once.</p>
+<ul>
+<li><code>/druid/indexer/v1/supervisor/&lt;supervisorId&gt;/resume</code></li>
+</ul>
+<p>Resume indexing tasks for a supervisor. Responds with updated SupervisorSpec.</p>
+<ul>
+<li><code>/druid/indexer/v1/supervisor/resumeAll</code></li>
+</ul>
+<p>Resume all supervisors at once.</p>
+<ul>
+<li><code>/druid/indexer/v1/supervisor/&lt;supervisorId&gt;/reset</code></li>
+</ul>
+<p>Reset the specified supervisor.</p>
+<ul>
+<li><code>/druid/indexer/v1/supervisor/&lt;supervisorId&gt;/terminate</code></li>
+</ul>
+<p>Terminate a supervisor of the provided ID.</p>
+<ul>
+<li><code>/druid/indexer/v1/supervisor/terminateAll</code></li>
+</ul>
+<p>Terminate all supervisors at once.</p>
+<ul>
+<li><code>/druid/indexer/v1/supervisor/&lt;supervisorId&gt;/shutdown</code></li>
+</ul>
+<p>Shutdown a supervisor.</p>
+<blockquote>
+<p>This API is deprecated and will be removed in future releases.
+Please use the equivalent &apos;terminate&apos; instead.</p>
+</blockquote>
+<h4 id="dynamic-configuration"><a name="dynamic-configuration" class="anchor-navigation-ex-anchor" href="#dynamic-configuration"><i class="fa fa-link" aria-hidden="true"></i></a>Dynamic configuration</h4>
+<p>See <a href="../configuration/#overlord-dynamic-configuration">Overlord Dynamic Configuration</a> for details.</p>
+<p>Note that all <em>interval</em> URL parameters are ISO 8601 strings delimited by a <code>_</code> instead of a <code>/</code>
+(e.g., 2016-06-27_2016-06-28).</p>
+<h5 id="get_16"><a name="get_16" class="anchor-navigation-ex-anchor" href="#get_16"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/indexer/v1/worker</code></li>
+</ul>
+<p>Retrieves current overlord dynamic configuration.</p>
+<ul>
+<li><code>/druid/indexer/v1/worker/history?interval={interval}&amp;counter={count}</code></li>
+</ul>
+<p>Retrieves history of changes to overlord dynamic configuration. Accepts <code>interval</code> and  <code>count</code> query string parameters
+to filter by interval and limit the number of results respectively.</p>
+<ul>
+<li><code>/druid/indexer/v1/workers</code></li>
+</ul>
+<p>Retrieves a list of all the worker nodes in the cluster along with its metadata.</p>
+<ul>
+<li><code>/druid/indexer/v1/scaling</code></li>
+</ul>
+<p>Retrieves overlord scaling events if auto-scaling runners are in use.</p>
+<h5 id="post_6"><a name="post_6" class="anchor-navigation-ex-anchor" href="#post_6"><i class="fa fa-link" aria-hidden="true"></i></a>POST</h5>
+<ul>
+<li>/druid/indexer/v1/worker</li>
+</ul>
+<p>Update overlord dynamic worker configuration.</p>
+<h2 id="data-server"><a name="data-server" class="anchor-navigation-ex-anchor" href="#data-server"><i class="fa fa-link" aria-hidden="true"></i></a>1.3. Data Server</h2>
+<p>This section documents the API endpoints for the processes that reside on Data servers (MiddleManagers/Peons and Historicals)
+in the suggested <a href="../design/processes.md#server-types">three-server configuration</a>.</p>
+<h3 id="middlemanager"><a name="middlemanager" class="anchor-navigation-ex-anchor" href="#middlemanager"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.1. MiddleManager</h3>
+<h5 id="get_17"><a name="get_17" class="anchor-navigation-ex-anchor" href="#get_17"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/worker/v1/enabled</code></li>
+</ul>
+<p>Check whether a MiddleManager is in an enabled or disabled state. Returns JSON object keyed by the combined <code>druid.host</code>
+and <code>druid.port</code> with the boolean state as the value.</p>
+<pre><code class="lang-json">{<span class="hljs-string">&quot;localhost:8091&quot;</span>:<span class="hljs-literal">true</span>}
+</code></pre>
+<ul>
+<li><code>/druid/worker/v1/tasks</code></li>
+</ul>
+<p>Retrieve a list of active tasks being run on MiddleManager. Returns JSON list of taskid strings.  Normal usage should
+prefer to use the <code>/druid/indexer/v1/tasks</code> <a href="#overlord">Overlord API</a> or one of it&apos;s task state specific variants instead.</p>
+<pre><code class="lang-json">[<span class="hljs-string">&quot;index_wikiticker_2019-02-11T02:20:15.316Z&quot;</span>]
+</code></pre>
+<ul>
+<li><code>/druid/worker/v1/task/{taskid}/log</code></li>
+</ul>
+<p>Retrieve task log output stream by task id. Normal usage should prefer to use the <code>/druid/indexer/v1/task/{taskId}/log</code>
+<a href="#overlord">Overlord API</a> instead.</p>
+<h5 id="post_7"><a name="post_7" class="anchor-navigation-ex-anchor" href="#post_7"><i class="fa fa-link" aria-hidden="true"></i></a>POST</h5>
+<ul>
+<li><code>/druid/worker/v1/disable</code></li>
+</ul>
+<p>&apos;Disable&apos; a MiddleManager, causing it to stop accepting new tasks but complete all existing tasks. Returns JSON  object
+keyed by the combined <code>druid.host</code> and <code>druid.port</code>:</p>
+<pre><code class="lang-json">{<span class="hljs-string">&quot;localhost:8091&quot;</span>:<span class="hljs-string">&quot;disabled&quot;</span>}
+</code></pre>
+<ul>
+<li><code>/druid/worker/v1/enable</code></li>
+</ul>
+<p>&apos;Enable&apos; a MiddleManager, allowing it to accept new tasks again if it was previously disabled. Returns JSON  object
+keyed by the combined <code>druid.host</code> and <code>druid.port</code>:</p>
+<pre><code class="lang-json">{<span class="hljs-string">&quot;localhost:8091&quot;</span>:<span class="hljs-string">&quot;enabled&quot;</span>}
+</code></pre>
+<ul>
+<li><code>/druid/worker/v1/task/{taskid}/shutdown</code></li>
+</ul>
+<p>Shutdown a running task by <code>taskid</code>. Normal usage should prefer to use the <code>/druid/indexer/v1/task/{taskId}/shutdown</code>
+<a href="#overlord">Overlord API</a> instead. Returns JSON:</p>
+<pre><code class="lang-json">{<span class="hljs-string">&quot;task&quot;</span>:<span class="hljs-string">&quot;index_kafka_wikiticker_f7011f8ffba384b_fpeclode&quot;</span>}
+</code></pre>
+<h3 id="peon"><a name="peon" class="anchor-navigation-ex-anchor" href="#peon"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.2. Peon</h3>
+<h4 id="get_18"><a name="get_18" class="anchor-navigation-ex-anchor" href="#get_18"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h4>
+<ul>
+<li><code>/druid/worker/v1/chat/{taskId}/rowStats</code></li>
+</ul>
+<p>Retrieve a live row stats report from a Peon. See <a href="../ingestion/tasks.html#task-reports">task reports</a> for more details.</p>
+<ul>
+<li><code>/druid/worker/v1/chat/{taskId}/unparseableEvents</code></li>
+</ul>
+<p>Retrieve an unparseable events report from a Peon. See <a href="../ingestion/tasks.html#task-reports">task reports</a> for more details.</p>
+<h3 id="historical"><a name="historical" class="anchor-navigation-ex-anchor" href="#historical"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.3. Historical</h3>
+<h4 id="segment-loading_1"><a name="segment-loading_1" class="anchor-navigation-ex-anchor" href="#segment-loading_1"><i class="fa fa-link" aria-hidden="true"></i></a>Segment Loading</h4>
+<h5 id="get_19"><a name="get_19" class="anchor-navigation-ex-anchor" href="#get_19"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/historical/v1/loadstatus</code></li>
+</ul>
+<p>Returns JSON of the form <code>{&quot;cacheInitialized&quot;:&lt;value&gt;}</code>, where value is either <code>true</code> or <code>false</code> indicating if all
+segments in the local cache have been loaded. This can be used to know when a Historical process is ready
+to be queried after a restart.</p>
+<ul>
+<li><code>/druid/historical/v1/readiness</code></li>
+</ul>
+<p>Similar to <code>/druid/historical/v1/loadstatus</code>, but instead of returning JSON with a flag, responses 200 OK if segments
+in the local cache have been loaded, and 503 SERVICE UNAVAILABLE, if they haven&apos;t.</p>
+<h2 id="query-server"><a name="query-server" class="anchor-navigation-ex-anchor" href="#query-server"><i class="fa fa-link" aria-hidden="true"></i></a>1.4. Query Server</h2>
+<p>This section documents the API endpoints for the processes that reside on Query servers (Brokers) in the suggested <a href="../design/processes.md#server-types">three-server configuration</a>.</p>
+<h3 id="broker"><a name="broker" class="anchor-navigation-ex-anchor" href="#broker"><i class="fa fa-link" aria-hidden="true"></i></a>1.4.1. Broker</h3>
+<h4 id="datasource-information"><a name="datasource-information" class="anchor-navigation-ex-anchor" href="#datasource-information"><i class="fa fa-link" aria-hidden="true"></i></a>Datasource Information</h4>
+<p>Note that all <em>interval</em> URL parameters are ISO 8601 strings delimited by a <code>_</code> instead of a <code>/</code>
+(e.g., 2016-06-27_2016-06-28).</p>
+<h5 id="get_20"><a name="get_20" class="anchor-navigation-ex-anchor" href="#get_20"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/v2/datasources</code></li>
+</ul>
+<p>Returns a list of queryable datasources.</p>
+<ul>
+<li><code>/druid/v2/datasources/{dataSourceName}</code></li>
+</ul>
+<p>Returns the dimensions and metrics of the datasource. Optionally, you can provide request parameter &quot;full&quot; to get list of served intervals with dimensions and metrics being served for those intervals. You can also provide request param &quot;interval&quot; explicitly to refer to a particular interval.</p>
+<p>If no interval is specified, a default interval spanning a configurable period before the current time will be used. The default duration of this interval is specified in ISO 8601 duration format via:</p>
+<p>druid.query.segmentMetadata.defaultHistory</p>
+<ul>
+<li><code>/druid/v2/datasources/{dataSourceName}/dimensions</code></li>
+</ul>
+<p>Returns the dimensions of the datasource.</p>
+<blockquote>
+<p>This API is deprecated and will be removed in future releases. Please use <a href="../querying/segmentmetadataquery.html">SegmentMetadataQuery</a> instead
+which provides more comprehensive information and supports all dataSource types including streaming dataSources. It&apos;s also encouraged to use <a href="../querying/sql.html#metadata-tables">INFORMATION_SCHEMA tables</a>
+if you&apos;re using SQL.</p>
+</blockquote>
+<ul>
+<li><code>/druid/v2/datasources/{dataSourceName}/metrics</code></li>
+</ul>
+<p>Returns the metrics of the datasource.</p>
+<blockquote>
+<p>This API is deprecated and will be removed in future releases. Please use <a href="../querying/segmentmetadataquery.html">SegmentMetadataQuery</a> instead
+which provides more comprehensive information and supports all dataSource types including streaming dataSources. It&apos;s also encouraged to use <a href="../querying/sql.html#metadata-tables">INFORMATION_SCHEMA tables</a>
+if you&apos;re using SQL.</p>
+</blockquote>
+<ul>
+<li><code>/druid/v2/datasources/{dataSourceName}/candidates?intervals={comma-separated-intervals}&amp;numCandidates={numCandidates}</code></li>
+</ul>
+<p>Returns segment information lists including server locations for the given datasource and intervals. If &quot;numCandidates&quot; is not specified, it will return all servers for each interval.</p>
+<h4 id="load-status"><a name="load-status" class="anchor-navigation-ex-anchor" href="#load-status"><i class="fa fa-link" aria-hidden="true"></i></a>Load Status</h4>
+<h5 id="get_21"><a name="get_21" class="anchor-navigation-ex-anchor" href="#get_21"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h5>
+<ul>
+<li><code>/druid/broker/v1/loadstatus</code></li>
+</ul>
+<p>Returns a flag indicating if the Broker knows about all segments in the cluster. This can be used to know when a Broker process is ready to be queried after a restart.</p>
+<ul>
+<li><code>/druid/broker/v1/readiness</code></li>
+</ul>
+<p>Similar to <code>/druid/broker/v1/loadstatus</code>, but instead of returning a JSON, responses 200 OK if its ready and otherwise 503 SERVICE UNAVAILABLE.</p>
+<h4 id="queries"><a name="queries" class="anchor-navigation-ex-anchor" href="#queries"><i class="fa fa-link" aria-hidden="true"></i></a>Queries</h4>
+<h5 id="post_8"><a name="post_8" class="anchor-navigation-ex-anchor" href="#post_8"><i class="fa fa-link" aria-hidden="true"></i></a>POST</h5>
+<ul>
+<li><code>/druid/v2/</code></li>
+</ul>
+<p>The endpoint for submitting queries. Accepts an option <code>?pretty</code> that pretty prints the results.</p>
+<ul>
+<li><code>/druid/v2/candidates/</code></li>
+</ul>
+<p>Returns segment information lists including server locations for the given query..</p>
+<h3 id="router"><a name="router" class="anchor-navigation-ex-anchor" href="#router"><i class="fa fa-link" aria-hidden="true"></i></a>1.4.2. Router</h3>
+<h4 id="get_22"><a name="get_22" class="anchor-navigation-ex-anchor" href="#get_22"><i class="fa fa-link" aria-hidden="true"></i></a>GET</h4>
+<ul>
+<li><code>/druid/v2/datasources</code></li>
+</ul>
+<p>Returns a list of queryable datasources.</p>
+<ul>
+<li><code>/druid/v2/datasources/{dataSourceName}</code></li>
+</ul>
+<p>Returns the dimensions and metrics of the datasource.</p>
+<ul>
+<li><code>/druid/v2/datasources/{dataSourceName}/dimensions</code></li>
+</ul>
+<p>Returns the dimensions of the datasource.</p>
+<ul>
+<li><code>/druid/v2/datasources/{dataSourceName}/metrics</code></li>
+</ul>
+<p>Returns the metrics of the datasource. </p>
+<footer class="page-footer"><span class="copyright">Copyright <a target="_blank" href="https://druid.org.cn">druid.org.cn</a> 2021 .&#x672C;&#x6587;&#x7FFB;&#x8BD1;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/operations/api-reference.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
+2021-04-23 21:43:10
+</span></footer>
+                                
+                                </section>
+                            
+    </div>
+    <div class="search-results">
+        <div class="has-results">
+            
+            <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+            <ul class="search-results-list"></ul>
+            
+        </div>
+        <div class="no-results">
+            
+            <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+            
+        </div>
+    </div>
+</div>
+
+                        </div>
+                    </div>
+                
+            </div>
+
+            
+                
+                <a href="http-compression.html" class="navigation navigation-prev " aria-label="Previous page: HTTP压缩">
+                    <i class="fa fa-angle-left"></i>
+                </a>
+                
+                
+                <a href="high-availability.html" class="navigation navigation-next " aria-label="Next page: 高可用">
+                    <i class="fa fa-angle-right"></i>
+                </a>
+                
+            
+        
+    </div>
+
+    <script>
+        var gitbook = gitbook || [];
+        gitbook.push(function() {
+            gitbook.page.hasChanged({"page":{"id":"api-reference","title":"API手册","level":"1.8.2.3","depth":3,"next":{"title":"高可用","level":"1.8.2.4","depth":3,"path":"operations/high-availability.md","ref":"operations/high-availability.md","articles":[]},"previous":{"title":"HTTP压缩","level":"1.8.2.2.3","depth":4,"path":"operations/http-compression.md","ref":"operations/http-compression.md","articles":[]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"Copyright <a target=\"_blank\" href=\"https://druid.org.cn\">druid.org.cn</a> 2021 .本文翻译自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"operations/api-reference.md","mtime":"2021-04-23T13:43:10.298Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-04-24T03:56:48.676Z"},"basePath":"..","book":{"language":""}});
+        });
+    </script>
+</div>
+
+        
+    <script src="../gitbook/gitbook.js"></script>
+    <script src="../gitbook/theme.js"></script>
+    
+        
+        <script src="../gitbook/gitbook-plugin-livereload/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/search.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-code/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-auto-scroll-table/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-hide-element/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-github/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-sharing/buttons.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+        
+    
+
+    </body>
+</html>
+

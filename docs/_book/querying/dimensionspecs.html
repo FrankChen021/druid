@@ -1,0 +1,2336 @@
+
+<!DOCTYPE HTML>
+<html lang="" >
+    <head>
+        <meta charset="UTF-8">
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <title>数据维度 · GitBook</title>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="description" content="">
+        <meta name="generator" content="GitBook 3.2.3">
+        
+        
+        
+    
+    <link rel="stylesheet" href="../gitbook/style.css">
+
+    
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-highlight/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-search-pro/search.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-code/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-tbfed-pagefooter/footer.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-anchor-navigation-ex/style/plugin.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-auto-scroll-table/website.css">
+                
+            
+                
+                <link rel="stylesheet" href="../gitbook/gitbook-plugin-fontsettings/website.css">
+                
+            
+        
+
+    
+
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+
+        
+    
+    
+    <meta name="HandheldFriendly" content="true"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon-precomposed" sizes="152x152" href="../gitbook/images/apple-touch-icon-precomposed-152.png">
+    <link rel="shortcut icon" href="../gitbook/images/favicon.ico" type="image/x-icon">
+
+    
+    <link rel="next" href="aggregations.html" />
+    
+    
+    <link rel="prev" href="granularities.html" />
+    
+
+    </head>
+    <body>
+        
+<div class="book">
+    <div class="book-summary">
+        
+            
+<div id="book-search-input" role="search">
+    <input type="text" placeholder="Type to search" />
+</div>
+
+            
+                <nav role="navigation">
+                
+
+
+<ul class="summary">
+    
+    
+
+    
+
+    
+        
+        
+    
+        <li class="chapter " data-level="1.1" data-path="../">
+            
+                <a href="../">
+            
+                    
+                    前言
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2" >
+            
+                <span>
+            
+                    
+                    开始
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.2.1" data-path="../design/">
+            
+                <a href="../design/">
+            
+                    
+                    Apache Druid简介
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.2" data-path="../tutorials/">
+            
+                <a href="../tutorials/">
+            
+                    
+                    快速入门
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.3" data-path="../tutorials/docker.html">
+            
+                <a href="../tutorials/docker.html">
+            
+                    
+                    Docker
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.4" data-path="../operations/single-server.html">
+            
+                <a href="../operations/single-server.html">
+            
+                    
+                    单机部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.2.5" data-path="../tutorials/cluster.html">
+            
+                <a href="../tutorials/cluster.html">
+            
+                    
+                    集群模式部署
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3" >
+            
+                <span>
+            
+                    
+                    指南
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.3.1" data-path="../tutorials/tutorial-batch.html">
+            
+                <a href="../tutorials/tutorial-batch.html">
+            
+                    
+                    从本地文件摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.2" data-path="../tutorials/tutorial-kafka.html">
+            
+                <a href="../tutorials/tutorial-kafka.html">
+            
+                    
+                    从Kafka摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.3" data-path="../tutorials/tutorial-batch-hadoop.html">
+            
+                <a href="../tutorials/tutorial-batch-hadoop.html">
+            
+                    
+                    从Haddop摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.4" data-path="../tutorials/tutorial-query.html">
+            
+                <a href="../tutorials/tutorial-query.html">
+            
+                    
+                    查询数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.5" data-path="../tutorials/tutorial-rollup.html">
+            
+                <a href="../tutorials/tutorial-rollup.html">
+            
+                    
+                    预聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.6" data-path="../tutorials/tutorial-retention.html">
+            
+                <a href="../tutorials/tutorial-retention.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.7" data-path="../tutorials/tutorial-update-data.html">
+            
+                <a href="../tutorials/tutorial-update-data.html">
+            
+                    
+                    更新数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.8" data-path="../tutorials/tutorial-compaction.html">
+            
+                <a href="../tutorials/tutorial-compaction.html">
+            
+                    
+                    数据文件合并
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.9" data-path="../tutorials/tutorial-delete-data.html">
+            
+                <a href="../tutorials/tutorial-delete-data.html">
+            
+                    
+                    删除数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.10" data-path="../tutorials/tutorial-ingestion-spec.html">
+            
+                <a href="../tutorials/tutorial-ingestion-spec.html">
+            
+                    
+                    编写数据摄入规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.11" data-path="../tutorials/tutorial-transform-spec.html">
+            
+                <a href="../tutorials/tutorial-transform-spec.html">
+            
+                    
+                    转换摄入数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.3.12" data-path="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                <a href="../tutorials/tutorial-kerberos-hadoop.html">
+            
+                    
+                    设置Kerberos认证的HDFS作为深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4" >
+            
+                <span>
+            
+                    
+                    设计
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.4.1" data-path="../design/architecture.html">
+            
+                <a href="../design/architecture.html">
+            
+                    
+                    整体架构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.2" data-path="../design/segments.html">
+            
+                <a href="../design/segments.html">
+            
+                    
+                    存储结构
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.3" data-path="../design/processes">
+            
+                <span>
+            
+                    
+                    进程与服务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.4" data-path="../dependencies/deep-storage.html">
+            
+                <a href="../dependencies/deep-storage.html">
+            
+                    
+                    深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.5" data-path="../dependencies/metadata-storage.html">
+            
+                <a href="../dependencies/metadata-storage.html">
+            
+                    
+                    元数据存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.4.6" data-path="../dependencies/zookeeper.html">
+            
+                <a href="../dependencies/zookeeper.html">
+            
+                    
+                    Zookeeper
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5" >
+            
+                <span>
+            
+                    
+                    数据摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.1" data-path="../ingestion/">
+            
+                <a href="../ingestion/">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.2" data-path="../ingestion/data-formats.html">
+            
+                <a href="../ingestion/data-formats.html">
+            
+                    
+                    数据格式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.3" data-path="../ingestion/schema-design.html">
+            
+                <a href="../ingestion/schema-design.html">
+            
+                    
+                    Schema定义
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.4" data-path="../ingestion/data-management.html">
+            
+                <a href="../ingestion/data-management.html">
+            
+                    
+                    数据管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5" >
+            
+                <span>
+            
+                    
+                    实时摄入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.5.1" data-path="../development/extensions-core/kafka-ingestion.html">
+            
+                <a href="../development/extensions-core/kafka-ingestion.html">
+            
+                    
+                    从Kafka摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.2" data-path="../development/extensions-core/kinesis-ingestion.html">
+            
+                <a href="../development/extensions-core/kinesis-ingestion.html">
+            
+                    
+                    从Amazon Kinesis摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.3" data-path="../ingestion/tranquility.html">
+            
+                <a href="../ingestion/tranquility.html">
+            
+                    
+                    从Tranqulity摄入
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.5.4" data-path="../ingestion/standalone-realtime.html">
+            
+                <a href="../ingestion/standalone-realtime.html">
+            
+                    
+                    独立实时模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6" >
+            
+                <span>
+            
+                    
+                    批量导入
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.5.6.1" data-path="../ingestion/native-batch.html">
+            
+                <a href="../ingestion/native-batch.html">
+            
+                    
+                    本地模式
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.6.2" data-path="../ingestion/hadoop.html">
+            
+                <a href="../ingestion/hadoop.html">
+            
+                    
+                    从Hadoop导入
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.7" data-path="../ingestion/tasks.html">
+            
+                <a href="../ingestion/tasks.html">
+            
+                    
+                    Druid中的任务
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.5.8" data-path="../ingestion/faq.html">
+            
+                <a href="../ingestion/faq.html">
+            
+                    
+                    FAQ
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6" >
+            
+                <span>
+            
+                    
+                    数据查询
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.1" data-path="sql.html">
+            
+                <a href="sql.html">
+            
+                    
+                    通过SQL查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.2" data-path="querying.html">
+            
+                <a href="querying.html">
+            
+                    
+                    通过JSON查询
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.3" data-path="query-execution.html">
+            
+                <a href="query-execution.html">
+            
+                    
+                    查询执行流程
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4" >
+            
+                <span>
+            
+                    
+                    主要概念
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.4.1" data-path="datasource.html">
+            
+                <a href="datasource.html">
+            
+                    
+                    数据源(datasource)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.2" data-path="joins.html">
+            
+                <a href="joins.html">
+            
+                    
+                    联合查询(join)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.3" data-path="lookups.html">
+            
+                <a href="lookups.html">
+            
+                    
+                    字典查询(lookups)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.4" data-path="multi-value-dimensions.html">
+            
+                <a href="multi-value-dimensions.html">
+            
+                    
+                    结构化列值(multi-value-dimensions)
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.5" data-path="multitenancy.html">
+            
+                <a href="multitenancy.html">
+            
+                    
+                    多租户
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.6" data-path="caching.html">
+            
+                <a href="caching.html">
+            
+                    
+                    查询缓存
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.4.7" data-path="query-context.html">
+            
+                <a href="query-context.html">
+            
+                    
+                    查询上下文
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5" >
+            
+                <span>
+            
+                    
+                    JSON查询类型
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.5.1" data-path="timeseriesquery.html">
+            
+                <a href="timeseriesquery.html">
+            
+                    
+                    Timeseries
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.2" data-path="topnquery.html">
+            
+                <a href="topnquery.html">
+            
+                    
+                    TopN
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.3" data-path="groupbyquery.html">
+            
+                <a href="groupbyquery.html">
+            
+                    
+                    GroupBy
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.4" data-path="scan-query.html">
+            
+                <a href="scan-query.html">
+            
+                    
+                    Scan
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.5" data-path="searchquery.html">
+            
+                <a href="searchquery.html">
+            
+                    
+                    Search
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.6" data-path="timeboundaryquery.html">
+            
+                <a href="timeboundaryquery.html">
+            
+                    
+                    TimeBoundary
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.7" data-path="segmentmetadataquery.html">
+            
+                <a href="segmentmetadataquery.html">
+            
+                    
+                    SegmentMetaData
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.5.8" data-path="datasourcemetadataquery.html">
+            
+                <a href="datasourcemetadataquery.html">
+            
+                    
+                    DatasourceMetadata
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6" >
+            
+                <span>
+            
+                    
+                    JSON查询结构
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.6.6.1" data-path="filters.html">
+            
+                <a href="filters.html">
+            
+                    
+                    过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.2" data-path="granularities.html">
+            
+                <a href="granularities.html">
+            
+                    
+                    时间粒度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter active" data-level="1.6.6.3" data-path="dimensionspecs.html">
+            
+                <a href="dimensionspecs.html">
+            
+                    
+                    数据维度
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.4" data-path="aggregations.html">
+            
+                <a href="aggregations.html">
+            
+                    
+                    聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.5" data-path="post-aggregations.html">
+            
+                <a href="post-aggregations.html">
+            
+                    
+                    后置聚合
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.6" data-path="../misc/math-expr.html">
+            
+                <a href="../misc/math-expr.html">
+            
+                    
+                    数学函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.7" data-path="having.html">
+            
+                <a href="having.html">
+            
+                    
+                    表达式与函数
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.8" data-path="limitspec.html">
+            
+                <a href="limitspec.html">
+            
+                    
+                    Having过滤器
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.9" data-path="topnmetricspec.html">
+            
+                <a href="topnmetricspec.html">
+            
+                    
+                    TopN排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.10" data-path="sorting-orders.html">
+            
+                <a href="sorting-orders.html">
+            
+                    
+                    排序
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.11" data-path="virtual-columns.html">
+            
+                <a href="virtual-columns.html">
+            
+                    
+                    虚拟字段
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.6.6.12" data-path="../development/geo.html">
+            
+                <a href="../development/geo.html">
+            
+                    
+                    空间过滤
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7" >
+            
+                <span>
+            
+                    
+                    配置
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.7.1" data-path="../configuration/">
+            
+                <a href="../configuration/">
+            
+                    
+                    概述
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.2" data-path="../development/extensions.html">
+            
+                <a href="../development/extensions.html">
+            
+                    
+                    扩展组件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.7.3" data-path="../configuration/logging.html">
+            
+                <a href="../configuration/logging.html">
+            
+                    
+                    运行日志
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8" >
+            
+                <span>
+            
+                    
+                    运维
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.1" data-path="../operations/druid-console.html">
+            
+                <a href="../operations/druid-console.html">
+            
+                    
+                    Web控制台
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2" data-path="../operations/getting-started.html">
+            
+                <a href="../operations/getting-started.html">
+            
+                    
+                    快速开始
+            
+                </a>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1" >
+            
+                <span>
+            
+                    
+                    安全
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.1.1" data-path="../operations/security-overview.html">
+            
+                <a href="../operations/security-overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.2" data-path="../operations/security-user-auth.html">
+            
+                <a href="../operations/security-user-auth.html">
+            
+                    
+                    用户认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.3" data-path="../operations/auth-ldap.html">
+            
+                <a href="../operations/auth-ldap.html">
+            
+                    
+                    LDAP认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.4" data-path="../operations/password-provider.html">
+            
+                <a href="../operations/password-provider.html">
+            
+                    
+                    密码管理
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.5" data-path="../design/auth.html">
+            
+                <a href="../design/auth.html">
+            
+                    
+                    认证
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.1.6" data-path="../operations/tls-support.html">
+            
+                <a href="../operations/tls-support.html">
+            
+                    
+                    TLS加密支持
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2" >
+            
+                <span>
+            
+                    
+                    性能
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.2.1" data-path="../operations/basic-cluster-tuning.html">
+            
+                <a href="../operations/basic-cluster-tuning.html">
+            
+                    
+                    集群调优
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.2" data-path="../operations/segment-optimization.html">
+            
+                <a href="../operations/segment-optimization.html">
+            
+                    
+                    数据段文件优化
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.2.3" data-path="../operations/http-compression.html">
+            
+                <a href="../operations/http-compression.html">
+            
+                    
+                    HTTP压缩
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.3" data-path="../operations/api-reference.html">
+            
+                <a href="../operations/api-reference.html">
+            
+                    
+                    API手册
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.4" data-path="../operations/high-availability.html">
+            
+                <a href="../operations/high-availability.html">
+            
+                    
+                    高可用
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.5" data-path="../operations/rolling-updates.html">
+            
+                <a href="../operations/rolling-updates.html">
+            
+                    
+                    滚动版本升级
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.6" data-path="../operations/rule-configuration.html">
+            
+                <a href="../operations/rule-configuration.html">
+            
+                    
+                    数据留存规则
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.7" data-path="../operations/metrics.html">
+            
+                <a href="../operations/metrics.html">
+            
+                    
+                    应用指标
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.8" data-path="../operations/alerts.html">
+            
+                <a href="../operations/alerts.html">
+            
+                    
+                    告警
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.9" data-path="../operations/other-hadoop.html">
+            
+                <a href="../operations/other-hadoop.html">
+            
+                    
+                    Hadoop相关
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.8.2.10.1" data-path="../operations/management-uis.html">
+            
+                <a href="../operations/management-uis.html">
+            
+                    
+                    管理界面
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.2" data-path="../operations/dump-segment.html">
+            
+                <a href="../operations/dump-segment.html">
+            
+                    
+                    导出数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.3" data-path="../operations/reset-cluster.html">
+            
+                <a href="../operations/reset-cluster.html">
+            
+                    
+                    重置集群
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.4" data-path="../operations/insert-segment-to-db.html">
+            
+                <a href="../operations/insert-segment-to-db.html">
+            
+                    
+                    插入数据段文件
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.5" data-path="../operations/pull-deps.html">
+            
+                <a href="../operations/pull-deps.html">
+            
+                    
+                    pull-deps工具
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.6" data-path="../operations/deep-storage-migration.html">
+            
+                <a href="../operations/deep-storage-migration.html">
+            
+                    
+                    迁移深度存储
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.7" data-path="../operations/export-metadata.html">
+            
+                <a href="../operations/export-metadata.html">
+            
+                    
+                    导出元数据
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.8" data-path="../operations/metadata-migration.html">
+            
+                <a href="../operations/metadata-migration.html">
+            
+                    
+                    元数据迁移
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.8.2.10.9" data-path="../operations/use_sbt_to_build_fat_jar.html">
+            
+                <a href="../operations/use_sbt_to_build_fat_jar.html">
+            
+                    
+                    打包fat jar
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9" >
+            
+                <span>
+            
+                    
+                    Druid开发
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.9.1" data-path="../development/overview.html">
+            
+                <a href="../development/overview.html">
+            
+                    
+                    概览
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.2" data-path="../development/modules.html">
+            
+                <a href="../development/modules.html">
+            
+                    
+                    模块
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.3" data-path="../development/javascript.html">
+            
+                <a href="../development/javascript.html">
+            
+                    
+                    javascript
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.4" data-path="../development/build.html">
+            
+                <a href="../development/build.html">
+            
+                    
+                    构建
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.5" data-path="../development/versioning.html">
+            
+                <a href="../development/versioning.html">
+            
+                    
+                    版本
+            
+                </a>
+            
+
+            
+        </li>
+    
+        <li class="chapter " data-level="1.9.6" data-path="../development/experimental.html">
+            
+                <a href="../development/experimental.html">
+            
+                    
+                    实验功能
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+        <li class="chapter " data-level="1.10" >
+            
+                <span>
+            
+                    
+                    其他
+            
+                </span>
+            
+
+            
+            <ul class="articles">
+                
+    
+        <li class="chapter " data-level="1.10.1" data-path="../misc/papers-and-talks.html">
+            
+                <a href="../misc/papers-and-talks.html">
+            
+                    
+                    论文与演讲
+            
+                </a>
+            
+
+            
+        </li>
+    
+
+            </ul>
+            
+        </li>
+    
+
+    
+
+    <li class="divider"></li>
+
+    <li>
+        <a href="https://www.gitbook.com" target="blank" class="gitbook-link">
+            Published with GitBook
+        </a>
+    </li>
+</ul>
+
+
+                </nav>
+            
+        
+    </div>
+
+    <div class="book-body">
+        
+            <div class="body-inner">
+                
+                    
+
+<div class="book-header" role="navigation">
+    
+
+    <!-- Title -->
+    <h1>
+        <i class="fa fa-circle-o-notch fa-spin"></i>
+        <a href=".." >数据维度</a>
+    </h1>
+</div>
+
+
+
+
+                    <div class="page-wrapper" tabindex="-1" role="main">
+                        <div class="page-inner">
+                            
+<div id="book-search-results">
+    <div class="search-noresults">
+    
+                                <section class="normal markdown-section">
+                                
+                                <div id="anchor-navigation-ex-navbar"><i class="fa fa-navicon"></i><ul><ul><li><span class="title-icon "></span><a href="#dimensionspec"><b>1.1. </b>DimensionSpec</a></li><ul><li><span class="title-icon "></span><a href="#default-dimensionspec"><b>1.1.1. </b>Default DimensionSpec</a></li><li><span class="title-icon "></span><a href="#extraction-dimensionspec"><b>1.1.2. </b>Extraction DimensionSpec</a></li><li><span class="title-icon "></span><a href="#filtered-dimensionspecs"><b>1.1.3. </b>Filtered DimensionSpecs</a></li><li><span class="title-icon "></span><a href="#lookup-dimensionspecs"><b>1.1.4. </b>Lookup DimensionSpecs</a></li></ul><li><span class="title-icon "></span><a href="#output-types"><b>1.2. </b>Output Types</a></li><li><span class="title-icon "></span><a href="#extraction-functions"><b>1.3. </b>Extraction Functions</a></li><ul><li><span class="title-icon "></span><a href="#regular-expression-extraction-function"><b>1.3.1. </b>Regular Expression Extraction Function</a></li><li><span class="title-icon "></span><a href="#partial-extraction-function"><b>1.3.2. </b>Partial Extraction Function</a></li><li><span class="title-icon "></span><a href="#search-query-extraction-function"><b>1.3.3. </b>Search query extraction function</a></li><li><span class="title-icon "></span><a href="#substring-extraction-function"><b>1.3.4. </b>Substring Extraction Function</a></li><li><span class="title-icon "></span><a href="#strlen-extraction-function"><b>1.3.5. </b>Strlen Extraction Function</a></li><li><span class="title-icon "></span><a href="#time-format-extraction-function"><b>1.3.6. </b>Time Format Extraction Function</a></li><li><span class="title-icon "></span><a href="#time-parsing-extraction-function"><b>1.3.7. </b>Time Parsing Extraction Function</a></li><li><span class="title-icon "></span><a href="#javascript-extraction-function"><b>1.3.8. </b>JavaScript Extraction Function</a></li><li><span class="title-icon "></span><a href="#registered-lookup-extraction-function"><b>1.3.9. </b>Registered lookup extraction function</a></li><li><span class="title-icon "></span><a href="#inline-lookup-extraction-function"><b>1.3.10. </b>Inline lookup extraction function</a></li><li><span class="title-icon "></span><a href="#cascade-extraction-function"><b>1.3.11. </b>Cascade Extraction Function</a></li><li><span class="title-icon "></span><a href="#string-format-extraction-function"><b>1.3.12. </b>String Format Extraction Function</a></li><li><span class="title-icon "></span><a href="#upper-and-lower-extraction-functions"><b>1.3.13. </b>Upper and Lower extraction functions.</a></li><li><span class="title-icon "></span><a href="#bucket-extraction-function"><b>1.3.14. </b>Bucket Extraction Function</a></li></ul></ul></ul></div><a href="#" id="anchorNavigationExGoTop"><i class="fa fa-arrow-up"></i></a><!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one
+  ~ or more contributor license agreements.  See the NOTICE file
+  ~ distributed with this work for additional information
+  ~ regarding copyright ownership.  The ASF licenses this file
+  ~ to you under the Apache License, Version 2.0 (the
+  ~ "License"); you may not use this file except in compliance
+  ~ with the License.  You may obtain a copy of the License at
+  ~
+  ~   http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing,
+  ~ software distributed under the License is distributed on an
+  ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  ~ KIND, either express or implied.  See the License for the
+  ~ specific language governing permissions and limitations
+  ~ under the License.
+  -->
+<blockquote>
+<p>Apache Druid supports two query languages: <a href="sql.html">Druid SQL</a> and <a href="querying.html">native queries</a>.
+This document describes the native
+language. For information about functions available in SQL, refer to the
+<a href="sql.html#scalar-functions">SQL documentation</a>.</p>
+</blockquote>
+<p>The following JSON fields can be used in a query to operate on dimension values.</p>
+<h2 id="dimensionspec"><a name="dimensionspec" class="anchor-navigation-ex-anchor" href="#dimensionspec"><i class="fa fa-link" aria-hidden="true"></i></a>1.1. DimensionSpec</h2>
+<p><code>DimensionSpec</code>s define how dimension values get transformed prior to aggregation.</p>
+<h3 id="default-dimensionspec"><a name="default-dimensionspec" class="anchor-navigation-ex-anchor" href="#default-dimensionspec"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.1. Default DimensionSpec</h3>
+<p>Returns dimension values as is and optionally renames the dimension.</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;default&quot;</span>,
+  <span class="hljs-string">&quot;dimension&quot;</span> : &lt;dimension&gt;,
+  &quot;outputName&quot;: &lt;output_name&gt;,
+  &quot;outputType&quot;: &lt;&quot;STRING&quot;|&quot;LONG&quot;|&quot;FLOAT&quot;&gt;
+}
+</code></pre>
+<p>When specifying a DimensionSpec on a numeric column, the user should include the type of the column in the <code>outputType</code> field. If left unspecified, the <code>outputType</code> defaults to STRING.</p>
+<p>Please refer to the <a href="#output-types">Output Types</a> section for more details.</p>
+<h3 id="extraction-dimensionspec"><a name="extraction-dimensionspec" class="anchor-navigation-ex-anchor" href="#extraction-dimensionspec"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.2. Extraction DimensionSpec</h3>
+<p>Returns dimension values transformed using the given <a href="#extraction-functions">extraction function</a>.</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;extraction&quot;</span>,
+  <span class="hljs-string">&quot;dimension&quot;</span> : &lt;dimension&gt;,
+  &quot;outputName&quot; :  &lt;output_name&gt;,
+  &quot;outputType&quot;: &lt;&quot;STRING&quot;|&quot;LONG&quot;|&quot;FLOAT&quot;&gt;,
+  &quot;extractionFn&quot; : &lt;extraction_function&gt;
+}
+</code></pre>
+<p><code>outputType</code> may also be specified in an ExtractionDimensionSpec to apply type conversion to results before merging. If left unspecified, the <code>outputType</code> defaults to STRING.</p>
+<p>Please refer to the <a href="#output-types">Output Types</a> section for more details.</p>
+<h3 id="filtered-dimensionspecs"><a name="filtered-dimensionspecs" class="anchor-navigation-ex-anchor" href="#filtered-dimensionspecs"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.3. Filtered DimensionSpecs</h3>
+<p>These are only useful for multi-value dimensions. If you have a row in Apache Druid that has a multi-value dimension with values [&quot;v1&quot;, &quot;v2&quot;, &quot;v3&quot;] and you send a groupBy/topN query grouping by that dimension with <a href="filters.html">query filter</a> for value &quot;v1&quot;. In the response you will get 3 rows containing &quot;v1&quot;, &quot;v2&quot; and &quot;v3&quot;. This behavior might be unintuitive for some use cases.</p>
+<p>It happens because &quot;query filter&quot; is internally used on the bitmaps and only used to match the row to be included in the query result processing. With multi-value dimensions, &quot;query filter&quot; behaves like a contains check, which will match the row with dimension value [&quot;v1&quot;, &quot;v2&quot;, &quot;v3&quot;]. Please see the section on &quot;Multi-value columns&quot; in <a href="../design/segments.html">segment</a> for more details.
+Then groupBy/topN processing pipeline &quot;explodes&quot; all multi-value dimensions resulting 3 rows for &quot;v1&quot;, &quot;v2&quot; and &quot;v3&quot; each.</p>
+<p>In addition to &quot;query filter&quot; which efficiently selects the rows to be processed, you can use the filtered dimension spec to filter for specific values within the values of a multi-value dimension. These dimensionSpecs take a delegate DimensionSpec and a filtering criteria. From the &quot;exploded&quot; rows, only rows matching the given filtering criteria are returned in the query result.</p>
+<p>The following filtered dimension spec acts as a whitelist or blacklist for values as per the &quot;isWhitelist&quot; attribute value.</p>
+<pre><code class="lang-json">{ <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;listFiltered&quot;</span>, <span class="hljs-string">&quot;delegate&quot;</span> : &lt;dimensionSpec&gt;, &quot;values&quot;: &lt;array of strings&gt;, &quot;isWhitelist&quot;: &lt;optional attribute for true/false, default is true&gt; }
+</code></pre>
+<p>Following filtered dimension spec retains only the values matching regex. Note that <code>listFiltered</code> is faster than this and one should use that for whitelist or blacklist use case.</p>
+<pre><code class="lang-json">{ <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;regexFiltered&quot;</span>, <span class="hljs-string">&quot;delegate&quot;</span> : &lt;dimensionSpec&gt;, &quot;pattern&quot;: &lt;java regex pattern&gt; }
+</code></pre>
+<p>Following filtered dimension spec retains only the values starting with the same prefix.</p>
+<pre><code class="lang-json">{ <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;prefixFiltered&quot;</span>, <span class="hljs-string">&quot;delegate&quot;</span> : &lt;dimensionSpec&gt;, &quot;prefix&quot;: &lt;prefix string&gt; }
+</code></pre>
+<p>For more details and examples, see <a href="multi-value-dimensions.html">multi-value dimensions</a>.</p>
+<h3 id="lookup-dimensionspecs"><a name="lookup-dimensionspecs" class="anchor-navigation-ex-anchor" href="#lookup-dimensionspecs"><i class="fa fa-link" aria-hidden="true"></i></a>1.1.4. Lookup DimensionSpecs</h3>
+<blockquote>
+<p>Lookups are an <a href="../development/experimental.html">experimental</a> feature.</p>
+</blockquote>
+<p>Lookup DimensionSpecs can be used to define directly a lookup implementation as dimension spec.
+Generally speaking there is two different kind of lookups implementations.
+The first kind is passed at the query time like <code>map</code> implementation.</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span>:<span class="hljs-string">&quot;lookup&quot;</span>,
+  <span class="hljs-string">&quot;dimension&quot;</span>:<span class="hljs-string">&quot;dimensionName&quot;</span>,
+  <span class="hljs-string">&quot;outputName&quot;</span>:<span class="hljs-string">&quot;dimensionOutputName&quot;</span>,
+  <span class="hljs-string">&quot;replaceMissingValueWith&quot;</span>:<span class="hljs-string">&quot;missing_value&quot;</span>,
+  <span class="hljs-string">&quot;retainMissingValue&quot;</span>:<span class="hljs-literal">false</span>,
+  <span class="hljs-string">&quot;lookup&quot;</span>:{<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;map&quot;</span>, <span class="hljs-string">&quot;map&quot;</span>:{<span class="hljs-string">&quot;key&quot;</span>:<span class="hljs-string">&quot;value&quot;</span>}, <span class="hljs-string">&quot;isOneToOne&quot;</span>:<span class="hljs-literal">false</span>}
+}
+</code></pre>
+<p>A property of <code>retainMissingValue</code> and <code>replaceMissingValueWith</code> can be specified at query time to hint how to handle missing values. Setting <code>replaceMissingValueWith</code> to <code>&quot;&quot;</code> has the same effect as setting it to <code>null</code> or omitting the property.
+Setting <code>retainMissingValue</code> to true will use the dimension&apos;s original value if it is not found in the lookup.
+The default values are <code>replaceMissingValueWith = null</code> and <code>retainMissingValue = false</code> which causes missing values to be treated as missing.</p>
+<p>It is illegal to set <code>retainMissingValue = true</code> and also specify a <code>replaceMissingValueWith</code>.</p>
+<p>A property <code>optimize</code> can be supplied to allow optimization of lookup based extraction filter (by default <code>optimize = true</code>).</p>
+<p>The second kind where it is not possible to pass at query time due to their size, will be based on an external lookup table or resource that is already registered via configuration file or/and Coordinator.</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span>:<span class="hljs-string">&quot;lookup&quot;</span>,
+  <span class="hljs-string">&quot;dimension&quot;</span>:<span class="hljs-string">&quot;dimensionName&quot;</span>,
+  <span class="hljs-string">&quot;outputName&quot;</span>:<span class="hljs-string">&quot;dimensionOutputName&quot;</span>,
+  <span class="hljs-string">&quot;name&quot;</span>:<span class="hljs-string">&quot;lookupName&quot;</span>
+}
+</code></pre>
+<h2 id="output-types"><a name="output-types" class="anchor-navigation-ex-anchor" href="#output-types"><i class="fa fa-link" aria-hidden="true"></i></a>1.2. Output Types</h2>
+<p>The dimension specs provide an option to specify the output type of a column&apos;s values. This is necessary as it is possible for a column with given name to have different value types in different segments; results will be converted to the type specified by <code>outputType</code> before merging.</p>
+<p>Note that not all use cases for DimensionSpec currently support <code>outputType</code>, the table below shows which use cases support this option:</p>
+<table>
+<thead>
+<tr>
+<th>Query Type</th>
+<th>Supported?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GroupBy (v1)</td>
+<td>no</td>
+</tr>
+<tr>
+<td>GroupBy (v2)</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>TopN</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Search</td>
+<td>no</td>
+</tr>
+<tr>
+<td>Select</td>
+<td>no</td>
+</tr>
+<tr>
+<td>Cardinality Aggregator</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<h2 id="extraction-functions"><a name="extraction-functions" class="anchor-navigation-ex-anchor" href="#extraction-functions"><i class="fa fa-link" aria-hidden="true"></i></a>1.3. Extraction Functions</h2>
+<p>Extraction functions define the transformation applied to each dimension value.</p>
+<p>Transformations can be applied to both regular (string) dimensions, as well
+as the special <code>__time</code> dimension, which represents the current time bucket
+according to the query <a href="granularities.html">aggregation granularity</a>.</p>
+<p><strong>Note</strong>: for functions taking string values (such as regular expressions),
+<code>__time</code> dimension values will be formatted in <a href="https://en.wikipedia.org/wiki/ISO_8601" target="_blank">ISO-8601 format</a>
+before getting passed to the extraction function.</p>
+<h3 id="regular-expression-extraction-function"><a name="regular-expression-extraction-function" class="anchor-navigation-ex-anchor" href="#regular-expression-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.1. Regular Expression Extraction Function</h3>
+<p>Returns the first matching group for the given regular expression.
+If there is no match, it returns the dimension value as is.</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;regex&quot;</span>,
+  <span class="hljs-string">&quot;expr&quot;</span> : &lt;regular_expression&gt;,
+  &quot;index&quot; : &lt;group to extract, default 1&gt;
+  &quot;replaceMissingValue&quot; : true,
+  &quot;replaceMissingValueWith&quot; : &quot;foobar&quot;
+}
+</code></pre>
+<p>For example, using <code>&quot;expr&quot; : &quot;(\\w\\w\\w).*&quot;</code> will transform
+<code>&apos;Monday&apos;</code>, <code>&apos;Tuesday&apos;</code>, <code>&apos;Wednesday&apos;</code> into <code>&apos;Mon&apos;</code>, <code>&apos;Tue&apos;</code>, <code>&apos;Wed&apos;</code>.</p>
+<p>If &quot;index&quot; is set, it will control which group from the match to extract. Index zero extracts the string matching the
+entire pattern.</p>
+<p>If the <code>replaceMissingValue</code> property is true, the extraction function will transform dimension values that do not match the regex pattern to a user-specified String. Default value is <code>false</code>.</p>
+<p>The <code>replaceMissingValueWith</code> property sets the String that unmatched dimension values will be replaced with, if <code>replaceMissingValue</code> is true. If <code>replaceMissingValueWith</code> is not specified, unmatched dimension values will be replaced with nulls.</p>
+<p>For example, if <code>expr</code> is <code>&quot;(a\w+)&quot;</code> in the example JSON above, a regex that matches words starting with the letter <code>a</code>, the extraction function will convert a dimension value like <code>banana</code> to <code>foobar</code>.</p>
+<h3 id="partial-extraction-function"><a name="partial-extraction-function" class="anchor-navigation-ex-anchor" href="#partial-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.2. Partial Extraction Function</h3>
+<p>Returns the dimension value unchanged if the regular expression matches, otherwise returns null.</p>
+<pre><code class="lang-json">{ <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;partial&quot;</span>, <span class="hljs-string">&quot;expr&quot;</span> : <span class="xml"><span class="hljs-tag">&lt;<span class="hljs-name">regular_expression</span>&gt;</span> }
+</span></code></pre>
+<h3 id="search-query-extraction-function"><a name="search-query-extraction-function" class="anchor-navigation-ex-anchor" href="#search-query-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.3. Search query extraction function</h3>
+<p>Returns the dimension value unchanged if the given <a href="searchquery.html#searchqueryspec"><code>SearchQuerySpec</code></a>
+matches, otherwise returns null.</p>
+<pre><code class="lang-json">{ <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;searchQuery&quot;</span>, <span class="hljs-string">&quot;query&quot;</span> : <span class="xml"><span class="hljs-tag">&lt;<span class="hljs-name">search_query_spec</span>&gt;</span> }
+</span></code></pre>
+<h3 id="substring-extraction-function"><a name="substring-extraction-function" class="anchor-navigation-ex-anchor" href="#substring-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.4. Substring Extraction Function</h3>
+<p>Returns a substring of the dimension value starting from the supplied index and of the desired length. Both index
+and length are measured in the number of Unicode code units present in the string as if it were encoded in UTF-16.
+Note that some Unicode characters may be represented by two code units. This is the same behavior as the Java String
+class&apos;s &quot;substring&quot; method.</p>
+<p>If the desired length exceeds the length of the dimension value, the remainder of the string starting at index will
+be returned. If index is greater than the length of the dimension value, null will be returned.</p>
+<pre><code class="lang-json">{ <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;substring&quot;</span>, <span class="hljs-string">&quot;index&quot;</span> : <span class="hljs-number">1</span>, <span class="hljs-string">&quot;length&quot;</span> : <span class="hljs-number">4</span> }
+</code></pre>
+<p>The length may be omitted for substring to return the remainder of the dimension value starting from index,
+or null if index greater than the length of the dimension value.</p>
+<pre><code class="lang-json">{ <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;substring&quot;</span>, <span class="hljs-string">&quot;index&quot;</span> : <span class="hljs-number">3</span> }
+</code></pre>
+<h3 id="strlen-extraction-function"><a name="strlen-extraction-function" class="anchor-navigation-ex-anchor" href="#strlen-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.5. Strlen Extraction Function</h3>
+<p>Returns the length of dimension values, as measured in the number of Unicode code units present in the string as if it
+were encoded in UTF-16. Note that some Unicode characters may be represented by two code units. This is the same
+behavior as the Java String class&apos;s &quot;length&quot; method.</p>
+<p>null strings are considered as having zero length.</p>
+<pre><code class="lang-json">{ <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;strlen&quot;</span> }
+</code></pre>
+<h3 id="time-format-extraction-function"><a name="time-format-extraction-function" class="anchor-navigation-ex-anchor" href="#time-format-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.6. Time Format Extraction Function</h3>
+<p>Returns the dimension value formatted according to the given format string, time zone, and locale.</p>
+<p>For <code>__time</code> dimension values, this formats the time value bucketed by the
+<a href="granularities.html">aggregation granularity</a></p>
+<p>For a regular dimension, it assumes the string is formatted in
+<a href="https://en.wikipedia.org/wiki/ISO_8601" target="_blank">ISO-8601 date and time format</a>.</p>
+<ul>
+<li><code>format</code> : date time format for the resulting dimension value, in <a href="http://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html" target="_blank">Joda Time DateTimeFormat</a>, or null to use the default ISO8601 format.</li>
+<li><code>locale</code> : locale (language and country) to use, given as a <a href="http://www.oracle.com/technetwork/java/javase/java8locales-2095355.html#util-text" target="_blank">IETF BCP 47 language tag</a>, e.g. <code>en-US</code>, <code>en-GB</code>, <code>fr-FR</code>, <code>fr-CA</code>, etc.</li>
+<li><code>timeZone</code> : time zone to use in <a href="http://en.wikipedia.org/wiki/List_of_tz_database_time_zones" target="_blank">IANA tz database format</a>, e.g. <code>Europe/Berlin</code> (this can possibly be different than the aggregation time-zone)</li>
+<li><code>granularity</code> : <a href="granularities.html">granularity</a> to apply before formatting, or omit to not apply any granularity.</li>
+<li><code>asMillis</code> : boolean value, set to true to treat input strings as millis rather than ISO8601 strings. Additionally, if <code>format</code> is null or not specified, output will be in millis rather than ISO8601.</li>
+</ul>
+<pre><code class="lang-json">{ <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;timeFormat&quot;</span>,
+  <span class="hljs-string">&quot;format&quot;</span> : &lt;output_format&gt; (optional),
+  &quot;timeZone&quot; : &lt;time_zone&gt; (optional, default UTC),
+  &quot;locale&quot; : &lt;locale&gt; (optional, default current locale),
+  &quot;granularity&quot; : &lt;granularity&gt; (optional, default none) },
+  &quot;asMillis&quot; : &lt;true or false&gt; (optional) }
+</code></pre>
+<p>For example, the following dimension spec returns the day of the week for Montr&#xE9;al in French:</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;extraction&quot;</span>,
+  <span class="hljs-string">&quot;dimension&quot;</span> : <span class="hljs-string">&quot;__time&quot;</span>,
+  <span class="hljs-string">&quot;outputName&quot;</span> :  <span class="hljs-string">&quot;dayOfWeek&quot;</span>,
+  <span class="hljs-string">&quot;extractionFn&quot;</span> : {
+    <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;timeFormat&quot;</span>,
+    <span class="hljs-string">&quot;format&quot;</span> : <span class="hljs-string">&quot;EEEE&quot;</span>,
+    <span class="hljs-string">&quot;timeZone&quot;</span> : <span class="hljs-string">&quot;America/Montreal&quot;</span>,
+    <span class="hljs-string">&quot;locale&quot;</span> : <span class="hljs-string">&quot;fr&quot;</span>
+  }
+}
+</code></pre>
+<h3 id="time-parsing-extraction-function"><a name="time-parsing-extraction-function" class="anchor-navigation-ex-anchor" href="#time-parsing-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.7. Time Parsing Extraction Function</h3>
+<p>Parses dimension values as timestamps using the given input format,
+and returns them formatted using the given output format.</p>
+<p>Note, if you are working with the <code>__time</code> dimension, you should consider using the
+<a href="#time-format-extraction-function">time extraction function instead</a> instead,
+which works on time value directly as opposed to string values.</p>
+<p>If &quot;joda&quot; is true, time formats are described in the <a href="http://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html" target="_blank">Joda DateTimeFormat documentation</a>.
+If &quot;joda&quot; is false (or unspecified) then formats are described in the <a href="http://icu-project.org/apiref/icu4j/com/ibm/icu/text/SimpleDateFormat.html" target="_blank">SimpleDateFormat documentation</a>.
+In general, we recommend setting &quot;joda&quot; to true since Joda format strings are more common in Druid APIs and since Joda handles certain edge cases (like weeks and weekyears near
+the start and end of calendar years) in a more ISO8601 compliant way.</p>
+<p>If a value cannot be parsed using the provided timeFormat, it will be returned as-is.</p>
+<pre><code class="lang-json">{ <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;time&quot;</span>,
+  <span class="hljs-string">&quot;timeFormat&quot;</span> : &lt;input_format&gt;,
+  &quot;resultFormat&quot; : &lt;output_format&gt;,
+  &quot;joda&quot; : &lt;true, false&gt; }
+</code></pre>
+<h3 id="javascript-extraction-function"><a name="javascript-extraction-function" class="anchor-navigation-ex-anchor" href="#javascript-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.8. JavaScript Extraction Function</h3>
+<p>Returns the dimension value, as transformed by the given JavaScript function.</p>
+<p>For regular dimensions, the input value is passed as a string.</p>
+<p>For the <code>__time</code> dimension, the input value is passed as a number
+representing the number of milliseconds since January 1, 1970 UTC.</p>
+<p>Example for a regular dimension</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;javascript&quot;</span>,
+  <span class="hljs-string">&quot;function&quot;</span> : <span class="hljs-string">&quot;function(str) { return str.substr(0, 3); }&quot;</span>
+}
+</code></pre>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;javascript&quot;</span>,
+  <span class="hljs-string">&quot;function&quot;</span> : <span class="hljs-string">&quot;function(str) { return str + &apos;!!!&apos;; }&quot;</span>,
+  <span class="hljs-string">&quot;injective&quot;</span> : <span class="hljs-literal">true</span>
+}
+</code></pre>
+<p>A property of <code>injective</code> specifies if the JavaScript function preserves uniqueness. The default value is <code>false</code> meaning uniqueness is not preserved</p>
+<p>Example for the <code>__time</code> dimension:</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;javascript&quot;</span>,
+  <span class="hljs-string">&quot;function&quot;</span> : <span class="hljs-string">&quot;function(t) { return &apos;Second &apos; + Math.floor((t % 60000) / 1000); }&quot;</span>
+}
+</code></pre>
+<blockquote>
+<p>JavaScript-based functionality is disabled by default. Please refer to the Druid <a href="../development/javascript.html">JavaScript programming guide</a> for guidelines about using Druid&apos;s JavaScript functionality, including instructions on how to enable it.</p>
+</blockquote>
+<h3 id="registered-lookup-extraction-function"><a name="registered-lookup-extraction-function" class="anchor-navigation-ex-anchor" href="#registered-lookup-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.9. Registered lookup extraction function</h3>
+<p>Lookups are a concept in Druid where dimension values are (optionally) replaced with new values.
+For more documentation on using lookups, please see <a href="lookups.html">Lookups</a>.
+The &quot;registeredLookup&quot; extraction function lets you refer to a lookup that has been registered in the cluster-wide
+configuration.</p>
+<p>An example:</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span>:<span class="hljs-string">&quot;registeredLookup&quot;</span>,
+  <span class="hljs-string">&quot;lookup&quot;</span>:<span class="hljs-string">&quot;some_lookup_name&quot;</span>,
+  <span class="hljs-string">&quot;retainMissingValue&quot;</span>:<span class="hljs-literal">true</span>
+}
+</code></pre>
+<p>A property of <code>retainMissingValue</code> and <code>replaceMissingValueWith</code> can be specified at query time to hint how to handle
+missing values. Setting <code>replaceMissingValueWith</code> to <code>&quot;&quot;</code> has the same effect as setting it to <code>null</code> or omitting the
+property. Setting <code>retainMissingValue</code> to true will use the dimension&apos;s original value if it is not found in the lookup.
+The default values are <code>replaceMissingValueWith = null</code> and <code>retainMissingValue = false</code> which causes missing values to
+be treated as missing.</p>
+<p>It is illegal to set <code>retainMissingValue = true</code> and also specify a <code>replaceMissingValueWith</code>.</p>
+<p>A property of <code>injective</code> can override the lookup&apos;s own sense of whether or not it is
+<a href="lookups.html#query-execution">injective</a>. If left unspecified, Druid will use the registered cluster-wide lookup
+configuration.</p>
+<p>A property <code>optimize</code> can be supplied to allow optimization of lookup based extraction filter (by default <code>optimize = true</code>).
+The optimization layer will run on the Broker and it will rewrite the extraction filter as clause of selector filters.
+For instance the following filter</p>
+<pre><code class="lang-json">{
+    <span class="hljs-string">&quot;filter&quot;</span>: {
+        <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;selector&quot;</span>,
+        <span class="hljs-string">&quot;dimension&quot;</span>: <span class="hljs-string">&quot;product&quot;</span>,
+        <span class="hljs-string">&quot;value&quot;</span>: <span class="hljs-string">&quot;bar_1&quot;</span>,
+        <span class="hljs-string">&quot;extractionFn&quot;</span>: {
+            <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;registeredLookup&quot;</span>,
+            <span class="hljs-string">&quot;optimize&quot;</span>: <span class="hljs-literal">true</span>,
+            <span class="hljs-string">&quot;lookup&quot;</span>: <span class="hljs-string">&quot;some_lookup_name&quot;</span>
+        }
+    }
+}
+</code></pre>
+<p>will be rewritten as the following simpler query, assuming a lookup that maps &quot;product_1&quot; and &quot;product_3&quot; to the value
+&quot;bar_1&quot;:</p>
+<pre><code class="lang-json">{
+   <span class="hljs-string">&quot;filter&quot;</span>:{
+      <span class="hljs-string">&quot;type&quot;</span>:<span class="hljs-string">&quot;or&quot;</span>,
+      <span class="hljs-string">&quot;fields&quot;</span>:[
+         {
+            <span class="hljs-string">&quot;filter&quot;</span>:{
+               <span class="hljs-string">&quot;type&quot;</span>:<span class="hljs-string">&quot;selector&quot;</span>,
+               <span class="hljs-string">&quot;dimension&quot;</span>:<span class="hljs-string">&quot;product&quot;</span>,
+               <span class="hljs-string">&quot;value&quot;</span>:<span class="hljs-string">&quot;product_1&quot;</span>
+            }
+         },
+         {
+            <span class="hljs-string">&quot;filter&quot;</span>:{
+               <span class="hljs-string">&quot;type&quot;</span>:<span class="hljs-string">&quot;selector&quot;</span>,
+               <span class="hljs-string">&quot;dimension&quot;</span>:<span class="hljs-string">&quot;product&quot;</span>,
+               <span class="hljs-string">&quot;value&quot;</span>:<span class="hljs-string">&quot;product_3&quot;</span>
+            }
+         }
+      ]
+   }
+}
+</code></pre>
+<p>A null dimension value can be mapped to a specific value by specifying the empty string as the key in your lookup file.
+This allows distinguishing between a null dimension and a lookup resulting in a null.
+For example, specifying <code>{&quot;&quot;:&quot;bar&quot;,&quot;bat&quot;:&quot;baz&quot;}</code> with dimension values <code>[null, &quot;foo&quot;, &quot;bat&quot;]</code> and replacing missing values with <code>&quot;oof&quot;</code> will yield results of <code>[&quot;bar&quot;, &quot;oof&quot;, &quot;baz&quot;]</code>.
+Omitting the empty string key will cause the missing value to take over. For example, specifying <code>{&quot;bat&quot;:&quot;baz&quot;}</code> with dimension values <code>[null, &quot;foo&quot;, &quot;bat&quot;]</code> and replacing missing values with <code>&quot;oof&quot;</code> will yield results of <code>[&quot;oof&quot;, &quot;oof&quot;, &quot;baz&quot;]</code>.</p>
+<h3 id="inline-lookup-extraction-function"><a name="inline-lookup-extraction-function" class="anchor-navigation-ex-anchor" href="#inline-lookup-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.10. Inline lookup extraction function</h3>
+<p>Lookups are a concept in Druid where dimension values are (optionally) replaced with new values.
+For more documentation on using lookups, please see <a href="lookups.html">Lookups</a>.
+The &quot;lookup&quot; extraction function lets you specify an inline lookup map without registering one in the cluster-wide
+configuration.</p>
+<p>Examples:</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span>:<span class="hljs-string">&quot;lookup&quot;</span>,
+  <span class="hljs-string">&quot;lookup&quot;</span>:{
+    <span class="hljs-string">&quot;type&quot;</span>:<span class="hljs-string">&quot;map&quot;</span>,
+    <span class="hljs-string">&quot;map&quot;</span>:{<span class="hljs-string">&quot;foo&quot;</span>:<span class="hljs-string">&quot;bar&quot;</span>, <span class="hljs-string">&quot;baz&quot;</span>:<span class="hljs-string">&quot;bat&quot;</span>}
+  },
+  <span class="hljs-string">&quot;retainMissingValue&quot;</span>:<span class="hljs-literal">true</span>,
+  <span class="hljs-string">&quot;injective&quot;</span>:<span class="hljs-literal">true</span>
+}
+</code></pre>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span>:<span class="hljs-string">&quot;lookup&quot;</span>,
+  <span class="hljs-string">&quot;lookup&quot;</span>:{
+    <span class="hljs-string">&quot;type&quot;</span>:<span class="hljs-string">&quot;map&quot;</span>,
+    <span class="hljs-string">&quot;map&quot;</span>:{<span class="hljs-string">&quot;foo&quot;</span>:<span class="hljs-string">&quot;bar&quot;</span>, <span class="hljs-string">&quot;baz&quot;</span>:<span class="hljs-string">&quot;bat&quot;</span>}
+  },
+  <span class="hljs-string">&quot;retainMissingValue&quot;</span>:<span class="hljs-literal">false</span>,
+  <span class="hljs-string">&quot;injective&quot;</span>:<span class="hljs-literal">false</span>,
+  <span class="hljs-string">&quot;replaceMissingValueWith&quot;</span>:<span class="hljs-string">&quot;MISSING&quot;</span>
+}
+</code></pre>
+<p>The inline lookup should be of type <code>map</code>.</p>
+<p>The properties <code>retainMissingValue</code>, <code>replaceMissingValueWith</code>, <code>injective</code>, and <code>optimize</code> behave similarly to the
+<a href="#registered-lookup-extraction-function">registered lookup extraction function</a>.</p>
+<h3 id="cascade-extraction-function"><a name="cascade-extraction-function" class="anchor-navigation-ex-anchor" href="#cascade-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.11. Cascade Extraction Function</h3>
+<p>Provides chained execution of extraction functions.</p>
+<p>A property of <code>extractionFns</code> contains an array of any extraction functions, which is executed in the array index order.</p>
+<p>Example for chaining <a href="#regular-expression-extraction-function">regular expression extraction function</a>, <a href="#javascript-extraction-function">JavaScript extraction function</a>, and <a href="#substring-extraction-function">substring extraction function</a> is as followings.</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;cascade&quot;</span>,
+  <span class="hljs-string">&quot;extractionFns&quot;</span>: [
+    {
+      <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;regex&quot;</span>,
+      <span class="hljs-string">&quot;expr&quot;</span> : <span class="hljs-string">&quot;/([^/]+)/&quot;</span>,
+      <span class="hljs-string">&quot;replaceMissingValue&quot;</span>: <span class="hljs-literal">false</span>,
+      <span class="hljs-string">&quot;replaceMissingValueWith&quot;</span>: <span class="hljs-literal">null</span>
+    },
+    {
+      <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;javascript&quot;</span>,
+      <span class="hljs-string">&quot;function&quot;</span> : <span class="hljs-string">&quot;function(str) { return \&quot;the \&quot;.concat(str) }&quot;</span>
+    },
+    {
+      <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;substring&quot;</span>,
+      <span class="hljs-string">&quot;index&quot;</span> : <span class="hljs-number">0</span>, <span class="hljs-string">&quot;length&quot;</span> : <span class="hljs-number">7</span>
+    }
+  ]
+}
+</code></pre>
+<p>It will transform dimension values with specified extraction functions in the order named.
+For example, <code>&apos;/druid/prod/historical&apos;</code> is transformed to <code>&apos;the dru&apos;</code> as regular expression extraction function first transforms it to <code>&apos;druid&apos;</code> and then, JavaScript extraction function transforms it to <code>&apos;the druid&apos;</code>, and lastly, substring extraction function transforms it to <code>&apos;the dru&apos;</code>.</p>
+<h3 id="string-format-extraction-function"><a name="string-format-extraction-function" class="anchor-navigation-ex-anchor" href="#string-format-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.12. String Format Extraction Function</h3>
+<p>Returns the dimension value formatted according to the given format string.</p>
+<pre><code class="lang-json">{ <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;stringFormat&quot;</span>, <span class="hljs-string">&quot;format&quot;</span> : &lt;sprintf_expression&gt;, &quot;nullHandling&quot; : &lt;optional attribute for handling null value&gt; }
+</code></pre>
+<p>For example if you want to concat &quot;[&quot; and &quot;]&quot; before and after the actual dimension value, you need to specify &quot;[%s]&quot; as format string. &quot;nullHandling&quot; can be one of <code>nullString</code>, <code>emptyString</code> or <code>returnNull</code>. With &quot;[%s]&quot; format, each configuration will result <code>[null]</code>, <code>[]</code>, <code>null</code>. Default is <code>nullString</code>.</p>
+<h3 id="upper-and-lower-extraction-functions"><a name="upper-and-lower-extraction-functions" class="anchor-navigation-ex-anchor" href="#upper-and-lower-extraction-functions"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.13. Upper and Lower extraction functions.</h3>
+<p>Returns the dimension values as all upper case or lower case.
+Optionally user can specify the language to use in order to perform upper or lower transformation</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;upper&quot;</span>,
+  <span class="hljs-string">&quot;locale&quot;</span>:<span class="hljs-string">&quot;fr&quot;</span>
+}
+</code></pre>
+<p>or without setting &quot;locale&quot; (in this case, the current value of the default locale for this instance of the Java Virtual Machine.)</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;lower&quot;</span>
+}
+</code></pre>
+<h3 id="bucket-extraction-function"><a name="bucket-extraction-function" class="anchor-navigation-ex-anchor" href="#bucket-extraction-function"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.14. Bucket Extraction Function</h3>
+<p>Bucket extraction function is used to bucket numerical values in each range of the given size by converting them to the same base value. Non numeric values are converted to null.</p>
+<ul>
+<li><code>size</code> : the size of the buckets (optional, default 1)</li>
+<li><code>offset</code> : the offset for the buckets (optional, default 0)</li>
+</ul>
+<p>The following extraction function creates buckets of 5 starting from 2. In this case, values in the range of [2, 7) will be converted to 2, values in [7, 12) will be converted to 7, etc.</p>
+<pre><code class="lang-json">{
+  <span class="hljs-string">&quot;type&quot;</span> : <span class="hljs-string">&quot;bucket&quot;</span>,
+  <span class="hljs-string">&quot;size&quot;</span> : <span class="hljs-number">5</span>,
+  <span class="hljs-string">&quot;offset&quot;</span> : <span class="hljs-number">2</span>
+}
+</code></pre>
+<footer class="page-footer"><span class="copyright">Copyright <a target="_blank" href="https://druid.org.cn">druid.org.cn</a> 2021 .&#x672C;&#x6587;&#x7FFB;&#x8BD1;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/querying/dimensionspecs.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
+2021-03-09 21:27:36
+</span></footer>
+                                
+                                </section>
+                            
+    </div>
+    <div class="search-results">
+        <div class="has-results">
+            
+            <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+            <ul class="search-results-list"></ul>
+            
+        </div>
+        <div class="no-results">
+            
+            <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+            
+        </div>
+    </div>
+</div>
+
+                        </div>
+                    </div>
+                
+            </div>
+
+            
+                
+                <a href="granularities.html" class="navigation navigation-prev " aria-label="Previous page: 时间粒度">
+                    <i class="fa fa-angle-left"></i>
+                </a>
+                
+                
+                <a href="aggregations.html" class="navigation navigation-next " aria-label="Next page: 聚合">
+                    <i class="fa fa-angle-right"></i>
+                </a>
+                
+            
+        
+    </div>
+
+    <script>
+        var gitbook = gitbook || [];
+        gitbook.push(function() {
+            gitbook.page.hasChanged({"page":{"id":"dimensionspecs","title":"数据维度","sidebar_label":"Dimensions","level":"1.6.6.3","depth":3,"next":{"title":"聚合","level":"1.6.6.4","depth":3,"path":"querying/aggregations.md","ref":"querying/aggregations.md","articles":[]},"previous":{"title":"时间粒度","level":"1.6.6.2","depth":3,"path":"querying/granularities.md","ref":"querying/granularities.md","articles":[]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"Copyright <a target=\"_blank\" href=\"https://druid.org.cn\">druid.org.cn</a> 2021 .本文翻译自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"querying/dimensionspecs.md","mtime":"2021-03-09T13:27:36.000Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-04-24T03:56:48.676Z"},"basePath":"..","book":{"language":""}});
+        });
+    </script>
+</div>
+
+        
+    <script src="../gitbook/gitbook.js"></script>
+    <script src="../gitbook/theme.js"></script>
+    
+        
+        <script src="../gitbook/gitbook-plugin-livereload/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-search-pro/search.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-code/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-auto-scroll-table/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-hide-element/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-github/plugin.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-sharing/buttons.js"></script>
+        
+    
+        
+        <script src="../gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+        
+    
+
+    </body>
+</html>
+
