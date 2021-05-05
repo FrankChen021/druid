@@ -161,7 +161,7 @@
                 <a href="../tutorials/docker.html">
             
                     
-                    Docker
+                    通过Docker启动
             
                 </a>
             
@@ -187,7 +187,7 @@
                 <a href="../tutorials/cluster.html">
             
                     
-                    集群模式部署
+                    集群部署
             
                 </a>
             
@@ -415,9 +415,9 @@
             
         </li>
     
-        <li class="chapter " data-level="1.4.3" data-path="../design/processes">
+        <li class="chapter " data-level="1.4.3" data-path="../design/processes.html">
             
-                <span>
+                <a href="../design/processes.html">
             
                     
                     进程与服务
@@ -1436,7 +1436,7 @@
                 <a href="rolling-updates.html">
             
                     
-                    滚动版本升级
+                    版本滚动升级
             
                 </a>
             
@@ -2122,8 +2122,8 @@ for your specific scenario and be sure to test any changes in staging environmen
 <p>The limit on the number of open files can be set permanently by editing <code>/etc/security/limits.conf</code>. This value should be substantially greater than the number of segment files that will exist on the server.</p>
 <h5 id="maxmapcount"><a name="maxmapcount" class="anchor-navigation-ex-anchor" href="#maxmapcount"><i class="fa fa-link" aria-hidden="true"></i></a>max_map_count</h5>
 <p>Historical processes and to a lesser extent, MiddleManager and Indexer processes memory map segment files, so depending on the number of segments per server, <code>/proc/sys/vm/max_map_count</code> might also need to be adjusted. Depending on the variant of Linux, this might be done via <code>sysctl</code> by placing a file in <code>/etc/sysctl.d/</code> that sets <code>vm.max_map_count</code>.</p>
-<footer class="page-footer"><span class="copyright">Copyright <a target="_blank" href="https://druid.org.cn">druid.org.cn</a> 2021 .&#x672C;&#x6587;&#x7FFB;&#x8BD1;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/operations/basic-cluster-tuning.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
-2021-04-23 21:43:10
+<footer class="page-footer"><span class="copyright">&#x672C;&#x6587;&#x6E90;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/operations/basic-cluster-tuning.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
+2021-05-05 22:23:45
 </span></footer>
                                 
                                 </section>
@@ -2163,7 +2163,7 @@ for your specific scenario and be sure to test any changes in staging environmen
     <script>
         var gitbook = gitbook || [];
         gitbook.push(function() {
-            gitbook.page.hasChanged({"page":{"id":"basic-cluster-tuning","title":"集群调优","level":"1.8.2.2.1","depth":4,"next":{"title":"数据段文件优化","level":"1.8.2.2.2","depth":4,"path":"operations/segment-optimization.md","ref":"operations/segment-optimization.md","articles":[]},"previous":{"title":"性能","level":"1.8.2.2","depth":3,"ref":"","articles":[{"title":"集群调优","level":"1.8.2.2.1","depth":4,"path":"operations/basic-cluster-tuning.md","ref":"operations/basic-cluster-tuning.md","articles":[]},{"title":"数据段文件优化","level":"1.8.2.2.2","depth":4,"path":"operations/segment-optimization.md","ref":"operations/segment-optimization.md","articles":[]},{"title":"HTTP压缩","level":"1.8.2.2.3","depth":4,"path":"operations/http-compression.md","ref":"operations/http-compression.md","articles":[]}]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"Copyright <a target=\"_blank\" href=\"https://druid.org.cn\">druid.org.cn</a> 2021 .本文翻译自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"operations/basic-cluster-tuning.md","mtime":"2021-04-23T13:43:10.300Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-04-24T03:56:48.676Z"},"basePath":"..","book":{"language":""}});
+            gitbook.page.hasChanged({"page":{"id":"basic-cluster-tuning","title":"集群调优","level":"1.8.2.2.1","depth":4,"next":{"title":"数据段文件优化","level":"1.8.2.2.2","depth":4,"path":"operations/segment-optimization.md","ref":"operations/segment-optimization.md","articles":[]},"previous":{"title":"性能","level":"1.8.2.2","depth":3,"ref":"","articles":[{"title":"集群调优","level":"1.8.2.2.1","depth":4,"path":"operations/basic-cluster-tuning.md","ref":"operations/basic-cluster-tuning.md","articles":[]},{"title":"数据段文件优化","level":"1.8.2.2.2","depth":4,"path":"operations/segment-optimization.md","ref":"operations/segment-optimization.md","articles":[]},{"title":"HTTP压缩","level":"1.8.2.2.3","depth":4,"path":"operations/http-compression.md","ref":"operations/http-compression.md","articles":[]}]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"本文源自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"operations/basic-cluster-tuning.md","mtime":"2021-05-05T14:23:45.078Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-05-05T14:27:01.470Z"},"basePath":"..","book":{"language":""}});
         });
     </script>
 </div>

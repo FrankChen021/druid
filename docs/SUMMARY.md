@@ -2,9 +2,9 @@
 * 开始
   * [Apache Druid简介](design/index.md)
   * [快速入门](tutorials/index.md)
-  * [Docker](tutorials/docker.md)
+  * [通过Docker启动](tutorials/docker.md)
   * [单机部署](operations/single-server.md)
-  * [集群模式部署](tutorials/cluster.md)
+  * [集群部署](tutorials/cluster.md)
 * 指南
   * [从本地文件摄入数据](tutorials/tutorial-batch.md)
   * [从Kafka摄入数据](tutorials/tutorial-kafka.md)
@@ -21,7 +21,7 @@
 * 设计
   * [整体架构](design/architecture.md)
   * [存储结构](design/segments.md)
-  * [进程与服务](design/processes)
+  * [进程与服务](design/processes.md) 
   * [深度存储](dependencies/deep-storage.md)
   * [元数据存储](dependencies/metadata-storage.md)
   * [Zookeeper](dependencies/zookeeper.md)
@@ -94,7 +94,7 @@
       * [HTTP压缩](operations/http-compression.md)
     * [API手册](operations/api-reference.md)
     * [高可用](operations/high-availability.md)
-    * [滚动版本升级](operations/rolling-updates.md)
+    * [版本滚动升级](operations/rolling-updates.md)
     * [数据留存规则](operations/rule-configuration.md)
     * [应用指标](operations/metrics.md)
     * [告警](operations/alerts.md)

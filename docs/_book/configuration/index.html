@@ -161,7 +161,7 @@
                 <a href="../tutorials/docker.html">
             
                     
-                    Docker
+                    通过Docker启动
             
                 </a>
             
@@ -187,7 +187,7 @@
                 <a href="../tutorials/cluster.html">
             
                     
-                    集群模式部署
+                    集群部署
             
                 </a>
             
@@ -415,9 +415,9 @@
             
         </li>
     
-        <li class="chapter " data-level="1.4.3" data-path="../design/processes">
+        <li class="chapter " data-level="1.4.3" data-path="../design/processes.html">
             
-                <span>
+                <a href="../design/processes.html">
             
                     
                     进程与服务
@@ -1436,7 +1436,7 @@
                 <a href="../operations/rolling-updates.html">
             
                     
-                    滚动版本升级
+                    版本滚动升级
             
                 </a>
             
@@ -3538,7 +3538,7 @@ Support for 64-bit floating point columns was released in Druid 0.11.0, so if yo
 </tbody>
 </table>
 <h2 id="master-server"><a name="master-server" class="anchor-navigation-ex-anchor" href="#master-server"><i class="fa fa-link" aria-hidden="true"></i></a>1.3. Master Server</h2>
-<p>This section contains the configuration options for the processes that reside on Master servers (Coordinators and Overlords) in the suggested <a href="../design/processes.md#server-types">three-server configuration</a>.</p>
+<p>This section contains the configuration options for the processes that reside on Master servers (Coordinators and Overlords) in the suggested <a href="../design/processes.html#server-types">three-server configuration</a>.</p>
 <h3 id="coordinator"><a name="coordinator" class="anchor-navigation-ex-anchor" href="#coordinator"><i class="fa fa-link" aria-hidden="true"></i></a>1.3.1. Coordinator</h3>
 <p>For general Coordinator Process information, see <a href="../design/coordinator.md">here</a>.</p>
 <h4 id="static-configuration"><a name="static-configuration" class="anchor-navigation-ex-anchor" href="#static-configuration"><i class="fa fa-link" aria-hidden="true"></i></a>Static Configuration</h4>
@@ -4714,7 +4714,7 @@ field. If not provided, the default is to not use it at all.</p>
 </table>
 <p>For GCE&apos;s properties, please refer to the <a href="../development/extensions-contrib/gce-extensions.md">gce-extensions</a>.</p>
 <h2 id="data-server"><a name="data-server" class="anchor-navigation-ex-anchor" href="#data-server"><i class="fa fa-link" aria-hidden="true"></i></a>1.4. Data Server</h2>
-<p>This section contains the configuration options for the processes that reside on Data servers (MiddleManagers/Peons and Historicals) in the suggested <a href="../design/processes.md#server-types">three-server configuration</a>.</p>
+<p>This section contains the configuration options for the processes that reside on Data servers (MiddleManagers/Peons and Historicals) in the suggested <a href="../design/processes.html#server-types">three-server configuration</a>.</p>
 <p>Configuration options for the experimental <a href="../design/indexer.md">Indexer process</a> are also provided here.</p>
 <h3 id="middlemanager-and-peons"><a name="middlemanager-and-peons" class="anchor-navigation-ex-anchor" href="#middlemanager-and-peons"><i class="fa fa-link" aria-hidden="true"></i></a>1.4.1. MiddleManager and Peons</h3>
 <p>These MiddleManager and Peon configurations can be defined in the <code>middleManager/runtime.properties</code> file.</p>
@@ -5658,7 +5658,7 @@ line.</p>
 </table>
 <p>See <a href="#cache-configuration">cache configuration</a> for how to configure cache settings.</p>
 <h2 id="query-server"><a name="query-server" class="anchor-navigation-ex-anchor" href="#query-server"><i class="fa fa-link" aria-hidden="true"></i></a>1.5. Query Server</h2>
-<p>This section contains the configuration options for the processes that reside on Query servers (Brokers) in the suggested <a href="../design/processes.md#server-types">three-server configuration</a>.</p>
+<p>This section contains the configuration options for the processes that reside on Query servers (Brokers) in the suggested <a href="../design/processes.html#server-types">three-server configuration</a>.</p>
 <p>Configuration options for the experimental <a href="../design/router.md">Router process</a> are also provided here.</p>
 <h3 id="broker"><a name="broker" class="anchor-navigation-ex-anchor" href="#broker"><i class="fa fa-link" aria-hidden="true"></i></a>1.5.1. Broker</h3>
 <p>For general Broker process information, see <a href="../design/broker.md">here</a>.</p>
@@ -6912,8 +6912,8 @@ context). If query does have <code>maxQueuedBytes</code> in the context, then th
 </tr>
 </tbody>
 </table>
-<footer class="page-footer"><span class="copyright">Copyright <a target="_blank" href="https://druid.org.cn">druid.org.cn</a> 2021 .&#x672C;&#x6587;&#x7FFB;&#x8BD1;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/configuration/index.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
-2021-04-23 21:43:10
+<footer class="page-footer"><span class="copyright">&#x672C;&#x6587;&#x6E90;&#x81EA;Apache Druid&#xFF0C;<a href="https://github.com/apache/druid/tree/master/docs/configuration/index.md" target="_blank">&#x9605;&#x8BFB;&#x539F;&#x6587;</a> </span><span class="footer-modification">&#x66F4;&#x65B0;&#x4E8E;&#xFF1A;
+2021-05-05 22:23:45
 </span></footer>
                                 
                                 </section>
@@ -6953,7 +6953,7 @@ context). If query does have <code>maxQueuedBytes</code> in the context, then th
     <script>
         var gitbook = gitbook || [];
         gitbook.push(function() {
-            gitbook.page.hasChanged({"page":{"id":"index","title":"概述","level":"1.7.1","depth":2,"next":{"title":"扩展组件","level":"1.7.2","depth":2,"path":"development/extensions.md","ref":"development/extensions.md","articles":[]},"previous":{"title":"配置","level":"1.7","depth":1,"ref":"","articles":[{"title":"概述","level":"1.7.1","depth":2,"path":"configuration/index.md","ref":"configuration/index.md","articles":[]},{"title":"扩展组件","level":"1.7.2","depth":2,"path":"development/extensions.md","ref":"development/extensions.md","articles":[]},{"title":"运行日志","level":"1.7.3","depth":2,"path":"configuration/logging.md","ref":"configuration/logging.md","articles":[]}]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"Copyright <a target=\"_blank\" href=\"https://druid.org.cn\">druid.org.cn</a> 2021 .本文翻译自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"configuration/index.md","mtime":"2021-04-23T13:43:10.283Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-04-24T03:56:48.676Z"},"basePath":"..","book":{"language":""}});
+            gitbook.page.hasChanged({"page":{"id":"index","title":"概述","level":"1.7.1","depth":2,"next":{"title":"扩展组件","level":"1.7.2","depth":2,"path":"development/extensions.md","ref":"development/extensions.md","articles":[]},"previous":{"title":"配置","level":"1.7","depth":1,"ref":"","articles":[{"title":"概述","level":"1.7.1","depth":2,"path":"configuration/index.md","ref":"configuration/index.md","articles":[]},{"title":"扩展组件","level":"1.7.2","depth":2,"path":"development/extensions.md","ref":"development/extensions.md","articles":[]},{"title":"运行日志","level":"1.7.3","depth":2,"path":"configuration/logging.md","ref":"configuration/logging.md","articles":[]}]},"dir":"ltr"},"config":{"gitbook":"*","theme":"default","variables":{},"plugins":["-search","highlight","livereload","search-pro","code","tbfed-pagefooter","anchor-navigation-ex","auto-scroll-table","hide-element","github"],"pluginsConfig":{"tbfed-pagefooter":{"copyright":"本文源自Apache Druid，<a href=\"https://github.com/apache/druid/tree/master/docs/{{file.path}}\">阅读原文</a>","modify_label":"更新于：","modify_format":"YYYY-MM-DD HH:mm:ss"},"github":{"url":"https://github.com/apache/druid"},"livereload":{},"search-pro":{},"auto-scroll-table":{},"lunr":{"maxIndexSize":1000000,"ignoreSpecialCharacters":false},"code":{"copyButtons":true},"hide-element":{"elements":[".gitbook-link"]},"fontsettings":{"theme":"white","family":"sans","size":2},"highlight":{},"anchor-navigation-ex":{"associatedWithSummary":true,"float":{"floatIcon":"fa fa-navicon","level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"mode":"float","multipleH1":true,"pageTop":{"level1Icon":"","level2Icon":"","level3Icon":"","showLevelIcon":false},"printLog":false,"showGoTop":true,"showLevel":true},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"theme-default":{"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"},"showLevel":false}},"structure":{"langs":"LANGS.md","readme":"README.md","glossary":"GLOSSARY.md","summary":"SUMMARY.md"},"pdf":{"pageNumbers":true,"fontSize":12,"fontFamily":"Arial","paperSize":"a4","chapterMark":"pagebreak","pageBreaksBefore":"/","margin":{"right":62,"left":62,"top":56,"bottom":56}},"styles":{"website":"styles/website.css","pdf":"styles/pdf.css","epub":"styles/epub.css","mobi":"styles/mobi.css","ebook":"styles/ebook.css","print":"styles/print.css"}},"file":{"path":"configuration/index.md","mtime":"2021-05-05T14:23:45.067Z","type":"markdown"},"gitbook":{"version":"3.2.3","time":"2021-05-05T14:27:01.470Z"},"basePath":"..","book":{"language":""}});
         });
     </script>
 </div>
