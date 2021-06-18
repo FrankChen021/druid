@@ -186,6 +186,7 @@ public class QueryResourceTest
   private QueryResource queryResource;
   private QueryScheduler queryScheduler;
   private TestRequestLogger testRequestLogger;
+  private HttpReaderWriterBuilder builder;
 
   @BeforeClass
   public static void staticSetup()
@@ -199,6 +200,7 @@ public class QueryResourceTest
     Injector injector = GuiceInjectors.makeStartupInjector();
     jsonMapper = injector.getInstance(ObjectMapper.class);
     smileMapper = injector.getInstance(Key.get(ObjectMapper.class, Smile.class));
+    builder = injector.getInstance(Key.get(HttpReaderWriterBuilder.class));
 
     EasyMock.expect(testServletRequest.getContentType()).andReturn(MediaType.APPLICATION_JSON).anyTimes();
     EasyMock.expect(testServletRequest.getHeader("Accept")).andReturn(MediaType.APPLICATION_JSON).anyTimes();
@@ -223,11 +225,11 @@ public class QueryResourceTest
             Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of()))
         ),
         jsonMapper,
-        smileMapper,
         queryScheduler,
         new AuthConfig(),
         null,
         responseContextConfig,
+        builder,
         DRUID_NODE
     );
   }
@@ -269,11 +271,11 @@ public class QueryResourceTest
             Suppliers.ofInstance(overrideConfig)
         ),
         jsonMapper,
-        smileMapper,
         queryScheduler,
         new AuthConfig(),
         null,
         ResponseContextConfig.newConfig(true),
+        builder,
         DRUID_NODE
     );
 
@@ -306,6 +308,7 @@ public class QueryResourceTest
   @Test
   public void testGoodQueryWithQueryConfigDoesNotOverrideQueryContext() throws IOException
   {
+    int a = Math.abs("mind-stream-data".hashCode()) % 50;
     String overrideConfigKey = "priority";
     String overrideConfigValue = "678";
     DefaultQueryConfig overrideConfig = new DefaultQueryConfig(ImmutableMap.of(overrideConfigKey, overrideConfigValue));
@@ -321,11 +324,11 @@ public class QueryResourceTest
             Suppliers.ofInstance(overrideConfig)
         ),
         jsonMapper,
-        smileMapper,
         queryScheduler,
         new AuthConfig(),
         null,
         ResponseContextConfig.newConfig(true),
+        builder,
         DRUID_NODE
     );
 
@@ -708,11 +711,11 @@ public class QueryResourceTest
             Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of()))
         ),
         jsonMapper,
-        smileMapper,
         queryScheduler,
         new AuthConfig(),
         authMapper,
         ResponseContextConfig.newConfig(true),
+        builder,
         DRUID_NODE
     );
 
@@ -784,11 +787,11 @@ public class QueryResourceTest
             Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of()))
         ),
         jsonMapper,
-        jsonMapper,
         queryScheduler,
         new AuthConfig(),
         null,
         ResponseContextConfig.newConfig(true),
+        builder,
         DRUID_NODE
     );
     expectPermissiveHappyPathAuth();
@@ -882,11 +885,11 @@ public class QueryResourceTest
             Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of()))
         ),
         jsonMapper,
-        smileMapper,
         queryScheduler,
         new AuthConfig(),
         authMapper,
         ResponseContextConfig.newConfig(true),
+        builder,
         DRUID_NODE
     );
 
@@ -1006,11 +1009,11 @@ public class QueryResourceTest
             Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of()))
         ),
         jsonMapper,
-        smileMapper,
         queryScheduler,
         new AuthConfig(),
         authMapper,
         ResponseContextConfig.newConfig(true),
+        builder,
         DRUID_NODE
     );
 
@@ -1265,11 +1268,11 @@ public class QueryResourceTest
             Suppliers.ofInstance(new DefaultQueryConfig(ImmutableMap.of()))
         ),
         jsonMapper,
-        smileMapper,
         scheduler,
         new AuthConfig(),
         null,
         ResponseContextConfig.newConfig(true),
+        builder,
         DRUID_NODE
     );
   }

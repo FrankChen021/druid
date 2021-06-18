@@ -27,7 +27,6 @@ import org.apache.druid.client.ServerViewUtil;
 import org.apache.druid.client.TimelineServerView;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Self;
-import org.apache.druid.guice.annotations.Smile;
 import org.apache.druid.query.Query;
 import org.apache.druid.server.http.security.StateResourceFilter;
 import org.apache.druid.server.security.AuthConfig;
@@ -47,6 +46,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
+ *
  */
 @Path("/druid/v2/")
 public class BrokerQueryResource extends QueryResource
@@ -57,11 +57,11 @@ public class BrokerQueryResource extends QueryResource
   public BrokerQueryResource(
       QueryLifecycleFactory queryLifecycleFactory,
       @Json ObjectMapper jsonMapper,
-      @Smile ObjectMapper smileMapper,
       QueryScheduler queryScheduler,
       AuthConfig authConfig,
       AuthorizerMapper authorizerMapper,
       ResponseContextConfig responseContextConfig,
+      HttpReaderWriterBuilder httpReaderWriterBuilder,
       @Self DruidNode selfNode,
       TimelineServerView brokerServerView
   )
@@ -69,11 +69,11 @@ public class BrokerQueryResource extends QueryResource
     super(
         queryLifecycleFactory,
         jsonMapper,
-        smileMapper,
         queryScheduler,
         authConfig,
         authorizerMapper,
         responseContextConfig,
+        httpReaderWriterBuilder,
         selfNode
     );
     this.brokerServerView = brokerServerView;
@@ -91,9 +91,9 @@ public class BrokerQueryResource extends QueryResource
       @Context final HttpServletRequest req
   ) throws IOException
   {
-    final ResourceIOReaderWriter ioReaderWriter = createResourceIOReaderWriter(req, pretty != null);
+    final HttpReaderWriter ioReaderWriter = httpReaderWriterBuilder.create(req, pretty);
     try {
-      Query<?> query = ioReaderWriter.getRequestMapper().readValue(in, Query.class);
+      Query<?> query = ioReaderWriter.getRequestReader().read(in, Query.class);
       return ioReaderWriter.getResponseWriter().ok(
           ServerViewUtil.getTargetLocations(
               brokerServerView,
