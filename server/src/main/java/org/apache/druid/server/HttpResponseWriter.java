@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
 
-class HttpResponseWriter
+public class HttpResponseWriter
 {
   private final String responseType;
   private final ObjectMapper inputMapper;

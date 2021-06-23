@@ -21,6 +21,7 @@ package org.apache.druid.sql.http;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
 import com.google.common.base.Preconditions;
 import com.google.common.io.CountingOutputStream;
 import com.google.inject.Inject;
@@ -39,6 +40,8 @@ import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ResourceLimitExceededException;
+import org.apache.druid.server.HttpReaderWriter;
+import org.apache.druid.server.HttpReaderWriterBuilder;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.sql.SqlLifecycle;
 import org.apache.druid.sql.SqlLifecycleFactory;
@@ -69,25 +72,29 @@ public class SqlResource
 
   private final ObjectMapper jsonMapper;
   private final SqlLifecycleFactory sqlLifecycleFactory;
+  private final HttpReaderWriterBuilder readerWriterBuilder;
 
   @Inject
   public SqlResource(
       @Json ObjectMapper jsonMapper,
-      SqlLifecycleFactory sqlLifecycleFactory
+      SqlLifecycleFactory sqlLifecycleFactory,
+      HttpReaderWriterBuilder readerWriterBuilder
   )
   {
     this.jsonMapper = Preconditions.checkNotNull(jsonMapper, "jsonMapper");
     this.sqlLifecycleFactory = Preconditions.checkNotNull(sqlLifecycleFactory, "sqlLifecycleFactory");
+    this.readerWriterBuilder = Preconditions.checkNotNull(readerWriterBuilder, "readerWriterBuilder");
   }
 
   @POST
-  @Produces(MediaType.APPLICATION_JSON)
-  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
+  @Consumes({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
   public Response doPost(
-      final SqlQuery sqlQuery,
       @Context final HttpServletRequest req
   ) throws IOException
   {
+    final HttpReaderWriter readerWriter = this.readerWriterBuilder.create(req, req.getParameter("pretty"));
+    final SqlQuery sqlQuery = readerWriter.getRequestReader().read(req.getInputStream(), SqlQuery.class);
     final SqlLifecycle lifecycle = sqlLifecycleFactory.factorize();
     final String sqlQueryId = lifecycle.initialize(sqlQuery.getQuery(), sqlQuery.getContext());
     final String remoteAddr = req.getRemoteAddr();
@@ -116,7 +123,7 @@ public class SqlResource
       }
 
       final Yielder<Object[]> yielder0 = Yielders.each(lifecycle.execute());
-
+readerWriter.getResponseWriter().
       try {
         return Response
             .ok(

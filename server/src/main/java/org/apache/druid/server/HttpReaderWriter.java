@@ -19,7 +19,7 @@
 
 package org.apache.druid.server;
 
-class HttpReaderWriter
+public class HttpReaderWriter
 {
   private final HttpRequestReader reader;
   private final HttpResponseWriter writer;
