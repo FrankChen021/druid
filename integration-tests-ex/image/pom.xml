@@ -56,7 +56,7 @@ Reference: https://dzone.com/articles/build-docker-image-from-maven
              override this default name. -->
         <druid.it.image-name>${project.groupId}/test:${project.version}</druid.it.image-name>
         <confluent-version>5.5.1</confluent-version>
-        <mariadb.version>2.7.3</mariadb.version>
+        <mariadb.version>3.4.1</mariadb.version>
         <mysql.image.version>5.7-debian</mysql.image.version>
         <hadoop.integ.libs>"org.apache.hadoop:hadoop-client:${hadoop.compile.version}", "org.apache.hadoop:hadoop-azure:${hadoop.compile.version}"</hadoop.integ.libs>
         <hadoop.s3.impl>org.apache.hadoop.fs.s3native.NativeS3FileSystem</hadoop.s3.impl>
