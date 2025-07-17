@@ -83,7 +83,12 @@ public class DruidServer implements Comparable<DruidServer>
       @JsonProperty("priority") int priority
   )
   {
-    this.metadata = new DruidServerMetadata(name, hostAndPort, hostAndTlsPort, maxSize, type, tier, priority);
+    this(new DruidServerMetadata(name, hostAndPort, hostAndTlsPort, maxSize, type, tier, priority));
+  }
+
+  public DruidServer(DruidServerMetadata metadata)
+  {
+    this.metadata = metadata;
   }
 
   @JsonProperty
@@ -319,5 +324,18 @@ public class DruidServer implements Comparable<DruidServer>
     int totalSegments =
         immutableDataSources.values().stream().mapToInt(dataSource -> dataSource.getSegments().size()).sum();
     return new ImmutableDruidServer(metadata, size, immutableDataSources, totalSegments);
+  }
+
+  public DruidServer copyWithoutSegments()
+  {
+    return new DruidServer(
+        getName(),
+        getHostAndPort(),
+        getHostAndTlsPort(),
+        getMaxSize(),
+        getType(),
+        getTier(),
+        getPriority()
+    );
   }
 }

@@ -20,14 +20,14 @@
 package org.apache.druid.server.coordinator.duty;
 
 import org.apache.druid.audit.AuditManager;
-import org.apache.druid.java.util.emitter.service.ServiceEmitter;
-import org.apache.druid.java.util.emitter.service.ServiceEventBuilder;
 import org.apache.druid.server.coordinator.DruidCoordinatorRuntimeParams;
-import org.apache.druid.server.coordinator.TestDruidCoordinatorConfig;
+import org.apache.druid.server.coordinator.config.MetadataCleanupConfig;
+import org.apache.druid.server.coordinator.stats.CoordinatorRunStats;
+import org.apache.druid.server.coordinator.stats.Stats;
 import org.joda.time.Duration;
-import org.junit.Rule;
+import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
@@ -43,125 +43,34 @@ public class KillAuditLogTest
   @Mock
   private DruidCoordinatorRuntimeParams mockDruidCoordinatorRuntimeParams;
 
-  @Mock
-  private ServiceEmitter mockServiceEmitter;
-
-  @Rule
-  public ExpectedException exception = ExpectedException.none();
-
   private KillAuditLog killAuditLog;
+  private CoordinatorRunStats runStats;
+
+  @Before
+  public void setup()
+  {
+    runStats = new CoordinatorRunStats();
+    Mockito.when(mockDruidCoordinatorRuntimeParams.getCoordinatorStats()).thenReturn(runStats);
+  }
 
   @Test
   public void testRunSkipIfLastRunLessThanPeriod()
   {
-    TestDruidCoordinatorConfig druidCoordinatorConfig = new TestDruidCoordinatorConfig(
-        null,
-        null,
-        null,
-        new Duration("PT5S"),
-        null,
-        null,
-        null,
-        null,
-        null,
-        new Duration(Long.MAX_VALUE),
-        new Duration("PT1S"),
-        null,
-        null,
-        null,
-        null,
-        null,
-        10,
-        null
-    );
-    killAuditLog = new KillAuditLog(mockAuditManager, druidCoordinatorConfig);
+    final MetadataCleanupConfig config
+        = new MetadataCleanupConfig(true, new Duration(Long.MAX_VALUE), new Duration("PT1S"));
+    killAuditLog = new KillAuditLog(config, mockAuditManager);
     killAuditLog.run(mockDruidCoordinatorRuntimeParams);
-    Mockito.verifyZeroInteractions(mockAuditManager);
+    Mockito.verifyNoInteractions(mockAuditManager);
   }
 
   @Test
   public void testRunNotSkipIfLastRunMoreThanPeriod()
   {
-    Mockito.when(mockDruidCoordinatorRuntimeParams.getEmitter()).thenReturn(mockServiceEmitter);
-    TestDruidCoordinatorConfig druidCoordinatorConfig = new TestDruidCoordinatorConfig(
-        null,
-        null,
-        null,
-        new Duration("PT5S"),
-        null,
-        null,
-        null,
-        null,
-        null,
-        new Duration("PT6S"),
-        new Duration("PT1S"),
-        null,
-        null,
-        null,
-        null,
-        null,
-        10,
-        null
-    );
-    killAuditLog = new KillAuditLog(mockAuditManager, druidCoordinatorConfig);
+    final MetadataCleanupConfig config
+        = new MetadataCleanupConfig(true, new Duration("PT6S"), new Duration("PT1S"));
+    killAuditLog = new KillAuditLog(config, mockAuditManager);
     killAuditLog.run(mockDruidCoordinatorRuntimeParams);
     Mockito.verify(mockAuditManager).removeAuditLogsOlderThan(ArgumentMatchers.anyLong());
-    Mockito.verify(mockServiceEmitter).emit(ArgumentMatchers.any(ServiceEventBuilder.class));
-  }
-
-  @Test
-  public void testConstructorFailIfInvalidPeriod()
-  {
-    TestDruidCoordinatorConfig druidCoordinatorConfig = new TestDruidCoordinatorConfig(
-        null,
-        null,
-        null,
-        new Duration("PT5S"),
-        null,
-        null,
-        null,
-        null,
-        null,
-        new Duration("PT3S"),
-        new Duration("PT1S"),
-        null,
-        null,
-        null,
-        null,
-        null,
-        10,
-        null
-    );
-    exception.expect(IllegalArgumentException.class);
-    exception.expectMessage("coordinator audit kill period must be >= druid.coordinator.period.metadataStoreManagementPeriod");
-    killAuditLog = new KillAuditLog(mockAuditManager, druidCoordinatorConfig);
-  }
-
-  @Test
-  public void testConstructorFailIfInvalidRetainDuration()
-  {
-    TestDruidCoordinatorConfig druidCoordinatorConfig = new TestDruidCoordinatorConfig(
-        null,
-        null,
-        null,
-        new Duration("PT5S"),
-        null,
-        null,
-        null,
-        null,
-        null,
-        new Duration("PT6S"),
-        new Duration("PT-1S"),
-        null,
-        null,
-        null,
-        null,
-        null,
-        10,
-        null
-    );
-    exception.expect(IllegalArgumentException.class);
-    exception.expectMessage("coordinator audit kill retainDuration must be >= 0");
-    killAuditLog = new KillAuditLog(mockAuditManager, druidCoordinatorConfig);
+    Assert.assertTrue(runStats.hasStat(Stats.Kill.AUDIT_LOGS));
   }
 }

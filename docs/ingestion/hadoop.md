@@ -28,7 +28,7 @@ instance of a Druid [Overlord](../design/overlord.md). Please refer to our [Hado
 comparisons between Hadoop-based, native batch (simple), and native batch (parallel) ingestion.
 
 To run a Hadoop-based ingestion task, write an ingestion spec as specified below. Then POST it to the
-[`/druid/indexer/v1/task`](../operations/api-reference.md#tasks) endpoint on the Overlord, or use the
+[`/druid/indexer/v1/task`](../api-reference/tasks-api.md) endpoint on the Overlord, or use the
 `bin/post-index-task` script included with Druid.
 
 ## Tutorial
@@ -140,7 +140,7 @@ A type of inputSpec where a static path to the data files is provided.
 |Field|Type|Description|Required|
 |-----|----|-----------|--------|
 |inputFormat|String|Specifies the Hadoop InputFormat class to use. e.g. `org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat` |no|
-|paths|Array of String|A String of input paths indicating where the raw data is located.|yes|
+|paths|String|Comma-separated input paths to the raw data. Druid ingests data only from the configured paths. It does not search recursively for data in subdirectories. |yes|
 
 For example, using the static input paths:
 
@@ -148,18 +148,18 @@ For example, using the static input paths:
 "paths" : "hdfs://path/to/data/is/here/data.gz,hdfs://path/to/data/is/here/moredata.gz,hdfs://path/to/data/is/here/evenmoredata.gz"
 ```
 
-You can also read from cloud storage such as AWS S3 or Google Cloud Storage.
-To do so, you need to install the necessary library under Druid's classpath in _all MiddleManager or Indexer processes_.
-For S3, you can run the below command to install the [Hadoop AWS module](https://hadoop.apache.org/docs/current/hadoop-aws/tools/hadoop-aws/).
+You can also read from cloud storage such as Amazon S3 or Google Cloud Storage.
+To do so, you need to install the necessary library under Druid's classpath in _all Middle Manager or Indexer processes_.
+For S3, you can run the below command to install the [Hadoop AWS module](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/).
 
 ```bash
 java -classpath "${DRUID_HOME}lib/*" org.apache.druid.cli.Main tools pull-deps -h "org.apache.hadoop:hadoop-aws:${HADOOP_VERSION}";
 cp ${DRUID_HOME}/hadoop-dependencies/hadoop-aws/${HADOOP_VERSION}/hadoop-aws-${HADOOP_VERSION}.jar ${DRUID_HOME}/extensions/druid-hdfs-storage/
 ```
 
-Once you install the Hadoop AWS module in all MiddleManager and Indexer processes, you can put
+Once you install the Hadoop AWS module in all Middle Manager and Indexer processes, you can put
 your S3 paths in the inputSpec with the below job properties.
-For more configurations, see the [Hadoop AWS module](https://hadoop.apache.org/docs/current/hadoop-aws/tools/hadoop-aws/).
+For more configurations, see the [Hadoop AWS module](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/).
 
 ```
 "paths" : "s3a://billy-bucket/the/data/is/here/data.gz,s3a://billy-bucket/the/data/is/here/moredata.gz,s3a://billy-bucket/the/data/is/here/evenmoredata.gz"
@@ -175,12 +175,12 @@ For more configurations, see the [Hadoop AWS module](https://hadoop.apache.org/d
 ```
 
 For Google Cloud Storage, you need to install [GCS connector jar](https://github.com/GoogleCloudPlatform/bigdata-interop/blob/master/gcs/INSTALL.md)
-under `${DRUID_HOME}/hadoop-dependencies` in _all MiddleManager or Indexer processes_.
-Once you install the GCS Connector jar in all MiddleManager and Indexer processes, you can put
+under `${DRUID_HOME}/hadoop-dependencies` in _all Middle Manager or Indexer processes_.
+Once you install the GCS Connector jar in all Middle Manager and Indexer processes, you can put
 your Google Cloud Storage paths in the inputSpec with the below job properties.
 For more configurations, see the [instructions to configure Hadoop](https://github.com/GoogleCloudPlatform/bigdata-interop/blob/master/gcs/INSTALL.md#configure-hadoop),
 [GCS core default](https://github.com/GoogleCloudDataproc/hadoop-connectors/blob/v2.0.0/gcs/conf/gcs-core-default.xml)
-and [GCS core template](https://github.com/GoogleCloudPlatform/bdutil/blob/master/conf/hadoop2/gcs-core-template.xml).
+and [GCS core template](https://github.com/GoogleCloudDataproc/hadoop-connectors/blob/master/gcs/src/test/resources/core-site.xml).
 
 ```
 "paths" : "gs://billy-bucket/the/data/is/here/data.gz,gs://billy-bucket/the/data/is/here/moredata.gz,gs://billy-bucket/the/data/is/here/evenmoredata.gz"
@@ -336,7 +336,7 @@ The tuningConfig is optional and default parameters will be used if no tuningCon
 |logParseExceptions|Boolean|If true, log an error message when a parsing exception occurs, containing information about the row where the error occurred.|no(default = false)|
 |maxParseExceptions|Integer|The maximum number of parse exceptions that can occur before the task halts ingestion and fails. Overrides `ignoreInvalidRows` if `maxParseExceptions` is defined.|no(default = unlimited)|
 |useYarnRMJobStatusFallback|Boolean|If the Hadoop jobs created by the indexing task are unable to retrieve their completion status from the JobHistory server, and this parameter is true, the indexing task will try to fetch the application status from `http://<yarn-rm-address>/ws/v1/cluster/apps/<application-id>`, where `<yarn-rm-address>` is the value of `yarn.resourcemanager.webapp.address` in your Hadoop configuration. This flag is intended as a fallback for cases where an indexing task's jobs succeed, but the JobHistory server is unavailable, causing the indexing task to fail because it cannot determine the job statuses.|no (default = true)|
-|awaitSegmentAvailabilityTimeoutMillis|Long|Milliseconds to wait for the newly indexed segments to become available for query after ingestion completes. If `<= 0`, no wait will occur. If `> 0`, the task will wait for the Coordinator to indicate that the new segments are available for querying. If the timeout expires, the task will exit as successful, but the segments were not confirmed to have become available for query.|no (default = 0)| 
+|awaitSegmentAvailabilityTimeoutMillis|Long|Milliseconds to wait for the newly indexed segments to become available for query after ingestion completes. If `<= 0`, no wait will occur. If `> 0`, the task will wait for the Coordinator to indicate that the new segments are available for querying. If the timeout expires, the task will exit as successful, but the segments were not confirmed to have become available for query.|no (default = 0)|
 
 ### `jobProperties`
 
@@ -448,7 +448,7 @@ classification=yarn-site,properties=[mapreduce.reduce.memory.mb=6144,mapreduce.r
 ```
 
 - Follow the instructions under
-[Configure for connecting to Hadoop](../tutorials/cluster.md#hadoop) using the XML files from `/etc/hadoop/conf`
+[Configure for connecting to Hadoop](../tutorials/cluster.md#configure-for-connecting-to-hadoop-optional) using the XML files from `/etc/hadoop/conf`
 on your EMR master.
 
 ## Kerberized Hadoop clusters

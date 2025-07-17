@@ -19,7 +19,6 @@
 
 package org.apache.druid.indexing.input;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.druid.data.input.ColumnsFilter;
 import org.apache.druid.data.input.InputRowSchema;
 import org.apache.druid.data.input.impl.DimensionsSpec;
@@ -29,6 +28,7 @@ import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.segment.transform.Transform;
 import org.apache.druid.segment.transform.TransformSpec;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -56,7 +56,10 @@ public class InputRowSchemas
             dataSchema.getDimensionsSpec(),
             dataSchema.getTransformSpec(),
             dataSchema.getAggregators()
-        )
+        ),
+        Arrays.stream(dataSchema.getAggregators())
+              .map(AggregatorFactory::getName)
+              .collect(Collectors.toSet())
     );
   }
 
@@ -65,8 +68,7 @@ public class InputRowSchemas
    *
    * @see InputRowSchema#getColumnsFilter()
    */
-  @VisibleForTesting
-  static ColumnsFilter createColumnsFilter(
+  public static ColumnsFilter createColumnsFilter(
       final TimestampSpec timestampSpec,
       final DimensionsSpec dimensionsSpec,
       final TransformSpec transformSpec,
@@ -77,7 +79,7 @@ public class InputRowSchemas
     final Set<String> transformOutputNames =
         transformSpec.getTransforms().stream().map(Transform::getName).collect(Collectors.toSet());
 
-    if (dimensionsSpec.hasCustomDimensions()) {
+    if (dimensionsSpec.hasFixedDimensions()) {
       // We need an inclusion-based filter.
       final Set<String> inclusions = new HashSet<>();
 

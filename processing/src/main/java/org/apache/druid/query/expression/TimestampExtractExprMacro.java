@@ -19,13 +19,12 @@
 
 package org.apache.druid.query.expression;
 
-import org.apache.druid.java.util.common.IAE;
-import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.math.expr.ExprMacroTable;
-import org.apache.druid.math.expr.ExprType;
+import org.apache.druid.math.expr.ExpressionType;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
@@ -41,7 +40,6 @@ public class TimestampExtractExprMacro implements ExprMacroTable.ExprMacro
   public enum Unit
   {
     EPOCH,
-    MICROSECOND,
     MILLISECOND,
     SECOND,
     MINUTE,
@@ -66,133 +64,156 @@ public class TimestampExtractExprMacro implements ExprMacroTable.ExprMacro
     return FN_NAME;
   }
 
+  private ExprEval getExprEval(final DateTime dateTime, final Unit unit)
+  {
+    long epoch = dateTime.getMillis() / 1000;
+    switch (unit) {
+      case EPOCH:
+        return ExprEval.of(epoch);
+      case MILLISECOND:
+        return ExprEval.of(dateTime.millisOfSecond().get());
+      case SECOND:
+        return ExprEval.of(dateTime.secondOfMinute().get());
+      case MINUTE:
+        return ExprEval.of(dateTime.minuteOfHour().get());
+      case HOUR:
+        return ExprEval.of(dateTime.hourOfDay().get());
+      case DAY:
+        return ExprEval.of(dateTime.dayOfMonth().get());
+      case DOW:
+        return ExprEval.of(dateTime.dayOfWeek().get());
+      case ISODOW:
+        return ExprEval.of(dateTime.dayOfWeek().get());
+      case DOY:
+        return ExprEval.of(dateTime.dayOfYear().get());
+      case WEEK:
+        return ExprEval.of(dateTime.weekOfWeekyear().get());
+      case MONTH:
+        return ExprEval.of(dateTime.monthOfYear().get());
+      case QUARTER:
+        return ExprEval.of((dateTime.monthOfYear().get() - 1) / 3 + 1);
+      case YEAR:
+        return ExprEval.of(dateTime.year().get());
+      case ISOYEAR:
+        return ExprEval.of(dateTime.year().get());
+      case DECADE:
+        // The year field divided by 10, See https://www.postgresql.org/docs/10/functions-datetime.html
+        return ExprEval.of(dateTime.year().get() / 10);
+      case CENTURY:
+        return ExprEval.of(Math.ceil((double) dateTime.year().get() / 100));
+      case MILLENNIUM:
+        // Years in the 1900s are in the second millennium. The third millennium started January 1, 2001.
+        // See https://www.postgresql.org/docs/10/functions-datetime.html
+        return ExprEval.of(Math.ceil((double) dateTime.year().get() / 1000));
+      default:
+        throw TimestampExtractExprMacro.this.validationFailed("unhandled unit[%s]", unit);
+    }
+  }
+
+  private static ExpressionType getOutputExpressionType(final Unit unit)
+  {
+    switch (unit) {
+      case CENTURY:
+      case MILLENNIUM:
+        return ExpressionType.DOUBLE;
+      default:
+        return ExpressionType.LONG;
+    }
+  }
+
+  private static ISOChronology computeChronology(final List<Expr> args, final Expr.ObjectBinding bindings)
+  {
+    String timeZoneVal = (String) args.get(2).eval(bindings).value();
+    return timeZoneVal != null
+           ? ISOChronology.getInstance(DateTimes.inferTzFromString(timeZoneVal))
+           : ISOChronology.getInstanceUTC();
+  }
+
   @Override
   public Expr apply(final List<Expr> args)
   {
-    if (args.size() < 2 || args.size() > 3) {
-      throw new IAE("Function[%s] must have 2 to 3 arguments", name());
-    }
+    validationHelperCheckArgumentRange(args, 2, 3);
 
     if (!args.get(1).isLiteral() || args.get(1).getLiteralValue() == null) {
-      throw new IAE("Function[%s] unit arg must be literal", name());
+      throw validationFailed("unit arg must be literal");
     }
 
-    if (args.size() > 2 && !args.get(2).isLiteral()) {
-      throw new IAE("Function[%s] timezone arg must be literal", name());
-    }
-
-    final Expr arg = args.get(0);
     final Unit unit = Unit.valueOf(StringUtils.toUpperCase((String) args.get(1).getLiteralValue()));
-    final DateTimeZone timeZone;
 
     if (args.size() > 2) {
-      timeZone = ExprUtils.toTimeZone(args.get(2));
-    } else {
-      timeZone = DateTimeZone.UTC;
+      if (args.get(2).isLiteral()) {
+        DateTimeZone timeZone = ExprUtils.toTimeZone(args.get(2));
+        ISOChronology chronology = ISOChronology.getInstance(timeZone);
+        return new TimestampExtractExpr(args, unit, chronology);
+      } else {
+        return new TimestampExtractDynamicExpr(args, unit);
+      }
     }
+    return new TimestampExtractExpr(args, unit, ISOChronology.getInstanceUTC());
+  }
 
-    final ISOChronology chronology = ISOChronology.getInstance(timeZone);
+  public class TimestampExtractExpr extends ExprMacroTable.BaseScalarMacroFunctionExpr
+  {
+    private final ISOChronology chronology;
+    private final Unit unit;
 
-    class TimestampExtractExpr extends ExprMacroTable.BaseScalarUnivariateMacroFunctionExpr
+    private TimestampExtractExpr(final List<Expr> args, final Unit unit, final ISOChronology chronology)
     {
-      private TimestampExtractExpr(Expr arg)
-      {
-        super(FN_NAME, arg);
-      }
-
-      @Nonnull
-      @Override
-      public ExprEval eval(final ObjectBinding bindings)
-      {
-        Object val = arg.eval(bindings).value();
-        if (val == null) {
-          // Return null if the argument if null.
-          return ExprEval.of(null);
-        }
-        final DateTime dateTime = new DateTime(val, chronology);
-        long epoch = dateTime.getMillis() / 1000;
-
-        switch (unit) {
-          case EPOCH:
-            return ExprEval.of(epoch);
-          case MICROSECOND:
-            return ExprEval.of(epoch / 1000);
-          case MILLISECOND:
-            return ExprEval.of(dateTime.millisOfSecond().get());
-          case SECOND:
-            return ExprEval.of(dateTime.secondOfMinute().get());
-          case MINUTE:
-            return ExprEval.of(dateTime.minuteOfHour().get());
-          case HOUR:
-            return ExprEval.of(dateTime.hourOfDay().get());
-          case DAY:
-            return ExprEval.of(dateTime.dayOfMonth().get());
-          case DOW:
-            return ExprEval.of(dateTime.dayOfWeek().get());
-          case ISODOW:
-            return ExprEval.of(dateTime.dayOfWeek().get());
-          case DOY:
-            return ExprEval.of(dateTime.dayOfYear().get());
-          case WEEK:
-            return ExprEval.of(dateTime.weekOfWeekyear().get());
-          case MONTH:
-            return ExprEval.of(dateTime.monthOfYear().get());
-          case QUARTER:
-            return ExprEval.of((dateTime.monthOfYear().get() - 1) / 3 + 1);
-          case YEAR:
-            return ExprEval.of(dateTime.year().get());
-          case ISOYEAR:
-            return ExprEval.of(dateTime.year().get());
-          case DECADE:
-            // The year field divided by 10, See https://www.postgresql.org/docs/10/functions-datetime.html
-            return ExprEval.of(dateTime.year().get() / 10);
-          case CENTURY:
-            return ExprEval.of(Math.ceil((double) dateTime.year().get() / 100));
-          case MILLENNIUM:
-            // Years in the 1900s are in the second millennium. The third millennium started January 1, 2001.
-            // See https://www.postgresql.org/docs/10/functions-datetime.html
-            return ExprEval.of(Math.ceil((double) dateTime.year().get() / 1000));
-          default:
-            throw new ISE("Unhandled unit[%s]", unit);
-        }
-      }
-
-      @Override
-      public Expr visit(Shuttle shuttle)
-      {
-        Expr newArg = arg.visit(shuttle);
-        return shuttle.visit(new TimestampExtractExpr(newArg));
-      }
-
-      @Nullable
-      @Override
-      public ExprType getOutputType(InputBindingInspector inspector)
-      {
-        switch (unit) {
-          case CENTURY:
-          case MILLENNIUM:
-            return ExprType.DOUBLE;
-          default:
-            return ExprType.LONG;
-        }
-      }
-
-      @Override
-      public String stringify()
-      {
-        if (args.size() > 2) {
-          return StringUtils.format(
-              "%s(%s, %s, %s)",
-              FN_NAME,
-              arg.stringify(),
-              args.get(1).stringify(),
-              args.get(2).stringify()
-          );
-        }
-        return StringUtils.format("%s(%s, %s)", FN_NAME, arg.stringify(), args.get(1).stringify());
-      }
+      super(TimestampExtractExprMacro.this, args);
+      this.unit = unit;
+      this.chronology = chronology;
     }
 
-    return new TimestampExtractExpr(arg);
+    @Nonnull
+    @Override
+    public ExprEval eval(final ObjectBinding bindings)
+    {
+      Object val = args.get(0).eval(bindings).value();
+      if (val == null) {
+        // Return null if the argument if null.
+        return ExprEval.of(null);
+      }
+      final DateTime dateTime = new DateTime(val, chronology);
+      return getExprEval(dateTime, unit);
+    }
+
+    @Nullable
+    @Override
+    public ExpressionType getOutputType(InputBindingInspector inspector)
+    {
+      return getOutputExpressionType(unit);
+    }
+  }
+
+  public class TimestampExtractDynamicExpr extends ExprMacroTable.BaseScalarMacroFunctionExpr
+  {
+    private final Unit unit;
+
+    private TimestampExtractDynamicExpr(final List<Expr> args, final Unit unit)
+    {
+      super(TimestampExtractExprMacro.this, args);
+      this.unit = unit;
+    }
+
+    @Nonnull
+    @Override
+    public ExprEval eval(final ObjectBinding bindings)
+    {
+      Object val = args.get(0).eval(bindings).value();
+      if (val == null) {
+        // Return null if the argument if null.
+        return ExprEval.of(null);
+      }
+      final ISOChronology chronology = computeChronology(args, bindings);
+      final DateTime dateTime = new DateTime(val, chronology);
+      return getExprEval(dateTime, unit);
+    }
+
+    @Nullable
+    @Override
+    public ExpressionType getOutputType(InputBindingInspector inspector)
+    {
+      return getOutputExpressionType(unit);
+    }
   }
 }

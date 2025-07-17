@@ -23,7 +23,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.concurrent.Execs;
@@ -37,7 +36,6 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -113,10 +111,7 @@ public class PollingLookup extends LookupExtractor
   @Nullable
   public String apply(@Nullable String key)
   {
-    String keyEquivalent = NullHandling.nullToEmptyIfNeeded(key);
-    if (keyEquivalent == null) {
-      // valueEquivalent is null only for SQL Compatible Null Behavior
-      // otherwise null will be replaced with empty string in nullToEmptyIfNeeded above.
+    if (key == null) {
       return null;
     }
     final CacheRefKeeper cacheRefKeeper = refOfCacheKeeper.get();
@@ -127,9 +122,9 @@ public class PollingLookup extends LookupExtractor
     try {
       if (cache == null) {
         // it must've been closed after swapping while I was getting it.  Try again.
-        return this.apply(keyEquivalent);
+        return this.apply(key);
       }
-      return NullHandling.emptyToNullIfNeeded((String) cache.get(keyEquivalent));
+      return (String) cache.get(key);
     }
     finally {
       if (cache != null) {
@@ -141,11 +136,7 @@ public class PollingLookup extends LookupExtractor
   @Override
   public List<String> unapply(@Nullable final String value)
   {
-    String valueEquivalent = NullHandling.nullToEmptyIfNeeded(value);
-    if (valueEquivalent == null) {
-      // valueEquivalent is null only for SQL Compatible Null Behavior
-      // otherwise null will be replaced with empty string in nullToEmptyIfNeeded above.
-      // null value maps to empty list when SQL Compatible
+    if (value == null) {
       return Collections.emptyList();
     }
 
@@ -157,9 +148,9 @@ public class PollingLookup extends LookupExtractor
     try {
       if (cache == null) {
         // it must've been closed after swapping while I was getting it.  Try again.
-        return this.unapply(valueEquivalent);
+        return this.unapply(value);
       }
-      return cache.getKeys(valueEquivalent);
+      return cache.getKeys(value);
     }
     finally {
       if (cache != null) {
@@ -169,27 +160,15 @@ public class PollingLookup extends LookupExtractor
   }
 
   @Override
-  public boolean canIterate()
+  public boolean supportsAsMap()
   {
     return false;
   }
 
   @Override
-  public boolean canGetKeySet()
+  public Map<String, String> asMap()
   {
-    return false;
-  }
-
-  @Override
-  public Iterable<Map.Entry<String, String>> iterable()
-  {
-    throw new UnsupportedOperationException("Cannot iterate");
-  }
-
-  @Override
-  public Set<String> keySet()
-  {
-    throw new UnsupportedOperationException("Cannot get key set");
+    throw new UnsupportedOperationException("Cannot get map view");
   }
 
   @Override
@@ -213,6 +192,26 @@ public class PollingLookup extends LookupExtractor
         }
       }
     };
+  }
+
+  @Override
+  public long estimateHeapFootprint()
+  {
+    PollingCache<?, ?> cache = null;
+
+    while (cache == null) {
+      final CacheRefKeeper cacheRefKeeper = refOfCacheKeeper.get();
+
+      if (cacheRefKeeper == null) {
+        // Closed.
+        return 0;
+      }
+
+      // If null, we'll do another run through the while loop.
+      cache = cacheRefKeeper.getAndIncrementRef();
+    }
+
+    return cache.estimateHeapFootprint();
   }
 
   @Override

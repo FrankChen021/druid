@@ -22,6 +22,7 @@ package org.apache.druid.data.input.s3;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import org.apache.druid.data.input.RetryingInputEntity;
 import org.apache.druid.data.input.impl.CloudObjectLocation;
@@ -38,11 +39,20 @@ public class S3Entity extends RetryingInputEntity
 {
   private final ServerSideEncryptingAmazonS3 s3Client;
   private final CloudObjectLocation object;
+  private final int maxRetries;
 
-  S3Entity(ServerSideEncryptingAmazonS3 s3Client, CloudObjectLocation coords)
+  S3Entity(ServerSideEncryptingAmazonS3 s3Client, CloudObjectLocation coords, int maxRetries)
   {
+    Preconditions.checkArgument(maxRetries >= 0);
     this.s3Client = s3Client;
     this.object = coords;
+    this.maxRetries = maxRetries;
+  }
+
+  @Override
+  protected int getMaxRetries()
+  {
+    return maxRetries;
   }
 
   @Override
@@ -83,5 +93,10 @@ public class S3Entity extends RetryingInputEntity
   public Predicate<Throwable> getRetryCondition()
   {
     return S3Utils.S3RETRY;
+  }
+
+  CloudObjectLocation getObject()
+  {
+    return object;
   }
 }

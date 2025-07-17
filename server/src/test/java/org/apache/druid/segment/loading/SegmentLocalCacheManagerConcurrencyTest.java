@@ -26,10 +26,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.DateTimes;
+import org.apache.druid.java.util.common.FileUtils;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.emitter.EmittingLogger;
+import org.apache.druid.segment.TestIndex;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.NumberedShardSpec;
@@ -92,8 +94,13 @@ public class SegmentLocalCacheManagerConcurrencyTest
     final StorageLocationConfig locationConfig = new StorageLocationConfig(localSegmentCacheFolder, 2000L, null);
     locations.add(locationConfig);
 
+    final SegmentLoaderConfig loaderConfig = new SegmentLoaderConfig().withLocations(locations);
+    final List<StorageLocation> storageLocations = loaderConfig.toStorageLocations();
     manager = new SegmentLocalCacheManager(
+        storageLocations,
         new SegmentLoaderConfig().withLocations(locations),
+        new LeastBytesUsedStorageLocationSelectorStrategy(storageLocations),
+        TestIndex.INDEX_IO,
         jsonMapper
     );
     executorService = Execs.multiThreaded(4, "segment-loader-local-cache-manager-concurrency-test-%d");
@@ -125,7 +132,7 @@ public class SegmentLocalCacheManagerConcurrencyTest
           localStorageFolder,
           segmentPath
       );
-      localSegmentFile.mkdirs();
+      FileUtils.mkdirp(localSegmentFile);
       final File indexZip = new File(localSegmentFile, "index.zip");
       indexZip.createNewFile();
 

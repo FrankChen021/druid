@@ -23,7 +23,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.apache.druid.client.CachingClusteredClient;
 import org.apache.druid.client.DirectDruidClient;
 import org.apache.druid.client.DruidServer;
@@ -41,19 +40,17 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.io.Closer;
+import org.apache.druid.java.util.metrics.StubServiceEmitter;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.context.ConcurrentResponseContext;
 import org.apache.druid.query.context.ResponseContext;
-import org.apache.druid.query.context.ResponseContext.Key;
 import org.apache.druid.query.timeseries.TimeseriesResultValue;
 import org.apache.druid.query.topn.TopNQueryConfig;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.generator.GeneratorBasicSchemas;
 import org.apache.druid.segment.generator.GeneratorSchemaInfo;
 import org.apache.druid.segment.generator.SegmentGenerator;
-import org.apache.druid.segment.join.MapJoinableFactory;
 import org.apache.druid.server.QueryStackTests;
-import org.apache.druid.server.metrics.NoopServiceEmitter;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.NumberedShardSpec;
 import org.joda.time.Interval;
@@ -65,7 +62,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -96,9 +92,7 @@ public abstract class QueryRunnerBasedOnClusteredClientTestBase
   private static final boolean USE_PARALLEL_MERGE_POOL_CONFIGURED = false;
 
   protected final ObjectMapper objectMapper = new DefaultObjectMapper();
-  protected final QueryToolChestWarehouse toolChestWarehouse;
-
-  private final QueryRunnerFactoryConglomerate conglomerate;
+  protected final QueryRunnerFactoryConglomerate conglomerate;
 
   protected TestHttpClient httpClient;
   protected SimpleServerView simpleServerView;
@@ -106,23 +100,14 @@ public abstract class QueryRunnerBasedOnClusteredClientTestBase
   protected List<DruidServer> servers;
 
   private SegmentGenerator segmentGenerator;
+  protected StubServiceEmitter emitter = new StubServiceEmitter();
 
   protected QueryRunnerBasedOnClusteredClientTestBase()
   {
     conglomerate = QueryStackTests.createQueryRunnerFactoryConglomerate(
         CLOSER,
-        USE_PARALLEL_MERGE_POOL_CONFIGURED,
-        () -> TopNQueryConfig.DEFAULT_MIN_TOPN_THRESHOLD
+        TopNQueryConfig.DEFAULT_MIN_TOPN_THRESHOLD
     );
-
-    toolChestWarehouse = new QueryToolChestWarehouse()
-    {
-      @Override
-      public <T, QueryType extends Query<T>> QueryToolChest<T, QueryType> getToolChest(final QueryType query)
-      {
-        return conglomerate.findFactory(query).getToolchest();
-      }
-    };
   }
 
   @AfterClass
@@ -136,23 +121,20 @@ public abstract class QueryRunnerBasedOnClusteredClientTestBase
   {
     segmentGenerator = new SegmentGenerator();
     httpClient = new TestHttpClient(objectMapper);
-    simpleServerView = new SimpleServerView(toolChestWarehouse, objectMapper, httpClient);
+    simpleServerView = new SimpleServerView(conglomerate, objectMapper, httpClient);
+    emitter.flush();
     cachingClusteredClient = new CachingClusteredClient(
-        toolChestWarehouse,
+        conglomerate,
         simpleServerView,
         MapCache.create(0),
         objectMapper,
         new ForegroundCachePopulator(objectMapper, new CachePopulatorStats(), 0),
         new CacheConfig(),
         new DruidHttpClientConfig(),
-        QueryStackTests.getProcessingConfig(
-            USE_PARALLEL_MERGE_POOL_CONFIGURED,
-            DruidProcessingConfig.DEFAULT_NUM_MERGE_BUFFERS
-        ),
+        QueryStackTests.getParallelMergeConfig(USE_PARALLEL_MERGE_POOL_CONFIGURED),
         ForkJoinPool.commonPool(),
         QueryStackTests.DEFAULT_NOOP_SCHEDULER,
-        new MapJoinableFactory(ImmutableSet.of(), ImmutableMap.of()),
-        new NoopServiceEmitter()
+        emitter
     );
     servers = new ArrayList<>();
   }
@@ -247,7 +229,7 @@ public abstract class QueryRunnerBasedOnClusteredClientTestBase
   protected static ResponseContext responseContext()
   {
     final ResponseContext responseContext = ConcurrentResponseContext.createEmpty();
-    responseContext.put(Key.REMAINING_RESPONSES_FROM_QUERY_SERVERS, new ConcurrentHashMap<>());
+    responseContext.initializeRemainingResponses();
     return responseContext;
   }
 

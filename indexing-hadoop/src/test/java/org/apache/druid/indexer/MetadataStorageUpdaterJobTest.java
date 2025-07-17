@@ -19,70 +19,50 @@
 
 package org.apache.druid.indexer;
 
-import com.google.common.collect.ImmutableList;
-import org.apache.druid.indexer.updater.MetadataStorageUpdaterJobSpec;
-import org.easymock.EasyMock;
+import org.apache.druid.indexer.path.SegmentMetadataPublisher;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.powermock.api.easymock.PowerMock;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.core.classloader.annotations.SuppressStaticInitializationFor;
-import org.powermock.modules.junit4.PowerMockRunner;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-@RunWith(PowerMockRunner.class)
-@PrepareForTest({
-    IndexGeneratorJob.class
-})
-@PowerMockIgnore({"javax.net.ssl.*"})
-@SuppressStaticInitializationFor({
-    "org.apache.druid.indexer.HadoopIngestionSpec",
-    "org.apache.druid.indexer.HadoopDruidIndexerConfig",
-    "org.apache.druid.indexer.IndexGeneratorJob"
-})
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+
 public class MetadataStorageUpdaterJobTest
 {
-  private static final List<DataSegmentAndIndexZipFilePath> DATA_SEGMENT_AND_INDEX_ZIP_FILE_PATHS = ImmutableList.of(
+  private static final List<DataSegmentAndIndexZipFilePath> DATA_SEGMENT_AND_INDEX_ZIP_FILE_PATHS = List.of(
       new DataSegmentAndIndexZipFilePath(null, null, null)
   );
-  private static final String SEGMENT_TABLE = "segments";
-  private HadoopIngestionSpec spec;
-  private HadoopIOConfig ioConfig;
-  private MetadataStorageUpdaterJobSpec metadataUpdateSpec;
   private HadoopDruidIndexerConfig config;
-  private MetadataStorageUpdaterJobHandler handler;
+  private SegmentMetadataPublisher handler;
   private MetadataStorageUpdaterJob target;
 
   @Test
   public void test_run()
   {
-    metadataUpdateSpec = PowerMock.createMock(MetadataStorageUpdaterJobSpec.class);
-    ioConfig = PowerMock.createMock(HadoopIOConfig.class);
-    spec = PowerMock.createMock(HadoopIngestionSpec.class);
-    config = PowerMock.createMock(HadoopDruidIndexerConfig.class);
-    handler = PowerMock.createMock(MetadataStorageUpdaterJobHandler.class);
-    PowerMock.mockStaticNice(IndexGeneratorJob.class);
+    config = mock(HadoopDruidIndexerConfig.class);
+    handler = mock(SegmentMetadataPublisher.class);
 
-    EasyMock.expect(metadataUpdateSpec.getSegmentTable()).andReturn(SEGMENT_TABLE);
-    EasyMock.expect(ioConfig.getMetadataUpdateSpec()).andReturn(metadataUpdateSpec);
-    EasyMock.expect(spec.getIOConfig()).andReturn(ioConfig);
-    EasyMock.expect(config.getSchema()).andReturn(spec);
-    EasyMock.expect(IndexGeneratorJob.getPublishedSegmentAndIndexZipFilePaths(config))
-            .andReturn(DATA_SEGMENT_AND_INDEX_ZIP_FILE_PATHS);
-    handler.publishSegments(
-        SEGMENT_TABLE,
-        DATA_SEGMENT_AND_INDEX_ZIP_FILE_PATHS.stream().map(s -> s.getSegment()).collect(
-        Collectors.toList()), HadoopDruidIndexerConfig.JSON_MAPPER);
-    EasyMock.expectLastCall();
-    target = new MetadataStorageUpdaterJob(config, handler);
+    try (MockedStatic<IndexGeneratorJob> mockedStatic = Mockito.mockStatic(IndexGeneratorJob.class)) {
+      mockedStatic.when(() -> IndexGeneratorJob.getPublishedSegmentAndIndexZipFilePaths(config))
+                  .thenReturn(DATA_SEGMENT_AND_INDEX_ZIP_FILE_PATHS);
 
-    PowerMock.replayAll();
 
-    target.run();
+      target = new MetadataStorageUpdaterJob(config, handler);
 
-    PowerMock.verifyAll();
+      target.run();
+
+      verify(handler).publishSegments(
+          DATA_SEGMENT_AND_INDEX_ZIP_FILE_PATHS.stream()
+                                               .map(DataSegmentAndIndexZipFilePath::getSegment)
+                                               .collect(Collectors.toSet())
+      );
+
+      mockedStatic.verify(() -> IndexGeneratorJob.getPublishedSegmentAndIndexZipFilePaths(config));
+      verifyNoMoreInteractions(handler, config);
+    }
   }
 }

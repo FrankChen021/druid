@@ -19,30 +19,26 @@
 
 package org.apache.druid.tests.security;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.http.client.CredentialedHttpClient;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.auth.BasicCredentials;
 import org.apache.druid.security.basic.authentication.entity.BasicAuthenticatorCredentialUpdate;
-import org.apache.druid.server.security.Action;
-import org.apache.druid.server.security.Resource;
+import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.ResourceAction;
-import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.testing.guice.DruidTestModuleFactory;
 import org.apache.druid.testing.utils.HttpUtil;
 import org.apache.druid.testing.utils.ITRetryUtil;
 import org.apache.druid.tests.TestNGGroup;
 import org.jboss.netty.handler.codec.http.HttpMethod;
-import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
 
-import java.util.Collections;
+import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Properties;
 
 @Test(groups = TestNGGroup.SECURITY)
 @Guice(moduleFactory = DruidTestModuleFactory.class)
@@ -53,7 +49,13 @@ public class ITBasicAuthConfigurationTest extends AbstractAuthConfigurationTest
   private static final String BASIC_AUTHENTICATOR = "basic";
   private static final String BASIC_AUTHORIZER = "basic";
 
-  private static final String EXPECTED_AVATICA_AUTH_ERROR = "Error while executing SQL \"SELECT * FROM INFORMATION_SCHEMA.COLUMNS\": Remote driver error: BasicSecurityAuthenticationException: User metadata store authentication failed.";
+  private static final String EXPECTED_AVATICA_AUTH_ERROR = "Error while executing SQL \"SELECT * FROM INFORMATION_SCHEMA.COLUMNS\": Remote driver error: " + Access.DEFAULT_ERROR_MESSAGE;
+
+  // This error must match both authorization paths: initial prepare of
+  // the query, and checks of resources used by a query during execution.
+  // The two errors are raised in different points in the code, but should
+  // look identical to users (and tests).
+  private static final String EXPECTED_AVATICA_AUTHZ_ERROR = "Error while executing SQL \"SELECT * FROM INFORMATION_SCHEMA.COLUMNS\": Remote driver error: " + Access.DEFAULT_ERROR_MESSAGE;
 
   private HttpClient druid99;
 
@@ -65,202 +67,9 @@ public class ITBasicAuthConfigurationTest extends AbstractAuthConfigurationTest
         () -> coordinatorClient.areSegmentsLoaded("auth_test"), "auth_test segment load"
     );
 
-    setupHttpClients();
-    setupUsers();
+    setupHttpClientsAndUsers();
     setExpectedSystemSchemaObjects();
   }
-
-  @Test
-  public void test_systemSchemaAccess_admin() throws Exception
-  {
-    // check that admin access works on all nodes
-    checkNodeAccess(adminClient);
-
-    // as admin
-    LOG.info("Checking sys.segments query as admin...");
-    verifySystemSchemaQuery(
-        adminClient,
-        SYS_SCHEMA_SEGMENTS_QUERY,
-        adminSegments
-    );
-
-    LOG.info("Checking sys.servers query as admin...");
-    verifySystemSchemaServerQuery(
-        adminClient,
-        SYS_SCHEMA_SERVERS_QUERY,
-        getServersWithoutCurrentSize(adminServers)
-    );
-
-    LOG.info("Checking sys.server_segments query as admin...");
-    verifySystemSchemaQuery(
-        adminClient,
-        SYS_SCHEMA_SERVER_SEGMENTS_QUERY,
-        adminServerSegments
-    );
-
-    LOG.info("Checking sys.tasks query as admin...");
-    verifySystemSchemaQuery(
-        adminClient,
-        SYS_SCHEMA_TASKS_QUERY,
-        adminTasks
-    );
-  }
-
-  @Test
-  public void test_systemSchemaAccess_datasourceOnlyUser() throws Exception
-  {
-    // check that we can access a datasource-permission restricted resource on the broker
-    HttpUtil.makeRequest(
-        datasourceOnlyUserClient,
-        HttpMethod.GET,
-        config.getBrokerUrl() + "/druid/v2/datasources/auth_test",
-        null
-    );
-
-    // as user that can only read auth_test
-    LOG.info("Checking sys.segments query as datasourceOnlyUser...");
-    verifySystemSchemaQuery(
-        datasourceOnlyUserClient,
-        SYS_SCHEMA_SEGMENTS_QUERY,
-        adminSegments.stream()
-                     .filter((segmentEntry) -> "auth_test".equals(segmentEntry.get("datasource")))
-                     .collect(Collectors.toList())
-    );
-
-    LOG.info("Checking sys.servers query as datasourceOnlyUser...");
-    verifySystemSchemaQueryFailure(
-        datasourceOnlyUserClient,
-        SYS_SCHEMA_SERVERS_QUERY,
-        HttpResponseStatus.FORBIDDEN,
-        "{\"Access-Check-Result\":\"Insufficient permission to view servers : Allowed:false, Message:\"}"
-    );
-
-    LOG.info("Checking sys.server_segments query as datasourceOnlyUser...");
-    verifySystemSchemaQueryFailure(
-        datasourceOnlyUserClient,
-        SYS_SCHEMA_SERVER_SEGMENTS_QUERY,
-        HttpResponseStatus.FORBIDDEN,
-        "{\"Access-Check-Result\":\"Insufficient permission to view servers : Allowed:false, Message:\"}"
-    );
-
-    LOG.info("Checking sys.tasks query as datasourceOnlyUser...");
-    verifySystemSchemaQuery(
-        datasourceOnlyUserClient,
-        SYS_SCHEMA_TASKS_QUERY,
-        adminTasks.stream()
-                  .filter((taskEntry) -> "auth_test".equals(taskEntry.get("datasource")))
-                  .collect(Collectors.toList())
-    );
-  }
-
-  @Test
-  public void test_systemSchemaAccess_datasourceWithStateUser() throws Exception
-  {
-    // check that we can access a state-permission restricted resource on the broker
-    HttpUtil.makeRequest(
-        datasourceWithStateUserClient,
-        HttpMethod.GET,
-        config.getBrokerUrl() + "/status",
-        null
-    );
-
-    // as user that can read auth_test and STATE
-    LOG.info("Checking sys.segments query as datasourceWithStateUser...");
-    verifySystemSchemaQuery(
-        datasourceWithStateUserClient,
-        SYS_SCHEMA_SEGMENTS_QUERY,
-        adminSegments.stream()
-                     .filter((segmentEntry) -> "auth_test".equals(segmentEntry.get("datasource")))
-                     .collect(Collectors.toList())
-    );
-
-    LOG.info("Checking sys.servers query as datasourceWithStateUser...");
-    verifySystemSchemaServerQuery(
-        datasourceWithStateUserClient,
-        SYS_SCHEMA_SERVERS_QUERY,
-        adminServers
-    );
-
-    LOG.info("Checking sys.server_segments query as datasourceWithStateUser...");
-    verifySystemSchemaQuery(
-        datasourceWithStateUserClient,
-        SYS_SCHEMA_SERVER_SEGMENTS_QUERY,
-        adminServerSegments.stream()
-                           .filter((serverSegmentEntry) -> ((String) serverSegmentEntry.get("segment_id")).contains(
-                               "auth_test"))
-                           .collect(Collectors.toList())
-    );
-
-    LOG.info("Checking sys.tasks query as datasourceWithStateUser...");
-    verifySystemSchemaQuery(
-        datasourceWithStateUserClient,
-        SYS_SCHEMA_TASKS_QUERY,
-        adminTasks.stream()
-                  .filter((taskEntry) -> "auth_test".equals(taskEntry.get("datasource")))
-                  .collect(Collectors.toList())
-    );
-  }
-
-  @Test
-  public void test_systemSchemaAccess_stateOnlyUser() throws Exception
-  {
-    HttpUtil.makeRequest(stateOnlyUserClient, HttpMethod.GET, config.getBrokerUrl() + "/status", null);
-
-    // as user that can only read STATE
-    LOG.info("Checking sys.segments query as stateOnlyUser...");
-    verifySystemSchemaQuery(
-        stateOnlyUserClient,
-        SYS_SCHEMA_SEGMENTS_QUERY,
-        Collections.emptyList()
-    );
-
-    LOG.info("Checking sys.servers query as stateOnlyUser...");
-    verifySystemSchemaServerQuery(
-        stateOnlyUserClient,
-        SYS_SCHEMA_SERVERS_QUERY,
-        adminServers
-    );
-
-    LOG.info("Checking sys.server_segments query as stateOnlyUser...");
-    verifySystemSchemaQuery(
-        stateOnlyUserClient,
-        SYS_SCHEMA_SERVER_SEGMENTS_QUERY,
-        Collections.emptyList()
-    );
-
-    LOG.info("Checking sys.tasks query as stateOnlyUser...");
-    verifySystemSchemaQuery(
-        stateOnlyUserClient,
-        SYS_SCHEMA_TASKS_QUERY,
-        Collections.emptyList()
-    );
-  }
-
-  @Test
-  public void test_unsecuredPathWithoutCredentials_allowed()
-  {
-    // check that we are allowed to access unsecured path without credentials.
-    checkUnsecuredCoordinatorLoadQueuePath(httpClient);
-  }
-
-  @Test
-  public void test_admin_hasNodeAccess()
-  {
-    checkNodeAccess(adminClient);
-  }
-
-  @Test
-  public void test_admin_loadStatus() throws Exception
-  {
-    checkLoadStatus(adminClient);
-  }
-
-  @Test
-  public void test_internalSystemUser_hasNodeAccess()
-  {
-    checkNodeAccess(internalSystemClient);
-  }
-
 
   @Test
   public void test_druid99User_hasNodeAccess()
@@ -268,164 +77,101 @@ public class ITBasicAuthConfigurationTest extends AbstractAuthConfigurationTest
     checkNodeAccess(druid99);
   }
 
-  @Test
-  public void test_avaticaQuery_broker()
+  @Override
+  protected void setupHttpClientsAndUsers() throws Exception
   {
-    testAvaticaQuery(getBrokerAvacticaUrl());
-  }
+    super.setupHttpClientsAndUsers();
 
-  @Test
-  public void test_avaticaQuery_router()
-  {
-    testAvaticaQuery(getRouterAvacticaUrl());
-  }
-
-  @Test
-  public void test_avaticaQueryAuthFailure_broker() throws Exception
-  {
-    testAvaticaAuthFailure(getBrokerAvacticaUrl());
-  }
-
-  @Test
-  public void test_avaticaQueryAuthFailure_router() throws Exception
-  {
-    testAvaticaAuthFailure(getRouterAvacticaUrl());
-  }
-
-  @Test
-  public void test_admin_optionsRequest()
-  {
-    verifyAdminOptionsRequest();
-  }
-
-  @Test
-  public void test_authentication_invalidAuthName_fails()
-  {
-    verifyAuthenticatioInvalidAuthNameFails();
-  }
-
-  @Test
-  public void test_authorization_invalidAuthName_fails()
-  {
-    verifyAuthorizationInvalidAuthNameFails();
-  }
-
-  @Test
-  public void test_groupMappings_invalidAuthName_fails()
-  {
-    verifyGroupMappingsInvalidAuthNameFails();
-  }
-
-  @Test
-  public void testMaliciousUser()
-  {
-    verifyMaliciousUser();
+    // Add a large enough delay to allow propagation of credentials to all services. It'd be ideal
+    // to have a "readiness" endpoint exposed by different services that'd return the version of auth creds cached.
+    try {
+      Thread.sleep(20000);
+    }
+    catch (InterruptedException e) {
+      // Ignore exception
+    }
   }
 
   @Override
-  void setupUsers() throws Exception
+  protected void setupDatasourceOnlyUser() throws Exception
   {
-    // create a new user+role that can only read 'auth_test'
-    List<ResourceAction> readDatasourceOnlyPermissions = Collections.singletonList(
-        new ResourceAction(
-            new Resource("auth_test", ResourceType.DATASOURCE),
-            Action.READ
-        )
-    );
     createUserAndRoleWithPermissions(
-        adminClient,
         "datasourceOnlyUser",
         "helloworld",
         "datasourceOnlyRole",
-        readDatasourceOnlyPermissions
-    );
-
-    // create a new user+role that can only read 'auth_test' + STATE read access
-    List<ResourceAction> readDatasourceWithStatePermissions = ImmutableList.of(
-        new ResourceAction(
-            new Resource("auth_test", ResourceType.DATASOURCE),
-            Action.READ
-        ),
-        new ResourceAction(
-            new Resource(".*", ResourceType.STATE),
-            Action.READ
-        )
-    );
-    createUserAndRoleWithPermissions(
-        adminClient,
-        "datasourceWithStateUser",
-        "helloworld",
-        "datasourceWithStateRole",
-        readDatasourceWithStatePermissions
-    );
-
-    // create a new user+role with only STATE read access
-    List<ResourceAction> stateOnlyPermissions = ImmutableList.of(
-        new ResourceAction(
-            new Resource(".*", ResourceType.STATE),
-            Action.READ
-        )
-    );
-    createUserAndRoleWithPermissions(
-        adminClient,
-        "stateOnlyUser",
-        "helloworld",
-        "stateOnlyRole",
-        stateOnlyPermissions
+        DATASOURCE_ONLY_PERMISSIONS
     );
   }
 
   @Override
-  void setupTestSpecificHttpClients() throws Exception
+  protected void setupDatasourceAndContextParamsUser() throws Exception
+  {
+    createUserAndRoleWithPermissions(
+        "datasourceAndContextParamsUser",
+        "helloworld",
+        "datasourceAndContextParamsRole",
+        DATASOURCE_QUERY_CONTEXT_PERMISSIONS
+    );
+  }
+
+  @Override
+  protected void setupDatasourceAndSysTableUser() throws Exception
+  {
+    createUserAndRoleWithPermissions(
+        "datasourceAndSysUser",
+        "helloworld",
+        "datasourceAndSysRole",
+        DATASOURCE_SYS_PERMISSIONS
+    );
+  }
+
+  @Override
+  protected void setupDatasourceAndSysAndStateUser() throws Exception
+  {
+    createUserAndRoleWithPermissions(
+        "datasourceWithStateUser",
+        "helloworld",
+        "datasourceWithStateRole",
+        DATASOURCE_SYS_STATE_PERMISSIONS
+    );
+  }
+
+  @Override
+  protected void setupSysTableAndStateOnlyUser() throws Exception
+  {
+    createUserAndRoleWithPermissions(
+        "stateOnlyUser",
+        "helloworld",
+        "stateOnlyRole",
+        STATE_ONLY_PERMISSIONS
+    );
+  }
+
+  @Override
+  protected void setupTestSpecificHttpClients() throws Exception
   {
     // create a new user+role that can read /status
-    List<ResourceAction> permissions = Collections.singletonList(
-        new ResourceAction(
-            new Resource(".*", ResourceType.STATE),
-            Action.READ
-        )
-    );
     createUserAndRoleWithPermissions(
-        adminClient,
         "druid",
         "helloworld",
         "druidrole",
-        permissions
+        STATE_ONLY_PERMISSIONS
     );
 
     // create 100 users
     for (int i = 0; i < 100; i++) {
-      HttpUtil.makeRequest(
-          adminClient,
-          HttpMethod.POST,
-          config.getCoordinatorUrl() + "/druid-ext/basic-security/authentication/db/basic/users/druid" + i,
-          null
-      );
-
-      HttpUtil.makeRequest(
-          adminClient,
-          HttpMethod.POST,
-          config.getCoordinatorUrl() + "/druid-ext/basic-security/authorization/db/basic/users/druid" + i,
-          null
-      );
-
-      LOG.info("Finished creating user druid" + i);
+      final String username = "druid" + i;
+      postAsAdmin(null, "/authentication/db/basic/users/%s", username);
+      postAsAdmin(null, "/authorization/db/basic/users/%s", username);
+      LOG.info("Created user[%s]", username);
     }
 
     // setup the last of 100 users and check that it works
-    HttpUtil.makeRequest(
-        adminClient,
-        HttpMethod.POST,
-        config.getCoordinatorUrl() + "/druid-ext/basic-security/authentication/db/basic/users/druid99/credentials",
-        jsonMapper.writeValueAsBytes(new BasicAuthenticatorCredentialUpdate("helloworld", 5000))
+    postAsAdmin(
+        new BasicAuthenticatorCredentialUpdate("helloworld", 5000),
+        "/authentication/db/basic/users/druid99/credentials"
     );
-
-    HttpUtil.makeRequest(
-        adminClient,
-        HttpMethod.POST,
-        config.getCoordinatorUrl() + "/druid-ext/basic-security/authorization/db/basic/users/druid99/roles/druidrole",
-        null
-    );
+    postAsAdmin(null, "/authorization/db/basic/users/druid99/roles/druidrole");
 
     druid99 = new CredentialedHttpClient(
         new BasicCredentials("druid99", "helloworld"),
@@ -433,93 +179,84 @@ public class ITBasicAuthConfigurationTest extends AbstractAuthConfigurationTest
     );
   }
 
+  @Override
+  protected String getAuthenticatorName()
+  {
+    return BASIC_AUTHENTICATOR;
+  }
+
+  @Override
+  protected String getAuthorizerName()
+  {
+    return BASIC_AUTHORIZER;
+  }
+
+  @Override
+  protected String getExpectedAvaticaAuthError()
+  {
+    return EXPECTED_AVATICA_AUTH_ERROR;
+  }
+
+  @Override
+  protected String getExpectedAvaticaAuthzError()
+  {
+    return EXPECTED_AVATICA_AUTHZ_ERROR;
+  }
+
+  @Override
+  protected Properties getAvaticaConnectionPropertiesForInvalidAdmin()
+  {
+    Properties connectionProperties = new Properties();
+    connectionProperties.setProperty("user", "admin");
+    connectionProperties.setProperty("password", "invalid_password");
+    return connectionProperties;
+  }
+
+  @Override
+  protected Properties getAvaticaConnectionPropertiesForUser(User user)
+  {
+    Properties connectionProperties = new Properties();
+    connectionProperties.setProperty("user", user.getName());
+    connectionProperties.setProperty("password", user.getPassword());
+    return connectionProperties;
+  }
+
   private void createUserAndRoleWithPermissions(
-      HttpClient adminClient,
       String user,
       String password,
       String role,
       List<ResourceAction> permissions
   ) throws Exception
   {
-    HttpUtil.makeRequest(
-        adminClient,
-        HttpMethod.POST,
-        StringUtils.format(
-            "%s/druid-ext/basic-security/authentication/db/basic/users/%s",
-            config.getCoordinatorUrl(),
-            user
-        ),
-        null
-    );
-    HttpUtil.makeRequest(
-        adminClient,
-        HttpMethod.POST,
-        StringUtils.format(
-            "%s/druid-ext/basic-security/authentication/db/basic/users/%s/credentials",
-            config.getCoordinatorUrl(),
-            user
-        ),
-        jsonMapper.writeValueAsBytes(new BasicAuthenticatorCredentialUpdate(password, 5000))
-    );
-    HttpUtil.makeRequest(
-        adminClient,
-        HttpMethod.POST,
-        StringUtils.format(
-            "%s/druid-ext/basic-security/authorization/db/basic/users/%s",
-            config.getCoordinatorUrl(),
-            user
-        ),
-        null
-    );
-    HttpUtil.makeRequest(
-        adminClient,
-        HttpMethod.POST,
-        StringUtils.format(
-            "%s/druid-ext/basic-security/authorization/db/basic/roles/%s",
-            config.getCoordinatorUrl(),
-            role
-        ),
-        null
-    );
-    HttpUtil.makeRequest(
-        adminClient,
-        HttpMethod.POST,
-        StringUtils.format(
-            "%s/druid-ext/basic-security/authorization/db/basic/users/%s/roles/%s",
-            config.getCoordinatorUrl(),
-            user,
-            role
-        ),
-        null
-    );
-    byte[] permissionsBytes = jsonMapper.writeValueAsBytes(permissions);
-    HttpUtil.makeRequest(
-        adminClient,
-        HttpMethod.POST,
-        StringUtils.format(
-            "%s/druid-ext/basic-security/authorization/db/basic/roles/%s/permissions",
-            config.getCoordinatorUrl(),
-            role
-        ),
-        permissionsBytes
-    );
+    // Setup authentication by creating user and password
+    postAsAdmin(null, "/authentication/db/basic/users/%s", user);
+
+    final BasicAuthenticatorCredentialUpdate credentials
+        = new BasicAuthenticatorCredentialUpdate(password, 5000);
+    postAsAdmin(credentials, "/authentication/db/basic/users/%s/credentials", user);
+
+    // Setup authorization by assigning a role to the user
+    postAsAdmin(null, "/authorization/db/basic/users/%s", user);
+    postAsAdmin(null, "/authorization/db/basic/roles/%s", role);
+    postAsAdmin(null, "/authorization/db/basic/users/%s/roles/%s", user, role);
+    postAsAdmin(permissions, "/authorization/db/basic/roles/%s/permissions", role);
   }
 
-  @Override
-  String getAuthenticatorName()
+  private void postAsAdmin(
+      Object payload,
+      String pathFormat,
+      Object... pathParams
+  ) throws IOException
   {
-    return BASIC_AUTHENTICATOR;
+    HttpClient adminClient = getHttpClient(User.ADMIN);
+
+    byte[] payloadBytes = payload == null ? null : jsonMapper.writeValueAsBytes(payload);
+    String url = getBaseUrl() + StringUtils.format(pathFormat, pathParams);
+    HttpUtil.makeRequest(adminClient, HttpMethod.POST, url, payloadBytes);
   }
 
-  @Override
-  String getAuthorizerName()
+  private String getBaseUrl()
   {
-    return BASIC_AUTHORIZER;
-  }
-
-  @Override
-  String getExpectedAvaticaAuthError()
-  {
-    return EXPECTED_AVATICA_AUTH_ERROR;
+    return config.getCoordinatorUrl() + "/druid-ext/basic-security";
   }
 }

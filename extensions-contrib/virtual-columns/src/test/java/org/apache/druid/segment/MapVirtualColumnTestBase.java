@@ -48,7 +48,7 @@ public class MapVirtualColumnTestBase extends InitializedNullHandlingTest
     final StringInputRowParser parser = new StringInputRowParser(
         new DelimitedParseSpec(
             new TimestampSpec("ts", "auto", null),
-            new DimensionsSpec(DimensionsSpec.getDefaultSchemas(Arrays.asList("dim", "keys", "values")), null, null),
+            new DimensionsSpec(DimensionsSpec.getDefaultSchemas(Arrays.asList("dim", "keys", "values"))),
             "\t",
             ",",
             Arrays.asList("ts", "dim", "keys", "values"),
@@ -62,7 +62,7 @@ public class MapVirtualColumnTestBase extends InitializedNullHandlingTest
         .withMinTimestamp(DateTimes.of("2011-01-12T00:00:00.000Z").getMillis())
         .build();
 
-    return TestIndex.loadIncrementalIndex(
+    return TestIndex.loadIncrementalIndexFromCharSource(
         () -> new OnheapIncrementalIndex.Builder()
             .setIndexSchema(schema)
             .setMaxRowCount(10000)

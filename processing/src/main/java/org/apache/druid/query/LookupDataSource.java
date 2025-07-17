@@ -22,23 +22,20 @@ package org.apache.druid.query;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
-import org.apache.druid.java.util.common.IAE;
-
 import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 /**
  * Represents a lookup.
- *
+ * <p>
  * Currently, this datasource is not actually queryable, and attempts to do so will lead to errors. It is here as a
  * placeholder for a future time in which it will become queryable.
- *
+ * <p>
  * The "lookupName" referred to here should be provided by a
  * {@link org.apache.druid.query.lookup.LookupExtractorFactoryContainerProvider}.
  */
-public class LookupDataSource implements DataSource
+public class LookupDataSource extends LeafDataSource
 {
   private final String lookupName;
 
@@ -63,22 +60,6 @@ public class LookupDataSource implements DataSource
   }
 
   @Override
-  public List<DataSource> getChildren()
-  {
-    return Collections.emptyList();
-  }
-
-  @Override
-  public DataSource withChildren(List<DataSource> children)
-  {
-    if (!children.isEmpty()) {
-      throw new IAE("Cannot accept children");
-    }
-
-    return this;
-  }
-
-  @Override
   public boolean isCacheable(boolean isBroker)
   {
     return false;
@@ -91,9 +72,15 @@ public class LookupDataSource implements DataSource
   }
 
   @Override
-  public boolean isConcrete()
+  public boolean isProcessable()
   {
     return true;
+  }
+
+  @Override
+  public byte[] getCacheKey()
+  {
+    return null;
   }
 
   @Override

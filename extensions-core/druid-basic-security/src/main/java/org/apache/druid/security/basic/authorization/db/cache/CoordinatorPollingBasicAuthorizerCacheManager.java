@@ -135,8 +135,11 @@ public class CoordinatorPollingBasicAuthorizerCacheManager implements BasicAutho
               }
               LOG.debug("Scheduled userMap cache poll is done");
             }
+            catch (InterruptedException e) {
+              LOG.noStackTrace().info(e, "Interrupted while polling Coordinator for cachedUserMaps.");
+            }
             catch (Throwable t) {
-              LOG.makeAlert(t, "Error occured while polling for cachedUserMaps.").emit();
+              LOG.makeAlert(t, "Error occurred while polling for cachedUserMaps.").emit();
             }
           }
       );
@@ -161,8 +164,11 @@ public class CoordinatorPollingBasicAuthorizerCacheManager implements BasicAutho
               }
               LOG.debug("Scheduled groupMappingMap cache poll is done");
             }
+            catch (InterruptedException e) {
+              LOG.noStackTrace().info(e, "Interrupted while polling Coordinator for cachedGroupMappingMaps.");
+            }
             catch (Throwable t) {
-              LOG.makeAlert(t, "Error occured while polling for cachedGroupMappingMaps.").emit();
+              LOG.makeAlert(t, "Error occurred while polling for cachedGroupMappingMaps.").emit();
             }
           }
       );
@@ -183,7 +189,7 @@ public class CoordinatorPollingBasicAuthorizerCacheManager implements BasicAutho
     }
 
     LOG.info("CoordinatorPollingBasicAuthorizerCacheManager is stopping.");
-    exec.shutdown();
+    exec.shutdownNow();
     LOG.info("CoordinatorPollingBasicAuthorizerCacheManager is stopped.");
   }
 
@@ -296,7 +302,7 @@ public class CoordinatorPollingBasicAuthorizerCacheManager implements BasicAutho
   private void writeUserMapToDisk(String prefix, byte[] userMapBytes) throws IOException
   {
     File cacheDir = new File(commonCacheConfig.getCacheDirectory());
-    cacheDir.mkdirs();
+    FileUtils.mkdirp(cacheDir);
     File userMapFile = new File(commonCacheConfig.getCacheDirectory(), getUserRoleMapFilename(prefix));
     FileUtils.writeAtomically(
         userMapFile,
@@ -310,7 +316,7 @@ public class CoordinatorPollingBasicAuthorizerCacheManager implements BasicAutho
   private void writeGroupMappingMapToDisk(String prefix, byte[] groupMappingBytes) throws IOException
   {
     File cacheDir = new File(commonCacheConfig.getCacheDirectory());
-    cacheDir.mkdirs();
+    FileUtils.mkdirp(cacheDir);
     File groupMapFile = new File(commonCacheConfig.getCacheDirectory(), getGroupMappingRoleMapFilename(prefix));
     FileUtils.writeAtomically(
         groupMapFile,
@@ -326,15 +332,17 @@ public class CoordinatorPollingBasicAuthorizerCacheManager implements BasicAutho
   {
     try {
       return RetryUtils.retry(
-          () -> {
-            return tryFetchUserMapsFromCoordinator(prefix);
-          },
-          e -> true,
+          () -> tryFetchUserMapsFromCoordinator(prefix),
+          e -> !(e instanceof InterruptedException),
           commonCacheConfig.getMaxSyncRetries()
       );
     }
+    catch (InterruptedException e) {
+      LOG.noStackTrace().info(e, "Interrupted while fetching user and role map for authorizer[%s].", prefix);
+      return null;
+    }
     catch (Exception e) {
-      LOG.makeAlert(e, "Encountered exception while fetching user and role map for authorizer [%s]", prefix).emit();
+      LOG.makeAlert(e, "Encountered exception while fetching user and role map for authorizer[%s]", prefix).emit();
       if (isInit) {
         if (commonCacheConfig.getCacheDirectory() != null) {
           try {
@@ -343,7 +351,7 @@ public class CoordinatorPollingBasicAuthorizerCacheManager implements BasicAutho
           }
           catch (Exception e2) {
             e2.addSuppressed(e);
-            LOG.makeAlert(e2, "Encountered exception while loading user-role map snapshot for authorizer [%s]", prefix)
+            LOG.makeAlert(e2, "Encountered exception while loading user-role map snapshot for authorizer[%s]", prefix)
                .emit();
           }
         }
@@ -357,15 +365,17 @@ public class CoordinatorPollingBasicAuthorizerCacheManager implements BasicAutho
   {
     try {
       return RetryUtils.retry(
-          () -> {
-            return tryFetchGroupMappingMapsFromCoordinator(prefix);
-          },
-          e -> true,
+          () -> tryFetchGroupMappingMapsFromCoordinator(prefix),
+          e -> !(e instanceof InterruptedException),
           commonCacheConfig.getMaxSyncRetries()
       );
     }
+    catch (InterruptedException e) {
+      LOG.noStackTrace().info(e, "Interrupted while fetching group and role map for authorizer[%s].", prefix);
+      return null;
+    }
     catch (Exception e) {
-      LOG.makeAlert(e, "Encountered exception while fetching group and role map for authorizer [%s]", prefix).emit();
+      LOG.makeAlert(e, "Encountered exception while fetching group and role map for authorizer[%s]", prefix).emit();
       if (isInit) {
         if (commonCacheConfig.getCacheDirectory() != null) {
           try {
@@ -374,7 +384,7 @@ public class CoordinatorPollingBasicAuthorizerCacheManager implements BasicAutho
           }
           catch (Exception e2) {
             e2.addSuppressed(e);
-            LOG.makeAlert(e2, "Encountered exception while loading group-role map snapshot for authorizer [%s]", prefix)
+            LOG.makeAlert(e2, "Encountered exception while loading group-role map snapshot for authorizer[%s]", prefix)
                .emit();
           }
         }
@@ -420,12 +430,18 @@ public class CoordinatorPollingBasicAuthorizerCacheManager implements BasicAutho
         new BytesFullResponseHandler()
     );
 
+    final HttpResponseStatus status = responseHolder.getStatus();
+
     // cachedSerializedGroupMappingMap is a new endpoint introduced in Druid 0.17.0. For backwards compatibility, if we
     // get a 404 from the coordinator we stop retrying. This can happen during a rolling upgrade when a process
     // running 0.17.0+ tries to access this endpoint on an older coordinator.
-    if (responseHolder.getStatus().equals(HttpResponseStatus.NOT_FOUND)) {
+    if (HttpResponseStatus.NOT_FOUND.equals(status)) {
       LOG.warn("cachedSerializedGroupMappingMap is not available from the coordinator, skipping fetch of group mappings for now.");
       return null;
+    }
+
+    if (!HttpResponseStatus.OK.equals(status)) {
+      LOG.warn("Got an unexpected response status[%s] when loading group mappings.", status);
     }
 
     byte[] groupRoleMapBytes = responseHolder.getContent();

@@ -81,9 +81,9 @@ public class TopNBinaryFnTest
   @Test
   public void testMerge()
   {
-    Result<TopNResultValue> result1 = new Result<TopNResultValue>(
+    Result<TopNResultValue> result1 = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "rows", 1L,
@@ -103,9 +103,9 @@ public class TopNBinaryFnTest
             )
         )
     );
-    Result<TopNResultValue> result2 = new Result<TopNResultValue>(
+    Result<TopNResultValue> result2 = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "rows", 2L,
@@ -126,9 +126,9 @@ public class TopNBinaryFnTest
         )
     );
 
-    Result<TopNResultValue> expected = new Result<TopNResultValue>(
+    Result<TopNResultValue> expected = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "testdim", "1",
@@ -163,9 +163,9 @@ public class TopNBinaryFnTest
   @Test
   public void testMergeDay()
   {
-    Result<TopNResultValue> result1 = new Result<TopNResultValue>(
+    Result<TopNResultValue> result1 = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "rows", 1L,
@@ -185,9 +185,9 @@ public class TopNBinaryFnTest
             )
         )
     );
-    Result<TopNResultValue> result2 = new Result<TopNResultValue>(
+    Result<TopNResultValue> result2 = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "rows", 2L,
@@ -208,9 +208,9 @@ public class TopNBinaryFnTest
         )
     );
 
-    Result<TopNResultValue> expected = new Result<TopNResultValue>(
+    Result<TopNResultValue> expected = new Result<>(
         Granularities.DAY.bucketStart(currTime),
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "testdim", "1",
@@ -244,9 +244,9 @@ public class TopNBinaryFnTest
   @Test
   public void testMergeOneResultNull()
   {
-    Result<TopNResultValue> result1 = new Result<TopNResultValue>(
+    Result<TopNResultValue> result1 = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "rows", 1L,
@@ -288,9 +288,9 @@ public class TopNBinaryFnTest
   @Test
   public void testMergeByPostAgg()
   {
-    Result<TopNResultValue> result1 = new Result<TopNResultValue>(
+    Result<TopNResultValue> result1 = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "rows", 1L,
@@ -313,9 +313,9 @@ public class TopNBinaryFnTest
             )
         )
     );
-    Result<TopNResultValue> result2 = new Result<TopNResultValue>(
+    Result<TopNResultValue> result2 = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "rows", 2L,
@@ -339,9 +339,9 @@ public class TopNBinaryFnTest
         )
     );
 
-    Result<TopNResultValue> expected = new Result<TopNResultValue>(
+    Result<TopNResultValue> expected = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "testdim", "other",
@@ -383,9 +383,9 @@ public class TopNBinaryFnTest
   @Test
   public void testMergeShiftedTimestamp()
   {
-    Result<TopNResultValue> result1 = new Result<TopNResultValue>(
+    Result<TopNResultValue> result1 = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "rows", 1L,
@@ -405,9 +405,9 @@ public class TopNBinaryFnTest
             )
         )
     );
-    Result<TopNResultValue> result2 = new Result<TopNResultValue>(
+    Result<TopNResultValue> result2 = new Result<>(
         currTime.plusHours(2),
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "rows", 2L,
@@ -428,9 +428,9 @@ public class TopNBinaryFnTest
         )
     );
 
-    Result<TopNResultValue> expected = new Result<TopNResultValue>(
+    Result<TopNResultValue> expected = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "testdim", "1",
@@ -464,9 +464,9 @@ public class TopNBinaryFnTest
   @Test
   public void testMergeLexicographicWithInvalidDimName()
   {
-    Result<TopNResultValue> result1 = new Result<TopNResultValue>(
+    Result<TopNResultValue> result1 = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "rows", 1L,
@@ -476,9 +476,9 @@ public class TopNBinaryFnTest
             )
         )
     );
-    Result<TopNResultValue> result2 = new Result<TopNResultValue>(
+    Result<TopNResultValue> result2 = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.<Map<String, Object>>of(
                 ImmutableMap.of(
                     "rows", 2L,
@@ -494,9 +494,9 @@ public class TopNBinaryFnTest
     resultMap.put("rows", 3L);
     resultMap.put("index", 5L);
 
-    Result<TopNResultValue> expected = new Result<TopNResultValue>(
+    Result<TopNResultValue> expected = new Result<>(
         currTime,
-        new TopNResultValue(
+        TopNResultValue.create(
             ImmutableList.of(
                 resultMap
             )

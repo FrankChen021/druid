@@ -15,23 +15,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-: ${HADOOP_PREFIX:=/usr/local/hadoop}
+: ${HADOOP_HOME:=/usr/local/hadoop}
 
-$HADOOP_PREFIX/etc/hadoop/hadoop-env.sh
+$HADOOP_HOME/etc/hadoop/hadoop-env.sh
 
 rm /tmp/*.pid
-
 # installing libraries if any - (resource urls added comma separated to the ACP system variable)
-cd $HADOOP_PREFIX/share/hadoop/common ; for cp in ${ACP//,/ }; do  echo == $cp; curl -LO $cp ; done; cd -
+cd $HADOOP_HOME/share/hadoop/common ; for cp in ${ACP//,/ }; do  echo == $cp; curl -LO $cp ; done; cd -
 
 # altering the core-site configuration
 sed s/HOSTNAME/$HOSTNAME/ /usr/local/hadoop/etc/hadoop/core-site.xml.template > /usr/local/hadoop/etc/hadoop/core-site.xml
 
 
+export PATH+=:$HADOOP_HOME/bin
+export PATH+=:$HADOOP_HOME/sbin
+
 start_sshd
-$HADOOP_PREFIX/sbin/start-dfs.sh
-$HADOOP_PREFIX/sbin/start-yarn.sh
-$HADOOP_PREFIX/sbin/mr-jobhistory-daemon.sh start historyserver
+$HADOOP_HOME/sbin/start-dfs.sh
+$HADOOP_HOME/sbin/start-yarn.sh
+$HADOOP_HOME/sbin/mr-jobhistory-daemon.sh start historyserver
+
+
+if [ ! -e .inited ] ; then
+	echo " * initialize hdfs for first run"
+	wait-for-port 9000
+	hdfs dfs -mkdir -p /druid/segments /quickstart /user
+	hdfs dfs -chmod -R 777 /druid /quickstart /user /tmp
+	hdfs dfs -put wikiticker-2015-09-12-sampled.json.gz /quickstart/wikiticker-2015-09-12-sampled.json.gz
+	tar -C $HADOOP_HOME/etc/hadoop -czf /shared/hadoop-conf.tgz .
+	touch .inited
+fi
 
 if [[ $1 == "-d" ]]; then
   while true; do sleep 1000; done

@@ -26,10 +26,11 @@ import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.data.input.impl.ParseSpec;
-import org.apache.druid.data.input.impl.StringInputRowParser;
 import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.indexer.TaskState;
 import org.apache.druid.indexer.TaskStatus;
+import org.apache.druid.indexer.granularity.GranularitySpec;
+import org.apache.druid.indexer.granularity.UniformGranularitySpec;
 import org.apache.druid.indexer.partitions.HashedPartitionsSpec;
 import org.apache.druid.indexer.partitions.PartitionsSpec;
 import org.apache.druid.indexing.common.LockGranularity;
@@ -42,12 +43,8 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Comparators;
-import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.apache.druid.segment.indexing.granularity.GranularitySpec;
-import org.apache.druid.segment.indexing.granularity.UniformGranularitySpec;
-import org.apache.druid.segment.realtime.firehose.LocalFirehoseFactory;
 import org.joda.time.Interval;
 import org.junit.Assert;
 import org.junit.Before;
@@ -82,7 +79,8 @@ public class HashPartitionTaskKillTest extends AbstractMultiPhaseParallelIndexin
       null,
       false,
       false,
-      0
+      0,
+      null
   );
   private static final Interval INTERVAL_TO_INDEX = Intervals.of("2017-12/P1M");
 
@@ -204,7 +202,7 @@ public class HashPartitionTaskKillTest extends AbstractMultiPhaseParallelIndexin
     Assert.assertTrue(task.isReady(actionClient));
     task.stopGracefully(null);
 
-
+    task.setToolbox(toolbox);
     TaskStatus taskStatus = task.runHashPartitionMultiPhaseParallel(toolbox);
 
     Assert.assertTrue(taskStatus.isFailure());
@@ -246,45 +244,39 @@ public class HashPartitionTaskKillTest extends AbstractMultiPhaseParallelIndexin
     if (useInputFormatApi) {
       Preconditions.checkArgument(parseSpec == null);
       ParallelIndexIOConfig ioConfig = new ParallelIndexIOConfig(
-          null,
           new LocalInputSource(inputDir, filter),
           inputFormat,
           appendToExisting,
           null
       );
       ingestionSpec = new ParallelIndexIngestionSpec(
-          new DataSchema(
-              DATASOURCE,
-              timestampSpec,
-              dimensionsSpec,
-              new AggregatorFactory[]{new LongSumAggregatorFactory("val", "val")},
-              granularitySpec,
-              null
-          ),
+          DataSchema.builder()
+                    .withDataSource(DATASOURCE)
+                    .withTimestamp(timestampSpec)
+                    .withDimensions(dimensionsSpec)
+                    .withAggregators(new LongSumAggregatorFactory("val", "val"))
+                    .withGranularity(granularitySpec)
+                    .build(),
           ioConfig,
           tuningConfig
       );
     } else {
       Preconditions.checkArgument(inputFormat == null);
       ParallelIndexIOConfig ioConfig = new ParallelIndexIOConfig(
-          new LocalFirehoseFactory(inputDir, filter, null),
-          appendToExisting
+          new LocalInputSource(inputDir, filter),
+          createInputFormatFromParseSpec(parseSpec),
+          appendToExisting,
+          null
       );
       //noinspection unchecked
       ingestionSpec = new ParallelIndexIngestionSpec(
-          new DataSchema(
-              "dataSource",
-              getObjectMapper().convertValue(
-                  new StringInputRowParser(parseSpec, null),
-                  Map.class
-              ),
-              new AggregatorFactory[]{
-                  new LongSumAggregatorFactory("val", "val")
-              },
-              granularitySpec,
-              null,
-              getObjectMapper()
-          ),
+          DataSchema.builder()
+                    .withDataSource("dataSource")
+                    .withTimestamp(parseSpec.getTimestampSpec())
+                    .withDimensions(parseSpec.getDimensionsSpec())
+                    .withAggregators(new LongSumAggregatorFactory("val", "val"))
+                    .withGranularity(granularitySpec)
+                    .build(),
           ioConfig,
           tuningConfig
       );
@@ -316,7 +308,7 @@ public class HashPartitionTaskKillTest extends AbstractMultiPhaseParallelIndexin
         int succedsBeforeFailing
     )
     {
-      super(id, groupId, taskResource, ingestionSchema, baseSubtaskSpecName, context);
+      super(id, groupId, taskResource, ingestionSchema, baseSubtaskSpecName, context, false);
       this.succeedsBeforeFailing = succedsBeforeFailing;
     }
 
@@ -387,9 +379,15 @@ public class HashPartitionTaskKillTest extends AbstractMultiPhaseParallelIndexin
     }
 
     @Override
-    public void stopGracefully()
+    public void stopGracefully(String stopReason)
     {
 
+    }
+
+    @Override
+    public String getStopReason()
+    {
+      return null;
     }
 
     @Override

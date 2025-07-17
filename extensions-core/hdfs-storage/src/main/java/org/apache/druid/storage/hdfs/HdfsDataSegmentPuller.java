@@ -56,7 +56,7 @@ public class HdfsDataSegmentPuller implements URIDataPuller
 {
   public static final int DEFAULT_RETRY_COUNT = 3;
 
-  public static final Predicate<Throwable> RETRY_PREDICATE = new Predicate<Throwable>()
+  public static final Predicate<Throwable> RETRY_PREDICATE = new Predicate<>()
   {
     @Override
     public boolean apply(Throwable input)
@@ -187,7 +187,7 @@ public class HdfsDataSegmentPuller implements URIDataPuller
   FileUtils.FileCopyResult getSegmentFiles(final Path path, final File outDir) throws SegmentLoadingException
   {
     try {
-      org.apache.commons.io.FileUtils.forceMkdir(outDir);
+      FileUtils.mkdirp(outDir);
     }
     catch (IOException e) {
       throw new SegmentLoadingException(e, "");

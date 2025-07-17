@@ -20,20 +20,27 @@
 package org.apache.druid.query.metadata;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.exc.ValueInstantiationException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.impl.TimestampSpec;
+import org.apache.druid.error.DruidException;
+import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.common.granularity.Granularities;
+import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.BySegmentResultValue;
 import org.apache.druid.query.BySegmentResultValueClass;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
+import org.apache.druid.query.InlineDataSource;
+import org.apache.druid.query.JoinAlgorithm;
+import org.apache.druid.query.JoinDataSource;
+import org.apache.druid.query.LookupDataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
@@ -41,21 +48,35 @@ import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.QueryToolChest;
+import org.apache.druid.query.RestrictedDataSource;
 import org.apache.druid.query.Result;
+import org.apache.druid.query.TableDataSource;
+import org.apache.druid.query.UnionDataSource;
 import org.apache.druid.query.aggregation.AggregatorFactory;
+import org.apache.druid.query.filter.NullFilter;
+import org.apache.druid.query.metadata.metadata.AggregatorMergeStrategy;
 import org.apache.druid.query.metadata.metadata.ColumnAnalysis;
 import org.apache.druid.query.metadata.metadata.ListColumnIncluderator;
 import org.apache.druid.query.metadata.metadata.SegmentAnalysis;
 import org.apache.druid.query.metadata.metadata.SegmentMetadataQuery;
+import org.apache.druid.query.policy.NoRestrictionPolicy;
+import org.apache.druid.query.policy.RowFilterPolicy;
+import org.apache.druid.query.spec.LegacySegmentSpec;
+import org.apache.druid.segment.AggregateProjectionMetadata;
 import org.apache.druid.segment.IncrementalIndexSegment;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.QueryableIndexSegment;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.TestIndex;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.incremental.IncrementalIndex;
+import org.apache.druid.segment.join.JoinType;
+import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.apache.druid.timeline.LogicalSegment;
 import org.apache.druid.timeline.SegmentId;
+import org.hamcrest.MatcherAssert;
 import org.joda.time.Interval;
 import org.junit.Assert;
 import org.junit.Test;
@@ -67,23 +88,23 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @RunWith(Parameterized.class)
-public class SegmentMetadataQueryTest
+public class SegmentMetadataQueryTest extends InitializedNullHandlingTest
 {
-  static {
-    NullHandling.initializeForTests();
-  }
-
   private static final SegmentMetadataQueryRunnerFactory FACTORY = new SegmentMetadataQueryRunnerFactory(
       new SegmentMetadataQueryQueryToolChest(new SegmentMetadataQueryConfig()),
       QueryRunnerTestHelper.NOOP_QUERYWATCHER
   );
   private static final ObjectMapper MAPPER = new DefaultObjectMapper();
+  private static final String DATASOURCE = "testDatasource";
+  private static final AggregateProjectionMetadata.Schema PROJECTION_SCHEMA = TestIndex.PROJECTIONS.get(0).toMetadataSchema();
+  private static final int PROJECTION_ROWS = 279;
 
   @SuppressWarnings("unchecked")
   public static QueryRunner makeMMappedQueryRunner(
@@ -164,8 +185,8 @@ public class SegmentMetadataQueryTest
       boolean bitmaps
   )
   {
-    final SegmentId id1 = SegmentId.dummy(differentIds ? "testSegment1" : "testSegment");
-    final SegmentId id2 = SegmentId.dummy(differentIds ? "testSegment2" : "testSegment");
+    final SegmentId id1 = SegmentId.dummy(differentIds ? "testSegment1" : DATASOURCE);
+    final SegmentId id2 = SegmentId.dummy(differentIds ? "testSegment2" : DATASOURCE);
     this.runner1 = mmap1
                    ? makeMMappedQueryRunner(id1, rollup1, bitmaps, FACTORY)
                    : makeIncrementalIndexQueryRunner(id1, rollup1, bitmaps, FACTORY);
@@ -179,68 +200,83 @@ public class SegmentMetadataQueryTest
     this.differentIds = differentIds;
     this.bitmaps = bitmaps;
     testQuery = Druids.newSegmentMetadataQueryBuilder()
-                      .dataSource("testing")
+                      .dataSource(DATASOURCE)
                       .intervals("2013/2014")
                       .toInclude(new ListColumnIncluderator(Arrays.asList("__time", "index", "placement")))
                       .analysisTypes(
                           SegmentMetadataQuery.AnalysisType.CARDINALITY,
                           SegmentMetadataQuery.AnalysisType.SIZE,
                           SegmentMetadataQuery.AnalysisType.INTERVAL,
-                          SegmentMetadataQuery.AnalysisType.MINMAX
+                          SegmentMetadataQuery.AnalysisType.MINMAX,
+                          SegmentMetadataQuery.AnalysisType.AGGREGATORS,
+                          SegmentMetadataQuery.AnalysisType.PROJECTIONS
                       )
                       .merge(true)
                       .build();
 
-    int preferedSize1 = 0;
-    int placementSize2 = 0;
-    int overallSize1 = 152334;
-    int overallSize2 = 152334;
+    int placementSize = 0;
+    int overallSize = 153543;
     if (bitmaps) {
-      preferedSize1 = mmap1 ? 10881 : 10764;
-      placementSize2 = mmap2 ? 10881 : 0;
-      overallSize1 = mmap1 ? 200136 : 200831;
-      overallSize2 = mmap2 ? 200136 : 200831;
+      placementSize = 10881;
+      overallSize = 201345;
     }
+
+    final Map<String, AggregatorFactory> expectedAggregators = new HashMap<>();
+    for (AggregatorFactory agg : TestIndex.METRIC_AGGS) {
+      expectedAggregators.put(agg.getName(), agg.getCombiningFactory());
+    }
+    final Map<String, AggregateProjectionMetadata> expectedProjections = ImmutableMap.of(
+        PROJECTION_SCHEMA.getName(),
+        new AggregateProjectionMetadata(PROJECTION_SCHEMA, PROJECTION_ROWS)
+    );
+
     expectedSegmentAnalysis1 = new SegmentAnalysis(
         id1.toString(),
         ImmutableList.of(Intervals.of("2011-01-12T00:00:00.000Z/2011-04-15T00:00:00.001Z")),
-        ImmutableMap.of(
-            "__time",
-            new ColumnAnalysis(
-                ValueType.LONG.toString(),
-                false,
-                false,
-                12090,
-                null,
-                null,
-                null,
-                null
-            ),
-            "index",
-            new ColumnAnalysis(
-                ValueType.DOUBLE.toString(),
-                false,
-                false,
-                9672,
-                null,
-                null,
-                null,
-                null
-            ),
-            "placement",
-            new ColumnAnalysis(
-                ValueType.STRING.toString(),
-                false,
-                false,
-                preferedSize1,
-                1,
-                "preferred",
-                "preferred",
-                null
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "__time",
+                new ColumnAnalysis(
+                    ColumnType.LONG,
+                    ValueType.LONG.toString(),
+                    false,
+                    false,
+                    12090,
+                    null,
+                    null,
+                    null,
+                    null
+                ),
+                "index",
+                new ColumnAnalysis(
+                    ColumnType.DOUBLE,
+                    ValueType.DOUBLE.toString(),
+                    false,
+                    false,
+                    9672,
+                    null,
+                    null,
+                    null,
+                    null
+                ),
+                "placement",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    false,
+                    false,
+                    placementSize,
+                    1,
+                    "preferred",
+                    "preferred",
+                    null
+                )
             )
-        ), overallSize1,
+        ),
+        overallSize,
         1209,
-        null,
+        expectedAggregators,
+        expectedProjections,
         null,
         null,
         null
@@ -248,44 +284,50 @@ public class SegmentMetadataQueryTest
     expectedSegmentAnalysis2 = new SegmentAnalysis(
         id2.toString(),
         ImmutableList.of(Intervals.of("2011-01-12T00:00:00.000Z/2011-04-15T00:00:00.001Z")),
-        ImmutableMap.of(
-            "__time",
-            new ColumnAnalysis(
-                ValueType.LONG.toString(),
-                false,
-                false,
-                12090,
-                null,
-                null,
-                null,
-                null
-            ),
-            "index",
-            new ColumnAnalysis(
-                ValueType.DOUBLE.toString(),
-                false,
-                false,
-                9672,
-                null,
-                null,
-                null,
-                null
-            ),
-            "placement",
-            new ColumnAnalysis(
-                ValueType.STRING.toString(),
-                false,
-                false,
-                placementSize2,
-                1,
-                null,
-                null,
-                null
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "__time",
+                new ColumnAnalysis(
+                    ColumnType.LONG,
+                    ValueType.LONG.toString(),
+                    false,
+                    false,
+                    12090,
+                    null,
+                    null,
+                    null,
+                    null
+                ),
+                "index",
+                new ColumnAnalysis(
+                    ColumnType.DOUBLE,
+                    ValueType.DOUBLE.toString(),
+                    false,
+                    false,
+                    9672,
+                    null,
+                    null,
+                    null,
+                    null
+                ),
+                "placement",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    false,
+                    false,
+                    placementSize,
+                    1,
+                    null,
+                    null,
+                    null
+                )
             )
-            // null_column will be included only for incremental index, which makes a little bigger result than expected
-        ), overallSize2,
+        ),
+        overallSize,
         1209,
-        null,
+        expectedAggregators,
+        expectedProjections,
         null,
         null,
         null
@@ -302,37 +344,69 @@ public class SegmentMetadataQueryTest
   }
 
   @Test
+  public void testSegmentMetadataQueryOnRestricted()
+  {
+    Query<?> restricted = testQuery.withDataSource(RestrictedDataSource.create(
+        new TableDataSource(DATASOURCE),
+        NoRestrictionPolicy.instance()
+    ));
+    List<?> results = runner1.run(QueryPlus.wrap(restricted)).toList();
+
+    Assert.assertEquals(Collections.singletonList(expectedSegmentAnalysis1), results);
+  }
+
+  @Test
+  public void testSegmentMetadataQueryOnUnion()
+  {
+    Query<?> restricted = testQuery.withDataSource(new UnionDataSource(ImmutableList.of(
+        new TableDataSource(DATASOURCE),
+        RestrictedDataSource.create(
+            new TableDataSource(DATASOURCE),
+            NoRestrictionPolicy.instance()
+        )
+    )));
+    List<?> results = runner1.run(QueryPlus.wrap(restricted)).toList();
+
+    Assert.assertEquals(Collections.singletonList(expectedSegmentAnalysis1), results);
+  }
+
+  @Test
   public void testSegmentMetadataQueryWithRollupMerge()
   {
     SegmentAnalysis mergedSegmentAnalysis = new SegmentAnalysis(
-        differentIds ? "merged" : SegmentId.dummy("testSegment").toString(),
+        differentIds ? "merged" : SegmentId.dummy(DATASOURCE).toString(),
         null,
-        ImmutableMap.of(
-            "placement",
-            new ColumnAnalysis(
-                ValueType.STRING.toString(),
-                false,
-                false,
-                0,
-                0,
-                null,
-                null,
-                null
-            ),
-            "placementish",
-            new ColumnAnalysis(
-                ValueType.STRING.toString(),
-                true,
-                false,
-                0,
-                0,
-                null,
-                null,
-                null
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "placement",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    false,
+                    false,
+                    0,
+                    0,
+                    null,
+                    null,
+                    null
+                ),
+                "placementish",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    true,
+                    false,
+                    0,
+                    0,
+                    null,
+                    null,
+                    null
+                )
             )
         ),
         0,
         expectedSegmentAnalysis1.getNumRows() + expectedSegmentAnalysis2.getNumRows(),
+        null,
         null,
         null,
         null,
@@ -357,7 +431,7 @@ public class SegmentMetadataQueryTest
 
     SegmentMetadataQuery query = Druids
         .newSegmentMetadataQueryBuilder()
-        .dataSource("testing")
+        .dataSource(DATASOURCE)
         .intervals("2013/2014")
         .toInclude(new ListColumnIncluderator(Arrays.asList("placement", "placementish")))
         .analysisTypes(SegmentMetadataQuery.AnalysisType.ROLLUP)
@@ -375,34 +449,39 @@ public class SegmentMetadataQueryTest
   public void testSegmentMetadataQueryWithHasMultipleValuesMerge()
   {
     SegmentAnalysis mergedSegmentAnalysis = new SegmentAnalysis(
-        differentIds ? "merged" : SegmentId.dummy("testSegment").toString(),
+        differentIds ? "merged" : SegmentId.dummy(DATASOURCE).toString(),
         null,
-        ImmutableMap.of(
-            "placement",
-            new ColumnAnalysis(
-                ValueType.STRING.toString(),
-                false,
-                false,
-                0,
-                1,
-                null,
-                null,
-                null
-            ),
-            "placementish",
-            new ColumnAnalysis(
-                ValueType.STRING.toString(),
-                true,
-                false,
-                0,
-                9,
-                null,
-                null,
-                null
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "placement",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    false,
+                    false,
+                    0,
+                    1,
+                    null,
+                    null,
+                    null
+                ),
+                "placementish",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    true,
+                    false,
+                    0,
+                    9,
+                    null,
+                    null,
+                    null
+                )
             )
         ),
         0,
         expectedSegmentAnalysis1.getNumRows() + expectedSegmentAnalysis2.getNumRows(),
+        null,
         null,
         null,
         null,
@@ -427,7 +506,7 @@ public class SegmentMetadataQueryTest
 
     SegmentMetadataQuery query = Druids
         .newSegmentMetadataQueryBuilder()
-        .dataSource("testing")
+        .dataSource(DATASOURCE)
         .intervals("2013/2014")
         .toInclude(new ListColumnIncluderator(Arrays.asList("placement", "placementish")))
         .analysisTypes(SegmentMetadataQuery.AnalysisType.CARDINALITY)
@@ -445,34 +524,39 @@ public class SegmentMetadataQueryTest
   public void testSegmentMetadataQueryWithComplexColumnMerge()
   {
     SegmentAnalysis mergedSegmentAnalysis = new SegmentAnalysis(
-        differentIds ? "merged" : SegmentId.dummy("testSegment").toString(),
+        differentIds ? "merged" : SegmentId.dummy(DATASOURCE).toString(),
         null,
-        ImmutableMap.of(
-            "placement",
-            new ColumnAnalysis(
-                ValueType.STRING.toString(),
-                false,
-                false,
-                0,
-                1,
-                null,
-                null,
-                null
-            ),
-            "quality_uniques",
-            new ColumnAnalysis(
-                "hyperUnique",
-                false,
-                true,
-                0,
-                null,
-                null,
-                null,
-                null
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "placement",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    false,
+                    false,
+                    0,
+                    1,
+                    null,
+                    null,
+                    null
+                ),
+                "quality_uniques",
+                new ColumnAnalysis(
+                    ColumnType.ofComplex("hyperUnique"),
+                    "hyperUnique",
+                    false,
+                    true,
+                    0,
+                    null,
+                    null,
+                    null,
+                    null
+                )
             )
         ),
         0,
         expectedSegmentAnalysis1.getNumRows() + expectedSegmentAnalysis2.getNumRows(),
+        null,
         null,
         null,
         null,
@@ -497,7 +581,7 @@ public class SegmentMetadataQueryTest
 
     SegmentMetadataQuery query = Druids
         .newSegmentMetadataQueryBuilder()
-        .dataSource("testing")
+        .dataSource(DATASOURCE)
         .intervals("2013/2014")
         .toInclude(new ListColumnIncluderator(Arrays.asList("placement", "quality_uniques")))
         .analysisTypes(SegmentMetadataQuery.AnalysisType.CARDINALITY)
@@ -514,17 +598,16 @@ public class SegmentMetadataQueryTest
   @Test
   public void testSegmentMetadataQueryWithDefaultAnalysisMerge()
   {
-    int size1 = 0;
-    int size2 = 0;
+    int size = 0;
     if (bitmaps) {
-      size1 = mmap1 ? 10881 : 10764;
-      size2 = mmap2 ? 10881 : 10764;
+      size = 10881;
     }
     ColumnAnalysis analysis = new ColumnAnalysis(
+        ColumnType.STRING,
         ValueType.STRING.toString(),
         false,
         false,
-        size1 + size2,
+        size * 2,
         1,
         "preferred",
         "preferred",
@@ -536,17 +619,16 @@ public class SegmentMetadataQueryTest
   @Test
   public void testSegmentMetadataQueryWithDefaultAnalysisMerge2()
   {
-    int size1 = 0;
-    int size2 = 0;
+    int size = 0;
     if (bitmaps) {
-      size1 = mmap1 ? 6882 : 6808;
-      size2 = mmap2 ? 6882 : 6808;
+      size = 6882;
     }
     ColumnAnalysis analysis = new ColumnAnalysis(
+        ColumnType.STRING,
         ValueType.STRING.toString(),
         false,
         false,
-        size1 + size2,
+        size * 2,
         3,
         "spot",
         "upfront",
@@ -558,17 +640,16 @@ public class SegmentMetadataQueryTest
   @Test
   public void testSegmentMetadataQueryWithDefaultAnalysisMerge3()
   {
-    int size1 = 0;
-    int size2 = 0;
+    int size = 0;
     if (bitmaps) {
-      size1 = mmap1 ? 9765 : 9660;
-      size2 = mmap2 ? 9765 : 9660;
+      size = 9765;
     }
     ColumnAnalysis analysis = new ColumnAnalysis(
+        ColumnType.STRING,
         ValueType.STRING.toString(),
         false,
         false,
-        size1 + size2,
+        size * 2,
         9,
         "automotive",
         "travel",
@@ -582,38 +663,51 @@ public class SegmentMetadataQueryTest
       ColumnAnalysis analysis
   )
   {
+    final Map<String, AggregatorFactory> expectedAggregators = new HashMap<>();
+    for (AggregatorFactory agg : TestIndex.METRIC_AGGS) {
+      expectedAggregators.put(agg.getName(), agg.getCombiningFactory());
+    }
+
     SegmentAnalysis mergedSegmentAnalysis = new SegmentAnalysis(
-        differentIds ? "merged" : SegmentId.dummy("testSegment").toString(),
+        differentIds ? "merged" : SegmentId.dummy(DATASOURCE).toString(),
         ImmutableList.of(expectedSegmentAnalysis1.getIntervals().get(0)),
-        ImmutableMap.of(
-            "__time",
-            new ColumnAnalysis(
-                ValueType.LONG.toString(),
-                false,
-                false,
-                12090 * 2,
-                null,
-                null,
-                null,
-                null
-            ),
-            "index",
-            new ColumnAnalysis(
-                ValueType.DOUBLE.toString(),
-                false,
-                false,
-                9672 * 2,
-                null,
-                null,
-                null,
-                null
-            ),
-            column,
-            analysis
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "__time",
+                new ColumnAnalysis(
+                    ColumnType.LONG,
+                    ValueType.LONG.toString(),
+                    false,
+                    false,
+                    12090 * 2,
+                    null,
+                    null,
+                    null,
+                    null
+                ),
+                "index",
+                new ColumnAnalysis(
+                    ColumnType.DOUBLE,
+                    ValueType.DOUBLE.toString(),
+                    false,
+                    false,
+                    9672 * 2,
+                    null,
+                    null,
+                    null,
+                    null
+                ),
+                column,
+                analysis
+            )
         ),
         expectedSegmentAnalysis1.getSize() + expectedSegmentAnalysis2.getSize(),
         expectedSegmentAnalysis1.getNumRows() + expectedSegmentAnalysis2.getNumRows(),
-        null,
+        expectedAggregators,
+        ImmutableMap.of(
+            PROJECTION_SCHEMA.getName(),
+            new AggregateProjectionMetadata(PROJECTION_SCHEMA, PROJECTION_ROWS * 2)
+        ),
         null,
         null,
         null
@@ -649,23 +743,27 @@ public class SegmentMetadataQueryTest
   public void testSegmentMetadataQueryWithNoAnalysisTypesMerge()
   {
     SegmentAnalysis mergedSegmentAnalysis = new SegmentAnalysis(
-        differentIds ? "merged" : SegmentId.dummy("testSegment").toString(),
+        differentIds ? "merged" : SegmentId.dummy(DATASOURCE).toString(),
         null,
-        ImmutableMap.of(
-            "placement",
-            new ColumnAnalysis(
-                ValueType.STRING.toString(),
-                false,
-                false,
-                0,
-                0,
-                null,
-                null,
-                null
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "placement",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    false,
+                    false,
+                    0,
+                    0,
+                    null,
+                    null,
+                    null
+                )
             )
         ),
         0,
         expectedSegmentAnalysis1.getNumRows() + expectedSegmentAnalysis2.getNumRows(),
+        null,
         null,
         null,
         null,
@@ -690,7 +788,7 @@ public class SegmentMetadataQueryTest
 
     SegmentMetadataQuery query = Druids
         .newSegmentMetadataQueryBuilder()
-        .dataSource("testing")
+        .dataSource(DATASOURCE)
         .intervals("2013/2014")
         .toInclude(new ListColumnIncluderator(Collections.singletonList("placement")))
         .analysisTypes()
@@ -712,24 +810,28 @@ public class SegmentMetadataQueryTest
       expectedAggregators.put(agg.getName(), agg.getCombiningFactory());
     }
     SegmentAnalysis mergedSegmentAnalysis = new SegmentAnalysis(
-        differentIds ? "merged" : SegmentId.dummy("testSegment").toString(),
+        differentIds ? "merged" : SegmentId.dummy(DATASOURCE).toString(),
         null,
-        ImmutableMap.of(
-            "placement",
-            new ColumnAnalysis(
-                ValueType.STRING.toString(),
-                false,
-                false,
-                0,
-                0,
-                null,
-                null,
-                null
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "placement",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    false,
+                    false,
+                    0,
+                    0,
+                    null,
+                    null,
+                    null
+                )
             )
         ),
         0,
         expectedSegmentAnalysis1.getNumRows() + expectedSegmentAnalysis2.getNumRows(),
         expectedAggregators,
+        null,
         null,
         null,
         null
@@ -753,11 +855,79 @@ public class SegmentMetadataQueryTest
 
     SegmentMetadataQuery query = Druids
         .newSegmentMetadataQueryBuilder()
-        .dataSource("testing")
+        .dataSource(DATASOURCE)
+        .intervals("2013/2014")
+        .toInclude(new ListColumnIncluderator(Collections.singletonList("placement")))
+        .analysisTypes(SegmentMetadataQuery.AnalysisType.AGGREGATORS)
+        .merge(true) // if the aggregator strategy is unsepcified, it defaults to strict.
+        .build();
+    TestHelper.assertExpectedObjects(
+        ImmutableList.of(mergedSegmentAnalysis),
+        myRunner.run(QueryPlus.wrap(query)),
+        "failed SegmentMetadata merging query"
+    );
+    exec.shutdownNow();
+  }
+
+  @Test
+  public void testSegmentMetadataQueryWithAggregatorsMergeLenientStrategy()
+  {
+    final Map<String, AggregatorFactory> expectedAggregators = new HashMap<>();
+    for (AggregatorFactory agg : TestIndex.METRIC_AGGS) {
+      expectedAggregators.put(agg.getName(), agg.getCombiningFactory());
+    }
+    SegmentAnalysis mergedSegmentAnalysis = new SegmentAnalysis(
+        differentIds ? "merged" : SegmentId.dummy(DATASOURCE).toString(),
+        null,
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "placement",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    false,
+                    false,
+                    0,
+                    0,
+                    null,
+                    null,
+                    null
+                )
+            )
+        ),
+        0,
+        expectedSegmentAnalysis1.getNumRows() + expectedSegmentAnalysis2.getNumRows(),
+        expectedAggregators,
+        null,
+        null,
+        null,
+        null
+    );
+
+    QueryToolChest toolChest = FACTORY.getToolchest();
+
+    ExecutorService exec = Executors.newCachedThreadPool();
+    QueryRunner myRunner = new FinalizeResultsQueryRunner<>(
+        toolChest.mergeResults(
+            FACTORY.mergeRunners(
+                Execs.directExecutor(),
+                Lists.newArrayList(
+                    toolChest.preMergeQueryDecoration(runner1),
+                    toolChest.preMergeQueryDecoration(runner2)
+                )
+            )
+        ),
+        toolChest
+    );
+
+    SegmentMetadataQuery query = Druids
+        .newSegmentMetadataQueryBuilder()
+        .dataSource(DATASOURCE)
         .intervals("2013/2014")
         .toInclude(new ListColumnIncluderator(Collections.singletonList("placement")))
         .analysisTypes(SegmentMetadataQuery.AnalysisType.AGGREGATORS)
         .merge(true)
+        .aggregatorMergeStrategy(AggregatorMergeStrategy.LENIENT)
         .build();
     TestHelper.assertExpectedObjects(
         ImmutableList.of(mergedSegmentAnalysis),
@@ -771,25 +941,29 @@ public class SegmentMetadataQueryTest
   public void testSegmentMetadataQueryWithTimestampSpecMerge()
   {
     SegmentAnalysis mergedSegmentAnalysis = new SegmentAnalysis(
-        differentIds ? "merged" : SegmentId.dummy("testSegment").toString(),
+        differentIds ? "merged" : SegmentId.dummy(DATASOURCE).toString(),
         null,
-        ImmutableMap.of(
-            "placement",
-            new ColumnAnalysis(
-                ValueType.STRING.toString(),
-                false,
-                false,
-                0,
-                0,
-                null,
-                null,
-                null
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "placement",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    false,
+                    false,
+                    0,
+                    0,
+                    null,
+                    null,
+                    null
+                )
             )
         ),
         0,
         expectedSegmentAnalysis1.getNumRows() + expectedSegmentAnalysis2.getNumRows(),
         null,
-        new TimestampSpec("ds", "auto", null),
+        null,
+        new TimestampSpec("ts", "iso", null),
         null,
         null
     );
@@ -812,7 +986,7 @@ public class SegmentMetadataQueryTest
 
     SegmentMetadataQuery query = Druids
         .newSegmentMetadataQueryBuilder()
-        .dataSource("testing")
+        .dataSource(DATASOURCE)
         .intervals("2013/2014")
         .toInclude(new ListColumnIncluderator(Collections.singletonList("placement")))
         .analysisTypes(SegmentMetadataQuery.AnalysisType.TIMESTAMPSPEC)
@@ -830,23 +1004,27 @@ public class SegmentMetadataQueryTest
   public void testSegmentMetadataQueryWithQueryGranularityMerge()
   {
     SegmentAnalysis mergedSegmentAnalysis = new SegmentAnalysis(
-        differentIds ? "merged" : SegmentId.dummy("testSegment").toString(),
+        differentIds ? "merged" : SegmentId.dummy(DATASOURCE).toString(),
         null,
-        ImmutableMap.of(
-            "placement",
-            new ColumnAnalysis(
-                ValueType.STRING.toString(),
-                false,
-                false,
-                0,
-                0,
-                null,
-                null,
-                null
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "placement",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    false,
+                    false,
+                    0,
+                    0,
+                    null,
+                    null,
+                    null
+                )
             )
         ),
         0,
         expectedSegmentAnalysis1.getNumRows() + expectedSegmentAnalysis2.getNumRows(),
+        null,
         null,
         null,
         Granularities.NONE,
@@ -871,7 +1049,7 @@ public class SegmentMetadataQueryTest
 
     SegmentMetadataQuery query = Druids
         .newSegmentMetadataQueryBuilder()
-        .dataSource("testing")
+        .dataSource(DATASOURCE)
         .intervals("2013/2014")
         .toInclude(new ListColumnIncluderator(Collections.singletonList("placement")))
         .analysisTypes(SegmentMetadataQuery.AnalysisType.QUERYGRANULARITY)
@@ -888,7 +1066,7 @@ public class SegmentMetadataQueryTest
   @Test
   public void testBySegmentResults()
   {
-    Result<BySegmentResultValue> bySegmentResult = new Result<BySegmentResultValue>(
+    Result<BySegmentResultValue> bySegmentResult = new Result<>(
         expectedSegmentAnalysis1.getIntervals().get(0).getStart(),
         new BySegmentResultValueClass(
             Collections.singletonList(
@@ -916,7 +1094,10 @@ public class SegmentMetadataQueryTest
 
     TestHelper.assertExpectedObjects(
         ImmutableList.of(bySegmentResult, bySegmentResult),
-        myRunner.run(QueryPlus.wrap(testQuery.withOverriddenContext(ImmutableMap.of(QueryContexts.BY_SEGMENT_KEY, true)))),
+        myRunner.run(QueryPlus.wrap(testQuery.withOverriddenContext(ImmutableMap.of(
+            QueryContexts.BY_SEGMENT_KEY,
+            true
+        )))),
         "failed SegmentMetadata bySegment query"
     );
     exec.shutdownNow();
@@ -945,9 +1126,13 @@ public class SegmentMetadataQueryTest
         query.getIntervals().get(0)
     );
     Assert.assertEquals(expectedAnalysisTypes, ((SegmentMetadataQuery) query).getAnalysisTypes());
+    Assert.assertEquals(AggregatorMergeStrategy.STRICT, ((SegmentMetadataQuery) query).getAggregatorMergeStrategy());
 
     // test serialize and deserialize
     Assert.assertEquals(query, MAPPER.readValue(MAPPER.writeValueAsString(query), Query.class));
+
+    // test copy
+    Assert.assertEquals(query, Druids.SegmentMetadataQueryBuilder.copy((SegmentMetadataQuery) query).build());
   }
 
   @Test
@@ -959,9 +1144,11 @@ public class SegmentMetadataQueryTest
                       + "}";
     Query query = MAPPER.readValue(queryStr, Query.class);
     Assert.assertTrue(query instanceof SegmentMetadataQuery);
+    Assert.assertTrue(query.getDataSource() instanceof TableDataSource);
     Assert.assertEquals("test_ds", Iterables.getOnlyElement(query.getDataSource().getTableNames()));
     Assert.assertEquals(Intervals.ETERNITY, query.getIntervals().get(0));
     Assert.assertTrue(((SegmentMetadataQuery) query).isUsingDefaultInterval());
+    Assert.assertEquals(AggregatorMergeStrategy.STRICT, ((SegmentMetadataQuery) query).getAggregatorMergeStrategy());
 
     // test serialize and deserialize
     Assert.assertEquals(query, MAPPER.readValue(MAPPER.writeValueAsString(query), Query.class));
@@ -971,10 +1158,55 @@ public class SegmentMetadataQueryTest
   }
 
   @Test
+  public void testSerdeWithLatestAggregatorStrategy() throws Exception
+  {
+    String queryStr = "{\n"
+                      + "  \"queryType\":\"segmentMetadata\",\n"
+                      + "  \"dataSource\":\"test_ds\",\n"
+                      + "  \"aggregatorMergeStrategy\":\"latest\"\n"
+                      + "}";
+    Query query = MAPPER.readValue(queryStr, Query.class);
+    Assert.assertTrue(query instanceof SegmentMetadataQuery);
+    Assert.assertTrue(query.getDataSource() instanceof TableDataSource);
+    Assert.assertEquals("test_ds", Iterables.getOnlyElement(query.getDataSource().getTableNames()));
+    Assert.assertEquals(Intervals.ETERNITY, query.getIntervals().get(0));
+    Assert.assertTrue(((SegmentMetadataQuery) query).isUsingDefaultInterval());
+    Assert.assertEquals(AggregatorMergeStrategy.LATEST, ((SegmentMetadataQuery) query).getAggregatorMergeStrategy());
+
+    // test serialize and deserialize
+    Assert.assertEquals(query, MAPPER.readValue(MAPPER.writeValueAsString(query), Query.class));
+
+    // test copy
+    Assert.assertEquals(query, Druids.SegmentMetadataQueryBuilder.copy((SegmentMetadataQuery) query).build());
+  }
+
+  @Test
+  public void testSerdeWithBothDeprecatedAndNewParameters()
+  {
+    String queryStr = "{\n"
+                      + "  \"queryType\":\"segmentMetadata\",\n"
+                      + "  \"dataSource\":\"test_ds\",\n"
+                      + "  \"lenientAggregatorMerge\":\"true\",\n"
+                      + "  \"aggregatorMergeStrategy\":\"lenient\"\n"
+                      + "}";
+
+    ValueInstantiationException exception = Assert.assertThrows(
+        ValueInstantiationException.class,
+        () -> MAPPER.readValue(queryStr, Query.class)
+    );
+
+    Assert.assertTrue(
+        exception.getCause().getMessage().contains(
+            "Both lenientAggregatorMerge [true] and aggregatorMergeStrategy [lenient] parameters cannot be set. Consider using aggregatorMergeStrategy since lenientAggregatorMerge is deprecated."
+        )
+    );
+  }
+
+  @Test
   public void testDefaultIntervalAndFiltering()
   {
     SegmentMetadataQuery testQuery = Druids.newSegmentMetadataQueryBuilder()
-                                           .dataSource("testing")
+                                           .dataSource(DATASOURCE)
                                            .toInclude(new ListColumnIncluderator(Collections.singletonList("placement")))
                                            .merge(true)
                                            .build();
@@ -1234,22 +1466,22 @@ public class SegmentMetadataQueryTest
   public void testCacheKeyWithListColumnIncluderator()
   {
     SegmentMetadataQuery oneColumnQuery = Druids.newSegmentMetadataQueryBuilder()
-                                                .dataSource("testing")
+                                                .dataSource(DATASOURCE)
                                                 .toInclude(new ListColumnIncluderator(Collections.singletonList("foo")))
                                                 .build();
 
     SegmentMetadataQuery twoColumnQuery = Druids.newSegmentMetadataQueryBuilder()
-                                                .dataSource("testing")
+                                                .dataSource(DATASOURCE)
                                                 .toInclude(new ListColumnIncluderator(Arrays.asList("fo", "o")))
                                                 .build();
 
     final byte[] oneColumnQueryCacheKey = new SegmentMetadataQueryQueryToolChest(new SegmentMetadataQueryConfig()).getCacheStrategy(
-        oneColumnQuery)
+                                                                                                                      oneColumnQuery)
                                                                                                                   .computeCacheKey(
                                                                                                                       oneColumnQuery);
 
     final byte[] twoColumnQueryCacheKey = new SegmentMetadataQueryQueryToolChest(new SegmentMetadataQueryConfig()).getCacheStrategy(
-        twoColumnQuery)
+                                                                                                                      twoColumnQuery)
                                                                                                                   .computeCacheKey(
                                                                                                                       twoColumnQuery);
 
@@ -1259,14 +1491,13 @@ public class SegmentMetadataQueryTest
   @Test
   public void testAnanlysisTypesBeingSet()
   {
-
     SegmentMetadataQuery query1 = Druids.newSegmentMetadataQueryBuilder()
-                                        .dataSource("testing")
+                                        .dataSource(DATASOURCE)
                                         .toInclude(new ListColumnIncluderator(Collections.singletonList("foo")))
                                         .build();
 
     SegmentMetadataQuery query2 = Druids.newSegmentMetadataQueryBuilder()
-                                        .dataSource("testing")
+                                        .dataSource(DATASOURCE)
                                         .toInclude(new ListColumnIncluderator(Collections.singletonList("foo")))
                                         .analysisTypes(SegmentMetadataQuery.AnalysisType.MINMAX)
                                         .build();
@@ -1299,9 +1530,10 @@ public class SegmentMetadataQueryTest
   public void testLongNullableColumn()
   {
     ColumnAnalysis analysis = new ColumnAnalysis(
+        ColumnType.LONG,
         ValueType.LONG.toString(),
         false,
-        NullHandling.replaceWithDefault() ? false : true,
+        true,
         19344,
         null,
         null,
@@ -1315,9 +1547,10 @@ public class SegmentMetadataQueryTest
   public void testDoubleNullableColumn()
   {
     ColumnAnalysis analysis = new ColumnAnalysis(
+        ColumnType.DOUBLE,
         ValueType.DOUBLE.toString(),
         false,
-        NullHandling.replaceWithDefault() ? false : true,
+        true,
         19344,
         null,
         null,
@@ -1332,9 +1565,10 @@ public class SegmentMetadataQueryTest
   public void testFloatNullableColumn()
   {
     ColumnAnalysis analysis = new ColumnAnalysis(
+        ColumnType.FLOAT,
         ValueType.FLOAT.toString(),
         false,
-        NullHandling.replaceWithDefault() ? false : true,
+        true,
         19344,
         null,
         null,
@@ -1342,5 +1576,350 @@ public class SegmentMetadataQueryTest
         null
     );
     testSegmentMetadataQueryWithDefaultAnalysisMerge("floatNumericNull", analysis);
+  }
+
+  @Test
+  public void testStringNullOnlyColumn()
+  {
+    ColumnAnalysis analysis = new ColumnAnalysis(
+        ColumnType.STRING,
+        ValueType.STRING.toString(),
+        false,
+        true,
+        0,
+        1,
+        null,
+        null,
+        null
+    );
+    testSegmentMetadataQueryWithDefaultAnalysisMerge("null_column", analysis);
+  }
+
+  @Test
+  public void testSegmentMetadataQueryWithInvalidDatasourceTypes()
+  {
+    MatcherAssert.assertThat(
+        Assert.assertThrows(
+            DruidException.class,
+            () -> new SegmentMetadataQuery(
+                RestrictedDataSource.create(
+                    TableDataSource.create(DATASOURCE),
+                    RowFilterPolicy.from(new NullFilter("column", null))
+                ),
+                new LegacySegmentSpec("2015-01-01/2015-01-02"),
+                null,
+                null,
+                null,
+                null,
+                false,
+                null,
+                null
+            )
+        ),
+        DruidExceptionMatcher
+            .forbidden()
+            .expectMessageIs("You do not have permission to run a segmentMetadata query on table[testDatasource].")
+    );
+
+    MatcherAssert.assertThat(
+        Assert.assertThrows(
+            DruidException.class,
+            () -> new SegmentMetadataQuery(
+                new UnionDataSource(
+                    ImmutableList.of(
+                        TableDataSource.create("foo"),
+                        RestrictedDataSource.create(
+                            TableDataSource.create(DATASOURCE),
+                            RowFilterPolicy.from(new NullFilter("column", null))
+                        )
+                    )),
+                new LegacySegmentSpec("2015-01-01/2015-01-02"),
+                null,
+                null,
+                null,
+                null,
+                false,
+                null,
+                null
+            )
+        ),
+        DruidExceptionMatcher
+            .forbidden()
+            .expectMessageIs("You do not have permission to run a segmentMetadata query on table[testDatasource].")
+    );
+
+    MatcherAssert.assertThat(
+        Assert.assertThrows(
+            DruidException.class,
+            () -> new SegmentMetadataQuery(
+                new UnionDataSource(
+                    ImmutableList.of(
+                        TableDataSource.create(DATASOURCE),
+                        InlineDataSource.fromIterable(
+                            ImmutableList.of(new Object[0]),
+                            RowSignature.builder().add("column", ColumnType.STRING).build()
+                        )
+                    )),
+                new LegacySegmentSpec("2015-01-01/2015-01-02"),
+                null,
+                null,
+                null,
+                null,
+                false,
+                null,
+                null
+            )
+        ),
+        DruidExceptionMatcher
+            .invalidInput()
+            .expectMessageIs(
+                "Invalid dataSource type [InlineDataSource{signature={column:STRING}}]. SegmentMetadataQuery only supports table or union datasources.")
+    );
+
+    MatcherAssert.assertThat(
+        Assert.assertThrows(
+            DruidException.class,
+            () -> new SegmentMetadataQuery(
+                InlineDataSource.fromIterable(
+                    ImmutableList.of(new Object[0]),
+                    RowSignature.builder().add("column", ColumnType.STRING).build()
+                ),
+                new LegacySegmentSpec("2015-01-01/2015-01-02"),
+                null,
+                null,
+                null,
+                null,
+                false,
+                null,
+                null
+            )
+        ),
+        DruidExceptionMatcher
+            .invalidInput()
+            .expectMessageIs(
+                "Invalid dataSource type [InlineDataSource{signature={column:STRING}}]. SegmentMetadataQuery only supports table or union datasources.")
+    );
+
+    MatcherAssert.assertThat(
+        Assert.assertThrows(
+            DruidException.class,
+            () -> new SegmentMetadataQuery(
+                new LookupDataSource("lookyloo"),
+                new LegacySegmentSpec("2015-01-01/2015-01-02"),
+                null,
+                null,
+                null,
+                null,
+                false,
+                null,
+                null
+            )
+        ),
+        DruidExceptionMatcher
+            .invalidInput()
+            .expectMessageIs(
+                "Invalid dataSource type [LookupDataSource{lookupName='lookyloo'}]. SegmentMetadataQuery only supports table or union datasources.")
+    );
+
+    MatcherAssert.assertThat(
+        Assert.assertThrows(
+            DruidException.class,
+            () -> new SegmentMetadataQuery(
+                JoinDataSource.create(
+                    new TableDataSource("table1"),
+                    new TableDataSource("table2"),
+                    "j.",
+                    "x == \"j.x\"",
+                    JoinType.LEFT,
+                    null,
+                    ExprMacroTable.nil(),
+                    null,
+                    JoinAlgorithm.BROADCAST
+                ),
+                new LegacySegmentSpec("2015-01-01/2015-01-02"),
+                null,
+                null,
+                null,
+                null,
+                false,
+                null,
+                null
+            )
+        ),
+        DruidExceptionMatcher
+            .invalidInput()
+            .expectMessageIs(
+                "Invalid dataSource type [JoinDataSource{left=table1, right=table2, rightPrefix='j.', condition=x == \"j.x\", joinType=LEFT, leftFilter=null, joinAlgorithm=null}]. SegmentMetadataQuery only supports table or union datasources.")
+    );
+  }
+
+  @Test
+  public void testSegmentMetadataQueryWithAggregatorMergeStrictStrategy()
+  {
+    // This is the default behavior -- if nothing is specified, the merge strategy is strict.
+    Assert.assertEquals(
+        AggregatorMergeStrategy.STRICT,
+        new SegmentMetadataQuery(
+            new TableDataSource("foo"),
+            new LegacySegmentSpec("2015-01-01/2015-01-02"),
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            null
+        ).getAggregatorMergeStrategy()
+    );
+
+    Assert.assertEquals(
+        AggregatorMergeStrategy.STRICT,
+        new SegmentMetadataQuery(
+            new TableDataSource("foo"),
+            new LegacySegmentSpec("2015-01-01/2015-01-02"),
+            null,
+            null,
+            null,
+            null,
+            false,
+            false,
+            null
+        ).getAggregatorMergeStrategy()
+    );
+
+    Assert.assertEquals(
+        AggregatorMergeStrategy.STRICT,
+        new SegmentMetadataQuery(
+            new TableDataSource("foo"),
+            new LegacySegmentSpec("2015-01-01/2015-01-02"),
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            AggregatorMergeStrategy.STRICT
+        ).getAggregatorMergeStrategy()
+    );
+  }
+
+  @Test
+  public void testSegmentMetadataQueryWithAggregatorMergeLenientStrategy()
+  {
+    Assert.assertEquals(
+        AggregatorMergeStrategy.LENIENT,
+        new SegmentMetadataQuery(
+            new TableDataSource("foo"),
+            new LegacySegmentSpec("2015-01-01/2015-01-02"),
+            null,
+            null,
+            null,
+            null,
+            false,
+            true,
+            null
+        ).getAggregatorMergeStrategy()
+    );
+
+    Assert.assertEquals(
+        AggregatorMergeStrategy.LENIENT,
+        new SegmentMetadataQuery(
+            new TableDataSource("foo"),
+            new LegacySegmentSpec("2015-01-01/2015-01-02"),
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            AggregatorMergeStrategy.LENIENT
+        ).getAggregatorMergeStrategy()
+    );
+  }
+
+  @Test
+  public void testSegmentMetadataQueryWithAggregatorMergeLatestStrategy()
+  {
+    Assert.assertEquals(
+        AggregatorMergeStrategy.LATEST,
+        new SegmentMetadataQuery(
+            new TableDataSource("foo"),
+            new LegacySegmentSpec("2015-01-01/2015-01-02"),
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            AggregatorMergeStrategy.LATEST
+        ).getAggregatorMergeStrategy()
+    );
+  }
+
+  @Test
+  public void testSegmentMetadataQueryWithBothDeprecatedAndNewParameter()
+  {
+    MatcherAssert.assertThat(
+        Assert.assertThrows(
+            DruidException.class,
+            () -> new SegmentMetadataQuery(
+                new TableDataSource("foo"),
+                new LegacySegmentSpec("2015-01-01/2015-01-02"),
+                null,
+                null,
+                null,
+                null,
+                false,
+                false,
+                AggregatorMergeStrategy.STRICT
+            )
+        ),
+        DruidExceptionMatcher.invalidInput()
+                             .expectMessageIs(
+                                 "Both lenientAggregatorMerge [false] and aggregatorMergeStrategy [strict] parameters cannot be set."
+                                 + " Consider using aggregatorMergeStrategy since lenientAggregatorMerge is deprecated.")
+    );
+
+    MatcherAssert.assertThat(
+        Assert.assertThrows(
+            DruidException.class,
+            () -> new SegmentMetadataQuery(
+                new TableDataSource("foo"),
+                new LegacySegmentSpec("2015-01-01/2015-01-02"),
+                null,
+                null,
+                null,
+                null,
+                false,
+                true,
+                AggregatorMergeStrategy.LENIENT
+            )
+        ),
+        DruidExceptionMatcher.invalidInput()
+                             .expectMessageIs(
+                                 "Both lenientAggregatorMerge [true] and aggregatorMergeStrategy [lenient] parameters cannot be set."
+                                 + " Consider using aggregatorMergeStrategy since lenientAggregatorMerge is deprecated.")
+    );
+
+    MatcherAssert.assertThat(
+        Assert.assertThrows(
+            DruidException.class,
+            () -> new SegmentMetadataQuery(
+                new TableDataSource("foo"),
+                new LegacySegmentSpec("2015-01-01/2015-01-02"),
+                null,
+                null,
+                null,
+                null,
+                false,
+                false,
+                AggregatorMergeStrategy.LATEST
+            )
+        ),
+        DruidExceptionMatcher.invalidInput()
+                             .expectMessageIs(
+                                 "Both lenientAggregatorMerge [false] and aggregatorMergeStrategy [latest] parameters cannot be set."
+                                 + " Consider using aggregatorMergeStrategy since lenientAggregatorMerge is deprecated.")
+    );
   }
 }

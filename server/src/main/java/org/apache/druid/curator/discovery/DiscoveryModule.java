@@ -30,8 +30,8 @@ import com.google.inject.Provides;
 import com.google.inject.TypeLiteral;
 import com.google.inject.name.Named;
 import com.google.inject.name.Names;
+import io.netty.util.SuppressForbidden;
 import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.utils.CloseableExecutorService;
 import org.apache.curator.utils.ZKPaths;
 import org.apache.curator.x.discovery.DownInstancePolicy;
 import org.apache.curator.x.discovery.InstanceFilter;
@@ -69,6 +69,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -107,7 +108,7 @@ public class DiscoveryModule implements Module
    */
   public static void registerDefault(Binder binder)
   {
-    registerKey(binder, Key.get(new TypeLiteral<DruidNode>(){}));
+    registerKey(binder, Key.get(new TypeLiteral<>() {}));
   }
 
   /**
@@ -121,7 +122,7 @@ public class DiscoveryModule implements Module
    */
   public static void register(Binder binder, Annotation annotation)
   {
-    registerKey(binder, Key.get(new TypeLiteral<DruidNode>(){}, annotation));
+    registerKey(binder, Key.get(new TypeLiteral<>() {}, annotation));
   }
 
   /**
@@ -136,7 +137,7 @@ public class DiscoveryModule implements Module
    */
   public static void register(Binder binder, Class<? extends Annotation> annotation)
   {
-    registerKey(binder, Key.get(new TypeLiteral<DruidNode>(){}, annotation));
+    registerKey(binder, Key.get(new TypeLiteral<>() {}, annotation));
   }
 
   /**
@@ -416,12 +417,6 @@ public class DiscoveryModule implements Module
       return this;
     }
 
-    @Override
-    public ServiceCacheBuilder<T> executorService(CloseableExecutorService closeableExecutorService)
-    {
-      return this;
-    }
-
     private static class NoopServiceCache<T> implements ServiceCache<T>
     {
       @Override
@@ -434,6 +429,12 @@ public class DiscoveryModule implements Module
       public void start()
       {
         // nothing
+      }
+
+      @Override
+      public CountDownLatch startImmediate()
+      {
+        return null;
       }
 
       @Override
@@ -495,6 +496,7 @@ public class DiscoveryModule implements Module
     }
 
     @Override
+    @SuppressForbidden(reason = "org.apache.curator.shaded.com.google.common.base.Predicate")
     public ServiceProviderBuilder<T> additionalFilter(InstanceFilter<T> tInstanceFilter)
     {
       return this;
@@ -502,12 +504,6 @@ public class DiscoveryModule implements Module
 
     @Override
     public ServiceProviderBuilder<T> executorService(ExecutorService executorService)
-    {
-      return this;
-    }
-
-    @Override
-    public ServiceProviderBuilder<T> executorService(CloseableExecutorService closeableExecutorService)
     {
       return this;
     }

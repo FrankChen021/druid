@@ -23,7 +23,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.servlet.GuiceFilter;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.server.initialization.ServerConfig;
@@ -33,11 +32,11 @@ import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationUtils;
 import org.apache.druid.server.security.Authenticator;
 import org.apache.druid.server.security.AuthenticatorMapper;
-import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.DefaultHandler;
 import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.servlet.DefaultServlet;
+import org.eclipse.jetty.servlet.FilterHolder;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 
@@ -72,6 +71,7 @@ class MiddleManagerJettyServerInitializer implements JettyServerInitializer
     final ObjectMapper jsonMapper = injector.getInstance(Key.get(ObjectMapper.class, Json.class));
     final AuthenticatorMapper authenticatorMapper = injector.getInstance(AuthenticatorMapper.class);
 
+    JettyServerInitUtils.addQosFilters(root, injector);
     AuthenticationUtils.addSecuritySanityCheckFilter(root, jsonMapper);
 
     // perform no-op authorization/authentication for these resources
@@ -93,20 +93,22 @@ class MiddleManagerJettyServerInitializer implements JettyServerInitializer
         jsonMapper
     );
 
-    root.addFilter(GuiceFilter.class, "/*", null);
+    final FilterHolder guiceFilterHolder = JettyServerInitUtils.getGuiceFilterHolder(injector);
+    root.addFilter(guiceFilterHolder, "/*", null);
 
     final HandlerList handlerList = new HandlerList();
-    handlerList.setHandlers(
-        new Handler[]{
-            JettyServerInitUtils.getJettyRequestLogHandler(),
-            JettyServerInitUtils.wrapWithDefaultGzipHandler(
-                root,
-                serverConfig.getInflateBufferSize(),
-                serverConfig.getCompressionLevel()
-            ),
-            new DefaultHandler()
-        }
-    );
+    JettyServerInitUtils.maybeAddHSTSRewriteHandler(serverConfig, handlerList);
+
+    handlerList.addHandler(JettyServerInitUtils.getJettyRequestLogHandler());
+
+    handlerList.addHandler(JettyServerInitUtils.wrapWithDefaultGzipHandler(
+        root,
+        serverConfig.getInflateBufferSize(),
+        serverConfig.getCompressionLevel()
+    ));
+
+    handlerList.addHandler(new DefaultHandler());
+
     server.setHandler(handlerList);
   }
 }

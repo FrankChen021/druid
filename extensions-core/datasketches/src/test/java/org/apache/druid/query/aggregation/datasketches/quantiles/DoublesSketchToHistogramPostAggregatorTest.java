@@ -31,8 +31,8 @@ import org.apache.druid.query.aggregation.TestDoubleColumnSelectorImpl;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.query.timeseries.TimeseriesQueryQueryToolChest;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.column.ValueType;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -56,9 +56,10 @@ public class DoublesSketchToHistogramPostAggregatorTest
         null
     );
     DefaultObjectMapper mapper = new DefaultObjectMapper();
-    DoublesSketchToHistogramPostAggregator andBackAgain = mapper.readValue(
+    mapper.registerModules(new DoublesSketchModule().getJacksonModules());
+    PostAggregator andBackAgain = mapper.readValue(
         mapper.writeValueAsString(there),
-        DoublesSketchToHistogramPostAggregator.class
+        PostAggregator.class
     );
 
     Assert.assertEquals(there, andBackAgain);
@@ -158,6 +159,36 @@ public class DoublesSketchToHistogramPostAggregatorTest
   }
 
   @Test
+  public void splitPointsEqualValues()
+  {
+    final double[] values = new double[] {6, 6, 6, 6, 6, 6};
+    final TestDoubleColumnSelectorImpl selector = new TestDoubleColumnSelectorImpl(values);
+
+    final Aggregator agg = new DoublesSketchBuildAggregator(selector, 8);
+    //noinspection ForLoopReplaceableByForEach
+    for (int i = 0; i < values.length; i++) {
+      agg.aggregate();
+      selector.increment();
+    }
+
+    final Map<String, Object> fields = new HashMap<>();
+    fields.put("sketch", agg.get());
+
+    final PostAggregator postAgg = new DoublesSketchToHistogramPostAggregator(
+        "histogram",
+        new FieldAccessPostAggregator("field", "sketch"),
+        new double[] {3.5}, // all values are in the second bin
+        null
+    );
+
+    final double[] histogram = (double[]) postAgg.compute(fields);
+    Assert.assertNotNull(histogram);
+    Assert.assertEquals(2, histogram.length);
+    Assert.assertEquals(0.0, histogram[0], 0);
+    Assert.assertEquals(6.0, histogram[1], 0);
+  }
+
+  @Test
   public void numBins()
   {
     final double[] values = new double[] {1, 2, 3, 4, 5, 6};
@@ -188,6 +219,128 @@ public class DoublesSketchToHistogramPostAggregatorTest
   }
 
   @Test
+  public void oneValueTwoBins()
+  {
+    final double[] values = new double[] {1};
+    final TestDoubleColumnSelectorImpl selector = new TestDoubleColumnSelectorImpl(values);
+
+    final Aggregator agg = new DoublesSketchBuildAggregator(selector, 8);
+    //noinspection ForLoopReplaceableByForEach
+    for (int i = 0; i < values.length; i++) {
+      agg.aggregate();
+      selector.increment();
+    }
+
+    final Map<String, Object> fields = new HashMap<>();
+    fields.put("sketch", agg.get());
+
+    final PostAggregator postAgg = new DoublesSketchToHistogramPostAggregator(
+        "histogram",
+        new FieldAccessPostAggregator("field", "sketch"),
+        null,
+        2 // two bins, the second is empty
+    );
+
+    final double[] histogram = (double[]) postAgg.compute(fields);
+    Assert.assertNotNull(histogram);
+    Assert.assertEquals(2, histogram.length);
+    Assert.assertEquals(1.0, histogram[0], 0);
+    Assert.assertEquals(0.0, histogram[1], 0);
+  }
+
+  @Test
+  public void oneValueThreeBins()
+  {
+    final double[] values = new double[] {1};
+    final TestDoubleColumnSelectorImpl selector = new TestDoubleColumnSelectorImpl(values);
+
+    final Aggregator agg = new DoublesSketchBuildAggregator(selector, 8);
+    //noinspection ForLoopReplaceableByForEach
+    for (int i = 0; i < values.length; i++) {
+      agg.aggregate();
+      selector.increment();
+    }
+
+    final Map<String, Object> fields = new HashMap<>();
+    fields.put("sketch", agg.get());
+
+    final PostAggregator postAgg = new DoublesSketchToHistogramPostAggregator(
+        "histogram",
+        new FieldAccessPostAggregator("field", "sketch"),
+        null,
+        3 // three bins, the second and third are empty
+    );
+
+    final double[] histogram = (double[]) postAgg.compute(fields);
+    Assert.assertNotNull(histogram);
+    Assert.assertEquals(3, histogram.length);
+    Assert.assertEquals(1.0, histogram[0], 0);
+    Assert.assertEquals(0.0, histogram[1], 0);
+    Assert.assertEquals(0.0, histogram[2], 0);
+  }
+
+  @Test
+  public void equalValuesTwoBins()
+  {
+    final double[] values = new double[] {1, 1, 1};
+    final TestDoubleColumnSelectorImpl selector = new TestDoubleColumnSelectorImpl(values);
+
+    final Aggregator agg = new DoublesSketchBuildAggregator(selector, 8);
+    //noinspection ForLoopReplaceableByForEach
+    for (int i = 0; i < values.length; i++) {
+      agg.aggregate();
+      selector.increment();
+    }
+
+    final Map<String, Object> fields = new HashMap<>();
+    fields.put("sketch", agg.get());
+
+    final PostAggregator postAgg = new DoublesSketchToHistogramPostAggregator(
+        "histogram",
+        new FieldAccessPostAggregator("field", "sketch"),
+        null,
+        2 // two bins, the second is empty
+    );
+
+    final double[] histogram = (double[]) postAgg.compute(fields);
+    Assert.assertNotNull(histogram);
+    Assert.assertEquals(2, histogram.length);
+    Assert.assertEquals(3.0, histogram[0], 0);
+    Assert.assertEquals(0.0, histogram[1], 0);
+  }
+
+  @Test
+  public void equalValuesThreeBins()
+  {
+    final double[] values = new double[] {1, 1, 1};
+    final TestDoubleColumnSelectorImpl selector = new TestDoubleColumnSelectorImpl(values);
+
+    final Aggregator agg = new DoublesSketchBuildAggregator(selector, 8);
+    //noinspection ForLoopReplaceableByForEach
+    for (int i = 0; i < values.length; i++) {
+      agg.aggregate();
+      selector.increment();
+    }
+
+    final Map<String, Object> fields = new HashMap<>();
+    fields.put("sketch", agg.get());
+
+    final PostAggregator postAgg = new DoublesSketchToHistogramPostAggregator(
+        "histogram",
+        new FieldAccessPostAggregator("field", "sketch"),
+        null,
+        3 // three bins, the second and third are empty
+    );
+
+    final double[] histogram = (double[]) postAgg.compute(fields);
+    Assert.assertNotNull(histogram);
+    Assert.assertEquals(3, histogram.length);
+    Assert.assertEquals(3.0, histogram[0], 0);
+    Assert.assertEquals(0.0, histogram[1], 0);
+    Assert.assertEquals(0.0, histogram[2], 0);
+  }
+
+  @Test
   public void testResultArraySignature()
   {
     final TimeseriesQuery query =
@@ -212,7 +365,7 @@ public class DoublesSketchToHistogramPostAggregatorTest
         RowSignature.builder()
                     .addTimeColumn()
                     .add("sketch", null)
-                    .add("a", ValueType.DOUBLE_ARRAY)
+                    .add("a", ColumnType.DOUBLE_ARRAY)
                     .build(),
         new TimeseriesQueryQueryToolChest().resultArraySignature(query)
     );

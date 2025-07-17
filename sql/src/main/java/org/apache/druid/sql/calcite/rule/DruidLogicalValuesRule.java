@@ -25,16 +25,15 @@ import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rex.RexLiteral;
-import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.error.InvalidSqlInput;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.rel.DruidQueryRel;
-import org.apache.druid.sql.calcite.rel.QueryMaker;
-import org.apache.druid.sql.calcite.table.DruidTable;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -43,19 +42,19 @@ import java.util.stream.Collectors;
  * This rule is used when the query directly reads in-memory tuples. For example, given a query of
  * `SELECT 1 + 1`, the query planner will create {@link LogicalValues} that contains one tuple,
  * which in turn containing one column of value 2.
- *
+ * <p>
  * The query planner can sometimes reduce a regular query to a query that reads in-memory tuples.
  * For example, `SELECT count(*) FROM foo WHERE 1 = 0` is reduced to `SELECT 0`. This rule will
  * be used for this case as well.
  */
 public class DruidLogicalValuesRule extends RelOptRule
 {
-  private final QueryMaker queryMaker;
+  private final PlannerContext plannerContext;
 
-  public DruidLogicalValuesRule(QueryMaker queryMaker)
+  public DruidLogicalValuesRule(PlannerContext plannerContext)
   {
     super(operand(LogicalValues.class, any()));
-    this.queryMaker = queryMaker;
+    this.plannerContext = plannerContext;
   }
 
   @Override
@@ -67,7 +66,7 @@ public class DruidLogicalValuesRule extends RelOptRule
         .stream()
         .map(tuple -> tuple
             .stream()
-            .map(v -> getValueFromLiteral(v, queryMaker.getPlannerContext()))
+            .map(v -> getValueFromLiteral(v, plannerContext))
             .collect(Collectors.toList())
             .toArray(new Object[0])
         )
@@ -76,14 +75,12 @@ public class DruidLogicalValuesRule extends RelOptRule
         values.getRowType().getFieldNames(),
         values.getRowType()
     );
-    final DruidTable druidTable = new DruidTable(
-        InlineDataSource.fromIterable(objectTuples, rowSignature),
-        rowSignature,
-        true,
-        false
-    );
     call.transformTo(
-        DruidQueryRel.fullScan(values, druidTable, queryMaker)
+        DruidQueryRel.scanConstantRel(
+            values,
+            InlineDataSource.fromIterable(objectTuples, rowSignature),
+            plannerContext
+        )
     );
   }
 
@@ -93,34 +90,57 @@ public class DruidLogicalValuesRule extends RelOptRule
    *
    * @throws IllegalArgumentException for unsupported types
    */
+  @Nullable
   @VisibleForTesting
-  static Object getValueFromLiteral(RexLiteral literal, PlannerContext plannerContext)
+  public static Object getValueFromLiteral(RexLiteral literal, PlannerContext plannerContext)
   {
     switch (literal.getType().getSqlTypeName()) {
       case CHAR:
       case VARCHAR:
+        // RexLiteral.stringValue(literal) was causing some issue during tests
         return literal.getValueAs(String.class);
       case FLOAT:
-        return literal.getValueAs(Float.class);
+        if (literal.isNull()) {
+          return null;
+        }
+        return ((Number) RexLiteral.value(literal)).floatValue();
       case DOUBLE:
       case REAL:
       case DECIMAL:
-        return literal.getValueAs(Double.class);
+        if (literal.isNull()) {
+          return null;
+        }
+        return ((Number) RexLiteral.value(literal)).doubleValue();
       case TINYINT:
       case SMALLINT:
       case INTEGER:
       case BIGINT:
-        return literal.getValueAs(Long.class);
+        if (literal.isNull()) {
+          return null;
+        }
+        return ((Number) RexLiteral.value(literal)).longValue();
       case BOOLEAN:
+        if (literal.isNull()) {
+          return null;
+        }
         return literal.isAlwaysTrue() ? 1L : 0L;
       case TIMESTAMP:
       case DATE:
         return Calcites.calciteDateTimeLiteralToJoda(literal, plannerContext.getTimeZone()).getMillis();
+      case NULL:
+        if (!literal.isNull()) {
+          throw InvalidSqlInput.exception("Expected a NULL literal, but got non-null constant [%s]", literal);
+        }
+        return null;
       case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
       case TIME:
       case TIME_WITH_LOCAL_TIME_ZONE:
       default:
-        throw new IAE("Unsupported type[%s]", literal.getTypeName());
+        throw InvalidSqlInput.exception(
+            "Cannot handle literal [%s] of unsupported type [%s].",
+            literal,
+            literal.getType().getSqlTypeName()
+        );
     }
   }
 }

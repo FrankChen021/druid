@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import org.apache.druid.common.config.Configs;
 import org.apache.druid.indexing.common.LockGranularity;
 import org.apache.druid.indexing.common.TaskLock;
 import org.apache.druid.indexing.common.task.IndexTaskUtils;
@@ -31,10 +32,10 @@ import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.indexing.common.task.TaskLockHelper;
 import org.apache.druid.indexing.overlord.CriticalAction;
 import org.apache.druid.indexing.overlord.DataSourceMetadata;
+import org.apache.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
 import org.apache.druid.indexing.overlord.SegmentPublishResult;
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
-import org.apache.druid.query.DruidMetrics;
+import org.apache.druid.segment.SegmentSchemaMapping;
 import org.apache.druid.segment.SegmentUtils;
 import org.apache.druid.timeline.DataSegment;
 import org.joda.time.Interval;
@@ -63,12 +64,6 @@ public class SegmentTransactionalInsertAction implements TaskAction<SegmentPubli
    * Set of segments to be inserted into metadata storage
    */
   private final Set<DataSegment> segments;
-  /**
-   * Set of segments to be dropped (mark unused) when new segments, {@link SegmentTransactionalInsertAction#segments},
-   * are inserted into metadata storage.
-   */
-  @Nullable
-  private final Set<DataSegment> segmentsToBeDropped;
 
   @Nullable
   private final DataSourceMetadata startMetadata;
@@ -76,50 +71,70 @@ public class SegmentTransactionalInsertAction implements TaskAction<SegmentPubli
   private final DataSourceMetadata endMetadata;
   @Nullable
   private final String dataSource;
+  @Nullable
+  private final String supervisorId;
+  @Nullable
+  private final SegmentSchemaMapping segmentSchemaMapping;
 
   public static SegmentTransactionalInsertAction overwriteAction(
       @Nullable Set<DataSegment> segmentsToBeOverwritten,
-      @Nullable Set<DataSegment> segmentsToBeDropped,
-      Set<DataSegment> segmentsToPublish
+      Set<DataSegment> segmentsToPublish,
+      @Nullable SegmentSchemaMapping segmentSchemaMapping
   )
   {
-    return new SegmentTransactionalInsertAction(segmentsToBeOverwritten, segmentsToBeDropped, segmentsToPublish, null, null, null);
+    return new SegmentTransactionalInsertAction(
+        segmentsToBeOverwritten,
+        segmentsToPublish,
+        null,
+        null,
+        null,
+        null,
+        segmentSchemaMapping
+    );
   }
 
   public static SegmentTransactionalInsertAction appendAction(
       Set<DataSegment> segments,
+      @Nullable String supervisorId,
+      @Nullable String dataSource,
       @Nullable DataSourceMetadata startMetadata,
-      @Nullable DataSourceMetadata endMetadata
+      @Nullable DataSourceMetadata endMetadata,
+      @Nullable SegmentSchemaMapping segmentSchemaMapping
   )
   {
-    return new SegmentTransactionalInsertAction(null, null, segments, startMetadata, endMetadata, null);
+    return new SegmentTransactionalInsertAction(null, segments, startMetadata, endMetadata, supervisorId, dataSource, segmentSchemaMapping);
   }
 
   public static SegmentTransactionalInsertAction commitMetadataOnlyAction(
+      String supervisorId,
       String dataSource,
       DataSourceMetadata startMetadata,
       DataSourceMetadata endMetadata
   )
   {
-    return new SegmentTransactionalInsertAction(null, null, null, startMetadata, endMetadata, dataSource);
+    return new SegmentTransactionalInsertAction(null, null, startMetadata, endMetadata, supervisorId, dataSource, null);
   }
 
   @JsonCreator
   private SegmentTransactionalInsertAction(
       @JsonProperty("segmentsToBeOverwritten") @Nullable Set<DataSegment> segmentsToBeOverwritten,
-      @JsonProperty("segmentsToBeDropped") @Nullable Set<DataSegment> segmentsToBeDropped,
       @JsonProperty("segments") @Nullable Set<DataSegment> segments,
       @JsonProperty("startMetadata") @Nullable DataSourceMetadata startMetadata,
       @JsonProperty("endMetadata") @Nullable DataSourceMetadata endMetadata,
-      @JsonProperty("dataSource") @Nullable String dataSource
+      @JsonProperty("supervisorId") @Nullable String supervisorId,
+      @JsonProperty("dataSource") @Nullable String dataSource,
+      @JsonProperty("segmentSchemaMapping") @Nullable SegmentSchemaMapping segmentSchemaMapping
   )
   {
     this.segmentsToBeOverwritten = segmentsToBeOverwritten;
-    this.segmentsToBeDropped = segmentsToBeDropped;
     this.segments = segments == null ? ImmutableSet.of() : ImmutableSet.copyOf(segments);
     this.startMetadata = startMetadata;
     this.endMetadata = endMetadata;
     this.dataSource = dataSource;
+    this.supervisorId = Configs.valueOrDefault(supervisorId, dataSource);
+    this.segmentSchemaMapping = segmentSchemaMapping;
+
+    IndexerMetadataStorageCoordinator.validateDataSourceMetadata(supervisorId, startMetadata, endMetadata);
   }
 
   @JsonProperty
@@ -127,13 +142,6 @@ public class SegmentTransactionalInsertAction implements TaskAction<SegmentPubli
   public Set<DataSegment> getSegmentsToBeOverwritten()
   {
     return segmentsToBeOverwritten;
-  }
-
-  @JsonProperty
-  @Nullable
-  public Set<DataSegment> getSegmentsToBeDropped()
-  {
-    return segmentsToBeDropped;
   }
 
   @JsonProperty
@@ -163,12 +171,24 @@ public class SegmentTransactionalInsertAction implements TaskAction<SegmentPubli
     return dataSource;
   }
 
+  @JsonProperty
+  @Nullable
+  public String getSupervisorId()
+  {
+    return supervisorId;
+  }
+
+  @JsonProperty
+  @Nullable
+  public SegmentSchemaMapping getSegmentSchemaMapping()
+  {
+    return segmentSchemaMapping;
+  }
+
   @Override
   public TypeReference<SegmentPublishResult> getReturnTypeReference()
   {
-    return new TypeReference<SegmentPublishResult>()
-    {
-    };
+    return new TypeReference<>() {};
   }
 
   /**
@@ -184,6 +204,7 @@ public class SegmentTransactionalInsertAction implements TaskAction<SegmentPubli
       // but still needs to update metadata with the progress that the task made.
       try {
         retVal = toolbox.getIndexerMetadataStorageCoordinator().commitMetadataOnly(
+            supervisorId,
             dataSource,
             startMetadata,
             endMetadata
@@ -199,9 +220,6 @@ public class SegmentTransactionalInsertAction implements TaskAction<SegmentPubli
     if (segmentsToBeOverwritten != null) {
       allSegments.addAll(segmentsToBeOverwritten);
     }
-    if (segmentsToBeDropped != null) {
-      allSegments.addAll(segmentsToBeDropped);
-    }
 
     TaskLocks.checkLockCoversSegments(task, toolbox.getTaskLockbox(), allSegments);
 
@@ -216,14 +234,15 @@ public class SegmentTransactionalInsertAction implements TaskAction<SegmentPubli
     try {
       retVal = toolbox.getTaskLockbox().doInCriticalSection(
           task,
-          allSegments.stream().map(DataSegment::getInterval).collect(Collectors.toList()),
+          allSegments.stream().map(DataSegment::getInterval).collect(Collectors.toSet()),
           CriticalAction.<SegmentPublishResult>builder()
               .onValidLocks(
-                  () -> toolbox.getIndexerMetadataStorageCoordinator().announceHistoricalSegments(
+                  () -> toolbox.getIndexerMetadataStorageCoordinator().commitSegmentsAndMetadata(
                       segments,
-                      segmentsToBeDropped,
+                      supervisorId,
                       startMetadata,
-                      endMetadata
+                      endMetadata,
+                      segmentSchemaMapping
                   )
               )
               .onInvalidLocks(
@@ -239,22 +258,7 @@ public class SegmentTransactionalInsertAction implements TaskAction<SegmentPubli
       throw new RuntimeException(e);
     }
 
-    // Emit metrics
-    final ServiceMetricEvent.Builder metricBuilder = new ServiceMetricEvent.Builder();
-    IndexTaskUtils.setTaskDimensions(metricBuilder, task);
-
-    if (retVal.isSuccess()) {
-      toolbox.getEmitter().emit(metricBuilder.build("segment/txn/success", 1));
-    } else {
-      toolbox.getEmitter().emit(metricBuilder.build("segment/txn/failure", 1));
-    }
-
-    // getSegments() should return an empty set if announceHistoricalSegments() failed
-    for (DataSegment segment : retVal.getSegments()) {
-      metricBuilder.setDimension(DruidMetrics.INTERVAL, segment.getInterval().toString());
-      toolbox.getEmitter().emit(metricBuilder.build("segment/added/bytes", segment.getSize()));
-    }
-
+    IndexTaskUtils.emitSegmentPublishMetrics(retVal, task, toolbox);
     return retVal;
   }
 
@@ -320,21 +324,16 @@ public class SegmentTransactionalInsertAction implements TaskAction<SegmentPubli
   }
 
   @Override
-  public boolean isAudited()
-  {
-    return true;
-  }
-
-  @Override
   public String toString()
   {
     return "SegmentTransactionalInsertAction{" +
            "segmentsToBeOverwritten=" + SegmentUtils.commaSeparatedIdentifiers(segmentsToBeOverwritten) +
            ", segments=" + SegmentUtils.commaSeparatedIdentifiers(segments) +
+           ", dataSource=" + dataSource +
+           ", supervisorId=" + supervisorId +
            ", startMetadata=" + startMetadata +
            ", endMetadata=" + endMetadata +
            ", dataSource='" + dataSource + '\'' +
-           ", segmentsToBeDropped=" + SegmentUtils.commaSeparatedIdentifiers(segmentsToBeDropped) +
            '}';
   }
 }

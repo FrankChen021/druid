@@ -16,17 +16,33 @@
  * limitations under the License.
  */
 
+@import '../../variables';
+
 .show-value-dialog {
-  &.bp3-dialog {
-    padding-bottom: 10px;
+  &.normal.#{$bp-ns}-dialog {
+    height: 600px;
   }
 
-  .bp3-input {
-    margin: 10px;
-    height: 400px;
+  &.large.#{$bp-ns}-dialog {
+    width: 90vw;
+    height: 90vh;
   }
 
-  .bp3-dialog-footer-actions {
-    padding-right: 10px;
+  .#{$bp-ns}-dialog-body {
+    display: flex;
+    flex-direction: column;
+
+    .ace-editor {
+      flex: 1;
+    }
+
+    .#{$bp-ns}-input {
+      flex: 1;
+      resize: none;
+    }
+  }
+
+  .#{$bp-ns}-dialog-footer {
+    margin-top: 0;
   }
 }

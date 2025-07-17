@@ -46,19 +46,15 @@ import org.joda.time.DateTime;
 
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 /**
  */
@@ -66,9 +62,7 @@ public class WorkerHolder
 {
   private static final EmittingLogger log = new EmittingLogger(WorkerHolder.class);
 
-  public static final TypeReference<ChangeRequestsSnapshot<WorkerHistoryItem>> WORKER_SYNC_RESP_TYPE_REF = new TypeReference<ChangeRequestsSnapshot<WorkerHistoryItem>>()
-  {
-  };
+  public static final TypeReference<ChangeRequestsSnapshot<WorkerHistoryItem>> WORKER_SYNC_RESP_TYPE_REF = new TypeReference<>() {};
 
 
   private final Worker worker;
@@ -133,31 +127,6 @@ public class WorkerHolder
     return worker;
   }
 
-  private Map<String, TaskAnnouncement> getRunningTasks()
-  {
-    return tasksSnapshotRef.get().entrySet().stream().filter(
-        e -> e.getValue().getTaskStatus().isRunnable()
-    ).collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
-  }
-
-  private int getCurrCapacityUsed()
-  {
-    int currCapacity = 0;
-    for (TaskAnnouncement taskAnnouncement : getRunningTasks().values()) {
-      currCapacity += taskAnnouncement.getTaskResource().getRequiredCapacity();
-    }
-    return currCapacity;
-  }
-
-  private Set<String> getAvailabilityGroups()
-  {
-    Set<String> retVal = new HashSet<>();
-    for (TaskAnnouncement taskAnnouncement : getRunningTasks().values()) {
-      retVal.add(taskAnnouncement.getTaskResource().getAvailabilityGroup());
-    }
-    return retVal;
-  }
-
   public DateTime getBlacklistedUntil()
   {
     return blacklistedUntil.get();
@@ -190,11 +159,9 @@ public class WorkerHolder
       w = disabledWorker;
     }
 
-    return new ImmutableWorkerInfo(
+    return ImmutableWorkerInfo.fromWorkerAnnouncements(
         w,
-        getCurrCapacityUsed(),
-        getAvailabilityGroups(),
-        getRunningTasks().keySet(),
+        tasksSnapshotRef.get(),
         lastCompletedTaskTime.get(),
         blacklistedUntil.get()
     );
@@ -327,20 +294,14 @@ public class WorkerHolder
 
   public void waitForInitialization() throws InterruptedException
   {
-    if (!syncer.awaitInitialization(3 * syncer.getServerHttpTimeout(), TimeUnit.MILLISECONDS)) {
+    if (!syncer.awaitInitialization()) {
       throw new RE("Failed to sync with worker[%s].", worker.getHost());
     }
   }
 
   public boolean isInitialized()
   {
-    try {
-      return syncer.awaitInitialization(1, TimeUnit.MILLISECONDS);
-    }
-    catch (InterruptedException ignored) {
-      Thread.currentThread().interrupt();
-      return false;
-    }
+    return syncer.isInitialized();
   }
 
   public boolean isEnabled()
@@ -355,7 +316,7 @@ public class WorkerHolder
 
   public ChangeRequestHttpSyncer.Listener<WorkerHistoryItem> createSyncListener()
   {
-    return new ChangeRequestHttpSyncer.Listener<WorkerHistoryItem>()
+    return new ChangeRequestHttpSyncer.Listener<>()
     {
       @Override
       public void fullSync(List<WorkerHistoryItem> changes)

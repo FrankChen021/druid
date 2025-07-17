@@ -21,32 +21,28 @@ package org.apache.druid.query.aggregation.histogram.sql;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.rel.core.AggregateCall;
-import org.apache.calcite.rel.core.Project;
-import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.Optionality;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.histogram.FixedBucketsHistogram;
 import org.apache.druid.query.aggregation.histogram.FixedBucketsHistogramAggregatorFactory;
 import org.apache.druid.query.aggregation.histogram.QuantilePostAggregator;
-import org.apache.druid.segment.VirtualColumn;
-import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.column.ValueType;
-import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.sql.calcite.aggregation.Aggregation;
 import org.apache.druid.sql.calcite.aggregation.Aggregations;
 import org.apache.druid.sql.calcite.aggregation.SqlAggregator;
+import org.apache.druid.sql.calcite.expression.DefaultOperandTypeChecker;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
-import org.apache.druid.sql.calcite.expression.Expressions;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.sql.calcite.rel.InputAccessor;
 import org.apache.druid.sql.calcite.rel.VirtualColumnRegistry;
 
 import javax.annotation.Nullable;
@@ -67,24 +63,18 @@ public class FixedBucketsHistogramQuantileSqlAggregator implements SqlAggregator
   @Override
   public Aggregation toDruidAggregation(
       PlannerContext plannerContext,
-      RowSignature rowSignature,
       VirtualColumnRegistry virtualColumnRegistry,
-      RexBuilder rexBuilder,
       String name,
       AggregateCall aggregateCall,
-      Project project,
+      InputAccessor inputAccessor,
       List<Aggregation> existingAggregations,
       boolean finalizeAggregations
   )
   {
     final DruidExpression input = Aggregations.toDruidExpressionForNumericAggregator(
         plannerContext,
-        rowSignature,
-        Expressions.fromFieldAccess(
-            rowSignature,
-            project,
-            aggregateCall.getArgList().get(0)
-        )
+        inputAccessor.getInputRowSignature(),
+        inputAccessor.getField(aggregateCall.getArgList().get(0))
     );
     if (input == null) {
       return null;
@@ -92,11 +82,7 @@ public class FixedBucketsHistogramQuantileSqlAggregator implements SqlAggregator
 
     final AggregatorFactory aggregatorFactory;
     final String histogramName = StringUtils.format("%s:agg", name);
-    final RexNode probabilityArg = Expressions.fromFieldAccess(
-        rowSignature,
-        project,
-        aggregateCall.getArgList().get(1)
-    );
+    final RexNode probabilityArg = inputAccessor.getField(aggregateCall.getArgList().get(1));
 
     if (!probabilityArg.isA(SqlKind.LITERAL)) {
       // Probability must be a literal in order to plan.
@@ -107,11 +93,7 @@ public class FixedBucketsHistogramQuantileSqlAggregator implements SqlAggregator
 
     final int numBuckets;
     if (aggregateCall.getArgList().size() >= 3) {
-      final RexNode numBucketsArg = Expressions.fromFieldAccess(
-          rowSignature,
-          project,
-          aggregateCall.getArgList().get(2)
-      );
+      final RexNode numBucketsArg = inputAccessor.getField(aggregateCall.getArgList().get(2));
 
       if (!numBucketsArg.isA(SqlKind.LITERAL)) {
         // Resolution must be a literal in order to plan.
@@ -125,11 +107,7 @@ public class FixedBucketsHistogramQuantileSqlAggregator implements SqlAggregator
 
     final double lowerLimit;
     if (aggregateCall.getArgList().size() >= 4) {
-      final RexNode lowerLimitArg = Expressions.fromFieldAccess(
-          rowSignature,
-          project,
-          aggregateCall.getArgList().get(3)
-      );
+      final RexNode lowerLimitArg = inputAccessor.getField(aggregateCall.getArgList().get(3));
 
       if (!lowerLimitArg.isA(SqlKind.LITERAL)) {
         // Resolution must be a literal in order to plan.
@@ -143,11 +121,7 @@ public class FixedBucketsHistogramQuantileSqlAggregator implements SqlAggregator
 
     final double upperLimit;
     if (aggregateCall.getArgList().size() >= 5) {
-      final RexNode upperLimitArg = Expressions.fromFieldAccess(
-          rowSignature,
-          project,
-          aggregateCall.getArgList().get(4)
-      );
+      final RexNode upperLimitArg = inputAccessor.getField(aggregateCall.getArgList().get(4));
 
       if (!upperLimitArg.isA(SqlKind.LITERAL)) {
         // Resolution must be a literal in order to plan.
@@ -161,11 +135,7 @@ public class FixedBucketsHistogramQuantileSqlAggregator implements SqlAggregator
 
     final FixedBucketsHistogram.OutlierHandlingMode outlierHandlingMode;
     if (aggregateCall.getArgList().size() >= 6) {
-      final RexNode outlierHandlingModeArg = Expressions.fromFieldAccess(
-          rowSignature,
-          project,
-          aggregateCall.getArgList().get(5)
-      );
+      final RexNode outlierHandlingModeArg = inputAccessor.getField(aggregateCall.getArgList().get(5));
 
       if (!outlierHandlingModeArg.isA(SqlKind.LITERAL)) {
         // Resolution must be a literal in order to plan.
@@ -187,8 +157,8 @@ public class FixedBucketsHistogramQuantileSqlAggregator implements SqlAggregator
 
           // Check input for equivalence.
           final boolean inputMatches;
-          final VirtualColumn virtualInput =
-              virtualColumnRegistry.findVirtualColumns(theFactory.requiredFields())
+          final DruidExpression virtualInput =
+              virtualColumnRegistry.findVirtualColumnExpressions(theFactory.requiredFields())
                                    .stream()
                                    .findFirst()
                                    .orElse(null);
@@ -197,8 +167,7 @@ public class FixedBucketsHistogramQuantileSqlAggregator implements SqlAggregator
             inputMatches = input.isDirectColumnAccess()
                            && input.getDirectColumn().equals(theFactory.getFieldName());
           } else {
-            inputMatches = ((ExpressionVirtualColumn) virtualInput).getExpression()
-                                                                   .equals(input.getExpression());
+            inputMatches = virtualInput.equals(input);
           }
 
           final boolean matches = inputMatches
@@ -230,14 +199,13 @@ public class FixedBucketsHistogramQuantileSqlAggregator implements SqlAggregator
           false
       );
     } else {
-      VirtualColumn virtualColumn = virtualColumnRegistry.getOrCreateVirtualColumnForExpression(
-          plannerContext,
+      String virtualColumnName = virtualColumnRegistry.getOrCreateVirtualColumnForExpression(
           input,
-          ValueType.FLOAT
+          ColumnType.FLOAT
       );
       aggregatorFactory = new FixedBucketsHistogramAggregatorFactory(
           histogramName,
-          virtualColumn.getOutputName(),
+          virtualColumnName,
           numBuckets,
           lowerLimit,
           upperLimit,
@@ -254,15 +222,6 @@ public class FixedBucketsHistogramQuantileSqlAggregator implements SqlAggregator
 
   private static class FixedBucketsHistogramQuantileSqlAggFunction extends SqlAggFunction
   {
-    private static final String SIGNATURE1 =
-        "'"
-        + NAME
-        + "(column, probability, numBuckets, lowerLimit, upperLimit)'\n";
-    private static final String SIGNATURE2 =
-        "'"
-        + NAME
-        + "(column, probability, numBuckets, lowerLimit, upperLimit, outlierHandlingMode)'\n";
-
     FixedBucketsHistogramQuantileSqlAggFunction()
     {
       super(
@@ -271,47 +230,33 @@ public class FixedBucketsHistogramQuantileSqlAggregator implements SqlAggregator
           SqlKind.OTHER_FUNCTION,
           ReturnTypes.explicit(SqlTypeName.DOUBLE),
           null,
-          OperandTypes.or(
-              OperandTypes.and(
-                  OperandTypes.sequence(
-                      SIGNATURE1,
-                      OperandTypes.ANY,
-                      OperandTypes.LITERAL,
-                      OperandTypes.LITERAL,
-                      OperandTypes.LITERAL,
-                      OperandTypes.LITERAL
-                  ),
-                  OperandTypes.family(
-                      SqlTypeFamily.ANY,
-                      SqlTypeFamily.NUMERIC,
-                      SqlTypeFamily.NUMERIC,
-                      SqlTypeFamily.NUMERIC,
-                      SqlTypeFamily.NUMERIC
-                  )
-              ),
-              OperandTypes.and(
-                  OperandTypes.sequence(
-                      SIGNATURE2,
-                      OperandTypes.ANY,
-                      OperandTypes.LITERAL,
-                      OperandTypes.LITERAL,
-                      OperandTypes.LITERAL,
-                      OperandTypes.LITERAL,
-                      OperandTypes.LITERAL
-                  ),
-                  OperandTypes.family(
-                      SqlTypeFamily.ANY,
-                      SqlTypeFamily.NUMERIC,
-                      SqlTypeFamily.NUMERIC,
-                      SqlTypeFamily.NUMERIC,
-                      SqlTypeFamily.NUMERIC,
-                      SqlTypeFamily.STRING
-                  )
+          // Allows signatures like 'APPROX_QUANTILE_FIXED_BUCKETS(column, probability, numBuckets, lowerLimit, upperLimit)'
+          // and 'APPROX_QUANTILE_FIXED_BUCKETS(column, probability, numBuckets, lowerLimit, upperLimit, outlierHandlingMode)'
+          DefaultOperandTypeChecker
+              .builder()
+              .operandNames(
+                  "column",
+                  "probability",
+                  "numBuckets",
+                  "lowerLimit",
+                  "upperLimit",
+                  "outlierHandlingMode"
               )
-          ),
+              .operandTypes(
+                  SqlTypeFamily.ANY,
+                  SqlTypeFamily.NUMERIC,
+                  SqlTypeFamily.NUMERIC,
+                  SqlTypeFamily.NUMERIC,
+                  SqlTypeFamily.NUMERIC,
+                  SqlTypeFamily.STRING
+              )
+              .literalOperands(1, 2, 3, 4, 5)
+              .requiredOperandCount(5)
+              .build(),
           SqlFunctionCategory.NUMERIC,
           false,
-          false
+          false,
+          Optionality.FORBIDDEN
       );
     }
   }

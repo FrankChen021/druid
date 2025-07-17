@@ -94,7 +94,8 @@
             "context": {
                 "useCache": "true",
                 "populateCache": "true",
-                "timeout": 60000
+                "timeout": 60000,
+                "useTopNMultiPassPooledQueryGranularity": "true"
             }
         },
         "expectedResults": [
@@ -198,7 +199,8 @@
             "context": {
                 "useCache": "true",
                 "populateCache": "true",
-                "timeout": 60000
+                "timeout": 60000,
+                "useTopNMultiPassPooledQueryGranularity": "true"
             }
         },
         "expectedResults": [
@@ -322,7 +324,8 @@
             "context": {
                 "useCache": "true",
                 "populateCache": "true",
-                "timeout": 60000
+                "timeout": 60000,
+                "useTopNMultiPassPooledQueryGranularity": "true"
             }
         },
         "expectedResults": [
@@ -469,7 +472,7 @@
             },
             "query": {
                 "type": "insensitive_contains",
-                "value": "Sports"
+                "value": "1World_Sports"
             },
             "limit": 3,
             "context": {
@@ -482,16 +485,6 @@
             {
                 "timestamp": "2013-01-01T00:00:00.000Z",
                 "result": [
-                    {
-                        "dimension": "user_name",
-                        "value": "1011Sports",
-			"count":1
-                    },
-                    {
-                        "dimension": "user_name",
-                        "value": "11AliveSports",
-			"count":1
-                    },
                     {
                         "dimension": "user_name",
                         "value": "1World_Sports",
@@ -596,6 +589,7 @@
                 "intervals":["2013-01-01T00:00:00.000Z/2013-01-02T00:00:00.000Z"],
                 "columns":{
                     "has_links":{
+                        "typeSignature": "STRING",
                         "type":"STRING",
                         "hasMultipleValues":false,
                         "size":0,
@@ -609,6 +603,7 @@
                 "size":0,
                 "numRows":3702583,
                 "aggregators":null,
+                "projections":null,
                 "timestampSpec":null,
                 "queryGranularity":null,
                 "rollup":null
@@ -618,6 +613,7 @@
                 "intervals":["2013-01-02T00:00:00.000Z/2013-01-03T00:00:00.000Z"],
                 "columns":{
                     "has_links":{
+                        "typeSignature": "STRING",
                         "type":"STRING",
                         "hasMultipleValues":false,
                         "size":0,
@@ -631,6 +627,7 @@
                 "size":0,
                 "numRows":3743002,
                 "aggregators":null,
+                "projections":null,
                 "timestampSpec":null,
                 "queryGranularity":null,
                 "rollup":null
@@ -640,6 +637,7 @@
                 "intervals":["2013-01-03T00:00:00.000Z/2013-01-04T00:00:00.000Z"],
                 "columns":{
                     "has_links":{
+                        "typeSignature": "STRING",
                         "type":"STRING",
                         "hasMultipleValues":false,
                         "size":0,
@@ -653,6 +651,7 @@
                 "size":0,
                 "numRows":3502959,
                 "aggregators":null,
+                "projections":null,
                 "timestampSpec":null,
                 "queryGranularity":null,
                 "rollup":null
@@ -738,7 +737,8 @@
             "context": {
                 "useCache": "true",
                 "populateCache": "true",
-                "timeout": 60000
+                "timeout": 60000,
+                "useTopNMultiPassPooledQueryGranularity": "true"
             }
         },
         "expectedResults": [

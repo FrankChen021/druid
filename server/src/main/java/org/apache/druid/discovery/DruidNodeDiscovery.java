@@ -29,6 +29,11 @@ public interface DruidNodeDiscovery
   Collection<DiscoveryDruidNode> getAllNodes();
   void registerListener(Listener listener);
 
+  default void removeListener(Listener listener)
+  {
+    // do nothing
+  }
+
   /**
    * Listener for watching nodes in a DruidNodeDiscovery instance obtained via {@link
    * DruidNodeDiscoveryProvider}.getXXX(). DruidNodeDiscovery implementation should assume that Listener is not
@@ -46,6 +51,14 @@ public interface DruidNodeDiscovery
      * Called once when the underlying cache in the DruidNodeDiscovery implementation has been initialized.
      */
     default void nodeViewInitialized()
+    {
+      // do nothing
+    }
+
+    /**
+     * Called once when the underlying cache in the DruidNodeDiscovery implementation has timed out trying to initialize.
+     */
+    default void nodeViewInitializedTimedOut()
     {
       // do nothing
     }

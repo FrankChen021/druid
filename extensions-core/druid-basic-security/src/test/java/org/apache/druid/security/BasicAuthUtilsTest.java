@@ -41,18 +41,6 @@ import java.util.Map;
 public class BasicAuthUtilsTest
 {
   @Test
-  public void testHashPassword()
-  {
-    char[] password = "HELLO".toCharArray();
-    int iterations = BasicAuthUtils.DEFAULT_KEY_ITERATIONS;
-    byte[] salt = BasicAuthUtils.generateSalt();
-    byte[] hash = BasicAuthUtils.hashPassword(password, salt, iterations);
-
-    Assert.assertEquals(BasicAuthUtils.SALT_LENGTH, salt.length);
-    Assert.assertEquals(BasicAuthUtils.KEY_LENGTH / 8, hash.length);
-  }
-
-  @Test
   public void testPermissionSerdeIsChillAboutUnknownEnumStuffs() throws JsonProcessingException
   {
     final String someRoleName = "some-role";
@@ -60,6 +48,7 @@ public class BasicAuthUtilsTest
     final String thirdRoleName = "third-role";
     final ResourceAction fooRead = new ResourceAction(new Resource("foo", ResourceType.DATASOURCE), Action.READ);
     final ResourceAction barRead = new ResourceAction(new Resource("bar", ResourceType.DATASOURCE), Action.READ);
+    final ResourceAction customRead = new ResourceAction(new Resource("bar", "CUSTOM"), Action.READ);
 
     final ObjectMapper mapper = TestHelper.makeJsonMapper();
     mapper.registerModules(new BasicSecurityDruidModule().getJacksonModules());
@@ -76,7 +65,7 @@ public class BasicAuthUtilsTest
           )
       )
     );
-    // bad ResourceType
+    // custom ResourceType
     rawMap.put(
         otherRoleName,
         ImmutableMap.of(
@@ -89,12 +78,7 @@ public class BasicAuthUtilsTest
                     "resourceNamePattern", "foo"
                 ),
                 ImmutableMap.of(
-                    "resourceAction",
-                    ImmutableMap.of(
-                        "resource",
-                        ImmutableMap.of("name", "bar", "type", "UNKNOWN"),
-                        "action", "READ"
-                    ),
+                    "resourceAction", customRead,
                     "resourceNamePattern", "bar"
                 )
             )
@@ -141,11 +125,11 @@ public class BasicAuthUtilsTest
         roleMap.get(someRoleName).getPermissions()
     );
 
-    // this one has an unknown ResourceType, expect only 1 permission to deserialize correctly and failure ignored
+    // this one has custom resource type... this test is somewhat pointless, it made more sense when type was an enum
     Assert.assertTrue(roleMap.containsKey(otherRoleName));
-    Assert.assertEquals(1, roleMap.get(otherRoleName).getPermissions().size());
+    Assert.assertEquals(2, roleMap.get(otherRoleName).getPermissions().size());
     Assert.assertEquals(
-        BasicAuthorizerPermission.makePermissionList(ImmutableList.of(fooRead)),
+        BasicAuthorizerPermission.makePermissionList(ImmutableList.of(fooRead, customRead)),
         roleMap.get(otherRoleName).getPermissions()
     );
 

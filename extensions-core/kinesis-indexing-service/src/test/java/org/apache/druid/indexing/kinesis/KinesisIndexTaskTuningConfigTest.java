@@ -20,13 +20,13 @@
 package org.apache.druid.indexing.kinesis;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.indexing.kinesis.supervisor.KinesisSupervisorTuningConfig;
 import org.apache.druid.indexing.kinesis.test.TestModifiedKinesisIndexTaskTuningConfig;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.segment.IndexSpec;
+import org.apache.druid.segment.data.CompressionStrategy;
 import org.apache.druid.segment.incremental.OnheapIncrementalIndex;
 import org.apache.druid.segment.indexing.TuningConfig;
 import org.hamcrest.CoreMatchers;
@@ -38,6 +38,7 @@ import org.junit.rules.ExpectedException;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 
 public class KinesisIndexTaskTuningConfigTest
 {
@@ -46,7 +47,7 @@ public class KinesisIndexTaskTuningConfigTest
   public KinesisIndexTaskTuningConfigTest()
   {
     mapper = new DefaultObjectMapper();
-    mapper.registerModules((Iterable<Module>) new KinesisIndexingServiceModule().getJacksonModules());
+    mapper.registerModules(new KinesisIndexingServiceModule().getJacksonModules());
   }
 
   @Rule
@@ -67,19 +68,21 @@ public class KinesisIndexTaskTuningConfigTest
         TuningConfig.class
     );
 
-    Assert.assertNotNull(config.getBasePersistDirectory());
+    Assert.assertNull(config.getBasePersistDirectory());
     Assert.assertEquals(new OnheapIncrementalIndex.Spec(), config.getAppendableIndexSpec());
-    Assert.assertEquals(1000000, config.getMaxRowsInMemory());
+    Assert.assertEquals(150000, config.getMaxRowsInMemory());
     Assert.assertEquals(5_000_000, config.getMaxRowsPerSegment().intValue());
     Assert.assertEquals(new Period("PT10M"), config.getIntermediatePersistPeriod());
     Assert.assertEquals(0, config.getMaxPendingPersists());
-    Assert.assertEquals(new IndexSpec(), config.getIndexSpec());
+    Assert.assertEquals(IndexSpec.DEFAULT, config.getIndexSpec());
     Assert.assertFalse(config.isReportParseExceptions());
-    Assert.assertEquals(0, config.getHandoffConditionTimeout());
-    Assert.assertEquals(10000, config.getRecordBufferSize());
+    Assert.assertEquals(Duration.ofMinutes(15).toMillis(), config.getHandoffConditionTimeout());
+    Assert.assertNull(config.getRecordBufferSizeBytesConfigured());
+    Assert.assertEquals(100_000_000, config.getRecordBufferSizeBytesOrDefault(2_000_000_000));
+    Assert.assertEquals(100_000_000, config.getRecordBufferSizeBytesOrDefault(1_000_000_000));
+    Assert.assertEquals(10_000_000, config.getRecordBufferSizeBytesOrDefault(100_000_000));
     Assert.assertEquals(5000, config.getRecordBufferOfferTimeout());
     Assert.assertEquals(5000, config.getRecordBufferFullWait());
-    Assert.assertEquals(20000, config.getFetchSequenceNumberTimeout());
     Assert.assertNull(config.getFetchThreads());
     Assert.assertFalse(config.isSkipSequenceNumberAvailabilityCheck());
     Assert.assertFalse(config.isResetOffsetAutomatically());
@@ -97,10 +100,9 @@ public class KinesisIndexTaskTuningConfigTest
                      + "  \"maxPendingPersists\": 100,\n"
                      + "  \"reportParseExceptions\": true,\n"
                      + "  \"handoffConditionTimeout\": 100,\n"
-                     + "  \"recordBufferSize\": 1000,\n"
+                     + "  \"recordBufferSizeBytes\": 1000,\n"
                      + "  \"recordBufferOfferTimeout\": 500,\n"
                      + "  \"recordBufferFullWait\": 500,\n"
-                     + "  \"fetchSequenceNumberTimeout\": 6000,\n"
                      + "  \"resetOffsetAutomatically\": false,\n"
                      + "  \"skipSequenceNumberAvailabilityCheck\": true,\n"
                      + "  \"fetchThreads\": 2,\n"
@@ -117,7 +119,7 @@ public class KinesisIndexTaskTuningConfigTest
         TuningConfig.class
     );
 
-    Assert.assertEquals(new File("/tmp/xxx"), config.getBasePersistDirectory());
+    Assert.assertNull(config.getBasePersistDirectory());
     Assert.assertEquals(new OnheapIncrementalIndex.Spec(), config.getAppendableIndexSpec());
     Assert.assertEquals(100, config.getMaxRowsInMemory());
     Assert.assertEquals(100, config.getMaxRowsPerSegment().intValue());
@@ -125,13 +127,15 @@ public class KinesisIndexTaskTuningConfigTest
     Assert.assertEquals(100, config.getMaxPendingPersists());
     Assert.assertTrue(config.isReportParseExceptions());
     Assert.assertEquals(100, config.getHandoffConditionTimeout());
-    Assert.assertEquals(1000, config.getRecordBufferSize());
+    Assert.assertEquals(1000, (int) config.getRecordBufferSizeBytesConfigured());
+    Assert.assertEquals(1000, config.getRecordBufferSizeBytesOrDefault(1_000_000_000));
     Assert.assertEquals(500, config.getRecordBufferOfferTimeout());
     Assert.assertEquals(500, config.getRecordBufferFullWait());
-    Assert.assertEquals(6000, config.getFetchSequenceNumberTimeout());
     Assert.assertEquals(2, (int) config.getFetchThreads());
     Assert.assertTrue(config.isSkipSequenceNumberAvailabilityCheck());
     Assert.assertFalse(config.isResetOffsetAutomatically());
+    Assert.assertEquals(-1, config.getMaxColumnsToMerge());
+
   }
 
   @Test
@@ -147,23 +151,25 @@ public class KinesisIndexTaskTuningConfigTest
         new Period("PT3S"),
         new File("/tmp/xxx"),
         4,
-        new IndexSpec(),
-        new IndexSpec(),
+        IndexSpec.DEFAULT,
+        IndexSpec.DEFAULT,
         true,
         5L,
         true,
         false,
+        null,
         1000,
         1000,
         500,
-        null,
         42,
         null,
         false,
         500,
         500,
         6000,
-        new Period("P3D")
+        1_000_000,
+        new Period("P3D"),
+        1000
     );
 
     String serialized = mapper.writeValueAsString(base);
@@ -177,7 +183,7 @@ public class KinesisIndexTaskTuningConfigTest
     Assert.assertEquals(base.getMaxRowsPerSegment(), deserialized.getMaxRowsPerSegment());
     Assert.assertEquals(base.getMaxTotalRows(), deserialized.getMaxTotalRows());
     Assert.assertEquals(base.getIntermediatePersistPeriod(), deserialized.getIntermediatePersistPeriod());
-    Assert.assertEquals(base.getBasePersistDirectory(), deserialized.getBasePersistDirectory());
+    Assert.assertNull(deserialized.getBasePersistDirectory());
     Assert.assertEquals(base.getMaxPendingPersists(), deserialized.getMaxPendingPersists());
     Assert.assertEquals(base.getIndexSpec(), deserialized.getIndexSpec());
     Assert.assertEquals(base.isReportParseExceptions(), deserialized.isReportParseExceptions());
@@ -190,8 +196,11 @@ public class KinesisIndexTaskTuningConfigTest
     Assert.assertEquals(base.getMaxSavedParseExceptions(), deserialized.getMaxSavedParseExceptions());
     Assert.assertEquals(base.getRecordBufferFullWait(), deserialized.getRecordBufferFullWait());
     Assert.assertEquals(base.getRecordBufferOfferTimeout(), deserialized.getRecordBufferOfferTimeout());
-    Assert.assertEquals(base.getRecordBufferSize(), deserialized.getRecordBufferSize());
-    Assert.assertEquals(base.getMaxRecordsPerPoll(), deserialized.getMaxRecordsPerPoll());
+    Assert.assertEquals(base.getRecordBufferSizeConfigured(), deserialized.getRecordBufferSizeConfigured());
+    Assert.assertEquals(base.getRecordBufferSizeBytesConfigured(), deserialized.getRecordBufferSizeBytesConfigured());
+    Assert.assertEquals(base.getMaxRecordsPerPollConfigured(), deserialized.getMaxRecordsPerPollConfigured());
+    Assert.assertEquals(base.getMaxBytesPerPollConfigured(), deserialized.getMaxBytesPerPollConfigured());
+    Assert.assertEquals(base.getMaxColumnsToMerge(), deserialized.getMaxColumnsToMerge());
   }
 
   @Test
@@ -207,23 +216,25 @@ public class KinesisIndexTaskTuningConfigTest
         new Period("PT3S"),
         new File("/tmp/xxx"),
         4,
-        new IndexSpec(),
-        new IndexSpec(),
+        IndexSpec.DEFAULT,
+        IndexSpec.DEFAULT,
         true,
         5L,
         true,
         false,
+        null,
         1000,
         1000,
         500,
-        null,
         42,
         null,
         false,
         500,
         500,
+        1_000_000,
         6000,
-        new Period("P3D")
+        new Period("P3D"),
+        1000
     );
 
     String serialized = mapper.writeValueAsString(new TestModifiedKinesisIndexTaskTuningConfig(base, "loool"));
@@ -236,7 +247,7 @@ public class KinesisIndexTaskTuningConfigTest
     Assert.assertEquals(base.getMaxRowsPerSegment(), deserialized.getMaxRowsPerSegment());
     Assert.assertEquals(base.getMaxTotalRows(), deserialized.getMaxTotalRows());
     Assert.assertEquals(base.getIntermediatePersistPeriod(), deserialized.getIntermediatePersistPeriod());
-    Assert.assertEquals(base.getBasePersistDirectory(), deserialized.getBasePersistDirectory());
+    Assert.assertNull(deserialized.getBasePersistDirectory());
     Assert.assertEquals(base.getMaxPendingPersists(), deserialized.getMaxPendingPersists());
     Assert.assertEquals(base.getIndexSpec(), deserialized.getIndexSpec());
     Assert.assertEquals(base.isReportParseExceptions(), deserialized.isReportParseExceptions());
@@ -249,8 +260,9 @@ public class KinesisIndexTaskTuningConfigTest
     Assert.assertEquals(base.getMaxSavedParseExceptions(), deserialized.getMaxSavedParseExceptions());
     Assert.assertEquals(base.getRecordBufferFullWait(), deserialized.getRecordBufferFullWait());
     Assert.assertEquals(base.getRecordBufferOfferTimeout(), deserialized.getRecordBufferOfferTimeout());
-    Assert.assertEquals(base.getRecordBufferSize(), deserialized.getRecordBufferSize());
-    Assert.assertEquals(base.getMaxRecordsPerPoll(), deserialized.getMaxRecordsPerPoll());
+    Assert.assertEquals(base.getRecordBufferSizeBytesConfigured(), deserialized.getRecordBufferSizeBytesConfigured());
+    Assert.assertEquals(base.getMaxRecordsPerPollConfigured(), deserialized.getMaxRecordsPerPollConfigured());
+    Assert.assertEquals(base.getMaxColumnsToMerge(), deserialized.getMaxColumnsToMerge());
   }
 
   @Test
@@ -268,7 +280,6 @@ public class KinesisIndexTaskTuningConfigTest
                      + "  \"recordBufferSize\": 1000,\n"
                      + "  \"recordBufferOfferTimeout\": 500,\n"
                      + "  \"recordBufferFullWait\": 500,\n"
-                     + "  \"fetchSequenceNumberTimeout\": 6000,\n"
                      + "  \"resetOffsetAutomatically\": true,\n"
                      + "  \"skipSequenceNumberAvailabilityCheck\": true,\n"
                      + "  \"fetchThreads\": 2\n"
@@ -292,10 +303,9 @@ public class KinesisIndexTaskTuningConfigTest
         2,
         100L,
         new Period("PT3S"),
-        new File("/tmp/xxx"),
         4,
-        new IndexSpec(),
-        new IndexSpec(),
+        IndexSpec.DEFAULT,
+        IndexSpec.DEFAULT,
         true,
         5L,
         true,
@@ -309,17 +319,19 @@ public class KinesisIndexTaskTuningConfigTest
         1000,
         500,
         500,
-        6000,
         2,
         null,
         null,
+        null,
+        10,
+        1_000_000,
         null,
         null,
         null,
         null,
         null
     );
-    KinesisIndexTaskTuningConfig copy = (KinesisIndexTaskTuningConfig) original.convertToTaskTuningConfig();
+    KinesisIndexTaskTuningConfig copy = original.convertToTaskTuningConfig();
 
     Assert.assertEquals(original.getAppendableIndexSpec(), copy.getAppendableIndexSpec());
     Assert.assertEquals(1, copy.getMaxRowsInMemory());
@@ -327,27 +339,32 @@ public class KinesisIndexTaskTuningConfigTest
     Assert.assertEquals(2, copy.getMaxRowsPerSegment().intValue());
     Assert.assertEquals(100L, (long) copy.getMaxTotalRows());
     Assert.assertEquals(new Period("PT3S"), copy.getIntermediatePersistPeriod());
-    Assert.assertEquals(new File("/tmp/xxx"), copy.getBasePersistDirectory());
+    Assert.assertNull(copy.getBasePersistDirectory());
     Assert.assertEquals(4, copy.getMaxPendingPersists());
-    Assert.assertEquals(new IndexSpec(), copy.getIndexSpec());
+    Assert.assertEquals(IndexSpec.DEFAULT, copy.getIndexSpec());
     Assert.assertTrue(copy.isReportParseExceptions());
     Assert.assertEquals(5L, copy.getHandoffConditionTimeout());
-    Assert.assertEquals(1000, copy.getRecordBufferSize());
+    Assert.assertEquals(1000, (int) copy.getRecordBufferSizeBytesConfigured());
     Assert.assertEquals(500, copy.getRecordBufferOfferTimeout());
     Assert.assertEquals(500, copy.getRecordBufferFullWait());
-    Assert.assertEquals(6000, copy.getFetchSequenceNumberTimeout());
     Assert.assertEquals(2, (int) copy.getFetchThreads());
     Assert.assertFalse(copy.isSkipSequenceNumberAvailabilityCheck());
     Assert.assertTrue(copy.isResetOffsetAutomatically());
-    Assert.assertEquals(100, copy.getMaxRecordsPerPoll());
+    Assert.assertEquals(10, (int) copy.getMaxRecordsPerPollConfigured());
     Assert.assertEquals(new Period().withDays(Integer.MAX_VALUE), copy.getIntermediateHandoffPeriod());
+    Assert.assertEquals(-1, copy.getMaxColumnsToMerge());
   }
 
   @Test
   public void testEqualsAndHashCode()
   {
     EqualsVerifier.forClass(KinesisIndexTaskTuningConfig.class)
-        .usingGetClass()
-        .verify();
+                  .withPrefabValues(
+                      IndexSpec.class,
+                      IndexSpec.DEFAULT,
+                      IndexSpec.builder().withDimensionCompression(CompressionStrategy.ZSTD).build()
+                  )
+                  .usingGetClass()
+                  .verify();
   }
 }

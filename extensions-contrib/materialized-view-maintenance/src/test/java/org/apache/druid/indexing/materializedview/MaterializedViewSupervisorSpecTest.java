@@ -34,14 +34,13 @@ import org.apache.druid.indexing.overlord.supervisor.SupervisorStateManagerConfi
 import org.apache.druid.indexing.overlord.supervisor.autoscaler.SupervisorTaskAutoScaler;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.metadata.MetadataSupervisorManager;
-import org.apache.druid.metadata.SqlSegmentsMetadataManager;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.expression.LookupEnabledTestExprMacroTable;
 import org.apache.druid.segment.TestHelper;
-import org.apache.druid.segment.realtime.firehose.ChatHandlerProvider;
-import org.apache.druid.segment.realtime.firehose.NoopChatHandlerProvider;
+import org.apache.druid.segment.realtime.ChatHandlerProvider;
+import org.apache.druid.segment.realtime.NoopChatHandlerProvider;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.easymock.EasyMock;
 import org.hamcrest.CoreMatchers;
@@ -52,7 +51,6 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.io.IOException;
-import java.util.concurrent.Callable;
 
 public class MaterializedViewSupervisorSpecTest
 {
@@ -72,7 +70,6 @@ public class MaterializedViewSupervisorSpecTest
             .addValue(ExprMacroTable.class.getName(), LookupEnabledTestExprMacroTable.INSTANCE)
             .addValue(ObjectMapper.class, objectMapper)
             .addValue(MetadataSupervisorManager.class, null)
-            .addValue(SqlSegmentsMetadataManager.class, null)
             .addValue(IndexerMetadataStorageCoordinator.class, null)
             .addValue(MaterializedViewTaskConfig.class, new MaterializedViewTaskConfig())
             .addValue(AuthorizerMapper.class, EasyMock.createMock(AuthorizerMapper.class))
@@ -124,9 +121,7 @@ public class MaterializedViewSupervisorSpecTest
                 new StringDimensionSchema("regionIsoCode"),
                 new StringDimensionSchema("regionName"),
                 new StringDimensionSchema("user")
-            ),
-            null,
-            null
+            )
         ),
         new AggregatorFactory[]{
             new CountAggregatorFactory("count"),
@@ -140,7 +135,6 @@ public class MaterializedViewSupervisorSpecTest
         null,
         false,
         objectMapper,
-        null,
         null,
         null,
         null,
@@ -175,9 +169,7 @@ public class MaterializedViewSupervisorSpecTest
                               new StringDimensionSchema("regionIsoCode"),
                               new StringDimensionSchema("regionName"),
                               new StringDimensionSchema("user")
-                      ),
-                      null,
-                      null
+                      )
               ),
               new AggregatorFactory[]{
                   new CountAggregatorFactory("count"),
@@ -195,7 +187,6 @@ public class MaterializedViewSupervisorSpecTest
               null,
               null,
               null,
-              null,
               new MaterializedViewTaskConfig(),
               EasyMock.createMock(AuthorizerMapper.class),
               new NoopChatHandlerProvider(),
@@ -206,29 +197,6 @@ public class MaterializedViewSupervisorSpecTest
 
       SupervisorTaskAutoScaler autoscaler = spec.createAutoscaler(supervisor);
       Assert.assertNull(autoscaler);
-
-      try {
-        supervisor.computeLagStats();
-      }
-      catch (Exception e) {
-        Assert.assertTrue(e instanceof UnsupportedOperationException);
-      }
-
-      try {
-        int count = supervisor.getActiveTaskGroupsCount();
-      }
-      catch (Exception e) {
-        Assert.assertTrue(e instanceof UnsupportedOperationException);
-      }
-
-      Callable<Integer> noop = new Callable<Integer>() {
-        @Override
-        public Integer call()
-        {
-          return -1;
-        }
-      };
-
     }
     catch (Exception e) {
       ex = e;
@@ -307,9 +275,7 @@ public class MaterializedViewSupervisorSpecTest
                 new StringDimensionSchema("regionIsoCode"),
                 new StringDimensionSchema("regionName"),
                 new StringDimensionSchema("user")
-            ),
-            null,
-            null
+            )
         ),
         new AggregatorFactory[]{
             new CountAggregatorFactory("count"),
@@ -323,7 +289,6 @@ public class MaterializedViewSupervisorSpecTest
         null,
         false,
         objectMapper,
-        null,
         null,
         null,
         null,
@@ -354,9 +319,7 @@ public class MaterializedViewSupervisorSpecTest
                 new StringDimensionSchema("regionIsoCode"),
                 new StringDimensionSchema("regionName"),
                 new StringDimensionSchema("user")
-            ),
-            null,
-            null
+            )
         ),
         new AggregatorFactory[]{
             new CountAggregatorFactory("count"),
@@ -370,7 +333,6 @@ public class MaterializedViewSupervisorSpecTest
         null,
         false,
         objectMapper,
-        null,
         null,
         null,
         null,

@@ -16,34 +16,42 @@
  * limitations under the License.
  */
 
+import type { CancelToken } from 'axios';
+import { dedupe, F, SqlExpression, SqlFunction } from 'druid-query-toolkit';
 import * as JSONBig from 'json-bigint-native';
 
-import {
+import type {
+  DimensionSpec,
   DimensionsSpec,
-  getDimensionNamesFromTransforms,
-  getSpecType,
-  getTimestampSchema,
   IngestionSpec,
   IngestionType,
   InputFormat,
   IoConfig,
-  isDruidSource,
   MetricSpec,
-  PLACEHOLDER_TIMESTAMP_SPEC,
-  REINDEX_TIMESTAMP_SPEC,
-  TIME_COLUMN,
   TimestampSpec,
   Transform,
   TransformSpec,
-  upgradeSpec,
+} from '../druid-models';
+import {
+  ALL_POSSIBLE_SYSTEM_FIELDS,
+  DETECTION_TIMESTAMP_SPEC,
+  getDimensionNamesFromTransforms,
+  getDimensionSpecName,
+  getFlattenSpec,
+  getSpecType,
+  getTimestampSchema,
+  isDruidSource,
+  isFixedFormatSource,
+  PLACEHOLDER_TIMESTAMP_SPEC,
+  REINDEX_TIMESTAMP_SPEC,
+  TIME_COLUMN,
 } from '../druid-models';
 import { Api } from '../singletons';
 
 import { getDruidErrorMessage, queryDruidRune } from './druid-query';
-import { arrangeWithPrefixSuffix, EMPTY_ARRAY, filterMap, oneOf } from './general';
-import { deepGet, deepSet } from './object-change';
+import { EMPTY_ARRAY, filterMap } from './general';
+import { allowKeys, deepGet, deepSet } from './object-change';
 
-const SAMPLER_URL = `/druid/indexer/v1/sampler`;
 const BASE_SAMPLER_CONFIG: SamplerConfig = {
   numRows: 500,
   timeoutMs: 15000,
@@ -60,15 +68,64 @@ export interface SamplerConfig {
 
 export interface SampleResponse {
   data: SampleEntry[];
+  logicalSegmentSchema: { name: string; type: string }[];
+  logicalDimensions: DimensionSpec[];
+  physicalDimensions: DimensionSpec[];
+  numRowsIndexed: number;
+  numRowsRead: number;
+}
+
+export type TimeColumnAction = 'preserve' | 'ignore' | 'ignoreIfZero';
+
+export function getHeaderNamesFromSampleResponse(
+  sampleResponse: SampleResponse,
+  timeColumnAction: TimeColumnAction = 'preserve',
+): string[] {
+  return getHeaderFromSampleResponse(sampleResponse, timeColumnAction).map(s => s.name);
+}
+
+export function getHeaderFromSampleResponse(
+  sampleResponse: SampleResponse,
+  timeColumnAction: TimeColumnAction = 'preserve',
+): { name: string; type: string }[] {
+  const ignoreTimeColumn =
+    timeColumnAction === 'ignore' ||
+    (timeColumnAction === 'ignoreIfZero' &&
+      !sampleResponse.data.some(d => {
+        const t = d.parsed?.[TIME_COLUMN];
+        return typeof t === 'number' && t > 0;
+      }));
+
+  return sampleResponse.logicalSegmentSchema.filter(
+    s => !ignoreTimeColumn || s.name !== TIME_COLUMN,
+  );
+}
+
+export function guessDimensionsFromSampleResponse(sampleResponse: SampleResponse): DimensionSpec[] {
+  const { logicalDimensions, physicalDimensions, data } = sampleResponse;
+  return logicalDimensions.map(d => {
+    // Boolean column are currently reported as "long" so let's turn them into "string"
+    if (
+      d.type === 'long' &&
+      physicalDimensions.find(_ => _.name === d.name)?.type === 'json' &&
+      typeof data[0]?.input?.[d.name] === 'boolean'
+    ) {
+      return {
+        name: d.name,
+        type: 'string',
+      };
+    }
+    return d;
+  });
 }
 
 export type CacheRows = Record<string, any>[];
 
 export interface SampleResponseWithExtraInfo extends SampleResponse {
-  queryGranularity?: any;
-  rollup?: boolean;
-  columns?: Record<string, any>;
+  columns?: string[];
+  columnInfo?: Record<string, any>;
   aggregators?: Record<string, any>;
+  rollup?: boolean;
 }
 
 export interface SampleEntry {
@@ -78,31 +135,11 @@ export interface SampleEntry {
   error?: string;
 }
 
-export interface HeaderAndRows {
-  header: string[];
-  rows: SampleEntry[];
-}
-
-export interface ExampleManifest {
-  name: string;
-  description: string;
-  spec: any;
-}
-
-function dedupe(xs: string[]): string[] {
-  const seen: Record<string, boolean> = {};
-  return xs.filter(x => {
-    if (seen[x]) {
-      return false;
-    } else {
-      seen[x] = true;
-      return true;
-    }
-  });
-}
-
 export function getCacheRowsFromSampleResponse(sampleResponse: SampleResponse): CacheRows {
-  return filterMap(sampleResponse.data, d => d.input).slice(0, 20);
+  return filterMap(sampleResponse.data, d => ({
+    ...d.input,
+    ...allowKeys<any>(d.parsed || {}, ALL_POSSIBLE_SYSTEM_FIELDS),
+  })).slice(0, 20);
 }
 
 export function applyCache(sampleSpec: SampleSpec, cacheRows: CacheRows) {
@@ -125,7 +162,7 @@ export function applyCache(sampleSpec: SampleSpec, cacheRows: CacheRows) {
     data: cacheRows.map(r => JSONBig.stringify(r)).join('\n'),
   });
 
-  const flattenSpec = deepGet(sampleSpec, 'spec.ioConfig.inputFormat.flattenSpec');
+  const flattenSpec = getFlattenSpec(sampleSpec);
   let inputFormat: InputFormat = { type: 'json', keepNullColumns: true };
   if (flattenSpec) {
     inputFormat = deepSet(inputFormat, 'flattenSpec', flattenSpec);
@@ -133,44 +170,6 @@ export function applyCache(sampleSpec: SampleSpec, cacheRows: CacheRows) {
   sampleSpec = deepSet(sampleSpec, 'spec.ioConfig.inputFormat', inputFormat);
 
   return sampleSpec;
-}
-
-export interface HeaderFromSampleResponseOptions {
-  sampleResponse: SampleResponse;
-  ignoreTimeColumn?: boolean;
-  columnOrder?: string[];
-  suffixColumnOrder?: string[];
-}
-
-export function headerFromSampleResponse(options: HeaderFromSampleResponseOptions): string[] {
-  const { sampleResponse, ignoreTimeColumn, columnOrder, suffixColumnOrder } = options;
-
-  let columns = arrangeWithPrefixSuffix(
-    dedupe(sampleResponse.data.flatMap(s => (s.parsed ? Object.keys(s.parsed) : []))),
-    columnOrder || [TIME_COLUMN],
-    suffixColumnOrder || [],
-  );
-
-  if (ignoreTimeColumn) {
-    columns = columns.filter(c => c !== TIME_COLUMN);
-  }
-
-  return columns;
-}
-
-export interface HeaderAndRowsFromSampleResponseOptions extends HeaderFromSampleResponseOptions {
-  parsedOnly?: boolean;
-}
-
-export function headerAndRowsFromSampleResponse(
-  options: HeaderAndRowsFromSampleResponseOptions,
-): HeaderAndRows {
-  const { sampleResponse, parsedOnly } = options;
-
-  return {
-    header: headerFromSampleResponse(options),
-    rows: parsedOnly ? sampleResponse.data.filter((d: any) => d.parsed) : sampleResponse.data,
-  };
 }
 
 export async function getProxyOverlordModules(): Promise<string[]> {
@@ -181,18 +180,24 @@ export async function getProxyOverlordModules(): Promise<string[]> {
     throw new Error(getDruidErrorMessage(e));
   }
 
-  return statusResp.data.modules.map((m: any) => m.artifact);
+  const { modules } = statusResp.data;
+  if (!Array.isArray(modules)) throw new Error('unexpected result from overlord/status');
+
+  return modules.map((m: any) => m.artifact);
 }
 
 export async function postToSampler(
   sampleSpec: SampleSpec,
   forStr: string,
+  cancelToken?: CancelToken,
 ): Promise<SampleResponse> {
-  sampleSpec = fixSamplerTypes(sampleSpec);
+  sampleSpec = fixSamplerLookups(fixSamplerTypes(sampleSpec));
 
   let sampleResp: any;
   try {
-    sampleResp = await Api.instance.post(`${SAMPLER_URL}?for=${forStr}`, sampleSpec);
+    sampleResp = await Api.instance.post(`/druid/indexer/v1/sampler?for=${forStr}`, sampleSpec, {
+      cancelToken,
+    });
   } catch (e) {
     throw new Error(getDruidErrorMessage(e));
   }
@@ -236,25 +241,27 @@ function fixSamplerTypes(sampleSpec: SampleSpec): SampleSpec {
   return sampleSpec;
 }
 
-function cleanupQueryGranularity(queryGranularity: any): any {
-  let queryGranularityType = deepGet(queryGranularity, 'type');
-  if (typeof queryGranularityType !== 'string') return queryGranularity;
-  queryGranularityType = queryGranularityType.toUpperCase();
+const WHOLE_ROW_INPUT_FORMAT: InputFormat = {
+  type: 'regex',
+  pattern: '([\\s\\S]*)', // Match the entire line, every single character
+  listDelimiter: '56616469-6de2-9da4-efb8-8f416e6e6965', // Just a UUID to disable the list delimiter, let's hope we do not see this UUID in the data
+  columns: ['raw'],
+};
 
-  const knownGranularity = oneOf(
-    queryGranularityType,
-    'NONE',
-    'SECOND',
-    'MINUTE',
-    'HOUR',
-    'DAY',
-    'WEEK',
-    'MONTH',
-    'YEAR',
-  );
+const KAFKA_SAMPLE_INPUT_FORMAT: InputFormat = {
+  type: 'kafka',
+  headerFormat: {
+    type: 'string',
+    encoding: 'UTF-8',
+  },
+  keyFormat: WHOLE_ROW_INPUT_FORMAT,
+  valueFormat: WHOLE_ROW_INPUT_FORMAT,
+};
 
-  return knownGranularity ? queryGranularityType : queryGranularity;
-}
+const KINESIS_SAMPLE_INPUT_FORMAT: InputFormat = {
+  type: 'kinesis',
+  valueFormat: WHOLE_ROW_INPUT_FORMAT,
+};
 
 export async function sampleForConnect(
   spec: Partial<IngestionSpec>,
@@ -267,16 +274,19 @@ export async function sampleForConnect(
     sampleStrategy,
   );
 
-  const reingestMode = isDruidSource(spec);
-  if (!reingestMode) {
-    ioConfig = deepSet(ioConfig, 'inputFormat', {
-      type: 'regex',
-      pattern: '(.*)',
-      listDelimiter: '56616469-6de2-9da4-efb8-8f416e6e6965', // Just a UUID to disable the list delimiter, let's hope we do not see this UUID in the data
-      columns: ['raw'],
-    });
+  if (!isFixedFormatSource(spec)) {
+    ioConfig = deepSet(
+      ioConfig,
+      'inputFormat',
+      samplerType === 'kafka'
+        ? KAFKA_SAMPLE_INPUT_FORMAT
+        : samplerType === 'kinesis'
+        ? KINESIS_SAMPLE_INPUT_FORMAT
+        : WHOLE_ROW_INPUT_FORMAT,
+    );
   }
 
+  const reingestMode = isDruidSource(spec);
   const sampleSpec: SampleSpec = {
     type: samplerType,
     spec: {
@@ -285,7 +295,10 @@ export async function sampleForConnect(
       dataSchema: {
         dataSource: 'sample',
         timestampSpec: reingestMode ? REINDEX_TIMESTAMP_SPEC : PLACEHOLDER_TIMESTAMP_SPEC,
-        dimensionsSpec: {},
+        dimensionsSpec: { useSchemaDiscovery: true },
+        granularitySpec: {
+          rollup: false,
+        },
       },
     } as any,
     samplerConfig: BASE_SAMPLER_CONFIG,
@@ -296,26 +309,41 @@ export async function sampleForConnect(
   if (!samplerResponse.data.length) return samplerResponse;
 
   if (reingestMode) {
-    const segmentMetadataResponse = await queryDruidRune({
-      queryType: 'segmentMetadata',
-      dataSource: deepGet(ioConfig, 'inputSource.dataSource'),
-      intervals: [deepGet(ioConfig, 'inputSource.interval')],
-      merge: true,
-      lenientAggregatorMerge: true,
-      analysisTypes: ['timestampSpec', 'queryGranularity', 'aggregators', 'rollup'],
+    const dataSource = deepGet(ioConfig, 'inputSource.dataSource');
+    const intervals = deepGet(ioConfig, 'inputSource.interval');
+
+    const scanResponse = await queryDruidRune({
+      queryType: 'scan',
+      dataSource,
+      intervals,
+      resultFormat: 'compactedList',
+      limit: 1,
+      columns: [],
+      granularity: 'all',
     });
 
-    if (Array.isArray(segmentMetadataResponse) && segmentMetadataResponse.length === 1) {
-      const segmentMetadataResponse0 = segmentMetadataResponse[0];
-      samplerResponse.queryGranularity = cleanupQueryGranularity(
-        segmentMetadataResponse0.queryGranularity,
-      );
-      samplerResponse.rollup = segmentMetadataResponse0.rollup;
-      samplerResponse.columns = segmentMetadataResponse0.columns;
-      samplerResponse.aggregators = segmentMetadataResponse0.aggregators;
-    } else {
+    const columns = deepGet(scanResponse, '0.columns');
+    if (!Array.isArray(columns)) {
+      throw new Error(`unexpected response from scan query`);
+    }
+    samplerResponse.columns = columns;
+
+    const segmentMetadataResponse = await queryDruidRune({
+      queryType: 'segmentMetadata',
+      dataSource,
+      intervals,
+      merge: true,
+      aggregatorMergeStrategy: 'lenient',
+      analysisTypes: ['aggregators', 'rollup'],
+    });
+
+    if (!Array.isArray(segmentMetadataResponse) || segmentMetadataResponse.length !== 1) {
       throw new Error(`unexpected response from segmentMetadata query`);
     }
+    const segmentMetadataResponse0 = segmentMetadataResponse[0];
+    samplerResponse.rollup = segmentMetadataResponse0.rollup;
+    samplerResponse.columnInfo = segmentMetadataResponse0.columns;
+    samplerResponse.aggregators = segmentMetadataResponse0.aggregators;
   }
 
   return samplerResponse;
@@ -340,8 +368,14 @@ export async function sampleForParser(
       ioConfig,
       dataSchema: {
         dataSource: 'sample',
-        timestampSpec: reingestMode ? REINDEX_TIMESTAMP_SPEC : PLACEHOLDER_TIMESTAMP_SPEC,
-        dimensionsSpec: {},
+        timestampSpec: reingestMode ? REINDEX_TIMESTAMP_SPEC : DETECTION_TIMESTAMP_SPEC,
+        dimensionsSpec: {
+          dimensions: deepGet(ioConfig, 'inputSource.systemFields'),
+          useSchemaDiscovery: true,
+        },
+        granularitySpec: {
+          rollup: false,
+        },
       },
     },
     samplerConfig: BASE_SAMPLER_CONFIG,
@@ -365,8 +399,13 @@ export async function sampleForTimestamp(
       ioConfig: deepGet(spec, 'spec.ioConfig'),
       dataSchema: {
         dataSource: 'sample',
-        dimensionsSpec: {},
+        dimensionsSpec: {
+          useSchemaDiscovery: true,
+        },
         timestampSpec: timestampSchema === 'column' ? PLACEHOLDER_TIMESTAMP_SPEC : timestampSpec,
+        granularitySpec: {
+          rollup: false,
+        },
       },
     },
     samplerConfig: BASE_SAMPLER_CONFIG,
@@ -383,7 +422,7 @@ export async function sampleForTimestamp(
   const transforms: Transform[] =
     deepGet(spec, 'spec.dataSchema.transformSpec.transforms') || EMPTY_ARRAY;
 
-  // If we are trying to parts a column then get a bit fancy:
+  // If we are trying to parse a column then get a bit fancy:
   // Query the same sample again (same cache key)
   const sampleSpec: SampleSpec = {
     type: samplerType,
@@ -391,10 +430,15 @@ export async function sampleForTimestamp(
       ioConfig: deepGet(spec, 'spec.ioConfig'),
       dataSchema: {
         dataSource: 'sample',
-        dimensionsSpec: {},
+        dimensionsSpec: {
+          useSchemaDiscovery: true,
+        },
         timestampSpec,
         transformSpec: {
           transforms: transforms.filter(transform => transform.name === TIME_COLUMN),
+        },
+        granularitySpec: {
+          rollup: false,
         },
       },
     },
@@ -425,13 +469,17 @@ export async function sampleForTimestamp(
 export async function sampleForTransform(
   spec: Partial<IngestionSpec>,
   cacheRows: CacheRows,
+  forceSegmentSortByTime: boolean,
 ): Promise<SampleResponse> {
   const samplerType = getSpecType(spec);
   const timestampSpec: TimestampSpec = deepGet(spec, 'spec.dataSchema.timestampSpec');
   const transforms: Transform[] = deepGet(spec, 'spec.dataSchema.transformSpec.transforms') || [];
 
-  // Extra step to simulate auto detecting dimension with transforms
-  let specialDimensionSpec: DimensionsSpec = {};
+  // Extra step to simulate auto-detecting dimension with transforms
+  let specialDimensionSpec: DimensionsSpec = {
+    useSchemaDiscovery: true,
+    forceSegmentSortByTime,
+  };
   if (transforms && transforms.length) {
     const sampleSpecHack: SampleSpec = {
       type: samplerType,
@@ -440,7 +488,12 @@ export async function sampleForTransform(
         dataSchema: {
           dataSource: 'sample',
           timestampSpec,
-          dimensionsSpec: {},
+          dimensionsSpec: {
+            useSchemaDiscovery: true,
+          },
+          granularitySpec: {
+            rollup: false,
+          },
         },
       },
       samplerConfig: BASE_SAMPLER_CONFIG,
@@ -455,10 +508,10 @@ export async function sampleForTransform(
       specialDimensionSpec,
       'dimensions',
       dedupe(
-        headerFromSampleResponse({
-          sampleResponse: sampleResponseHack,
-          ignoreTimeColumn: true,
-        }).concat(getDimensionNamesFromTransforms(transforms)),
+        (
+          guessDimensionsFromSampleResponse(sampleResponseHack) as (DimensionSpec | string)[]
+        ).concat(getDimensionNamesFromTransforms(transforms)),
+        getDimensionSpecName,
       ),
     );
   }
@@ -473,6 +526,9 @@ export async function sampleForTransform(
         dimensionsSpec: specialDimensionSpec, // Hack Hack Hack
         transformSpec: {
           transforms,
+        },
+        granularitySpec: {
+          rollup: false,
         },
       },
     },
@@ -491,8 +547,8 @@ export async function sampleForFilter(
   const transforms: Transform[] = deepGet(spec, 'spec.dataSchema.transformSpec.transforms') || [];
   const filter: any = deepGet(spec, 'spec.dataSchema.transformSpec.filter');
 
-  // Extra step to simulate auto detecting dimension with transforms
-  let specialDimensionSpec: DimensionsSpec = {};
+  // Extra step to simulate auto-detecting dimension with transforms
+  let specialDimensionSpec: DimensionsSpec = { useSchemaDiscovery: true };
   if (transforms && transforms.length) {
     const sampleSpecHack: SampleSpec = {
       type: samplerType,
@@ -501,7 +557,12 @@ export async function sampleForFilter(
         dataSchema: {
           dataSource: 'sample',
           timestampSpec,
-          dimensionsSpec: {},
+          dimensionsSpec: {
+            useSchemaDiscovery: true,
+          },
+          granularitySpec: {
+            rollup: false,
+          },
         },
       },
       samplerConfig: BASE_SAMPLER_CONFIG,
@@ -516,10 +577,9 @@ export async function sampleForFilter(
       specialDimensionSpec,
       'dimensions',
       dedupe(
-        headerFromSampleResponse({
-          sampleResponse: sampleResponseHack,
-          ignoreTimeColumn: true,
-        }).concat(getDimensionNamesFromTransforms(transforms)),
+        getHeaderNamesFromSampleResponse(sampleResponseHack, 'ignore').concat(
+          getDimensionNamesFromTransforms(transforms),
+        ),
       ),
     );
   }
@@ -535,6 +595,9 @@ export async function sampleForFilter(
         transformSpec: {
           transforms,
           filter,
+        },
+        granularitySpec: {
+          rollup: false,
         },
       },
     },
@@ -556,6 +619,7 @@ export async function sampleForSchema(
   const metricsSpec: MetricSpec[] = deepGet(spec, 'spec.dataSchema.metricsSpec') || [];
   const queryGranularity: string =
     deepGet(spec, 'spec.dataSchema.granularitySpec.queryGranularity') || 'NONE';
+  const rollup = deepGet(spec, 'spec.dataSchema.granularitySpec.rollup') ?? true;
 
   const sampleSpec: SampleSpec = {
     type: samplerType,
@@ -567,6 +631,7 @@ export async function sampleForSchema(
         transformSpec,
         granularitySpec: {
           queryGranularity,
+          rollup,
         },
         dimensionsSpec,
         metricsSpec,
@@ -578,54 +643,66 @@ export async function sampleForSchema(
   return postToSampler(applyCache(sampleSpec, cacheRows), 'schema');
 }
 
-export async function sampleForExampleManifests(
-  exampleManifestUrl: string,
-): Promise<ExampleManifest[]> {
-  const exampleSpec: SampleSpec = {
-    type: 'index_parallel',
-    spec: {
-      ioConfig: {
-        type: 'index_parallel',
-        inputSource: { type: 'http', uris: [exampleManifestUrl] },
-        inputFormat: { type: 'tsv', findColumnsFromHeader: true },
-      },
-      dataSchema: {
-        dataSource: 'sample',
-        timestampSpec: {
-          column: 'timestamp',
-          missingValue: '2010-01-01T00:00:00Z',
-        },
-        dimensionsSpec: {},
-      },
-    },
-    samplerConfig: { numRows: 50, timeoutMs: 10000 },
-  };
+function fixSamplerLookups(sampleSpec: SampleSpec): SampleSpec {
+  const transforms: Transform[] | undefined = deepGet(
+    sampleSpec,
+    'spec.dataSchema.transformSpec.transforms',
+  );
+  if (!Array.isArray(transforms)) return sampleSpec;
 
-  const exampleData = await postToSampler(exampleSpec, 'example-manifest');
+  return deepSet(
+    sampleSpec,
+    'spec.dataSchema.transformSpec.transforms',
+    transforms.map(transform => {
+      const { expression } = transform;
+      if (typeof expression !== 'string') return transform;
+      return { ...transform, expression: changeLookupInExpressionsSampling(expression) };
+    }),
+  );
+}
 
-  return filterMap(exampleData.data, datum => {
-    const parsed = datum.parsed;
-    if (!parsed) return;
-    let { name, description, spec } = parsed;
-    try {
-      spec = JSON.parse(spec);
-    } catch {
-      return;
-    }
+/**
+ * Lookups do not work in the sampler because they are not loaded in the Overlord
+ * to prevent the user from getting an error like "Unknown lookup [lookup name]" we
+ * change the lookup expression to a placeholder
+ *
+ * lookup("x", 'lookup_name') => concat('lookup_name', '[', "x", '] -- This is a placeholder, lookups are not supported in sampling')
+ * lookup("x", 'lookup_name', 'replaceValue') => nvl(concat('lookup_name', '[', "x", '] -- This is a placeholder, lookups are not supported in sampling'), 'replaceValue')
+ */
+export function changeLookupInExpressionsSampling(druidExpression: string): string {
+  if (!druidExpression.includes('lookup')) return druidExpression;
 
-    if (
-      typeof name === 'string' &&
-      typeof description === 'string' &&
-      spec &&
-      typeof spec === 'object'
-    ) {
-      return {
-        name: parsed.name,
-        description: parsed.description,
-        spec: upgradeSpec(spec),
-      };
-    } else {
-      return;
-    }
+  // The Druid expressions are very close to SQL so try parsing them as SQL, if it parses then this is a more robust way to apply this transformation
+  const parsedDruidExpression = SqlExpression.maybeParse(druidExpression);
+  if (parsedDruidExpression) {
+    return String(
+      parsedDruidExpression.walk(ex => {
+        if (ex instanceof SqlFunction && ex.getEffectiveFunctionName() === 'LOOKUP') {
+          if (ex.numArgs() < 2 || ex.numArgs() > 3) return SqlExpression.parse('null');
+          const concat = F(
+            'concat',
+            ex.getArg(1),
+            '[',
+            ex.getArg(0),
+            '] -- This is a placeholder, lookups are not supported in sampling',
+          );
+
+          const replaceMissingValueWith = ex.getArg(2);
+          if (!replaceMissingValueWith) return concat;
+          return F('nvl', concat, replaceMissingValueWith);
+        }
+        return ex;
+      }),
+    );
+  }
+
+  // If we can not parse the expression as SQL then bash it with a regexp
+  return druidExpression.replace(/lookup\s*\(([^)]+)\)/g, (_, argString: string) => {
+    const args = argString.trim().split(/\s*,\s*/);
+    if (args.length < 2 || args.length > 3) return 'null';
+    const concat = `concat(${args[1]},'[',${args[0]},'] -- This is a placeholder, lookups are not supported in sampling')`;
+    const replaceMissingValueWith = args[2];
+    if (!replaceMissingValueWith) return concat;
+    return `nvl(${concat},${replaceMissingValueWith})`;
   });
 }

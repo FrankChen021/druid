@@ -26,7 +26,6 @@ import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.http.client.response.StatusResponseHandler;
 import org.apache.druid.java.util.http.client.response.StatusResponseHolder;
-import org.apache.druid.testing.clients.AbstractQueryResourceTestClient;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
@@ -36,10 +35,10 @@ import java.net.URL;
 
 public class HttpUtil
 {
-  private static final Logger LOG = new Logger(AbstractQueryResourceTestClient.class);
+  private static final Logger LOG = new Logger(HttpUtil.class);
   private static final StatusResponseHandler RESPONSE_HANDLER = StatusResponseHandler.getInstance();
 
-  static final int NUM_RETRIES = 30;
+  static final int NUM_RETRIES = 0;
   static final long DELAY_FOR_RETRIES_MS = 10000;
 
   public static StatusResponseHolder makeRequest(HttpClient httpClient, HttpMethod method, String url, byte[] content)

@@ -18,18 +18,27 @@
 
 import { render } from '@testing-library/react';
 import * as JSONBig from 'json-bigint-native';
-import React from 'react';
 
 import { HistoryDialog } from './history-dialog';
 
-describe('history dialog', () => {
+describe('HistoryDialog', () => {
   it('matches snapshot', () => {
     const historyDialog = (
       <HistoryDialog
+        title="History"
         historyRecords={[
-          { auditTime: 'test', auditInfo: 'test', payload: JSONBig.stringify({ name: 'test' }) },
-          { auditTime: 'test', auditInfo: 'test', payload: JSONBig.stringify({ name: 'test' }) },
+          {
+            auditTime: '2025-04-03T02:01:00.000Z',
+            auditInfo: { comment: 'test' },
+            payload: JSONBig.stringify({ name: 'test' }),
+          },
+          {
+            auditTime: '2025-04-03T01:01:00.000Z',
+            auditInfo: { comment: 'test' },
+            payload: JSONBig.stringify({ name: 'test' }),
+          },
         ]}
+        onBack={() => {}}
       />
     );
     render(historyDialog);

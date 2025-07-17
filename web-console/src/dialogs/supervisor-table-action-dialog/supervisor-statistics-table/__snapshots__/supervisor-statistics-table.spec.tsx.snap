@@ -1,0 +1,826 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`SupervisorStatisticsTable matches snapshot on error 1`] = `
+<div
+  className="supervisor-statistics-table"
+>
+  <div
+    className="top-actions"
+  >
+    <Blueprint5.ButtonGroup
+      className="right-buttons"
+    >
+      <Blueprint5.Button
+        disabled={false}
+        minimal={true}
+        onClick={[Function]}
+        text="View raw"
+      />
+    </Blueprint5.ButtonGroup>
+  </div>
+  <div
+    className="main-area"
+  >
+    <ReactTable
+      AggregatedComponent={[Function]}
+      ExpanderComponent={[Function]}
+      FilterComponent={[Function]}
+      LoadingComponent={[Function]}
+      NoDataComponent={[Function]}
+      PadRowComponent={[Function]}
+      PaginationComponent={[Function]}
+      PivotValueComponent={[Function]}
+      ResizerComponent={[Function]}
+      TableComponent={[Function]}
+      TbodyComponent={[Function]}
+      TdComponent={[Function]}
+      TfootComponent={[Function]}
+      ThComponent={[Function]}
+      TheadComponent={[Function]}
+      TrComponent={[Function]}
+      TrGroupComponent={[Function]}
+      aggregatedKey="_aggregated"
+      className=""
+      collapseOnDataChange={true}
+      collapseOnPageChange={true}
+      collapseOnSortingChange={true}
+      column={
+        {
+          "Aggregated": undefined,
+          "Cell": undefined,
+          "Expander": undefined,
+          "Filter": undefined,
+          "Footer": undefined,
+          "Header": undefined,
+          "Pivot": undefined,
+          "PivotValue": undefined,
+          "Placeholder": undefined,
+          "aggregate": undefined,
+          "className": "",
+          "filterAll": false,
+          "filterMethod": undefined,
+          "filterable": undefined,
+          "footerClassName": "",
+          "footerStyle": {},
+          "getFooterProps": [Function],
+          "getHeaderProps": [Function],
+          "getProps": [Function],
+          "headerClassName": "",
+          "headerStyle": {},
+          "minResizeWidth": 11,
+          "minWidth": 100,
+          "resizable": undefined,
+          "show": true,
+          "sortMethod": undefined,
+          "sortable": undefined,
+          "style": {},
+        }
+      }
+      columns={
+        [
+          {
+            "Header": "Group ID",
+            "accessor": "groupId",
+            "className": "padded",
+            "width": 100,
+          },
+          {
+            "Header": "Task ID",
+            "accessor": "taskId",
+            "className": "padded",
+            "width": 400,
+          },
+          {
+            "Cell": [Function],
+            "Header": "Totals",
+            "accessor": "rowStats.totals.buildSegments",
+            "className": "padded",
+            "id": "total",
+            "width": 200,
+          },
+        ]
+      }
+      data={[]}
+      defaultExpanded={{}}
+      defaultFilterMethod={[Function]}
+      defaultFiltered={[]}
+      defaultPage={0}
+      defaultPageSize={25}
+      defaultResized={[]}
+      defaultSortDesc={false}
+      defaultSortMethod={[Function]}
+      defaultSorted={[]}
+      expanderDefaults={
+        {
+          "filterable": false,
+          "resizable": false,
+          "sortable": false,
+          "width": 35,
+        }
+      }
+      filterable={false}
+      freezeWhenExpanded={false}
+      getLoadingProps={[Function]}
+      getNoDataProps={[Function]}
+      getPaginationProps={[Function]}
+      getProps={[Function]}
+      getResizerProps={[Function]}
+      getTableProps={[Function]}
+      getTbodyProps={[Function]}
+      getTdProps={[Function]}
+      getTfootProps={[Function]}
+      getTfootTdProps={[Function]}
+      getTfootTrProps={[Function]}
+      getTheadFilterProps={[Function]}
+      getTheadFilterThProps={[Function]}
+      getTheadFilterTrProps={[Function]}
+      getTheadGroupProps={[Function]}
+      getTheadGroupThProps={[Function]}
+      getTheadGroupTrProps={[Function]}
+      getTheadProps={[Function]}
+      getTheadThProps={[Function]}
+      getTheadTrProps={[Function]}
+      getTrGroupProps={[Function]}
+      getTrProps={[Function]}
+      groupedByPivotKey="_groupedByPivot"
+      indexKey="_index"
+      loading={false}
+      loadingText="Loading..."
+      multiSort={true}
+      nestingLevelKey="_nestingLevel"
+      nextText="Next"
+      noDataText="test error"
+      ofText="of"
+      onFetchData={[Function]}
+      originalKey="_original"
+      pageJumpText="jump to page"
+      pageSizeOptions={
+        [
+          25,
+          50,
+          100,
+        ]
+      }
+      pageText="Page"
+      pivotDefaults={{}}
+      pivotIDKey="_pivotID"
+      pivotValKey="_pivotVal"
+      previousText="Previous"
+      resizable={true}
+      resolveData={[Function]}
+      rowsSelectorText="rows per page"
+      rowsText="rows"
+      showPageJump={true}
+      showPageSizeOptions={true}
+      showPagination={false}
+      showPaginationBottom={true}
+      showPaginationTop={false}
+      sortable={true}
+      style={{}}
+      subRowsKey="_subRows"
+    />
+  </div>
+</div>
+`;
+
+exports[`SupervisorStatisticsTable matches snapshot on init 1`] = `
+<div
+  className="supervisor-statistics-table"
+>
+  <div
+    className="top-actions"
+  >
+    <Blueprint5.ButtonGroup
+      className="right-buttons"
+    >
+      <Blueprint5.Button
+        disabled={false}
+        minimal={true}
+        onClick={[Function]}
+        text="View raw"
+      />
+    </Blueprint5.ButtonGroup>
+  </div>
+  <div
+    className="main-area"
+  >
+    <ReactTable
+      AggregatedComponent={[Function]}
+      ExpanderComponent={[Function]}
+      FilterComponent={[Function]}
+      LoadingComponent={[Function]}
+      NoDataComponent={[Function]}
+      PadRowComponent={[Function]}
+      PaginationComponent={[Function]}
+      PivotValueComponent={[Function]}
+      ResizerComponent={[Function]}
+      TableComponent={[Function]}
+      TbodyComponent={[Function]}
+      TdComponent={[Function]}
+      TfootComponent={[Function]}
+      ThComponent={[Function]}
+      TheadComponent={[Function]}
+      TrComponent={[Function]}
+      TrGroupComponent={[Function]}
+      aggregatedKey="_aggregated"
+      className=""
+      collapseOnDataChange={true}
+      collapseOnPageChange={true}
+      collapseOnSortingChange={true}
+      column={
+        {
+          "Aggregated": undefined,
+          "Cell": undefined,
+          "Expander": undefined,
+          "Filter": undefined,
+          "Footer": undefined,
+          "Header": undefined,
+          "Pivot": undefined,
+          "PivotValue": undefined,
+          "Placeholder": undefined,
+          "aggregate": undefined,
+          "className": "",
+          "filterAll": false,
+          "filterMethod": undefined,
+          "filterable": undefined,
+          "footerClassName": "",
+          "footerStyle": {},
+          "getFooterProps": [Function],
+          "getHeaderProps": [Function],
+          "getProps": [Function],
+          "headerClassName": "",
+          "headerStyle": {},
+          "minResizeWidth": 11,
+          "minWidth": 100,
+          "resizable": undefined,
+          "show": true,
+          "sortMethod": undefined,
+          "sortable": undefined,
+          "style": {},
+        }
+      }
+      columns={
+        [
+          {
+            "Header": "Group ID",
+            "accessor": "groupId",
+            "className": "padded",
+            "width": 100,
+          },
+          {
+            "Header": "Task ID",
+            "accessor": "taskId",
+            "className": "padded",
+            "width": 400,
+          },
+          {
+            "Cell": [Function],
+            "Header": "Totals",
+            "accessor": "rowStats.totals.buildSegments",
+            "className": "padded",
+            "id": "total",
+            "width": 200,
+          },
+        ]
+      }
+      data={[]}
+      defaultExpanded={{}}
+      defaultFilterMethod={[Function]}
+      defaultFiltered={[]}
+      defaultPage={0}
+      defaultPageSize={25}
+      defaultResized={[]}
+      defaultSortDesc={false}
+      defaultSortMethod={[Function]}
+      defaultSorted={[]}
+      expanderDefaults={
+        {
+          "filterable": false,
+          "resizable": false,
+          "sortable": false,
+          "width": 35,
+        }
+      }
+      filterable={false}
+      freezeWhenExpanded={false}
+      getLoadingProps={[Function]}
+      getNoDataProps={[Function]}
+      getPaginationProps={[Function]}
+      getProps={[Function]}
+      getResizerProps={[Function]}
+      getTableProps={[Function]}
+      getTbodyProps={[Function]}
+      getTdProps={[Function]}
+      getTfootProps={[Function]}
+      getTfootTdProps={[Function]}
+      getTfootTrProps={[Function]}
+      getTheadFilterProps={[Function]}
+      getTheadFilterThProps={[Function]}
+      getTheadFilterTrProps={[Function]}
+      getTheadGroupProps={[Function]}
+      getTheadGroupThProps={[Function]}
+      getTheadGroupTrProps={[Function]}
+      getTheadProps={[Function]}
+      getTheadThProps={[Function]}
+      getTheadTrProps={[Function]}
+      getTrGroupProps={[Function]}
+      getTrProps={[Function]}
+      groupedByPivotKey="_groupedByPivot"
+      indexKey="_index"
+      loading={false}
+      loadingText="Loading..."
+      multiSort={true}
+      nestingLevelKey="_nestingLevel"
+      nextText="Next"
+      noDataText="No statistics data found"
+      ofText="of"
+      onFetchData={[Function]}
+      originalKey="_original"
+      pageJumpText="jump to page"
+      pageSizeOptions={
+        [
+          25,
+          50,
+          100,
+        ]
+      }
+      pageText="Page"
+      pivotDefaults={{}}
+      pivotIDKey="_pivotID"
+      pivotValKey="_pivotVal"
+      previousText="Previous"
+      resizable={true}
+      resolveData={[Function]}
+      rowsSelectorText="rows per page"
+      rowsText="rows"
+      showPageJump={true}
+      showPageSizeOptions={true}
+      showPagination={false}
+      showPaginationBottom={true}
+      showPaginationTop={false}
+      sortable={true}
+      style={{}}
+      subRowsKey="_subRows"
+    />
+  </div>
+</div>
+`;
+
+exports[`SupervisorStatisticsTable matches snapshot on loading 1`] = `
+<div
+  className="supervisor-statistics-table"
+>
+  <div
+    className="top-actions"
+  >
+    <Blueprint5.ButtonGroup
+      className="right-buttons"
+    >
+      <Blueprint5.Button
+        disabled={true}
+        minimal={true}
+        onClick={[Function]}
+        text="View raw"
+      />
+    </Blueprint5.ButtonGroup>
+  </div>
+  <div
+    className="main-area"
+  >
+    <Memo(Loader) />
+  </div>
+</div>
+`;
+
+exports[`SupervisorStatisticsTable matches snapshot on no data 1`] = `
+<div
+  className="supervisor-statistics-table"
+>
+  <div
+    className="top-actions"
+  >
+    <Blueprint5.ButtonGroup
+      className="right-buttons"
+    >
+      <Blueprint5.Button
+        disabled={false}
+        minimal={true}
+        onClick={[Function]}
+        text="View raw"
+      />
+    </Blueprint5.ButtonGroup>
+  </div>
+  <div
+    className="main-area"
+  >
+    <ReactTable
+      AggregatedComponent={[Function]}
+      ExpanderComponent={[Function]}
+      FilterComponent={[Function]}
+      LoadingComponent={[Function]}
+      NoDataComponent={[Function]}
+      PadRowComponent={[Function]}
+      PaginationComponent={[Function]}
+      PivotValueComponent={[Function]}
+      ResizerComponent={[Function]}
+      TableComponent={[Function]}
+      TbodyComponent={[Function]}
+      TdComponent={[Function]}
+      TfootComponent={[Function]}
+      ThComponent={[Function]}
+      TheadComponent={[Function]}
+      TrComponent={[Function]}
+      TrGroupComponent={[Function]}
+      aggregatedKey="_aggregated"
+      className=""
+      collapseOnDataChange={true}
+      collapseOnPageChange={true}
+      collapseOnSortingChange={true}
+      column={
+        {
+          "Aggregated": undefined,
+          "Cell": undefined,
+          "Expander": undefined,
+          "Filter": undefined,
+          "Footer": undefined,
+          "Header": undefined,
+          "Pivot": undefined,
+          "PivotValue": undefined,
+          "Placeholder": undefined,
+          "aggregate": undefined,
+          "className": "",
+          "filterAll": false,
+          "filterMethod": undefined,
+          "filterable": undefined,
+          "footerClassName": "",
+          "footerStyle": {},
+          "getFooterProps": [Function],
+          "getHeaderProps": [Function],
+          "getProps": [Function],
+          "headerClassName": "",
+          "headerStyle": {},
+          "minResizeWidth": 11,
+          "minWidth": 100,
+          "resizable": undefined,
+          "show": true,
+          "sortMethod": undefined,
+          "sortable": undefined,
+          "style": {},
+        }
+      }
+      columns={
+        [
+          {
+            "Header": "Group ID",
+            "accessor": "groupId",
+            "className": "padded",
+            "width": 100,
+          },
+          {
+            "Header": "Task ID",
+            "accessor": "taskId",
+            "className": "padded",
+            "width": 400,
+          },
+          {
+            "Cell": [Function],
+            "Header": "Totals",
+            "accessor": "rowStats.totals.buildSegments",
+            "className": "padded",
+            "id": "total",
+            "width": 200,
+          },
+        ]
+      }
+      data={[]}
+      defaultExpanded={{}}
+      defaultFilterMethod={[Function]}
+      defaultFiltered={[]}
+      defaultPage={0}
+      defaultPageSize={25}
+      defaultResized={[]}
+      defaultSortDesc={false}
+      defaultSortMethod={[Function]}
+      defaultSorted={[]}
+      expanderDefaults={
+        {
+          "filterable": false,
+          "resizable": false,
+          "sortable": false,
+          "width": 35,
+        }
+      }
+      filterable={false}
+      freezeWhenExpanded={false}
+      getLoadingProps={[Function]}
+      getNoDataProps={[Function]}
+      getPaginationProps={[Function]}
+      getProps={[Function]}
+      getResizerProps={[Function]}
+      getTableProps={[Function]}
+      getTbodyProps={[Function]}
+      getTdProps={[Function]}
+      getTfootProps={[Function]}
+      getTfootTdProps={[Function]}
+      getTfootTrProps={[Function]}
+      getTheadFilterProps={[Function]}
+      getTheadFilterThProps={[Function]}
+      getTheadFilterTrProps={[Function]}
+      getTheadGroupProps={[Function]}
+      getTheadGroupThProps={[Function]}
+      getTheadGroupTrProps={[Function]}
+      getTheadProps={[Function]}
+      getTheadThProps={[Function]}
+      getTheadTrProps={[Function]}
+      getTrGroupProps={[Function]}
+      getTrProps={[Function]}
+      groupedByPivotKey="_groupedByPivot"
+      indexKey="_index"
+      loading={false}
+      loadingText="Loading..."
+      multiSort={true}
+      nestingLevelKey="_nestingLevel"
+      nextText="Next"
+      noDataText="No statistics data found"
+      ofText="of"
+      onFetchData={[Function]}
+      originalKey="_original"
+      pageJumpText="jump to page"
+      pageSizeOptions={
+        [
+          25,
+          50,
+          100,
+        ]
+      }
+      pageText="Page"
+      pivotDefaults={{}}
+      pivotIDKey="_pivotID"
+      pivotValKey="_pivotVal"
+      previousText="Previous"
+      resizable={true}
+      resolveData={[Function]}
+      rowsSelectorText="rows per page"
+      rowsText="rows"
+      showPageJump={true}
+      showPageSizeOptions={true}
+      showPagination={false}
+      showPaginationBottom={true}
+      showPaginationTop={false}
+      sortable={true}
+      style={{}}
+      subRowsKey="_subRows"
+    />
+  </div>
+</div>
+`;
+
+exports[`SupervisorStatisticsTable matches snapshot on some data 1`] = `
+<div
+  className="supervisor-statistics-table"
+>
+  <div
+    className="top-actions"
+  >
+    <Blueprint5.ButtonGroup
+      className="right-buttons"
+    >
+      <Blueprint5.Button
+        disabled={false}
+        minimal={true}
+        onClick={[Function]}
+        text="View raw"
+      />
+    </Blueprint5.ButtonGroup>
+  </div>
+  <div
+    className="main-area"
+  >
+    <ReactTable
+      AggregatedComponent={[Function]}
+      ExpanderComponent={[Function]}
+      FilterComponent={[Function]}
+      LoadingComponent={[Function]}
+      NoDataComponent={[Function]}
+      PadRowComponent={[Function]}
+      PaginationComponent={[Function]}
+      PivotValueComponent={[Function]}
+      ResizerComponent={[Function]}
+      TableComponent={[Function]}
+      TbodyComponent={[Function]}
+      TdComponent={[Function]}
+      TfootComponent={[Function]}
+      ThComponent={[Function]}
+      TheadComponent={[Function]}
+      TrComponent={[Function]}
+      TrGroupComponent={[Function]}
+      aggregatedKey="_aggregated"
+      className=""
+      collapseOnDataChange={true}
+      collapseOnPageChange={true}
+      collapseOnSortingChange={true}
+      column={
+        {
+          "Aggregated": undefined,
+          "Cell": undefined,
+          "Expander": undefined,
+          "Filter": undefined,
+          "Footer": undefined,
+          "Header": undefined,
+          "Pivot": undefined,
+          "PivotValue": undefined,
+          "Placeholder": undefined,
+          "aggregate": undefined,
+          "className": "",
+          "filterAll": false,
+          "filterMethod": undefined,
+          "filterable": undefined,
+          "footerClassName": "",
+          "footerStyle": {},
+          "getFooterProps": [Function],
+          "getHeaderProps": [Function],
+          "getProps": [Function],
+          "headerClassName": "",
+          "headerStyle": {},
+          "minResizeWidth": 11,
+          "minWidth": 100,
+          "resizable": undefined,
+          "show": true,
+          "sortMethod": undefined,
+          "sortable": undefined,
+          "style": {},
+        }
+      }
+      columns={
+        [
+          {
+            "Header": "Group ID",
+            "accessor": "groupId",
+            "className": "padded",
+            "width": 100,
+          },
+          {
+            "Header": "Task ID",
+            "accessor": "taskId",
+            "className": "padded",
+            "width": 400,
+          },
+          {
+            "Cell": [Function],
+            "Header": "Totals",
+            "accessor": "rowStats.totals.buildSegments",
+            "className": "padded",
+            "id": "total",
+            "width": 200,
+          },
+          {
+            "Cell": [Function],
+            "Header": "1m",
+            "accessor": "rowStats.movingAverages.buildSegments.1m",
+            "className": "padded",
+            "id": "1m",
+            "width": 200,
+          },
+          {
+            "Cell": [Function],
+            "Header": "5m",
+            "accessor": "rowStats.movingAverages.buildSegments.5m",
+            "className": "padded",
+            "id": "5m",
+            "width": 200,
+          },
+          {
+            "Cell": [Function],
+            "Header": "15m",
+            "accessor": "rowStats.movingAverages.buildSegments.15m",
+            "className": "padded",
+            "id": "15m",
+            "width": 200,
+          },
+        ]
+      }
+      data={
+        [
+          {
+            "groupId": "0",
+            "rowStats": {
+              "movingAverages": {
+                "buildSegments": {
+                  "15m": {
+                    "processed": 5.544749689510444,
+                    "processedBytes": 20,
+                    "processedWithError": 0,
+                    "thrownAway": 0,
+                    "unparseable": 0,
+                  },
+                  "1m": {
+                    "processed": 4.593670088770785,
+                    "processedBytes": 30,
+                    "processedWithError": 0,
+                    "thrownAway": 0,
+                    "unparseable": 0,
+                  },
+                  "5m": {
+                    "processed": 3.5455993615040584,
+                    "processedBytes": 10,
+                    "processedWithError": 0,
+                    "thrownAway": 0,
+                    "unparseable": 0,
+                  },
+                },
+              },
+              "totals": {
+                "buildSegments": {
+                  "processed": 7516,
+                  "processedBytes": 60,
+                  "processedWithError": 0,
+                  "thrownAway": 0,
+                  "unparseable": 0,
+                },
+              },
+            },
+            "taskId": "index_kafka_github_dfde87f265a8cc9_pnmcaldn",
+          },
+        ]
+      }
+      defaultExpanded={{}}
+      defaultFilterMethod={[Function]}
+      defaultFiltered={[]}
+      defaultPage={0}
+      defaultPageSize={25}
+      defaultResized={[]}
+      defaultSortDesc={false}
+      defaultSortMethod={[Function]}
+      defaultSorted={[]}
+      expanderDefaults={
+        {
+          "filterable": false,
+          "resizable": false,
+          "sortable": false,
+          "width": 35,
+        }
+      }
+      filterable={false}
+      freezeWhenExpanded={false}
+      getLoadingProps={[Function]}
+      getNoDataProps={[Function]}
+      getPaginationProps={[Function]}
+      getProps={[Function]}
+      getResizerProps={[Function]}
+      getTableProps={[Function]}
+      getTbodyProps={[Function]}
+      getTdProps={[Function]}
+      getTfootProps={[Function]}
+      getTfootTdProps={[Function]}
+      getTfootTrProps={[Function]}
+      getTheadFilterProps={[Function]}
+      getTheadFilterThProps={[Function]}
+      getTheadFilterTrProps={[Function]}
+      getTheadGroupProps={[Function]}
+      getTheadGroupThProps={[Function]}
+      getTheadGroupTrProps={[Function]}
+      getTheadProps={[Function]}
+      getTheadThProps={[Function]}
+      getTheadTrProps={[Function]}
+      getTrGroupProps={[Function]}
+      getTrProps={[Function]}
+      groupedByPivotKey="_groupedByPivot"
+      indexKey="_index"
+      loading={false}
+      loadingText="Loading..."
+      multiSort={true}
+      nestingLevelKey="_nestingLevel"
+      nextText="Next"
+      noDataText="No statistics data found"
+      ofText="of"
+      onFetchData={[Function]}
+      originalKey="_original"
+      pageJumpText="jump to page"
+      pageSizeOptions={
+        [
+          25,
+          50,
+          100,
+        ]
+      }
+      pageText="Page"
+      pivotDefaults={{}}
+      pivotIDKey="_pivotID"
+      pivotValKey="_pivotVal"
+      previousText="Previous"
+      resizable={true}
+      resolveData={[Function]}
+      rowsSelectorText="rows per page"
+      rowsText="rows"
+      showPageJump={true}
+      showPageSizeOptions={true}
+      showPagination={false}
+      showPaginationBottom={true}
+      showPaginationTop={false}
+      sortable={true}
+      style={{}}
+      subRowsKey="_subRows"
+    />
+  </div>
+</div>
+`;

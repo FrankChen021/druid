@@ -31,11 +31,12 @@ import org.apache.calcite.rel.core.Union;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.DataSource;
+import org.apache.druid.query.RestrictedDataSource;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.UnionDataSource;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 
 import java.util.ArrayList;
@@ -54,8 +55,7 @@ import java.util.stream.Collectors;
  */
 public class DruidUnionDataSourceRel extends DruidRel<DruidUnionDataSourceRel>
 {
-  private static final TableDataSource DUMMY_DATA_SOURCE = new TableDataSource("__union__");
-
+  static final TableDataSource DUMMY_DATA_SOURCE = new TableDataSource("__union__");
   private final Union unionRel;
   private final List<String> unionColumnNames;
   private final PartialDruidQuery partialQuery;
@@ -66,10 +66,10 @@ public class DruidUnionDataSourceRel extends DruidRel<DruidUnionDataSourceRel>
       final Union unionRel,
       final List<String> unionColumnNames,
       final PartialDruidQuery partialQuery,
-      final QueryMaker queryMaker
+      final PlannerContext plannerContext
   )
   {
-    super(cluster, traitSet, queryMaker);
+    super(cluster, traitSet, plannerContext);
     this.unionRel = unionRel;
     this.unionColumnNames = unionColumnNames;
     this.partialQuery = partialQuery;
@@ -78,7 +78,7 @@ public class DruidUnionDataSourceRel extends DruidRel<DruidUnionDataSourceRel>
   public static DruidUnionDataSourceRel create(
       final Union unionRel,
       final List<String> unionColumnNames,
-      final QueryMaker queryMaker
+      final PlannerContext plannerContext
   )
   {
     return new DruidUnionDataSourceRel(
@@ -87,7 +87,7 @@ public class DruidUnionDataSourceRel extends DruidRel<DruidUnionDataSourceRel>
         unionRel,
         unionColumnNames,
         PartialDruidQuery.create(unionRel),
-        queryMaker
+        plannerContext
     );
   }
 
@@ -107,39 +107,34 @@ public class DruidUnionDataSourceRel extends DruidRel<DruidUnionDataSourceRel>
   {
     return new DruidUnionDataSourceRel(
         getCluster(),
-        getTraitSet().plusAll(newQueryBuilder.getRelTraits()),
+        newQueryBuilder.getTraitSet(getConvention(), getPlannerContext()),
         unionRel,
         unionColumnNames,
         newQueryBuilder,
-        getQueryMaker()
+        getPlannerContext()
     );
-  }
-
-  @Override
-  public Sequence<Object[]> runQuery()
-  {
-    // runQuery doesn't need to finalize aggregations, because the fact that runQuery is happening suggests this
-    // is the outermost query and it will actually get run as a native query. Druid's native query layer will
-    // finalize aggregations for the outermost query even if we don't explicitly ask it to.
-
-    return getQueryMaker().runQuery(toDruidQuery(false));
   }
 
   @Override
   public DruidQuery toDruidQuery(final boolean finalizeAggregations)
   {
-    final List<TableDataSource> dataSources = new ArrayList<>();
+    final List<DataSource> dataSources = new ArrayList<>();
     RowSignature signature = null;
 
     for (final RelNode relNode : unionRel.getInputs()) {
       final DruidRel<?> druidRel = (DruidRel<?>) relNode;
       if (!DruidRels.isScanOrMapping(druidRel, false)) {
+        getPlannerContext().setPlanningError("SQL requires union between inputs that are not simple table scans " +
+            "and involve a filter or aliasing");
         throw new CannotBuildQueryException(druidRel);
       }
 
       final DruidQuery query = druidRel.toDruidQuery(false);
       final DataSource dataSource = query.getDataSource();
-      if (!(dataSource instanceof TableDataSource)) {
+      if (!(dataSource instanceof TableDataSource) && !(dataSource instanceof RestrictedDataSource)) {
+        getPlannerContext().setPlanningError("SQL requires union with input of '%s' type that is not supported."
+                + " Union operation is only supported between regular tables. ",
+            dataSource.getClass().getSimpleName());
         throw new CannotBuildQueryException(druidRel);
       }
 
@@ -148,8 +143,9 @@ public class DruidUnionDataSourceRel extends DruidRel<DruidUnionDataSourceRel>
       }
 
       if (signature.getColumnNames().equals(query.getOutputRowSignature().getColumnNames())) {
-        dataSources.add((TableDataSource) dataSource);
+        dataSources.add(dataSource);
       } else {
+        getPlannerContext().setPlanningError("There is a mismatch between the output row signature of input tables and the row signature of union output.");
         throw new CannotBuildQueryException(druidRel);
       }
     }
@@ -170,7 +166,8 @@ public class DruidUnionDataSourceRel extends DruidRel<DruidUnionDataSourceRel>
         signature,
         getPlannerContext(),
         getCluster().getRexBuilder(),
-        finalizeAggregations
+        finalizeAggregations,
+        true
     );
   }
 
@@ -185,6 +182,7 @@ public class DruidUnionDataSourceRel extends DruidRel<DruidUnionDataSourceRel>
         ),
         getPlannerContext(),
         getCluster().getRexBuilder(),
+        false,
         false
     );
   }
@@ -204,7 +202,7 @@ public class DruidUnionDataSourceRel extends DruidRel<DruidUnionDataSourceRel>
         ),
         unionColumnNames,
         partialQuery,
-        getQueryMaker()
+        getPlannerContext()
     );
   }
 
@@ -229,7 +227,7 @@ public class DruidUnionDataSourceRel extends DruidRel<DruidUnionDataSourceRel>
         (Union) unionRel.copy(unionRel.getTraitSet(), inputs),
         unionColumnNames,
         partialQuery,
-        getQueryMaker()
+        getPlannerContext()
     );
   }
 
@@ -252,7 +250,7 @@ public class DruidUnionDataSourceRel extends DruidRel<DruidUnionDataSourceRel>
     final DruidQuery druidQuery = toDruidQueryForExplaining();
 
     try {
-      queryString = getQueryMaker().getJsonMapper().writeValueAsString(druidQuery.getQuery());
+      queryString = getPlannerContext().getJsonMapper().writeValueAsString(druidQuery.getQuery());
     }
     catch (JsonProcessingException e) {
       throw new RuntimeException(e);

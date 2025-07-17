@@ -20,12 +20,15 @@
 package org.apache.druid.server.lookup.namespace.cache;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.ForwardingConcurrentMap;
 import com.google.inject.Inject;
 import org.apache.druid.java.util.common.Cleaners;
 import org.apache.druid.java.util.common.lifecycle.Lifecycle;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
+import org.apache.druid.query.extraction.MapLookupExtractor;
+import org.apache.druid.query.lookup.LookupExtractor;
 import org.apache.druid.server.lookup.namespace.NamespaceExtractionConfig;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
@@ -37,6 +40,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 /**
  *
@@ -54,11 +58,13 @@ public class OffHeapNamespaceExtractionCacheManager extends NamespaceExtractionC
      *
      * <p>In case of actual race, we don't wait in those methods until the other one, which manages to switch this flag
      * first, completes. This could result into the situation that neither one completes, if the JVM is shutting down
-     * and the thread from which {@link Cleaners.Cleanable#clean()} (delegating to {@link #run()}) is called started the disposal
-     * operation, then more deterministic shutdown hook / lifecycle.stop(), which may call {@link #disposeManually()}
-     * completed early, and then the whole process shuts down before {@link Cleaners.Cleanable#clean()} completes, because shutdown
-     * is not blocked by it. However this should be harmless because anyway we remove the whole MapDB's file in
-     * lifecycle.stop() (see {@link OffHeapNamespaceExtractionCacheManager#OffHeapNamespaceExtractionCacheManager}).
+     * and the thread from which {@link Cleaners.Cleanable#clean()} (delegating to {@link #run()}) is called started
+     * the disposal operation, then more deterministic shutdown hook / lifecycle.stop(), which may call
+     * {@link #disposeManually()} completed early, and then the whole process shuts down before
+     * {@link Cleaners.Cleanable#clean()} completes, because shutdown is not blocked by it. However this should be
+     * harmless because anyway we remove the whole MapDB's file in lifecycle.stop()
+     * (see {@link OffHeapNamespaceExtractionCacheManager#OffHeapNamespaceExtractionCacheManager}).
+     *
      * However if we persist off-heap DB between JVM runs, this decision should be revised.
      */
     final AtomicBoolean disposed = new AtomicBoolean(false);
@@ -69,8 +75,8 @@ public class OffHeapNamespaceExtractionCacheManager extends NamespaceExtractionC
     }
 
     /**
-     * To be called by the JVM via {@link Cleaners.Cleanable#clean()}. The only difference from {@link #disposeManually()} is
-     * exception treatment.
+     * To be called by the JVM via {@link Cleaners.Cleanable#clean()}. The only difference from
+     * {@link #disposeManually()} is exception treatment.
      */
     @Override
     public void run()
@@ -79,7 +85,8 @@ public class OffHeapNamespaceExtractionCacheManager extends NamespaceExtractionC
         try {
           doDispose();
           // Log statement goes after doDispose(), because logging may fail (e. g. if we are in shutdownHooks).
-          log.error("OffHeapNamespaceExtractionCacheManager.disposeCache() was not called, disposed resources by the JVM");
+          log.error(
+              "OffHeapNamespaceExtractionCacheManager.disposeCache() was not called, disposed resources by the JVM");
         }
         catch (Throwable t) {
           try {
@@ -124,6 +131,22 @@ public class OffHeapNamespaceExtractionCacheManager extends NamespaceExtractionC
     {
       this.cacheDisposer = cacheDisposer;
       this.cleanable = cleanable;
+    }
+  }
+
+  private static final class CacheProxy extends ForwardingConcurrentMap<String, String>
+  {
+    private final ConcurrentMap<String, String> delegate;
+
+    CacheProxy(ConcurrentMap<String, String> delegate)
+    {
+      this.delegate = delegate;
+    }
+
+    @Override
+    protected ConcurrentMap<String, String> delegate()
+    {
+      return delegate;
     }
   }
 
@@ -208,15 +231,45 @@ public class OffHeapNamespaceExtractionCacheManager extends NamespaceExtractionC
       }
     }
     MapDbCacheDisposer cacheDisposer = new MapDbCacheDisposer(mapDbKey);
-    // Cleaner is "the second level of defence". Normally all users of createCache() must call disposeCache() with
-    // the returned CacheHandler instance manually. But if they don't do this for whatever reason, JVM will cleanup
-    // the cache itself.
+    // Cleaner is "the second level of defence". Normally all users of createMutableCache() must call disposeCache()
+    // with the returned CacheHandler instance manually. But if they don't do this for whatever reason, JVM will
+    // cleanup the cache itself.
     Cleaners.Cleanable cleanable = Cleaners.register(cache, cacheDisposer);
     MapDbCacheDisposerAndCleaner disposerAndCleaner = new MapDbCacheDisposerAndCleaner(
         cacheDisposer,
         cleanable
     );
     return new CacheHandler(this, cache, disposerAndCleaner);
+  }
+
+  @Override
+  public CacheHandler allocateCache()
+  {
+    return createCache();
+  }
+
+  @Override
+  public CacheHandler attachCache(CacheHandler cache)
+  {
+    // nothing to do, allocate is create, no specialized implementation for populate then read-only pattern
+    return cache;
+  }
+
+  @Override
+  public LookupExtractor asLookupExtractor(
+      final CacheHandler cacheHandler,
+      final boolean isOneToOne,
+      final Supplier<byte[]> cacheKeySupplier
+  )
+  {
+    return new MapLookupExtractor(cacheHandler.getCache(), isOneToOne)
+    {
+      @Override
+      public byte[] getCacheKey()
+      {
+        return cacheKeySupplier.get();
+      }
+    };
   }
 
   @Override
@@ -238,7 +291,7 @@ public class OffHeapNamespaceExtractionCacheManager extends NamespaceExtractionC
   @Override
   void monitor(ServiceEmitter serviceEmitter)
   {
-    serviceEmitter.emit(ServiceMetricEvent.builder().build("namespace/cache/count", cacheCount()));
-    serviceEmitter.emit(ServiceMetricEvent.builder().build("namespace/cache/diskSize", tmpFile.length()));
+    serviceEmitter.emit(ServiceMetricEvent.builder().setMetric("namespace/cache/count", cacheCount()));
+    serviceEmitter.emit(ServiceMetricEvent.builder().setMetric("namespace/cache/diskSize", tmpFile.length()));
   }
 }

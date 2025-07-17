@@ -61,7 +61,9 @@ public class BaseColumnarLongsBenchmark
    * encoding of values within the block.
    */
   @Param({
+      "zstd-longs",
       "lz4-longs",
+      "zstd-auto",
       "lz4-auto"
   })
   String encoding;
@@ -238,7 +240,8 @@ public class BaseColumnarLongsBenchmark
             "lz4-longs",
             ByteOrder.LITTLE_ENDIAN,
             CompressionFactory.LongEncodingStrategy.LONGS,
-            CompressionStrategy.LZ4
+            CompressionStrategy.LZ4,
+            writeOutMedium.getCloser()
         );
         break;
       case "lz4-auto":
@@ -248,7 +251,8 @@ public class BaseColumnarLongsBenchmark
             "lz4-auto",
             ByteOrder.LITTLE_ENDIAN,
             CompressionFactory.LongEncodingStrategy.AUTO,
-            CompressionStrategy.LZ4
+            CompressionStrategy.LZ4,
+            writeOutMedium.getCloser()
         );
         break;
       case "none-longs":
@@ -258,7 +262,8 @@ public class BaseColumnarLongsBenchmark
             "none-longs",
             ByteOrder.LITTLE_ENDIAN,
             CompressionFactory.LongEncodingStrategy.LONGS,
-            CompressionStrategy.NONE
+            CompressionStrategy.NONE,
+            writeOutMedium.getCloser()
         );
         break;
       case "none-auto":
@@ -268,7 +273,30 @@ public class BaseColumnarLongsBenchmark
             "none-auto",
             ByteOrder.LITTLE_ENDIAN,
             CompressionFactory.LongEncodingStrategy.AUTO,
-            CompressionStrategy.NONE
+            CompressionStrategy.NONE,
+            writeOutMedium.getCloser()
+        );
+        break;
+      case "zstd-longs":
+        serializer = CompressionFactory.getLongSerializer(
+                encoding,
+                writeOutMedium,
+                "zstd-longs",
+                ByteOrder.LITTLE_ENDIAN,
+                CompressionFactory.LongEncodingStrategy.LONGS,
+                CompressionStrategy.ZSTD,
+                writeOutMedium.getCloser()
+        );
+        break;
+      case "zstd-auto":
+        serializer = CompressionFactory.getLongSerializer(
+                encoding,
+                writeOutMedium,
+                "zstd-auto",
+                ByteOrder.LITTLE_ENDIAN,
+                CompressionFactory.LongEncodingStrategy.AUTO,
+                CompressionStrategy.ZSTD,
+                writeOutMedium.getCloser()
         );
         break;
       default:
@@ -276,9 +304,7 @@ public class BaseColumnarLongsBenchmark
     }
 
     serializer.open();
-    for (long val : vals) {
-      serializer.add(val);
-    }
+    serializer.addAll(vals, 0, vals.length);
     serializer.writeTo(output, null);
     return (int) serializer.getSerializedSize();
   }
@@ -290,7 +316,9 @@ public class BaseColumnarLongsBenchmark
       case "lz4-auto":
       case "none-auto":
       case "none-longs":
-        return CompressedColumnarLongsSupplier.fromByteBuffer(buffer, ByteOrder.LITTLE_ENDIAN).get();
+      case "zstd-auto":
+      case "zstd-longs":
+        return CompressedColumnarLongsSupplier.fromByteBuffer(buffer, ByteOrder.LITTLE_ENDIAN, null).get();
     }
 
     throw new IllegalArgumentException("unknown encoding");

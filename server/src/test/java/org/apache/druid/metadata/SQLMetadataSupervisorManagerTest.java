@@ -37,8 +37,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.tweak.HandleCallback;
 
 import java.util.Collections;
 import java.util.List;
@@ -65,16 +63,9 @@ public class SQLMetadataSupervisorManagerTest
   public void cleanup()
   {
     connector.getDBI().withHandle(
-        new HandleCallback<Void>()
-        {
-          @Override
-          public Void withHandle(Handle handle)
-          {
-            handle.createStatement(StringUtils.format("DROP TABLE %s", tablesConfig.getSupervisorTable()))
-                  .execute();
-            return null;
-          }
-        }
+        handle -> handle.createStatement(StringUtils.format("DROP TABLE %s", tablesConfig.getSupervisorTable()))
+                .execute()
+
     );
   }
 
@@ -219,6 +210,40 @@ public class SQLMetadataSupervisorManagerTest
   }
 
   @Test
+  public void testInsertAndGetForId()
+  {
+    final String supervisor1 = "test-supervisor-1";
+    final String supervisor2 = "test-supervisor-2";
+    final Map<String, String> data1rev1 = ImmutableMap.of("key1-1", "value1-1-1", "key1-2", "value1-2-1");
+    final Map<String, String> data1rev2 = ImmutableMap.of("key1-1", "value1-1-2", "key1-2", "value1-2-2");
+    final Map<String, String> data1rev3 = ImmutableMap.of("key1-1", "value1-1-3", "key1-2", "value1-2-3");
+    final Map<String, String> data2rev1 = ImmutableMap.of("key2-1", "value2-1-1", "key2-2", "value2-2-1");
+    final Map<String, String> data2rev2 = ImmutableMap.of("key2-3", "value2-3-2", "key2-4", "value2-4-2");
+
+    Assert.assertTrue(supervisorManager.getAllForId(supervisor1).isEmpty());
+    Assert.assertTrue(supervisorManager.getAllForId(supervisor2).isEmpty());
+
+    // add 2 supervisors, with revisions
+    supervisorManager.insert(supervisor1, new TestSupervisorSpec(supervisor1, data1rev1));
+    supervisorManager.insert(supervisor1, new TestSupervisorSpec(supervisor1, data1rev2));
+    supervisorManager.insert(supervisor1, new TestSupervisorSpec(supervisor1, data1rev3));
+    supervisorManager.insert(supervisor2, new TestSupervisorSpec(supervisor2, data2rev1));
+    supervisorManager.insert(supervisor2, new TestSupervisorSpec(supervisor2, data2rev2));
+
+    List<VersionedSupervisorSpec> supervisor1Specs = supervisorManager.getAllForId(supervisor1);
+    List<VersionedSupervisorSpec> supervisor2Specs = supervisorManager.getAllForId(supervisor2);
+
+    Assert.assertEquals(3, supervisor1Specs.size());
+    Assert.assertEquals(2, supervisor2Specs.size());
+    // make sure getAll() returns each spec in descending order
+    Assert.assertEquals(data1rev3, ((TestSupervisorSpec) supervisor1Specs.get(0).getSpec()).getData());
+    Assert.assertEquals(data1rev2, ((TestSupervisorSpec) supervisor1Specs.get(1).getSpec()).getData());
+    Assert.assertEquals(data1rev1, ((TestSupervisorSpec) supervisor1Specs.get(2).getSpec()).getData());
+    Assert.assertEquals(data2rev2, ((TestSupervisorSpec) supervisor2Specs.get(0).getSpec()).getData());
+    Assert.assertEquals(data2rev1, ((TestSupervisorSpec) supervisor2Specs.get(1).getSpec()).getData());
+  }
+
+  @Test
   public void testSkipDeserializingBadSpecs()
   {
     final String supervisor1 = "test-supervisor-1";
@@ -241,6 +266,9 @@ public class SQLMetadataSupervisorManagerTest
     specs = allSpecs.get(supervisor2);
     Assert.assertEquals(1, specs.size());
     Assert.assertNull(specs.get(0).getSpec());
+
+    Map<String, SupervisorSpec> latestSupervisorSpec = supervisorManager.getLatest();
+    Assert.assertEquals(1, latestSupervisorSpec.size());
   }
 
   @Test

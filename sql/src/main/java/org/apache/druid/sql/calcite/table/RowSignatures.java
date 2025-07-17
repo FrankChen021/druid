@@ -21,16 +21,27 @@ package org.apache.druid.sql.calcite.table;
 
 import com.google.common.base.Preconditions;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeComparability;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.sql.SqlCallBinding;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlOperandCountRange;
+import org.apache.calcite.sql.SqlOperator;
+import org.apache.calcite.sql.type.AbstractSqlType;
+import org.apache.calcite.sql.type.SqlOperandCountRanges;
+import org.apache.calcite.sql.type.SqlSingleOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.ordering.StringComparator;
 import org.apache.druid.query.ordering.StringComparators;
 import org.apache.druid.segment.column.ColumnHolder;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.serde.ComplexMetricSerde;
+import org.apache.druid.segment.serde.ComplexMetrics;
 import org.apache.druid.sql.calcite.expression.SimpleExtraction;
 import org.apache.druid.sql.calcite.planner.Calcites;
 
@@ -57,15 +68,7 @@ public class RowSignatures
 
     for (int i = 0; i < rowOrder.size(); i++) {
       final RelDataType dataType = rowType.getFieldList().get(i).getType();
-      final ValueType valueType = Calcites.getValueTypeForRelDataType(dataType);
-      if (valueType == null) {
-        throw new ISE(
-            "Cannot translate sqlTypeName[%s] to Druid type for field[%s]",
-            dataType.getSqlTypeName(),
-            rowOrder.get(i)
-        );
-      }
-
+      final ColumnType valueType = Calcites.getColumnTypeForRelDataType(dataType);
       rowSignatureBuilder.add(rowOrder.get(i), valueType);
     }
 
@@ -84,7 +87,9 @@ public class RowSignatures
   {
     Preconditions.checkNotNull(simpleExtraction, "simpleExtraction");
     if (simpleExtraction.getExtractionFn() != null
-        || rowSignature.getColumnType(simpleExtraction.getColumn()).orElse(null) == ValueType.STRING) {
+        || rowSignature.getColumnType(simpleExtraction.getColumn())
+                       .map(type -> type.is(ValueType.STRING))
+                       .orElse(false)) {
       return StringComparators.LEXICOGRAPHIC;
     } else {
       return StringComparators.NUMERIC;
@@ -92,57 +97,233 @@ public class RowSignatures
   }
 
   /**
-   * Returns a Calcite RelDataType corresponding to a row signature.
+   * Returns a Calcite {@link RelDataType} corresponding to a {@link RowSignature}. It will typecast __time column to
+   * TIMESTAMP irrespective of the type present in the row signature
    */
   public static RelDataType toRelDataType(final RowSignature rowSignature, final RelDataTypeFactory typeFactory)
   {
+    return toRelDataType(rowSignature, typeFactory, true);
+  }
+
+  /**
+   * Returns a Calcite {@link RelDataType} corresponding to a {@link RowSignature}. For columns that are named
+   * "__time", it automatically casts it to TIMESTAMP if typecastTimeColumn is set to true
+   */
+  public static RelDataType toRelDataType(
+      final RowSignature rowSignature,
+      final RelDataTypeFactory typeFactory,
+      boolean typecastTimeColumn
+  )
+  {
     final RelDataTypeFactory.Builder builder = typeFactory.builder();
-    final boolean nullNumeric = !NullHandling.replaceWithDefault();
     for (final String columnName : rowSignature.getColumnNames()) {
       final RelDataType type;
 
-      if (ColumnHolder.TIME_COLUMN_NAME.equals(columnName)) {
+      if (typecastTimeColumn && ColumnHolder.TIME_COLUMN_NAME.equals(columnName)) {
         type = Calcites.createSqlType(typeFactory, SqlTypeName.TIMESTAMP);
       } else {
-        final ValueType columnType =
+        final ColumnType columnType =
             rowSignature.getColumnType(columnName)
                         .orElseThrow(() -> new ISE("Encountered null type for column[%s]", columnName));
 
-        switch (columnType) {
-          case STRING:
-            // Note that there is no attempt here to handle multi-value in any special way. Maybe one day...
-            type = Calcites.createSqlTypeWithNullability(typeFactory, SqlTypeName.VARCHAR, true);
-            break;
-          case LONG:
-            type = Calcites.createSqlTypeWithNullability(typeFactory, SqlTypeName.BIGINT, nullNumeric);
-            break;
-          case FLOAT:
-            type = Calcites.createSqlTypeWithNullability(typeFactory, SqlTypeName.FLOAT, nullNumeric);
-            break;
-          case DOUBLE:
-            type = Calcites.createSqlTypeWithNullability(typeFactory, SqlTypeName.DOUBLE, nullNumeric);
-            break;
-          case STRING_ARRAY:
-            type = Calcites.createSqlArrayTypeWithNullability(typeFactory, SqlTypeName.VARCHAR, true);
-            break;
-          case LONG_ARRAY:
-            type = Calcites.createSqlArrayTypeWithNullability(typeFactory, SqlTypeName.BIGINT, nullNumeric);
-            break;
-          case DOUBLE_ARRAY:
-            type = Calcites.createSqlArrayTypeWithNullability(typeFactory, SqlTypeName.DOUBLE, nullNumeric);
-            break;
-          case COMPLEX:
-            // Loses information about exactly what kind of complex column this is.
-            type = Calcites.createSqlTypeWithNullability(typeFactory, SqlTypeName.OTHER, true);
-            break;
-          default:
-            throw new ISE("valueType[%s] not translatable", columnType);
-        }
+        type = columnTypeToRelDataType(typeFactory, columnType, true);
       }
 
       builder.add(columnName, type);
     }
 
     return builder.build();
+  }
+
+  /**
+   * Returns a Calcite {@link RelDataType} corresponding to a {@link ColumnType}
+   */
+  public static RelDataType columnTypeToRelDataType(
+      RelDataTypeFactory typeFactory,
+      ColumnType columnType,
+      boolean nullNumeric
+  )
+  {
+    final RelDataType type;
+    switch (columnType.getType()) {
+      case STRING:
+        // Note that there is no attempt here to handle multi-value in any special way. Maybe one day...
+        type = Calcites.createSqlTypeWithNullability(typeFactory, SqlTypeName.VARCHAR, true);
+        break;
+      case LONG:
+        type = Calcites.createSqlTypeWithNullability(typeFactory, SqlTypeName.BIGINT, nullNumeric);
+        break;
+      case FLOAT:
+        type = Calcites.createSqlTypeWithNullability(typeFactory, SqlTypeName.FLOAT, nullNumeric);
+        break;
+      case DOUBLE:
+        type = Calcites.createSqlTypeWithNullability(typeFactory, SqlTypeName.DOUBLE, nullNumeric);
+        break;
+      case ARRAY:
+        final RelDataType elementType = columnTypeToRelDataType(
+            typeFactory,
+            (ColumnType) columnType.getElementType(),
+            nullNumeric
+        );
+        type = typeFactory.createTypeWithNullability(
+            typeFactory.createArrayType(elementType, -1),
+            true
+        );
+        break;
+      case COMPLEX:
+        type = makeComplexType(typeFactory, columnType, true);
+        break;
+      default:
+        throw new ISE("valueType[%s] not translatable", columnType);
+    } return type;
+  }
+
+  /**
+   * Creates a {@link ComplexSqlType} using the supplied {@link RelDataTypeFactory} to ensure that the
+   * {@link ComplexSqlType} is interned. This is important because Calcite checks that the references are equal
+   * instead of the objects being equivalent.
+   * <p>
+   * This method uses {@link RelDataTypeFactory#createTypeWithNullability(RelDataType, boolean) ensures that if the
+   * type factory is a {@link org.apache.calcite.rel.type.RelDataTypeFactoryImpl} that the type is passed through
+   * {@link org.apache.calcite.rel.type.RelDataTypeFactoryImpl#canonize(RelDataType)} which interns the type.
+   */
+  public static RelDataType makeComplexType(RelDataTypeFactory typeFactory, ColumnType columnType, boolean isNullable)
+  {
+    return typeFactory.createTypeWithNullability(
+        new ComplexSqlType(SqlTypeName.OTHER, columnType, isNullable),
+        isNullable
+    );
+  }
+
+  /**
+   * Calcite {@link RelDataType} for Druid complex columns, to preserve complex type information.
+   * <p>
+   * If using with other operations of a {@link RelDataTypeFactory}, consider wrapping the creation of this type in
+   * {@link RelDataTypeFactory#createTypeWithNullability(RelDataType, boolean) to ensure that if the type factory is a
+   * {@link org.apache.calcite.rel.type.RelDataTypeFactoryImpl} that the type is passed through
+   * {@link org.apache.calcite.rel.type.RelDataTypeFactoryImpl#canonize(RelDataType)} which interns the type.
+   * <p>
+   * If {@link SqlTypeName} is going to be {@link SqlTypeName#OTHER} and a {@link RelDataTypeFactory} is available,
+   * consider using {@link #makeComplexType(RelDataTypeFactory, ColumnType, boolean)}.
+   * <p>
+   * This type does not work well with {@link org.apache.calcite.sql.type.ReturnTypes#explicit(RelDataType)}, which
+   * will create new {@link RelDataType} using {@link SqlTypeName} during return type inference, so implementors of
+   * {@link org.apache.druid.sql.calcite.expression.SqlOperatorConversion} should implement the
+   * {@link org.apache.calcite.sql.type.SqlReturnTypeInference} directly for best results.
+   */
+  public static final class ComplexSqlType extends AbstractSqlType
+  {
+    private final ColumnType columnType;
+
+    public ComplexSqlType(
+        SqlTypeName typeName,
+        ColumnType columnType,
+        boolean isNullable
+    )
+    {
+      super(typeName, isNullable, null);
+      // homogenize complex type names to common name
+      final ComplexMetricSerde serde = columnType.getComplexTypeName() != null
+          ?
+          ComplexMetrics.getSerdeForType(columnType.getComplexTypeName())
+          : null;
+
+      if (serde != null) {
+        this.columnType = ColumnType.ofComplex(serde.getTypeName());
+      } else {
+        this.columnType = columnType;
+      }
+      this.computeDigest();
+    }
+
+    @Override
+    public RelDataTypeComparability getComparability()
+    {
+      return RelDataTypeComparability.UNORDERED;
+    }
+
+    @Override
+    protected void generateTypeString(StringBuilder sb, boolean withDetail)
+    {
+      sb.append(columnType.asTypeString());
+    }
+
+    public ColumnType getColumnType()
+    {
+      return columnType;
+    }
+
+    public String getComplexTypeName()
+    {
+      return columnType.getComplexTypeName();
+    }
+
+    public String asTypeString()
+    {
+      return columnType.asTypeString();
+    }
+  }
+
+  public static ComplexSqlSingleOperandTypeChecker complexTypeChecker(ColumnType complexType)
+  {
+    return new ComplexSqlSingleOperandTypeChecker(
+        new ComplexSqlType(SqlTypeName.OTHER, complexType, true)
+    );
+  }
+
+  public static final class ComplexSqlSingleOperandTypeChecker implements SqlSingleOperandTypeChecker
+  {
+    private final ComplexSqlType type;
+
+    public ComplexSqlSingleOperandTypeChecker(
+        ComplexSqlType type
+    )
+    {
+      this.type = type;
+    }
+
+    @Override
+    public boolean checkSingleOperandType(
+        SqlCallBinding callBinding,
+        SqlNode operand,
+        int iFormalOperand,
+        boolean throwOnFailure
+    )
+    {
+      return type.equals(callBinding.getValidator().deriveType(callBinding.getScope(), operand));
+    }
+
+    @Override
+    public boolean checkOperandTypes(SqlCallBinding callBinding, boolean throwOnFailure)
+    {
+      if (callBinding.getOperandCount() != 1) {
+        return false;
+      }
+      return checkSingleOperandType(callBinding, callBinding.operand(0), 0, throwOnFailure);
+    }
+
+    @Override
+    public SqlOperandCountRange getOperandCountRange()
+    {
+      return SqlOperandCountRanges.of(1);
+    }
+
+    @Override
+    public String getAllowedSignatures(SqlOperator op, String opName)
+    {
+      return StringUtils.format("'%s'(%s)", opName, type);
+    }
+
+    @Override
+    public Consistency getConsistency()
+    {
+      return Consistency.NONE;
+    }
+
+    @Override
+    public boolean isOptional(int i)
+    {
+      return false;
+    }
   }
 }

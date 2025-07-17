@@ -41,6 +41,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ *
  */
 @RunWith(Parameterized.class)
 public class PrioritizedExecutorServiceTest
@@ -122,7 +123,7 @@ public class PrioritizedExecutorServiceTest
   @Test
   public void testSubmit() throws Exception
   {
-    final ConcurrentLinkedQueue<Integer> order = new ConcurrentLinkedQueue<Integer>();
+    final ConcurrentLinkedQueue<Integer> order = new ConcurrentLinkedQueue<>();
 
     exec.submit(
         new AbstractPrioritizedCallable<Void>(0)
@@ -180,6 +181,41 @@ public class PrioritizedExecutorServiceTest
 
     List<Integer> expected = ImmutableList.of(2, 0, -1);
     Assert.assertEquals(expected, ImmutableList.copyOf(order));
+  }
+
+  @Test
+  public void testExecuteRegularRunnable()
+  {
+    final CountDownLatch latch = new CountDownLatch(1);
+
+    Assert.assertThrows(
+        "Class does not implemented PrioritizedRunnable",
+        IllegalArgumentException.class,
+        () -> exec.execute(latch::countDown)
+    );
+  }
+
+  @Test
+  public void testExecutePrioritizedRunnable() throws InterruptedException
+  {
+    final CountDownLatch latch = new CountDownLatch(1);
+    exec.execute(
+        new PrioritizedRunnable()
+        {
+          @Override
+          public int getPriority()
+          {
+            return 1;
+          }
+
+          @Override
+          public void run()
+          {
+            latch.countDown();
+          }
+        }
+    );
+    latch.await();
   }
 
   // Make sure entries are processed FIFO
@@ -313,7 +349,7 @@ public class PrioritizedExecutorServiceTest
   )
   {
     final Callable<Boolean> delegate = getCheckingCallable(myOrder, hasRun);
-    return new AbstractPrioritizedCallable<Boolean>(priority)
+    return new AbstractPrioritizedCallable<>(priority)
     {
       @Override
       public Boolean call() throws Exception
@@ -329,7 +365,7 @@ public class PrioritizedExecutorServiceTest
   )
   {
     final Runnable runnable = getCheckingRunnable(myOrder, hasRun);
-    return new Callable<Boolean>()
+    return new Callable<>()
     {
       @Override
       public Boolean call()

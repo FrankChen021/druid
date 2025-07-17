@@ -29,8 +29,6 @@ import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 import org.apache.druid.segment.vector.VectorValueSelector;
 
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.List;
 
 /**
  */
@@ -106,15 +104,15 @@ public class LongSumAggregatorFactory extends SimpleLongAggregatorFactory
   }
 
   @Override
-  public AggregatorFactory getCombiningFactory()
+  public AggregatorFactory withName(String newName)
   {
-    return new LongSumAggregatorFactory(name, name, null, macroTable);
+    return new LongSumAggregatorFactory(newName, getFieldName(), getExpression(), macroTable);
   }
 
   @Override
-  public List<AggregatorFactory> getRequiredColumns()
+  public AggregatorFactory getCombiningFactory()
   {
-    return Collections.singletonList(new LongSumAggregatorFactory(fieldName, fieldName, expression, macroTable));
+    return new LongSumAggregatorFactory(name, name, null, macroTable);
   }
 
   @Override

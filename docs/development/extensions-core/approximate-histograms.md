@@ -23,15 +23,18 @@ title: "Approximate Histogram aggregators"
   -->
 
 
-To use this Apache Druid extension, [include](../../development/extensions.md#loading-extensions) `druid-histogram` in the extensions load list.
+:::caution
+ The Approximate Histogram aggregator is deprecated. Use [DataSketches Quantiles](../extensions-core/datasketches-quantiles.md) instead as it provides a superior distribution-independent algorithm with formal error guarantees.
+:::
+
+To use this Apache Druid extension, [include](../../configuration/extensions.md#loading-extensions) `druid-histogram` in the extensions load list.
 
 The `druid-histogram` extension provides an approximate histogram aggregator and a fixed buckets histogram aggregator.
 
 <a name="approximate-histogram-aggregator"></a>
 
-## Approximate Histogram aggregator (Deprecated)
+## Approximate Histogram aggregator 
 
-> The Approximate Histogram aggregator is deprecated. Please use [DataSketches Quantiles](../extensions-core/datasketches-quantiles.md) instead which provides a superior distribution-independent algorithm with formal error guarantees.
 
 This aggregator is based on
 [http://jmlr.org/papers/volume11/ben-haim10a/ben-haim10a.pdf](http://jmlr.org/papers/volume11/ben-haim10a/ben-haim10a.pdf)
@@ -43,13 +46,7 @@ to compute approximate histograms, with the following modifications:
   increasing accuracy when there are few data points, or when dealing with
   discrete data points. You can find some of the details in [this post](https://metamarkets.com/2013/histograms/).
 
-Approximate histogram sketches are still experimental for a reason, and you
-should understand the limitations of the current implementation before using
-them. The approximation is heavily data-dependent, which makes it difficult to
-give good general guidelines, so you should experiment and see what parameters
-work well for your data.
-
-Here are a few things to note before using them:
+Here are a few things to note before using approximate histograms:
 
 - As indicated in the original paper, there are no formal error bounds on the
   approximation. In practice, the approximation gets worse if the distribution
@@ -230,9 +227,7 @@ For performance and accuracy reasons, we recommend avoiding aggregation of histo
 
 ### Null handling
 
-If `druid.generic.useDefaultValueForNull` is false, null values will be tracked in the `missingValueCount` field of the histogram.
-
-If `druid.generic.useDefaultValueForNull` is true, null values will be added to the histogram as the default 0.0 value.
+Druid tracks null values in the `missingValueCount` field of the histogram.
 
 ## Histogram post-aggregators
 

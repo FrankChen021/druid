@@ -19,15 +19,15 @@
 import * as playwright from 'playwright-chromium';
 
 const TRUE = 'true';
-const WIDTH = 1920;
-const HEIGHT = 1080;
+const WIDTH = 1250;
+const HEIGHT = 760;
 const PADDING = 128;
 
 export async function createBrowser(): Promise<playwright.Browser> {
   const headless = process.env['DRUID_E2E_TEST_HEADLESS'] || TRUE;
   const debug = headless !== TRUE;
   const launchOptions: any = {
-    args: [`--window-size=${WIDTH},${HEIGHT + PADDING}`],
+    args: [`--window-size=${WIDTH},${HEIGHT + PADDING}`, `--disable-local-storage`],
   };
   if (debug) {
     launchOptions.headless = false;
@@ -40,12 +40,38 @@ export async function createPage(browser: playwright.Browser): Promise<playwrigh
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.setViewportSize({ width: WIDTH, height: HEIGHT });
+
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  page.on('response', async response => {
+    if (response.status() < 400) return;
+
+    const request = response.request();
+    let bodyText: string;
+    try {
+      bodyText = await response.text();
+    } catch (e) {
+      bodyText = `Could not get the body of the error message due to: ${e.message}`;
+    }
+
+    console.log(`==============================================`);
+    console.log(`Request failed on ${request.url()} (with status ${response.status()})`);
+    console.log(`Body: ${bodyText}`);
+    console.log(`==============================================`);
+  });
+
   return page;
 }
 
 export async function getLabeledInput(page: playwright.Page, label: string): Promise<string> {
   return await page.$eval(
     `//*[text()="${label}"]/following-sibling::div//input`,
+    el => (el as HTMLInputElement).value,
+  );
+}
+
+export async function getLabeledTextarea(page: playwright.Page, label: string): Promise<string> {
+  return await page.$eval(
+    `//*[text()="${label}"]/following-sibling::div//textarea`,
     el => (el as HTMLInputElement).value,
   );
 }
@@ -98,6 +124,10 @@ export async function clickLabeledButton(
   text: string,
 ): Promise<void> {
   await page.click(`//*[text()="${label}"]/following-sibling::div${buttonSelector(text)}`);
+}
+
+export async function clickText(page: playwright.Page, text: string): Promise<void> {
+  await page.click(`//*[text()="${text}"]`);
 }
 
 export async function selectSuggestibleInput(

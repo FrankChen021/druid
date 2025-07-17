@@ -20,6 +20,7 @@
 package org.apache.druid.indexing.common.task;
 
 import org.apache.druid.data.input.InputRow;
+import org.apache.druid.indexer.granularity.GranularitySpec;
 import org.apache.druid.indexer.partitions.PartitionsSpec;
 import org.apache.druid.indexer.partitions.SecondaryPartitionType;
 import org.apache.druid.indexing.appenderator.ActionBasedSegmentAllocator;
@@ -31,7 +32,6 @@ import org.apache.druid.indexing.common.task.TaskLockHelper.OverwritingRootGener
 import org.apache.druid.indexing.common.task.batch.parallel.SupervisorTaskAccess;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.apache.druid.segment.indexing.granularity.GranularitySpec;
 import org.apache.druid.segment.realtime.appenderator.SegmentIdWithShardSpec;
 import org.apache.druid.timeline.partition.NumberedOverwritePartialShardSpec;
 import org.apache.druid.timeline.partition.NumberedPartialShardSpec;
@@ -55,7 +55,7 @@ public class OverlordCoordinatingSegmentAllocator implements SegmentAllocatorFor
       final @Nullable SupervisorTaskAccess supervisorTaskAccess,
       final DataSchema dataSchema,
       final TaskLockHelper taskLockHelper,
-      final boolean appendToExisting,
+      final AbstractTask.IngestionMode ingestionMode,
       final PartitionsSpec partitionsSpec
   )
   {
@@ -72,7 +72,7 @@ public class OverlordCoordinatingSegmentAllocator implements SegmentAllocatorFor
               .bucketInterval(row.getTimestamp())
               .or(granularitySpec.getSegmentGranularity().bucket(row.getTimestamp()));
           final PartialShardSpec partialShardSpec = createPartialShardSpec(
-              appendToExisting,
+              ingestionMode,
               partitionsSpec,
               taskLockHelper,
               interval
@@ -86,7 +86,8 @@ public class OverlordCoordinatingSegmentAllocator implements SegmentAllocatorFor
               previousSegmentId,
               skipSegmentLineageCheck,
               partialShardSpec,
-              taskLockHelper.getLockGranularityToUse()
+              taskLockHelper.getLockGranularityToUse(),
+              taskLockHelper.getLockTypeToUse()
           );
         }
     );
@@ -106,7 +107,7 @@ public class OverlordCoordinatingSegmentAllocator implements SegmentAllocatorFor
   }
 
   private static PartialShardSpec createPartialShardSpec(
-      boolean appendToExisting,
+      AbstractTask.IngestionMode ingestionMode,
       PartitionsSpec partitionsSpec,
       TaskLockHelper taskLockHelper,
       Interval interval
@@ -114,7 +115,8 @@ public class OverlordCoordinatingSegmentAllocator implements SegmentAllocatorFor
   {
     if (partitionsSpec.getType() == SecondaryPartitionType.LINEAR) {
       if (taskLockHelper.isUseSegmentLock()) {
-        if (taskLockHelper.hasOverwritingRootGenerationPartition(interval) && !appendToExisting) {
+        if (taskLockHelper.hasOverwritingRootGenerationPartition(interval) && (ingestionMode
+                                                                               != AbstractTask.IngestionMode.APPEND)) {
           final OverwritingRootGenerationPartitions overwritingRootGenerationPartitions = taskLockHelper
               .getOverwritingRootGenerationPartition(interval);
           if (overwritingRootGenerationPartitions == null) {

@@ -47,8 +47,8 @@ import org.apache.druid.query.lookup.LookupExtractionFn;
 import org.apache.druid.query.lookup.LookupExtractor;
 import org.apache.druid.query.ordering.StringComparators;
 import org.apache.druid.query.search.ContainsSearchQuerySpec;
+import org.apache.druid.segment.CursorFactory;
 import org.apache.druid.segment.IndexBuilder;
-import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.junit.AfterClass;
 import org.junit.Test;
@@ -72,11 +72,7 @@ public class TimeFilteringTest extends BaseFilterTest
   private static final InputRowParser<Map<String, Object>> PARSER = new MapInputRowParser(
       new TimeAndDimsParseSpec(
           new TimestampSpec(TIMESTAMP_COLUMN, "millis", DateTimes.of("2000")),
-          new DimensionsSpec(
-              DimensionsSpec.getDefaultSchemas(ImmutableList.of("dim0", "dim1", "dim2", "dim3")),
-              null,
-              null
-          )
+          new DimensionsSpec(DimensionsSpec.getDefaultSchemas(ImmutableList.of("dim0", "dim1", "dim2", "dim3")))
       )
   );
 
@@ -92,7 +88,7 @@ public class TimeFilteringTest extends BaseFilterTest
   public TimeFilteringTest(
       String testName,
       IndexBuilder indexBuilder,
-      Function<IndexBuilder, Pair<StorageAdapter, Closeable>> finisher,
+      Function<IndexBuilder, Pair<CursorFactory, Closeable>> finisher,
       boolean cnf,
       boolean optimize
   )

@@ -20,12 +20,12 @@
 package org.apache.druid.query.lookup;
 
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.segment.RowAdapter;
 import org.apache.druid.segment.RowBasedSegment;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.join.lookup.LookupColumnSelectorFactory;
-import org.apache.druid.timeline.SegmentId;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -33,30 +33,30 @@ import java.util.function.ToLongFunction;
 
 /**
  * A {@link org.apache.druid.segment.Segment} that is based on a {@link LookupExtractor}. Allows direct
- * querying of lookups. The lookup must support {@link LookupExtractor#iterable()}.
+ * querying of lookups. The lookup must support {@link LookupExtractor#asMap()}.
  */
 public class LookupSegment extends RowBasedSegment<Map.Entry<String, String>>
 {
   private static final RowSignature ROW_SIGNATURE =
       RowSignature.builder()
-                  .add(LookupColumnSelectorFactory.KEY_COLUMN, ValueType.STRING)
-                  .add(LookupColumnSelectorFactory.VALUE_COLUMN, ValueType.STRING)
+                  .add(LookupColumnSelectorFactory.KEY_COLUMN, ColumnType.STRING)
+                  .add(LookupColumnSelectorFactory.VALUE_COLUMN, ColumnType.STRING)
                   .build();
+  private final String lookupName;
 
   public LookupSegment(final String lookupName, final LookupExtractorFactory lookupExtractorFactory)
   {
     super(
-        SegmentId.dummy(lookupName),
-        () -> {
+        Sequences.simple(() -> {
           final LookupExtractor extractor = lookupExtractorFactory.get();
 
-          if (!extractor.canIterate()) {
-            throw new ISE("Cannot iterate lookup[%s]", lookupExtractorFactory);
+          if (!extractor.supportsAsMap()) {
+            throw new ISE("Cannot retrieve map view from lookup[%s]", lookupExtractorFactory);
           }
 
-          return extractor.iterable().iterator();
-        },
-        new RowAdapter<Map.Entry<String, String>>()
+          return extractor.asMap().entrySet().iterator();
+        }),
+        new RowAdapter<>()
         {
           @Override
           public ToLongFunction<Map.Entry<String, String>> timestampFunction()
@@ -79,5 +79,12 @@ public class LookupSegment extends RowBasedSegment<Map.Entry<String, String>>
         },
         ROW_SIGNATURE
     );
+    this.lookupName = lookupName;
+  }
+
+  @Override
+  public String getDebugString()
+  {
+    return getClass().getSimpleName() + ":" + lookupName;
   }
 }

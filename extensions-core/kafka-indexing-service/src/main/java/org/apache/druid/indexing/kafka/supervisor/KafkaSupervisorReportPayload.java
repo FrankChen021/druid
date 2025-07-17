@@ -19,6 +19,7 @@
 
 package org.apache.druid.indexing.kafka.supervisor;
 
+import org.apache.druid.data.input.kafka.KafkaTopicPartition;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorStateManager;
 import org.apache.druid.indexing.seekablestream.supervisor.SeekableStreamSupervisorReportPayload;
 import org.joda.time.DateTime;
@@ -27,16 +28,18 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 
-public class KafkaSupervisorReportPayload extends SeekableStreamSupervisorReportPayload<Integer, Long>
+public class KafkaSupervisorReportPayload extends SeekableStreamSupervisorReportPayload<KafkaTopicPartition, Long>
 {
   public KafkaSupervisorReportPayload(
+      String id,
       String dataSource,
       String topic,
       int partitions,
       int replicas,
       long durationSeconds,
-      @Nullable Map<Integer, Long> latestOffsets,
-      @Nullable Map<Integer, Long> minimumLag,
+      @Nullable Map<KafkaTopicPartition, Long> latestOffsets,
+      @Nullable Map<KafkaTopicPartition, Long> minimumLag,
+      @Nullable Map<KafkaTopicPartition, Long> minimumLagMillis,
       @Nullable Long aggregateLag,
       @Nullable DateTime offsetsLastUpdated,
       boolean suspended,
@@ -47,6 +50,7 @@ public class KafkaSupervisorReportPayload extends SeekableStreamSupervisorReport
   )
   {
     super(
+        id,
         dataSource,
         topic,
         partitions,
@@ -55,7 +59,7 @@ public class KafkaSupervisorReportPayload extends SeekableStreamSupervisorReport
         latestOffsets,
         minimumLag,
         aggregateLag,
-        null,
+        minimumLagMillis,
         null,
         offsetsLastUpdated,
         suspended,
@@ -70,7 +74,8 @@ public class KafkaSupervisorReportPayload extends SeekableStreamSupervisorReport
   public String toString()
   {
     return "KafkaSupervisorReportPayload{" +
-           "dataSource='" + getDataSource() + '\'' +
+           "id='" + getId() + '\'' +
+           ", dataSource='" + getDataSource() + '\'' +
            ", topic='" + getStream() + '\'' +
            ", partitions=" + getPartitions() +
            ", replicas=" + getReplicas() +

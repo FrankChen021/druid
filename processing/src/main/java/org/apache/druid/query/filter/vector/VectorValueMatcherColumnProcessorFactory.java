@@ -87,12 +87,21 @@ public class VectorValueMatcherColumnProcessorFactory implements VectorColumnPro
   }
 
   @Override
+  public VectorValueMatcherFactory makeArrayProcessor(ColumnCapabilities capabilities, VectorObjectSelector selector)
+  {
+    return new ArrayVectorValueMatcher(capabilities, selector);
+  }
+
+  @Override
   public VectorValueMatcherFactory makeObjectProcessor(
       final ColumnCapabilities capabilities,
       final VectorObjectSelector selector
   )
   {
-    if (ValueType.STRING.equals(capabilities.getType())) {
+    if (capabilities.is(ValueType.STRING)) {
+      if (capabilities.hasMultipleValues().isTrue()) {
+        return new MultiValueStringObjectVectorValueMatcher(selector);
+      }
       return new StringObjectVectorValueMatcher(selector);
     }
     return new ObjectVectorValueMatcher(selector);

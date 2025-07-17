@@ -140,12 +140,13 @@ public class FloatNumericColumnPartSerdeV2 implements ColumnPartSerde
   @Override
   public Deserializer getDeserializer()
   {
-    return (buffer, builder, columnConfig) -> {
+    return (buffer, builder, columnConfig, parent) -> {
       int offset = buffer.getInt();
       int initialPos = buffer.position();
       final CompressedColumnarFloatsSupplier column = CompressedColumnarFloatsSupplier.fromByteBuffer(
           buffer,
-          byteOrder
+          byteOrder,
+          builder.getFileMapper()
       );
       buffer.position(initialPos + offset);
       final ImmutableBitmap bitmap;
@@ -160,7 +161,8 @@ public class FloatNumericColumnPartSerdeV2 implements ColumnPartSerde
       builder.setType(ValueType.FLOAT)
              .setHasMultipleValues(false)
              .setHasNulls(hasNulls)
-             .setNumericColumnSupplier(new FloatNumericColumnSupplier(column, bitmap));
+             .setNumericColumnSupplier(new FloatNumericColumnSupplier(column, bitmap))
+             .setNullValueIndexSupplier(bitmap);
     };
   }
 }

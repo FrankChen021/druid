@@ -27,10 +27,8 @@ import org.apache.druid.data.input.impl.DimensionSchema;
 import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.data.input.impl.StringDimensionSchema;
 import org.apache.druid.data.input.impl.TimestampSpec;
-import org.apache.druid.java.util.common.granularity.Granularities;
-import org.apache.druid.query.aggregation.AggregatorFactory;
+import org.apache.druid.guice.BuiltInTypesModule;
 import org.apache.druid.segment.CloserRule;
-import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.junit.Assert;
 import org.junit.Rule;
@@ -55,6 +53,7 @@ public class IncrementalIndexMultiValueSpecTest extends InitializedNullHandlingT
 
   public IncrementalIndexMultiValueSpecTest(String indexType) throws JsonProcessingException
   {
+    BuiltInTypesModule.registerHandlersAndSerde();
     indexCreator = closer.closeLater(new IncrementalIndexCreator(indexType, (builder, args) -> builder
         .setIndexSchema((IncrementalIndexSchema) args[0])
         .setMaxRowCount(10_000)
@@ -69,26 +68,21 @@ public class IncrementalIndexMultiValueSpecTest extends InitializedNullHandlingT
   }
 
   @Test
-  public void test() throws IndexSizeExceededException
+  public void test()
   {
     DimensionsSpec dimensionsSpec = new DimensionsSpec(
         Arrays.asList(
             new StringDimensionSchema("string1", DimensionSchema.MultiValueHandling.ARRAY, true),
             new StringDimensionSchema("string2", DimensionSchema.MultiValueHandling.SORTED_ARRAY, true),
             new StringDimensionSchema("string3", DimensionSchema.MultiValueHandling.SORTED_SET, true)
-        ),
-        null, null
+        )
     );
-    IncrementalIndexSchema schema = new IncrementalIndexSchema(
-        0,
-        new TimestampSpec("ds", "auto", null),
-        Granularities.ALL,
-        VirtualColumns.EMPTY,
-        dimensionsSpec,
-        new AggregatorFactory[0],
-        false
-    );
-    Map<String, Object> map = new HashMap<String, Object>()
+    IncrementalIndexSchema schema = IncrementalIndexSchema.builder()
+                                                          .withTimestampSpec(new TimestampSpec("ds", "auto", null))
+                                                          .withDimensionsSpec(dimensionsSpec)
+                                                          .withRollup(false)
+                                                          .build();
+    Map<String, Object> map = new HashMap<>()
     {
       @Override
       public Object get(Object key)
@@ -105,7 +99,7 @@ public class IncrementalIndexMultiValueSpecTest extends InitializedNullHandlingT
         return null;
       }
     };
-    IncrementalIndex<?> index = indexCreator.createIndex(schema);
+    IncrementalIndex index = indexCreator.createIndex(schema);
     index.add(
         new MapBasedInputRow(
             0,

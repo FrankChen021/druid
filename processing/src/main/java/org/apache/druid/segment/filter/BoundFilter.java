@@ -20,21 +20,20 @@
 package org.apache.druid.segment.filter;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
-import it.unimi.dsi.fastutil.ints.IntList;
-import org.apache.druid.collections.bitmap.ImmutableBitmap;
-import org.apache.druid.common.config.NullHandling;
+import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Doubles;
 import org.apache.druid.java.util.common.IAE;
-import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.query.BitmapResultFactory;
 import org.apache.druid.query.extraction.ExtractionFn;
-import org.apache.druid.query.filter.BitmapIndexSelector;
 import org.apache.druid.query.filter.BoundDimFilter;
+import org.apache.druid.query.filter.ColumnIndexSelector;
 import org.apache.druid.query.filter.DruidDoublePredicate;
 import org.apache.druid.query.filter.DruidFloatPredicate;
 import org.apache.druid.query.filter.DruidLongPredicate;
+import org.apache.druid.query.filter.DruidObjectPredicate;
 import org.apache.druid.query.filter.DruidPredicateFactory;
+import org.apache.druid.query.filter.DruidPredicateMatch;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.FilterTuning;
 import org.apache.druid.query.filter.ValueMatcher;
@@ -43,12 +42,17 @@ import org.apache.druid.query.filter.vector.VectorValueMatcherColumnProcessorFac
 import org.apache.druid.query.ordering.StringComparators;
 import org.apache.druid.segment.ColumnInspector;
 import org.apache.druid.segment.ColumnProcessors;
-import org.apache.druid.segment.ColumnSelector;
 import org.apache.druid.segment.ColumnSelectorFactory;
-import org.apache.druid.segment.IntListUtils;
-import org.apache.druid.segment.column.BitmapIndex;
+import org.apache.druid.segment.column.ColumnIndexCapabilities;
+import org.apache.druid.segment.column.ColumnIndexSupplier;
+import org.apache.druid.segment.index.BitmapColumnIndex;
+import org.apache.druid.segment.index.semantic.DruidPredicateIndexes;
+import org.apache.druid.segment.index.semantic.LexicographicalRangeIndexes;
+import org.apache.druid.segment.index.semantic.NullValueIndex;
+import org.apache.druid.segment.index.semantic.NumericRangeIndexes;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 
+import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -67,58 +71,127 @@ public class BoundFilter implements Filter
   }
 
   @Override
-  public <T> T getBitmapResult(BitmapIndexSelector selector, BitmapResultFactory<T> bitmapResultFactory)
+  @Nullable
+  public BitmapColumnIndex getBitmapColumnIndex(ColumnIndexSelector selector)
   {
-    if (supportShortCircuit()) {
-      final BitmapIndex bitmapIndex = selector.getBitmapIndex(boundDimFilter.getDimension());
+    if (!Filters.checkFilterTuningUseIndex(boundDimFilter.getDimension(), selector, filterTuning)) {
+      return null;
+    }
+    final ColumnIndexSupplier indexSupplier = selector.getIndexSupplier(boundDimFilter.getDimension());
+    if (indexSupplier == null) {
+      // missing column -> match all rows if the predicate matches null; match no rows otherwise
+      final DruidPredicateMatch match = getPredicateFactory().makeStringPredicate().apply(null);
+      return Filters.makeMissingColumnNullIndex(match, selector);
+    }
 
-      if (bitmapIndex == null || bitmapIndex.getCardinality() == 0) {
+    if (supportStringShortCircuit()) {
+      final LexicographicalRangeIndexes rangeIndexes = indexSupplier.as(LexicographicalRangeIndexes.class);
+      if (rangeIndexes != null) {
+        final BitmapColumnIndex rangeBitmaps = rangeIndexes.forRange(
+            boundDimFilter.getLower(),
+            boundDimFilter.isLowerStrict(),
+            boundDimFilter.getUpper(),
+            boundDimFilter.isUpperStrict()
+        );
+        if (rangeBitmaps == null) {
+          return null;
+        }
+        // preserve sad backwards compatible behavior where bound filter matches 'null' if the lower bound is not set
         if (doesMatchNull()) {
-          return bitmapResultFactory.wrapAllTrue(Filters.allTrue(selector));
+          return wrapRangeIndexWithNullValueIndex(indexSupplier, rangeBitmaps);
         } else {
-          return bitmapResultFactory.wrapAllFalse(Filters.allFalse(selector));
+          return rangeBitmaps;
         }
       }
-
-      return bitmapResultFactory.unionDimensionValueBitmaps(getBitmapIterator(boundDimFilter, bitmapIndex));
-    } else {
-      return Filters.matchPredicate(
-          boundDimFilter.getDimension(),
-          selector,
-          bitmapResultFactory,
-          getPredicateFactory().makeStringPredicate()
-      );
     }
+    if (supportNumericShortCircuit()) {
+      final NumericRangeIndexes rangeIndexes = indexSupplier.as(NumericRangeIndexes.class);
+      if (rangeIndexes != null) {
+        final Number lower = boundDimFilter.hasLowerBound() ? Doubles.tryParse(boundDimFilter.getLower()) : null;
+        final Number upper = boundDimFilter.hasUpperBound() ? Doubles.tryParse(boundDimFilter.getUpper()) : null;
+        // valid number bounds are required to use the range index, otherwise we need to fall back to the predicate
+        // index to get consistent behavior with the value matcher. in a better world this might be a much earlier
+        // validation error, but.. the bound filter doesn't live in that world
+        final boolean lowerValid = !(boundDimFilter.hasLowerBound() && lower == null);
+        final boolean upperValid = !(boundDimFilter.hasUpperBound() && upper == null);
+        if (lowerValid && upperValid) {
+          final BitmapColumnIndex rangeBitmaps = rangeIndexes.forRange(
+              lower,
+              boundDimFilter.isLowerStrict(),
+              upper,
+              boundDimFilter.isUpperStrict()
+          );
+          if (rangeBitmaps == null) {
+            return null;
+          }
+          // preserve sad backwards compatible behavior where bound filter matches 'null' if the lower bound is not set
+          if (doesMatchNull()) {
+            return wrapRangeIndexWithNullValueIndex(indexSupplier, rangeBitmaps);
+          } else {
+            return rangeBitmaps;
+          }
+        }
+      }
+    }
+
+    final DruidPredicateIndexes predicateIndexes = indexSupplier.as(DruidPredicateIndexes.class);
+    if (predicateIndexes != null) {
+      return predicateIndexes.forPredicate(getPredicateFactory());
+    }
+    // index doesn't exist
+    return null;
   }
 
-  @Override
-  public double estimateSelectivity(BitmapIndexSelector indexSelector)
+  @Nullable
+  private BitmapColumnIndex wrapRangeIndexWithNullValueIndex(
+      ColumnIndexSupplier indexSupplier,
+      BitmapColumnIndex rangeIndex
+  )
   {
-    if (supportShortCircuit()) {
-      final BitmapIndex bitmapIndex = indexSelector.getBitmapIndex(boundDimFilter.getDimension());
+    final BitmapColumnIndex nullBitmap;
+    final NullValueIndex nulls = indexSupplier.as(NullValueIndex.class);
+    if (nulls == null) {
+      return null;
+    }
+    nullBitmap = nulls.get();
 
-      if (bitmapIndex == null || bitmapIndex.getCardinality() == 0) {
-        return doesMatchNull() ? 1. : 0.;
+    return new BitmapColumnIndex()
+    {
+      @Override
+      public ColumnIndexCapabilities getIndexCapabilities()
+      {
+        return rangeIndex.getIndexCapabilities().merge(nullBitmap.getIndexCapabilities());
       }
 
-      return Filters.estimateSelectivity(
-          bitmapIndex,
-          getBitmapIndexList(boundDimFilter, bitmapIndex),
-          indexSelector.getNumRows()
-      );
-    } else {
-      return Filters.estimateSelectivity(
-          boundDimFilter.getDimension(),
-          indexSelector,
-          getPredicateFactory().makeStringPredicate()
-      );
-    }
+      @Override
+      public int estimatedComputeCost()
+      {
+        return rangeIndex.estimatedComputeCost() + 1;
+      }
+
+      @Override
+      public <T> T computeBitmapResult(BitmapResultFactory<T> bitmapResultFactory, boolean includeUnknown)
+      {
+        return bitmapResultFactory.union(
+            ImmutableList.of(
+                rangeIndex.computeBitmapResult(bitmapResultFactory, false),
+                nullBitmap.computeBitmapResult(bitmapResultFactory, false)
+            )
+        );
+      }
+    };
   }
 
-  private boolean supportShortCircuit()
+  private boolean supportStringShortCircuit()
   {
     // Optimization for lexicographic bounds with no extractionFn => binary search through the index
     return boundDimFilter.getOrdering().equals(StringComparators.LEXICOGRAPHIC) && extractionFn == null;
+  }
+
+  private boolean supportNumericShortCircuit()
+  {
+    // Optimization for numeric bounds with no extractionFn => binary search through the index
+    return boundDimFilter.getOrdering().equals(StringComparators.NUMERIC) && extractionFn == null;
   }
 
   @Override
@@ -141,24 +214,6 @@ public class BoundFilter implements Filter
   public boolean canVectorizeMatcher(ColumnInspector inspector)
   {
     return true;
-  }
-
-  @Override
-  public boolean supportsBitmapIndex(BitmapIndexSelector selector)
-  {
-    return selector.getBitmapIndex(boundDimFilter.getDimension()) != null;
-  }
-
-  @Override
-  public boolean shouldUseBitmapIndex(BitmapIndexSelector selector)
-  {
-    return Filters.shouldUseBitmapIndex(this, selector, filterTuning);
-  }
-
-  @Override
-  public boolean supportsSelectivityEstimation(ColumnSelector columnSelector, BitmapIndexSelector indexSelector)
-  {
-    return Filters.supportsSelectivityEstimation(this, boundDimFilter.getDimension(), columnSelector, indexSelector);
   }
 
   @Override
@@ -200,62 +255,6 @@ public class BoundFilter implements Filter
     );
   }
 
-  private static Pair<Integer, Integer> getStartEndIndexes(
-      final BoundDimFilter boundDimFilter,
-      final BitmapIndex bitmapIndex
-  )
-  {
-    final int startIndex; // inclusive
-    int endIndex; // exclusive
-
-    if (!boundDimFilter.hasLowerBound()) {
-      startIndex = 0;
-    } else {
-      final int found = bitmapIndex.getIndex(NullHandling.emptyToNullIfNeeded(boundDimFilter.getLower()));
-      if (found >= 0) {
-        startIndex = boundDimFilter.isLowerStrict() ? found + 1 : found;
-      } else {
-        startIndex = -(found + 1);
-      }
-    }
-
-    if (!boundDimFilter.hasUpperBound()) {
-      endIndex = bitmapIndex.getCardinality();
-    } else {
-      final int found = bitmapIndex.getIndex(NullHandling.emptyToNullIfNeeded(boundDimFilter.getUpper()));
-      if (found >= 0) {
-        endIndex = boundDimFilter.isUpperStrict() ? found : found + 1;
-      } else {
-        endIndex = -(found + 1);
-      }
-    }
-
-    endIndex = startIndex > endIndex ? startIndex : endIndex;
-
-    return new Pair<>(startIndex, endIndex);
-  }
-
-  private static Iterable<ImmutableBitmap> getBitmapIterator(
-      final BoundDimFilter boundDimFilter,
-      final BitmapIndex bitmapIndex
-  )
-  {
-    return Filters.bitmapsFromIndexes(getBitmapIndexList(boundDimFilter, bitmapIndex), bitmapIndex);
-  }
-
-  private static IntList getBitmapIndexList(
-      final BoundDimFilter boundDimFilter,
-      final BitmapIndex bitmapIndex
-  )
-  {
-    // search for start, end indexes in the bitmaps; then include all bitmaps between those points
-    final Pair<Integer, Integer> indexes = getStartEndIndexes(boundDimFilter, bitmapIndex);
-    final int startIndex = indexes.lhs;
-    final int endIndex = indexes.rhs;
-
-    return IntListUtils.fromTo(startIndex, endIndex);
-  }
-
   private DruidPredicateFactory getPredicateFactory()
   {
     return new BoundDimFilterDruidPredicateFactory(extractionFn, boundDimFilter);
@@ -270,10 +269,10 @@ public class BoundFilter implements Filter
   {
     if (input == null) {
       return (!boundDimFilter.hasLowerBound()
-              || (NullHandling.isNullOrEquivalent(boundDimFilter.getLower()) && !boundDimFilter.isLowerStrict()))
+              || (boundDimFilter.getLower() == null && !boundDimFilter.isLowerStrict()))
              // lower bound allows null
              && (!boundDimFilter.hasUpperBound()
-                 || !NullHandling.isNullOrEquivalent(boundDimFilter.getUpper())
+                 || boundDimFilter.getUpper() != null
                  || !boundDimFilter.isUpperStrict()); // upper bound allows null
     }
     int lowerComparing = 1;
@@ -340,12 +339,12 @@ public class BoundFilter implements Filter
     }
 
     @Override
-    public Predicate<String> makeStringPredicate()
+    public DruidObjectPredicate<String> makeStringPredicate()
     {
       if (extractionFn != null) {
-        return input -> doesMatch(extractionFn.apply(input), boundDimFilter);
+        return input -> DruidPredicateMatch.of(doesMatch(extractionFn.apply(input), boundDimFilter));
       }
-      return input -> doesMatch(input, boundDimFilter);
+      return input -> DruidPredicateMatch.of(doesMatch(input, boundDimFilter));
 
     }
 
@@ -353,36 +352,36 @@ public class BoundFilter implements Filter
     public DruidLongPredicate makeLongPredicate()
     {
       if (extractionFn != null) {
-        return input -> doesMatch(extractionFn.apply(input), boundDimFilter);
+        return input -> DruidPredicateMatch.of(doesMatch(extractionFn.apply(input), boundDimFilter));
       }
       if (boundDimFilter.getOrdering().equals(StringComparators.NUMERIC)) {
         return longPredicateSupplier.get();
       }
-      return input -> doesMatch(String.valueOf(input), boundDimFilter);
+      return input -> DruidPredicateMatch.of(doesMatch(String.valueOf(input), boundDimFilter));
     }
 
     @Override
     public DruidFloatPredicate makeFloatPredicate()
     {
       if (extractionFn != null) {
-        return input -> doesMatch(extractionFn.apply(input), boundDimFilter);
+        return input -> DruidPredicateMatch.of(doesMatch(extractionFn.apply(input), boundDimFilter));
       }
       if (boundDimFilter.getOrdering().equals(StringComparators.NUMERIC)) {
         return floatPredicateSupplier.get();
       }
-      return input -> doesMatch(String.valueOf(input), boundDimFilter);
+      return input -> DruidPredicateMatch.of(doesMatch(String.valueOf(input), boundDimFilter));
     }
 
     @Override
     public DruidDoublePredicate makeDoublePredicate()
     {
       if (extractionFn != null) {
-        return input -> doesMatch(extractionFn.apply(input), boundDimFilter);
+        return input -> DruidPredicateMatch.of(doesMatch(extractionFn.apply(input), boundDimFilter));
       }
       if (boundDimFilter.getOrdering().equals(StringComparators.NUMERIC)) {
         return doublePredicateSupplier.get();
       }
-      return input -> doesMatch(String.valueOf(input), boundDimFilter);
+      return input -> DruidPredicateMatch.of(doesMatch(String.valueOf(input), boundDimFilter));
     }
 
     @Override

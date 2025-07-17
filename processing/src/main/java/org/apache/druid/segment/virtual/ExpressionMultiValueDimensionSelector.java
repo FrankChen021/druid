@@ -19,10 +19,11 @@
 
 package org.apache.druid.segment.virtual;
 
-import com.google.common.base.Predicate;
-import org.apache.druid.common.config.NullHandling;
+import org.apache.druid.math.expr.Evals;
 import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.query.extraction.ExtractionFn;
+import org.apache.druid.query.filter.DruidObjectPredicate;
+import org.apache.druid.query.filter.DruidPredicateFactory;
 import org.apache.druid.query.filter.ValueMatcher;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.ColumnValueSelector;
@@ -71,26 +72,26 @@ public class ExpressionMultiValueDimensionSelector implements DimensionSelector
   String getValue(ExprEval evaluated)
   {
     assert !evaluated.isArray();
-    return NullHandling.emptyToNullIfNeeded(evaluated.asString());
+    return evaluated.asString();
   }
 
-  List<String> getArray(ExprEval evaluated)
+  @Nullable
+  List<String> getArrayAsList(ExprEval evaluated)
   {
     assert evaluated.isArray();
     //noinspection ConstantConditions
-    return Arrays.stream(evaluated.asStringArray())
-                 .map(NullHandling::emptyToNullIfNeeded)
+    if (evaluated.asArray() == null) {
+      return null;
+    }
+    return Arrays.stream(evaluated.asArray())
+                 .map(Evals::asString)
                  .collect(Collectors.toList());
   }
 
   @Nullable
   String getArrayValue(ExprEval evaluated, int i)
   {
-    assert evaluated.isArray();
-    String[] stringArray = evaluated.asStringArray();
-    //noinspection ConstantConditions because of assert statement above
-    assert i < stringArray.length;
-    return NullHandling.emptyToNullIfNeeded(stringArray[i]);
+    return getArrayElement(evaluated, i);
   }
 
   @Override
@@ -121,7 +122,7 @@ public class ExpressionMultiValueDimensionSelector implements DimensionSelector
       return getArrayValue(evaluated, id);
     }
     assert id == 0;
-    return NullHandling.emptyToNullIfNeeded(evaluated.asString());
+    return evaluated.asString();
   }
 
   @Override
@@ -130,14 +131,18 @@ public class ExpressionMultiValueDimensionSelector implements DimensionSelector
     return new ValueMatcher()
     {
       @Override
-      public boolean matches()
+      public boolean matches(boolean includeUnknown)
       {
         ExprEval evaluated = getEvaluated();
         if (evaluated.isArray()) {
-          List<String> array = getArray(evaluated);
-          return array.stream().anyMatch(x -> Objects.equals(x, value));
+          List<String> array = getArrayAsList(evaluated);
+          if (array == null) {
+            return includeUnknown || value == null;
+          }
+          return array.stream().anyMatch(x -> (includeUnknown && x == null) || Objects.equals(x, value));
         }
-        return Objects.equals(getValue(evaluated), value);
+        final String rowValue = getValue(evaluated);
+        return (includeUnknown && rowValue == null) || Objects.equals(rowValue, value);
       }
 
       @Override
@@ -149,26 +154,31 @@ public class ExpressionMultiValueDimensionSelector implements DimensionSelector
   }
 
   @Override
-  public ValueMatcher makeValueMatcher(Predicate<String> predicate)
+  public ValueMatcher makeValueMatcher(DruidPredicateFactory predicateFactory)
   {
     return new ValueMatcher()
     {
       @Override
-      public boolean matches()
+      public boolean matches(boolean includeUnknown)
       {
         ExprEval evaluated = getEvaluated();
+        final DruidObjectPredicate<String> predicate = predicateFactory.makeStringPredicate();
         if (evaluated.isArray()) {
-          List<String> array = getArray(evaluated);
-          return array.stream().anyMatch(x -> predicate.apply(x));
+          List<String> array = getArrayAsList(evaluated);
+          if (array == null) {
+            return predicate.apply(null).matches(includeUnknown);
+          }
+          return array.stream().anyMatch(x -> predicate.apply(x).matches(includeUnknown));
         }
-        return predicate.apply(getValue(evaluated));
+        final String rowValue = getValue(evaluated);
+        return predicate.apply(rowValue).matches(includeUnknown);
       }
 
       @Override
       public void inspectRuntimeShape(RuntimeShapeInspector inspector)
       {
         inspector.visit("selector", baseSelector);
-        inspector.visit("predicate", predicate);
+        inspector.visit("predicate", predicateFactory);
       }
     };
   }
@@ -198,7 +208,7 @@ public class ExpressionMultiValueDimensionSelector implements DimensionSelector
   {
     ExprEval evaluated = getEvaluated();
     if (evaluated.isArray()) {
-      return getArray(evaluated);
+      return getArrayAsList(evaluated);
     }
     return getValue(evaluated);
   }
@@ -226,25 +236,22 @@ public class ExpressionMultiValueDimensionSelector implements DimensionSelector
     String getValue(ExprEval evaluated)
     {
       assert !evaluated.isArray();
-      return extractionFn.apply(NullHandling.emptyToNullIfNeeded(evaluated.asString()));
+      return extractionFn.apply(evaluated.asString());
     }
 
     @Override
-    List<String> getArray(ExprEval evaluated)
+    List<String> getArrayAsList(ExprEval evaluated)
     {
       assert evaluated.isArray();
-      return Arrays.stream(evaluated.asStringArray())
-                   .map(x -> extractionFn.apply(NullHandling.emptyToNullIfNeeded(x)))
+      return Arrays.stream(evaluated.asArray())
+                   .map(x -> extractionFn.apply(Evals.asString(x)))
                    .collect(Collectors.toList());
     }
 
     @Override
     String getArrayValue(ExprEval evaluated, int i)
     {
-      assert evaluated.isArray();
-      String[] stringArray = evaluated.asStringArray();
-      assert i < stringArray.length;
-      return extractionFn.apply(NullHandling.emptyToNullIfNeeded(stringArray[i]));
+      return extractionFn.apply(ExpressionMultiValueDimensionSelector.getArrayElement(evaluated, i));
     }
 
     @Override
@@ -253,5 +260,15 @@ public class ExpressionMultiValueDimensionSelector implements DimensionSelector
       inspector.visit("baseSelector", baseSelector);
       inspector.visit("extractionFn", extractionFn);
     }
+  }
+
+  @Nullable
+  private static String getArrayElement(ExprEval eval, int i)
+  {
+    final Object[] stringArray = eval.asArray();
+    if (stringArray == null) {
+      return null;
+    }
+    return Evals.asString(stringArray[i]);
   }
 }

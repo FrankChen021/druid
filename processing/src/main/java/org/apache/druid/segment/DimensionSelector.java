@@ -19,21 +19,24 @@
 
 package org.apache.druid.segment;
 
-import com.google.common.base.Predicate;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.guice.annotations.PublicApi;
 import org.apache.druid.query.extraction.ExtractionFn;
+import org.apache.druid.query.filter.DruidObjectPredicate;
+import org.apache.druid.query.filter.DruidPredicateFactory;
+import org.apache.druid.query.filter.DruidPredicateMatch;
 import org.apache.druid.query.filter.ValueMatcher;
 import org.apache.druid.query.monomorphicprocessing.CalledFromHotLoop;
 import org.apache.druid.query.monomorphicprocessing.HotLoopCallee;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.data.IndexedInts;
 import org.apache.druid.segment.data.ZeroIndexedInts;
-import org.apache.druid.segment.filter.BooleanValueMatcher;
+import org.apache.druid.segment.filter.ValueMatchers;
 import org.apache.druid.segment.historical.SingleValueHistoricalDimensionSelector;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Selector for a string-typed column, either single- or multi-valued. This is named a "dimension" selector for legacy
@@ -64,7 +67,7 @@ public interface DimensionSelector extends ColumnValueSelector<Object>, Dimensio
    */
   ValueMatcher makeValueMatcher(@Nullable String value);
 
-  ValueMatcher makeValueMatcher(Predicate<String> predicate);
+  ValueMatcher makeValueMatcher(DruidPredicateFactory predicateFactory);
 
   /**
    * @deprecated This method is marked as deprecated in DimensionSelector to minimize the probability of accidental
@@ -114,7 +117,7 @@ public interface DimensionSelector extends ColumnValueSelector<Object>, Dimensio
 
   /**
    * Converts the current result of {@link #getRow()} into null, if the row is empty, a String, if the row has size 1,
-   * or a String[] array, if the row has size > 1, using {@link #lookupName(int)}.
+   * or a {@code List<String>}, if the row has size > 1, using {@link #lookupName(int)}.
    *
    * This method is not the default implementation of {@link #getObject()} to minimize the chance that implementations
    * "forget" to override it with more optimized version.
@@ -128,6 +131,11 @@ public interface DimensionSelector extends ColumnValueSelector<Object>, Dimensio
   /**
    * Converts a particular {@link IndexedInts} to an Object in a standard way, assuming each element in the IndexedInts
    * is a dictionary ID that can be resolved with the provided selector.
+   *
+   * Specification:
+   * 1) Empty row ({@link IndexedInts#size()} zero) returns null.
+   * 2) Single-value row returns a single {@link String}.
+   * 3) Two+ value rows return {@link List} of {@link String}.
    */
   @Nullable
   static Object rowToObject(IndexedInts row, DimensionDictionarySelector selector)
@@ -146,10 +154,15 @@ public interface DimensionSelector extends ColumnValueSelector<Object>, Dimensio
     }
   }
 
+  static DimensionSelector nilSelector()
+  {
+    return NullDimensionSelectorHolder.NULL_DIMENSION_SELECTOR;
+  }
+
   static DimensionSelector constant(@Nullable final String value)
   {
-    if (NullHandling.isNullOrEquivalent(value)) {
-      return NullDimensionSelectorHolder.NULL_DIMENSION_SELECTOR;
+    if (value == null) {
+      return nilSelector();
     } else {
       return new ConstantDimensionSelector(value);
     }
@@ -161,6 +174,38 @@ public interface DimensionSelector extends ColumnValueSelector<Object>, Dimensio
       return constant(value);
     } else {
       return constant(extractionFn.apply(value));
+    }
+  }
+
+  static DimensionSelector multiConstant(@Nullable final List<String> values)
+  {
+    // this method treats null, [], and [null] equivalently as null
+    if (values == null || values.isEmpty()) {
+      return NullDimensionSelectorHolder.NULL_DIMENSION_SELECTOR;
+    } else if (values.size() == 1) {
+      // the single value constant selector is more optimized than the multi-value constant selector because the latter
+      // does not report value cardinality, but otherwise behaves identically when used for grouping or selecting to a
+      // normal multi-value dimension selector (getObject on a row with a single value returns the object instead of
+      // the list)
+      return constant(values.get(0));
+    } else {
+      return new ConstantMultiValueDimensionSelector(values);
+    }
+  }
+
+  static DimensionSelector multiConstant(@Nullable final List<String> values, @Nullable final ExtractionFn extractionFn)
+  {
+    if (extractionFn == null) {
+      return multiConstant(values);
+    } else {
+      if (values == null) {
+        // the single value constant selector is more optimized than the multi-value constant selector because the
+        // latter does not report value cardinality, but otherwise behaves identically when used for grouping or
+        // selecting to a normal multi-value dimension selector (getObject on a row with a single value returns the
+        // object instead of the list)
+        return constant(extractionFn.apply(null));
+      }
+      return multiConstant(values.stream().map(extractionFn::apply).collect(Collectors.toList()));
     }
   }
 
@@ -217,13 +262,25 @@ public interface DimensionSelector extends ColumnValueSelector<Object>, Dimensio
       @Override
       public ValueMatcher makeValueMatcher(@Nullable String value)
       {
-        return BooleanValueMatcher.of(value == null);
+        if (value == null) {
+          return ValueMatchers.allTrue();
+        }
+        return ValueMatchers.allUnknown();
       }
 
       @Override
-      public ValueMatcher makeValueMatcher(Predicate<String> predicate)
+      public ValueMatcher makeValueMatcher(DruidPredicateFactory predicateFactory)
       {
-        return BooleanValueMatcher.of(predicate.apply(null));
+        final DruidObjectPredicate<String> predicate = predicateFactory.makeStringPredicate();
+        final DruidPredicateMatch match = predicate.apply(null);
+
+        if (match == DruidPredicateMatch.TRUE) {
+          return ValueMatchers.allTrue();
+        }
+        if (match == DruidPredicateMatch.UNKNOWN) {
+          return ValueMatchers.allUnknown();
+        }
+        return ValueMatchers.allFalse();
       }
 
       @Override
@@ -256,7 +313,7 @@ public interface DimensionSelector extends ColumnValueSelector<Object>, Dimensio
       @Override
       public int lookupId(@Nullable String name)
       {
-        return NullHandling.isNullOrEquivalent(name) ? 0 : -1;
+        return name == null ? 0 : -1;
       }
 
       @Nullable
@@ -276,6 +333,12 @@ public interface DimensionSelector extends ColumnValueSelector<Object>, Dimensio
       public void inspectRuntimeShape(RuntimeShapeInspector inspector)
       {
         // nothing to inspect
+      }
+
+      @Override
+      public boolean isNull()
+      {
+        return true;
       }
     }
   }

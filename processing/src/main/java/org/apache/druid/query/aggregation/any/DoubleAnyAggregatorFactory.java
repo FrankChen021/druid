@@ -28,6 +28,7 @@ import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.AggregatorUtil;
 import org.apache.druid.query.aggregation.BufferAggregator;
+import org.apache.druid.query.aggregation.DoubleSumAggregator;
 import org.apache.druid.query.aggregation.VectorAggregator;
 import org.apache.druid.query.cache.CacheKeyBuilder;
 import org.apache.druid.segment.BaseDoubleColumnValueSelector;
@@ -36,7 +37,7 @@ import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.NilColumnValueSelector;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnHolder;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 
 import javax.annotation.Nullable;
@@ -48,8 +49,6 @@ import java.util.Objects;
 
 public class DoubleAnyAggregatorFactory extends AggregatorFactory
 {
-  private static final Comparator<Double> VALUE_COMPARATOR = Comparator.nullsFirst(Double::compare);
-
   private static final Aggregator NIL_AGGREGATOR = new DoubleAnyAggregator(
       NilColumnValueSelector.instance()
   )
@@ -120,10 +119,10 @@ public class DoubleAnyAggregatorFactory extends AggregatorFactory
   public VectorAggregator factorizeVector(VectorColumnSelectorFactory selectorFactory)
   {
     ColumnCapabilities capabilities = selectorFactory.getColumnCapabilities(fieldName);
-    if (capabilities == null || capabilities.getType().isNumeric()) {
+    if (capabilities == null || capabilities.isNumeric()) {
       return new DoubleAnyVectorAggregator(selectorFactory.makeValueSelector(fieldName));
     } else {
-      return NumericNilVectorAggregator.doubleNilVectorAggregator();
+      return NilVectorAggregator.doubleNilVectorAggregator();
     }
   }
 
@@ -136,7 +135,7 @@ public class DoubleAnyAggregatorFactory extends AggregatorFactory
   @Override
   public Comparator getComparator()
   {
-    return VALUE_COMPARATOR;
+    return DoubleSumAggregator.COMPARATOR;
   }
 
   @Override
@@ -156,12 +155,6 @@ public class DoubleAnyAggregatorFactory extends AggregatorFactory
   public AggregatorFactory getCombiningFactory()
   {
     return new DoubleAnyAggregatorFactory(name, name);
-  }
-
-  @Override
-  public List<AggregatorFactory> getRequiredColumns()
-  {
-    return Collections.singletonList(new DoubleAnyAggregatorFactory(fieldName, fieldName));
   }
 
   @Override
@@ -209,21 +202,27 @@ public class DoubleAnyAggregatorFactory extends AggregatorFactory
   }
 
   @Override
-  public ValueType getType()
+  public ColumnType getIntermediateType()
   {
-    return storeDoubleAsFloat ? ValueType.FLOAT : ValueType.DOUBLE;
+    return storeDoubleAsFloat ? ColumnType.FLOAT : ColumnType.DOUBLE;
   }
 
   @Override
-  public ValueType getFinalizedType()
+  public ColumnType getResultType()
   {
-    return getType();
+    return getIntermediateType();
   }
 
   @Override
   public int getMaxIntermediateSize()
   {
     return Double.BYTES + Byte.BYTES;
+  }
+
+  @Override
+  public AggregatorFactory withName(String newName)
+  {
+    return new DoubleAnyAggregatorFactory(newName, getFieldName());
   }
 
   @Override

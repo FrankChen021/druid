@@ -1,5 +1,6 @@
 {
   "type": "%%STREAM_TYPE%%",
+  "id": "%%SUPERVISOR_ID%%",
   "dataSchema": {
     "dataSource": "%%DATASOURCE%%",
     "parser": %%PARSER%%,
@@ -66,7 +67,7 @@
     },
     "taskCount": 1,
     "replicas": 1,
-    "taskDuration": "PT30S",
+    "taskDuration": "PT120S",
     "%%USE_EARLIEST_KEY%%": true,
     "inputFormat" : %%INPUT_FORMAT%%
   }

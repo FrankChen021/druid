@@ -54,12 +54,6 @@ public class LookupSnapshotTaker
         "can not work without specifying persistDirectory"
     );
     this.persistDirectory = new File(persistDirectory);
-    if (!this.persistDirectory.exists()) {
-      Preconditions.checkArgument(this.persistDirectory.mkdirs(), "Oups was not able to create persist directory");
-    }
-    if (!this.persistDirectory.isDirectory()) {
-      throw new ISE("Can only persist to directories, [%s] wasn't a directory", persistDirectory);
-    }
   }
 
   public synchronized List<LookupBean> pullExistingSnapshot(final String tier)
@@ -75,7 +69,7 @@ public class LookupSnapshotTaker
         LOGGER.warn("found empty file no lookups to load from [%s]", persistFile.getAbsolutePath());
         return Collections.emptyList();
       }
-      lookupBeanList = objectMapper.readValue(persistFile, new TypeReference<List<LookupBean>>() {});
+      lookupBeanList = objectMapper.readValue(persistFile, new TypeReference<>() {});
       return lookupBeanList;
     }
     catch (IOException e) {

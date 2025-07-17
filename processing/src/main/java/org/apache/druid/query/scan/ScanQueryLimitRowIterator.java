@@ -26,10 +26,12 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Yielder;
 import org.apache.druid.java.util.common.guava.YieldingAccumulator;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
+import org.apache.druid.query.Order;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.segment.column.RowSignature;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -57,7 +59,7 @@ public class ScanQueryLimitRowIterator implements CloseableIterator<ScanResultVa
   private long count = 0;
   private ScanQuery query;
 
-  public ScanQueryLimitRowIterator(
+  ScanQueryLimitRowIterator(
       QueryRunner<ScanResultValue> baseRunner,
       QueryPlus<ScanResultValue> queryPlus,
       ResponseContext responseContext
@@ -71,12 +73,12 @@ public class ScanQueryLimitRowIterator implements CloseableIterator<ScanResultVa
     Sequence<ScanResultValue> baseSequence = baseRunner.run(QueryPlus.wrap(historicalQuery), responseContext);
     this.yielder = baseSequence.toYielder(
         null,
-        new YieldingAccumulator<ScanResultValue, ScanResultValue>()
+        new YieldingAccumulator<>()
         {
           @Override
           public ScanResultValue accumulate(ScanResultValue accumulated, ScanResultValue in)
           {
-            yield();
+            this.yield();
             return in;
           }
         }
@@ -98,8 +100,8 @@ public class ScanQueryLimitRowIterator implements CloseableIterator<ScanResultVa
 
     // We want to perform multi-event ScanResultValue limiting if we are not time-ordering or are at the
     // inner-level if we are time-ordering
-    if (query.getOrder() == ScanQuery.Order.NONE ||
-        !query.getContextBoolean(ScanQuery.CTX_KEY_OUTERMOST, true)) {
+    if (query.getTimeOrder() == Order.NONE ||
+        !query.context().getBoolean(ScanQuery.CTX_KEY_OUTERMOST, true)) {
       ScanResultValue batch = yielder.get();
       List events = (List) batch.getEvents();
       if (events.size() <= limit - count) {
@@ -111,7 +113,12 @@ public class ScanQueryLimitRowIterator implements CloseableIterator<ScanResultVa
         // single batch length is <= Integer.MAX_VALUE, so this should not overflow
         int numLeft = (int) (limit - count);
         count = limit;
-        return new ScanResultValue(batch.getSegmentId(), batch.getColumns(), events.subList(0, numLeft));
+        return new ScanResultValue(
+            batch.getSegmentId(),
+            batch.getColumns(),
+            events.subList(0, numLeft),
+            batch.getRowSignature()
+        );
       }
     } else {
       // Perform single-event ScanResultValue batching at the outer level.  Each scan result value from the yielder
@@ -119,15 +126,17 @@ public class ScanQueryLimitRowIterator implements CloseableIterator<ScanResultVa
       int batchSize = query.getBatchSize();
       List<Object> eventsToAdd = new ArrayList<>(batchSize);
       List<String> columns = new ArrayList<>();
+      RowSignature rowSignature = null;
       while (eventsToAdd.size() < batchSize && !yielder.isDone() && count < limit) {
         ScanResultValue srv = yielder.get();
         // Only replace once using the columns from the first event
         columns = columns.isEmpty() ? srv.getColumns() : columns;
+        rowSignature = rowSignature == null ? srv.getRowSignature() : rowSignature;
         eventsToAdd.add(Iterables.getOnlyElement((List<Object>) srv.getEvents()));
         yielder = yielder.next(null);
         count++;
       }
-      return new ScanResultValue(null, columns, eventsToAdd);
+      return new ScanResultValue(null, columns, eventsToAdd, rowSignature);
     }
   }
 

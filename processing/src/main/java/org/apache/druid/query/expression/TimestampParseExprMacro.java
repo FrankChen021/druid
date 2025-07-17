@@ -20,12 +20,10 @@
 package org.apache.druid.query.expression;
 
 import org.apache.druid.java.util.common.DateTimes;
-import org.apache.druid.java.util.common.IAE;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.math.expr.ExprMacroTable;
-import org.apache.druid.math.expr.ExprType;
+import org.apache.druid.math.expr.ExpressionType;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -50,9 +48,7 @@ public class TimestampParseExprMacro implements ExprMacroTable.ExprMacro
   @Override
   public Expr apply(final List<Expr> args)
   {
-    if (args.size() < 1 || args.size() > 3) {
-      throw new IAE("Function[%s] must have 1 to 3 arguments", name());
-    }
+    validationHelperCheckArgumentRange(args, 1, 3);
 
     final Expr arg = args.get(0);
     final String formatString = args.size() > 1 ? (String) args.get(1).getLiteralValue() : null;
@@ -69,11 +65,11 @@ public class TimestampParseExprMacro implements ExprMacroTable.ExprMacro
         ? createDefaultParser(timeZone)
         : DateTimes.wrapFormatter(DateTimeFormat.forPattern(formatString).withZone(timeZone));
 
-    class TimestampParseExpr extends ExprMacroTable.BaseScalarUnivariateMacroFunctionExpr
+    class TimestampParseExpr extends ExprMacroTable.BaseScalarMacroFunctionExpr
     {
-      private TimestampParseExpr(Expr arg)
+      private TimestampParseExpr(List<Expr> args)
       {
-        super(FN_NAME, arg);
+        super(TimestampParseExprMacro.this, args);
       }
 
       @Nonnull
@@ -95,40 +91,15 @@ public class TimestampParseExprMacro implements ExprMacroTable.ExprMacro
         }
       }
 
-      @Override
-      public Expr visit(Shuttle shuttle)
-      {
-        Expr newArg = arg.visit(shuttle);
-        return shuttle.visit(new TimestampParseExpr(newArg));
-      }
-
       @Nullable
       @Override
-      public ExprType getOutputType(InputBindingInspector inspector)
+      public ExpressionType getOutputType(InputBindingInspector inspector)
       {
-        return ExprType.LONG;
-      }
-
-      @Override
-      public String stringify()
-      {
-        if (args.size() > 2) {
-          return StringUtils.format(
-              "%s(%s, %s, %s)",
-              FN_NAME,
-              arg.stringify(),
-              args.get(1).stringify(),
-              args.get(2).stringify()
-          );
-        }
-        if (args.size() > 1) {
-          return StringUtils.format("%s(%s, %s)", FN_NAME, arg.stringify(), args.get(1).stringify());
-        }
-        return super.stringify();
+        return ExpressionType.LONG;
       }
     }
 
-    return new TimestampParseExpr(arg);
+    return new TimestampParseExpr(args);
   }
 
   /**

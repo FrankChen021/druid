@@ -19,16 +19,15 @@
 
 package org.apache.druid.server.coordinator.duty;
 
-import org.apache.druid.java.util.emitter.service.ServiceEmitter;
-import org.apache.druid.java.util.emitter.service.ServiceEventBuilder;
 import org.apache.druid.metadata.MetadataRuleManager;
 import org.apache.druid.server.coordinator.DruidCoordinatorRuntimeParams;
-import org.apache.druid.server.coordinator.TestDruidCoordinatorConfig;
+import org.apache.druid.server.coordinator.config.MetadataCleanupConfig;
+import org.apache.druid.server.coordinator.stats.CoordinatorRunStats;
+import org.apache.druid.server.coordinator.stats.Stats;
 import org.joda.time.Duration;
+import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
@@ -44,131 +43,34 @@ public class KillRulesTest
   @Mock
   private DruidCoordinatorRuntimeParams mockDruidCoordinatorRuntimeParams;
 
-  @Mock
-  private ServiceEmitter mockServiceEmitter;
-
-  @Rule
-  public ExpectedException exception = ExpectedException.none();
-
   private KillRules killRules;
+  private CoordinatorRunStats runStats;
 
   @Before
   public void setup()
   {
-    Mockito.when(mockDruidCoordinatorRuntimeParams.getDatabaseRuleManager()).thenReturn(mockRuleManager);
+    runStats = new CoordinatorRunStats();
+    Mockito.when(mockDruidCoordinatorRuntimeParams.getCoordinatorStats()).thenReturn(runStats);
   }
 
   @Test
   public void testRunSkipIfLastRunLessThanPeriod()
   {
-    TestDruidCoordinatorConfig druidCoordinatorConfig = new TestDruidCoordinatorConfig(
-        null,
-        null,
-        null,
-        new Duration("PT5S"),
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        new Duration(Long.MAX_VALUE),
-        new Duration("PT1S"),
-        null,
-        null,
-        10,
-        null
-    );
-    killRules = new KillRules(druidCoordinatorConfig);
+    final MetadataCleanupConfig config
+        = new MetadataCleanupConfig(true, new Duration(Long.MAX_VALUE), new Duration("PT1S"));
+    killRules = new KillRules(config, mockRuleManager);
     killRules.run(mockDruidCoordinatorRuntimeParams);
-    Mockito.verifyZeroInteractions(mockRuleManager);
+    Mockito.verifyNoInteractions(mockRuleManager);
   }
 
   @Test
   public void testRunNotSkipIfLastRunMoreThanPeriod()
   {
-    Mockito.when(mockDruidCoordinatorRuntimeParams.getEmitter()).thenReturn(mockServiceEmitter);
-    TestDruidCoordinatorConfig druidCoordinatorConfig = new TestDruidCoordinatorConfig(
-        null,
-        null,
-        null,
-        new Duration("PT5S"),
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        new Duration("PT6S"),
-        new Duration("PT1S"),
-        null,
-        null,
-        10,
-        null
-    );
-    killRules = new KillRules(druidCoordinatorConfig);
+    final MetadataCleanupConfig config
+        = new MetadataCleanupConfig(true, new Duration("PT6S"), new Duration("PT1S"));
+    killRules = new KillRules(config, mockRuleManager);
     killRules.run(mockDruidCoordinatorRuntimeParams);
     Mockito.verify(mockRuleManager).removeRulesForEmptyDatasourcesOlderThan(ArgumentMatchers.anyLong());
-    Mockito.verify(mockServiceEmitter).emit(ArgumentMatchers.any(ServiceEventBuilder.class));
-  }
-
-  @Test
-  public void testConstructorFailIfInvalidPeriod()
-  {
-    TestDruidCoordinatorConfig druidCoordinatorConfig = new TestDruidCoordinatorConfig(
-        null,
-        null,
-        null,
-        new Duration("PT5S"),
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        new Duration("PT3S"),
-        new Duration("PT1S"),
-        null,
-        null,
-        10,
-        null
-    );
-    exception.expect(IllegalArgumentException.class);
-    exception.expectMessage("coordinator rule kill period must be >= druid.coordinator.period.metadataStoreManagementPeriod");
-    killRules = new KillRules(druidCoordinatorConfig);
-  }
-
-  @Test
-  public void testConstructorFailIfInvalidRetainDuration()
-  {
-    TestDruidCoordinatorConfig druidCoordinatorConfig = new TestDruidCoordinatorConfig(
-        null,
-        null,
-        null,
-        new Duration("PT5S"),
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        new Duration("PT6S"),
-        new Duration("PT-1S"),
-        null,
-        null,
-        10,
-        null
-    );
-    exception.expect(IllegalArgumentException.class);
-    exception.expectMessage("coordinator rule kill retainDuration must be >= 0");
-    killRules = new KillRules(druidCoordinatorConfig);
+    Assert.assertTrue(runStats.hasStat(Stats.Kill.RULES));
   }
 }

@@ -19,7 +19,6 @@
 
 package org.apache.druid.query.expression;
 
-import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprMacroTable;
 
@@ -36,7 +35,7 @@ import java.util.List;
  * - {@code contains_string("foobar", "car") - 0 }
  * - {@code contains_string("foobar", "Bar") - 0 }
  * <p>
- * See {@link CaseInsensitiveContainsExprMacro} for the case-insensitive version.
+ * @see CaseInsensitiveContainsExprMacro for the case-insensitive version.
  */
 public class ContainsExprMacro implements ExprMacroTable.ExprMacro
 {
@@ -51,12 +50,10 @@ public class ContainsExprMacro implements ExprMacroTable.ExprMacro
   @Override
   public Expr apply(final List<Expr> args)
   {
-    if (args.size() != 2) {
-      throw new IAE("Function[%s] must have 2 arguments", name());
-    }
+    validationHelperCheckArgumentCount(args, 2);
 
     final Expr arg = args.get(0);
     final Expr searchStr = args.get(1);
-    return new ContainsExpr(FN_NAME, arg, searchStr, true);
+    return new ContainsExpr(this, arg, searchStr, true);
   }
 }

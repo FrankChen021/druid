@@ -28,13 +28,15 @@ import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
+import org.apache.druid.query.timeseries.DefaultTimeseriesQueryMetrics;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.query.timeseries.TimeseriesQueryEngine;
 import org.apache.druid.query.timeseries.TimeseriesResultValue;
+import org.apache.druid.segment.IncrementalIndexTimeBoundaryInspector;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.incremental.IncrementalIndex;
+import org.apache.druid.segment.incremental.IncrementalIndexCursorFactory;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
-import org.apache.druid.segment.incremental.IncrementalIndexStorageAdapter;
 import org.apache.druid.segment.incremental.OnheapIncrementalIndex;
 import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.joda.time.DateTime;
@@ -47,7 +49,7 @@ public class DistinctCountTimeseriesQueryTest extends InitializedNullHandlingTes
 {
 
   @Test
-  public void testTopNWithDistinctCountAgg() throws Exception
+  public void testTimeseriesWithDistinctCountAgg() throws Exception
   {
     TimeseriesQueryEngine engine = new TimeseriesQueryEngine();
 
@@ -100,7 +102,12 @@ public class DistinctCountTimeseriesQueryTest extends InitializedNullHandlingTes
                                   .build();
 
     final Iterable<Result<TimeseriesResultValue>> results =
-        engine.process(query, new IncrementalIndexStorageAdapter(index)).toList();
+        engine.process(
+            query,
+            new IncrementalIndexCursorFactory(index),
+            new IncrementalIndexTimeBoundaryInspector(index),
+            new DefaultTimeseriesQueryMetrics()
+        ).toList();
 
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(

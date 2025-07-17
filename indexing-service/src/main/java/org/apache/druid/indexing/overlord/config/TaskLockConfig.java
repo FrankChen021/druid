@@ -30,8 +30,40 @@ public class TaskLockConfig
   @JsonProperty
   private boolean forceTimeChunkLock = true;
 
+  @JsonProperty
+  private boolean batchSegmentAllocation = true;
+
+  @JsonProperty
+  private long batchAllocationWaitTime = 0L;
+
+  @JsonProperty
+  private boolean batchAllocationReduceMetadataIO = true;
+
+  @JsonProperty
+  private int batchAllocationNumThreads = 5;
+
   public boolean isForceTimeChunkLock()
   {
     return forceTimeChunkLock;
+  }
+
+  public boolean isBatchSegmentAllocation()
+  {
+    return batchSegmentAllocation;
+  }
+
+  public long getBatchAllocationWaitTime()
+  {
+    return batchAllocationWaitTime;
+  }
+
+  public boolean isBatchAllocationReduceMetadataIO()
+  {
+    return batchAllocationReduceMetadataIO;
+  }
+
+  public int getBatchAllocationNumThreads()
+  {
+    return Math.max(1, batchAllocationNumThreads);
   }
 }

@@ -19,9 +19,10 @@
 
 package org.apache.druid.indexing.overlord.http;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import org.apache.druid.indexing.overlord.TaskMaster;
+import org.apache.druid.indexing.overlord.DruidOverlord;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.server.http.RedirectInfo;
 
@@ -37,31 +38,30 @@ public class OverlordRedirectInfo implements RedirectInfo
       "/druid/indexer/v1/isLeader"
   );
 
-  private final TaskMaster taskMaster;
+  private final DruidOverlord overlord;
 
   @Inject
-  public OverlordRedirectInfo(TaskMaster taskMaster)
+  public OverlordRedirectInfo(DruidOverlord overlord)
   {
-    this.taskMaster = taskMaster;
+    this.overlord = overlord;
   }
 
   @Override
   public boolean doLocal(String requestURI)
   {
-    return (requestURI != null && LOCAL_PATHS.contains(requestURI)) || taskMaster.isLeader();
+    return (requestURI != null && LOCAL_PATHS.contains(requestURI)) || overlord.isLeader();
   }
 
   @Override
   public URL getRedirectURL(String queryString, String requestURI)
   {
     try {
-      final String leader = taskMaster.getCurrentLeader();
-      if (leader == null || leader.isEmpty()) {
+      final Optional<String> redirectLocation = overlord.getRedirectLocation();
+      if (!redirectLocation.isPresent()) {
         return null;
       }
 
-      String location = StringUtils.format("%s%s", leader, requestURI);
-
+      String location = StringUtils.format("%s%s", redirectLocation.get(), requestURI);
       if (queryString != null) {
         location = StringUtils.format("%s?%s", location, queryString);
       }

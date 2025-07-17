@@ -185,6 +185,7 @@ public class LimitedBufferHashGrouper<KeyType> extends AbstractBufferHashGrouper
     hashTable.reset();
     keySerde.reset();
     offsetHeap.reset();
+    aggregators.reset();
     heapIndexUpdater.setHashTableBuffer(hashTable.getTableBuffer());
     hasIterated = false;
     offsetHeapIterableSize = 0;
@@ -248,7 +249,7 @@ public class LimitedBufferHashGrouper<KeyType> extends AbstractBufferHashGrouper
     final int size = offsetHeap.getHeapSize();
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
-    final List<Integer> wrappedOffsets = new AbstractList<Integer>()
+    final List<Integer> wrappedOffsets = new AbstractList<>()
     {
       @Override
       public Integer get(int index)
@@ -276,7 +277,7 @@ public class LimitedBufferHashGrouper<KeyType> extends AbstractBufferHashGrouper
     // Sort offsets in-place.
     Collections.sort(
         wrappedOffsets,
-        new Comparator<Integer>()
+        new Comparator<>()
         {
           @Override
           public int compare(Integer lhs, Integer rhs)
@@ -292,8 +293,9 @@ public class LimitedBufferHashGrouper<KeyType> extends AbstractBufferHashGrouper
         }
     );
 
-    return new CloseableIterator<Entry<KeyType>>()
+    return new CloseableIterator<>()
     {
+      final ReusableEntry<KeyType> reusableEntry = ReusableEntry.create(keySerde, aggregators.size());
       int curr = 0;
 
       @Override
@@ -305,7 +307,7 @@ public class LimitedBufferHashGrouper<KeyType> extends AbstractBufferHashGrouper
       @Override
       public Grouper.Entry<KeyType> next()
       {
-        return bucketEntryForOffset(wrappedOffsets.get(curr++));
+        return populateBucketEntryForOffset(reusableEntry, wrappedOffsets.get(curr++));
       }
 
       @Override
@@ -330,8 +332,9 @@ public class LimitedBufferHashGrouper<KeyType> extends AbstractBufferHashGrouper
     if (!hasIterated) {
       hasIterated = true;
       offsetHeapIterableSize = initialHeapSize;
-      return new CloseableIterator<Entry<KeyType>>()
+      return new CloseableIterator<>()
       {
+        final ReusableEntry<KeyType> reusableEntry = ReusableEntry.create(keySerde, aggregators.size());
         int curr = 0;
 
         @Override
@@ -347,7 +350,7 @@ public class LimitedBufferHashGrouper<KeyType> extends AbstractBufferHashGrouper
             throw new NoSuchElementException();
           }
           final int offset = offsetHeap.removeMin();
-          final Grouper.Entry<KeyType> entry = bucketEntryForOffset(offset);
+          final Grouper.Entry<KeyType> entry = populateBucketEntryForOffset(reusableEntry, offset);
           curr++;
           // write out offset to end of heap, which is no longer used after removing min
           offsetHeap.setAt(initialHeapSize - curr, offset);
@@ -369,8 +372,9 @@ public class LimitedBufferHashGrouper<KeyType> extends AbstractBufferHashGrouper
       };
     } else {
       // subsequent iterations just walk the buffer backwards
-      return new CloseableIterator<Entry<KeyType>>()
+      return new CloseableIterator<>()
       {
+        final ReusableEntry<KeyType> reusableEntry = ReusableEntry.create(keySerde, aggregators.size());
         int curr = offsetHeapIterableSize - 1;
 
         @Override
@@ -386,7 +390,7 @@ public class LimitedBufferHashGrouper<KeyType> extends AbstractBufferHashGrouper
             throw new NoSuchElementException();
           }
           final int offset = offsetHeap.getAt(curr);
-          final Grouper.Entry<KeyType> entry = bucketEntryForOffset(offset);
+          final Grouper.Entry<KeyType> entry = populateBucketEntryForOffset(reusableEntry, offset);
           curr--;
 
           return entry;
@@ -416,7 +420,7 @@ public class LimitedBufferHashGrouper<KeyType> extends AbstractBufferHashGrouper
 
   private Comparator<Integer> makeHeapComparator()
   {
-    return new Comparator<Integer>()
+    return new Comparator<>()
     {
       final BufferComparator bufferComparator = keySerde.bufferComparatorWithAggregators(
           aggregators.factories().toArray(new AggregatorFactory[0]),

@@ -20,20 +20,41 @@
 package org.apache.druid.segment.data;
 
 import org.apache.druid.collections.ResourceHolder;
+import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.segment.CompressedPools;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DecompressingByteBufferObjectStrategy implements ObjectStrategy<ResourceHolder<ByteBuffer>>
 {
+  /**
+   * Cache strategies in a static, because there are not very many distinct ones -- there are only so many combinations
+   * of byte order and decompressor that we can possibly have -- and we need one of these per GenericIndexed, which
+   * is a class that we tend to have tons of in heap.
+   */
+  private static final ConcurrentHashMap<Pair<ByteOrder, CompressionStrategy>, DecompressingByteBufferObjectStrategy> STRATEGIES =
+      new ConcurrentHashMap<>();
+
   private final ByteOrder order;
   private final CompressionStrategy.Decompressor decompressor;
 
-  DecompressingByteBufferObjectStrategy(ByteOrder order, CompressionStrategy compression)
+  private DecompressingByteBufferObjectStrategy(ByteOrder order, CompressionStrategy compression)
   {
     this.order = order;
     this.decompressor = compression.getDecompressor();
+  }
+
+  public static DecompressingByteBufferObjectStrategy of(
+      final ByteOrder order,
+      final CompressionStrategy compression
+  )
+  {
+    return STRATEGIES.computeIfAbsent(
+        Pair.of(order, compression),
+        pair -> new DecompressingByteBufferObjectStrategy(pair.lhs, pair.rhs)
+    );
   }
 
   @Override
@@ -54,7 +75,7 @@ public class DecompressingByteBufferObjectStrategy implements ObjectStrategy<Res
     // Needed, because if e. g. if this compressed buffer contains 3-byte integers, it should be possible to getInt()
     // from the buffer, including padding. See CompressedVSizeColumnarIntsSupplier.bufferPadding().
     buf.limit(buf.capacity());
-    return new ResourceHolder<ByteBuffer>()
+    return new ResourceHolder<>()
     {
       @Override
       public ByteBuffer get()
@@ -68,6 +89,12 @@ public class DecompressingByteBufferObjectStrategy implements ObjectStrategy<Res
         bufHolder.close();
       }
     };
+  }
+
+  @Override
+  public boolean canCompare()
+  {
+    return false;
   }
 
   @Override

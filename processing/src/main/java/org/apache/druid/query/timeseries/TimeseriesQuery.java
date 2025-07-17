@@ -20,10 +20,13 @@
 package org.apache.druid.query.timeseries;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.DataSource;
@@ -35,8 +38,12 @@ import org.apache.druid.query.Result;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.query.groupby.orderby.DefaultLimitSpec.LimitJsonIncludeFilter;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.segment.VirtualColumns;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.segment.column.RowSignature.Finalization;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -63,6 +70,7 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
   private final DimFilter dimFilter;
   private final List<AggregatorFactory> aggregatorSpecs;
   private final List<PostAggregator> postAggregatorSpecs;
+  private final boolean descending;
   private final int limit;
 
   @JsonCreator
@@ -79,7 +87,7 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
       @JsonProperty("context") Map<String, Object> context
   )
   {
-    super(dataSource, querySegmentSpec, descending, context, granularity);
+    super(dataSource, querySegmentSpec, context, granularity);
 
     // The below should be executed after context is initialized.
     final String timestampField = getTimestampResultField();
@@ -92,6 +100,7 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
         this.aggregatorSpecs,
         postAggregatorSpecs == null ? ImmutableList.of() : postAggregatorSpecs
     );
+    this.descending = descending;
     this.limit = (limit == 0) ? Integer.MAX_VALUE : limit;
     Preconditions.checkArgument(this.limit > 0, "limit must be greater than 0");
   }
@@ -116,48 +125,75 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
 
   @JsonProperty
   @Override
+  @JsonInclude(value = JsonInclude.Include.CUSTOM, valueFilter = VirtualColumns.JsonIncludeFilter.class)
   public VirtualColumns getVirtualColumns()
   {
     return virtualColumns;
   }
 
   @JsonProperty("filter")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public DimFilter getDimensionsFilter()
   {
     return dimFilter;
   }
 
   @JsonProperty("aggregations")
+  @JsonInclude(JsonInclude.Include.NON_EMPTY)
   public List<AggregatorFactory> getAggregatorSpecs()
   {
     return aggregatorSpecs;
   }
 
   @JsonProperty("postAggregations")
+  @JsonInclude(JsonInclude.Include.NON_EMPTY)
   public List<PostAggregator> getPostAggregatorSpecs()
   {
     return postAggregatorSpecs;
   }
 
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+  public boolean isDescending()
+  {
+    return descending;
+  }
+
   @JsonProperty("limit")
+  @JsonInclude(value = JsonInclude.Include.CUSTOM, valueFilter = LimitJsonIncludeFilter.class)
   public int getLimit()
   {
     return limit;
   }
 
+
   public boolean isGrandTotal()
   {
-    return getContextBoolean(CTX_GRAND_TOTAL, false);
+    return context().getBoolean(CTX_GRAND_TOTAL, false);
   }
 
   public String getTimestampResultField()
   {
-    return getContextValue(CTX_TIMESTAMP_RESULT_FIELD);
+    return context().getString(CTX_TIMESTAMP_RESULT_FIELD);
   }
 
   public boolean isSkipEmptyBuckets()
   {
-    return getContextBoolean(SKIP_EMPTY_BUCKETS, false);
+    return context().getBoolean(SKIP_EMPTY_BUCKETS, false);
+  }
+
+  @Override
+  public RowSignature getResultRowSignature(Finalization finalization)
+  {
+    final RowSignature.Builder builder = RowSignature.builder();
+    builder.addTimeColumn();
+    String timestampResultField = getTimestampResultField();
+    if (StringUtils.isNotEmpty(timestampResultField)) {
+      builder.add(timestampResultField, ColumnType.LONG);
+    }
+    builder.addAggregators(aggregatorSpecs, finalization);
+    builder.addPostAggregators(postAggregatorSpecs);
+    return builder.build();
   }
 
   @Nullable
@@ -168,9 +204,15 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
         virtualColumns,
         dimFilter,
         Collections.emptyList(),
-        aggregatorSpecs,
-        Collections.emptyList()
+        aggregatorSpecs
     );
+  }
+
+  @Override
+  public Ordering<Result<TimeseriesResultValue>> getResultOrdering()
+  {
+    Ordering<Result<TimeseriesResultValue>> retVal = Ordering.natural();
+    return descending ? retVal.reverse() : retVal;
   }
 
   @Override
@@ -201,6 +243,11 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
   public TimeseriesQuery withDimFilter(DimFilter dimFilter)
   {
     return Druids.TimeseriesQueryBuilder.copy(this).filters(dimFilter).build();
+  }
+
+  public TimeseriesQuery withAggregatorSpecs(List<AggregatorFactory> aggregatorSpecs)
+  {
+    return Druids.TimeseriesQueryBuilder.copy(this).aggregators(aggregatorSpecs).build();
   }
 
   public TimeseriesQuery withPostAggregatorSpecs(final List<PostAggregator> postAggregatorSpecs)

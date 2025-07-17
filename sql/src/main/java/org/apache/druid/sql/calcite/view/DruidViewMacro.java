@@ -28,41 +28,47 @@ import org.apache.calcite.schema.FunctionParameter;
 import org.apache.calcite.schema.TableMacro;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.schema.impl.ViewTable;
-import org.apache.druid.server.security.Escalator;
+import org.apache.druid.sql.calcite.parser.DruidSqlParser;
 import org.apache.druid.sql.calcite.planner.DruidPlanner;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
 import org.apache.druid.sql.calcite.schema.DruidSchemaName;
 
+import java.util.Collections;
 import java.util.List;
 
 public class DruidViewMacro implements TableMacro
 {
   private final PlannerFactory plannerFactory;
-  private final Escalator escalator;
   private final String viewSql;
   private final String druidSchemaName;
 
   @Inject
   public DruidViewMacro(
       @Assisted final PlannerFactory plannerFactory,
-      @Assisted final Escalator escalator,
       @Assisted final String viewSql,
       @DruidSchemaName String druidSchemaName
   )
   {
     this.plannerFactory = plannerFactory;
-    this.escalator = escalator;
     this.viewSql = viewSql;
     this.druidSchemaName = druidSchemaName;
   }
 
   @Override
-  public TranslatableTable apply(final List<Object> arguments)
+  public TranslatableTable apply(final List<?> arguments)
   {
     final RelDataType rowType;
-    try (final DruidPlanner planner = plannerFactory.createPlanner(null)) {
-
-      rowType = planner.plan(viewSql).rowType();
+    try (final DruidPlanner planner =
+             plannerFactory.createPlanner(
+                 ViewSqlEngine.INSTANCE,
+                 viewSql,
+                 DruidSqlParser.parse(viewSql, false).getMainStatement(), // views cannot embed SET
+                 Collections.emptyMap(),
+                 null
+             )
+    ) {
+      planner.validate();
+      rowType = planner.prepare().getValidatedRowType();
     }
     catch (Exception e) {
       throw new RuntimeException(e);

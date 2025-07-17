@@ -19,32 +19,27 @@
 
 package org.apache.druid.query.expression;
 
-import com.google.common.collect.ImmutableList;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import org.apache.druid.guice.DruidGuiceExtensions;
+import org.apache.druid.guice.ExpressionModule;
+import org.apache.druid.guice.annotations.Json;
+import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.math.expr.ExprMacroTable;
 
-public class TestExprMacroTable extends ExprMacroTable
+public class TestExprMacroTable
 {
-  public static final ExprMacroTable INSTANCE = new TestExprMacroTable();
+  public static final ExprMacroTable INSTANCE;
 
-  private TestExprMacroTable()
-  {
-    super(
-        ImmutableList.of(
-            new IPv4AddressMatchExprMacro(),
-            new IPv4AddressParseExprMacro(),
-            new IPv4AddressStringifyExprMacro(),
-            new LikeExprMacro(),
-            new RegexpExtractExprMacro(),
-            new TimestampCeilExprMacro(),
-            new TimestampExtractExprMacro(),
-            new TimestampFloorExprMacro(),
-            new TimestampFormatExprMacro(),
-            new TimestampParseExprMacro(),
-            new TimestampShiftExprMacro(),
-            new TrimExprMacro.BothTrimExprMacro(),
-            new TrimExprMacro.LeftTrimExprMacro(),
-            new TrimExprMacro.RightTrimExprMacro()
-        )
+  static {
+    final Injector injector = Guice.createInjector(
+        new DruidGuiceExtensions(),
+        binder -> binder.bind(Key.get(ObjectMapper.class, Json.class)).toInstance(new DefaultObjectMapper()),
+        new ExpressionModule()
     );
+
+    INSTANCE = injector.getInstance(ExprMacroTable.class);
   }
 }

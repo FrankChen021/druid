@@ -24,12 +24,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.data.input.impl.JsonInputFormat;
 import org.apache.druid.data.input.impl.LocalInputSource;
+import org.apache.druid.indexer.granularity.UniformGranularitySpec;
 import org.apache.druid.indexer.partitions.HashedPartitionsSpec;
+import org.apache.druid.indexing.common.task.TuningConfigBuilder;
 import org.apache.druid.indexing.common.task.batch.partition.HashPartitionAnalysis;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.segment.TestHelper;
-import org.apache.druid.segment.indexing.granularity.UniformGranularitySpec;
+import org.apache.druid.server.security.Action;
+import org.apache.druid.server.security.Resource;
+import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.server.security.ResourceType;
 import org.hamcrest.Matchers;
 import org.joda.time.Interval;
 import org.junit.Assert;
@@ -39,6 +44,7 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -47,8 +53,11 @@ public class PartialHashSegmentGenerateTaskTest
   private static final ObjectMapper OBJECT_MAPPER = ParallelIndexTestingFactory.createObjectMapper();
   private static final ParallelIndexIngestionSpec INGESTION_SPEC = ParallelIndexTestingFactory.createIngestionSpec(
       new LocalInputSource(new File("baseDir"), "filer"),
-      new JsonInputFormat(null, null, null),
-      new ParallelIndexTestingFactory.TuningConfigBuilder().build(),
+      new JsonInputFormat(null, null, null, null, null),
+      TuningConfigBuilder.forParallelIndexTask()
+                         .withForceGuaranteedRollup(true)
+                         .withPartitionsSpec(new HashedPartitionsSpec(null, 2, null))
+                         .build(),
       ParallelIndexTestingFactory.createDataSchema(ParallelIndexTestingFactory.INPUT_INTERVALS)
   );
 
@@ -84,6 +93,19 @@ public class PartialHashSegmentGenerateTaskTest
   {
     String id = target.getId();
     Assert.assertThat(id, Matchers.startsWith(PartialHashSegmentGenerateTask.TYPE));
+  }
+
+  @Test
+  public void hasCorrectInputSourceResources()
+  {
+    Assert.assertEquals(
+        Collections.singleton(
+            new ResourceAction(new Resource(
+                LocalInputSource.TYPE_KEY,
+                ResourceType.EXTERNAL
+            ), Action.READ)),
+        target.getInputSourceResources()
+    );
   }
 
   @Test
@@ -161,8 +183,11 @@ public class PartialHashSegmentGenerateTaskTest
         ParallelIndexTestingFactory.NUM_ATTEMPTS,
         ParallelIndexTestingFactory.createIngestionSpec(
             new LocalInputSource(new File("baseDir"), "filer"),
-            new JsonInputFormat(null, null, null),
-            new ParallelIndexTestingFactory.TuningConfigBuilder().build(),
+            new JsonInputFormat(null, null, null, null, null),
+            TuningConfigBuilder.forParallelIndexTask()
+                               .withForceGuaranteedRollup(true)
+                               .withPartitionsSpec(new HashedPartitionsSpec(null, 2, null))
+                               .build(),
             ParallelIndexTestingFactory.createDataSchema(null)
         ),
         ParallelIndexTestingFactory.CONTEXT,

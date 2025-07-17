@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import org.apache.druid.data.input.InputFormat;
+import org.apache.druid.error.InvalidInput;
 import org.apache.druid.indexing.seekablestream.supervisor.autoscaler.AutoScalerConfig;
 import org.apache.druid.java.util.common.IAE;
 import org.joda.time.DateTime;
@@ -48,6 +49,10 @@ public abstract class SeekableStreamSupervisorIOConfig
   private final Optional<Duration> earlyMessageRejectionPeriod;
   private final Optional<DateTime> lateMessageRejectionStartDateTime;
   @Nullable private final AutoScalerConfig autoScalerConfig;
+  @Nullable private final IdleConfig idleConfig;
+  @Nullable private final Integer stopTaskCount;
+
+  private final LagAggregator lagAggregator;
 
   public SeekableStreamSupervisorIOConfig(
       String stream,
@@ -62,20 +67,33 @@ public abstract class SeekableStreamSupervisorIOConfig
       Period lateMessageRejectionPeriod,
       Period earlyMessageRejectionPeriod,
       @Nullable AutoScalerConfig autoScalerConfig,
-      DateTime lateMessageRejectionStartDateTime
+      LagAggregator lagAggregator,
+      DateTime lateMessageRejectionStartDateTime,
+      @Nullable IdleConfig idleConfig,
+      @Nullable Integer stopTaskCount
   )
   {
     this.stream = Preconditions.checkNotNull(stream, "stream cannot be null");
     this.inputFormat = inputFormat;
     this.replicas = replicas != null ? replicas : 1;
+
+    InvalidInput.conditionalException(
+        lagAggregator != null,
+        "'lagAggregator' must be specified in supervisor 'spec.ioConfig'"
+    );
+    this.lagAggregator = lagAggregator;
     // Could be null
     this.autoScalerConfig = autoScalerConfig;
     // if autoscaler is enable then taskcount will be ignored here. and init taskcount will be equal to taskCountMin
     if (autoScalerConfig != null && autoScalerConfig.getEnableTaskAutoScaler()) {
-      this.taskCount = autoScalerConfig.getTaskCountMin();
+      final Integer startTaskCount = autoScalerConfig.getTaskCountStart();
+      this.taskCount = startTaskCount != null ? startTaskCount : autoScalerConfig.getTaskCountMin();
     } else {
       this.taskCount = taskCount != null ? taskCount : 1;
     }
+    Preconditions.checkArgument(stopTaskCount == null || stopTaskCount > 0,
+                                "stopTaskCount must be greater than 0");
+    this.stopTaskCount = stopTaskCount;
     this.taskDuration = defaultDuration(taskDuration, "PT1H");
     this.startDelay = defaultDuration(startDelay, "PT5S");
     this.period = defaultDuration(period, "PT30S");
@@ -97,6 +115,8 @@ public abstract class SeekableStreamSupervisorIOConfig
                 + "both properties lateMessageRejectionStartDateTime "
           + "and lateMessageRejectionPeriod.");
     }
+
+    this.idleConfig = idleConfig;
   }
 
   private static Duration defaultDuration(final Period period, final String theDefault)
@@ -125,9 +145,15 @@ public abstract class SeekableStreamSupervisorIOConfig
 
   @Nullable
   @JsonProperty
-  public AutoScalerConfig getAutoscalerConfig()
+  public AutoScalerConfig getAutoScalerConfig()
   {
     return autoScalerConfig;
+  }
+
+  @JsonProperty
+  public LagAggregator getLagAggregator()
+  {
+    return lagAggregator;
   }
 
   @JsonProperty
@@ -187,5 +213,24 @@ public abstract class SeekableStreamSupervisorIOConfig
   public Optional<DateTime> getLateMessageRejectionStartDateTime()
   {
     return lateMessageRejectionStartDateTime;
+  }
+
+  @Nullable
+  @JsonProperty
+  public IdleConfig getIdleConfig()
+  {
+    return idleConfig;
+  }
+
+  @Nullable
+  @JsonProperty
+  public Integer getStopTaskCount()
+  {
+    return stopTaskCount;
+  }
+
+  public int getMaxAllowedStops()
+  {
+    return stopTaskCount == null ? taskCount : stopTaskCount;
   }
 }

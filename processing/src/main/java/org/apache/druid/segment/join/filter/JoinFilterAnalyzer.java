@@ -26,11 +26,13 @@ import org.apache.druid.math.expr.Expr;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.segment.VirtualColumn;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.filter.FalseFilter;
 import org.apache.druid.segment.filter.Filters;
 import org.apache.druid.segment.filter.OrFilter;
 import org.apache.druid.segment.filter.SelectorFilter;
+import org.apache.druid.segment.filter.cnf.CNFFilterExplosionException;
+import org.apache.druid.segment.join.filter.rewrite.JoinFilterRewriteConfig;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 
 import javax.annotation.Nullable;
@@ -67,8 +69,8 @@ import java.util.Set;
  *
  * The result of this pre-analysis method should be passed into the next step of join filter analysis, described below.
  *
- * The {@link #splitFilter(JoinFilterPreAnalysis)} method takes the pre-analysis result and optionally applies the
- * filter rewrite and push down operations on a per-segment level.
+ * The {@link #splitFilter(JoinFilterPreAnalysis, Filter)} method takes the pre-analysis result and optionally applies
+ * the filter rewrite and push down operations on a per-segment level.
  */
 public class JoinFilterAnalyzer
 {
@@ -88,11 +90,10 @@ public class JoinFilterAnalyzer
    */
   public static JoinFilterPreAnalysis computeJoinFilterPreAnalysis(final JoinFilterPreAnalysisKey key)
   {
-    final List<VirtualColumn> preJoinVirtualColumns = new ArrayList<>();
-    final List<VirtualColumn> postJoinVirtualColumns = new ArrayList<>();
-
     final JoinableClauses joinableClauses = JoinableClauses.fromList(key.getJoinableClauses());
-    joinableClauses.splitVirtualColumns(key.getVirtualColumns(), preJoinVirtualColumns, postJoinVirtualColumns);
+    final Set<VirtualColumn> postJoinVirtualColumns = joinableClauses.getPostJoinVirtualColumns(
+        key.getVirtualColumns()
+    );
 
     final JoinFilterPreAnalysis.Builder preAnalysisBuilder =
         new JoinFilterPreAnalysis.Builder(key, postJoinVirtualColumns);
@@ -101,7 +102,26 @@ public class JoinFilterAnalyzer
       return preAnalysisBuilder.build();
     }
 
-    List<Filter> normalizedOrClauses = Filters.toNormalizedOrClauses(key.getFilter());
+    List<Filter> normalizedOrClauses;
+    try {
+      normalizedOrClauses = Filters.toNormalizedOrClauses(key.getFilter());
+    }
+    catch (CNFFilterExplosionException cnfFilterExplosionException) {
+      JoinFilterRewriteConfig configWithoutPushdownAndRewrite = new JoinFilterRewriteConfig(
+          false, // disable the filter pushdown and rewrite optimization
+          false,
+          key.getRewriteConfig().isEnableRewriteValueColumnFilters(),
+          key.getRewriteConfig().isEnableRewriteJoinToFilter(),
+          key.getRewriteConfig().getFilterRewriteMaxSize()
+      );
+      JoinFilterPreAnalysisKey keyWithoutPushdownAndRewrite = new JoinFilterPreAnalysisKey(
+          configWithoutPushdownAndRewrite,
+          key.getJoinableClauses(),
+          key.getVirtualColumns(),
+          key.getFilter()
+      );
+      return new JoinFilterPreAnalysis.Builder(keyWithoutPushdownAndRewrite, postJoinVirtualColumns).build();
+    }
 
     List<Filter> normalizedBaseTableClauses = new ArrayList<>();
     List<Filter> normalizedJoinTableClauses = new ArrayList<>();
@@ -136,13 +156,6 @@ public class JoinFilterAnalyzer
     );
 
     return preAnalysisBuilder.withCorrelations(correlations).build();
-  }
-
-  public static JoinFilterSplit splitFilter(
-      JoinFilterPreAnalysis joinFilterPreAnalysis
-  )
-  {
-    return splitFilter(joinFilterPreAnalysis, null);
   }
 
   /**
@@ -189,7 +202,8 @@ public class JoinFilterAnalyzer
       );
       if (joinFilterAnalysis.isCanPushDown()) {
         //noinspection OptionalGetWithoutIsPresent isCanPushDown checks isPresent
-        leftFilters.add(joinFilterAnalysis.getPushDownFilter().get());
+        final Filter pushDown = joinFilterAnalysis.getPushDownFilter().get();
+        leftFilters.add(pushDown);
       }
       if (joinFilterAnalysis.isRetainAfterJoin()) {
         rightFilters.add(joinFilterAnalysis.getOriginalFilter());
@@ -302,7 +316,7 @@ public class JoinFilterAnalyzer
                 return new ExpressionVirtualColumn(
                     vcName,
                     correlatedBaseExpr,
-                    ValueType.STRING
+                    ColumnType.STRING
                 );
               }
           );
@@ -431,7 +445,7 @@ public class JoinFilterAnalyzer
 
     for (JoinFilterColumnCorrelationAnalysis correlationAnalysis : correlationAnalyses) {
       if (correlationAnalysis.supportsPushDown()) {
-        Optional<Set<String>> correlatedValues = correlationAnalysis.getCorrelatedValuesMap().get(
+        Optional<InDimFilter.ValuesSet> correlatedValues = correlationAnalysis.getCorrelatedValuesMap().get(
             Pair.of(filteringColumn, filteringValue)
         );
 
@@ -439,7 +453,7 @@ public class JoinFilterAnalyzer
           return JoinFilterAnalysis.createNoPushdownFilterAnalysis(selectorFilter);
         }
 
-        Set<String> newFilterValues = correlatedValues.get();
+        InDimFilter.ValuesSet newFilterValues = correlatedValues.get();
         // in nothing => match nothing
         if (newFilterValues.isEmpty()) {
           return new JoinFilterAnalysis(
@@ -466,7 +480,7 @@ public class JoinFilterAnalyzer
                 return new ExpressionVirtualColumn(
                     vcName,
                     correlatedBaseExpr,
-                    ValueType.STRING
+                    ColumnType.STRING
                 );
               }
           );
@@ -498,7 +512,7 @@ public class JoinFilterAnalyzer
   }
 
   private static boolean isColumnFromPostJoinVirtualColumns(
-      List<VirtualColumn> postJoinVirtualColumns,
+      Set<VirtualColumn> postJoinVirtualColumns,
       String column
   )
   {
@@ -511,7 +525,7 @@ public class JoinFilterAnalyzer
   }
 
   private static boolean areSomeColumnsFromPostJoinVirtualColumns(
-      List<VirtualColumn> postJoinVirtualColumns,
+      Set<VirtualColumn> postJoinVirtualColumns,
       Collection<String> columns
   )
   {

@@ -20,7 +20,6 @@
 package org.apache.druid.query.groupby.epinephelinae;
 
 import com.google.common.primitives.Longs;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.dimension.DimensionSpec;
@@ -28,7 +27,8 @@ import org.apache.druid.query.groupby.orderby.DefaultLimitSpec;
 import org.apache.druid.query.groupby.orderby.OrderByColumnSpec;
 import org.apache.druid.query.ordering.StringComparator;
 import org.apache.druid.query.ordering.StringComparators;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.TypeStrategies;
 
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
@@ -148,7 +148,7 @@ public class GrouperBufferComparatorUtils
         int aggIndex = OrderByColumnSpec.getAggIndexForOrderBy(orderSpec, Arrays.asList(aggregatorFactories));
         if (aggIndex >= 0) {
           final StringComparator stringComparator = orderSpec.getDimensionComparator();
-          final ValueType valueType = aggregatorFactories[aggIndex].getType();
+          final ColumnType valueType = aggregatorFactories[aggIndex].getIntermediateType();
           // Aggregators start after dimensions
           final int aggOffset = keySize + aggregatorOffsets[aggIndex];
 
@@ -324,13 +324,13 @@ public class GrouperBufferComparatorUtils
   }
 
   private static Grouper.BufferComparator makeNumericBufferComparator(
-      ValueType valueType,
+      ColumnType valueType,
       int keyBufferPosition,
       boolean pushLimitDown,
       @Nullable StringComparator stringComparator
   )
   {
-    switch (valueType) {
+    switch (valueType.getType()) {
       case LONG:
         return makeBufferComparatorForLong(keyBufferPosition, pushLimitDown, stringComparator);
       case FLOAT:
@@ -409,8 +409,8 @@ public class GrouperBufferComparatorUtils
   )
   {
     return (lhsBuffer, rhsBuffer, lhsPosition, rhsPosition) -> {
-      boolean isLhsNull = (lhsBuffer.get(lhsPosition + keyBufferPosition) == NullHandling.IS_NULL_BYTE);
-      boolean isRhsNull = (rhsBuffer.get(rhsPosition + keyBufferPosition) == NullHandling.IS_NULL_BYTE);
+      boolean isLhsNull = (lhsBuffer.get(lhsPosition + keyBufferPosition) == TypeStrategies.IS_NULL_BYTE);
+      boolean isRhsNull = (rhsBuffer.get(rhsPosition + keyBufferPosition) == TypeStrategies.IS_NULL_BYTE);
       if (isLhsNull && isRhsNull) {
         // Both are null
         return 0;
@@ -434,6 +434,11 @@ public class GrouperBufferComparatorUtils
 
   private static boolean isPrimitiveComparable(boolean pushLimitDown, @Nullable StringComparator stringComparator)
   {
-    return !pushLimitDown || stringComparator == null || stringComparator.equals(StringComparators.NUMERIC);
+    return !pushLimitDown
+           || stringComparator == null
+           || stringComparator.equals(StringComparators.NUMERIC)
+           // NATURAL isn't set for numeric types, however if it is, then that would mean that we are ordering the
+           // numeric type with its natural comparator (which is NUMERIC)
+           || stringComparator.equals(StringComparators.NATURAL);
   }
 }

@@ -17,13 +17,12 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
-import { Capabilities } from '../../../utils';
+import { Capabilities } from '../../../helpers';
 
 import { ServicesCard } from './services-card';
 
-describe('services card', () => {
+describe('ServicesCard', () => {
   it('matches snapshot', () => {
     const servicesCard = <ServicesCard capabilities={Capabilities.FULL} />;
 

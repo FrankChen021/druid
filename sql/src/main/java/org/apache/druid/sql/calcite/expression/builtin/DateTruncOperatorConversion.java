@@ -27,14 +27,14 @@ import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.error.InvalidSqlInput;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.math.expr.Expr;
-import org.apache.druid.math.expr.Parser;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.expression.OperatorConversions;
 import org.apache.druid.sql.calcite.expression.SqlOperatorConversion;
+import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.joda.time.Period;
 
@@ -66,7 +66,8 @@ public class DateTruncOperatorConversion implements SqlOperatorConversion
   private static final SqlFunction SQL_FUNCTION = OperatorConversions
       .operatorBuilder("DATE_TRUNC")
       .operandTypes(SqlTypeFamily.CHARACTER, SqlTypeFamily.TIMESTAMP)
-      .requiredOperands(2)
+      .requiredOperandCount(2)
+      .literalOperands(0)
       .returnTypeCascadeNullable(SqlTypeName.TIMESTAMP)
       .functionCategory(SqlFunctionCategory.TIMEDATE)
       .build();
@@ -90,29 +91,27 @@ public class DateTruncOperatorConversion implements SqlOperatorConversion
         rexNode,
         inputExpressions -> {
           final DruidExpression arg = inputExpressions.get(1);
-          final Expr truncTypeExpr = Parser.parse(
-              inputExpressions.get(0).getExpression(),
-              plannerContext.getExprMacroTable()
-          );
-
-          if (!truncTypeExpr.isLiteral()) {
-            throw new IAE("Operator[%s] truncType must be a literal", calciteOperator().getName());
-          }
+          final Expr truncTypeExpr = plannerContext.parseExpression(inputExpressions.get(0).getExpression());
 
           final String truncType = (String) truncTypeExpr.getLiteralValue();
           final Period truncPeriod = TRUNC_PERIOD_MAP.get(StringUtils.toLowerCase(truncType));
 
           if (truncPeriod == null) {
-            throw new IAE("Operator[%s] cannot truncate to[%s]", calciteOperator().getName(), truncType);
+            throw InvalidSqlInput.exception(
+                "Operator[%s] cannot truncate to[%s]",
+                calciteOperator().getName(),
+                truncType
+            );
           }
 
-          return DruidExpression.fromFunctionCall(
+          return DruidExpression.ofFunctionCall(
+              Calcites.getColumnTypeForRelDataType(rexNode.getType()),
               "timestamp_floor",
               ImmutableList.of(
                   arg,
-                  DruidExpression.fromExpression(DruidExpression.stringLiteral(truncPeriod.toString())),
-                  DruidExpression.fromExpression(DruidExpression.stringLiteral(null)),
-                  DruidExpression.fromExpression(DruidExpression.stringLiteral(plannerContext.getTimeZone().getID()))
+                  DruidExpression.ofStringLiteral(truncPeriod.toString()),
+                  DruidExpression.ofStringLiteral(null),
+                  DruidExpression.ofStringLiteral(plannerContext.getTimeZone().getID())
               )
           );
         }

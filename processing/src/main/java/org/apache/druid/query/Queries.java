@@ -20,22 +20,22 @@
 package org.apache.druid.query;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.guice.annotations.PublicApi;
-import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
-import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.filter.DimFilter;
-import org.apache.druid.query.planning.DataSourceAnalysis;
-import org.apache.druid.query.planning.PreJoinableClause;
+import org.apache.druid.query.planning.ExecutionVertex;
 import org.apache.druid.query.spec.MultipleSpecificSegmentSpec;
 import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnHolder;
 
 import javax.annotation.Nullable;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -162,22 +162,19 @@ public class Queries
       retVal = query.withDataSource(new QueryDataSource(withSpecificSegments(subQuery, descriptors)));
     } else {
       retVal = query.withQuerySegmentSpec(new MultipleSpecificSegmentSpec(descriptors));
+
+      // Verify preconditions and invariants, just in case.
+      ExecutionVertex ev = ExecutionVertex.of(retVal);
+
+      // Sanity check: query must be based on a single table.
+      ev.getBaseTableDataSource();
+
+      if (!ev.getEffectiveQuerySegmentSpec().equals(new MultipleSpecificSegmentSpec(descriptors))) {
+        // If you see the error message below, it's a bug in either this function or in DataSourceAnalysis.
+        throw DruidException
+            .defensive("Unable to apply specific segments to query with dataSource[%s]", query.getDataSource());
+      }
     }
-
-    // Verify preconditions and invariants, just in case.
-    final DataSourceAnalysis analysis = DataSourceAnalysis.forDataSource(retVal.getDataSource());
-
-    // Sanity check: query must be based on a single table.
-    if (!analysis.getBaseTableDataSource().isPresent()) {
-      throw new ISE("Unable to apply specific segments to non-table-based dataSource[%s]", query.getDataSource());
-    }
-
-    if (analysis.getBaseQuerySegmentSpec().isPresent()
-        && !analysis.getBaseQuerySegmentSpec().get().equals(new MultipleSpecificSegmentSpec(descriptors))) {
-      // If you see the error message below, it's a bug in either this function or in DataSourceAnalysis.
-      throw new ISE("Unable to apply specific segments to query with dataSource[%s]", query.getDataSource());
-    }
-
     return retVal;
   }
 
@@ -187,42 +184,13 @@ public class Queries
    * Unlike the seemingly-similar {@link Query#withDataSource}, this will walk down the datasource tree and replace
    * only the base datasource (in the sense defined in {@link DataSourceAnalysis}).
    */
-  public static <T> Query<T> withBaseDataSource(final Query<T> query, final DataSource newBaseDataSource)
+  public static Query withBaseDataSource(final Query query, final DataSource newBaseDataSource)
   {
-    final Query<T> retVal;
-
-    if (query.getDataSource() instanceof QueryDataSource) {
-      final Query<?> subQuery = ((QueryDataSource) query.getDataSource()).getQuery();
-      retVal = query.withDataSource(new QueryDataSource(withBaseDataSource(subQuery, newBaseDataSource)));
-    } else {
-      final DataSourceAnalysis analysis = DataSourceAnalysis.forDataSource(query.getDataSource());
-
-      DataSource current = newBaseDataSource;
-      DimFilter joinBaseFilter = analysis.getJoinBaseTableFilter().orElse(null);
-
-      for (final PreJoinableClause clause : analysis.getPreJoinableClauses()) {
-        current = JoinDataSource.create(
-            current,
-            clause.getDataSource(),
-            clause.getPrefix(),
-            clause.getCondition(),
-            clause.getJoinType(),
-            joinBaseFilter
-        );
-        joinBaseFilter = null;
-      }
-
-      retVal = query.withDataSource(current);
+    ExecutionVertex ev = ExecutionVertex.of(query);
+    if (!ev.isProcessable()) {
+      throw DruidException.defensive("Its unsafe to replace the BaseDataSource of a non-processable query [%s]", query);
     }
-
-    // Verify postconditions, just in case.
-    final DataSourceAnalysis analysis = DataSourceAnalysis.forDataSource(retVal.getDataSource());
-
-    if (!newBaseDataSource.equals(analysis.getBaseDataSource())) {
-      throw new ISE("Unable to replace base dataSource");
-    }
-
-    return retVal;
+    return ev.buildQueryWithBaseDataSource(newBaseDataSource);
   }
 
   /**
@@ -237,17 +205,15 @@ public class Queries
    *
    * @param virtualColumns    virtual columns whose inputs should be included.
    * @param filter            optional filter whose inputs should be included.
-   * @param dimensions        dimension specs whose inputs should be included.
-   * @param aggregators       aggregators whose inputs should be included.
-   * @param additionalColumns additional columns to include. Each of these will be added to the returned set, unless it
+   * @param columns           additional columns to include. Each of these will be added to the returned set, unless it
    *                          refers to a virtual column, in which case the virtual column inputs will be added instead.
+   * @param aggregators       aggregators whose inputs should be included.
    */
   public static Set<String> computeRequiredColumns(
       final VirtualColumns virtualColumns,
       @Nullable final DimFilter filter,
-      final List<DimensionSpec> dimensions,
-      final List<AggregatorFactory> aggregators,
-      final List<String> additionalColumns
+      final List<String> columns,
+      final List<AggregatorFactory> aggregators
   )
   {
     final Set<String> requiredColumns = new HashSet<>();
@@ -271,9 +237,9 @@ public class Queries
       }
     }
 
-    for (DimensionSpec dimensionSpec : dimensions) {
-      if (!virtualColumns.exists(dimensionSpec.getDimension())) {
-        requiredColumns.add(dimensionSpec.getDimension());
+    for (String column : columns) {
+      if (!virtualColumns.exists(column)) {
+        requiredColumns.add(column);
       }
     }
 
@@ -285,12 +251,26 @@ public class Queries
       }
     }
 
-    for (String column : additionalColumns) {
-      if (!virtualColumns.exists(column)) {
-        requiredColumns.add(column);
-      }
-    }
-
     return requiredColumns;
+  }
+
+  public static <T> Query<T> withMaxScatterGatherBytes(Query<T> query, long maxScatterGatherBytesLimit)
+  {
+    QueryContext context = query.context();
+    if (!context.containsKey(QueryContexts.MAX_SCATTER_GATHER_BYTES_KEY)) {
+      return query.withOverriddenContext(ImmutableMap.of(QueryContexts.MAX_SCATTER_GATHER_BYTES_KEY, maxScatterGatherBytesLimit));
+    }
+    context.verifyMaxScatterGatherBytes(maxScatterGatherBytesLimit);
+    return query;
+  }
+
+  public static <T> Query<T> withTimeout(Query<T> query, long timeout)
+  {
+    return query.withOverriddenContext(ImmutableMap.of(QueryContexts.TIMEOUT_KEY, timeout));
+  }
+
+  public static <T> Query<T> withDefaultTimeout(Query<T> query, long defaultTimeout)
+  {
+    return query.withOverriddenContext(ImmutableMap.of(QueryContexts.DEFAULT_TIMEOUT_KEY, defaultTimeout));
   }
 }

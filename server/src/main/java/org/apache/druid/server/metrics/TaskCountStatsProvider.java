@@ -19,32 +19,49 @@
 
 package org.apache.druid.server.metrics;
 
+import org.apache.druid.server.coordinator.stats.CoordinatorRunStats;
+import org.apache.druid.server.coordinator.stats.RowKey;
+
 import java.util.Map;
 
 public interface TaskCountStatsProvider
 {
   /**
-   * Return the number of successful tasks for each datasource during emission period.
+   * Return the number of successful tasks for each datasource and task type during emission period.
    */
-  Map<String, Long> getSuccessfulTaskCount();
+  @Deprecated
+  Map<RowKey, Long> getSuccessfulTaskCount();
 
   /**
-   * Return the number of failed tasks for each datasource during emission period.
+   * Return the number of failed tasks for each datasource and task type during emission period.
    */
-  Map<String, Long> getFailedTaskCount();
+  @Deprecated
+  Map<RowKey, Long> getFailedTaskCount();
 
   /**
-   * Return the number of current running tasks for each datasource.
+   * Return the number of current running tasks for each datasource and task type.
    */
-  Map<String, Long> getRunningTaskCount();
+  @Deprecated
+  Map<RowKey, Long> getRunningTaskCount();
 
   /**
-   * Return the number of current pending tasks for each datasource.
+   * Return the number of current pending tasks for each datasource and task type.
    */
-  Map<String, Long> getPendingTaskCount();
+  @Deprecated
+  Map<RowKey, Long> getPendingTaskCount();
 
   /**
-   * Return the number of current waiting tasks for each datasource.
+   * Return the number of current waiting tasks for each datasource and task type.
    */
-  Map<String, Long> getWaitingTaskCount();
+  @Deprecated
+  Map<RowKey, Long> getWaitingTaskCount();
+
+  /**
+   * Collects all task level stats. This method deprecates the other task stats
+   * methods such as {@link #getPendingTaskCount()}, {@link #getWaitingTaskCount()}
+   * and will replace them in a future release.
+   *
+   * @return All task stats collected since the previous invocation of this method.
+   */
+  CoordinatorRunStats getStats();
 }

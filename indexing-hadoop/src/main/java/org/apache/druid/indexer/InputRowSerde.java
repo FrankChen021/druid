@@ -19,12 +19,10 @@
 
 package org.apache.druid.indexer;
 
-import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteArrayDataInput;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.MapBasedInputRow;
 import org.apache.druid.data.input.Rows;
@@ -38,6 +36,8 @@ import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.VirtualColumns;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.TypeStrategies;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.serde.ComplexMetricSerde;
@@ -67,29 +67,21 @@ public class InputRowSerde
   private static <T extends Number> void writeNullableNumeric(
       T ret,
       final ByteArrayDataOutput out,
-      final Supplier<T> getDefault,
       final Consumer<T> write)
   {
     if (ret == null) {
-      ret = getDefault.get();
-    }
-
-    // Write the null byte only if the default numeric value is still null.
-    if (ret == null) {
-      out.writeByte(NullHandling.IS_NULL_BYTE);
+      out.writeByte(TypeStrategies.IS_NULL_BYTE);
       return;
     }
 
-    if (NullHandling.sqlCompatible()) {
-      out.writeByte(NullHandling.IS_NOT_NULL_BYTE);
-    }
+    out.writeByte(TypeStrategies.IS_NOT_NULL_BYTE);
 
     write.accept(ret);
   }
 
   private static boolean isNullByteSet(final ByteArrayDataInput in)
   {
-    return NullHandling.sqlCompatible() && in.readByte() == NullHandling.IS_NULL_BYTE;
+    return in.readByte() == TypeStrategies.IS_NULL_BYTE;
   }
 
   public interface IndexSerdeTypeHelper<T>
@@ -106,7 +98,7 @@ public class InputRowSerde
     Map<String, IndexSerdeTypeHelper> typeHelperMap = new HashMap<>();
     for (DimensionSchema dimensionSchema : dimensionsSpec.getDimensions()) {
       IndexSerdeTypeHelper typeHelper;
-      switch (dimensionSchema.getValueType()) {
+      switch (dimensionSchema.getColumnType().getType()) {
         case STRING:
           typeHelper = STRING_HELPER;
           break;
@@ -120,7 +112,7 @@ public class InputRowSerde
           typeHelper = DOUBLE_HELPER;
           break;
         default:
-          throw new IAE("Invalid type: [%s]", dimensionSchema.getValueType());
+          throw new IAE("Invalid type: [%s]", dimensionSchema.getColumnType());
       }
       typeHelperMap.put(dimensionSchema.getName(), typeHelper);
     }
@@ -204,7 +196,7 @@ public class InputRowSerde
         exceptionToThrow = pe;
       }
 
-      writeNullableNumeric(ret, out, NullHandling::defaultLongValue, out::writeLong);
+      writeNullableNumeric(ret, out, out::writeLong);
 
       if (exceptionToThrow != null) {
         throw exceptionToThrow;
@@ -239,7 +231,7 @@ public class InputRowSerde
         exceptionToThrow = pe;
       }
 
-      writeNullableNumeric(ret, out, NullHandling::defaultFloatValue, out::writeFloat);
+      writeNullableNumeric(ret, out, out::writeFloat);
 
       if (exceptionToThrow != null) {
         throw exceptionToThrow;
@@ -274,7 +266,7 @@ public class InputRowSerde
         exceptionToThrow = pe;
       }
 
-      writeNullableNumeric(ret, out, NullHandling::defaultDoubleValue, out::writeDouble);
+      writeNullableNumeric(ret, out, out::writeDouble);
 
       if (exceptionToThrow != null) {
         throw exceptionToThrow;
@@ -292,7 +284,7 @@ public class InputRowSerde
   public static SerializeResult toBytes(
       final Map<String, IndexSerdeTypeHelper> typeHelperMap,
       final InputRow row,
-      AggregatorFactory[] aggs
+      final AggregatorFactory[] aggs
   )
   {
     try {
@@ -322,14 +314,15 @@ public class InputRowSerde
       }
 
       //writing all metrics
-      Supplier<InputRow> supplier = () -> row;
       WritableUtils.writeVInt(out, aggs.length);
       for (AggregatorFactory aggFactory : aggs) {
         String k = aggFactory.getName();
         writeString(k, out);
 
+        final IncrementalIndex.InputRowHolder holder = new IncrementalIndex.InputRowHolder();
+        holder.set(row);
         try (Aggregator agg = aggFactory.factorize(
-            IncrementalIndex.makeColumnSelectorFactory(VirtualColumns.EMPTY, aggFactory, supplier, true)
+            IncrementalIndex.makeColumnSelectorFactory(VirtualColumns.EMPTY, holder, aggFactory)
         )) {
           try {
             agg.aggregate();
@@ -340,24 +333,24 @@ public class InputRowSerde
             parseExceptionMessages.add(e.getMessage());
           }
 
-          final ValueType type = aggFactory.getType();
+          final ColumnType type = aggFactory.getIntermediateType();
 
           if (agg.isNull()) {
-            out.writeByte(NullHandling.IS_NULL_BYTE);
+            out.writeByte(TypeStrategies.IS_NULL_BYTE);
           } else {
-            out.writeByte(NullHandling.IS_NOT_NULL_BYTE);
-            if (ValueType.FLOAT.equals(type)) {
+            out.writeByte(TypeStrategies.IS_NOT_NULL_BYTE);
+            if (type.is(ValueType.FLOAT)) {
               out.writeFloat(agg.getFloat());
-            } else if (ValueType.LONG.equals(type)) {
+            } else if (type.is(ValueType.LONG)) {
               WritableUtils.writeVLong(out, agg.getLong());
-            } else if (ValueType.DOUBLE.equals(type)) {
+            } else if (type.is(ValueType.DOUBLE)) {
               out.writeDouble(agg.getDouble());
-            } else if (ValueType.COMPLEX.equals(type)) {
+            } else if (type.is(ValueType.COMPLEX)) {
               Object val = agg.get();
-              ComplexMetricSerde serde = getComplexMetricSerde(aggFactory.getComplexTypeName());
+              ComplexMetricSerde serde = getComplexMetricSerde(type.getComplexTypeName());
               writeBytes(serde.toBytes(val), out);
             } else {
-              throw new IAE("Unable to serialize type[%s]", type);
+              throw new IAE("Unable to serialize type[%s]", type.asTypeString());
             }
           }
         }
@@ -471,21 +464,21 @@ public class InputRowSerde
       for (int i = 0; i < metricSize; i++) {
         final String metric = readString(in);
         final AggregatorFactory agg = getAggregator(metric, aggs, i);
-        final ValueType type = agg.getType();
+        final ColumnType type = agg.getIntermediateType();
         final byte metricNullability = in.readByte();
 
-        if (metricNullability == NullHandling.IS_NULL_BYTE) {
+        if (metricNullability == TypeStrategies.IS_NULL_BYTE) {
           // metric value is null.
           continue;
         }
-        if (ValueType.FLOAT.equals(type)) {
+        if (type.is(ValueType.FLOAT)) {
           event.put(metric, in.readFloat());
-        } else if (ValueType.LONG.equals(type)) {
+        } else if (type.is(ValueType.LONG)) {
           event.put(metric, WritableUtils.readVLong(in));
-        } else if (ValueType.DOUBLE.equals(type)) {
+        } else if (type.is(ValueType.DOUBLE)) {
           event.put(metric, in.readDouble());
         } else {
-          ComplexMetricSerde serde = getComplexMetricSerde(agg.getComplexTypeName());
+          ComplexMetricSerde serde = getComplexMetricSerde(agg.getIntermediateType().getComplexTypeName());
           byte[] value = readBytes(in);
           event.put(metric, serde.fromBytes(value, 0, value.length));
         }

@@ -16,27 +16,10 @@
  * limitations under the License.
  */
 
+@import '../../variables';
+
 .edit-context-dialog {
-  &.bp3-dialog {
-    padding-bottom: 10px;
-  }
-
-  .bp3-input {
-    margin: 10px;
-    height: 400px;
-  }
-
-  .bp3-dialog-footer-actions {
-    padding: 0px 10px 0px 10px;
-    display: grid;
-    grid-template-columns: 340px 1fr;
-    grid-template-areas: 'error buttons';
-  }
-
-  .edit-context-dialog-error {
-    grid-area: error;
-  }
-  .edit-context-dialog-buttons {
-    grid-area: buttons;
+  &.#{$bp-ns}-dialog {
+    height: 60vh;
   }
 }

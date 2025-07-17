@@ -142,7 +142,7 @@ public class ParallelIndexPhaseRunnerTest extends AbstractParallelIndexSuperviso
     @Override
     Iterator<SubTaskSpec<ReportingNoopTask>> subTaskSpecIterator()
     {
-      return new Iterator<SubTaskSpec<ReportingNoopTask>>()
+      return new Iterator<>()
       {
         int subTaskCount = 0;
 
@@ -232,17 +232,15 @@ public class ParallelIndexPhaseRunnerTest extends AbstractParallelIndexSuperviso
           null,
           10,
           0,
-          null,
-          null,
           Collections.singletonMap(AbstractParallelIndexSupervisorTaskTest.DISABLE_TASK_INJECT_CONTEXT_KEY, true)
       );
       this.phaseRunner = phaseRunner;
     }
 
     @Override
-    public TaskStatus run(TaskToolbox toolbox) throws Exception
+    public TaskStatus runTask(TaskToolbox toolbox) throws Exception
     {
-      final TaskStatus result = super.run(toolbox);
+      final TaskStatus result = super.runTask(toolbox);
       phaseRunner.collectReport(new EmptySubTaskReport(getId()));
       return result;
     }

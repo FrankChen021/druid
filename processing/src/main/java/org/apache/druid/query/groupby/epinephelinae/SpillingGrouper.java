@@ -22,6 +22,7 @@ package org.apache.druid.query.groupby.epinephelinae;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializerProvider;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
@@ -30,11 +31,13 @@ import net.jpountz.lz4.LZ4BlockInputStream;
 import net.jpountz.lz4.LZ4BlockOutputStream;
 import org.apache.druid.java.util.common.CloseableIterators;
 import org.apache.druid.java.util.common.io.Closer;
+import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.aggregation.AggregatorAdapters;
 import org.apache.druid.query.aggregation.AggregatorFactory;
+import org.apache.druid.query.groupby.GroupByStatsProvider;
 import org.apache.druid.query.groupby.orderby.DefaultLimitSpec;
 import org.apache.druid.segment.ColumnSelectorFactory;
 
@@ -72,11 +75,13 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
   private final AggregatorFactory[] aggregatorFactories;
   private final Comparator<Grouper.Entry<KeyType>> keyObjComparator;
   private final Comparator<Grouper.Entry<KeyType>> defaultOrderKeyObjComparator;
+  private final GroupByStatsProvider.PerQueryStats perQueryStats;
 
   private final List<File> files = new ArrayList<>();
   private final List<File> dictionaryFiles = new ArrayList<>();
   private final boolean sortHasNonGroupingFields;
 
+  private boolean diskFull = false;
   private boolean spillingAllowed;
 
   public SpillingGrouper(
@@ -92,7 +97,8 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
       final boolean spillingAllowed,
       final DefaultLimitSpec limitSpec,
       final boolean sortHasNonGroupingFields,
-      final int mergeBufferSize
+      final int mergeBufferSize,
+      final GroupByStatsProvider.PerQueryStats perQueryStats
   )
   {
     this.keySerde = keySerdeFactory.factorize();
@@ -149,9 +155,10 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
     }
     this.aggregatorFactories = aggregatorFactories;
     this.temporaryStorage = temporaryStorage;
-    this.spillMapper = spillMapper;
+    this.spillMapper = keySerde.decorateObjectMapper(spillMapper);
     this.spillingAllowed = spillingAllowed;
     this.sortHasNonGroupingFields = sortHasNonGroupingFields;
+    this.perQueryStats = perQueryStats;
   }
 
   @Override
@@ -169,6 +176,13 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
   @Override
   public AggregateResult aggregate(KeyType key, int keyHash)
   {
+    if (diskFull) {
+      // If the prior return was DISK_FULL, then return it again. When we return DISK_FULL to a processing thread,
+      // it skips the rest of the segment and the query is canceled. However, it's possible that the next segment
+      // starts processing before cancellation can kick in. We want that one, if it occurs, to see DISK_FULL too.
+      return DISK_FULL;
+    }
+
     final AggregateResult result = grouper.aggregate(key, keyHash);
 
     if (result.isOk() || !spillingAllowed || temporaryStorage.maxSize() <= 0) {
@@ -182,6 +196,7 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
         spill();
       }
       catch (TemporaryStorageFullException e) {
+        diskFull = true;
         return DISK_FULL;
       }
       catch (IOException e) {
@@ -203,7 +218,9 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
   @Override
   public void close()
   {
+    perQueryStats.dictionarySize(keySerde.getDictionarySize());
     grouper.close();
+    keySerde.reset();
     deleteFiles();
   }
 
@@ -239,6 +256,11 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
     return new ArrayList<>(mergedDictionary);
   }
 
+  public boolean isSpillingAllowed()
+  {
+    return spillingAllowed;
+  }
+
   public void setSpillingAllowed(final boolean spillingAllowed)
   {
     this.spillingAllowed = spillingAllowed;
@@ -254,16 +276,20 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
     final Closer closer = Closer.create();
     for (final File file : files) {
       final MappingIterator<Entry<KeyType>> fileIterator = read(file, keySerde.keyClazz());
+
       iterators.add(
           CloseableIterators.withEmptyBaggage(
               Iterators.transform(
                   fileIterator,
-                  new Function<Entry<KeyType>, Entry<KeyType>>()
+                  new Function<>()
                   {
+                    final ReusableEntry<KeyType> reusableEntry =
+                        ReusableEntry.create(keySerde, aggregatorFactories.length);
+
                     @Override
                     public Entry<KeyType> apply(Entry<KeyType> entry)
                     {
-                      final Object[] deserializedValues = new Object[entry.getValues().length];
+                      final Object[] deserializedValues = reusableEntry.getValues();
                       for (int i = 0; i < deserializedValues.length; i++) {
                         deserializedValues[i] = aggregatorFactories[i].deserialize(entry.getValues()[i]);
                         if (deserializedValues[i] instanceof Integer) {
@@ -271,7 +297,8 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
                           deserializedValues[i] = ((Integer) deserializedValues[i]).longValue();
                         }
                       }
-                      return new Entry<>(entry.getKey(), deserializedValues);
+                      reusableEntry.setKey(entry.getKey());
+                      return reusableEntry;
                     }
                   }
               )
@@ -309,10 +336,11 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
         final LZ4BlockOutputStream compressedOut = new LZ4BlockOutputStream(out);
         final JsonGenerator jsonGenerator = spillMapper.getFactory().createGenerator(compressedOut)
     ) {
+      final SerializerProvider serializers = spillMapper.getSerializerProviderInstance();
+
       while (iterator.hasNext()) {
         BaseQuery.checkInterrupted();
-
-        jsonGenerator.writeObject(iterator.next());
+        JacksonUtils.writeObjectUsingSerializerProvider(jsonGenerator, serializers, iterator.next());
       }
 
       return out.getFile();
@@ -324,7 +352,7 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
     try {
       return spillMapper.readValues(
           spillMapper.getFactory().createParser(new LZ4BlockInputStream(new FileInputStream(file))),
-          spillMapper.getTypeFactory().constructParametricType(Entry.class, keyClazz)
+          spillMapper.getTypeFactory().constructParametricType(ReusableEntry.class, keyClazz)
       );
     }
     catch (IOException e) {

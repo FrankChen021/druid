@@ -21,24 +21,40 @@ package org.apache.druid.indexing.kafka;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import org.apache.druid.common.config.Configs;
 import org.apache.druid.data.input.kafka.KafkaRecordEntity;
+import org.apache.druid.data.input.kafka.KafkaTopicPartition;
+import org.apache.druid.indexing.common.TaskToolbox;
 import org.apache.druid.indexing.common.task.TaskResource;
 import org.apache.druid.indexing.seekablestream.SeekableStreamIndexTask;
 import org.apache.druid.indexing.seekablestream.SeekableStreamIndexTaskRunner;
 import org.apache.druid.segment.indexing.DataSchema;
+import org.apache.druid.server.security.AuthorizationUtils;
+import org.apache.druid.server.security.ResourceAction;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
-public class KafkaIndexTask extends SeekableStreamIndexTask<Integer, Long, KafkaRecordEntity>
+public class KafkaIndexTask extends SeekableStreamIndexTask<KafkaTopicPartition, Long, KafkaRecordEntity>
 {
   private static final String TYPE = "index_kafka";
 
-  private final KafkaIndexTaskIOConfig ioConfig;
+  /**
+   * Resources that a {@link KafkaIndexTask} is authorized to use. Includes
+   * performing a read action on external resource of type
+   */
+  public static final Set<ResourceAction> INPUT_SOURCE_RESOURCES = Set.of(
+      AuthorizationUtils.createExternalResourceReadAction(KafkaIndexTaskModule.SCHEME)
+  );
+
   private final ObjectMapper configMapper;
 
   // This value can be tuned in some tests
@@ -47,6 +63,7 @@ public class KafkaIndexTask extends SeekableStreamIndexTask<Integer, Long, Kafka
   @JsonCreator
   public KafkaIndexTask(
       @JsonProperty("id") String id,
+      @JsonProperty("supervisorId") @Nullable String supervisorId,
       @JsonProperty("resource") TaskResource taskResource,
       @JsonProperty("dataSchema") DataSchema dataSchema,
       @JsonProperty("tuningConfig") KafkaIndexTaskTuningConfig tuningConfig,
@@ -57,15 +74,15 @@ public class KafkaIndexTask extends SeekableStreamIndexTask<Integer, Long, Kafka
   {
     super(
         getOrMakeId(id, dataSchema.getDataSource(), TYPE),
+        supervisorId,
         taskResource,
         dataSchema,
         tuningConfig,
         ioConfig,
         context,
-        getFormattedGroupId(dataSchema.getDataSource(), TYPE)
+        getFormattedGroupId(Configs.valueOrDefault(supervisorId, dataSchema.getDataSource()), TYPE)
     );
     this.configMapper = configMapper;
-    this.ioConfig = ioConfig;
 
     Preconditions.checkArgument(
         ioConfig.getStartSequenceNumbers().getExclusivePartitions().isEmpty(),
@@ -79,29 +96,36 @@ public class KafkaIndexTask extends SeekableStreamIndexTask<Integer, Long, Kafka
   }
 
   @Override
-  protected SeekableStreamIndexTaskRunner<Integer, Long, KafkaRecordEntity> createTaskRunner()
+  protected SeekableStreamIndexTaskRunner<KafkaTopicPartition, Long, KafkaRecordEntity> createTaskRunner()
   {
     //noinspection unchecked
-    return new IncrementalPublishingKafkaIndexTaskRunner(
+    return new KafkaIndexTaskRunner(
         this,
         dataSchema.getParser(),
-        authorizerMapper,
         lockGranularityToUse
     );
   }
 
   @Override
-  protected KafkaRecordSupplier newTaskRecordSupplier()
+  protected KafkaRecordSupplier newTaskRecordSupplier(final TaskToolbox toolbox)
   {
     ClassLoader currCtxCl = Thread.currentThread().getContextClassLoader();
     try {
       Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
-
-      final Map<String, Object> props = new HashMap<>(((KafkaIndexTaskIOConfig) super.ioConfig).getConsumerProperties());
+      KafkaIndexTaskIOConfig kafkaIndexTaskIOConfig = (KafkaIndexTaskIOConfig) super.ioConfig;
+      final Map<String, Object> props = new HashMap<>(kafkaIndexTaskIOConfig.getConsumerProperties());
 
       props.put("auto.offset.reset", "none");
 
-      return new KafkaRecordSupplier(props, configMapper);
+      final KafkaRecordSupplier recordSupplier =
+          new KafkaRecordSupplier(props, configMapper, kafkaIndexTaskIOConfig.getConfigOverrides(),
+                                  kafkaIndexTaskIOConfig.isMultiTopic());
+
+      if (toolbox.getMonitorScheduler() != null) {
+        toolbox.getMonitorScheduler().addMonitor(recordSupplier.monitor());
+      }
+
+      return recordSupplier;
     }
     finally {
       Thread.currentThread().setContextClassLoader(currCtxCl);
@@ -132,6 +156,14 @@ public class KafkaIndexTask extends SeekableStreamIndexTask<Integer, Long, Kafka
   public String getType()
   {
     return TYPE;
+  }
+
+  @Nonnull
+  @JsonIgnore
+  @Override
+  public Set<ResourceAction> getInputSourceResources()
+  {
+    return INPUT_SOURCE_RESOURCES;
   }
 
   @Override

@@ -16,13 +16,13 @@
  * limitations under the License.
  */
 
-import { IconNames } from '@blueprintjs/icons';
 import React from 'react';
 
-import { PluralPairIfNeeded } from '../../../components/plural-pair-if-needed/plural-pair-if-needed';
+import { PluralPairIfNeeded } from '../../../components';
+import { getConsoleViewIcon } from '../../../druid-models';
+import type { Capabilities } from '../../../helpers';
 import { useQueryManager } from '../../../hooks';
-import { Api } from '../../../singletons';
-import { Capabilities, lookupBy, queryDruidSql } from '../../../utils';
+import { getApiArray, lookupBy, queryDruidSql } from '../../../utils';
 import { HomeViewCard } from '../home-view-card/home-view-card';
 
 export interface ServiceCounts {
@@ -42,24 +42,27 @@ export interface ServicesCardProps {
 
 export const ServicesCard = React.memo(function ServicesCard(props: ServicesCardProps) {
   const [serviceCountState] = useQueryManager<Capabilities, ServiceCounts>({
-    processQuery: async capabilities => {
+    processQuery: async (capabilities, cancelToken) => {
       if (capabilities.hasSql()) {
-        const serviceCountsFromQuery: {
+        const serviceCountsFromQuery = await queryDruidSql<{
           service_type: string;
           count: number;
-        }[] = await queryDruidSql({
-          query: `SELECT server_type AS "service_type", COUNT(*) as "count" FROM sys.servers GROUP BY 1`,
-        });
+        }>(
+          {
+            query: `SELECT server_type AS "service_type", COUNT(*) as "count" FROM sys.servers GROUP BY 1`,
+          },
+          cancelToken,
+        );
         return lookupBy(
           serviceCountsFromQuery,
           x => x.service_type,
           x => x.count,
         );
       } else if (capabilities.hasCoordinatorAccess()) {
-        const services = (await Api.instance.get('/druid/coordinator/v1/servers?simple')).data;
+        const services = await getApiArray('/druid/coordinator/v1/servers?simple', cancelToken);
 
         const middleManager = capabilities.hasOverlordAccess()
-          ? (await Api.instance.get('/druid/indexer/v1/workers')).data
+          ? await getApiArray('/druid/indexer/v1/workers', cancelToken)
           : [];
 
         return {
@@ -79,7 +82,7 @@ export const ServicesCard = React.memo(function ServicesCard(props: ServicesCard
     <HomeViewCard
       className="services-card"
       href="#services"
-      icon={IconNames.DATABASE}
+      icon={getConsoleViewIcon('services')}
       title="Services"
       loading={serviceCountState.loading}
       error={serviceCountState.error}

@@ -24,7 +24,6 @@ import com.google.common.base.Preconditions;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.druid.collections.ResourceHolder;
 import org.apache.druid.java.util.common.IAE;
-import org.apache.druid.java.util.common.guava.CloseQuietly;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.common.io.smoosh.FileSmoosher;
 import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
@@ -115,7 +114,11 @@ public class CompressedColumnarIntsSupplier implements WritableSupplier<Columnar
     return baseIntBuffers;
   }
 
-  public static CompressedColumnarIntsSupplier fromByteBuffer(ByteBuffer buffer, ByteOrder order)
+  public static CompressedColumnarIntsSupplier fromByteBuffer(
+      ByteBuffer buffer,
+      ByteOrder order,
+      SmooshedFileMapper mapper
+  )
   {
     byte versionFromBuffer = buffer.get();
 
@@ -126,26 +129,7 @@ public class CompressedColumnarIntsSupplier implements WritableSupplier<Columnar
       return new CompressedColumnarIntsSupplier(
           totalSize,
           sizePer,
-          GenericIndexed.read(buffer, new DecompressingByteBufferObjectStrategy(order, compression)),
-          compression
-      );
-    }
-
-    throw new IAE("Unknown version[%s]", versionFromBuffer);
-  }
-
-  public static CompressedColumnarIntsSupplier fromByteBuffer(ByteBuffer buffer, ByteOrder order, SmooshedFileMapper mapper)
-  {
-    byte versionFromBuffer = buffer.get();
-
-    if (versionFromBuffer == VERSION) {
-      final int totalSize = buffer.getInt();
-      final int sizePer = buffer.getInt();
-      final CompressionStrategy compression = CompressionStrategy.forId(buffer.get());
-      return new CompressedColumnarIntsSupplier(
-          totalSize,
-          sizePer,
-          GenericIndexed.read(buffer, new DecompressingByteBufferObjectStrategy(order, compression), mapper),
+          GenericIndexed.read(buffer, DecompressingByteBufferObjectStrategy.of(order, compression), mapper),
           compression
       );
     }
@@ -170,12 +154,12 @@ public class CompressedColumnarIntsSupplier implements WritableSupplier<Columnar
         buffer.remaining(),
         chunkFactor,
         GenericIndexed.ofCompressedByteBuffers(
-            new Iterable<ByteBuffer>()
+            new Iterable<>()
             {
               @Override
               public Iterator<ByteBuffer> iterator()
               {
-                return new Iterator<ByteBuffer>()
+                return new Iterator<>()
                 {
                   final IntBuffer myBuffer = buffer.asReadOnlyBuffer();
                   final ByteBuffer retVal = compression
@@ -238,12 +222,12 @@ public class CompressedColumnarIntsSupplier implements WritableSupplier<Columnar
         list.size(),
         chunkFactor,
         GenericIndexed.ofCompressedByteBuffers(
-            new Iterable<ByteBuffer>()
+            new Iterable<>()
             {
               @Override
               public Iterator<ByteBuffer> iterator()
               {
-                return new Iterator<ByteBuffer>()
+                return new Iterator<>()
                 {
                   private final ByteBuffer retVal = compression
                       .getCompressor()
@@ -292,7 +276,9 @@ public class CompressedColumnarIntsSupplier implements WritableSupplier<Columnar
 
     int currBufferNum = -1;
     ResourceHolder<ByteBuffer> holder;
-    /** buffer's position must be 0 */
+    /**
+     * buffer's position must be 0
+     */
     IntBuffer buffer;
 
     @Override
@@ -317,7 +303,9 @@ public class CompressedColumnarIntsSupplier implements WritableSupplier<Columnar
 
     protected void loadBuffer(int bufferNum)
     {
-      CloseQuietly.close(holder);
+      if (holder != null) {
+        holder.close();
+      }
       holder = singleThreadedIntBuffers.get(bufferNum);
       // asIntBuffer() makes the buffer's position = 0
       buffer = holder.get().asIntBuffer();

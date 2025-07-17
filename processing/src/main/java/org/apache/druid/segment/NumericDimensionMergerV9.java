@@ -31,19 +31,19 @@ import java.util.List;
  */
 public abstract class NumericDimensionMergerV9 implements DimensionMergerV9
 {
-  protected final String dimensionName;
+  protected final String outputName;
   protected final IndexSpec indexSpec;
   protected final SegmentWriteOutMedium segmentWriteOutMedium;
 
   protected final GenericColumnSerializer serializer;
 
   NumericDimensionMergerV9(
-      String dimensionName,
+      String outputName,
       IndexSpec indexSpec,
       SegmentWriteOutMedium segmentWriteOutMedium
   )
   {
-    this.dimensionName = dimensionName;
+    this.outputName = outputName;
     this.indexSpec = indexSpec;
     this.segmentWriteOutMedium = segmentWriteOutMedium;
 
@@ -86,8 +86,10 @@ public abstract class NumericDimensionMergerV9 implements DimensionMergerV9
   }
 
   @Override
-  public final boolean canSkip()
+  public boolean hasOnlyNulls()
   {
+    // We have not implemented handling null-only numeric dimensions yet.
+    // In the future, this should return true when the dimension has only nulls.
     return false;
   }
 }

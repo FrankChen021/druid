@@ -16,15 +16,15 @@
  * limitations under the License.
  */
 
-import * as playwright from 'playwright-chromium';
+import type * as playwright from 'playwright-chromium';
 
 import { clickButton, setLabeledInput, setLabeledTextarea } from '../../util/playwright';
 
-import { ConfigureSchemaConfig } from './config/configure-schema';
-import { ConfigureTimestampConfig } from './config/configure-timestamp';
-import { PartitionConfig } from './config/partition';
-import { PublishConfig } from './config/publish';
-import { DataConnector } from './data-connector/data-connector';
+import type { ConfigureSchemaConfig } from './config/configure-schema';
+import type { ConfigureTimestampConfig } from './config/configure-timestamp';
+import type { PartitionConfig } from './config/partition';
+import type { PublishConfig } from './config/publish';
+import type { DataConnector } from './data-connector/data-connector';
 
 /**
  * Represents load data tab.
@@ -34,7 +34,7 @@ export class DataLoader {
 
   constructor(props: DataLoaderProps) {
     Object.assign(this, props);
-    this.baseUrl = props.unifiedConsoleUrl + '#load-data';
+    this.baseUrl = props.unifiedConsoleUrl + '#data-loader';
   }
 
   /**
@@ -42,6 +42,7 @@ export class DataLoader {
    */
   async load() {
     await this.page.goto(this.baseUrl);
+    await this.startNewSpecIfNeeded();
     await this.start();
     await this.connect(this.connector, this.connectValidator);
     if (this.connector.needParse) {
@@ -57,8 +58,15 @@ export class DataLoader {
     await this.editSpec();
   }
 
+  private async startNewSpecIfNeeded() {
+    const startNewSpecLocator = this.page.locator(`//*[contains(text(),"Start a new")]`);
+    if (await startNewSpecLocator.count()) {
+      await startNewSpecLocator.click();
+    }
+  }
+
   private async start() {
-    const cardSelector = `//*[contains(@class,"bp3-card")][p[contains(text(),"${this.connector.name}")]]`;
+    const cardSelector = `//*[contains(@class,"bp5-card")][p[contains(text(),"${this.connector.name}")]]`;
     await this.page.click(cardSelector);
     await clickButton(this.page, 'Connect data');
   }
@@ -118,7 +126,7 @@ export class DataLoader {
     const rollupChecked = await rollupInput!.evaluate(el => (el as HTMLInputElement).checked);
     if (rollupChecked !== configureSchemaConfig.rollup) {
       await this.page.click(rollupSelector);
-      const confirmationDialogSelector = '//*[contains(@class,"bp3-alert-body")]';
+      const confirmationDialogSelector = '//*[contains(@class,"bp5-alert-body")]';
       await this.page.waitForSelector(confirmationDialogSelector);
       await clickButton(this.page, 'Yes');
       const statusMessageSelector = '.recipe-toaster';

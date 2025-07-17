@@ -57,6 +57,8 @@ public class LoadingLookupFactoryTest
     EasyMock.expectLastCall().once();
     EasyMock.replay(loadingLookup);
     Assert.assertTrue(loadingLookupFactory.start());
+    loadingLookupFactory.awaitInitialization();
+    Assert.assertTrue(loadingLookupFactory.isInitialized());
     Assert.assertTrue(loadingLookupFactory.close());
     EasyMock.verify(loadingLookup);
 
@@ -107,14 +109,14 @@ public class LoadingLookupFactoryTest
     ObjectMapper mapper = TestHelper.makeJsonMapper();
     LoadingLookupFactory loadingLookupFactory = new LoadingLookupFactory(
         new MockDataFetcher(),
-        new OnHeapLoadingCache<String, String>(
+        new OnHeapLoadingCache<>(
             0,
             100,
             100L,
             0L,
             0L
         ),
-        new OffHeapLoadingCache<String, List<String>>(
+        new OffHeapLoadingCache<>(
             100,
             100L,
             0L,
@@ -165,7 +167,12 @@ public class LoadingLookupFactoryTest
     }
 
     @Override
-    @SuppressWarnings("EqualsHashCode")
+    public int hashCode()
+    {
+      return 0;
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
       return obj instanceof MockDataFetcher;

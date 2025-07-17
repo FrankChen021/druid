@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.concurrent.Execs;
@@ -41,6 +40,7 @@ import org.apache.druid.server.initialization.JdbcAccessSecurityConfig;
 import org.apache.druid.server.lookup.namespace.JdbcCacheGenerator;
 import org.apache.druid.server.lookup.namespace.NamespaceExtractionConfig;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
+import org.apache.druid.utils.JvmUtils;
 import org.joda.time.Period;
 import org.junit.After;
 import org.junit.Assert;
@@ -56,7 +56,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -70,10 +69,6 @@ import java.util.concurrent.locks.ReentrantLock;
 @RunWith(Parameterized.class)
 public class JdbcExtractionNamespaceTest
 {
-  static {
-    NullHandling.initializeForTests();
-  }
-
   @Rule
   public final TestDerbyConnector.DerbyConnectorRule derbyConnectorRule = new TestDerbyConnector.DerbyConnectorRule();
 
@@ -126,160 +121,117 @@ public class JdbcExtractionNamespaceTest
     setupTeardownService =
         MoreExecutors.listeningDecorator(Execs.multiThreaded(2, "JDBCExtractionNamespaceTeardown--%s"));
     final ListenableFuture<Handle> setupFuture = setupTeardownService.submit(
-        new Callable<Handle>()
-        {
-          @Override
-          public Handle call()
-          {
-            final Handle handle = derbyConnectorRule.getConnector().getDBI().open();
-            Assert.assertEquals(
-                0,
-                handle.createStatement(
-                    StringUtils.format(
-                        "CREATE TABLE %s (%s TIMESTAMP, %s VARCHAR(64), %s VARCHAR(64), %s VARCHAR(64))",
-                        TABLE_NAME,
-                        TS_COLUMN,
-                        FILTER_COLUMN,
-                        KEY_NAME,
-                        VAL_NAME
-                    )
-                ).setQueryTimeout(1).execute()
-            );
-            handle.createStatement(StringUtils.format("TRUNCATE TABLE %s", TABLE_NAME)).setQueryTimeout(1).execute();
-            handle.commit();
-            closer.register(new Closeable()
+        () -> {
+          final Handle handle = derbyConnectorRule.getConnector().getDBI().open();
+          Assert.assertEquals(
+              0,
+              handle.createStatement(
+                  StringUtils.format(
+                      "CREATE TABLE %s (%s TIMESTAMP, %s VARCHAR(64), %s VARCHAR(64), %s VARCHAR(64))",
+                      TABLE_NAME,
+                      TS_COLUMN,
+                      FILTER_COLUMN,
+                      KEY_NAME,
+                      VAL_NAME
+                  )
+              ).setQueryTimeout(1).execute()
+          );
+          handle.createStatement(StringUtils.format("TRUNCATE TABLE %s", TABLE_NAME)).setQueryTimeout(1).execute();
+          handle.commit();
+          closer.register(() -> {
+            handle.createStatement("DROP TABLE " + TABLE_NAME).setQueryTimeout(1).execute();
+            final ListenableFuture future = setupTeardownService.submit(new Runnable()
             {
               @Override
-              public void close() throws IOException
+              public void run()
               {
-                handle.createStatement("DROP TABLE " + TABLE_NAME).setQueryTimeout(1).execute();
-                final ListenableFuture future = setupTeardownService.submit(new Runnable()
-                {
-                  @Override
-                  public void run()
-                  {
-                    handle.close();
-                  }
-                });
-                try (Closeable closeable = new Closeable()
-                {
-                  @Override
-                  public void close()
-                  {
-                    future.cancel(true);
-                  }
-                }) {
-                  future.get(10, TimeUnit.SECONDS);
-                }
-                catch (InterruptedException | ExecutionException | TimeoutException e) {
-                  throw new IOException("Error closing handle", e);
-                }
+                handle.close();
               }
             });
-            closer.register(new Closeable()
-            {
-              @Override
-              public void close()
-              {
-                if (scheduler == null) {
-                  return;
-                }
-                Assert.assertEquals(0, scheduler.getActiveEntries());
-              }
-            });
-            for (Map.Entry<String, String[]> entry : RENAMES.entrySet()) {
-              try {
-                String key = entry.getKey();
-                String value = entry.getValue()[0];
-                String filter = entry.getValue()[1];
-                insertValues(handle, key, value, filter, "2015-01-01 00:00:00");
-              }
-              catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-              }
+            try (Closeable ignored = () -> future.cancel(true)) {
+              future.get(10, TimeUnit.SECONDS);
             }
-
-            NoopServiceEmitter noopServiceEmitter = new NoopServiceEmitter();
-            scheduler = new CacheScheduler(
-                noopServiceEmitter,
-                ImmutableMap.of(
-                    JdbcExtractionNamespace.class,
-                    new CacheGenerator<JdbcExtractionNamespace>()
-                    {
-                      private final JdbcCacheGenerator delegate =
-                          new JdbcCacheGenerator();
-
-                      @Override
-                      public CacheScheduler.VersionedCache generateCache(
-                          final JdbcExtractionNamespace namespace,
-                          final CacheScheduler.EntryImpl<JdbcExtractionNamespace> id,
-                          final String lastVersion,
-                          final CacheScheduler scheduler
-                      ) throws InterruptedException
-                      {
-                        updateLock.lockInterruptibly();
-                        try {
-                          log.debug("Running cache generator");
-                          try {
-                            return delegate.generateCache(namespace, id, lastVersion, scheduler);
-                          }
-                          finally {
-                            updates.incrementAndGet();
-                          }
-                        }
-                        finally {
-                          updateLock.unlock();
-                        }
-                      }
-                    }
-                ),
-                new OnHeapNamespaceExtractionCacheManager(
-                    lifecycle,
-                    noopServiceEmitter,
-                    new NamespaceExtractionConfig()
-                )
-            );
+            catch (InterruptedException | ExecutionException | TimeoutException e) {
+              throw new IOException("Error closing handle", e);
+            }
+          });
+          closer.register(() -> {
+            if (scheduler == null) {
+              return;
+            }
+            Assert.assertEquals(0, scheduler.getActiveEntries());
+          });
+          for (Map.Entry<String, String[]> entry : RENAMES.entrySet()) {
             try {
-              lifecycle.start();
+              String key = entry.getKey();
+              String value = entry.getValue()[0];
+              String filter = entry.getValue()[1];
+              insertValues(handle, key, value, filter, "2015-01-01 00:00:00");
             }
-            catch (Exception e) {
+            catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
               throw new RuntimeException(e);
             }
-            closer.register(
-                new Closeable()
-                {
-                  @Override
-                  public void close() throws IOException
+          }
+
+          NoopServiceEmitter noopServiceEmitter = new NoopServiceEmitter();
+          scheduler = new CacheScheduler(
+              noopServiceEmitter,
+              ImmutableMap.of(
+                  JdbcExtractionNamespace.class,
+                  new CacheGenerator<JdbcExtractionNamespace>()
                   {
-                    final ListenableFuture future = setupTeardownService.submit(
-                        new Runnable()
-                        {
-                          @Override
-                          public void run()
-                          {
-                            lifecycle.stop();
-                          }
-                        }
-                    );
-                    try (final Closeable closeable = new Closeable()
+                    private final JdbcCacheGenerator delegate =
+                        new JdbcCacheGenerator(JvmUtils.getRuntimeInfo());
+
+                    @Override
+                    public String generateCache(
+                        final JdbcExtractionNamespace namespace,
+                        final CacheScheduler.EntryImpl<JdbcExtractionNamespace> id,
+                        final String lastVersion,
+                        final CacheHandler cache
+                    ) throws InterruptedException
                     {
-                      @Override
-                      public void close()
-                      {
-                        future.cancel(true);
+                      updateLock.lockInterruptibly();
+                      try {
+                        log.debug("Running cache generator");
+                        try {
+                          return delegate.generateCache(namespace, id, lastVersion, cache);
+                        }
+                        finally {
+                          updates.incrementAndGet();
+                        }
                       }
-                    }) {
-                      future.get(30, TimeUnit.SECONDS);
-                    }
-                    catch (InterruptedException | ExecutionException | TimeoutException e) {
-                      throw new IOException("Error stopping lifecycle", e);
+                      finally {
+                        updateLock.unlock();
+                      }
                     }
                   }
-                }
-            );
-            return handle;
+              ),
+              new OnHeapNamespaceExtractionCacheManager(
+                  lifecycle,
+                  noopServiceEmitter,
+                  new NamespaceExtractionConfig()
+              )
+          );
+          try {
+            lifecycle.start();
           }
+          catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+          closer.register(
+              () -> {
+                final ListenableFuture future = setupTeardownService.submit(() -> lifecycle.stop());
+                try (final Closeable ignored = () -> future.cancel(true)) {
+                  future.get(30, TimeUnit.SECONDS);
+                }
+                catch (InterruptedException | ExecutionException | TimeoutException e) {
+                  throw new IOException("Error stopping lifecycle", e);
+                }
+              }
+          );
+          return handle;
         }
     );
 
@@ -293,35 +245,25 @@ public class JdbcExtractionNamespaceTest
   public void tearDown() throws InterruptedException, ExecutionException, TimeoutException, IOException
   {
     final ListenableFuture<?> tearDownFuture = setupTeardownService.submit(
-        new Runnable()
-        {
-          @Override
-          public void run()
-          {
-            try {
-              closer.close();
-            }
-            catch (IOException e) {
-              throw new RuntimeException(e);
-            }
+        () -> {
+          try {
+            closer.close();
+          }
+          catch (IOException e) {
+            throw new RuntimeException(e);
           }
         }
     );
-    try (final Closeable closeable = new Closeable()
-    {
-      @Override
-      public void close() throws IOException
-      {
-        setupTeardownService.shutdownNow();
-        try {
-          if (!setupTeardownService.awaitTermination(60, TimeUnit.SECONDS)) {
-            log.error("Tear down service didn't finish");
-          }
+    try (final Closeable ignored = () -> {
+      setupTeardownService.shutdownNow();
+      try {
+        if (!setupTeardownService.awaitTermination(60, TimeUnit.SECONDS)) {
+          log.error("Tear down service didn't finish");
         }
-        catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          throw new IOException("Interrupted", e);
-        }
+      }
+      catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IOException("Interrupted", e);
       }
     }) {
       tearDownFuture.get(60, TimeUnit.SECONDS);
@@ -381,6 +323,9 @@ public class JdbcExtractionNamespaceTest
         tsColumn,
         null,
         new Period(0),
+        null,
+        0,
+        null,
         new JdbcAccessSecurityConfig()
     );
     try (CacheScheduler.Entry entry = scheduler.schedule(extractionNamespace)) {
@@ -393,8 +338,8 @@ public class JdbcExtractionNamespaceTest
         String field = val[0];
         Assert.assertEquals(
             "non-null check",
-            NullHandling.emptyToNullIfNeeded(field),
-            NullHandling.emptyToNullIfNeeded(map.get(key))
+            field,
+            map.get(key)
         );
       }
       Assert.assertEquals("null check", null, map.get("baz"));
@@ -413,6 +358,9 @@ public class JdbcExtractionNamespaceTest
         tsColumn,
         FILTER_COLUMN + "='1'",
         new Period(0),
+        null,
+        0,
+        null,
         new JdbcAccessSecurityConfig()
     );
     try (CacheScheduler.Entry entry = scheduler.schedule(extractionNamespace)) {
@@ -428,13 +376,43 @@ public class JdbcExtractionNamespaceTest
         if ("1".equals(filterVal)) {
           Assert.assertEquals(
               "non-null check",
-              NullHandling.emptyToNullIfNeeded(field),
-              NullHandling.emptyToNullIfNeeded(map.get(key))
+              field,
+              map.get(key)
           );
         } else {
-          Assert.assertEquals("non-null check", null, NullHandling.emptyToNullIfNeeded(map.get(key)));
+          Assert.assertEquals("non-null check", null, map.get(key));
         }
       }
+    }
+  }
+
+  @Test(timeout = 60_000L)
+  public void testEmptyTable()
+      throws InterruptedException
+  {
+    // Delete existing rows from table.
+    final Handle handle = derbyConnectorRule.getConnector().getDBI().open();
+    handle.createStatement(
+        StringUtils.format("DELETE FROM %s", TABLE_NAME)
+    ).setQueryTimeout(1).execute();
+
+    final JdbcExtractionNamespace extractionNamespace = new JdbcExtractionNamespace(
+        derbyConnectorRule.getMetadataConnectorConfig(),
+        TABLE_NAME,
+        KEY_NAME,
+        VAL_NAME,
+        tsColumn,
+        null,
+        new Period(0),
+        null,
+        0,
+        null,
+        new JdbcAccessSecurityConfig()
+    );
+    try (CacheScheduler.Entry entry = scheduler.schedule(extractionNamespace)) {
+      CacheSchedulerTest.waitFor(entry);
+      final Map<String, String> map = entry.getCache();
+      Assert.assertTrue(map.isEmpty());
     }
   }
 
@@ -449,6 +427,47 @@ public class JdbcExtractionNamespaceTest
       }
       assertUpdated(entry, "foo", "bar");
     }
+  }
+
+  @Test
+  public void testRandomJitter()
+  {
+    JdbcExtractionNamespace extractionNamespace = new JdbcExtractionNamespace(
+        derbyConnectorRule.getMetadataConnectorConfig(),
+        TABLE_NAME,
+        KEY_NAME,
+        VAL_NAME,
+        tsColumn,
+        FILTER_COLUMN + "='1'",
+        new Period(0),
+        null,
+        120,
+        null,
+        new JdbcAccessSecurityConfig()
+    );
+    long jitter = extractionNamespace.getJitterMills();
+    // jitter will be a random value between 0 and 120 seconds.
+    Assert.assertTrue(jitter >= 0 && jitter <= 120000);
+  }
+
+  @Test
+  public void testRandomJitterNotSpecified()
+  {
+    JdbcExtractionNamespace extractionNamespace = new JdbcExtractionNamespace(
+        derbyConnectorRule.getMetadataConnectorConfig(),
+        TABLE_NAME,
+        KEY_NAME,
+        VAL_NAME,
+        tsColumn,
+        FILTER_COLUMN + "='1'",
+        new Period(0),
+        null,
+        0,
+        null,
+        new JdbcAccessSecurityConfig()
+    );
+    // jitter will be a random value between 0 and 120 seconds.
+    Assert.assertEquals(0, extractionNamespace.getJitterMills());
   }
 
   @Test(timeout = 60_000L)
@@ -487,6 +506,9 @@ public class JdbcExtractionNamespaceTest
         tsColumn,
         "some filter",
         new Period(10),
+        null,
+        0,
+        null,
         securityConfig
     );
     final ObjectMapper mapper = new DefaultObjectMapper();
@@ -511,6 +533,9 @@ public class JdbcExtractionNamespaceTest
         tsColumn,
         null,
         new Period(10),
+        null,
+        0,
+        null,
         new JdbcAccessSecurityConfig()
     );
     CacheScheduler.Entry entry = scheduler.schedule(extractionNamespace);

@@ -21,7 +21,6 @@ package org.apache.druid.segment.incremental;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.Lists;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.MapBasedInputRow;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.segment.CloserRule;
@@ -67,7 +66,7 @@ public class IncrementalIndexRowSizeTest extends InitializedNullHandlingTest
   @Test
   public void testIncrementalIndexRowSizeBasic()
   {
-    IncrementalIndex<?> index = indexCreator.createIndex();
+    IncrementalIndex index = indexCreator.createIndex();
     long time = System.currentTimeMillis();
     IncrementalIndex.IncrementalIndexRowResult tndResult = index.toIncrementalIndexRow(toMapRow(
         time,
@@ -77,14 +76,13 @@ public class IncrementalIndexRowSizeTest extends InitializedNullHandlingTest
         "B"  // 50 Bytes
     ));
     IncrementalIndexRow td1 = tndResult.getIncrementalIndexRow();
-    // 32 (timestamp + dims array + dimensionDescList) + 50 ("A") + 50 ("B")
-    Assert.assertEquals(132, td1.estimateBytesInMemory());
+    Assert.assertEquals(196, td1.estimateBytesInMemory());
   }
 
   @Test
   public void testIncrementalIndexRowSizeArr()
   {
-    IncrementalIndex<?> index = indexCreator.createIndex();
+    IncrementalIndex index = indexCreator.createIndex();
     long time = System.currentTimeMillis();
     IncrementalIndex.IncrementalIndexRowResult tndResult = index.toIncrementalIndexRow(toMapRow(
         time + 1,
@@ -94,14 +92,13 @@ public class IncrementalIndexRowSizeTest extends InitializedNullHandlingTest
         Arrays.asList("A", "B") // 100 Bytes
     ));
     IncrementalIndexRow td1 = tndResult.getIncrementalIndexRow();
-    // 32 (timestamp + dims array + dimensionDescList) + 50 ("A") + 100 ("A", "B")
-    Assert.assertEquals(182, td1.estimateBytesInMemory());
+    Assert.assertEquals(262, td1.estimateBytesInMemory());
   }
 
   @Test
   public void testIncrementalIndexRowSizeComplex()
   {
-    IncrementalIndex<?> index = indexCreator.createIndex();
+    IncrementalIndex index = indexCreator.createIndex();
     long time = System.currentTimeMillis();
     IncrementalIndex.IncrementalIndexRowResult tndResult = index.toIncrementalIndexRow(toMapRow(
         time + 1,
@@ -111,23 +108,21 @@ public class IncrementalIndexRowSizeTest extends InitializedNullHandlingTest
         Arrays.asList("123", "abcdef") // 54 + 60 Bytes
     ));
     IncrementalIndexRow td1 = tndResult.getIncrementalIndexRow();
-    // 32 (timestamp + dims array + dimensionDescList) + 60 ("nelson") + 114 ("123", "abcdef")
-    Assert.assertEquals(206, td1.estimateBytesInMemory());
+    Assert.assertEquals(286, td1.estimateBytesInMemory());
   }
 
   @Test
   public void testIncrementalIndexRowSizeEmptyString()
   {
-    IncrementalIndex<?> index = indexCreator.createIndex();
+    IncrementalIndex index = indexCreator.createIndex();
     long time = System.currentTimeMillis();
     IncrementalIndex.IncrementalIndexRowResult tndResult = index.toIncrementalIndexRow(toMapRow(
         time + 1,
         "billy",
-        "" // NullHandling.sqlCompatible() ? 48 Bytes : 4 Bytes
+        ""
     ));
     IncrementalIndexRow td1 = tndResult.getIncrementalIndexRow();
-    // 28 (timestamp + dims array + dimensionDescList) + 4 OR 48 depending on NullHandling.sqlCompatible()
-    Assert.assertEquals(NullHandling.sqlCompatible() ? 76 : 32, td1.estimateBytesInMemory());
+    Assert.assertEquals(108, td1.estimateBytesInMemory());
   }
 
   private MapBasedInputRow toMapRow(long time, Object... dimAndVal)

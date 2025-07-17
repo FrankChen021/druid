@@ -16,18 +16,21 @@
  * limitations under the License.
  */
 
-import { IconNames } from '@blueprintjs/icons';
 import { sum } from 'd3-array';
 import React from 'react';
 
+import { getConsoleViewIcon } from '../../../druid-models';
+import type { Capabilities } from '../../../helpers';
 import { useQueryManager } from '../../../hooks';
 import { Api } from '../../../singletons';
-import { Capabilities, deepGet, pluralIfNeeded, queryDruidSql } from '../../../utils';
+import { deepGet, getApiArray, pluralIfNeeded, queryDruidSql } from '../../../utils';
 import { HomeViewCard } from '../home-view-card/home-view-card';
 
 export interface SegmentCounts {
-  available: number;
+  active: number;
+  cached_on_historical: number;
   unavailable: number;
+  realtime: number;
 }
 
 export interface SegmentsCardProps {
@@ -36,52 +39,73 @@ export interface SegmentsCardProps {
 
 export const SegmentsCard = React.memo(function SegmentsCard(props: SegmentsCardProps) {
   const [segmentCountState] = useQueryManager<Capabilities, SegmentCounts>({
-    processQuery: async capabilities => {
+    initQuery: props.capabilities,
+    processQuery: async (capabilities, cancelToken) => {
       if (capabilities.hasSql()) {
-        const segments = await queryDruidSql({
-          query: `SELECT
-  COUNT(*) as "available",
-  COUNT(*) FILTER (WHERE is_available = 0) as "unavailable"
-FROM sys.segments`,
-        });
+        const segments = await queryDruidSql(
+          {
+            query: `SELECT
+  COUNT(*) AS "active",
+  COUNT(*) FILTER (WHERE is_available = 1) AS "cached_on_historical",
+  COUNT(*) FILTER (WHERE is_available = 0 AND replication_factor > 0) AS "unavailable",
+  COUNT(*) FILTER (WHERE is_realtime = 1) AS "realtime"
+FROM sys.segments
+WHERE is_active = 1`,
+          },
+          cancelToken,
+        );
         return segments.length === 1 ? segments[0] : null;
       } else if (capabilities.hasCoordinatorAccess()) {
-        const loadstatusResp = await Api.instance.get('/druid/coordinator/v1/loadstatus?simple');
+        const loadstatusResp = await Api.instance.get('/druid/coordinator/v1/loadstatus?simple', {
+          cancelToken,
+        });
         const loadstatus = loadstatusResp.data;
         const unavailableSegmentNum = sum(Object.keys(loadstatus), key => loadstatus[key]);
 
-        const datasourcesMetaResp = await Api.instance.get(
+        const datasourcesMeta = await getApiArray(
           '/druid/coordinator/v1/datasources?simple',
+          cancelToken,
         );
-        const datasourcesMeta = datasourcesMetaResp.data;
         const availableSegmentNum = sum(datasourcesMeta, (curr: any) =>
           deepGet(curr, 'properties.segments.count'),
         );
 
         return {
-          available: availableSegmentNum + unavailableSegmentNum,
-          unavailable: unavailableSegmentNum,
+          active: availableSegmentNum + unavailableSegmentNum,
+          cached_on_historical: availableSegmentNum,
+          unavailable: unavailableSegmentNum, // This is no longer fully accurate because it does not replicate the [AND replication_factor > 0] condition of the SQL, this info is not in this API
+          realtime: 0, // Realtime segments are sadly not reported by this API
         };
       } else {
         throw new Error(`must have SQL or coordinator access`);
       }
     },
-    initQuery: props.capabilities,
   });
 
-  const segmentCount = segmentCountState.data || { available: 0, unavailable: 0 };
+  const segmentCount: SegmentCounts = segmentCountState.data || {
+    active: 0,
+    cached_on_historical: 0,
+    unavailable: 0,
+    realtime: 0,
+  };
   return (
     <HomeViewCard
       className="segments-card"
       href="#segments"
-      icon={IconNames.STACKED_CHART}
+      icon={getConsoleViewIcon('segments')}
       title="Segments"
       loading={segmentCountState.loading}
       error={segmentCountState.error}
     >
-      <p>{pluralIfNeeded(segmentCount.available, 'segment')}</p>
+      <p>{pluralIfNeeded(segmentCount.active, 'active segment')}</p>
       {Boolean(segmentCount.unavailable) && (
-        <p>{pluralIfNeeded(segmentCount.unavailable, 'unavailable segment')}</p>
+        <p>
+          {pluralIfNeeded(segmentCount.unavailable, 'segment')} waiting to be cached on historicals
+        </p>
+      )}
+      <p>{pluralIfNeeded(segmentCount.cached_on_historical, 'segment')} cached on historicals</p>
+      {Boolean(segmentCount.realtime) && (
+        <p>{pluralIfNeeded(segmentCount.realtime, 'realtime segment')}</p>
       )}
     </HomeViewCard>
   );

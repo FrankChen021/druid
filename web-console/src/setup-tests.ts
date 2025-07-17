@@ -16,13 +16,14 @@
  * limitations under the License.
  */
 
-import 'core-js/stable';
+import './bootstrap/ace';
 
-import { configure } from 'enzyme';
-import enzymeAdapterReact16 from 'enzyme-adapter-react-16';
+import { Icons } from '@blueprintjs/icons';
 
 import { UrlBaser } from './singletons';
 
-configure({ adapter: new (enzymeAdapterReact16 as any)() });
-
 UrlBaser.baseUrl = '/some/base_url';
+
+beforeAll(async () => {
+  await Icons.loadAll();
+});

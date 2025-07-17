@@ -16,14 +16,14 @@
  * limitations under the License.
  */
 
-import { Callout, Code, FormGroup } from '@blueprintjs/core';
+import { Button, Callout, Code, FormGroup, Intent, Tag } from '@blueprintjs/core';
 import React from 'react';
 
-import { ExternalLink } from '../../components';
-import { DimensionMode, getIngestionDocLink, IngestionSpec } from '../../druid-models';
+import { ExternalLink, LearnMore } from '../../components';
+import type { IngestionSpec, SchemaMode } from '../../druid-models';
+import { getIngestionDocLink } from '../../druid-models';
 import { getLink } from '../../links';
-
-import { LearnMore } from './learn-more/learn-more';
+import { deepGet, deepSet } from '../../utils';
 
 export interface ConnectMessageProps {
   inlineMode: boolean;
@@ -38,9 +38,7 @@ export const ConnectMessage = React.memo(function ConnectMessage(props: ConnectM
       <Callout>
         <p>
           Druid ingests raw data and converts it into a custom,{' '}
-          <ExternalLink href={`${getLink('DOCS')}/design/segments.html`}>
-            indexed format
-          </ExternalLink>{' '}
+          <ExternalLink href={`${getLink('DOCS')}/design/segments`}>indexed format</ExternalLink>{' '}
           that is optimized for analytic queries.
         </p>
         {inlineMode ? (
@@ -57,32 +55,20 @@ export const ConnectMessage = React.memo(function ConnectMessage(props: ConnectM
   );
 });
 
-export interface ParserMessageProps {
-  canFlatten: boolean;
-}
-
-export const ParserMessage = React.memo(function ParserMessage(props: ParserMessageProps) {
-  const { canFlatten } = props;
-
+export const ParserMessage = React.memo(function ParserMessage() {
   return (
     <FormGroup>
       <Callout>
         <p>
-          Druid requires flat data (non-nested, non-hierarchical). Each row should represent a
-          discrete event.
+          Druid needs to parse data as columns. Determine the format of your data and ensure that
+          the columns are accurately parsed.
         </p>
-        {canFlatten && (
-          <p>
-            If you have nested data, you can{' '}
-            <ExternalLink href={`${getLink('DOCS')}/ingestion/index.html#flattenspec`}>
-              flatten
-            </ExternalLink>{' '}
-            it here. If the provided flattening capabilities are not sufficient, please pre-process
-            your data before ingesting it into Druid.
-          </p>
-        )}
-        <p>Ensure that your data appears correctly in a row/column orientation.</p>
-        <LearnMore href={`${getLink('DOCS')}/ingestion/data-formats.html`} />
+        <p>
+          If you have nested data, you can ingest it as{' '}
+          <ExternalLink href={`${getLink('DOCS')}/querying/nested-columns`}>json</ExternalLink>{' '}
+          dimensions.
+        </p>
+        <LearnMore href={`${getLink('DOCS')}/ingestion/data-formats`} />
       </Callout>
     </FormGroup>
   );
@@ -103,7 +89,7 @@ export const TimestampMessage = React.memo(function TimestampMessage() {
           combine them into one by selecting <Code>Expression</Code> and defining a transform
           expression.
         </p>
-        <LearnMore href={`${getLink('DOCS')}/ingestion/index.html#timestampspec`} />
+        <LearnMore href={`${getLink('DOCS')}/ingestion/ingestion-spec#timestampspec`} />
       </Callout>
     </FormGroup>
   );
@@ -115,12 +101,12 @@ export const TransformMessage = React.memo(function TransformMessage() {
       <Callout>
         <p>
           Druid can perform per-row{' '}
-          <ExternalLink href={`${getLink('DOCS')}/ingestion/transform-spec.html#transforms`}>
+          <ExternalLink href={`${getLink('DOCS')}/ingestion/transform-spec#transforms`}>
             transforms
           </ExternalLink>{' '}
           of column values allowing you to create new derived columns or alter existing column.
         </p>
-        <LearnMore href={`${getLink('DOCS')}/ingestion/index.html#transforms`} />
+        <LearnMore href={`${getLink('DOCS')}/ingestion/ingestion-spec#transforms`} />
       </Callout>
     </FormGroup>
   );
@@ -132,20 +118,20 @@ export const FilterMessage = React.memo(function FilterMessage() {
       <Callout>
         <p>
           Druid can filter out unwanted data by applying per-row{' '}
-          <ExternalLink href={`${getLink('DOCS')}/querying/filters.html`}>filters</ExternalLink>.
+          <ExternalLink href={`${getLink('DOCS')}/querying/filters`}>filters</ExternalLink>.
         </p>
-        <LearnMore href={`${getLink('DOCS')}/ingestion/index.html#filter`} />
+        <LearnMore href={`${getLink('DOCS')}/ingestion/ingestion-spec#filter`} />
       </Callout>
     </FormGroup>
   );
 });
 
 export interface SchemaMessageProps {
-  dimensionMode: DimensionMode;
+  schemaMode: SchemaMode;
 }
 
 export const SchemaMessage = React.memo(function SchemaMessage(props: SchemaMessageProps) {
-  const { dimensionMode } = props;
+  const { schemaMode } = props;
 
   return (
     <FormGroup>
@@ -154,13 +140,13 @@ export const SchemaMessage = React.memo(function SchemaMessage(props: SchemaMess
           Each column in Druid must have an assigned type (string, long, float, double, complex,
           etc).
         </p>
-        {dimensionMode === 'specific' && (
+        {schemaMode === 'fixed' && (
           <p>
             Default primitive types have been automatically assigned to your columns. If you want to
             change the type, click on the column header.
           </p>
         )}
-        <LearnMore href={`${getLink('DOCS')}/ingestion/schema-design.html`} />
+        <LearnMore href={`${getLink('DOCS')}/ingestion/schema-design`} />
       </Callout>
     </FormGroup>
   );
@@ -176,7 +162,7 @@ export const PartitionMessage = React.memo(function PartitionMessage() {
           <Code>Primary partitioning</Code>), and each time chunk contains one or more segments (
           <Code>Secondary partitioning</Code>).
         </p>
-        <LearnMore href={`${getLink('DOCS')}/ingestion/index.html#partitioning`} />
+        <LearnMore href={`${getLink('DOCS')}/ingestion/partitioning`} />
       </Callout>
     </FormGroup>
   );
@@ -187,7 +173,7 @@ export const TuningMessage = React.memo(function TuningMessage() {
     <FormGroup>
       <Callout>
         <p>Fine tune how Druid will ingest data.</p>
-        <LearnMore href={`${getLink('DOCS')}/ingestion/index.html#tuningconfig`} />
+        <LearnMore href={`${getLink('DOCS')}/ingestion/ingestion-spec#tuningconfig`} />
       </Callout>
     </FormGroup>
   );
@@ -213,7 +199,52 @@ export const SpecMessage = React.memo(function SpecMessage() {
           you modify any values in previous sections, this spec will automatically update.
         </p>
         <p>Submit the spec to begin loading data into Druid.</p>
-        <LearnMore href={`${getLink('DOCS')}/ingestion/index.html#ingestion-specs`} />
+        <LearnMore href={`${getLink('DOCS')}/ingestion/ingestion-spec`} />
+      </Callout>
+    </FormGroup>
+  );
+});
+
+export interface AppendToExistingIssueProps {
+  spec: Partial<IngestionSpec>;
+  onChangeSpec(newSpec: Partial<IngestionSpec>): void;
+}
+
+export const AppendToExistingIssue = React.memo(function AppendToExistingIssue(
+  props: AppendToExistingIssueProps,
+) {
+  const { spec, onChangeSpec } = props;
+
+  const partitionsSpecType = deepGet(spec, 'spec.tuningConfig.partitionsSpec.type');
+  if (
+    partitionsSpecType === 'dynamic' ||
+    deepGet(spec, 'spec.ioConfig.appendToExisting') !== true
+  ) {
+    return null;
+  }
+
+  const dynamicPartitionSpec = {
+    type: 'dynamic',
+    maxRowsPerSegment:
+      deepGet(spec, 'spec.tuningConfig.partitionsSpec.maxRowsPerSegment') ||
+      deepGet(spec, 'spec.tuningConfig.partitionsSpec.targetRowsPerSegment'),
+  };
+
+  return (
+    <FormGroup>
+      <Callout intent={Intent.DANGER}>
+        <p>
+          Only <Tag minimal>dynamic</Tag> partitioning supports <Code>appendToExisting: true</Code>.
+          You have currently selected <Tag minimal>{partitionsSpecType}</Tag> partitioning.
+        </p>
+        <Button
+          intent={Intent.SUCCESS}
+          onClick={() =>
+            onChangeSpec(deepSet(spec, 'spec.tuningConfig.partitionsSpec', dynamicPartitionSpec))
+          }
+        >
+          Change to <Code>dynamic</Code> partitioning
+        </Button>
       </Callout>
     </FormGroup>
   );

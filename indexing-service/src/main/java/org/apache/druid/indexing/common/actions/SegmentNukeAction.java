@@ -20,7 +20,6 @@
 package org.apache.druid.indexing.common.actions;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableSet;
@@ -28,17 +27,23 @@ import org.apache.druid.indexing.common.task.IndexTaskUtils;
 import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.indexing.overlord.CriticalAction;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
 import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.segment.SegmentUtils;
 import org.apache.druid.timeline.DataSegment;
+import org.joda.time.Interval;
 
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Permanently deletes unused segments from the metadata store.
+ */
 public class SegmentNukeAction implements TaskAction<Void>
 {
-  @JsonIgnore
+  private static final Logger log = new Logger(SegmentNukeAction.class);
+
   private final Set<DataSegment> segments;
 
   @JsonCreator
@@ -58,9 +63,7 @@ public class SegmentNukeAction implements TaskAction<Void>
   @Override
   public TypeReference<Void> getReturnTypeReference()
   {
-    return new TypeReference<Void>()
-    {
-    };
+    return new TypeReference<>() {};
   }
 
   @Override
@@ -69,22 +72,25 @@ public class SegmentNukeAction implements TaskAction<Void>
     TaskLocks.checkLockCoversSegments(task, toolbox.getTaskLockbox(), segments);
 
     try {
-      toolbox.getTaskLockbox().doInCriticalSection(
+      final Set<Interval> intervals = segments.stream().map(DataSegment::getInterval).collect(Collectors.toSet());
+      int numDeletedSegments = toolbox.getTaskLockbox().doInCriticalSection(
           task,
-          segments.stream().map(DataSegment::getInterval).collect(Collectors.toList()),
-          CriticalAction.builder()
-                        .onValidLocks(
-                            () -> {
-                              toolbox.getIndexerMetadataStorageCoordinator().deleteSegments(segments);
-                              return null;
-                            }
-                        )
-                        .onInvalidLocks(
-                            () -> {
-                              throw new ISE("Some locks for task[%s] are already revoked", task.getId());
-                            }
-                        )
-                        .build()
+          intervals,
+          CriticalAction.<Integer>builder().onValidLocks(
+              () -> toolbox.getIndexerMetadataStorageCoordinator().deleteSegments(segments)
+          ).onInvalidLocks(
+              () -> {
+                throw new ISE("Some locks for task[%s] are already revoked", task.getId());
+              }
+          ).build()
+      );
+
+      log.info(
+          "Deleted [%d] segments from metadata store out of requested[%d],"
+          + " across [%d] intervals[%s], for task[%s] of datasource[%s].",
+          numDeletedSegments, segments.size(),
+          intervals.size(), intervals,
+          task.getId(), task.getDataSource()
       );
     }
     catch (Exception e) {
@@ -97,16 +103,10 @@ public class SegmentNukeAction implements TaskAction<Void>
 
     for (DataSegment segment : segments) {
       metricBuilder.setDimension(DruidMetrics.INTERVAL, segment.getInterval().toString());
-      toolbox.getEmitter().emit(metricBuilder.build("segment/nuked/bytes", segment.getSize()));
+      toolbox.getEmitter().emit(metricBuilder.setMetric("segment/nuked/bytes", segment.getSize()));
     }
 
     return null;
-  }
-
-  @Override
-  public boolean isAudited()
-  {
-    return true;
   }
 
   @Override

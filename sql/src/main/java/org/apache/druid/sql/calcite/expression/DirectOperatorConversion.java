@@ -22,10 +22,14 @@ package org.apache.druid.sql.calcite.expression;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 
 import javax.annotation.Nullable;
 
+/**
+ * Conversion for SQL operators that map 1-1 onto native functions.
+ */
 public class DirectOperatorConversion implements SqlOperatorConversion
 {
   private final SqlOperator operator;
@@ -38,9 +42,14 @@ public class DirectOperatorConversion implements SqlOperatorConversion
   }
 
   @Override
-  public SqlOperator calciteOperator()
+  public final SqlOperator calciteOperator()
   {
     return operator;
+  }
+
+  public final String getDruidFunctionName()
+  {
+    return druidFunctionName;
   }
 
   @Override
@@ -50,17 +59,12 @@ public class DirectOperatorConversion implements SqlOperatorConversion
       final RexNode rexNode
   )
   {
-    return OperatorConversions.convertCall(
+    return OperatorConversions.convertDirectCall(
         plannerContext,
         rowSignature,
         rexNode,
-        operands -> DruidExpression.fromExpression(DruidExpression.functionCall(druidFunctionName, operands))
+        druidFunctionName
     );
-  }
-
-  public String getDruidFunctionName()
-  {
-    return druidFunctionName;
   }
 
   @Nullable
@@ -76,7 +80,11 @@ public class DirectOperatorConversion implements SqlOperatorConversion
         plannerContext,
         rowSignature,
         rexNode,
-        operands -> DruidExpression.fromExpression(DruidExpression.functionCall(druidFunctionName, operands)),
+        operands -> DruidExpression.ofFunctionCall(
+            Calcites.getColumnTypeForRelDataType(rexNode.getType()),
+            druidFunctionName,
+            operands
+        ),
         postAggregatorVisitor
     );
   }

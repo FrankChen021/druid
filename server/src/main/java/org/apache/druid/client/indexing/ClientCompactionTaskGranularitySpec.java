@@ -21,9 +21,10 @@ package org.apache.druid.client.indexing;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.druid.indexer.granularity.GranularitySpec;
 import org.apache.druid.java.util.common.granularity.Granularity;
-import org.apache.druid.segment.indexing.granularity.GranularitySpec;
 
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
@@ -40,32 +41,44 @@ public class ClientCompactionTaskGranularitySpec
 {
   private final Granularity segmentGranularity;
   private final Granularity queryGranularity;
+  private final Boolean rollup;
 
   @JsonCreator
   public ClientCompactionTaskGranularitySpec(
-      @JsonProperty("segmentGranularity") Granularity segmentGranularity,
-      @JsonProperty("queryGranularity") Granularity queryGranularity
+      @JsonProperty("segmentGranularity") @Nullable Granularity segmentGranularity,
+      @JsonProperty("queryGranularity") @Nullable Granularity queryGranularity,
+      @JsonProperty("rollup") @Nullable Boolean rollup
   )
   {
     this.queryGranularity = queryGranularity;
     this.segmentGranularity = segmentGranularity;
+    this.rollup = rollup;
   }
 
   @JsonProperty
+  @Nullable
   public Granularity getSegmentGranularity()
   {
     return segmentGranularity;
   }
 
   @JsonProperty
+  @Nullable
   public Granularity getQueryGranularity()
   {
     return queryGranularity;
   }
 
+  @JsonProperty
+  @Nullable
+  public Boolean isRollup()
+  {
+    return rollup;
+  }
+
   public ClientCompactionTaskGranularitySpec withSegmentGranularity(Granularity segmentGranularity)
   {
-    return new ClientCompactionTaskGranularitySpec(segmentGranularity, queryGranularity);
+    return new ClientCompactionTaskGranularitySpec(segmentGranularity, queryGranularity, rollup);
   }
 
   @Override
@@ -79,13 +92,14 @@ public class ClientCompactionTaskGranularitySpec
     }
     ClientCompactionTaskGranularitySpec that = (ClientCompactionTaskGranularitySpec) o;
     return Objects.equals(segmentGranularity, that.segmentGranularity) &&
-           Objects.equals(queryGranularity, that.queryGranularity);
+           Objects.equals(queryGranularity, that.queryGranularity) &&
+           Objects.equals(rollup, that.rollup);
   }
 
   @Override
   public int hashCode()
   {
-    return Objects.hash(segmentGranularity, queryGranularity);
+    return Objects.hash(segmentGranularity, queryGranularity, rollup);
   }
 
   @Override
@@ -94,6 +108,7 @@ public class ClientCompactionTaskGranularitySpec
     return "ClientCompactionTaskGranularitySpec{" +
            "segmentGranularity=" + segmentGranularity +
            ", queryGranularity=" + queryGranularity +
+           ", rollup=" + rollup +
            '}';
   }
 }

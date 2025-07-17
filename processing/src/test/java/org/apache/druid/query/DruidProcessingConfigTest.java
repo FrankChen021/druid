@@ -19,24 +19,23 @@
 
 package org.apache.druid.query;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
-import org.apache.druid.java.util.common.IAE;
-import org.apache.druid.java.util.common.config.Config;
-import org.apache.druid.utils.JvmUtils;
+import com.google.inject.ProvisionException;
+import org.apache.druid.error.ExceptionMatcher;
+import org.apache.druid.guice.DruidSecondaryModule;
+import org.apache.druid.guice.JsonConfigProvider;
+import org.apache.druid.guice.StartupInjectorBuilder;
 import org.apache.druid.utils.RuntimeInfo;
-import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-import org.skife.config.ConfigurationObjectFactory;
 
-import java.util.Map;
 import java.util.Properties;
 
 /**
+ *
  */
 public class DruidProcessingConfigTest
 {
@@ -48,38 +47,6 @@ public class DruidProcessingConfigTest
   @Rule
   public ExpectedException expectedException = ExpectedException.none();
 
-  private static Injector makeInjector(int numProcessors, long directMemorySize, long heapSize)
-  {
-    return makeInjector(numProcessors, directMemorySize, heapSize, new Properties(), null);
-  }
-
-  private static Injector makeInjector(
-      int numProcessors,
-      long directMemorySize,
-      long heapSize,
-      Properties props,
-      Map<String, String> replacements
-  )
-  {
-    return Guice.createInjector(
-        binder -> {
-          binder.bind(RuntimeInfo.class).toInstance(new MockRuntimeInfo(numProcessors, directMemorySize, heapSize));
-          binder.requestStaticInjection(JvmUtils.class);
-          ConfigurationObjectFactory factory = Config.createFactory(props);
-          DruidProcessingConfig config;
-          if (replacements != null) {
-            config = factory.buildWithReplacements(
-                DruidProcessingConfig.class,
-                replacements
-            );
-          } else {
-            config = factory.build(DruidProcessingConfig.class);
-          }
-          binder.bind(ConfigurationObjectFactory.class).toInstance(factory);
-          binder.bind(DruidProcessingConfig.class).toInstance(config);
-        }
-    );
-  }
 
   @Test
   public void testDefaultsMultiProcessor()
@@ -90,8 +57,7 @@ public class DruidProcessingConfigTest
     Assert.assertEquals(Integer.MAX_VALUE, config.poolCacheMaxCount());
     Assert.assertEquals(NUM_PROCESSORS - 1, config.getNumThreads());
     Assert.assertEquals(Math.max(2, config.getNumThreads() / 4), config.getNumMergeBuffers());
-    Assert.assertEquals(0, config.columnCacheSizeBytes());
-    Assert.assertFalse(config.isFifo());
+    Assert.assertTrue(config.isFifo());
     Assert.assertEquals(System.getProperty("java.io.tmpdir"), config.getTmpDir());
     Assert.assertEquals(BUFFER_SIZE, config.intermediateComputeSizeBytes());
   }
@@ -105,8 +71,7 @@ public class DruidProcessingConfigTest
     Assert.assertEquals(Integer.MAX_VALUE, config.poolCacheMaxCount());
     Assert.assertTrue(config.getNumThreads() == 1);
     Assert.assertEquals(Math.max(2, config.getNumThreads() / 4), config.getNumMergeBuffers());
-    Assert.assertEquals(0, config.columnCacheSizeBytes());
-    Assert.assertFalse(config.isFifo());
+    Assert.assertTrue(config.isFifo());
     Assert.assertEquals(System.getProperty("java.io.tmpdir"), config.getTmpDir());
     Assert.assertEquals(BUFFER_SIZE, config.intermediateComputeSizeBytes());
   }
@@ -119,7 +84,7 @@ public class DruidProcessingConfigTest
     DruidProcessingConfig config = injector.getInstance(DruidProcessingConfig.class);
 
     Assert.assertEquals(
-        DruidProcessingConfig.MAX_DEFAULT_PROCESSING_BUFFER_SIZE_BYTES,
+        DruidProcessingBufferConfig.MAX_DEFAULT_PROCESSING_BUFFER_SIZE_BYTES,
         config.intermediateComputeSizeBytes()
     );
   }
@@ -131,16 +96,15 @@ public class DruidProcessingConfigTest
     props.setProperty("druid.processing.buffer.sizeBytes", "1");
     props.setProperty("druid.processing.buffer.poolCacheMaxCount", "1");
     props.setProperty("druid.processing.numThreads", "256");
-    props.setProperty("druid.processing.columnCache.sizeBytes", "1");
-    props.setProperty("druid.processing.fifo", "true");
+    props.setProperty("druid.processing.fifo", "false");
     props.setProperty("druid.processing.tmpDir", "/test/path");
+
 
     Injector injector = makeInjector(
         NUM_PROCESSORS,
         DIRECT_SIZE,
         HEAP_SIZE,
-        props,
-        ImmutableMap.of("base_path", "druid.processing")
+        props
     );
     DruidProcessingConfig config = injector.getInstance(DruidProcessingConfig.class);
 
@@ -148,9 +112,9 @@ public class DruidProcessingConfigTest
     Assert.assertEquals(1, config.poolCacheMaxCount());
     Assert.assertEquals(256, config.getNumThreads());
     Assert.assertEquals(64, config.getNumMergeBuffers());
-    Assert.assertEquals(1, config.columnCacheSizeBytes());
-    Assert.assertTrue(config.isFifo());
+    Assert.assertFalse(config.isFifo());
     Assert.assertEquals("/test/path", config.getTmpDir());
+    Assert.assertEquals(0, config.getNumInitalBuffersForIntermediatePool());
   }
 
   @Test
@@ -159,15 +123,19 @@ public class DruidProcessingConfigTest
     Properties props = new Properties();
     props.setProperty("druid.processing.buffer.sizeBytes", "-1");
 
-    expectedException.expectCause(CoreMatchers.isA(IAE.class));
-
     Injector injector = makeInjector(
         NUM_PROCESSORS,
         DIRECT_SIZE,
         HEAP_SIZE,
-        props,
-        ImmutableMap.of("base_path", "druid.processing")
+        props
     );
+
+    ExceptionMatcher
+        .of(ProvisionException.class)
+        .expectMessageContains(
+            "Cannot construct instance of `HumanReadableBytes`, problem: Invalid format of number: -1. Negative value is not allowed."
+        )
+        .assertThrowsAndMatches(() -> injector.getInstance(DruidProcessingConfig.class));
   }
 
   @Test
@@ -179,22 +147,45 @@ public class DruidProcessingConfigTest
         NUM_PROCESSORS,
         DIRECT_SIZE,
         HEAP_SIZE,
-        props,
-        ImmutableMap.of("base_path", "druid.processing")
+        props
     );
-    DruidProcessingConfig config = injector.getInstance(DruidProcessingConfig.class);
+    Throwable t = Assert.assertThrows(
+        ProvisionException.class,
+        () -> injector.getInstance(DruidProcessingConfig.class)
+    );
 
-    expectedException.expectMessage("druid.processing.buffer.sizeBytes must be less than 2GiB");
-    config.intermediateComputeSizeBytes();
+    Assert.assertTrue(t.getMessage().contains("druid.processing.buffer.sizeBytes must be less than 2GiB"));
   }
 
-  static class MockRuntimeInfo extends RuntimeInfo
+  private static Injector makeInjector(int numProcessors, long directMemorySize, long heapSize)
+  {
+    return makeInjector(numProcessors, directMemorySize, heapSize, new Properties());
+  }
+
+  private static Injector makeInjector(
+      int numProcessors,
+      long directMemorySize,
+      long heapSize,
+      Properties props
+  )
+  {
+    final Injector startupInjector = new StartupInjectorBuilder().withProperties(props).build();
+    return Guice.createInjector(
+        startupInjector.getInstance(DruidSecondaryModule.class),
+        binder -> {
+          binder.bind(RuntimeInfo.class).toInstance(new MockRuntimeInfo(numProcessors, directMemorySize, heapSize));
+          JsonConfigProvider.bind(binder, "druid.processing", DruidProcessingConfig.class);
+        }
+    );
+  }
+
+  public static class MockRuntimeInfo extends RuntimeInfo
   {
     private final int availableProcessors;
     private final long maxHeapSize;
     private final long directSize;
 
-    MockRuntimeInfo(int availableProcessors, long directSize, long maxHeapSize)
+    public MockRuntimeInfo(int availableProcessors, long directSize, long maxHeapSize)
     {
       this.availableProcessors = availableProcessors;
       this.directSize = directSize;
@@ -205,6 +196,12 @@ public class DruidProcessingConfigTest
     public int getAvailableProcessors()
     {
       return availableProcessors;
+    }
+
+    @Override
+    public long getTotalHeapSizeBytes()
+    {
+      return maxHeapSize;
     }
 
     @Override

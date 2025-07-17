@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -50,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 public class BaseNodeRoleWatcher
 {
   private static final Logger LOGGER = new Logger(BaseNodeRoleWatcher.class);
+  private static final long DEFAULT_TIMEOUT_SECONDS = 30L;
 
   private final NodeRole nodeRole;
 
@@ -59,38 +60,46 @@ public class BaseNodeRoleWatcher
   private final ConcurrentMap<String, DiscoveryDruidNode> nodes = new ConcurrentHashMap<>();
   private final Collection<DiscoveryDruidNode> unmodifiableNodes = Collections.unmodifiableCollection(nodes.values());
 
-  private final ExecutorService listenerExecutor;
+  private final ScheduledExecutorService listenerExecutor;
 
   private final List<DruidNodeDiscovery.Listener> nodeListeners = new ArrayList<>();
 
   private final Object lock = new Object();
 
+  // Always countdown under lock
   private final CountDownLatch cacheInitialized = new CountDownLatch(1);
 
+  private volatile boolean cacheInitializationTimedOut = false;
+
   public BaseNodeRoleWatcher(
-      ExecutorService listenerExecutor,
+      ScheduledExecutorService listenerExecutor,
       NodeRole nodeRole
   )
   {
-    this.listenerExecutor = listenerExecutor;
     this.nodeRole = nodeRole;
+    this.listenerExecutor = listenerExecutor;
+  }
+
+  public static BaseNodeRoleWatcher create(
+      ScheduledExecutorService listenerExecutor,
+      NodeRole nodeRole
+  )
+  {
+    BaseNodeRoleWatcher nodeRoleWatcher = new BaseNodeRoleWatcher(listenerExecutor, nodeRole);
+    nodeRoleWatcher.scheduleTimeout(DEFAULT_TIMEOUT_SECONDS);
+    return nodeRoleWatcher;
   }
 
   public Collection<DiscoveryDruidNode> getAllNodes()
   {
-    boolean nodeViewInitialized;
     try {
-      nodeViewInitialized = cacheInitialized.await((long) 30, TimeUnit.SECONDS);
+      awaitInitialization();
     }
     catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
-      nodeViewInitialized = false;
     }
-    if (!nodeViewInitialized) {
-      LOGGER.info(
-          "Cache for node role [%s] not initialized yet; getAllNodes() might not return full information.",
-          nodeRole.getJsonName()
-      );
+    if (unmodifiableNodes.isEmpty()) {
+      LOGGER.warn("Watcher for node role [%s] returned an empty collection.", nodeRole.getJsonName());
     }
     return unmodifiableNodes;
   }
@@ -106,9 +115,13 @@ public class BaseNodeRoleWatcher
         safeSchedule(
             () -> {
               listener.nodesAdded(currNodes);
-              listener.nodeViewInitialized();
+              if (cacheInitializationTimedOut) {
+                listener.nodeViewInitializedTimedOut();
+              } else {
+                listener.nodeViewInitialized();
+              }
             },
-            "Exception occured in nodesAdded([%s]) in listener [%s].", currNodes, listener
+            "Exception occurred in nodesAdded([%s]) in listener [%s].", currNodes, listener
         );
       }
       nodeListeners.add(listener);
@@ -120,7 +133,7 @@ public class BaseNodeRoleWatcher
     synchronized (lock) {
       if (!nodeRole.equals(druidNode.getNodeRole())) {
         LOGGER.error(
-            "Node[%s] of role[%s] addition ignored due to mismatched role (expected role[%s]).",
+            "Node [%s] of role [%s] addition ignored due to mismatched role (expected role [%s]).",
             druidNode.getDruidNode().getUriToUse(),
             druidNode.getNodeRole().getJsonName(),
             nodeRole.getJsonName()
@@ -128,7 +141,7 @@ public class BaseNodeRoleWatcher
         return;
       }
 
-      LOGGER.info("Node[%s] of role[%s] detected.", druidNode.getDruidNode().getUriToUse(), nodeRole.getJsonName());
+      LOGGER.info("Node [%s] of role [%s] detected.", druidNode.getDruidNode().getUriToUse(), nodeRole.getJsonName());
 
       addNode(druidNode);
     }
@@ -145,7 +158,7 @@ public class BaseNodeRoleWatcher
         for (DruidNodeDiscovery.Listener listener : nodeListeners) {
           safeSchedule(
               () -> listener.nodesAdded(newNode),
-              "Exception occured in nodeAdded(node=[%s]) in listener [%s].",
+              "Exception occurred in nodeAdded(node=[%s]) in listener [%s].",
               druidNode.getDruidNode().getHostAndPortToUse(),
               listener
           );
@@ -153,7 +166,7 @@ public class BaseNodeRoleWatcher
       }
     } else {
       LOGGER.error(
-          "Node[%s] of role[%s] discovered but existed already [%s].",
+          "Node [%s] of role [%s] discovered but existed already [%s].",
           druidNode.getDruidNode().getUriToUse(),
           nodeRole.getJsonName(),
           prev
@@ -166,7 +179,7 @@ public class BaseNodeRoleWatcher
     synchronized (lock) {
       if (!nodeRole.equals(druidNode.getNodeRole())) {
         LOGGER.error(
-            "Node[%s] of role[%s] removal ignored due to mismatched role (expected role[%s]).",
+            "Node [%s] of role [%s] removal ignored due to mismatched role (expected role [%s]).",
             druidNode.getDruidNode().getUriToUse(),
             druidNode.getNodeRole().getJsonName(),
             nodeRole.getJsonName()
@@ -174,7 +187,7 @@ public class BaseNodeRoleWatcher
         return;
       }
 
-      LOGGER.info("Node[%s] of role[%s] went offline.", druidNode.getDruidNode().getUriToUse(), nodeRole.getJsonName());
+      LOGGER.warn("Node [%s] of role [%s] went offline.", druidNode.getDruidNode().getUriToUse(), nodeRole.getJsonName());
 
       removeNode(druidNode);
     }
@@ -187,7 +200,7 @@ public class BaseNodeRoleWatcher
 
     if (prev == null) {
       LOGGER.error(
-          "Noticed disappearance of unknown druid node [%s] of role[%s].",
+          "Noticed disappearance of unknown druid node [%s] of role [%s].",
           druidNode.getDruidNode().getUriToUse(),
           druidNode.getNodeRole().getJsonName()
       );
@@ -200,7 +213,7 @@ public class BaseNodeRoleWatcher
       for (DruidNodeDiscovery.Listener listener : nodeListeners) {
         safeSchedule(
             () -> listener.nodesRemoved(nodeRemoved),
-            "Exception occured in nodeRemoved(node[%s] of role[%s]) in listener [%s].",
+            "Exception occurred in nodeRemoved(node [%s] of role [%s]) in listener [%s].",
             druidNode.getDruidNode().getUriToUse(),
             druidNode.getNodeRole().getJsonName(),
             listener
@@ -215,29 +228,74 @@ public class BaseNodeRoleWatcher
       // No need to wait on CountDownLatch, because we are holding the lock under which it could only be
       // counted down.
       if (cacheInitialized.getCount() == 0) {
-        LOGGER.error("cache is already initialized. ignoring cache initialization event.");
+        if (cacheInitializationTimedOut) {
+          LOGGER.warn(
+              "Cache initialization for node role[%s] has already timed out. Ignoring cache initialization event.",
+              nodeRole.getJsonName()
+          );
+        } else {
+          LOGGER.error(
+              "Cache for node role[%s] is already initialized. ignoring cache initialization event.",
+              nodeRole.getJsonName()
+          );
+        }
         return;
       }
 
-      LOGGER.info("Node watcher of role[%s] is now initialized.", nodeRole.getJsonName());
-
-      for (DruidNodeDiscovery.Listener listener : nodeListeners) {
-        // It is important to take a snapshot here as list of nodes might change by the time listeners process
-        // the changes.
-        List<DiscoveryDruidNode> currNodes = Lists.newArrayList(nodes.values());
-        safeSchedule(
-            () -> {
-              listener.nodesAdded(currNodes);
-              listener.nodeViewInitialized();
-            },
-            "Exception occured in nodesAdded([%s]) in listener [%s].",
-            currNodes,
-            listener
-        );
-      }
-
-      cacheInitialized.countDown();
+      cacheInitialized(false);
     }
+  }
+
+  private void cacheInitializedTimedOut()
+  {
+    synchronized (lock) {
+      // No need to wait on CountDownLatch, because we are holding the lock under which it could only be
+      // counted down.
+      if (cacheInitialized.getCount() != 0) {
+        cacheInitialized(true);
+      }
+    }
+  }
+
+  // This method is called only once with either timedOut = true or false, but not both.
+  @GuardedBy("lock")
+  private void cacheInitialized(boolean timedOut)
+  {
+    if (timedOut) {
+      LOGGER.warn(
+          "Cache for node role [%s] could not be initialized before timeout. "
+          + "This service may not have full information about other nodes of type [%s].",
+          nodeRole.getJsonName(),
+          nodeRole.getJsonName()
+      );
+      cacheInitializationTimedOut = true;
+    }
+
+    // It is important to take a snapshot here as list of nodes might change by the time listeners process
+    // the changes.
+    List<DiscoveryDruidNode> currNodes = Lists.newArrayList(nodes.values());
+    LOGGER.info(
+        "Node watcher of role [%s] is now initialized with %d nodes.",
+        nodeRole.getJsonName(),
+        currNodes.size());
+
+    for (DruidNodeDiscovery.Listener listener : nodeListeners) {
+      safeSchedule(
+          () -> {
+            listener.nodesAdded(currNodes);
+            if (timedOut) {
+              listener.nodeViewInitializedTimedOut();
+            } else {
+              listener.nodeViewInitialized();
+            }
+          },
+          "Exception occurred in nodesAdded([%s]) in listener [%s].",
+          currNodes,
+          listener
+      );
+    }
+
+    cacheInitialized.countDown();
   }
 
   public void resetNodes(Map<String, DiscoveryDruidNode> fullNodes)
@@ -279,12 +337,26 @@ public class BaseNodeRoleWatcher
                   listener.nodesRemoved(nodesDeleted);
                 }
               },
-              "Exception occured in resetNodes in listener [%s].",
+              "Exception occurred in resetNodes in listener [%s].",
               listener
           );
         }
       }
     }
+  }
+
+  void scheduleTimeout(long timeout)
+  {
+    listenerExecutor.schedule(
+        this::cacheInitializedTimedOut,
+        timeout,
+        TimeUnit.SECONDS
+    );
+  }
+
+  void awaitInitialization() throws InterruptedException
+  {
+    cacheInitialized.await();
   }
 
   private void safeSchedule(Runnable runnable, String errMsgFormat, Object... args)

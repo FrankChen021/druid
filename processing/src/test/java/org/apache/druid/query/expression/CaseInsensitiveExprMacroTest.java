@@ -19,10 +19,8 @@
 
 package org.apache.druid.query.expression;
 
-import com.google.common.collect.ImmutableMap;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.math.expr.ExprEval;
-import org.apache.druid.math.expr.ExprType;
+import org.apache.druid.math.expr.ExpressionType;
 import org.apache.druid.math.expr.InputBindings;
 import org.junit.Assert;
 import org.junit.Test;
@@ -37,23 +35,26 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
   @Test
   public void testErrorZeroArguments()
   {
-    expectException(IllegalArgumentException.class, "Function[icontains_string] must have 2 arguments");
-    eval("icontains_string()", InputBindings.withMap(ImmutableMap.of()));
+    expectException(IllegalArgumentException.class, "Function[icontains_string] requires 2 arguments");
+    eval("icontains_string()", InputBindings.nilBindings());
   }
 
   @Test
   public void testErrorThreeArguments()
   {
-    expectException(IllegalArgumentException.class, "Function[icontains_string] must have 2 arguments");
-    eval("icontains_string('a', 'b', 'c')", InputBindings.withMap(ImmutableMap.of()));
+    expectException(IllegalArgumentException.class, "Function[icontains_string] requires 2 arguments");
+    eval("icontains_string('a', 'b', 'c')", InputBindings.nilBindings());
   }
 
   @Test
   public void testMatchSearchLowerCase()
   {
-    final ExprEval<?> result = eval("icontains_string(a, 'OBA')", InputBindings.withMap(ImmutableMap.of("a", "foobar")));
+    final ExprEval<?> result = eval(
+        "icontains_string(a, 'OBA')",
+        InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foobar")
+    );
     Assert.assertEquals(
-        ExprEval.ofBoolean(true, ExprType.LONG).value(),
+        ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
   }
@@ -61,9 +62,12 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
   @Test
   public void testMatchSearchUpperCase()
   {
-    final ExprEval<?> result = eval("icontains_string(a, 'oba')", InputBindings.withMap(ImmutableMap.of("a", "FOOBAR")));
+    final ExprEval<?> result = eval(
+        "icontains_string(a, 'oba')",
+        InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "FOOBAR")
+    );
     Assert.assertEquals(
-        ExprEval.ofBoolean(true, ExprType.LONG).value(),
+        ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
   }
@@ -71,9 +75,12 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
   @Test
   public void testNoMatch()
   {
-    final ExprEval<?> result = eval("icontains_string(a, 'bar')", InputBindings.withMap(ImmutableMap.of("a", "foo")));
+    final ExprEval<?> result = eval(
+        "icontains_string(a, 'bar')",
+        InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
+    );
     Assert.assertEquals(
-        ExprEval.ofBoolean(false, ExprType.LONG).value(),
+        ExprEval.ofLongBoolean(false).value(),
         result.value()
     );
   }
@@ -81,13 +88,14 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
   @Test
   public void testNullSearch()
   {
-    if (NullHandling.sqlCompatible()) {
-      expectException(IllegalArgumentException.class, "Function[icontains_string] substring must be a string literal");
-    }
+    expectException(IllegalArgumentException.class, "Function[icontains_string] substring must be a string literal");
 
-    final ExprEval<?> result = eval("icontains_string(a, null)", InputBindings.withMap(ImmutableMap.of("a", "foo")));
+    final ExprEval<?> result = eval(
+        "icontains_string(a, null)",
+        InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
+    );
     Assert.assertEquals(
-        ExprEval.ofBoolean(true, ExprType.LONG).value(),
+        ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
   }
@@ -95,9 +103,12 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
   @Test
   public void testEmptyStringSearch()
   {
-    final ExprEval<?> result = eval("icontains_string(a, '')", InputBindings.withMap(ImmutableMap.of("a", "foo")));
+    final ExprEval<?> result = eval(
+        "icontains_string(a, '')",
+        InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
+    );
     Assert.assertEquals(
-        ExprEval.ofBoolean(true, ExprType.LONG).value(),
+        ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
   }
@@ -105,13 +116,14 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
   @Test
   public void testNullSearchOnEmptyString()
   {
-    if (NullHandling.sqlCompatible()) {
-      expectException(IllegalArgumentException.class, "Function[icontains_string] substring must be a string literal");
-    }
+    expectException(IllegalArgumentException.class, "Function[icontains_string] substring must be a string literal");
 
-    final ExprEval<?> result = eval("icontains_string(a, null)", InputBindings.withMap(ImmutableMap.of("a", "")));
+    final ExprEval<?> result = eval(
+        "icontains_string(a, null)",
+        InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "")
+    );
     Assert.assertEquals(
-        ExprEval.ofBoolean(true, ExprType.LONG).value(),
+        ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
   }
@@ -119,9 +131,12 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
   @Test
   public void testEmptyStringSearchOnEmptyString()
   {
-    final ExprEval<?> result = eval("icontains_string(a, '')", InputBindings.withMap(ImmutableMap.of("a", "")));
+    final ExprEval<?> result = eval(
+        "icontains_string(a, '')",
+        InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "")
+    );
     Assert.assertEquals(
-        ExprEval.ofBoolean(true, ExprType.LONG).value(),
+        ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
   }
@@ -129,16 +144,14 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
   @Test
   public void testNullSearchOnNull()
   {
-    if (NullHandling.sqlCompatible()) {
-      expectException(IllegalArgumentException.class, "Function[icontains_string] substring must be a string literal");
-    }
+    expectException(IllegalArgumentException.class, "Function[icontains_string] substring must be a string literal");
 
     final ExprEval<?> result = eval(
         "icontains_string(a, null)",
-        InputBindings.withSuppliers(ImmutableMap.of("a", () -> null))
+        InputBindings.nilBindings()
     );
     Assert.assertEquals(
-        ExprEval.ofBoolean(true, ExprType.LONG).value(),
+        ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
   }
@@ -146,11 +159,7 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
   @Test
   public void testEmptyStringSearchOnNull()
   {
-    final ExprEval<?> result = eval("icontains_string(a, '')", InputBindings.withSuppliers(ImmutableMap.of("a", () -> null)));
-    Assert.assertEquals(
-        ExprEval.ofBoolean(!NullHandling.sqlCompatible(), ExprType.LONG).value(),
-        result.value()
-    );
+    ExprEval<?> result = eval("icontains_string(a, '')", InputBindings.nilBindings());
+    Assert.assertNull(result.value());
   }
-
 }

@@ -77,27 +77,47 @@ public class CoordinatorResourceTestClient
 
   private String getSegmentsMetadataURL(String dataSource)
   {
-    return StringUtils.format("%smetadata/datasources/%s/segments", getCoordinatorURL(), StringUtils.urlEncode(dataSource));
+    return StringUtils.format(
+        "%smetadata/datasources/%s/segments",
+        getCoordinatorURL(),
+        StringUtils.urlEncode(dataSource)
+    );
   }
 
   private String getFullSegmentsMetadataURL(String dataSource)
   {
-    return StringUtils.format("%smetadata/datasources/%s/segments?full", getCoordinatorURL(), StringUtils.urlEncode(dataSource));
+    return StringUtils.format(
+        "%smetadata/datasources/%s/segments?full",
+        getCoordinatorURL(),
+        StringUtils.urlEncode(dataSource)
+    );
   }
 
   private String getIntervalsURL(String dataSource)
   {
-    return StringUtils.format("%sdatasources/%s/intervals", getCoordinatorURL(), StringUtils.urlEncode(dataSource));
+    return StringUtils.format(
+        "%sdatasources/%s/intervals",
+        getCoordinatorURL(),
+        StringUtils.urlEncode(dataSource)
+    );
   }
 
   private String getFullSegmentsURL(String dataSource)
   {
-    return StringUtils.format("%sdatasources/%s/segments?full", getCoordinatorURL(), StringUtils.urlEncode(dataSource));
+    return StringUtils.format(
+        "%sdatasources/%s/segments?full",
+        getCoordinatorURL(),
+        StringUtils.urlEncode(dataSource)
+    );
   }
 
   private String getLoadStatusURL(String dataSource)
   {
-    return StringUtils.format("%sdatasources/%s/loadstatus?forceMetadataRefresh=true&interval=1970-01-01/2999-01-01", getCoordinatorURL(), StringUtils.urlEncode(dataSource));
+    return StringUtils.format(
+        "%sdatasources/%s/loadstatus?forceMetadataRefresh=true&interval=1970-01-01/2999-01-01",
+        getCoordinatorURL(),
+        StringUtils.urlEncode(dataSource)
+    );
   }
 
   /** return a list of the segment dates for the specified data source */
@@ -105,12 +125,13 @@ public class CoordinatorResourceTestClient
   {
     List<String> segments;
     try {
-      StatusResponseHolder response = makeRequest(HttpMethod.GET, getSegmentsMetadataURL(dataSource));
+      StatusResponseHolder response = makeRequest(
+          HttpMethod.GET,
+          getSegmentsMetadataURL(dataSource)
+      );
 
       segments = jsonMapper.readValue(
-          response.getContent(), new TypeReference<List<String>>()
-          {
-          }
+          response.getContent(), new TypeReference<>() {}
       );
     }
     catch (Exception e) {
@@ -123,12 +144,13 @@ public class CoordinatorResourceTestClient
   {
     List<DataSegment> segments;
     try {
-      StatusResponseHolder response = makeRequest(HttpMethod.GET, getFullSegmentsMetadataURL(dataSource));
+      StatusResponseHolder response = makeRequest(
+          HttpMethod.GET,
+          getFullSegmentsMetadataURL(dataSource)
+      );
 
       segments = jsonMapper.readValue(
-          response.getContent(), new TypeReference<List<DataSegment>>()
-          {
-          }
+          response.getContent(), new TypeReference<>() {}
       );
     }
     catch (Exception e) {
@@ -145,9 +167,7 @@ public class CoordinatorResourceTestClient
       StatusResponseHolder response = makeRequest(HttpMethod.GET, getIntervalsURL(dataSource));
 
       segments = jsonMapper.readValue(
-          response.getContent(), new TypeReference<List<String>>()
-          {
-          }
+          response.getContent(), new TypeReference<>() {}
       );
     }
     catch (Exception e) {
@@ -163,9 +183,7 @@ public class CoordinatorResourceTestClient
       StatusResponseHolder response = makeRequest(HttpMethod.GET, getFullSegmentsURL(dataSource));
 
       return jsonMapper.readValue(
-          response.getContent(), new TypeReference<List<DataSegment>>()
-          {
-          }
+          response.getContent(), new TypeReference<>() {}
       );
     }
     catch (Exception e) {
@@ -173,9 +191,9 @@ public class CoordinatorResourceTestClient
     }
   }
 
-  private Map<String, Integer> getLoadStatus(String dataSorce)
+  private Map<String, Integer> getLoadStatus(String dataSource)
   {
-    String url = getLoadStatusURL(dataSorce);
+    String url = getLoadStatusURL(dataSource);
     Map<String, Integer> status;
     try {
       StatusResponseHolder response = httpClient.go(
@@ -188,7 +206,7 @@ public class CoordinatorResourceTestClient
       }
       if (response.getStatus().getCode() != HttpResponseStatus.OK.getCode()) {
         throw new ISE(
-            "Error while making request to url[%s] status[%s] content[%s]",
+            "Error while making request to url [%s] status [%s] content [%s]",
             url,
             response.getStatus(),
             response.getContent()
@@ -196,9 +214,7 @@ public class CoordinatorResourceTestClient
       }
 
       status = jsonMapper.readValue(
-          response.getContent(), new TypeReference<Map<String, Integer>>()
-          {
-          }
+          response.getContent(), new TypeReference<>() {}
       );
     }
     catch (Exception e) {
@@ -216,7 +232,14 @@ public class CoordinatorResourceTestClient
   public void unloadSegmentsForDataSource(String dataSource)
   {
     try {
-      makeRequest(HttpMethod.DELETE, StringUtils.format("%sdatasources/%s", getCoordinatorURL(), StringUtils.urlEncode(dataSource)));
+      makeRequest(
+          HttpMethod.DELETE,
+          StringUtils.format(
+              "%sdatasources/%s",
+              getCoordinatorURL(),
+              StringUtils.urlEncode(dataSource)
+          )
+      );
     }
     catch (Exception e) {
       throw new RuntimeException(e);
@@ -270,7 +293,7 @@ public class CoordinatorResourceTestClient
 
     if (!response.getStatus().equals(HttpResponseStatus.ACCEPTED)) {
       throw new ISE(
-          "Error while querying[%s] status[%s] content[%s]",
+          "Error while querying [%s] status [%s] content [%s]",
           url,
           response.getStatus(),
           response.getContent()
@@ -280,13 +303,18 @@ public class CoordinatorResourceTestClient
     StatusResponseHolder response2 = httpClient.go(
         new Request(HttpMethod.POST, new URL(url)).setContent(
             "application/json",
-            jsonMapper.writeValueAsBytes(jsonMapper.readValue(CoordinatorResourceTestClient.class.getResourceAsStream(filePath), new TypeReference<Map<Object, Object>>(){}))
+            jsonMapper.writeValueAsBytes(
+                jsonMapper.readValue(
+                    CoordinatorResourceTestClient.class.getResourceAsStream(filePath),
+                    new TypeReference<Map<Object, Object>>(){}
+                )
+            )
         ), responseHandler
     ).get();
 
     if (!response2.getStatus().equals(HttpResponseStatus.ACCEPTED)) {
       throw new ISE(
-          "Error while querying[%s] status[%s] content[%s]",
+          "Error while querying [%s] status [%s] content [%s]",
           url,
           response2.getStatus(),
           response2.getContent()
@@ -295,9 +323,7 @@ public class CoordinatorResourceTestClient
 
     Map<String, Object> results2 = jsonMapper.readValue(
         response.getContent(),
-        new TypeReference<Map<String, Object>>()
-        {
-        }
+        new TypeReference<>() {}
     );
 
     return results2;
@@ -320,7 +346,7 @@ public class CoordinatorResourceTestClient
       }
       if (response.getStatus().getCode() != HttpResponseStatus.OK.getCode()) {
         throw new ISE(
-            "Error while making request to url[%s] status[%s] content[%s]",
+            "Error while making request to url [%s] status [%s] content [%s]",
             url,
             response.getStatus(),
             response.getContent()
@@ -328,9 +354,8 @@ public class CoordinatorResourceTestClient
       }
 
       status = jsonMapper.readValue(
-          response.getContent(), new TypeReference<Map<String, Map<HostAndPort, LookupsState<LookupExtractorFactoryMapContainer>>>>()
-          {
-          }
+          response.getContent(),
+          new TypeReference<>() {}
       );
     }
     catch (Exception e) {
@@ -369,7 +394,7 @@ public class CoordinatorResourceTestClient
 
     if (!response.getStatus().equals(HttpResponseStatus.OK)) {
       throw new ISE(
-          "Error while setting dynamic config[%s] status[%s] content[%s]",
+          "Error while setting dynamic config [%s] status [%s] content [%s]",
           url,
           response.getStatus(),
           response.getContent()
@@ -389,7 +414,7 @@ public class CoordinatorResourceTestClient
 
     if (!response.getStatus().equals(HttpResponseStatus.OK)) {
       throw new ISE(
-          "Error while setting dynamic config[%s] status[%s] content[%s]",
+          "Error while setting dynamic config [%s] status [%s] content [%s]",
           url,
           response.getStatus(),
           response.getContent()
@@ -421,7 +446,7 @@ public class CoordinatorResourceTestClient
       ).get();
       if (!response.getStatus().equals(HttpResponseStatus.OK)) {
         throw new ISE(
-            "Error while making request to url[%s] status[%s] content[%s]",
+            "Error while making request to url [%s] status [%s] content [%s]",
             url,
             response.getStatus(),
             response.getContent()

@@ -20,15 +20,23 @@
 package org.apache.druid.indexing.overlord;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import org.apache.druid.common.config.Configs;
 import org.apache.druid.guice.annotations.PublicApi;
 import org.apache.druid.indexing.common.task.Task;
+import org.apache.druid.indexing.common.task.TaskResource;
+import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTask;
+import org.apache.druid.indexing.worker.TaskAnnouncement;
 import org.apache.druid.indexing.worker.Worker;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -39,15 +47,21 @@ public class ImmutableWorkerInfo
 {
   private final Worker worker;
   private final int currCapacityUsed;
+  private final int currParallelIndexCapacityUsed;
+  private final Map<String, Integer> currCapacityUsedByTaskType;
   private final ImmutableSet<String> availabilityGroups;
   private final ImmutableSet<String> runningTasks;
   private final DateTime lastCompletedTaskTime;
+
+  @Nullable
   private final DateTime blacklistedUntil;
 
   @JsonCreator
   public ImmutableWorkerInfo(
       @JsonProperty("worker") Worker worker,
       @JsonProperty("currCapacityUsed") int currCapacityUsed,
+      @JsonProperty("currParallelIndexCapacityUsed") int currParallelIndexCapacityUsed,
+      @JsonProperty("currCapacityUsedByTaskType") Map<String, Integer> currCapacityUsedByTaskType,
       @JsonProperty("availabilityGroups") Set<String> availabilityGroups,
       @JsonProperty("runningTasks") Collection<String> runningTasks,
       @JsonProperty("lastCompletedTaskTime") DateTime lastCompletedTaskTime,
@@ -56,10 +70,27 @@ public class ImmutableWorkerInfo
   {
     this.worker = worker;
     this.currCapacityUsed = currCapacityUsed;
+    this.currParallelIndexCapacityUsed = currParallelIndexCapacityUsed;
+    this.currCapacityUsedByTaskType = Configs.valueOrDefault(currCapacityUsedByTaskType, Collections.emptyMap());
     this.availabilityGroups = ImmutableSet.copyOf(availabilityGroups);
     this.runningTasks = ImmutableSet.copyOf(runningTasks);
     this.lastCompletedTaskTime = lastCompletedTaskTime;
     this.blacklistedUntil = blacklistedUntil;
+  }
+
+  public ImmutableWorkerInfo(
+      Worker worker,
+      int currCapacityUsed,
+      int currParallelIndexCapacityUsed,
+      Map<String, Integer> currCapacityUsedByTaskType,
+      Set<String> availabilityGroups,
+      Collection<String> runningTasks,
+      DateTime lastCompletedTaskTime
+  )
+  {
+    this(worker, currCapacityUsed, currParallelIndexCapacityUsed, currCapacityUsedByTaskType, availabilityGroups,
+         runningTasks, lastCompletedTaskTime, null
+    );
   }
 
   public ImmutableWorkerInfo(
@@ -70,7 +101,57 @@ public class ImmutableWorkerInfo
       DateTime lastCompletedTaskTime
   )
   {
-    this(worker, currCapacityUsed, availabilityGroups, runningTasks, lastCompletedTaskTime, null);
+    this(worker, currCapacityUsed, 0, Collections.emptyMap(), availabilityGroups, runningTasks, lastCompletedTaskTime, null);
+  }
+
+  /**
+   * Helper used by {@link ZkWorker} and {@link org.apache.druid.indexing.overlord.hrtr.WorkerHolder}.
+   */
+  public static ImmutableWorkerInfo fromWorkerAnnouncements(
+      final Worker worker,
+      final Map<String, TaskAnnouncement> announcements,
+      final DateTime lastCompletedTaskTime,
+      @Nullable final DateTime blacklistedUntil
+  )
+  {
+    int currCapacityUsed = 0;
+    int currParallelIndexCapacityUsed = 0;
+    ImmutableSet.Builder<String> taskIds = ImmutableSet.builder();
+    ImmutableSet.Builder<String> availabilityGroups = ImmutableSet.builder();
+    Map<String, Integer> currCapacityUsedByTaskType = new HashMap<>();
+
+
+    for (final Map.Entry<String, TaskAnnouncement> entry : announcements.entrySet()) {
+      final TaskAnnouncement announcement = entry.getValue();
+
+      if (announcement.getStatus().isRunnable()) {
+        final String taskId = entry.getKey();
+        final TaskResource taskResource = announcement.getTaskResource();
+        final int requiredCapacity = taskResource.getRequiredCapacity();
+
+        currCapacityUsed += requiredCapacity;
+
+        if (ParallelIndexSupervisorTask.TYPE.equals(announcement.getTaskType())) {
+          currParallelIndexCapacityUsed += requiredCapacity;
+        }
+
+        currCapacityUsedByTaskType.merge(announcement.getTaskType(), 1, Integer::sum);
+
+        taskIds.add(taskId);
+        availabilityGroups.add(taskResource.getAvailabilityGroup());
+      }
+    }
+
+    return new ImmutableWorkerInfo(
+        worker,
+        currCapacityUsed,
+        currParallelIndexCapacityUsed,
+        currCapacityUsedByTaskType,
+        availabilityGroups.build(),
+        taskIds.build(),
+        lastCompletedTaskTime,
+        blacklistedUntil
+    );
   }
 
   @JsonProperty("worker")
@@ -83,6 +164,19 @@ public class ImmutableWorkerInfo
   public int getCurrCapacityUsed()
   {
     return currCapacityUsed;
+  }
+
+  @JsonProperty("currParallelIndexCapacityUsed")
+  public int getCurrParallelIndexCapacityUsed()
+  {
+    return currParallelIndexCapacityUsed;
+  }
+
+  @JsonProperty("currCapacityUsedByTaskType")
+  @JsonInclude(JsonInclude.Include.NON_EMPTY)
+  public Map<String, Integer> getCurrCapacityUsedByTaskType()
+  {
+    return currCapacityUsedByTaskType;
   }
 
   @JsonProperty("availabilityGroups")
@@ -109,6 +203,7 @@ public class ImmutableWorkerInfo
   }
 
   @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public DateTime getBlacklistedUntil()
   {
     return blacklistedUntil;
@@ -119,10 +214,34 @@ public class ImmutableWorkerInfo
     return worker.getVersion().compareTo(minVersion) >= 0;
   }
 
-  public boolean canRunTask(Task task)
+  public boolean canRunTask(Task task, double parallelIndexTaskSlotRatio)
   {
     return (worker.getCapacity() - getCurrCapacityUsed() >= task.getTaskResource().getRequiredCapacity()
+            && canRunParallelIndexTask(task, parallelIndexTaskSlotRatio)
             && !getAvailabilityGroups().contains(task.getTaskResource().getAvailabilityGroup()));
+  }
+
+  private boolean canRunParallelIndexTask(Task task, double parallelIndexTaskSlotRatio)
+  {
+    if (!task.getType().equals(ParallelIndexSupervisorTask.TYPE)) {
+      return true;
+    }
+    return getWorkerParallelIndexCapacity(parallelIndexTaskSlotRatio) - getCurrParallelIndexCapacityUsed()
+           >= task.getTaskResource().getRequiredCapacity();
+
+  }
+
+  private int getWorkerParallelIndexCapacity(double parallelIndexTaskSlotRatio)
+  {
+    int totalCapacity = worker.getCapacity();
+    int workerParallelIndexCapacity = (int) Math.floor(parallelIndexTaskSlotRatio * totalCapacity);
+    if (workerParallelIndexCapacity < 1) {
+      workerParallelIndexCapacity = 1;
+    }
+    if (workerParallelIndexCapacity > totalCapacity) {
+      workerParallelIndexCapacity = totalCapacity;
+    }
+    return workerParallelIndexCapacity;
   }
 
   @Override
@@ -138,6 +257,12 @@ public class ImmutableWorkerInfo
     ImmutableWorkerInfo that = (ImmutableWorkerInfo) o;
 
     if (currCapacityUsed != that.currCapacityUsed) {
+      return false;
+    }
+    if (currParallelIndexCapacityUsed != that.currParallelIndexCapacityUsed) {
+      return false;
+    }
+    if (!currCapacityUsedByTaskType.equals(that.currCapacityUsedByTaskType)) {
       return false;
     }
     if (!worker.equals(that.worker)) {
@@ -162,6 +287,8 @@ public class ImmutableWorkerInfo
   {
     int result = worker.hashCode();
     result = 31 * result + currCapacityUsed;
+    result = 31 * result + currParallelIndexCapacityUsed;
+    result = 31 * result + currCapacityUsedByTaskType.hashCode();
     result = 31 * result + availabilityGroups.hashCode();
     result = 31 * result + runningTasks.hashCode();
     result = 31 * result + lastCompletedTaskTime.hashCode();
@@ -175,6 +302,8 @@ public class ImmutableWorkerInfo
     return "ImmutableWorkerInfo{" +
            "worker=" + worker +
            ", currCapacityUsed=" + currCapacityUsed +
+           ", currParallelIndexCapacityUsed=" + currParallelIndexCapacityUsed +
+           ", currCapacityUsedByTaskType=" + currCapacityUsedByTaskType +
            ", availabilityGroups=" + availabilityGroups +
            ", runningTasks=" + runningTasks +
            ", lastCompletedTaskTime=" + lastCompletedTaskTime +

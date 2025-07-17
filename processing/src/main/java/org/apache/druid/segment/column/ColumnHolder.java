@@ -19,6 +19,7 @@
 
 package org.apache.druid.segment.column;
 
+import com.google.common.base.Supplier;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.selector.settable.SettableColumnValueSelector;
 
@@ -39,12 +40,23 @@ public interface ColumnHolder
 
   ColumnCapabilities getCapabilities();
 
+  default ColumnFormat getColumnFormat()
+  {
+    return new CapabilitiesBasedFormat(getCapabilities());
+  }
+
   int getLength();
+
   BaseColumn getColumn();
+
   @Nullable
-  BitmapIndex getBitmapIndex();
+  default Supplier<? extends BaseColumn> getColumnSupplier()
+  {
+    return this::getColumn;
+  }
+
   @Nullable
-  SpatialIndex getSpatialIndex();
+  ColumnIndexSupplier getIndexSupplier();
 
   /**
    * Returns a new instance of a {@link SettableColumnValueSelector}, corresponding to the type of this column.

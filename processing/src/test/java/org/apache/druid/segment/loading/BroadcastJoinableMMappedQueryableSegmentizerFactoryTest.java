@@ -31,12 +31,12 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.segment.IndexIO;
-import org.apache.druid.segment.IndexMerger;
 import org.apache.druid.segment.IndexMergerV9;
 import org.apache.druid.segment.IndexSpec;
 import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.SegmentLazyLoadFailCallback;
 import org.apache.druid.segment.TestIndex;
+import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.join.table.BroadcastSegmentIndexedTable;
 import org.apache.druid.segment.join.table.IndexedTable;
@@ -68,7 +68,7 @@ public class BroadcastJoinableMMappedQueryableSegmentizerFactoryTest extends Ini
   {
     final ObjectMapper mapper = new DefaultObjectMapper();
     mapper.registerModule(new SegmentizerModule());
-    final IndexIO indexIO = new IndexIO(mapper, () -> 0);
+    final IndexIO indexIO = new IndexIO(mapper, ColumnConfig.DEFAULT);
     mapper.setInjectableValues(
         new InjectableValues.Std()
             .addValue(ExprMacroTable.class.getName(), TestExprMacroTable.INSTANCE)
@@ -77,14 +77,14 @@ public class BroadcastJoinableMMappedQueryableSegmentizerFactoryTest extends Ini
             .addValue(DataSegment.PruneSpecsHolder.class, DataSegment.PruneSpecsHolder.DEFAULT)
     );
 
-    IndexMerger indexMerger = new IndexMergerV9(mapper, indexIO, OffHeapMemorySegmentWriteOutMediumFactory.instance());
+    IndexMergerV9 indexMerger = new IndexMergerV9(mapper, indexIO, OffHeapMemorySegmentWriteOutMediumFactory.instance());
 
     SegmentizerFactory expectedFactory = new BroadcastJoinableMMappedQueryableSegmentizerFactory(
         indexIO,
         KEY_COLUMNS
     );
     Interval testInterval = Intervals.of("2011-01-12T00:00:00.000Z/2011-05-01T00:00:00.000Z");
-    IncrementalIndex data = TestIndex.makeRealtimeIndex("druid.sample.numeric.tsv");
+    IncrementalIndex data = TestIndex.makeSampleNumericIncrementalIndex();
 
     List<String> columnNames = data.getColumnNames();
     File segment = new File(temporaryFolder.newFolder(), "segment");
@@ -92,13 +92,7 @@ public class BroadcastJoinableMMappedQueryableSegmentizerFactoryTest extends Ini
         data,
         testInterval,
         segment,
-        new IndexSpec(
-            null,
-            null,
-            null,
-            null,
-            expectedFactory
-        ),
+        IndexSpec.builder().withSegmentLoader(expectedFactory).build(),
         null
     );
 

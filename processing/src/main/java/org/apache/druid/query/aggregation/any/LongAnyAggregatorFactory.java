@@ -28,6 +28,7 @@ import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.AggregatorUtil;
 import org.apache.druid.query.aggregation.BufferAggregator;
+import org.apache.druid.query.aggregation.LongSumAggregator;
 import org.apache.druid.query.aggregation.VectorAggregator;
 import org.apache.druid.query.cache.CacheKeyBuilder;
 import org.apache.druid.segment.BaseLongColumnValueSelector;
@@ -35,7 +36,7 @@ import org.apache.druid.segment.ColumnInspector;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.NilColumnValueSelector;
 import org.apache.druid.segment.column.ColumnCapabilities;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 
 import javax.annotation.Nullable;
@@ -46,8 +47,6 @@ import java.util.List;
 
 public class LongAnyAggregatorFactory extends AggregatorFactory
 {
-  private static final Comparator<Long> VALUE_COMPARATOR = Comparator.nullsFirst(Long::compare);
-
   private static final Aggregator NIL_AGGREGATOR = new LongAnyAggregator(
       NilColumnValueSelector.instance()
   )
@@ -116,10 +115,10 @@ public class LongAnyAggregatorFactory extends AggregatorFactory
   public VectorAggregator factorizeVector(VectorColumnSelectorFactory selectorFactory)
   {
     ColumnCapabilities capabilities = selectorFactory.getColumnCapabilities(fieldName);
-    if (capabilities == null || capabilities.getType().isNumeric()) {
+    if (capabilities == null || capabilities.isNumeric()) {
       return new LongAnyVectorAggregator(selectorFactory.makeValueSelector(fieldName));
     } else {
-      return NumericNilVectorAggregator.longNilVectorAggregator();
+      return NilVectorAggregator.longNilVectorAggregator();
     }
   }
 
@@ -132,7 +131,7 @@ public class LongAnyAggregatorFactory extends AggregatorFactory
   @Override
   public Comparator getComparator()
   {
-    return VALUE_COMPARATOR;
+    return LongSumAggregator.COMPARATOR;
   }
 
   @Override
@@ -152,12 +151,6 @@ public class LongAnyAggregatorFactory extends AggregatorFactory
   public AggregatorFactory getCombiningFactory()
   {
     return new LongAnyAggregatorFactory(name, name);
-  }
-
-  @Override
-  public List<AggregatorFactory> getRequiredColumns()
-  {
-    return Collections.singletonList(new LongAnyAggregatorFactory(fieldName, fieldName));
   }
 
   @Override
@@ -205,21 +198,27 @@ public class LongAnyAggregatorFactory extends AggregatorFactory
   }
 
   @Override
-  public ValueType getType()
+  public ColumnType getIntermediateType()
   {
-    return ValueType.LONG;
+    return ColumnType.LONG;
   }
 
   @Override
-  public ValueType getFinalizedType()
+  public ColumnType getResultType()
   {
-    return ValueType.LONG;
+    return ColumnType.LONG;
   }
 
   @Override
   public int getMaxIntermediateSize()
   {
     return Long.BYTES + Byte.BYTES;
+  }
+
+  @Override
+  public AggregatorFactory withName(String newName)
+  {
+    return new LongAnyAggregatorFactory(newName, getFieldName());
   }
 
 

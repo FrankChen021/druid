@@ -26,6 +26,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.concurrent.ScheduledExecutorFactory;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.joda.time.Duration;
+import org.joda.time.Period;
 
 import javax.validation.constraints.NotNull;
 import java.io.File;
@@ -49,11 +51,16 @@ public class FileRequestLoggerProvider implements RequestLoggerProvider
   @NotNull
   private ScheduledExecutorFactory factory = null;
 
-
   @JacksonInject
   @NotNull
   @Json
   private ObjectMapper jsonMapper = null;
+
+  @JsonProperty
+  private Duration durationToRetain;
+
+  @JsonProperty
+  private Duration rollPeriod = new Period("P1D").toStandardDuration();
 
   @Override
   public RequestLogger get()
@@ -62,7 +69,9 @@ public class FileRequestLoggerProvider implements RequestLoggerProvider
         jsonMapper,
         factory.create(1, "RequestLogger-%s"),
         dir,
-        filePattern
+        filePattern,
+        durationToRetain,
+        rollPeriod
     );
     log.debug(new Exception("Stack trace"), "Creating %s at", logger);
     return logger;

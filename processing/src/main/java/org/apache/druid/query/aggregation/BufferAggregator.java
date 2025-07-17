@@ -35,6 +35,9 @@ import java.nio.ByteBuffer;
  * Thus, an Aggregator can be thought of as a closure over some other thing that is stateful and changes between calls
  * to aggregate(...).
  *
+ * Unlike {@link Aggregator}, BufferAggregators are never used by multiple threads at once. Implementations are not
+ * required to be thread safe.
+ *
  * @see VectorAggregator, the vectorized version
  */
 @ExtensionPoint
@@ -101,13 +104,14 @@ public interface BufferAggregator extends HotLoopCallee
    * <b>Implementations must not change the position, limit or mark of the given buffer</b>
    *
    * Implementations are only required to support this method if they are aggregations which
-   * have an {@link AggregatorFactory#getType()} ()} of {@link org.apache.druid.segment.column.ValueType#FLOAT}.
+   * have an {@link AggregatorFactory#getIntermediateType()} ()} of {@link org.apache.druid.segment.column.ValueType#FLOAT}.
    * If unimplemented, throwing an {@link UnsupportedOperationException} is common and recommended.
    *
    * @param buf byte buffer storing the byte array representation of the aggregate
    * @param position offset within the byte buffer at which the aggregate value is stored
    * @return the float representation of the aggregate
    */
+  @SuppressWarnings("unused") // Unused today, but may be used in the future by https://github.com/apache/druid/pull/10001
   float getFloat(ByteBuffer buf, int position);
 
   /**
@@ -118,13 +122,14 @@ public interface BufferAggregator extends HotLoopCallee
    * <b>Implementations must not change the position, limit or mark of the given buffer</b>
    *
    * Implementations are only required to support this method if they are aggregations which
-   * have an {@link AggregatorFactory#getType()} of  of {@link org.apache.druid.segment.column.ValueType#LONG}.
+   * have an {@link AggregatorFactory#getIntermediateType()} of  of {@link org.apache.druid.segment.column.ValueType#LONG}.
    * If unimplemented, throwing an {@link UnsupportedOperationException} is common and recommended.
    *
    * @param buf byte buffer storing the byte array representation of the aggregate
    * @param position offset within the byte buffer at which the aggregate value is stored
    * @return the long representation of the aggregate
    */
+  @SuppressWarnings("unused") // Unused today, but may be used in the future by https://github.com/apache/druid/pull/10001
   long getLong(ByteBuffer buf, int position);
 
   /**
@@ -135,7 +140,7 @@ public interface BufferAggregator extends HotLoopCallee
    * <b>Implementations must not change the position, limit or mark of the given buffer</b>
    *
    * Implementations are only required to support this method if they are aggregations which
-   * have an {@link AggregatorFactory#getType()} of  of {@link org.apache.druid.segment.column.ValueType#DOUBLE}.
+   * have an {@link AggregatorFactory#getIntermediateType()} of  of {@link org.apache.druid.segment.column.ValueType#DOUBLE}.
    * If unimplemented, throwing an {@link UnsupportedOperationException} is common and recommended.
    *
    * The default implementation casts {@link BufferAggregator#getFloat(ByteBuffer, int)} to double.
@@ -146,13 +151,18 @@ public interface BufferAggregator extends HotLoopCallee
    * @param position offset within the byte buffer at which the aggregate value is stored
    * @return the double representation of the aggregate
    */
+  @SuppressWarnings("unused") // Unused today, but may be used in the future by https://github.com/apache/druid/pull/10001
   default double getDouble(ByteBuffer buf, int position)
   {
     return (double) getFloat(buf, position);
   }
 
   /**
-   * Release any resources used by the aggregator
+   * Release any resources used by the aggregator. The aggregator may be reused after this call, by calling
+   * {@link #init(ByteBuffer, int)} followed by other methods as normal.
+   *
+   * This call would be more properly named "reset", but we use the name "close" to improve compatibility with
+   * existing aggregator implementations in extensions.
    */
   void close();
 
@@ -204,6 +214,7 @@ public interface BufferAggregator extends HotLoopCallee
    *
    * @return true if the aggregated value is primitive long/double/float and aggregated value is null otherwise false.
    */
+  @SuppressWarnings("unused") // Unused today, but may be used in the future by https://github.com/apache/druid/pull/10001
   default boolean isNull(ByteBuffer buf, int position)
   {
     return false;

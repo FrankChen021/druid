@@ -25,20 +25,24 @@ import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.InputSourceReader;
+import org.apache.druid.indexer.granularity.GranularitySpec;
 import org.apache.druid.indexer.partitions.DynamicPartitionsSpec;
 import org.apache.druid.indexer.partitions.PartitionsSpec;
 import org.apache.druid.indexing.common.task.batch.parallel.iterator.IndexTaskInputRowIteratorBuilder;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
+import org.apache.druid.segment.SegmentSchemaMapping;
 import org.apache.druid.segment.incremental.ParseExceptionHandler;
 import org.apache.druid.segment.incremental.RowIngestionMeters;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.apache.druid.segment.indexing.granularity.GranularitySpec;
+import org.apache.druid.segment.metadata.CentralizedDatasourceSchemaConfig;
 import org.apache.druid.segment.realtime.appenderator.AppenderatorDriverAddResult;
 import org.apache.druid.segment.realtime.appenderator.BatchAppenderatorDriver;
 import org.apache.druid.segment.realtime.appenderator.SegmentsAndCommitMetadata;
 import org.joda.time.Interval;
+import org.joda.time.chrono.ISOChronology;
 
 import javax.annotation.Nullable;
 import java.io.File;
@@ -57,7 +61,7 @@ public class InputSourceProcessor
    *
    * @return {@link SegmentsAndCommitMetadata} for the pushed segments.
    */
-  public static SegmentsAndCommitMetadata process(
+  public static Pair<SegmentsAndCommitMetadata, SegmentSchemaMapping> process(
       DataSchema dataSchema,
       BatchAppenderatorDriver driver,
       PartitionsSpec partitionsSpec,
@@ -76,6 +80,7 @@ public class InputSourceProcessor
                                                         ? (DynamicPartitionsSpec) partitionsSpec
                                                         : null;
     final GranularitySpec granularitySpec = dataSchema.getGranularitySpec();
+    final SegmentSchemaMapping segmentSchemaMapping = new SegmentSchemaMapping(CentralizedDatasourceSchemaConfig.SCHEMA_VERSION);
 
     try (
         final CloseableIterator<InputRow> inputRowIterator = AbstractBatchIndexTask.inputSourceReader(
@@ -83,7 +88,7 @@ public class InputSourceProcessor
             dataSchema,
             inputSource,
             inputFormat,
-            AbstractBatchIndexTask.defaultRowFilter(granularitySpec),
+            AbstractBatchIndexTask.allowNonNullRowsStrictlyWithinInputIntervalsOf(granularitySpec),
             buildSegmentsMeters,
             parseExceptionHandler
         );
@@ -101,7 +106,7 @@ public class InputSourceProcessor
         // IndexTaskInputRowIteratorBuilder.absentBucketIntervalConsumer() ensures the interval will be present here
         Optional<Interval> optInterval = granularitySpec.bucketInterval(inputRow.getTimestamp());
         @SuppressWarnings("OptionalGetWithoutIsPresent")
-        final Interval interval = optInterval.get();
+        final Interval interval = optInterval.get().withChronology(ISOChronology.getInstanceUTC());
 
         final String sequenceName = sequenceNameFunction.getSequenceName(interval, inputRow);
         final AppenderatorDriverAddResult addResult = driver.add(inputRow, sequenceName);
@@ -119,6 +124,7 @@ public class InputSourceProcessor
               // If those segments are not pushed here, the remaining available space in appenderator will be kept
               // small which could lead to smaller segments.
               final SegmentsAndCommitMetadata pushed = driver.pushAllAndClear(pushTimeout);
+              segmentSchemaMapping.merge(pushed.getSegmentSchemaMapping());
               LOG.debugSegments(pushed.getSegments(), "Pushed segments");
             }
           }
@@ -128,9 +134,10 @@ public class InputSourceProcessor
       }
 
       final SegmentsAndCommitMetadata pushed = driver.pushAllAndClear(pushTimeout);
+      segmentSchemaMapping.merge(pushed.getSegmentSchemaMapping());
       LOG.debugSegments(pushed.getSegments(), "Pushed segments");
 
-      return pushed;
+      return Pair.of(pushed, segmentSchemaMapping);
     }
   }
 }

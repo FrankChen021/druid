@@ -23,21 +23,33 @@ package org.apache.druid.query;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.segment.SegmentMapFunction;
 
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Reperesents a UNION ALL of two or more datasources.
+ * <p>
+ * Native engine can only work with table datasources that are scans or simple mappings (column rename without any
+ * expression applied on top). Therefore, it uses methods like {@link #getTableNames()} and
+ * {@link #isTableBased()} to assert that the children were TableDataSources.
+ * <p>
+ * MSQ should be able to plan and work with arbitrary datasources.  It also needs to replace the datasource with the
+ * InputNumberDataSource while preparing the query plan.
+ */
 public class UnionDataSource implements DataSource
 {
-  @JsonProperty
-  private final List<TableDataSource> dataSources;
+
+  @JsonProperty("dataSources")
+  private final List<DataSource> dataSources;
 
   @JsonCreator
-  public UnionDataSource(@JsonProperty("dataSources") List<TableDataSource> dataSources)
+  public UnionDataSource(@JsonProperty("dataSources") List<DataSource> dataSources)
   {
     if (dataSources == null || dataSources.isEmpty()) {
       throw new ISE("'dataSources' must be non-null and non-empty for 'union'");
@@ -46,18 +58,31 @@ public class UnionDataSource implements DataSource
     this.dataSources = dataSources;
   }
 
+  /**
+   * Asserts that the children of the union are all table data sources before returning the table names
+   */
   @Override
   public Set<String> getTableNames()
   {
-    return dataSources.stream()
-                      .map(input -> Iterables.getOnlyElement(input.getTableNames()))
-                      .collect(Collectors.toSet());
+    if (!isTableBased()) {
+      throw DruidException.defensive("contains non-table based datasource");
+    }
+    return dataSources
+        .stream()
+        .map(DataSource::getTableNames)
+        .flatMap(Set::stream)
+        .collect(Collectors.toSet());
   }
 
-  @JsonProperty
-  public List<TableDataSource> getDataSources()
+  /**
+   * Returns true if this datasource can be ran by the native engine, i.e. all the children of the union are table
+   * datasource or restricted datasource.
+   */
+  public boolean isTableBased()
   {
-    return dataSources;
+    return dataSources.stream()
+                      .allMatch(dataSource -> dataSource instanceof TableDataSource
+                                              || dataSource instanceof RestrictedDataSource);
   }
 
   @Override
@@ -73,13 +98,7 @@ public class UnionDataSource implements DataSource
       throw new IAE("Expected [%d] children, got [%d]", dataSources.size(), children.size());
     }
 
-    if (!children.stream().allMatch(dataSource -> dataSource instanceof TableDataSource)) {
-      throw new IAE("All children must be tables");
-    }
-
-    return new UnionDataSource(
-        children.stream().map(dataSource -> (TableDataSource) dataSource).collect(Collectors.toList())
-    );
+    return new UnionDataSource(children);
   }
 
   @Override
@@ -100,9 +119,26 @@ public class UnionDataSource implements DataSource
   }
 
   @Override
-  public boolean isConcrete()
+  public boolean isProcessable()
   {
-    return dataSources.stream().allMatch(DataSource::isConcrete);
+    return dataSources.stream().allMatch(DataSource::isProcessable);
+  }
+
+  @Override
+  public SegmentMapFunction createSegmentMapFunction(Query query)
+  {
+    for (DataSource dataSource : dataSources) {
+      if (!dataSource.getChildren().isEmpty()) {
+        throw new ISE("Union datasource with non-leaf inputs is not supported [%s]!", dataSources);
+      }
+    }
+    return SegmentMapFunction.IDENTITY;
+  }
+
+  @Override
+  public byte[] getCacheKey()
+  {
+    return null;
   }
 
   @Override
@@ -117,11 +153,7 @@ public class UnionDataSource implements DataSource
 
     UnionDataSource that = (UnionDataSource) o;
 
-    if (!dataSources.equals(that.dataSources)) {
-      return false;
-    }
-
-    return true;
+    return dataSources.equals(that.dataSources);
   }
 
   @Override
@@ -136,5 +168,10 @@ public class UnionDataSource implements DataSource
     return "UnionDataSource{" +
            "dataSources=" + dataSources +
            '}';
+  }
+
+  public static boolean isCompatibleDataSource(DataSource dataSource)
+  {
+    return (dataSource instanceof TableDataSource || dataSource instanceof InlineDataSource);
   }
 }

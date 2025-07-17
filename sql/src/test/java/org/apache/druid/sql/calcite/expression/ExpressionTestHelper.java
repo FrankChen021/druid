@@ -20,33 +20,51 @@
 package org.apache.druid.sql.calcite.expression;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.druid.data.input.MapBasedRow;
+import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprEval;
-import org.apache.druid.math.expr.InputBindings;
-import org.apache.druid.math.expr.Parser;
+import org.apache.druid.math.expr.ExpressionType;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.ValueMatcher;
+import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.segment.RowAdapters;
 import org.apache.druid.segment.RowBasedColumnSelectorFactory;
 import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.segment.virtual.VirtualizedColumnSelectorFactory;
+import org.apache.druid.server.security.AuthConfig;
+import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
 import org.apache.druid.sql.calcite.planner.Calcites;
+import org.apache.druid.sql.calcite.planner.CatalogResolver;
+import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
+import org.apache.druid.sql.calcite.planner.ExpressionParserImpl;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.sql.calcite.planner.PlannerToolbox;
 import org.apache.druid.sql.calcite.rel.VirtualColumnRegistry;
+import org.apache.druid.sql.calcite.schema.DruidSchema;
+import org.apache.druid.sql.calcite.schema.DruidSchemaCatalog;
+import org.apache.druid.sql.calcite.schema.NamedDruidSchema;
+import org.apache.druid.sql.calcite.schema.NamedViewSchema;
+import org.apache.druid.sql.calcite.schema.ViewSchema;
 import org.apache.druid.sql.calcite.table.RowSignatures;
+import org.apache.druid.sql.calcite.util.CalciteTestBase;
 import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.apache.druid.sql.hook.DruidHookDispatcher;
+import org.easymock.EasyMock;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.Assert;
@@ -61,17 +79,42 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-class ExpressionTestHelper
+public class ExpressionTestHelper
 {
-  private static final PlannerContext PLANNER_CONTEXT = PlannerContext.create(
+  private static final JoinableFactoryWrapper JOINABLE_FACTORY_WRAPPER = CalciteTests.createJoinableFactoryWrapper();
+  private static final PlannerToolbox PLANNER_TOOLBOX = new PlannerToolbox(
       CalciteTests.createOperatorTable(),
       CalciteTests.createExprMacroTable(),
+      CalciteTests.getJsonMapper(),
       new PlannerConfig(),
-      ImmutableMap.of()
+      new DruidSchemaCatalog(
+          EasyMock.createMock(SchemaPlus.class),
+          ImmutableMap.of(
+              "druid", new NamedDruidSchema(EasyMock.createMock(DruidSchema.class), "druid"),
+              NamedViewSchema.NAME, new NamedViewSchema(EasyMock.createMock(ViewSchema.class))
+          )
+      ),
+      JOINABLE_FACTORY_WRAPPER,
+      CatalogResolver.NULL_RESOLVER,
+      "druid",
+      new CalciteRulesManager(ImmutableSet.of()),
+      CalciteTests.TEST_AUTHORIZER_MAPPER,
+      AuthConfig.newBuilder().build(),
+      NoopPolicyEnforcer.instance(),
+      new DruidHookDispatcher()
+  );
+  public static final PlannerContext PLANNER_CONTEXT = PlannerContext.create(
+      PLANNER_TOOLBOX,
+      "SELECT 1", // The actual query isn't important for this test
+      null, /* Don't need SQL node */
+      null, /* Don't need engine */
+      Collections.emptyMap(),
+      null
   );
 
   private final RowSignature rowSignature;
   private final Map<String, Object> bindings;
+  private final Expr.ObjectBinding expressionBindings;
   private final RelDataTypeFactory typeFactory;
   private final RexBuilder rexBuilder;
   private final RelDataType relDataType;
@@ -80,7 +123,22 @@ class ExpressionTestHelper
   {
     this.rowSignature = rowSignature;
     this.bindings = bindings;
+    this.expressionBindings = new Expr.ObjectBinding()
+    {
+      @Nullable
+      @Override
+      public Object get(String name)
+      {
+        return bindings.get(name);
+      }
 
+      @Nullable
+      @Override
+      public ExpressionType getType(String name)
+      {
+        return rowSignature.getType(name);
+      }
+    };
     this.typeFactory = new JavaTypeFactoryImpl();
     this.rexBuilder = new RexBuilder(typeFactory);
     this.relDataType = RowSignatures.toRelDataType(rowSignature, typeFactory);
@@ -119,7 +177,12 @@ class ExpressionTestHelper
 
   RexNode makeLiteral(DateTime timestamp)
   {
-    return rexBuilder.makeTimestampLiteral(Calcites.jodaToCalciteTimestampString(timestamp, DateTimeZone.UTC), 0);
+    return Calcites.jodaToCalciteTimestampLiteral(
+        rexBuilder,
+        timestamp,
+        DateTimeZone.UTC,
+        DruidTypeSystem.DEFAULT_TIMESTAMP_PRECISION
+    );
   }
 
   RexNode makeLiteral(Integer integer)
@@ -189,7 +252,7 @@ class ExpressionTestHelper
                               .map(ExpressionTestHelper::quoteIfNeeded)
                               .collect(Collectors.joining(","));
     List<String> elements = Arrays.asList(functionName, "(", argsString, ")");
-    return DruidExpression.fromExpression(String.join(noDelimiter, elements));
+    return CalciteTestBase.makeExpression(String.join(noDelimiter, elements));
   }
 
   private static String quoteIfNeeded(@Nullable Object arg)
@@ -237,17 +300,49 @@ class ExpressionTestHelper
     testExpression(rexBuilder.makeCall(op, exprs), expectedExpression, expectedResult);
   }
 
+  /**
+   * @deprecated use {@link #testExpression(SqlOperator, RexNode, DruidExpression, Object)} instead which does a
+   * deep comparison of {@link DruidExpression} instead of just comparing the output of
+   * {@link DruidExpression#getExpression()}
+   */
+  @Deprecated
+  void testExpressionString(
+      final SqlOperator op,
+      final List<? extends RexNode> exprs,
+      final DruidExpression expectedExpression,
+      final Object expectedResult
+  )
+  {
+    testExpression(rexBuilder.makeCall(op, exprs), expectedExpression, expectedResult, false);
+  }
+
   void testExpression(
       final RexNode rexNode,
       final DruidExpression expectedExpression,
       final Object expectedResult
   )
   {
-    DruidExpression expression = Expressions.toDruidExpression(PLANNER_CONTEXT, rowSignature, rexNode);
-    Assert.assertEquals("Expression for: " + rexNode, expectedExpression, expression);
+    testExpression(rexNode, expectedExpression, expectedResult, true);
+  }
 
-    ExprEval<?> result = Parser.parse(expression.getExpression(), PLANNER_CONTEXT.getExprMacroTable())
-                               .eval(InputBindings.withMap(bindings));
+  void testExpression(
+      final RexNode rexNode,
+      final DruidExpression expectedExpression,
+      final Object expectedResult,
+      final boolean deepCompare
+  )
+  {
+    DruidExpression expression = Expressions.toDruidExpression(PLANNER_CONTEXT, rowSignature, rexNode);
+    Assert.assertNotNull(expression);
+    if (deepCompare) {
+      Assert.assertEquals("Expression for: " + rexNode, expectedExpression, expression);
+    } else {
+      Assert.assertEquals("Expression for: " + rexNode, expectedExpression.getExpression(), expression.getExpression());
+    }
+
+    ExprEval<?> result = PLANNER_CONTEXT.parseExpression(expression.getExpression())
+
+                                        .eval(expressionBindings);
 
     Assert.assertEquals("Result for: " + rexNode, expectedResult, result.value());
   }
@@ -261,7 +356,11 @@ class ExpressionTestHelper
   )
   {
     final RexNode rexNode = rexBuilder.makeCall(op, exprs);
-    final VirtualColumnRegistry virtualColumnRegistry = VirtualColumnRegistry.create(rowSignature);
+    final VirtualColumnRegistry virtualColumnRegistry = VirtualColumnRegistry.create(
+        rowSignature,
+        new ExpressionParserImpl(PLANNER_TOOLBOX.exprMacroTable()),
+        false
+    );
 
     final DimFilter filter = Expressions.toFilter(PLANNER_CONTEXT, rowSignature, virtualColumnRegistry, rexNode);
     Assert.assertEquals("Filter for: " + rexNode, expectedFilter, filter);
@@ -288,12 +387,13 @@ class ExpressionTestHelper
                 RowAdapters.standardRow(),
                 () -> new MapBasedRow(0L, bindings),
                 rowSignature,
+                false,
                 false
             ),
             VirtualColumns.create(virtualColumns)
         )
     );
 
-    Assert.assertEquals("Result for: " + rexNode, expectedResult, matcher.matches());
+    Assert.assertEquals("Result for: " + rexNode, expectedResult, matcher.matches(false));
   }
 }

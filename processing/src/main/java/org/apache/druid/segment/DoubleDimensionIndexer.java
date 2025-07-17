@@ -21,52 +21,48 @@ package org.apache.druid.segment;
 
 import org.apache.druid.collections.bitmap.BitmapFactory;
 import org.apache.druid.collections.bitmap.MutableBitmap;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.guava.Comparators;
 import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.data.CloseableIndexed;
 import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.incremental.IncrementalIndexRowHolder;
 
 import javax.annotation.Nullable;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Objects;
 
 public class DoubleDimensionIndexer implements DimensionIndexer<Double, Double, Double>
 {
   public static final Comparator<Double> DOUBLE_COMPARATOR = Comparators.naturalNullsFirst();
-
+  private final String dimensionName;
   private volatile boolean hasNulls = false;
 
-  @Nullable
-  @Override
-  public Double processRowValsToUnsortedEncodedKeyComponent(@Nullable Object dimValues, boolean reportParseExceptions)
+  public DoubleDimensionIndexer(String dimensionName)
   {
-    if (dimValues instanceof List) {
-      throw new UnsupportedOperationException("Numeric columns do not support multivalue rows.");
-    }
-    Double d = DimensionHandlerUtils.convertObjectToDouble(dimValues, reportParseExceptions);
+    this.dimensionName = dimensionName;
+  }
+
+  @Override
+  public EncodedKeyComponent<Double> processRowValsToUnsortedEncodedKeyComponent(
+      @Nullable Object dimValues,
+      boolean reportParseExceptions
+  )
+  {
+    Double d = DimensionHandlerUtils.convertObjectToDouble(dimValues, reportParseExceptions, dimensionName);
     if (d == null) {
-      hasNulls = NullHandling.sqlCompatible();
+      hasNulls = true;
     }
-    return d;
+    return new EncodedKeyComponent<>(d, Double.BYTES);
   }
 
   @Override
   public void setSparseIndexed()
   {
-    hasNulls = NullHandling.sqlCompatible();
-  }
-
-  @Override
-  public long estimateEncodedKeyComponentSize(Double key)
-  {
-    return Double.BYTES;
+    hasNulls = true;
   }
 
   @Override
@@ -102,7 +98,7 @@ public class DoubleDimensionIndexer implements DimensionIndexer<Double, Double, 
   @Override
   public ColumnCapabilities getColumnCapabilities()
   {
-    ColumnCapabilitiesImpl builder = ColumnCapabilitiesImpl.createSimpleNumericColumnCapabilities(ValueType.DOUBLE);
+    ColumnCapabilitiesImpl builder = ColumnCapabilitiesImpl.createSimpleNumericColumnCapabilities(ColumnType.DOUBLE);
     if (hasNulls) {
       builder.setHasNulls(hasNulls);
     }
@@ -142,7 +138,7 @@ public class DoubleDimensionIndexer implements DimensionIndexer<Double, Double, 
         final Object[] dims = currEntry.get().getDims();
 
         if (dimIndex >= dims.length || dims[dimIndex] == null) {
-          assert NullHandling.replaceWithDefault();
+          assert !isNull();
           return 0.0;
         }
         return (Double) dims[dimIndex];
@@ -156,7 +152,7 @@ public class DoubleDimensionIndexer implements DimensionIndexer<Double, Double, 
         final Object[] dims = currEntry.get().getDims();
 
         if (dimIndex >= dims.length || dims[dimIndex] == null) {
-          return NullHandling.defaultDoubleValue();
+          return null;
         }
         return (Double) dims[dimIndex];
       }

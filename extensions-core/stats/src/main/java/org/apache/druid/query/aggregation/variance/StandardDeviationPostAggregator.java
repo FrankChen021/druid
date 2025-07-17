@@ -24,13 +24,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.aggregation.post.ArithmeticPostAggregator;
 import org.apache.druid.query.aggregation.post.PostAggregatorIds;
 import org.apache.druid.query.cache.CacheKeyBuilder;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.ColumnInspector;
+import org.apache.druid.segment.column.ColumnType;
 
 import javax.annotation.Nullable;
 import java.util.Comparator;
@@ -78,8 +78,12 @@ public class StandardDeviationPostAggregator implements PostAggregator
   @Nullable
   public Double compute(Map<String, Object> combinedAggregators)
   {
-    Double variance = ((VarianceAggregatorCollector) combinedAggregators.get(fieldName)).getVariance(isVariancePop);
-    return variance == null ? NullHandling.defaultDoubleValue() : (Double) Math.sqrt(variance);
+    Object varianceAggregatorCollector = combinedAggregators.get(fieldName);
+    if (!(varianceAggregatorCollector instanceof VarianceAggregatorCollector)) {
+      return null;
+    }
+    Double variance = ((VarianceAggregatorCollector) varianceAggregatorCollector).getVariance(isVariancePop);
+    return variance == null ? null : (Double) Math.sqrt(variance);
   }
 
   @Override
@@ -90,9 +94,9 @@ public class StandardDeviationPostAggregator implements PostAggregator
   }
 
   @Override
-  public ValueType getType()
+  public ColumnType getType(ColumnInspector signature)
   {
-    return ValueType.DOUBLE;
+    return ColumnType.DOUBLE;
   }
 
   @Override

@@ -176,13 +176,13 @@ public class FillCapacityWithCategorySpecWorkerSelectStrategyTest
 
   private ImmutableWorkerInfo selectWorker(WorkerCategorySpec workerCategorySpec)
   {
-    final FillCapacityWithCategorySpecWorkerSelectStrategy strategy = new FillCapacityWithCategorySpecWorkerSelectStrategy(
-        workerCategorySpec);
+    final FillCapacityWithCategorySpecWorkerSelectStrategy strategy =
+        new FillCapacityWithCategorySpecWorkerSelectStrategy(workerCategorySpec, null);
 
     ImmutableWorkerInfo worker = strategy.findWorkerForTask(
         new RemoteTaskRunnerConfig(),
         WORKERS_FOR_TIER_TESTS,
-        new NoopTask(null, null, "ds1", 1, 0, null, null, null)
+        NoopTask.forDatasource("ds1")
     );
 
     return worker;

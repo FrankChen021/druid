@@ -20,8 +20,12 @@
 package org.apache.druid.indexing.common.task.batch.parallel;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
+import org.apache.druid.indexer.granularity.GranularitySpec;
 import org.apache.druid.indexer.partitions.HashedPartitionsSpec;
+import org.apache.druid.indexer.report.TaskReport;
 import org.apache.druid.indexing.common.TaskToolbox;
 import org.apache.druid.indexing.common.actions.SurrogateTaskActionClient;
 import org.apache.druid.indexing.common.actions.TaskActionClient;
@@ -31,7 +35,8 @@ import org.apache.druid.indexing.common.task.TaskResource;
 import org.apache.druid.indexing.common.task.batch.parallel.iterator.DefaultIndexTaskInputRowIteratorBuilder;
 import org.apache.druid.indexing.common.task.batch.partition.HashPartitionAnalysis;
 import org.apache.druid.indexing.worker.shuffle.ShuffleDataSegmentPusher;
-import org.apache.druid.segment.indexing.granularity.GranularitySpec;
+import org.apache.druid.server.security.AuthorizationUtils;
+import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.PartialShardSpec;
 import org.joda.time.Interval;
@@ -41,6 +46,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -55,7 +61,6 @@ public class PartialHashSegmentGenerateTask extends PartialSegmentGenerateTask<G
 
   private final int numAttempts;
   private final ParallelIndexIngestionSpec ingestionSchema;
-  private final String supervisorTaskId;
   private final String subtaskSpecId;
   @Nullable
   private final Map<Interval, Integer> intervalToNumShardsOverride;
@@ -88,7 +93,6 @@ public class PartialHashSegmentGenerateTask extends PartialSegmentGenerateTask<G
     this.subtaskSpecId = subtaskSpecId;
     this.numAttempts = numAttempts;
     this.ingestionSchema = ingestionSchema;
-    this.supervisorTaskId = supervisorTaskId;
     this.intervalToNumShardsOverride = intervalToNumShardsOverride;
   }
 
@@ -102,12 +106,6 @@ public class PartialHashSegmentGenerateTask extends PartialSegmentGenerateTask<G
   public ParallelIndexIngestionSpec getIngestionSchema()
   {
     return ingestionSchema;
-  }
-
-  @JsonProperty
-  public String getSupervisorTaskId()
-  {
-    return supervisorTaskId;
   }
 
   @JsonProperty
@@ -130,11 +128,24 @@ public class PartialHashSegmentGenerateTask extends PartialSegmentGenerateTask<G
     return TYPE;
   }
 
+  @Nonnull
+  @JsonIgnore
+  @Override
+  public Set<ResourceAction> getInputSourceResources()
+  {
+    return getIngestionSchema().getIOConfig().getInputSource() != null ?
+           getIngestionSchema().getIOConfig().getInputSource().getTypes()
+                               .stream()
+                               .map(AuthorizationUtils::createExternalResourceReadAction)
+                               .collect(Collectors.toSet()) :
+           ImmutableSet.of();
+  }
+
   @Override
   public boolean isReady(TaskActionClient taskActionClient) throws Exception
   {
     return tryTimeChunkLock(
-        new SurrogateTaskActionClient(supervisorTaskId, taskActionClient),
+        new SurrogateTaskActionClient(getSupervisorTaskId(), taskActionClient),
         getIngestionSchema().getDataSchema().getGranularitySpec().inputIntervals()
     );
   }
@@ -151,7 +162,7 @@ public class PartialHashSegmentGenerateTask extends PartialSegmentGenerateTask<G
         getDataSource(),
         getSubtaskSpecId(),
         granularitySpec,
-        new SupervisorTaskAccess(supervisorTaskId, taskClient),
+        new SupervisorTaskAccess(getSupervisorTaskId(), taskClient),
         createHashPartitionAnalysisFromPartitionsSpec(
             granularitySpec,
             partitionsSpec,
@@ -161,12 +172,12 @@ public class PartialHashSegmentGenerateTask extends PartialSegmentGenerateTask<G
   }
 
   @Override
-  GeneratedPartitionsMetadataReport createGeneratedPartitionsReport(TaskToolbox toolbox, List<DataSegment> segments)
+  GeneratedPartitionsMetadataReport createGeneratedPartitionsReport(TaskToolbox toolbox, List<DataSegment> segments, TaskReport.ReportMap taskReport)
   {
     List<PartitionStat> partitionStats = segments.stream()
                                                         .map(segment -> toolbox.getIntermediaryDataManager().generatePartitionStat(toolbox, segment))
                                                         .collect(Collectors.toList());
-    return new GeneratedPartitionsMetadataReport(getId(), partitionStats);
+    return new GeneratedPartitionsMetadataReport(getId(), partitionStats, taskReport);
   }
 
   /**

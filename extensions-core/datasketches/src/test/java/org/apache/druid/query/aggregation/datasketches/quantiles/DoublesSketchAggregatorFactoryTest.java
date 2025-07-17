@@ -25,14 +25,17 @@ import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.aggregation.AggregateCombiner;
+import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
+import org.apache.druid.query.aggregation.TestDoubleColumnSelectorImpl;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
 import org.apache.druid.query.aggregation.post.FinalizingFieldAccessPostAggregator;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.query.timeseries.TimeseriesQueryQueryToolChest;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.column.ValueType;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -59,7 +62,8 @@ public class DoublesSketchAggregatorFactoryTest
         "myFactory",
         "myField",
         1024,
-        1000L
+        1000L,
+        null
     );
     final byte[] json = mapper.writeValueAsBytes(factory);
     final DoublesSketchAggregatorFactory fromJson = (DoublesSketchAggregatorFactory) mapper.readValue(
@@ -76,11 +80,28 @@ public class DoublesSketchAggregatorFactoryTest
         "myFactory",
         "myField",
         null,
+        null,
         null
     );
 
     Assert.assertEquals(DoublesSketchAggregatorFactory.DEFAULT_K, factory.getK());
     Assert.assertEquals(DoublesSketchAggregatorFactory.DEFAULT_MAX_STREAM_LENGTH, factory.getMaxStreamLength());
+  }
+
+  @Test
+  public void testGuessAggregatorHeapFootprint()
+  {
+    DoublesSketchAggregatorFactory factory = new DoublesSketchAggregatorFactory(
+        "myFactory",
+        "myField",
+        128,
+        null,
+        null
+    );
+    Assert.assertEquals(64, factory.guessAggregatorHeapFootprint(1));
+    Assert.assertEquals(1056, factory.guessAggregatorHeapFootprint(100));
+    Assert.assertEquals(4128, factory.guessAggregatorHeapFootprint(1000));
+    Assert.assertEquals(34848, factory.guessAggregatorHeapFootprint(1_000_000_000_000L));
   }
 
   @Test
@@ -90,6 +111,7 @@ public class DoublesSketchAggregatorFactoryTest
         "myFactory",
         "myField",
         128,
+        null,
         null
     );
     Assert.assertEquals(24608L, factory.getMaxIntermediateSize());
@@ -98,7 +120,8 @@ public class DoublesSketchAggregatorFactoryTest
         "myFactory",
         "myField",
         128,
-        1_000_000_000_000L
+        1_000_000_000_000L,
+        null
     );
     Assert.assertEquals(34848L, factory.getMaxIntermediateSize());
   }
@@ -114,28 +137,83 @@ public class DoublesSketchAggregatorFactoryTest
               .aggregators(
                   new CountAggregatorFactory("count"),
                   new DoublesSketchAggregatorFactory("doublesSketch", "col", 8),
-                  new DoublesSketchMergeAggregatorFactory("doublesSketchMerge", 8)
+                  new DoublesSketchMergeAggregatorFactory("doublesSketchMerge", 8),
+                  new DoublesSketchMergeAggregatorFactory("doublesSketchNoFinalize", 8, null, false)
               )
               .postAggregators(
                   new FieldAccessPostAggregator("doublesSketch-access", "doublesSketch"),
                   new FinalizingFieldAccessPostAggregator("doublesSketch-finalize", "doublesSketch"),
                   new FieldAccessPostAggregator("doublesSketchMerge-access", "doublesSketchMerge"),
-                  new FinalizingFieldAccessPostAggregator("doublesSketchMerge-finalize", "doublesSketchMerge")
+                  new FinalizingFieldAccessPostAggregator("doublesSketchMerge-finalize", "doublesSketchMerge"),
+                  new FieldAccessPostAggregator("doublesSketchNoFinalize-access", "doublesSketchNoFinalize"),
+                  new FinalizingFieldAccessPostAggregator("doublesSketchNoFinalize-finalize", "doublesSketchNoFinalize")
               )
               .build();
 
     Assert.assertEquals(
         RowSignature.builder()
                     .addTimeColumn()
-                    .add("count", ValueType.LONG)
+                    .add("count", ColumnType.LONG)
                     .add("doublesSketch", null)
                     .add("doublesSketchMerge", null)
-                    .add("doublesSketch-access", ValueType.COMPLEX)
-                    .add("doublesSketch-finalize", ValueType.LONG)
-                    .add("doublesSketchMerge-access", ValueType.COMPLEX)
-                    .add("doublesSketchMerge-finalize", ValueType.LONG)
+                    .add("doublesSketchNoFinalize", DoublesSketchModule.TYPE)
+                    .add("doublesSketch-access", DoublesSketchModule.TYPE)
+                    .add("doublesSketch-finalize", ColumnType.LONG)
+                    .add("doublesSketchMerge-access", DoublesSketchModule.TYPE)
+                    .add("doublesSketchMerge-finalize", ColumnType.LONG)
+                    .add("doublesSketchNoFinalize-access", DoublesSketchModule.TYPE)
+                    .add("doublesSketchNoFinalize-finalize", DoublesSketchModule.TYPE)
                     .build(),
         new TimeseriesQueryQueryToolChest().resultArraySignature(query)
     );
+  }
+
+  @Test
+  public void testWithName()
+  {
+    final DoublesSketchAggregatorFactory factory = new DoublesSketchAggregatorFactory(
+        "myFactory",
+        "myField",
+        1024,
+        1000L,
+        null
+    );
+    Assert.assertEquals(factory, factory.withName("myFactory"));
+    Assert.assertEquals("newTest", factory.withName("newTest").getName());
+  }
+
+  @Test
+  public void testNullSketches()
+  {
+    final DoublesSketchAggregatorFactory factory = new DoublesSketchAggregatorFactory(
+        "myFactory",
+        "myField",
+        1024,
+        1000L,
+        null
+    );
+    final double[] values = new double[]{1, 2, 3, 4, 5, 6};
+    final TestDoubleColumnSelectorImpl selector = new TestDoubleColumnSelectorImpl(values);
+    final Aggregator agg1 = new DoublesSketchBuildAggregator(selector, 8);
+    Assert.assertNotNull(factory.combine(null, agg1.get()));
+    Assert.assertNotNull(factory.combine(agg1.get(), null));
+    AggregateCombiner ac = factory.makeAggregateCombiner();
+    ac.fold(new TestDoublesSketchColumnValueSelector());
+    Assert.assertNotNull(ac.getObject());
+  }
+
+  @Test
+  public void testCanSubstitute()
+  {
+    final DoublesSketchAggregatorFactory sketch = new DoublesSketchAggregatorFactory("sketch", "x", 1024, 1000L, null);
+    final DoublesSketchAggregatorFactory sketch2 = new DoublesSketchAggregatorFactory("other", "x", 1024, 2000L, null);
+    final DoublesSketchAggregatorFactory sketch3 = new DoublesSketchAggregatorFactory("another", "x", 2048, 1000L, null);
+    final DoublesSketchAggregatorFactory incompatible = new DoublesSketchAggregatorFactory("incompatible", "y", 1024, 1000L, null);
+
+    Assert.assertNotNull(sketch.substituteCombiningFactory(sketch2));
+    Assert.assertNotNull(sketch.substituteCombiningFactory(sketch3));
+    Assert.assertNull(sketch2.substituteCombiningFactory(sketch3));
+    Assert.assertNull(sketch.substituteCombiningFactory(incompatible));
+    Assert.assertNull(sketch3.substituteCombiningFactory(sketch));
   }
 }

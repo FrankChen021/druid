@@ -20,12 +20,18 @@
 package org.apache.druid.server.initialization;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import org.apache.druid.common.exception.ErrorResponseTransformStrategy;
+import org.apache.druid.common.exception.NoErrorResponseTransformStrategy;
 import org.apache.druid.java.util.common.HumanReadableBytes;
 import org.apache.druid.java.util.common.HumanReadableBytesRange;
+import org.apache.druid.query.QueryContexts;
+import org.apache.druid.server.SubqueryGuardrailHelper;
 import org.apache.druid.utils.JvmUtils;
 import org.joda.time.Period;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -54,6 +60,8 @@ public class ServerConfig
       long defaultQueryTimeout,
       long maxScatterGatherBytes,
       int maxSubqueryRows,
+      String maxSubqueryBytes,
+      boolean useNestedForUnknownTypeInSubquery,
       long maxQueryTimeout,
       int maxRequestHeaderSize,
       @NotNull Period gracefulShutdownTimeout,
@@ -61,7 +69,11 @@ public class ServerConfig
       int inflateBufferSize,
       int compressionLevel,
       boolean enableForwardedRequestCustomizer,
-      @NotNull List<String> allowedHttpMethods
+      @NotNull List<String> allowedHttpMethods,
+      boolean showDetailedJettyErrors,
+      @NotNull ErrorResponseTransformStrategy errorResponseTransformStrategy,
+      @Nullable String contentSecurityPolicy,
+      boolean enableHSTS
   )
   {
     this.numThreads = numThreads;
@@ -71,6 +83,8 @@ public class ServerConfig
     this.defaultQueryTimeout = defaultQueryTimeout;
     this.maxScatterGatherBytes = HumanReadableBytes.valueOf(maxScatterGatherBytes);
     this.maxSubqueryRows = maxSubqueryRows;
+    this.maxSubqueryBytes = maxSubqueryBytes;
+    this.useNestedForUnknownTypeInSubquery = useNestedForUnknownTypeInSubquery;
     this.maxQueryTimeout = maxQueryTimeout;
     this.maxRequestHeaderSize = maxRequestHeaderSize;
     this.gracefulShutdownTimeout = gracefulShutdownTimeout;
@@ -79,11 +93,21 @@ public class ServerConfig
     this.compressionLevel = compressionLevel;
     this.enableForwardedRequestCustomizer = enableForwardedRequestCustomizer;
     this.allowedHttpMethods = allowedHttpMethods;
+    this.showDetailedJettyErrors = showDetailedJettyErrors;
+    this.errorResponseTransformStrategy = errorResponseTransformStrategy;
+    this.contentSecurityPolicy = contentSecurityPolicy;
+    this.enableHSTS = enableHSTS;
   }
 
   public ServerConfig()
   {
 
+  }
+
+  @VisibleForTesting
+  public ServerConfig(boolean enableQueryRequestsQueuing)
+  {
+    this.enableQueryRequestsQueuing = enableQueryRequestsQueuing;
   }
 
   @JsonProperty
@@ -115,6 +139,12 @@ public class ServerConfig
   private int maxSubqueryRows = 100000;
 
   @JsonProperty
+  private String maxSubqueryBytes = SubqueryGuardrailHelper.LIMIT_DISABLED_VALUE;
+
+  @JsonProperty
+  private boolean useNestedForUnknownTypeInSubquery = QueryContexts.DEFAULT_USE_NESTED_FOR_UNKNOWN_TYPE_IN_SUBQUERY;
+
+  @JsonProperty
   @Min(1)
   private long maxQueryTimeout = Long.MAX_VALUE;
 
@@ -144,6 +174,26 @@ public class ServerConfig
   @JsonProperty
   @NotNull
   private List<String> allowedHttpMethods = ImmutableList.of();
+
+  @JsonProperty("errorResponseTransform")
+  @NotNull
+  private ErrorResponseTransformStrategy errorResponseTransformStrategy = NoErrorResponseTransformStrategy.INSTANCE;
+
+  @JsonProperty("contentSecurityPolicy")
+  private String contentSecurityPolicy;
+
+  @JsonProperty
+  private boolean enableHSTS = false;
+
+  /**
+   * This feature flag enables query requests queuing when admins want to reserve some threads for
+   * non-query requests. This feature flag is not documented and will be removed in the future.
+   */
+  @JsonProperty
+  private boolean enableQueryRequestsQueuing = true;
+
+  @JsonProperty
+  private boolean showDetailedJettyErrors = true;
 
   public int getNumThreads()
   {
@@ -178,6 +228,16 @@ public class ServerConfig
   public int getMaxSubqueryRows()
   {
     return maxSubqueryRows;
+  }
+
+  public String getMaxSubqueryBytes()
+  {
+    return maxSubqueryBytes;
+  }
+
+  public boolean isuseNestedForUnknownTypeInSubquery()
+  {
+    return useNestedForUnknownTypeInSubquery;
   }
 
   public long getMaxQueryTimeout()
@@ -215,10 +275,35 @@ public class ServerConfig
     return enableForwardedRequestCustomizer;
   }
 
+  public boolean isShowDetailedJettyErrors()
+  {
+    return showDetailedJettyErrors;
+  }
+
+  public ErrorResponseTransformStrategy getErrorResponseTransformStrategy()
+  {
+    return errorResponseTransformStrategy;
+  }
+
   @NotNull
   public List<String> getAllowedHttpMethods()
   {
     return allowedHttpMethods;
+  }
+
+  public String getContentSecurityPolicy()
+  {
+    return contentSecurityPolicy;
+  }
+
+  public boolean isEnableHSTS()
+  {
+    return enableHSTS;
+  }
+
+  public boolean isEnableQueryRequestsQueuing()
+  {
+    return enableQueryRequestsQueuing;
   }
 
   @Override
@@ -235,17 +320,24 @@ public class ServerConfig
            queueSize == that.queueSize &&
            enableRequestLimit == that.enableRequestLimit &&
            defaultQueryTimeout == that.defaultQueryTimeout &&
-           maxScatterGatherBytes.equals(that.maxScatterGatherBytes) &&
            maxSubqueryRows == that.maxSubqueryRows &&
+           Objects.equals(maxSubqueryBytes, that.maxSubqueryBytes) &&
+           useNestedForUnknownTypeInSubquery == that.useNestedForUnknownTypeInSubquery &&
            maxQueryTimeout == that.maxQueryTimeout &&
            maxRequestHeaderSize == that.maxRequestHeaderSize &&
            inflateBufferSize == that.inflateBufferSize &&
            compressionLevel == that.compressionLevel &&
            enableForwardedRequestCustomizer == that.enableForwardedRequestCustomizer &&
+           showDetailedJettyErrors == that.showDetailedJettyErrors &&
            maxIdleTime.equals(that.maxIdleTime) &&
+           maxScatterGatherBytes.equals(that.maxScatterGatherBytes) &&
            gracefulShutdownTimeout.equals(that.gracefulShutdownTimeout) &&
            unannouncePropagationDelay.equals(that.unannouncePropagationDelay) &&
-           allowedHttpMethods.equals(that.allowedHttpMethods);
+           allowedHttpMethods.equals(that.allowedHttpMethods) &&
+           errorResponseTransformStrategy.equals(that.errorResponseTransformStrategy) &&
+           Objects.equals(contentSecurityPolicy, that.getContentSecurityPolicy()) &&
+           enableHSTS == that.enableHSTS &&
+           enableQueryRequestsQueuing == that.enableQueryRequestsQueuing;
   }
 
   @Override
@@ -259,6 +351,8 @@ public class ServerConfig
         defaultQueryTimeout,
         maxScatterGatherBytes,
         maxSubqueryRows,
+        maxSubqueryBytes,
+        useNestedForUnknownTypeInSubquery,
         maxQueryTimeout,
         maxRequestHeaderSize,
         gracefulShutdownTimeout,
@@ -266,7 +360,12 @@ public class ServerConfig
         inflateBufferSize,
         compressionLevel,
         enableForwardedRequestCustomizer,
-        allowedHttpMethods
+        allowedHttpMethods,
+        errorResponseTransformStrategy,
+        showDetailedJettyErrors,
+        contentSecurityPolicy,
+        enableHSTS,
+        enableQueryRequestsQueuing
     );
   }
 
@@ -281,6 +380,8 @@ public class ServerConfig
            ", defaultQueryTimeout=" + defaultQueryTimeout +
            ", maxScatterGatherBytes=" + maxScatterGatherBytes +
            ", maxSubqueryRows=" + maxSubqueryRows +
+           ", maxSubqueryBytes=" + maxSubqueryBytes +
+           ", useNestedForUnknownTypeInSubquery=" + useNestedForUnknownTypeInSubquery +
            ", maxQueryTimeout=" + maxQueryTimeout +
            ", maxRequestHeaderSize=" + maxRequestHeaderSize +
            ", gracefulShutdownTimeout=" + gracefulShutdownTimeout +
@@ -288,7 +389,12 @@ public class ServerConfig
            ", inflateBufferSize=" + inflateBufferSize +
            ", compressionLevel=" + compressionLevel +
            ", enableForwardedRequestCustomizer=" + enableForwardedRequestCustomizer +
-           ", allowedMethods=" + allowedHttpMethods +
+           ", allowedHttpMethods=" + allowedHttpMethods +
+           ", errorResponseTransformStrategy=" + errorResponseTransformStrategy +
+           ", showDetailedJettyErrors=" + showDetailedJettyErrors +
+           ", contentSecurityPolicy=" + contentSecurityPolicy +
+           ", enableHSTS=" + enableHSTS +
+           ", enableQueryRequestsQueuing=" + enableQueryRequestsQueuing +
            '}';
   }
 

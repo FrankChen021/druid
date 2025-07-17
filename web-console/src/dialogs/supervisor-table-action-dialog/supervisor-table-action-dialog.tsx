@@ -18,13 +18,17 @@
 
 import React, { useState } from 'react';
 
-import { ShowJson } from '../../components';
-import { ShowHistory } from '../../components/show-history/show-history';
-import { SupervisorStatisticsTable } from '../../components/supervisor-statistics-table/supervisor-statistics-table';
+import { ShowJson, SupervisorHistoryPanel } from '../../components';
+import { cleanSpec } from '../../druid-models';
 import { Api } from '../../singletons';
 import { deepGet } from '../../utils';
-import { BasicAction } from '../../utils/basic-action';
-import { SideButtonMetaData, TableActionDialog } from '../table-action-dialog/table-action-dialog';
+import type { BasicAction } from '../../utils/basic-action';
+import type { SideButtonMetaData } from '../table-action-dialog/table-action-dialog';
+import { TableActionDialog } from '../table-action-dialog/table-action-dialog';
+
+import { SupervisorStatisticsTable } from './supervisor-statistics-table/supervisor-statistics-table';
+
+type SupervisorTableActionDialogTab = 'status' | 'stats' | 'spec' | 'history';
 
 interface SupervisorTableActionDialogProps {
   supervisorId: string;
@@ -36,7 +40,7 @@ export const SupervisorTableActionDialog = React.memo(function SupervisorTableAc
   props: SupervisorTableActionDialogProps,
 ) {
   const { supervisorId, actions, onClose } = props;
-  const [activeTab, setActiveTab] = useState('status');
+  const [activeTab, setActiveTab] = useState<SupervisorTableActionDialogTab>('status');
 
   const supervisorTableSideButtonMetadata: SideButtonMetaData[] = [
     {
@@ -47,15 +51,15 @@ export const SupervisorTableActionDialog = React.memo(function SupervisorTableAc
     },
     {
       icon: 'chart',
-      text: 'Statistics',
+      text: 'Task stats',
       active: activeTab === 'stats',
       onClick: () => setActiveTab('stats'),
     },
     {
       icon: 'align-left',
-      text: 'Payload',
-      active: activeTab === 'payload',
-      onClick: () => setActiveTab('payload'),
+      text: 'Spec',
+      active: activeTab === 'spec',
+      onClick: () => setActiveTab('spec'),
     },
     {
       icon: 'history',
@@ -86,18 +90,14 @@ export const SupervisorTableActionDialog = React.memo(function SupervisorTableAc
           downloadFilename={`supervisor-stats-${supervisorId}.json`}
         />
       )}
-      {activeTab === 'payload' && (
+      {activeTab === 'spec' && (
         <ShowJson
           endpoint={supervisorEndpointBase}
+          transform={cleanSpec}
           downloadFilename={`supervisor-payload-${supervisorId}.json`}
         />
       )}
-      {activeTab === 'history' && (
-        <ShowHistory
-          endpoint={`${supervisorEndpointBase}/history`}
-          downloadFilename={`supervisor-history-${supervisorId}.json`}
-        />
-      )}
+      {activeTab === 'history' && <SupervisorHistoryPanel supervisorId={supervisorId} />}
     </TableActionDialog>
   );
 });

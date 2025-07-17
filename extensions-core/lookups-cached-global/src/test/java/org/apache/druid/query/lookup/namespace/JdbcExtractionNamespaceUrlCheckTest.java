@@ -25,13 +25,10 @@ import org.apache.druid.server.initialization.JdbcAccessSecurityConfig;
 import org.joda.time.Period;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
 import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
 
 import java.util.Set;
 
-@RunWith(Enclosed.class)
 public class JdbcExtractionNamespaceUrlCheckTest
 {
   private static final String TABLE_NAME = "abstractDbRenameTest";
@@ -62,6 +59,9 @@ public class JdbcExtractionNamespaceUrlCheckTest
           TS_COLUMN,
           "some filter",
           new Period(10),
+          null,
+          0,
+          1000L,
           new JdbcAccessSecurityConfig()
           {
             @Override
@@ -99,6 +99,9 @@ public class JdbcExtractionNamespaceUrlCheckTest
           TS_COLUMN,
           "some filter",
           new Period(10),
+          null,
+          0,
+          null,
           new JdbcAccessSecurityConfig()
           {
             @Override
@@ -134,6 +137,9 @@ public class JdbcExtractionNamespaceUrlCheckTest
           TS_COLUMN,
           "some filter",
           new Period(10),
+          null,
+          0,
+          null,
           new JdbcAccessSecurityConfig()
           {
             @Override
@@ -146,43 +152,6 @@ public class JdbcExtractionNamespaceUrlCheckTest
             public boolean isEnforceAllowedProperties()
             {
               return false;
-            }
-          }
-      );
-    }
-
-    @Test
-    public void testWhenInvalidUrlFormat()
-    {
-      expectedException.expect(IllegalArgumentException.class);
-      expectedException.expectMessage("Invalid URL format for MySQL: [jdbc:mysql:/invalid-url::3006]");
-      new JdbcExtractionNamespace(
-          new MetadataStorageConnectorConfig()
-          {
-            @Override
-            public String getConnectURI()
-            {
-              return "jdbc:mysql:/invalid-url::3006";
-            }
-          },
-          TABLE_NAME,
-          KEY_NAME,
-          VAL_NAME,
-          TS_COLUMN,
-          "some filter",
-          new Period(10),
-          new JdbcAccessSecurityConfig()
-          {
-            @Override
-            public Set<String> getAllowedProperties()
-            {
-              return ImmutableSet.of("valid_key1", "valid_key2");
-            }
-
-            @Override
-            public boolean isEnforceAllowedProperties()
-            {
-              return true;
             }
           }
       );
@@ -212,6 +181,9 @@ public class JdbcExtractionNamespaceUrlCheckTest
           TS_COLUMN,
           "some filter",
           new Period(10),
+          null,
+          0,
+          null,
           new JdbcAccessSecurityConfig()
           {
             @Override
@@ -249,6 +221,9 @@ public class JdbcExtractionNamespaceUrlCheckTest
           TS_COLUMN,
           "some filter",
           new Period(10),
+          10L,
+          0,
+          null,
           new JdbcAccessSecurityConfig()
           {
             @Override
@@ -284,6 +259,9 @@ public class JdbcExtractionNamespaceUrlCheckTest
           TS_COLUMN,
           "some filter",
           new Period(10),
+          null,
+          0,
+          null,
           new JdbcAccessSecurityConfig()
           {
             @Override
@@ -321,6 +299,9 @@ public class JdbcExtractionNamespaceUrlCheckTest
           TS_COLUMN,
           "some filter",
           new Period(10),
+          null,
+          0,
+          null,
           new JdbcAccessSecurityConfig()
           {
             @Override
@@ -364,6 +345,9 @@ public class JdbcExtractionNamespaceUrlCheckTest
           TS_COLUMN,
           "some filter",
           new Period(10),
+          null,
+          0,
+          null,
           new JdbcAccessSecurityConfig()
           {
             @Override
@@ -405,6 +389,9 @@ public class JdbcExtractionNamespaceUrlCheckTest
           TS_COLUMN,
           "some filter",
           new Period(10),
+          null,
+          0,
+          null,
           new JdbcAccessSecurityConfig()
           {
             @Override

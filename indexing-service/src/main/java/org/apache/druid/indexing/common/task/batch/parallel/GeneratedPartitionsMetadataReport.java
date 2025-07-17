@@ -21,6 +21,7 @@ package org.apache.druid.indexing.common.task.batch.parallel;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.druid.indexer.report.TaskReport;
 
 import java.util.List;
 
@@ -35,9 +36,10 @@ class GeneratedPartitionsMetadataReport extends GeneratedPartitionsReport
   @JsonCreator
   GeneratedPartitionsMetadataReport(
       @JsonProperty("taskId") String taskId,
-      @JsonProperty("partitionStats") List<PartitionStat> partitionStats
+      @JsonProperty("partitionStats") List<PartitionStat> partitionStats,
+      @JsonProperty("taskReport") TaskReport.ReportMap taskReport
   )
   {
-    super(taskId, partitionStats);
+    super(taskId, partitionStats, taskReport);
   }
 }

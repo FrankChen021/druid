@@ -19,11 +19,10 @@
 
 package org.apache.druid.query.aggregation;
 
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 import org.apache.druid.segment.vector.VectorValueSelector;
 import org.easymock.EasyMock;
@@ -59,11 +58,10 @@ public class DoubleMaxAggregationTest
   @Before
   public void setup()
   {
-    NullHandling.initializeForTests();
     selector = new TestDoubleColumnSelectorImpl(values);
     colSelectorFactory = EasyMock.createMock(ColumnSelectorFactory.class);
     EasyMock.expect(colSelectorFactory.makeColumnValueSelector("nilly")).andReturn(selector);
-    EasyMock.expect(colSelectorFactory.getColumnCapabilities("nilly")).andReturn(null);
+    EasyMock.expect(colSelectorFactory.getColumnCapabilities("nilly")).andReturn(null).anyTimes();
     EasyMock.replay(colSelectorFactory);
 
     VectorValueSelector vectorValueSelector = EasyMock.createMock(VectorValueSelector.class);
@@ -73,7 +71,7 @@ public class DoubleMaxAggregationTest
 
     vectorColumnSelectorFactory = EasyMock.createMock(VectorColumnSelectorFactory.class);
     EasyMock.expect(vectorColumnSelectorFactory.getColumnCapabilities("dblFld"))
-            .andReturn(new ColumnCapabilitiesImpl().setType(ValueType.DOUBLE).setDictionaryEncoded(true)).anyTimes();
+            .andReturn(new ColumnCapabilitiesImpl().setType(ColumnType.DOUBLE).setDictionaryEncoded(true)).anyTimes();
     EasyMock.expect(vectorColumnSelectorFactory.makeValueSelector("dblFld")).andReturn(vectorValueSelector).anyTimes();
     EasyMock.replay(vectorColumnSelectorFactory);
   }

@@ -16,21 +16,16 @@
  * limitations under the License.
  */
 
-import { Button, Menu, MenuItem, Position } from '@blueprintjs/core';
+import { Button, Popover, Position } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
-import { Popover2 } from '@blueprintjs/popover2';
 import classNames from 'classnames';
 import React, { useRef } from 'react';
 
 import { JSON_STRING_FORMATTER } from '../../utils';
-import { FormattedInput, FormattedInputProps } from '../formatted-input/formatted-input';
-
-export interface SuggestionGroup {
-  group: string;
-  suggestions: string[];
-}
-
-export type Suggestion = undefined | string | SuggestionGroup;
+import type { FormattedInputProps } from '../formatted-input/formatted-input';
+import { FormattedInput } from '../formatted-input/formatted-input';
+import type { Suggestion } from '../suggestion-menu/suggestion-menu';
+import { SuggestionMenu } from '../suggestion-menu/suggestion-menu';
 
 export interface SuggestibleInputProps extends Omit<FormattedInputProps, 'formatter'> {
   onFinalize?: () => void;
@@ -38,16 +33,8 @@ export interface SuggestibleInputProps extends Omit<FormattedInputProps, 'format
 }
 
 export const SuggestibleInput = React.memo(function SuggestibleInput(props: SuggestibleInputProps) {
-  const {
-    className,
-    value,
-    onValueChange,
-    onFinalize,
-    onBlur,
-    onFocus,
-    suggestions,
-    ...rest
-  } = props;
+  const { className, value, onValueChange, onFinalize, onBlur, onFocus, suggestions, ...rest } =
+    props;
 
   const lastFocusValue = useRef<string>();
 
@@ -73,47 +60,15 @@ export const SuggestibleInput = React.memo(function SuggestibleInput(props: Sugg
       }}
       rightElement={
         suggestions && (
-          <Popover2
+          <Popover
             content={
-              <Menu>
-                {suggestions.map(suggestion => {
-                  if (typeof suggestion === 'undefined') {
-                    return (
-                      <MenuItem
-                        key="__undefined__"
-                        text="(none)"
-                        onClick={() => handleSuggestionSelect(suggestion)}
-                      />
-                    );
-                  } else if (typeof suggestion === 'string') {
-                    return (
-                      <MenuItem
-                        key={suggestion}
-                        text={JSON_STRING_FORMATTER.stringify(suggestion)}
-                        onClick={() => handleSuggestionSelect(suggestion)}
-                      />
-                    );
-                  } else {
-                    return (
-                      <MenuItem key={suggestion.group} text={suggestion.group}>
-                        {suggestion.suggestions.map(suggestion => (
-                          <MenuItem
-                            key={suggestion}
-                            text={suggestion}
-                            onClick={() => handleSuggestionSelect(suggestion)}
-                          />
-                        ))}
-                      </MenuItem>
-                    );
-                  }
-                })}
-              </Menu>
+              <SuggestionMenu suggestions={suggestions} onSuggest={handleSuggestionSelect} />
             }
             position={Position.BOTTOM_RIGHT}
             autoFocus={false}
           >
             <Button icon={IconNames.CARET_DOWN} minimal />
-          </Popover2>
+          </Popover>
         )
       }
       {...rest}

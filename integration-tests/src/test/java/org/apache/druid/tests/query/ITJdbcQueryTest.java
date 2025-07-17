@@ -21,13 +21,13 @@ package org.apache.druid.tests.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import org.apache.calcite.avatica.AvaticaSqlException;
 import org.apache.druid.https.SSLClientConfig;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.testing.IntegrationTestingConfig;
-import org.apache.druid.testing.clients.CoordinatorResourceTestClient;
 import org.apache.druid.testing.guice.DruidTestModuleFactory;
-import org.apache.druid.testing.utils.ITRetryUtil;
+import org.apache.druid.testing.utils.DataLoaderHelper;
 import org.apache.druid.tests.TestNGGroup;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -47,7 +47,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
-@Test(groups = TestNGGroup.QUERY)
+@Test(groups = {TestNGGroup.QUERY, TestNGGroup.CENTRALIZED_DATASOURCE_SCHEMA})
 @Guice(moduleFactory = DruidTestModuleFactory.class)
 public class ITJdbcQueryTest
 {
@@ -60,7 +60,7 @@ public class ITJdbcQueryTest
   private static final String QUERY_TEMPLATE =
       "SELECT \"user\", SUM(\"added\"), COUNT(*)" +
       "FROM \"wikipedia\" " +
-      "WHERE \"__time\" >= CURRENT_TIMESTAMP - INTERVAL '10' YEAR AND \"language\" = %s" +
+      "WHERE \"__time\" >= CURRENT_TIMESTAMP - INTERVAL '99' YEAR AND \"language\" = %s" +
       "GROUP BY 1 ORDER BY 3 DESC LIMIT 10";
   private static final String QUERY = StringUtils.format(QUERY_TEMPLATE, "'en'");
 
@@ -76,7 +76,7 @@ public class ITJdbcQueryTest
   SSLClientConfig sslConfig;
 
   @Inject
-  private CoordinatorResourceTestClient coordinatorClient;
+  private DataLoaderHelper dataLoaderHelper;
 
   @BeforeMethod
   public void before()
@@ -107,9 +107,9 @@ public class ITJdbcQueryTest
         )
     };
     // ensure that wikipedia segments are loaded completely
-    ITRetryUtil.retryUntilTrue(
-        () -> coordinatorClient.areSegmentsLoaded(WIKIPEDIA_DATA_SOURCE), "wikipedia segment load"
-    );
+    dataLoaderHelper.waitUntilDatasourceIsReady(WIKIPEDIA_DATA_SOURCE);
+    dataLoaderHelper.waitUntilDatasourceIsReady("wikipedia");
+    dataLoaderHelper.waitUntilDatasourceIsReady("twitterstream");
   }
 
   @Test
@@ -163,7 +163,7 @@ public class ITJdbcQueryTest
         );
       }
       catch (SQLException throwables) {
-        Assert.assertFalse(true, throwables.getMessage());
+        Assert.fail(throwables.getMessage());
       }
     }
   }
@@ -185,7 +185,7 @@ public class ITJdbcQueryTest
         }
       }
       catch (SQLException throwables) {
-        Assert.assertFalse(true, throwables.getMessage());
+        Assert.fail(throwables.getMessage());
       }
     }
   }
@@ -208,7 +208,20 @@ public class ITJdbcQueryTest
         }
       }
       catch (SQLException throwables) {
-        Assert.assertFalse(true, throwables.getMessage());
+        Assert.fail(throwables.getMessage());
+      }
+    }
+  }
+
+  @Test(expectedExceptions = AvaticaSqlException.class, expectedExceptionsMessageRegExp = ".* No value bound for parameter \\(position \\[1]\\)")
+  public void testJdbcPrepareStatementQueryMissingParameters() throws SQLException
+  {
+    for (String url : connections) {
+      try (Connection connection = DriverManager.getConnection(url, connectionProperties);
+           PreparedStatement statement = connection.prepareStatement(QUERY_PARAMETERIZED);
+           ResultSet resultSet = statement.executeQuery()) {
+        // This won't actually run as we expect the exception to be thrown before it gets here
+        throw new IllegalStateException(resultSet.toString());
       }
     }
   }

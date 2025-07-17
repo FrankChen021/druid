@@ -31,6 +31,7 @@ import org.apache.druid.query.DefaultGenericQueryMetricsFactory;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.GenericQueryMetricsFactory;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
@@ -40,6 +41,9 @@ import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.context.ConcurrentResponseContext;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.segment.IncrementalIndexSegment;
+import org.apache.druid.segment.QueryableIndex;
+import org.apache.druid.segment.QueryableIndexSegment;
+import org.apache.druid.segment.TestIndex;
 import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.incremental.OnheapIncrementalIndex;
 import org.apache.druid.timeline.LogicalSegment;
@@ -50,7 +54,6 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -62,12 +65,12 @@ public class DataSourceMetadataQueryTest
   @Test
   public void testQuerySerialization() throws IOException
   {
-    Query query = Druids.newDataSourceMetadataQueryBuilder()
-                        .dataSource("testing")
-                        .build();
+    Query<?> query = Druids.newDataSourceMetadataQueryBuilder()
+                           .dataSource("testing")
+                           .build();
 
     String json = JSON_MAPPER.writeValueAsString(query);
-    Query serdeQuery = JSON_MAPPER.readValue(json, Query.class);
+    Query<?> serdeQuery = JSON_MAPPER.readValue(json, Query.class);
 
     Assert.assertEquals(query, serdeQuery);
   }
@@ -80,20 +83,20 @@ public class DataSourceMetadataQueryTest
                                                 .intervals("2013/2014")
                                                 .context(
                                                     ImmutableMap.of(
-                                                        "priority",
+                                                        QueryContexts.PRIORITY_KEY,
                                                         1,
-                                                        "useCache",
+                                                        QueryContexts.USE_CACHE_KEY,
                                                         true,
-                                                        "populateCache",
+                                                        QueryContexts.POPULATE_CACHE_KEY,
                                                         "true",
-                                                        "finalize",
+                                                        QueryContexts.FINALIZE_KEY,
                                                         true
                                                     )
                                                 ).build();
 
     final ObjectMapper mapper = new DefaultObjectMapper();
 
-    final Query serdeQuery = mapper.readValue(
+    final Query<?> serdeQuery = mapper.readValue(
         mapper.writeValueAsBytes(
             mapper.readValue(
                 mapper.writeValueAsString(
@@ -103,22 +106,46 @@ public class DataSourceMetadataQueryTest
         ), Query.class
     );
 
-    Assert.assertEquals(1, serdeQuery.getContextValue(QueryContexts.PRIORITY_KEY));
-    Assert.assertEquals(true, serdeQuery.getContextValue("useCache"));
-    Assert.assertEquals("true", serdeQuery.getContextValue("populateCache"));
-    Assert.assertEquals(true, serdeQuery.getContextValue("finalize"));
-    Assert.assertEquals(true, serdeQuery.getContextBoolean("useCache", false));
-    Assert.assertEquals(true, serdeQuery.getContextBoolean("populateCache", false));
-    Assert.assertEquals(true, serdeQuery.getContextBoolean("finalize", false));
+    final QueryContext queryContext = serdeQuery.context();
+    Assert.assertEquals(1, (int) queryContext.getInt(QueryContexts.PRIORITY_KEY));
+    Assert.assertEquals(true, queryContext.getBoolean(QueryContexts.USE_CACHE_KEY));
+    Assert.assertEquals("true", queryContext.getString(QueryContexts.POPULATE_CACHE_KEY));
+    Assert.assertEquals(true, queryContext.getBoolean(QueryContexts.FINALIZE_KEY));
+    Assert.assertEquals(true, queryContext.getBoolean(QueryContexts.USE_CACHE_KEY, false));
+    Assert.assertEquals(true, queryContext.getBoolean(QueryContexts.POPULATE_CACHE_KEY, false));
+    Assert.assertEquals(true, queryContext.getBoolean(QueryContexts.FINALIZE_KEY, false));
   }
 
-  @Test
-  public void testMaxIngestedEventTime() throws Exception
+  /**
+   * Build an index using a row with the provided event timestamp.
+   */
+  private IncrementalIndex buildIndex(final DateTime eventTimestamp)
   {
     final IncrementalIndex rtIndex = new OnheapIncrementalIndex.Builder()
         .setSimpleTestingIndexSchema(new CountAggregatorFactory("count"))
         .setMaxRowCount(1000)
         .build();
+    rtIndex.add(
+        new MapBasedInputRow(
+            eventTimestamp.getMillis(),
+            ImmutableList.of("dim1"),
+            ImmutableMap.of("dim1", "x")
+        )
+    );
+    return rtIndex;
+  }
+
+  @Test
+  public void testMaxIngestedEventTimeIncrementalIndex()
+  {
+    final DateTime timestamp = DateTimes.of("2020-01-02T03:04:05.678Z");
+    final IncrementalIndex rtIndex = buildIndex(timestamp);
+    DataSourceMetadataQuery dataSourceMetadataQuery =
+        Druids.newDataSourceMetadataQueryBuilder()
+              .dataSource("testing")
+              .build();
+    ResponseContext context = ConcurrentResponseContext.createEmpty();
+    context.initializeMissingSegments();
 
     final QueryRunner runner = QueryRunnerTestHelper.makeQueryRunner(
         new DataSourceMetadataQueryRunnerFactory(
@@ -128,19 +155,36 @@ public class DataSourceMetadataQueryTest
         new IncrementalIndexSegment(rtIndex, SegmentId.dummy("test")),
         null
     );
-    DateTime timestamp = DateTimes.nowUtc();
-    rtIndex.add(
-        new MapBasedInputRow(
-            timestamp.getMillis(),
-            ImmutableList.of("dim1"),
-            ImmutableMap.of("dim1", "x")
-        )
-    );
-    DataSourceMetadataQuery dataSourceMetadataQuery = Druids.newDataSourceMetadataQueryBuilder()
-                                                            .dataSource("testing")
-                                                            .build();
+
+    Iterable<Result<DataSourceMetadataResultValue>> results =
+        runner.run(QueryPlus.wrap(dataSourceMetadataQuery), context).toList();
+    DataSourceMetadataResultValue val = results.iterator().next().getValue();
+    DateTime maxIngestedEventTime = val.getMaxIngestedEventTime();
+
+    Assert.assertEquals(timestamp, maxIngestedEventTime);
+  }
+
+  @Test
+  public void testMaxIngestedEventTimeQueryableIndex()
+  {
+    final DateTime timestamp = DateTimes.of("2020-01-02T03:04:05.678Z");
+    final QueryableIndex queryableIndex = TestIndex.persistAndMemoryMap(buildIndex(timestamp));
+    DataSourceMetadataQuery dataSourceMetadataQuery =
+        Druids.newDataSourceMetadataQueryBuilder()
+              .dataSource("testing")
+              .build();
     ResponseContext context = ConcurrentResponseContext.createEmpty();
-    context.put(ResponseContext.Key.MISSING_SEGMENTS, new ArrayList<>());
+    context.initializeMissingSegments();
+
+    final QueryRunner runner = QueryRunnerTestHelper.makeQueryRunner(
+        new DataSourceMetadataQueryRunnerFactory(
+            new DataSourceQueryQueryToolChest(DefaultGenericQueryMetricsFactory.instance()),
+            QueryRunnerTestHelper.NOOP_QUERYWATCHER
+        ),
+        new QueryableIndexSegment(queryableIndex, SegmentId.dummy("test")),
+        null
+    );
+
     Iterable<Result<DataSourceMetadataResultValue>> results =
         runner.run(QueryPlus.wrap(dataSourceMetadataQuery), context).toList();
     DataSourceMetadataResultValue val = results.iterator().next().getValue();
@@ -232,7 +276,7 @@ public class DataSourceMetadataQueryTest
         );
 
     Assert.assertEquals(segments.size(), 2);
-    // should only have the latest segments. 
+    // should only have the latest segments.
     List<LogicalSegment> expected = Arrays.asList(
         new LogicalSegment()
         {

@@ -47,7 +47,7 @@ import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.segment.BaseProgressIndicator;
 import org.apache.druid.segment.ProgressIndicator;
 import org.apache.druid.segment.QueryableIndex;
-import org.apache.druid.segment.column.ColumnCapabilities;
+import org.apache.druid.segment.column.ColumnFormat;
 import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.timeline.DataSegment;
@@ -73,6 +73,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -117,9 +118,13 @@ public class IndexGeneratorJob implements Jobby
       FileSystem fs = descriptorInfoDir.getFileSystem(conf);
 
       for (FileStatus status : fs.listStatus(descriptorInfoDir)) {
-        final DataSegmentAndIndexZipFilePath segmentAndIndexZipFilePath = jsonMapper.readValue((InputStream) fs.open(status.getPath()), DataSegmentAndIndexZipFilePath.class);
+        final DataSegmentAndIndexZipFilePath segmentAndIndexZipFilePath = jsonMapper.readValue((InputStream) fs.open(
+            status.getPath()), DataSegmentAndIndexZipFilePath.class);
         publishedSegmentAndIndexZipFilePathsBuilder.add(segmentAndIndexZipFilePath);
-        log.info("Adding segment %s to the list of published segments", segmentAndIndexZipFilePath.getSegment().getId());
+        log.info(
+            "Adding segment %s to the list of published segments",
+            segmentAndIndexZipFilePath.getSegment().getId()
+        );
       }
     }
     catch (FileNotFoundException e) {
@@ -287,8 +292,8 @@ public class IndexGeneratorJob implements Jobby
       Bucket theBucket,
       AggregatorFactory[] aggs,
       HadoopDruidIndexerConfig config,
-      Iterable<String> oldDimOrder,
-      Map<String, ColumnCapabilities> oldCapabilities
+      @Nullable Iterable<String> oldDimOrder,
+      @Nullable Map<String, ColumnFormat> oldCapabilities
   )
   {
     final HadoopTuningConfig tuningConfig = config.getSchema().getTuningConfig();
@@ -303,12 +308,12 @@ public class IndexGeneratorJob implements Jobby
 
     // Build the incremental-index according to the spec that was chosen by the user
     IncrementalIndex newIndex = tuningConfig.getAppendableIndexSpec().builder()
-        .setIndexSchema(indexSchema)
-        .setMaxRowCount(tuningConfig.getMaxRowsInMemory())
-        .setMaxBytesInMemory(tuningConfig.getMaxBytesInMemoryOrDefault())
-        .build();
+                                            .setIndexSchema(indexSchema)
+                                            .setMaxRowCount(tuningConfig.getMaxRowsInMemory())
+                                            .setMaxBytesInMemory(tuningConfig.getMaxBytesInMemoryOrDefault())
+                                            .build();
 
-    if (oldDimOrder != null && !indexSchema.getDimensionsSpec().hasCustomDimensions()) {
+    if (oldDimOrder != null && !indexSchema.getDimensionsSpec().hasFixedDimensions()) {
       newIndex.loadDimensionIterable(oldDimOrder, oldCapabilities);
     }
 
@@ -452,7 +457,7 @@ public class IndexGeneratorJob implements Jobby
             dimOrder.addAll(index.getDimensionOrder());
             log.info("current index full due to [%s]. creating new index.", index.getOutOfRowsReason());
             flushIndexToContextAndClose(key, index, context);
-            index = makeIncrementalIndex(bucket, combiningAggs, config, dimOrder, index.getColumnCapabilities());
+            index = makeIncrementalIndex(bucket, combiningAggs, config, dimOrder, index.getColumnFormats());
           }
 
           index.add(value);
@@ -467,7 +472,7 @@ public class IndexGeneratorJob implements Jobby
     private void flushIndexToContextAndClose(BytesWritable key, IncrementalIndex index, Context context)
         throws IOException, InterruptedException
     {
-      final List<String> dimensions = index.getDimensionNames();
+      final List<String> dimensions = index.getDimensionNames(false);
       Iterator<Row> rows = index.iterator();
       while (rows.hasNext()) {
         context.progress();
@@ -609,7 +614,18 @@ public class IndexGeneratorJob implements Jobby
     {
       boolean rollup = config.getSchema().getDataSchema().getGranularitySpec().isRollup();
       return HadoopDruidIndexerConfig.INDEX_MERGER_V9
-          .mergeQueryableIndex(indexes, rollup, aggs, null, file, config.getIndexSpec(), progressIndicator, null, -1);
+          .mergeQueryableIndex(
+              indexes,
+              rollup,
+              aggs,
+              null,
+              file,
+              config.getIndexSpec(),
+              config.getIndexSpecForIntermediatePersists(),
+              progressIndicator,
+              null,
+              -1
+          );
     }
 
     @Override
@@ -693,7 +709,7 @@ public class IndexGeneratorJob implements Jobby
           ++lineCount;
 
           if (!index.canAppendRow()) {
-            allDimensionNames.addAll(index.getDimensionOrder());
+            allDimensionNames.addAll(index.getDimensionNames(false));
 
             log.info(index.getOutOfRowsReason());
             log.info(
@@ -736,15 +752,15 @@ public class IndexGeneratorJob implements Jobby
                 bucket,
                 combiningAggs,
                 config,
-                allDimensionNames,
-                persistIndex.getColumnCapabilities()
+                index.getDimensionOrder(),
+                persistIndex.getColumnFormats()
             );
             startTime = System.currentTimeMillis();
             ++indexCount;
           }
         }
 
-        allDimensionNames.addAll(index.getDimensionOrder());
+        allDimensionNames.addAll(index.getDimensionNames(false));
 
         log.info("%,d lines completed.", lineCount);
 

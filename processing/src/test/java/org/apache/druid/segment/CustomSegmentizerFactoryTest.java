@@ -27,6 +27,7 @@ import org.apache.druid.jackson.SegmentizerModule;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.expression.TestExprMacroTable;
+import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.loading.MMappedQueryableSegmentizerFactory;
 import org.apache.druid.segment.loading.SegmentLoadingException;
@@ -58,7 +59,7 @@ public class CustomSegmentizerFactoryTest extends InitializedNullHandlingTest
     final ObjectMapper mapper = new DefaultObjectMapper();
     mapper.registerModule(new SegmentizerModule());
     mapper.registerSubtypes(new NamedType(CustomSegmentizerFactory.class, "customSegmentFactory"));
-    final IndexIO indexIO = new IndexIO(mapper, () -> 0);
+    final IndexIO indexIO = new IndexIO(mapper, ColumnConfig.DEFAULT);
 
     mapper.setInjectableValues(
         new InjectableValues.Std()
@@ -76,19 +77,13 @@ public class CustomSegmentizerFactoryTest extends InitializedNullHandlingTest
   @Test
   public void testDefaultSegmentizerPersist() throws IOException
   {
-    IncrementalIndex data = TestIndex.makeRealtimeIndex("druid.sample.numeric.tsv");
+    IncrementalIndex data = TestIndex.makeSampleNumericIncrementalIndex();
     File segment = new File(temporaryFolder.newFolder(), "segment");
     File persisted = INDEX_MERGER.persist(
         data,
         Intervals.of("2011-01-12T00:00:00.000Z/2011-05-01T00:00:00.000Z"),
         segment,
-        new IndexSpec(
-            null,
-            null,
-            null,
-            null,
-            null
-        ),
+        IndexSpec.DEFAULT,
         null
     );
 
@@ -101,19 +96,13 @@ public class CustomSegmentizerFactoryTest extends InitializedNullHandlingTest
   @Test
   public void testCustomSegmentizerPersist() throws IOException
   {
-    IncrementalIndex data = TestIndex.makeRealtimeIndex("druid.sample.numeric.tsv");
+    IncrementalIndex data = TestIndex.makeSampleNumericIncrementalIndex();
     File segment = new File(temporaryFolder.newFolder(), "segment");
     File persisted = INDEX_MERGER.persist(
         data,
         Intervals.of("2011-01-12T00:00:00.000Z/2011-05-01T00:00:00.000Z"),
         segment,
-        new IndexSpec(
-            null,
-            null,
-            null,
-            null,
-            new CustomSegmentizerFactory()
-        ),
+        IndexSpec.builder().withSegmentLoader(new CustomSegmentizerFactory()).build(),
         null
     );
 

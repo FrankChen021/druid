@@ -17,7 +17,6 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
 import { DatasourceTableActionDialog } from './datasource-table-action-dialog';
 
@@ -25,7 +24,7 @@ describe('Datasource table action dialog', () => {
   it('matches snapshot', () => {
     const datasourceTableActionDialog = (
       <DatasourceTableActionDialog
-        datasourceId="test"
+        datasource="test"
         actions={[{ title: 'test', onAction: () => null }]}
         onClose={() => {}}
       />

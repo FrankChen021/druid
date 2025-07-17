@@ -23,9 +23,10 @@ import com.google.common.collect.FluentIterable;
 import com.google.inject.Inject;
 import org.apache.commons.io.IOUtils;
 import org.apache.druid.indexer.partitions.SecondaryPartitionType;
-import org.apache.druid.indexing.common.IngestionStatsAndErrorsTaskReport;
-import org.apache.druid.indexing.common.IngestionStatsAndErrorsTaskReportData;
-import org.apache.druid.indexing.common.TaskReport;
+import org.apache.druid.indexer.report.IngestionStatsAndErrors;
+import org.apache.druid.indexer.report.IngestionStatsAndErrorsTaskReport;
+import org.apache.druid.indexer.report.TaskContextReport;
+import org.apache.druid.indexer.report.TaskReport;
 import org.apache.druid.indexing.common.task.batch.parallel.PartialDimensionCardinalityTask;
 import org.apache.druid.indexing.common.task.batch.parallel.PartialDimensionDistributionTask;
 import org.apache.druid.indexing.common.task.batch.parallel.PartialGenericSegmentMergeTask;
@@ -42,8 +43,8 @@ import org.apache.druid.testing.clients.ClientInfoResourceTestClient;
 import org.apache.druid.testing.utils.ITRetryUtil;
 import org.apache.druid.testing.utils.SqlTestQueryHelper;
 import org.apache.druid.timeline.DataSegment;
+import org.apache.druid.timeline.SegmentTimeline;
 import org.apache.druid.timeline.TimelineObjectHolder;
-import org.apache.druid.timeline.VersionedIntervalTimeline;
 import org.testng.Assert;
 
 import java.io.IOException;
@@ -91,7 +92,7 @@ public abstract class AbstractITBatchIndexTest extends AbstractIndexerTest
     }
   }
 
-  private static final Logger LOG = new Logger(AbstractITBatchIndexTest.class);
+  public static final Logger LOG = new Logger(AbstractITBatchIndexTest.class);
 
   @Inject
   protected IntegrationTestingConfig config;
@@ -134,6 +135,31 @@ public abstract class AbstractITBatchIndexTest extends AbstractIndexerTest
       Pair<Boolean, Boolean> segmentAvailabilityConfirmationPair
   ) throws IOException
   {
+    doIndexTest(
+        dataSource,
+        indexTaskFilePath,
+        taskSpecTransform,
+        queryFilePath,
+        Function.identity(),
+        waitForNewVersion,
+        runTestQueries,
+        waitForSegmentsToLoad,
+        segmentAvailabilityConfirmationPair
+    );
+  }
+
+  protected void doIndexTest(
+      String dataSource,
+      String indexTaskFilePath,
+      Function<String, String> taskSpecTransform,
+      String queryFilePath,
+      Function<String, String> queryTransform,
+      boolean waitForNewVersion,
+      boolean runTestQueries,
+      boolean waitForSegmentsToLoad,
+      Pair<Boolean, Boolean> segmentAvailabilityConfirmationPair
+  ) throws IOException
+  {
     final String fullDatasourceName = dataSource + config.getExtraDatasourceNameSuffix();
     final String taskSpec = taskSpecTransform.apply(
         StringUtils.replace(
@@ -151,11 +177,16 @@ public abstract class AbstractITBatchIndexTest extends AbstractIndexerTest
         segmentAvailabilityConfirmationPair
     );
     if (runTestQueries) {
-      doTestQuery(dataSource, queryFilePath);
+      doTestQuery(dataSource, queryFilePath, queryTransform);
     }
   }
 
   protected void doTestQuery(String dataSource, String queryFilePath)
+  {
+    doTestQuery(dataSource, queryFilePath, Function.identity());
+  }
+
+  protected void doTestQuery(String dataSource, String queryFilePath, Function<String, String> queryTransform)
   {
     try {
       String queryResponseTemplate;
@@ -166,14 +197,14 @@ public abstract class AbstractITBatchIndexTest extends AbstractIndexerTest
       catch (IOException e) {
         throw new ISE(e, "could not read query file: %s", queryFilePath);
       }
-
-      queryResponseTemplate = StringUtils.replace(
-          queryResponseTemplate,
-          "%%DATASOURCE%%",
-          dataSource + config.getExtraDatasourceNameSuffix()
+      queryResponseTemplate = queryTransform.apply(
+          StringUtils.replace(
+              queryResponseTemplate,
+              "%%DATASOURCE%%",
+              dataSource + config.getExtraDatasourceNameSuffix()
+          )
       );
       queryHelper.testQueriesFromString(queryResponseTemplate);
-
     }
     catch (Exception e) {
       LOG.error(e, "Error while testing");
@@ -310,6 +341,9 @@ public abstract class AbstractITBatchIndexTest extends AbstractIndexerTest
       Pair<Boolean, Boolean> segmentAvailabilityConfirmationPair
   )
   {
+    // Wait for any existing kill tasks to complete before submitting new index task otherwise
+    // kill tasks can fail with interval lock revoked.
+    waitForAllTasksToCompleteForDataSource(dataSourceName);
     final List<DataSegment> oldVersions = waitForNewVersion ? coordinator.getAvailableSegments(dataSourceName) : null;
 
     long startSubTaskCount = -1;
@@ -319,7 +353,7 @@ public abstract class AbstractITBatchIndexTest extends AbstractIndexerTest
     }
 
     final String taskID = indexer.submitTask(taskSpec);
-    LOG.info("TaskID for loading index task %s", taskID);
+    LOG.info("Submitted task[%s]", taskID);
     indexer.waitUntilTaskCompletes(taskID);
 
     if (assertRunsSubTasks) {
@@ -337,13 +371,23 @@ public abstract class AbstractITBatchIndexTest extends AbstractIndexerTest
     if (segmentAvailabilityConfirmationPair.lhs != null && segmentAvailabilityConfirmationPair.lhs) {
       TaskReport reportRaw = indexer.getTaskReport(taskID).get("ingestionStatsAndErrors");
       IngestionStatsAndErrorsTaskReport report = (IngestionStatsAndErrorsTaskReport) reportRaw;
-      IngestionStatsAndErrorsTaskReportData reportData = (IngestionStatsAndErrorsTaskReportData) report.getPayload();
+      IngestionStatsAndErrors reportData = (IngestionStatsAndErrors) report.getPayload();
+
+      // Confirm that the task waited longer than 0ms for the task to complete.
+      Assert.assertTrue(reportData.getSegmentAvailabilityWaitTimeMs() > 0);
+
+      // Make sure that the result of waiting for segments to load matches the expected result
       if (segmentAvailabilityConfirmationPair.rhs != null) {
         Assert.assertEquals(
             Boolean.valueOf(reportData.isSegmentAvailabilityConfirmed()),
             segmentAvailabilityConfirmationPair.rhs
         );
       }
+
+      TaskContextReport taskContextReport =
+          (TaskContextReport) indexer.getTaskReport(taskID).get(TaskContextReport.REPORT_KEY);
+
+      Assert.assertFalse(taskContextReport.getPayload().isEmpty());
     }
 
     // IT*ParallelIndexTest do a second round of ingestion to replace segements in an existing
@@ -354,7 +398,7 @@ public abstract class AbstractITBatchIndexTest extends AbstractIndexerTest
     if (waitForNewVersion) {
       ITRetryUtil.retryUntilTrue(
           () -> {
-            final VersionedIntervalTimeline<String, DataSegment> timeline = VersionedIntervalTimeline.forSegments(
+            final SegmentTimeline timeline = SegmentTimeline.forSegments(
                 coordinator.getAvailableSegments(dataSourceName)
             );
 
@@ -400,17 +444,33 @@ public abstract class AbstractITBatchIndexTest extends AbstractIndexerTest
   {
     ITRetryUtil.retryUntilTrue(
         () -> coordinator.areSegmentsLoaded(dataSource + config.getExtraDatasourceNameSuffix()),
-        "Segment load check"
+        "Segments are loaded"
     );
+    ITRetryUtil.retryUntilEquals(
+        () -> coordinator.getAvailableSegments(
+            dataSource + config.getExtraDatasourceNameSuffix()
+        ).size(),
+        numExpectedSegments,
+        "Segment count"
+    );
+  }
+
+  void verifySegmentsCountAndLoaded(String dataSource, int numExpectedSegments, int numExpectedTombstones)
+  {
     ITRetryUtil.retryUntilTrue(
-        () -> {
-          int segmentCount = coordinator.getAvailableSegments(
-              dataSource + config.getExtraDatasourceNameSuffix()
-          ).size();
-          LOG.info("Current segment count: %d, expected: %d", segmentCount, numExpectedSegments);
-          return segmentCount == numExpectedSegments;
-        },
-        "Segment count check"
+        () -> coordinator.areSegmentsLoaded(dataSource + config.getExtraDatasourceNameSuffix()),
+        "Segments are loaded"
+    );
+    ITRetryUtil.retryUntilEquals(
+        () -> coordinator.getAvailableSegments(dataSource + config.getExtraDatasourceNameSuffix()).size(),
+        numExpectedSegments,
+        "Segment count"
+    );
+    ITRetryUtil.retryUntilEquals(
+        () -> (int) coordinator.getAvailableSegments(dataSource + config.getExtraDatasourceNameSuffix())
+                               .stream().filter(DataSegment::isTombstone).count(),
+        numExpectedTombstones,
+        "Tombstone count"
     );
   }
 
@@ -423,22 +483,23 @@ public abstract class AbstractITBatchIndexTest extends AbstractIndexerTest
     String taskSpec = StringUtils.replace(template, "%%DATASOURCE%%", fullDatasourceName);
 
     final String taskID = indexer.submitTask(taskSpec);
-    LOG.info("TaskID for compaction task %s", taskID);
+    LOG.info("Submitted task[%s] for compaction", taskID);
     indexer.waitUntilTaskCompletes(taskID);
 
     ITRetryUtil.retryUntilTrue(
         () -> coordinator.areSegmentsLoaded(fullDatasourceName),
-        "Segment Compaction"
+        "Segments are loaded after compaction"
     );
-    ITRetryUtil.retryUntilTrue(
+    ITRetryUtil.retryUntilEquals(
         () -> {
           final List<String> actualIntervals = coordinator.getSegmentIntervals(
               dataSource + config.getExtraDatasourceNameSuffix()
           );
           actualIntervals.sort(null);
-          return actualIntervals.equals(intervalsBeforeCompaction);
+          return actualIntervals;
         },
-        "Compaction interval check"
+        intervalsBeforeCompaction,
+        "Compacted intervals"
     );
   }
 

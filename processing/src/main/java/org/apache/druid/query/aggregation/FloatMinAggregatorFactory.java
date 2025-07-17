@@ -29,8 +29,6 @@ import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 import org.apache.druid.segment.vector.VectorValueSelector;
 
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.List;
 
 /**
  */
@@ -112,9 +110,9 @@ public class FloatMinAggregatorFactory extends SimpleFloatAggregatorFactory
   }
 
   @Override
-  public List<AggregatorFactory> getRequiredColumns()
+  public AggregatorFactory withName(String newName)
   {
-    return Collections.singletonList(new FloatMinAggregatorFactory(fieldName, fieldName, expression, macroTable));
+    return new FloatMinAggregatorFactory(newName, getFieldName(), getExpression(), macroTable);
   }
 
   @Override

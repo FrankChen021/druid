@@ -19,16 +19,15 @@
 
 package org.apache.druid.segment.handoff;
 
-import org.apache.druid.client.ImmutableSegmentLoadInfo;
 import org.apache.druid.client.coordinator.CoordinatorClient;
+import org.apache.druid.common.guava.FutureUtils;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.server.coordination.DruidServerMetadata;
+import org.joda.time.Duration;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -43,24 +42,27 @@ public class CoordinatorBasedSegmentHandoffNotifier implements SegmentHandoffNot
   private final ConcurrentMap<SegmentDescriptor, Pair<Executor, Runnable>> handOffCallbacks = new ConcurrentHashMap<>();
   private final CoordinatorClient coordinatorClient;
   private volatile ScheduledExecutorService scheduledExecutor;
-  private final long pollDurationMillis;
+  private final Duration pollDuration;
   private final String dataSource;
+  private final String taskId;
 
   public CoordinatorBasedSegmentHandoffNotifier(
       String dataSource,
       CoordinatorClient coordinatorClient,
-      CoordinatorBasedSegmentHandoffNotifierConfig config
+      CoordinatorBasedSegmentHandoffNotifierConfig config,
+      String taskId
   )
   {
     this.dataSource = dataSource;
     this.coordinatorClient = coordinatorClient;
-    this.pollDurationMillis = config.getPollDuration().getMillis();
+    this.pollDuration = config.getPollDuration();
+    this.taskId = taskId;
   }
 
   @Override
   public boolean registerSegmentHandoffCallback(SegmentDescriptor descriptor, Executor exec, Runnable handOffRunnable)
   {
-    log.debug("Adding SegmentHandoffCallback for dataSource[%s] Segment[%s]", dataSource, descriptor);
+    log.debug("Adding SegmentHandoffCallback for dataSource[%s] Segment[%s] for task[%s]", dataSource, descriptor, taskId);
     Pair<Executor, Runnable> prev = handOffCallbacks.putIfAbsent(
         descriptor,
         new Pair<>(exec, handOffRunnable)
@@ -73,40 +75,26 @@ public class CoordinatorBasedSegmentHandoffNotifier implements SegmentHandoffNot
   {
     scheduledExecutor = Execs.scheduledSingleThreaded("coordinator_handoff_scheduled_%d");
     scheduledExecutor.scheduleAtFixedRate(
-        new Runnable()
-        {
-          @Override
-          public void run()
-          {
-            checkForSegmentHandoffs();
-          }
-        }, 0L, pollDurationMillis, TimeUnit.MILLISECONDS
+        this::checkForSegmentHandoffs,
+        0L,
+        pollDuration.getMillis(),
+        TimeUnit.MILLISECONDS
     );
   }
 
   void checkForSegmentHandoffs()
   {
     try {
-      Iterator<Map.Entry<SegmentDescriptor, Pair<Executor, Runnable>>> itr = handOffCallbacks.entrySet()
-                                                                                             .iterator();
+      Iterator<Map.Entry<SegmentDescriptor, Pair<Executor, Runnable>>> itr = handOffCallbacks.entrySet().iterator();
+
       while (itr.hasNext()) {
         Map.Entry<SegmentDescriptor, Pair<Executor, Runnable>> entry = itr.next();
         SegmentDescriptor descriptor = entry.getKey();
         try {
-          Boolean handOffComplete = coordinatorClient.isHandOffComplete(dataSource, descriptor);
-          if (handOffComplete == null) {
-            log.warn(
-                "Failed to call the new coordinator API for checking segment handoff. Falling back to the old API"
-            );
-            final List<ImmutableSegmentLoadInfo> loadedSegments = coordinatorClient.fetchServerView(
-                dataSource,
-                descriptor.getInterval(),
-                true
-            );
-            handOffComplete = isHandOffComplete(loadedSegments, descriptor);
-          }
-          if (handOffComplete) {
-            log.debug("Segment Handoff complete for dataSource[%s] Segment[%s]", dataSource, descriptor);
+          Boolean handOffComplete =
+              FutureUtils.getUnchecked(coordinatorClient.isHandoffComplete(dataSource, descriptor), true);
+          if (Boolean.TRUE.equals(handOffComplete)) {
+            log.debug("Segment handoff complete for dataSource[%s] segment[%s] for task[%s]", dataSource, descriptor, taskId);
             entry.getValue().lhs.execute(entry.getValue().rhs);
             itr.remove();
           }
@@ -114,39 +102,27 @@ public class CoordinatorBasedSegmentHandoffNotifier implements SegmentHandoffNot
         catch (Exception e) {
           log.error(
               e,
-              "Exception while checking handoff for dataSource[%s] Segment[%s], Will try again after [%d]secs",
+              "Exception while checking handoff for dataSource[%s] Segment[%s], taskId[%s]; will try again after [%s]",
               dataSource,
               descriptor,
-              pollDurationMillis
+              taskId,
+              pollDuration
           );
         }
       }
       if (!handOffCallbacks.isEmpty()) {
-        log.info("Still waiting for Handoff for [%d] Segments", handOffCallbacks.size());
+        log.info("Still waiting for handoff for [%d] segments for task[%s]", handOffCallbacks.size(), taskId);
       }
     }
     catch (Throwable t) {
       log.error(
           t,
-          "Exception while checking handoff for dataSource[%s], Will try again after [%d]secs",
+          "Exception while checking handoff for dataSource[%s], taskId[%s]; will try again after [%s]",
           dataSource,
-          pollDurationMillis
+          taskId,
+          pollDuration
       );
     }
-  }
-
-  static boolean isHandOffComplete(List<ImmutableSegmentLoadInfo> serverView, SegmentDescriptor descriptor)
-  {
-    for (ImmutableSegmentLoadInfo segmentLoadInfo : serverView) {
-      if (segmentLoadInfo.getSegment().getInterval().contains(descriptor.getInterval())
-          && segmentLoadInfo.getSegment().getShardSpec().getPartitionNum()
-             == descriptor.getPartitionNumber()
-          && segmentLoadInfo.getSegment().getVersion().compareTo(descriptor.getVersion()) >= 0
-          && segmentLoadInfo.getServers().stream().anyMatch(DruidServerMetadata::isSegmentReplicationOrBroadcastTarget)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   @Override

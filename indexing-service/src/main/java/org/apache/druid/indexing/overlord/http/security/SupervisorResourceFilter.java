@@ -19,6 +19,7 @@
 
 package org.apache.druid.indexing.overlord.http.security;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -29,12 +30,15 @@ import org.apache.druid.indexing.overlord.supervisor.SupervisorManager;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorSpec;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.server.http.security.AbstractResourceFilter;
-import org.apache.druid.server.security.Access;
+import org.apache.druid.server.security.Action;
+import org.apache.druid.server.security.AuthorizationResult;
 import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
+import org.apache.druid.server.security.ResourceAction;
 
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.PathSegment;
 import javax.ws.rs.core.Response;
 
@@ -60,7 +64,7 @@ public class SupervisorResourceFilter extends AbstractResourceFilter
                .get(
                    Iterables.indexOf(
                        request.getPathSegments(),
-                       new Predicate<PathSegment>()
+                       new Predicate<>()
                        {
                          @Override
                          public boolean apply(PathSegment input)
@@ -75,7 +79,8 @@ public class SupervisorResourceFilter extends AbstractResourceFilter
     Optional<SupervisorSpec> supervisorSpecOptional = supervisorManager.getSupervisorSpec(supervisorId);
     if (!supervisorSpecOptional.isPresent()) {
       throw new WebApplicationException(
-          Response.status(Response.Status.BAD_REQUEST)
+          Response.status(Response.Status.NOT_FOUND)
+                  .type(MediaType.TEXT_PLAIN)
                   .entity(StringUtils.format("Cannot find any supervisor with id: [%s]", supervisorId))
                   .build()
       );
@@ -88,16 +93,18 @@ public class SupervisorResourceFilter extends AbstractResourceFilter
         "No dataSources found to perform authorization checks"
     );
 
-    // Supervisor APIs should always require DATASOURCE WRITE access
-    // as they deal with ingestion related information
-    Access authResult = AuthorizationUtils.authorizeAllResourceActions(
+    Function<String, ResourceAction> resourceActionFunction = getAction(request) == Action.READ ?
+                                                              AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR :
+                                                              AuthorizationUtils.DATASOURCE_WRITE_RA_GENERATOR;
+
+    AuthorizationResult authResult = AuthorizationUtils.authorizeAllResourceActions(
         getReq(),
-        Iterables.transform(spec.getDataSources(), AuthorizationUtils.DATASOURCE_WRITE_RA_GENERATOR),
+        Iterables.transform(spec.getDataSources(), resourceActionFunction),
         getAuthorizerMapper()
     );
 
-    if (!authResult.isAllowed()) {
-      throw new ForbiddenException(authResult.toString());
+    if (!authResult.allowAccessWithNoRestriction()) {
+      throw new ForbiddenException(authResult.getErrorMessage());
     }
 
     return request;

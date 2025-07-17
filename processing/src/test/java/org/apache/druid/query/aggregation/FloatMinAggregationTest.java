@@ -19,10 +19,9 @@
 
 package org.apache.druid.query.aggregation;
 
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 import org.apache.druid.segment.vector.VectorValueSelector;
 import org.easymock.EasyMock;
@@ -50,8 +49,6 @@ public class FloatMinAggregationTest
   @Before
   public void setup()
   {
-    NullHandling.initializeForTests();
-
     VectorValueSelector vectorValueSelector = EasyMock.createMock(VectorValueSelector.class);
     EasyMock.expect(vectorValueSelector.getFloatVector()).andReturn(floatValues1).anyTimes();
     EasyMock.expect(vectorValueSelector.getNullVector()).andReturn(null).anyTimes();
@@ -59,7 +56,7 @@ public class FloatMinAggregationTest
 
     vectorColumnSelectorFactory = EasyMock.createMock(VectorColumnSelectorFactory.class);
     EasyMock.expect(vectorColumnSelectorFactory.getColumnCapabilities("fltFld"))
-            .andReturn(new ColumnCapabilitiesImpl().setType(ValueType.FLOAT).setDictionaryEncoded(true)).anyTimes();
+            .andReturn(new ColumnCapabilitiesImpl().setType(ColumnType.FLOAT).setDictionaryEncoded(true)).anyTimes();
     EasyMock.expect(vectorColumnSelectorFactory.makeValueSelector("fltFld")).andReturn(vectorValueSelector).anyTimes();
     EasyMock.replay(vectorColumnSelectorFactory);
   }

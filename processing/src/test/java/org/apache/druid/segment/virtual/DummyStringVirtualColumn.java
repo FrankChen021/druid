@@ -19,10 +19,11 @@
 
 package org.apache.druid.segment.virtual;
 
-import com.google.common.base.Predicate;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.dimension.DimensionSpec;
+import org.apache.druid.query.filter.ColumnIndexSelector;
+import org.apache.druid.query.filter.DruidPredicateFactory;
 import org.apache.druid.query.filter.ValueMatcher;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.ColumnSelector;
@@ -33,12 +34,12 @@ import org.apache.druid.segment.IdLookup;
 import org.apache.druid.segment.NilColumnValueSelector;
 import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.column.BaseColumn;
-import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
 import org.apache.druid.segment.column.ColumnHolder;
-import org.apache.druid.segment.column.StringDictionaryEncodedColumn;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnIndexSupplier;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.StringUtf8DictionaryEncodedColumn;
 import org.apache.druid.segment.data.IndexedInts;
 import org.apache.druid.segment.data.ReadableOffset;
 
@@ -95,7 +96,7 @@ public class DummyStringVirtualColumn implements VirtualColumn
         return DimensionSelector.constant(null);
       }
 
-      StringDictionaryEncodedColumn stringCol = toStringDictionaryEncodedColumn(holder.getColumn());
+      StringUtf8DictionaryEncodedColumn stringCol = toStringDictionaryEncodedColumn(holder.getColumn());
 
       DimensionSelector baseDimensionSelector = stringCol.makeDimensionSelector(
           offset,
@@ -145,7 +146,7 @@ public class DummyStringVirtualColumn implements VirtualColumn
         return NilColumnValueSelector.instance();
       }
 
-      StringDictionaryEncodedColumn stringCol = toStringDictionaryEncodedColumn(holder.getColumn());
+      StringUtf8DictionaryEncodedColumn stringCol = toStringDictionaryEncodedColumn(holder.getColumn());
       return stringCol.makeColumnValueSelector(offset);
     } else {
       return null;
@@ -165,25 +166,37 @@ public class DummyStringVirtualColumn implements VirtualColumn
     }
   }
 
+  @Nullable
   @Override
-  public BitmapIndex getBitmapIndex(String columnName, ColumnSelector columnSelector)
+  public ColumnIndexSupplier getIndexSupplier(
+      String columnName,
+      ColumnIndexSelector indexSelector
+  )
   {
-    if (enableBitmaps) {
-      ColumnHolder holder = columnSelector.getColumnHolder(baseColumnName);
-      if (holder == null) {
-        return null;
-      }
+    return new ColumnIndexSupplier()
+    {
 
-      return holder.getBitmapIndex();
-    } else {
-      throw new UnsupportedOperationException("not supported");
-    }
+      @Nullable
+      @Override
+      public <T> T as(Class<T> clazz)
+      {
+        if (enableBitmaps) {
+          ColumnIndexSupplier supplier = indexSelector.getIndexSupplier(baseColumnName);
+          if (supplier == null) {
+            return null;
+          }
+          return supplier.as(clazz);
+        } else {
+          return null;
+        }
+      }
+    };
   }
 
   @Override
   public ColumnCapabilities capabilities(String columnName)
   {
-    ColumnCapabilitiesImpl capabilities = new ColumnCapabilitiesImpl().setType(ValueType.STRING)
+    ColumnCapabilitiesImpl capabilities = new ColumnCapabilitiesImpl().setType(ColumnType.STRING)
                                                                       .setDictionaryEncoded(true);
     if (enableBitmaps) {
       capabilities.setHasBitmapIndexes(true);
@@ -209,13 +222,13 @@ public class DummyStringVirtualColumn implements VirtualColumn
     return new byte[0];
   }
 
-  private StringDictionaryEncodedColumn toStringDictionaryEncodedColumn(BaseColumn column)
+  private StringUtf8DictionaryEncodedColumn toStringDictionaryEncodedColumn(BaseColumn column)
   {
-    if (!(column instanceof StringDictionaryEncodedColumn)) {
+    if (!(column instanceof StringUtf8DictionaryEncodedColumn)) {
       throw new IAE("I can only work with StringDictionaryEncodedColumn");
     }
 
-    return (StringDictionaryEncodedColumn) column;
+    return (StringUtf8DictionaryEncodedColumn) column;
   }
 
   private DimensionSelector disableValueMatchers(DimensionSelector base)
@@ -235,7 +248,7 @@ public class DummyStringVirtualColumn implements VirtualColumn
       }
 
       @Override
-      public ValueMatcher makeValueMatcher(Predicate<String> predicate)
+      public ValueMatcher makeValueMatcher(DruidPredicateFactory predicateFactory)
       {
         throw new UnsupportedOperationException("not supported");
       }

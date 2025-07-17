@@ -29,6 +29,7 @@ import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.policy.PolicyEnforcer;
 import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.IndexMerger;
 import org.apache.druid.segment.incremental.ParseExceptionHandler;
@@ -36,11 +37,14 @@ import org.apache.druid.segment.incremental.RowIngestionMeters;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.segment.join.JoinableFactory;
 import org.apache.druid.segment.loading.DataSegmentPusher;
-import org.apache.druid.segment.realtime.FireDepartmentMetrics;
+import org.apache.druid.segment.loading.SegmentLoaderConfig;
+import org.apache.druid.segment.metadata.CentralizedDatasourceSchemaConfig;
+import org.apache.druid.segment.realtime.SegmentGenerationMetrics;
 import org.apache.druid.segment.realtime.appenderator.Appenderator;
 import org.apache.druid.segment.realtime.appenderator.AppenderatorConfig;
 import org.apache.druid.segment.realtime.appenderator.Appenderators;
 import org.apache.druid.segment.realtime.appenderator.AppenderatorsManager;
+import org.apache.druid.segment.realtime.appenderator.TaskDirectory;
 import org.apache.druid.server.coordination.DataSegmentAnnouncer;
 import org.joda.time.Interval;
 
@@ -50,10 +54,12 @@ public class TestAppenderatorsManager implements AppenderatorsManager
 
   @Override
   public Appenderator createRealtimeAppenderatorForTask(
+      SegmentLoaderConfig segmentLoaderConfig,
       String taskId,
       DataSchema schema,
       AppenderatorConfig config,
-      FireDepartmentMetrics metrics,
+      TaskDirectory taskDirectory,
+      SegmentGenerationMetrics metrics,
       DataSegmentPusher dataSegmentPusher,
       ObjectMapper objectMapper,
       IndexIO indexIO,
@@ -66,11 +72,14 @@ public class TestAppenderatorsManager implements AppenderatorsManager
       Cache cache,
       CacheConfig cacheConfig,
       CachePopulatorStats cachePopulatorStats,
+      PolicyEnforcer policyEnforcer,
       RowIngestionMeters rowIngestionMeters,
-      ParseExceptionHandler parseExceptionHandler
+      ParseExceptionHandler parseExceptionHandler,
+      CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig
   )
   {
     realtimeAppenderator = Appenderators.createRealtime(
+        segmentLoaderConfig,
         taskId,
         schema,
         config,
@@ -83,31 +92,34 @@ public class TestAppenderatorsManager implements AppenderatorsManager
         segmentAnnouncer,
         emitter,
         queryProcessingPool,
-        joinableFactory,
         cache,
         cacheConfig,
         cachePopulatorStats,
+        policyEnforcer,
         rowIngestionMeters,
-        parseExceptionHandler
+        parseExceptionHandler,
+        centralizedDatasourceSchemaConfig
     );
     return realtimeAppenderator;
   }
 
   @Override
-  public Appenderator createOpenSegmentsOfflineAppenderatorForTask(
+  public Appenderator createBatchAppenderatorForTask(
       String taskId,
       DataSchema schema,
       AppenderatorConfig config,
-      FireDepartmentMetrics metrics,
+      TaskDirectory taskDirectory,
+      SegmentGenerationMetrics metrics,
       DataSegmentPusher dataSegmentPusher,
       ObjectMapper objectMapper,
       IndexIO indexIO,
       IndexMerger indexMerger,
       RowIngestionMeters rowIngestionMeters,
-      ParseExceptionHandler parseExceptionHandler
+      ParseExceptionHandler parseExceptionHandler,
+      CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig
   )
   {
-    return Appenderators.createOpenSegmentsOffline(
+    return Appenderators.createBatch(
         taskId,
         schema,
         config,
@@ -117,63 +129,8 @@ public class TestAppenderatorsManager implements AppenderatorsManager
         indexIO,
         indexMerger,
         rowIngestionMeters,
-        parseExceptionHandler
-    );
-  }
-
-  @Override
-  public Appenderator createClosedSegmentsOfflineAppenderatorForTask(
-      String taskId,
-      DataSchema schema,
-      AppenderatorConfig config,
-      FireDepartmentMetrics metrics,
-      DataSegmentPusher dataSegmentPusher,
-      ObjectMapper objectMapper,
-      IndexIO indexIO,
-      IndexMerger indexMerger,
-      RowIngestionMeters rowIngestionMeters,
-      ParseExceptionHandler parseExceptionHandler
-  )
-  {
-    return Appenderators.createClosedSegmentsOffline(
-        taskId,
-        schema,
-        config,
-        metrics,
-        dataSegmentPusher,
-        objectMapper,
-        indexIO,
-        indexMerger,
-        rowIngestionMeters,
-        parseExceptionHandler
-    );
-  }
-
-  @Override
-  public Appenderator createOfflineAppenderatorForTask(
-      String taskId,
-      DataSchema schema,
-      AppenderatorConfig config,
-      FireDepartmentMetrics metrics,
-      DataSegmentPusher dataSegmentPusher,
-      ObjectMapper objectMapper,
-      IndexIO indexIO,
-      IndexMerger indexMerger,
-      RowIngestionMeters rowIngestionMeters,
-      ParseExceptionHandler parseExceptionHandler
-  )
-  {
-    return Appenderators.createOffline(
-        taskId,
-        schema,
-        config,
-        metrics,
-        dataSegmentPusher,
-        objectMapper,
-        indexIO,
-        indexMerger,
-        rowIngestionMeters,
-        parseExceptionHandler
+        parseExceptionHandler,
+        centralizedDatasourceSchemaConfig
     );
   }
 

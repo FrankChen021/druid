@@ -21,13 +21,12 @@ package org.apache.druid.query.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryPlus;
-import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryRunnerTestHelper;
+import org.apache.druid.query.TestQueryRunner;
 import org.apache.druid.query.metadata.metadata.ColumnAnalysis;
 import org.apache.druid.query.metadata.metadata.ListColumnIncluderator;
 import org.apache.druid.query.metadata.metadata.SegmentAnalysis;
@@ -36,31 +35,33 @@ import org.apache.druid.segment.IncrementalIndexSegment;
 import org.apache.druid.segment.QueryableIndexSegment;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.TestIndex;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 @RunWith(Parameterized.class)
 public class SegmentMetadataUnionQueryTest extends InitializedNullHandlingTest
 {
-  static {
-    NullHandling.initializeForTests();
-  }
 
-  private static final QueryRunnerFactory FACTORY = new SegmentMetadataQueryRunnerFactory(
-      new SegmentMetadataQueryQueryToolChest(new SegmentMetadataQueryConfig()),
-      QueryRunnerTestHelper.NOOP_QUERYWATCHER
-  );
-  private final QueryRunner runner;
+  private static final QueryRunnerFactory<SegmentAnalysis, SegmentMetadataQuery> FACTORY =
+      new SegmentMetadataQueryRunnerFactory(
+          new SegmentMetadataQueryQueryToolChest(new SegmentMetadataQueryConfig()),
+          QueryRunnerTestHelper.NOOP_QUERYWATCHER
+      );
+
+  private final TestQueryRunner<SegmentAnalysis> runner;
   private final boolean mmap;
 
   public SegmentMetadataUnionQueryTest(
-      QueryRunner runner,
+      TestQueryRunner<SegmentAnalysis> runner,
       boolean mmap
   )
   {
@@ -71,23 +72,25 @@ public class SegmentMetadataUnionQueryTest extends InitializedNullHandlingTest
   @Parameterized.Parameters
   public static Iterable<Object[]> constructorFeeder()
   {
-    return ImmutableList.of(
-        new Object[]{
-            QueryRunnerTestHelper.makeUnionQueryRunner(
+    final ArrayList<TestQueryRunner<SegmentAnalysis>> runners = QueryRunnerTestHelper.mapQueryRunnersToMerge(
+        FACTORY,
+        ImmutableList.of(
+            QueryRunnerTestHelper.makeQueryRunner(
                 FACTORY,
                 new QueryableIndexSegment(TestIndex.getMMappedTestIndex(), QueryRunnerTestHelper.SEGMENT_ID),
                 null
             ),
-            true,
-        },
-        new Object[]{
-            QueryRunnerTestHelper.makeUnionQueryRunner(
+            QueryRunnerTestHelper.makeQueryRunner(
                 FACTORY,
                 new IncrementalIndexSegment(TestIndex.getIncrementalTestIndex(), QueryRunnerTestHelper.SEGMENT_ID),
                 null
-            ),
-            false
-        }
+            )
+        )
+    );
+
+    return ImmutableList.of(
+        new Object[]{runners.get(0), true},
+        new Object[]{runners.get(1), false}
     );
   }
 
@@ -98,21 +101,25 @@ public class SegmentMetadataUnionQueryTest extends InitializedNullHandlingTest
     SegmentAnalysis expected = new SegmentAnalysis(
         QueryRunnerTestHelper.SEGMENT_ID.toString(),
         Collections.singletonList(Intervals.of("2011-01-12T00:00:00.000Z/2011-04-15T00:00:00.001Z")),
-        ImmutableMap.of(
-            "placement",
-            new ColumnAnalysis(
-                ValueType.STRING.toString(),
-                false,
-                false,
-                mmap ? 43524 : 43056,
-                1,
-                "preferred",
-                "preferred",
-                null
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "placement",
+                new ColumnAnalysis(
+                    ColumnType.STRING,
+                    ValueType.STRING.toString(),
+                    false,
+                    false,
+                    43524,
+                    1,
+                    "preferred",
+                    "preferred",
+                    null
+                )
             )
         ),
-        mmap ? 800544 : 803324,
+        805380,
         4836,
+        null,
         null,
         null,
         null,

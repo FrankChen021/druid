@@ -21,7 +21,9 @@ package org.apache.druid.query;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.jqno.equalsverifier.EqualsVerifier;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.granularity.Granularities;
+import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.segment.TestHelper;
 import org.junit.Assert;
@@ -30,6 +32,8 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.util.Collections;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class QueryDataSourceTest
 {
@@ -50,8 +54,18 @@ public class QueryDataSourceTest
             .granularity(Granularities.ALL)
             .build();
 
+
+
   private final QueryDataSource queryOnTableDataSource = new QueryDataSource(queryOnTable);
   private final QueryDataSource queryOnLookupDataSource = new QueryDataSource(queryOnLookup);
+
+  private final GroupByQuery groupByQuery = new GroupByQuery.Builder()
+      .setDataSource(queryOnTableDataSource)
+      .setGranularity(Granularities.ALL)
+      .setInterval("2000/3000")
+      .build();
+
+  private final QueryDataSource queryDataSource = new QueryDataSource(groupByQuery);
 
   @Test
   public void test_getTableNames_table()
@@ -95,15 +109,15 @@ public class QueryDataSourceTest
   }
 
   @Test
-  public void test_isConcrete_table()
+  public void test_isProcessable_table()
   {
-    Assert.assertFalse(queryOnTableDataSource.isConcrete());
+    Assert.assertFalse(queryOnTableDataSource.isProcessable());
   }
 
   @Test
-  public void test_isConcrete_lookup()
+  public void test_isProcessable_lookup()
   {
-    Assert.assertFalse(queryOnLookupDataSource.isConcrete());
+    Assert.assertFalse(queryOnLookupDataSource.isProcessable());
   }
 
   @Test
@@ -115,7 +129,7 @@ public class QueryDataSourceTest
   @Test
   public void test_isGlobal_lookup()
   {
-    Assert.assertTrue(queryOnLookupDataSource.isGlobal());
+    Assert.assertFalse(queryOnLookupDataSource.isGlobal());
   }
 
   @Test
@@ -155,4 +169,13 @@ public class QueryDataSourceTest
 
     Assert.assertEquals(queryOnTableDataSource, deserialized);
   }
+
+  @Test
+  public void test_withSegmentMapFunction()
+  {
+    assertThrows(DruidException.class, () -> queryDataSource.createSegmentMapFunction(groupByQuery));
+    assertThrows(DruidException.class, () -> queryOnTableDataSource.createSegmentMapFunction(groupByQuery));
+  }
+
+
 }

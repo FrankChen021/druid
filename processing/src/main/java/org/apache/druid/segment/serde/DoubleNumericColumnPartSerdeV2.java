@@ -142,12 +142,13 @@ public class DoubleNumericColumnPartSerdeV2 implements ColumnPartSerde
   @Override
   public Deserializer getDeserializer()
   {
-    return (buffer, builder, columnConfig) -> {
+    return (buffer, builder, columnConfig, parent) -> {
       int offset = buffer.getInt();
       int initialPos = buffer.position();
       final Supplier<ColumnarDoubles> column = CompressedColumnarDoublesSuppliers.fromByteBuffer(
           buffer,
-          byteOrder
+          byteOrder,
+          builder.getFileMapper()
       );
 
       buffer.position(initialPos + offset);
@@ -163,7 +164,8 @@ public class DoubleNumericColumnPartSerdeV2 implements ColumnPartSerde
       builder.setType(ValueType.DOUBLE)
              .setHasMultipleValues(false)
              .setHasNulls(hasNulls)
-             .setNumericColumnSupplier(new DoubleNumericColumnSupplier(column, bitmap));
+             .setNumericColumnSupplier(new DoubleNumericColumnSupplier(column, bitmap))
+             .setNullValueIndexSupplier(bitmap);
     };
   }
 }

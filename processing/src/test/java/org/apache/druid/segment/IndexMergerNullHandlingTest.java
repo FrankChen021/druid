@@ -24,17 +24,18 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Sets;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.MapBasedInputRow;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.Comparators;
+import org.apache.druid.query.DefaultBitmapResultFactory;
 import org.apache.druid.query.aggregation.AggregatorFactory;
-import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.DictionaryEncodedColumn;
 import org.apache.druid.segment.data.IncrementalIndexTest;
 import org.apache.druid.segment.data.IndexedInts;
 import org.apache.druid.segment.incremental.IncrementalIndex;
+import org.apache.druid.segment.index.semantic.DictionaryEncodedStringValueIndex;
+import org.apache.druid.segment.index.semantic.StringValueSetIndexes;
 import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMediumFactory;
 import org.junit.Assert;
 import org.junit.Before;
@@ -50,16 +51,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class IndexMergerNullHandlingTest
 {
-  static {
-    NullHandling.initializeForTests();
-  }
-
   private IndexMerger indexMerger;
   private IndexIO indexIO;
   private IndexSpec indexSpec;
@@ -72,7 +70,7 @@ public class IndexMergerNullHandlingTest
   {
     indexMerger = TestHelper.getTestIndexMergerV9(OffHeapMemorySegmentWriteOutMediumFactory.instance());
     indexIO = TestHelper.getTestIndexIO();
-    indexSpec = new IndexSpec();
+    indexSpec = IndexSpec.DEFAULT;
   }
 
   @Test
@@ -96,13 +94,8 @@ public class IndexMergerNullHandlingTest
     nullFlavors.add(mNull);
     nullFlavors.add(mListOfNull);
 
-    if (NullHandling.replaceWithDefault()) {
-      nullFlavors.add(mEmptyString);
-      nullFlavors.add(mListOfEmptyString);
-    } else {
-      nonNullFlavors.add(mEmptyString);
-      nonNullFlavors.add(mListOfEmptyString);
-    }
+    nonNullFlavors.add(mEmptyString);
+    nonNullFlavors.add(mListOfEmptyString);
 
     Set<Map<String, Object>> allValues = new HashSet<>();
     allValues.addAll(nonNullFlavors);
@@ -138,7 +131,7 @@ public class IndexMergerNullHandlingTest
           // Compute all unique values, the same way that IndexMerger is expected to do it.
           final Set<String> uniqueValues = new HashSet<>();
           for (Map<String, Object> m : subsetList) {
-            final List<String> dValues = normalize(m.get("d"), hasMultipleValues);
+            final List<String> dValues = normalize(m.get("d"));
             uniqueValues.addAll(dValues);
 
             if (nullFlavors.contains(m)) {
@@ -165,7 +158,7 @@ public class IndexMergerNullHandlingTest
                 subsetList.toString(),
                 ImmutableMultiset.copyOf(
                     subsetList.stream()
-                              .map(m -> normalize(m.get("d"), hasMultipleValues))
+                              .map(m -> normalize(m.get("d")))
                               .distinct() // Distinct values only, because we expect rollup.
                               .collect(Collectors.toList())
                 ),
@@ -180,23 +173,32 @@ public class IndexMergerNullHandlingTest
             );
 
             // Verify that the bitmap index for null is correct.
-            final BitmapIndex bitmapIndex = columnHolder.getBitmapIndex();
+            final DictionaryEncodedStringValueIndex valueIndex = columnHolder.getIndexSupplier().as(
+                DictionaryEncodedStringValueIndex.class
+            );
+            final StringValueSetIndexes valueSetIndex = columnHolder.getIndexSupplier().as(
+                StringValueSetIndexes.class
+            );
 
             // Read through the column to find all the rows that should match null.
             final List<Integer> expectedNullRows = new ArrayList<>();
             for (int i = 0; i < index.getNumRows(); i++) {
               final List<String> row = getRow(dictionaryColumn, i);
-              if (row.isEmpty() || row.stream().anyMatch(NullHandling::isNullOrEquivalent)) {
+              if (row.isEmpty() || row.stream().anyMatch(Objects::isNull)) {
                 expectedNullRows.add(i);
               }
             }
 
-            Assert.assertEquals(subsetList.toString(), expectedNullRows.size() > 0, bitmapIndex.hasNulls());
 
             if (expectedNullRows.size() > 0) {
-              Assert.assertEquals(subsetList.toString(), 0, bitmapIndex.getIndex(null));
-
-              final ImmutableBitmap nullBitmap = bitmapIndex.getBitmap(bitmapIndex.getIndex(null));
+              final ImmutableBitmap nullBitmap = valueSetIndex.forValue(null)
+                                                              .computeBitmapResult(
+                                                                  new DefaultBitmapResultFactory(
+                                                                      indexSpec.getBitmapSerdeFactory()
+                                                                               .getBitmapFactory()
+                                                                  ),
+                                                                  false
+                                                              );
               final List<Integer> actualNullRows = new ArrayList<>();
               final IntIterator iterator = nullBitmap.iterator();
               while (iterator.hasNext()) {
@@ -204,8 +206,6 @@ public class IndexMergerNullHandlingTest
               }
 
               Assert.assertEquals(subsetList.toString(), expectedNullRows, actualNullRows);
-            } else {
-              Assert.assertEquals(-1, bitmapIndex.getIndex(null));
             }
           }
         }
@@ -216,22 +216,22 @@ public class IndexMergerNullHandlingTest
   /**
    * Normalize an input value the same way that IndexMerger is expected to do it.
    */
-  private static List<String> normalize(final Object value, final boolean hasMultipleValues)
+  private static List<String> normalize(final Object value)
   {
     final List<String> retVal = new ArrayList<>();
 
     if (value == null) {
       retVal.add(null);
     } else if (value instanceof String) {
-      retVal.add(NullHandling.emptyToNullIfNeeded(((String) value)));
+      retVal.add((String) value);
     } else if (value instanceof List) {
       final List<String> list = (List<String>) value;
       if (list.isEmpty()) {
         // empty lists become nulls in single valued columns
         // they sometimes also become nulls in multi-valued columns (see comments in getRow())
-        retVal.add(NullHandling.emptyToNullIfNeeded(null));
+        retVal.add(null);
       } else {
-        retVal.addAll(list.stream().map(NullHandling::emptyToNullIfNeeded).collect(Collectors.toList()));
+        retVal.addAll(list);
       }
     } else {
       throw new ISE("didn't expect class[%s]", value.getClass());

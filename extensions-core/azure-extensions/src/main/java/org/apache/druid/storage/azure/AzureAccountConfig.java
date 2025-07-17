@@ -21,8 +21,8 @@ package org.apache.druid.storage.azure;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
 
 /**
  * Stores the configuration for an Azure account.
@@ -30,30 +30,42 @@ import javax.validation.constraints.NotNull;
 public class AzureAccountConfig
 {
   @JsonProperty
-  private String protocol = "https";
+  @Nullable
+  private String account;
+
+  /**
+   * @deprecated Use {@link #storageAccountEndpointSuffix} instead.
+   */
+  @Deprecated
+  @Nullable
+  @JsonProperty
+  private String endpointSuffix = null;
+
+  @JsonProperty
+  private String key;
+
+  @JsonProperty
+  private String managedIdentityClientId;
 
   @JsonProperty
   @Min(1)
   private int maxTries = 3;
 
   @JsonProperty
-  @NotNull
-  private String account;
+  private String protocol = "https";
 
   @JsonProperty
-  @NotNull
-  private String key;
+  private String sharedAccessStorageToken;
 
-  @SuppressWarnings("unused") // Used by Jackson deserialization?
-  public void setProtocol(String protocol)
-  {
-    this.protocol = protocol;
-  }
+  @JsonProperty
+  private String storageAccountEndpointSuffix = AzureUtils.AZURE_STORAGE_HOST_ADDRESS;
 
-  @SuppressWarnings("unused") // Used by Jackson deserialization?
-  public void setMaxTries(int maxTries)
+  @JsonProperty
+  private boolean useAzureCredentialsChain = false;
+
+  public String getAccount()
   {
-    this.maxTries = maxTries;
+    return account;
   }
 
   public void setAccount(String account)
@@ -61,15 +73,36 @@ public class AzureAccountConfig
     this.account = account;
   }
 
-  @SuppressWarnings("unused") // Used by Jackson deserialization?
+  @Nullable
+  @Deprecated
+  public String getEndpointSuffix()
+  {
+    return endpointSuffix;
+  }
+
+  public void setEndpointSuffix(String endpointSuffix)
+  {
+    this.endpointSuffix = endpointSuffix;
+  }
+
+  public String getKey()
+  {
+    return key;
+  }
+
   public void setKey(String key)
   {
     this.key = key;
   }
 
-  public String getProtocol()
+  public String getManagedIdentityClientId()
   {
-    return protocol;
+    return managedIdentityClientId;
+  }
+
+  public void setManagedIdentityClientId(String managedIdentityClientId)
+  {
+    this.managedIdentityClientId = managedIdentityClientId;
   }
 
   public int getMaxTries()
@@ -77,13 +110,61 @@ public class AzureAccountConfig
     return maxTries;
   }
 
-  public String getAccount()
+  public void setMaxTries(int maxTries)
   {
-    return account;
+    this.maxTries = maxTries;
   }
 
-  public String getKey()
+  public String getProtocol()
   {
-    return key;
+    return protocol;
+  }
+
+  public void setProtocol(String protocol)
+  {
+    this.protocol = protocol;
+  }
+
+  public String getSharedAccessStorageToken()
+  {
+    return sharedAccessStorageToken;
+  }
+
+  public void setSharedAccessStorageToken(String sharedAccessStorageToken)
+  {
+    this.sharedAccessStorageToken = sharedAccessStorageToken;
+  }
+
+  public String getStorageAccountEndpointSuffix()
+  {
+    return storageAccountEndpointSuffix;
+  }
+
+  public void setStorageAccountEndpointSuffix(String storageAccountEndpointSuffix)
+  {
+    this.storageAccountEndpointSuffix = storageAccountEndpointSuffix;
+  }
+
+  public Boolean getUseAzureCredentialsChain()
+  {
+    return useAzureCredentialsChain;
+  }
+
+  public void setUseAzureCredentialsChain(Boolean useAzureCredentialsChain)
+  {
+    this.useAzureCredentialsChain = useAzureCredentialsChain;
+  }
+
+  /**
+   * Helper to support legacy runtime property. Replace with {@link #getStorageAccountEndpointSuffix()} when
+   * deprecated endpointSuffix has been removed.
+   */
+  public String getBlobStorageEndpoint()
+  {
+    if (endpointSuffix != null) {
+      return AzureUtils.BLOB + "." + endpointSuffix;
+    }
+
+    return storageAccountEndpointSuffix;
   }
 }

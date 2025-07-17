@@ -41,6 +41,7 @@ import org.apache.orc.TypeDescription;
 import org.apache.orc.mapred.OrcMapredRecordReader;
 import org.apache.orc.mapred.OrcStruct;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
@@ -61,7 +62,7 @@ public class OrcReader extends IntermediateRowParsingReader<OrcStruct>
       InputRowSchema inputRowSchema,
       InputEntity source,
       File temporaryDirectory,
-      JSONPathSpec flattenSpec,
+      @Nullable JSONPathSpec flattenSpec,
       boolean binaryAsString
   )
   {
@@ -69,7 +70,13 @@ public class OrcReader extends IntermediateRowParsingReader<OrcStruct>
     this.inputRowSchema = inputRowSchema;
     this.source = source;
     this.temporaryDirectory = temporaryDirectory;
-    this.orcStructFlattener = ObjectFlatteners.create(flattenSpec, new OrcStructFlattenerMaker(binaryAsString));
+    this.orcStructFlattener = ObjectFlatteners.create(
+        flattenSpec,
+        new OrcStructFlattenerMaker(
+            binaryAsString,
+            inputRowSchema.getDimensionsSpec().useSchemaDiscovery()
+        )
+    );
   }
 
   @Override
@@ -98,7 +105,7 @@ public class OrcReader extends IntermediateRowParsingReader<OrcStruct>
     final RecordReader batchReader = reader.rows(reader.options());
     final OrcMapredRecordReader<OrcStruct> recordReader = new OrcMapredRecordReader<>(batchReader, schema);
     closer.register(recordReader::close);
-    return new CloseableIterator<OrcStruct>()
+    return new CloseableIterator<>()
     {
       final NullWritable key = recordReader.createKey();
       OrcStruct value = null;
@@ -140,6 +147,12 @@ public class OrcReader extends IntermediateRowParsingReader<OrcStruct>
         closer.close();
       }
     };
+  }
+
+  @Override
+  protected InputEntity source()
+  {
+    return source;
   }
 
   @Override

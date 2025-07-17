@@ -19,7 +19,10 @@
 
 package org.apache.druid.segment;
 
+import org.apache.druid.data.input.impl.DimensionSchema;
 import org.apache.druid.data.input.impl.DimensionSchema.MultiValueHandling;
+import org.apache.druid.data.input.impl.NewSpatialDimensionSchema;
+import org.apache.druid.data.input.impl.StringDimensionSchema;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.segment.column.ColumnCapabilities;
@@ -29,6 +32,8 @@ import org.apache.druid.segment.selector.settable.SettableColumnValueSelector;
 import org.apache.druid.segment.selector.settable.SettableDimensionValueSelector;
 import org.apache.druid.segment.writeout.SegmentWriteOutMedium;
 
+import java.io.File;
+import java.util.Collections;
 import java.util.Comparator;
 
 public class StringDimensionHandler implements DimensionHandler<Integer, int[], String>
@@ -76,7 +81,7 @@ public class StringDimensionHandler implements DimensionHandler<Integer, int[], 
 
   /**
    * Value for absent column, i. e. {@link NilColumnValueSelector}, should be equivalent to [null] during index merging.
-   *
+   * <p>
    * During index merging, if one of the merged indexes has absent columns, {@link StringDimensionMergerV9} ensures
    * that null value is present, and it has index = 0 after sorting, because sorting puts null first. See {@link
    * StringDimensionMergerV9#hasNull} and the place where it is assigned.
@@ -100,7 +105,12 @@ public class StringDimensionHandler implements DimensionHandler<Integer, int[], 
   private final boolean hasBitmapIndexes;
   private final boolean hasSpatialIndexes;
 
-  public StringDimensionHandler(String dimensionName, MultiValueHandling multiValueHandling, boolean hasBitmapIndexes, boolean hasSpatialIndexes)
+  public StringDimensionHandler(
+      String dimensionName,
+      MultiValueHandling multiValueHandling,
+      boolean hasBitmapIndexes,
+      boolean hasSpatialIndexes
+  )
   {
     this.dimensionName = dimensionName;
     this.multiValueHandling = multiValueHandling;
@@ -112,6 +122,15 @@ public class StringDimensionHandler implements DimensionHandler<Integer, int[], 
   public String getDimensionName()
   {
     return dimensionName;
+  }
+
+  @Override
+  public DimensionSchema getDimensionSchema(ColumnCapabilities capabilities)
+  {
+    if (hasSpatialIndexes) {
+      return new NewSpatialDimensionSchema(dimensionName, Collections.singletonList(dimensionName));
+    }
+    return new StringDimensionSchema(dimensionName, multiValueHandling, hasBitmapIndexes);
   }
 
   @Override
@@ -146,10 +165,12 @@ public class StringDimensionHandler implements DimensionHandler<Integer, int[], 
 
   @Override
   public DimensionMergerV9 makeMerger(
+      String outputName,
       IndexSpec indexSpec,
       SegmentWriteOutMedium segmentWriteOutMedium,
       ColumnCapabilities capabilities,
       ProgressIndicator progress,
+      File segmentBaseDir,
       Closer closer
   )
   {
@@ -162,6 +183,15 @@ public class StringDimensionHandler implements DimensionHandler<Integer, int[], 
       );
     }
 
-    return new StringDimensionMergerV9(dimensionName, indexSpec, segmentWriteOutMedium, capabilities, progress, closer);
+    return new StringDimensionMergerV9(
+        dimensionName,
+        outputName,
+        indexSpec,
+        segmentWriteOutMedium,
+        capabilities,
+        progress,
+        segmentBaseDir,
+        closer
+    );
   }
 }

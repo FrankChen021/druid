@@ -20,54 +20,41 @@
 package org.apache.druid.query.sql;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import org.apache.druid.common.config.NullHandling;
-import org.apache.druid.guice.ExpressionModule;
-import org.apache.druid.math.expr.ExprMacroTable;
-import org.apache.druid.math.expr.ExprMacroTable.ExprMacro;
+import org.apache.druid.guice.SleepModule;
+import org.apache.druid.initialization.DruidModule;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.TableDataSource;
-import org.apache.druid.query.expression.LookupExprMacro;
-import org.apache.druid.query.expressions.SleepExprMacro;
-import org.apache.druid.query.filter.BoundDimFilter;
-import org.apache.druid.query.ordering.StringComparators;
 import org.apache.druid.query.scan.ScanQuery.ResultFormat;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.query.sql.SleepSqlTest.SleepComponentSupplier;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
+import org.apache.druid.sql.calcite.SqlTestFrameworkConfig;
+import org.apache.druid.sql.calcite.TempDirProducer;
 import org.apache.druid.sql.calcite.filtration.Filtration;
-import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
-import org.apache.druid.sql.calcite.util.CalciteTests;
-import org.junit.Test;
+import org.apache.druid.sql.calcite.util.DruidModuleCollection;
+import org.apache.druid.sql.calcite.util.SqlTestFramework.StandardComponentSupplier;
+import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-
+@SqlTestFrameworkConfig.ComponentSupplier(SleepComponentSupplier.class)
 public class SleepSqlTest extends BaseCalciteQueryTest
 {
-  @Override
-  public DruidOperatorTable createOperatorTable()
+  public static class SleepComponentSupplier extends StandardComponentSupplier
   {
-    return new DruidOperatorTable(
-        ImmutableSet.of(),
-        ImmutableSet.of(new SleepOperatorConversion())
-    );
-  }
-
-  @Override
-  public ExprMacroTable createMacroTable()
-  {
-    final List<ExprMacro> exprMacros = new ArrayList<>();
-    for (Class<? extends ExprMacroTable.ExprMacro> clazz : ExpressionModule.EXPR_MACROS) {
-      exprMacros.add(CalciteTests.INJECTOR.getInstance(clazz));
+    public SleepComponentSupplier(TempDirProducer tempFolderProducer)
+    {
+      super(tempFolderProducer);
     }
-    exprMacros.add(CalciteTests.INJECTOR.getInstance(LookupExprMacro.class));
-    exprMacros.add(new SleepExprMacro());
-    return new ExprMacroTable(exprMacros);
+
+    @Override
+    public DruidModule getCoreModule()
+    {
+      return DruidModuleCollection.of(super.getCoreModule(), new SleepModule());
+    }
   }
 
   @Test
-  public void testSleepFunction() throws Exception
+  public void testSleepFunction()
   {
     testQuery(
         "SELECT sleep(m1) from foo where m1 < 2.0",
@@ -79,19 +66,19 @@ public class SleepSqlTest extends BaseCalciteQueryTest
                       new ExpressionVirtualColumn(
                           "v0",
                           "sleep(\"m1\")",
-                          ValueType.STRING,
-                          createMacroTable()
+                          ColumnType.STRING,
+                          queryFramework().macroTable()
                       )
                   )
                   .columns("v0")
-                  .filters(new BoundDimFilter("m1", null, "2.0", null, true, null, null, StringComparators.NUMERIC))
+                  .columnTypes(ColumnType.STRING)
+                  .filters(range("m1", ColumnType.DOUBLE, null, 2.0, false, true))
                   .resultFormat(ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
-                  .legacy(false)
                   .context(QUERY_CONTEXT_DEFAULT)
                   .build()
         ),
         ImmutableList.of(
-            new Object[]{NullHandling.replaceWithDefault() ? "" : null}
+            new Object[]{null}
         )
     );
   }

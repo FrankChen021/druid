@@ -22,8 +22,8 @@ package org.apache.druid.indexing.overlord;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.ByteSource;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -33,17 +33,18 @@ import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.indexer.RunnerTaskState;
 import org.apache.druid.indexer.TaskLocation;
 import org.apache.druid.indexer.TaskStatus;
+import org.apache.druid.indexer.report.TaskReportFileWriter;
 import org.apache.druid.indexing.common.MultipleFileTaskReportFileWriter;
-import org.apache.druid.indexing.common.TaskReportFileWriter;
+import org.apache.druid.indexing.common.TaskStorageDirTracker;
 import org.apache.druid.indexing.common.TaskToolbox;
 import org.apache.druid.indexing.common.TaskToolboxFactory;
 import org.apache.druid.indexing.common.config.TaskConfig;
 import org.apache.druid.indexing.common.task.Task;
+import org.apache.druid.indexing.common.tasklogs.LogUtils;
 import org.apache.druid.indexing.overlord.autoscaling.ScalingStats;
 import org.apache.druid.indexing.worker.config.WorkerConfig;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.FileUtils;
-import org.apache.druid.java.util.common.IOE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.concurrent.Execs;
@@ -52,6 +53,7 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.segment.realtime.appenderator.Appenderators;
 import org.apache.druid.segment.realtime.appenderator.AppenderatorsManager;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.tasklogs.TaskLogPusher;
@@ -61,9 +63,12 @@ import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -108,10 +113,11 @@ public class ThreadingTaskRunner
       ObjectMapper jsonMapper,
       AppenderatorsManager appenderatorsManager,
       TaskReportFileWriter taskReportFileWriter,
-      @Self DruidNode node
+      @Self DruidNode node,
+      TaskStorageDirTracker dirTracker
   )
   {
-    super(jsonMapper, taskConfig);
+    super(jsonMapper, taskConfig, dirTracker);
     this.toolboxFactory = toolboxFactory;
     this.taskLogPusher = taskLogPusher;
     this.node = node;
@@ -127,10 +133,12 @@ public class ThreadingTaskRunner
   }
 
   @Override
-  public Optional<ByteSource> streamTaskLog(String taskid, long offset)
+  public Optional<InputStream> streamTaskLog(String taskId, long offset) throws IOException
   {
-    // task logs will appear in the main indexer log, streaming individual task logs is not supported
-    return Optional.absent();
+    final ThreadingTaskRunnerWorkItem workItem = tasks.get(taskId);
+    return workItem == null || workItem.logFile == null
+           ? Optional.absent()
+           : Optional.of(LogUtils.streamFile(workItem.logFile, offset));
   }
 
   @Override
@@ -148,12 +156,26 @@ public class ThreadingTaskRunner
               new ThreadingTaskRunnerWorkItem(
                   task,
                   taskExecutor.submit(
-                      new Callable<TaskStatus>() {
+                      new Callable<>()
+                      {
                         @Override
                         public TaskStatus call()
                         {
+                          final TaskStorageDirTracker.StorageSlot storageSlot;
+                          try {
+                            storageSlot = getTracker().pickStorageSlot(task.getId());
+                          }
+                          catch (RuntimeException e) {
+                            LOG.error(e, "Failed to get directory for task [%s], cannot schedule.", task.getId());
+                            return TaskStatus.failure(
+                                task.getId(),
+                                StringUtils.format("Could not schedule due to error [%s]", e.getMessage())
+                            );
+
+                          }
+                          final File taskDir = new File(storageSlot.getDirectory(), task.getId());
+
                           final String attemptUUID = UUID.randomUUID().toString();
-                          final File taskDir = taskConfig.getTaskDir(task.getId());
                           final File attemptDir = new File(taskDir, attemptUUID);
 
                           final TaskLocation taskLocation = TaskLocation.create(
@@ -165,12 +187,11 @@ public class ThreadingTaskRunner
                           final ThreadingTaskRunnerWorkItem taskWorkItem;
 
                           try {
-                            if (!attemptDir.mkdirs()) {
-                              throw new IOE("Could not create directories: %s", attemptDir);
-                            }
+                            FileUtils.mkdirp(attemptDir);
 
                             final File taskFile = new File(taskDir, "task.json");
                             final File reportsFile = new File(attemptDir, "report.json");
+                            final File logFile = new File(taskDir, "log");
                             taskReportFileWriter.add(task.getId(), reportsFile);
 
                             // time to adjust process holders
@@ -198,7 +219,11 @@ public class ThreadingTaskRunner
                                   .setName(StringUtils.format("[%s]-%s", task.getId(), priorThreadName));
 
                             TaskStatus taskStatus;
-                            final TaskToolbox toolbox = toolboxFactory.build(task);
+                            final TaskToolbox toolbox = toolboxFactory.build(
+                                config -> config.withBaseTaskDir(storageSlot.getDirectory())
+                                                .withTmpStorageBytesPerTask(storageSlot.getNumBytes()),
+                                task
+                            );
                             TaskRunnerUtils.notifyLocationChanged(listeners, task.getId(), taskLocation);
                             TaskRunnerUtils.notifyStatusChanged(
                                 listeners,
@@ -206,15 +231,22 @@ public class ThreadingTaskRunner
                                 TaskStatus.running(task.getId())
                             );
 
+                            taskWorkItem.logFile = logFile;
                             taskWorkItem.setState(RunnerTaskState.RUNNING);
+
+                            LOGGER.info("Logging output of task[%s] to file[%s].", task.getId(), logFile);
+                            Appenderators.setTaskThreadContextForIndexers(task.getId(), logFile);
                             try {
                               taskStatus = task.run(toolbox);
                             }
                             catch (Throwable t) {
-                              LOGGER.error(t, "Exception caught while running the task.");
+                              LOGGER.error(t, "Exception caught while running task [%s].", task.getId());
                               taskStatus = TaskStatus.failure(
                                   task.getId(),
-                                  "Failed with an exception. See indexer logs for more details."
+                                  StringUtils.format(
+                                      "Failed with exception [%s]. See indexer logs for details.",
+                                      t.getMessage()
+                                  )
                               );
                             }
                             finally {
@@ -223,6 +255,10 @@ public class ThreadingTaskRunner
                               if (reportsFile.exists()) {
                                 taskLogPusher.pushTaskReports(task.getId(), reportsFile);
                               }
+                              if (logFile.exists()) {
+                                taskLogPusher.pushTaskLog(task.getId(), logFile);
+                              }
+                              Appenderators.clearTaskThreadContextForIndexers();
                             }
 
                             TaskRunnerUtils.notifyStatusChanged(listeners, task.getId(), taskStatus);
@@ -243,6 +279,8 @@ public class ThreadingTaskRunner
                                   saveRunningTasks();
                                 }
                               }
+
+                              getTracker().returnStorageSlot(storageSlot);
 
                               try {
                                 if (!stopping && taskDir.exists()) {
@@ -455,33 +493,43 @@ public class ThreadingTaskRunner
   }
 
   @Override
-  public long getTotalTaskSlotCount()
+  public Map<String, Long> getTotalTaskSlotCount()
+  {
+    return ImmutableMap.of(workerConfig.getCategory(), Long.valueOf(workerConfig.getCapacity()));
+  }
+
+  public long getTotalTaskSlotCountLong()
   {
     return workerConfig.getCapacity();
   }
 
   @Override
-  public long getIdleTaskSlotCount()
+  public Map<String, Long> getIdleTaskSlotCount()
   {
-    return Math.max(getTotalTaskSlotCount() - getUsedTaskSlotCount(), 0);
+    return ImmutableMap.of(workerConfig.getCategory(), Math.max(getTotalTaskSlotCountLong() - getUsedTaskSlotCountLong(), 0));
   }
 
   @Override
-  public long getUsedTaskSlotCount()
+  public Map<String, Long> getUsedTaskSlotCount()
+  {
+    return ImmutableMap.of(workerConfig.getCategory(), Long.valueOf(getRunningTasks().size()));
+  }
+
+  public long getUsedTaskSlotCountLong()
   {
     return getRunningTasks().size();
   }
 
   @Override
-  public long getLazyTaskSlotCount()
+  public Map<String, Long> getLazyTaskSlotCount()
   {
-    return 0;
+    return ImmutableMap.of(workerConfig.getCategory(), 0L);
   }
 
   @Override
-  public long getBlacklistedTaskSlotCount()
+  public Map<String, Long> getBlacklistedTaskSlotCount()
   {
-    return 0;
+    return ImmutableMap.of(workerConfig.getCategory(), 0L);
   }
 
   @Override
@@ -508,6 +556,7 @@ public class ThreadingTaskRunner
     private volatile boolean shutdown = false;
     private volatile ListenableFuture shutdownFuture;
     private volatile RunnerTaskState state;
+    private volatile File logFile;
 
     private ThreadingTaskRunnerWorkItem(
         Task task,

@@ -21,9 +21,9 @@ package org.apache.druid.indexing.common.task;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.exc.ValueInstantiationException;
 import com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair;
 import com.fasterxml.jackson.databind.jsontype.NamedType;
 import com.fasterxml.jackson.databind.module.SimpleModule;
@@ -35,12 +35,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.druid.client.coordinator.CoordinatorClient;
+import org.apache.druid.client.coordinator.NoopCoordinatorClient;
 import org.apache.druid.client.indexing.ClientCompactionTaskGranularitySpec;
-import org.apache.druid.client.indexing.IndexingServiceClient;
-import org.apache.druid.client.indexing.NoopIndexingServiceClient;
 import org.apache.druid.common.guava.SettableSupplier;
 import org.apache.druid.data.input.InputSource;
+import org.apache.druid.data.input.impl.AggregateProjectionSpec;
 import org.apache.druid.data.input.impl.DimensionSchema;
 import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.data.input.impl.DoubleDimensionSchema;
@@ -53,10 +55,10 @@ import org.apache.druid.guice.GuiceInjectableValues;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.IndexingServiceTuningConfigModule;
 import org.apache.druid.indexer.TaskStatus;
+import org.apache.druid.indexer.granularity.UniformGranularitySpec;
+import org.apache.druid.indexer.partitions.DimensionRangePartitionsSpec;
 import org.apache.druid.indexer.partitions.HashedPartitionsSpec;
 import org.apache.druid.indexing.common.LockGranularity;
-import org.apache.druid.indexing.common.RetryPolicyConfig;
-import org.apache.druid.indexing.common.RetryPolicyFactory;
 import org.apache.druid.indexing.common.SegmentCacheManagerFactory;
 import org.apache.druid.indexing.common.TaskToolbox;
 import org.apache.druid.indexing.common.TestUtils;
@@ -64,10 +66,11 @@ import org.apache.druid.indexing.common.actions.RetrieveUsedSegmentsAction;
 import org.apache.druid.indexing.common.actions.TaskAction;
 import org.apache.druid.indexing.common.actions.TaskActionClient;
 import org.apache.druid.indexing.common.config.TaskConfig;
+import org.apache.druid.indexing.common.config.TaskConfigBuilder;
 import org.apache.druid.indexing.common.task.CompactionTask.Builder;
-import org.apache.druid.indexing.common.task.CompactionTask.PartitionConfigurationManager;
 import org.apache.druid.indexing.common.task.CompactionTask.SegmentProvider;
 import org.apache.druid.indexing.common.task.IndexTask.IndexTuningConfig;
+import org.apache.druid.indexing.common.task.NativeCompactionRunner.PartitionConfigurationManager;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIOConfig;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIngestionSpec;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexTuningConfig;
@@ -81,14 +84,19 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.granularity.PeriodGranularity;
 import org.apache.druid.java.util.common.guava.Comparators;
+import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
+import org.apache.druid.java.util.metrics.StubServiceEmitter;
+import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleMaxAggregatorFactory;
 import org.apache.druid.query.aggregation.FloatMinAggregatorFactory;
 import org.apache.druid.query.aggregation.LongMaxAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
-import org.apache.druid.query.aggregation.first.FloatFirstAggregatorFactory;
-import org.apache.druid.query.aggregation.last.DoubleLastAggregatorFactory;
+import org.apache.druid.query.aggregation.firstlast.first.FloatFirstAggregatorFactory;
+import org.apache.druid.query.aggregation.firstlast.last.DoubleLastAggregatorFactory;
+import org.apache.druid.query.expression.TestExprMacroTable;
+import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.IndexMergerV9;
 import org.apache.druid.segment.IndexSpec;
@@ -96,32 +104,40 @@ import org.apache.druid.segment.Metadata;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.SegmentUtils;
 import org.apache.druid.segment.SimpleQueryableIndex;
+import org.apache.druid.segment.TestIndex;
+import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.BaseColumn;
-import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
+import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.column.ColumnHolder;
-import org.apache.druid.segment.column.SpatialIndex;
+import org.apache.druid.segment.column.ColumnIndexSupplier;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.data.CompressionFactory.LongEncodingStrategy;
 import org.apache.druid.segment.data.CompressionStrategy;
 import org.apache.druid.segment.data.ListIndexed;
 import org.apache.druid.segment.data.RoaringBitmapSerdeFactory;
 import org.apache.druid.segment.incremental.RowIngestionMetersFactory;
+import org.apache.druid.segment.indexing.BatchIOConfig;
+import org.apache.druid.segment.indexing.CombinedDataSchema;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.apache.druid.segment.indexing.IOConfig;
-import org.apache.druid.segment.indexing.RealtimeTuningConfig;
 import org.apache.druid.segment.indexing.TuningConfig;
-import org.apache.druid.segment.indexing.granularity.UniformGranularitySpec;
 import org.apache.druid.segment.join.NoopJoinableFactory;
-import org.apache.druid.segment.loading.SegmentLoadingException;
+import org.apache.druid.segment.loading.NoopSegmentCacheManager;
+import org.apache.druid.segment.loading.SegmentCacheManager;
+import org.apache.druid.segment.metadata.CentralizedDatasourceSchemaConfig;
+import org.apache.druid.segment.realtime.ChatHandlerProvider;
+import org.apache.druid.segment.realtime.NoopChatHandlerProvider;
 import org.apache.druid.segment.realtime.appenderator.AppenderatorsManager;
-import org.apache.druid.segment.realtime.firehose.ChatHandlerProvider;
-import org.apache.druid.segment.realtime.firehose.NoopChatHandlerProvider;
 import org.apache.druid.segment.selector.settable.SettableColumnValueSelector;
+import org.apache.druid.segment.transform.CompactionTransformSpec;
 import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMediumFactory;
+import org.apache.druid.server.coordinator.CompactionConfigValidationResult;
+import org.apache.druid.server.lookup.cache.LookupLoadingSpec;
 import org.apache.druid.server.security.AuthTestUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.NumberedShardSpec;
 import org.hamcrest.CoreMatchers;
@@ -133,13 +149,15 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.junit.runner.RunWith;
+import org.mockito.junit.MockitoJUnitRunner;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -147,9 +165,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+@RunWith(MockitoJUnitRunner.class)
 public class CompactionTaskTest
 {
   private static final long SEGMENT_SIZE_BYTES = 100;
@@ -176,12 +196,12 @@ public class CompactionTaskTest
   private static final TestUtils TEST_UTILS = new TestUtils();
   private static final Map<DataSegment, File> SEGMENT_MAP = new HashMap<>();
   private static final CoordinatorClient COORDINATOR_CLIENT = new TestCoordinatorClient(SEGMENT_MAP);
-  private static final IndexingServiceClient INDEXING_SERVICE_CLIENT = new NoopIndexingServiceClient();
   private static final ObjectMapper OBJECT_MAPPER = setupInjectablesInObjectMapper(new DefaultObjectMapper());
-  private static final RetryPolicyFactory RETRY_POLICY_FACTORY = new RetryPolicyFactory(new RetryPolicyConfig());
   private static final String CONFLICTING_SEGMENT_GRANULARITY_FORMAT =
       "Conflicting segment granularities found %s(segmentGranularity) and %s(granularitySpec.segmentGranularity).\n"
       + "Remove `segmentGranularity` and set the `granularitySpec.segmentGranularity` to the expected granularity";
+
+  private static final ServiceMetricEvent.Builder METRIC_BUILDER = new ServiceMetricEvent.Builder();
 
   private static Map<String, DimensionSchema> DIMENSIONS;
   private static List<AggregatorFactory> AGGREGATORS;
@@ -234,8 +254,8 @@ public class CompactionTaskTest
     AGGREGATORS.add(new CountAggregatorFactory("agg_0"));
     AGGREGATORS.add(new LongSumAggregatorFactory("agg_1", "long_dim_1"));
     AGGREGATORS.add(new LongMaxAggregatorFactory("agg_2", "long_dim_2"));
-    AGGREGATORS.add(new FloatFirstAggregatorFactory("agg_3", "float_dim_3"));
-    AGGREGATORS.add(new DoubleLastAggregatorFactory("agg_4", "double_dim_4"));
+    AGGREGATORS.add(new FloatFirstAggregatorFactory("agg_3", "float_dim_3", null));
+    AGGREGATORS.add(new DoubleLastAggregatorFactory("agg_4", "double_dim_4", null));
 
     for (int i = 0; i < SEGMENT_INTERVALS.size(); i++) {
       SEGMENT_MAP.put(
@@ -277,9 +297,10 @@ public class CompactionTaskTest
                   binder.bind(ChatHandlerProvider.class).toInstance(new NoopChatHandlerProvider());
                   binder.bind(RowIngestionMetersFactory.class).toInstance(TEST_UTILS.getRowIngestionMetersFactory());
                   binder.bind(CoordinatorClient.class).toInstance(COORDINATOR_CLIENT);
-                  binder.bind(SegmentCacheManagerFactory.class).toInstance(new SegmentCacheManagerFactory(objectMapper));
+                  binder.bind(SegmentCacheManagerFactory.class)
+                        .toInstance(new SegmentCacheManagerFactory(TestIndex.INDEX_IO, objectMapper));
                   binder.bind(AppenderatorsManager.class).toInstance(new TestAppenderatorsManager());
-                  binder.bind(IndexingServiceClient.class).toInstance(INDEXING_SERVICE_CLIENT);
+                  binder.bind(ExprMacroTable.class).toInstance(TestExprMacroTable.INSTANCE);
                 }
             )
         )
@@ -310,58 +331,39 @@ public class CompactionTaskTest
 
   private static CompactionTask.CompactionTuningConfig createTuningConfig()
   {
-    return new CompactionTask.CompactionTuningConfig(
-        null,
-        null, // null to compute maxRowsPerSegment automatically
-        null,
-        500000,
-        1000000L,
-        null,
-        null,
-        null,
-        null,
-        null,
-        new IndexSpec(
-            new RoaringBitmapSerdeFactory(true),
-            CompressionStrategy.LZ4,
-            CompressionStrategy.LZF,
-            LongEncodingStrategy.LONGS
-        ),
-        null,
-        null,
-        true,
-        false,
-        5000L,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-    );
+    return TuningConfigBuilder.forCompactionTask()
+        .withMaxRowsInMemory(500_000)
+        .withMaxBytesInMemory(1_000_000L)
+        .withIndexSpec(
+            IndexSpec.builder()
+                     .withBitmapSerdeFactory(RoaringBitmapSerdeFactory.getInstance())
+                     .withDimensionCompression(CompressionStrategy.LZ4)
+                     .withMetricCompression(CompressionStrategy.LZF)
+                     .withLongEncoding(LongEncodingStrategy.LONGS)
+                     .build()
+        )
+        .withForceGuaranteedRollup(true)
+        .withReportParseExceptions(false)
+        .withPushTimeout(5000L)
+        .build();
   }
 
   @Rule
   public ExpectedException expectedException = ExpectedException.none();
 
+  private StubServiceEmitter emitter;
+
   @Before
   public void setup()
   {
     final IndexIO testIndexIO = new TestIndexIO(OBJECT_MAPPER, SEGMENT_MAP);
-    toolbox = new TestTaskToolbox(
+    emitter = new StubServiceEmitter();
+    toolbox = makeTaskToolbox(
         new TestTaskActionClient(new ArrayList<>(SEGMENT_MAP.keySet())),
         testIndexIO,
         SEGMENT_MAP
     );
-    segmentCacheManagerFactory = new SegmentCacheManagerFactory(OBJECT_MAPPER);
+    segmentCacheManagerFactory = new SegmentCacheManagerFactory(TestIndex.INDEX_IO, OBJECT_MAPPER);
   }
 
   @Test
@@ -369,8 +371,7 @@ public class CompactionTaskTest
   {
     final Builder builder = new Builder(
         DATA_SOURCE,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY
+        segmentCacheManagerFactory
     );
     builder.inputSpec(new CompactionIntervalSpec(COMPACTION_INTERVAL, SegmentUtils.hashIds(SEGMENTS)));
     builder.tuningConfig(createTuningConfig());
@@ -379,12 +380,11 @@ public class CompactionTaskTest
 
     final Builder builder2 = new Builder(
         DATA_SOURCE,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY
+        segmentCacheManagerFactory
     );
     builder2.inputSpec(new CompactionIntervalSpec(COMPACTION_INTERVAL, SegmentUtils.hashIds(SEGMENTS)));
     builder2.tuningConfig(createTuningConfig());
-    builder2.granularitySpec(new ClientCompactionTaskGranularitySpec(Granularities.HOUR, Granularities.DAY));
+    builder2.granularitySpec(new ClientCompactionTaskGranularitySpec(Granularities.HOUR, Granularities.DAY, null));
     final CompactionTask taskCreatedWithGranularitySpec = builder2.build();
     Assert.assertEquals(
         taskCreatedWithGranularitySpec.getSegmentGranularity(),
@@ -397,13 +397,12 @@ public class CompactionTaskTest
   {
     final Builder builder = new Builder(
         DATA_SOURCE,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY
+        segmentCacheManagerFactory
     );
     builder.inputSpec(new CompactionIntervalSpec(COMPACTION_INTERVAL, SegmentUtils.hashIds(SEGMENTS)));
     builder.tuningConfig(createTuningConfig());
     builder.segmentGranularity(Granularities.HOUR);
-    builder.granularitySpec(new ClientCompactionTaskGranularitySpec(Granularities.MINUTE, Granularities.DAY));
+    builder.granularitySpec(new ClientCompactionTaskGranularitySpec(Granularities.MINUTE, Granularities.DAY, null));
     try {
       builder.build();
     }
@@ -421,18 +420,54 @@ public class CompactionTaskTest
     Assert.fail("Should not have reached here!");
   }
 
+  @Test
+  public void testCreateCompactionTaskWithTransformSpec()
+  {
+    CompactionTransformSpec transformSpec =
+        new CompactionTransformSpec(new SelectorDimFilter("dim1", "foo", null));
+    final Builder builder = new Builder(
+        DATA_SOURCE,
+        segmentCacheManagerFactory
+    );
+    builder.inputSpec(new CompactionIntervalSpec(COMPACTION_INTERVAL, SegmentUtils.hashIds(SEGMENTS)));
+    builder.tuningConfig(createTuningConfig());
+    builder.transformSpec(transformSpec);
+    final CompactionTask taskCreatedWithTransformSpec = builder.build();
+    Assert.assertEquals(
+        transformSpec,
+        taskCreatedWithTransformSpec.getTransformSpec()
+    );
+  }
+
+  @Test
+  public void testCreateCompactionTaskWithMetricsSpec()
+  {
+    AggregatorFactory[] aggregatorFactories = new AggregatorFactory[]{new CountAggregatorFactory("cnt")};
+    final Builder builder = new Builder(
+        DATA_SOURCE,
+        segmentCacheManagerFactory
+    );
+    builder.inputSpec(new CompactionIntervalSpec(COMPACTION_INTERVAL, SegmentUtils.hashIds(SEGMENTS)));
+    builder.tuningConfig(createTuningConfig());
+    builder.metricsSpec(aggregatorFactories);
+    final CompactionTask taskCreatedWithTransformSpec = builder.build();
+    Assert.assertArrayEquals(
+        aggregatorFactories,
+        taskCreatedWithTransformSpec.getMetricsSpec()
+    );
+  }
+
   @Test(expected = IAE.class)
   public void testCreateCompactionTaskWithNullSegmentGranularityInGranularitySpecAndSegmentGranularityShouldSucceed()
   {
     final Builder builder = new Builder(
         DATA_SOURCE,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY
+        segmentCacheManagerFactory
     );
     builder.inputSpec(new CompactionIntervalSpec(COMPACTION_INTERVAL, SegmentUtils.hashIds(SEGMENTS)));
     builder.tuningConfig(createTuningConfig());
     builder.segmentGranularity(Granularities.HOUR);
-    builder.granularitySpec(new ClientCompactionTaskGranularitySpec(null, Granularities.DAY));
+    builder.granularitySpec(new ClientCompactionTaskGranularitySpec(null, Granularities.DAY, null));
     try {
       builder.build();
     }
@@ -455,13 +490,12 @@ public class CompactionTaskTest
   {
     final Builder builder = new Builder(
         DATA_SOURCE,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY
+        segmentCacheManagerFactory
     );
     builder.inputSpec(new CompactionIntervalSpec(COMPACTION_INTERVAL, SegmentUtils.hashIds(SEGMENTS)));
     builder.tuningConfig(createTuningConfig());
     builder.segmentGranularity(Granularities.HOUR);
-    builder.granularitySpec(new ClientCompactionTaskGranularitySpec(Granularities.HOUR, Granularities.DAY));
+    builder.granularitySpec(new ClientCompactionTaskGranularitySpec(Granularities.HOUR, Granularities.DAY, null));
     final CompactionTask taskCreatedWithSegmentGranularity = builder.build();
     Assert.assertEquals(Granularities.HOUR, taskCreatedWithSegmentGranularity.getSegmentGranularity());
   }
@@ -471,8 +505,7 @@ public class CompactionTaskTest
   {
     final Builder builder = new Builder(
         DATA_SOURCE,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY
+        segmentCacheManagerFactory
     );
     final CompactionTask task = builder
         .inputSpec(
@@ -492,8 +525,7 @@ public class CompactionTaskTest
   {
     final Builder builder = new Builder(
         DATA_SOURCE,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY
+        segmentCacheManagerFactory
     );
     final CompactionTask task = builder
         .segments(SEGMENTS)
@@ -511,8 +543,7 @@ public class CompactionTaskTest
   {
     final Builder builder = new Builder(
         DATA_SOURCE,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY
+        segmentCacheManagerFactory
     );
 
     final CompactionTask task = builder
@@ -536,6 +567,41 @@ public class CompactionTaskTest
   }
 
   @Test
+  public void testSerdeWithProjections() throws IOException
+  {
+    final Builder builder = new Builder(
+        DATA_SOURCE,
+        segmentCacheManagerFactory
+    );
+    final List<AggregateProjectionSpec> projections = ImmutableList.of(
+        new AggregateProjectionSpec(
+            "test",
+            VirtualColumns.EMPTY,
+            ImmutableList.of(
+                new StringDimensionSchema("dim1"),
+                new StringDimensionSchema("dim2"),
+                new StringDimensionSchema("dim3")
+            ),
+            new AggregatorFactory[]{
+                new CountAggregatorFactory("count"),
+                new LongSumAggregatorFactory("sum_long_dim_1", "long_dim_1")
+            }
+        )
+    );
+
+    final CompactionTask task = builder
+        .segments(SEGMENTS)
+        .projections(projections)
+        .tuningConfig(createTuningConfig())
+        .build();
+
+    final byte[] bytes = OBJECT_MAPPER.writeValueAsBytes(task);
+    final CompactionTask fromJson = OBJECT_MAPPER.readValue(bytes, CompactionTask.class);
+    Assert.assertEquals(projections, fromJson.getProjections());
+    assertEquals(task, fromJson);
+  }
+
+  @Test
   public void testSerdeWithOldTuningConfigSuccessfullyDeserializeToNewOne() throws IOException
   {
     final OldCompactionTaskWithAnyTuningConfigType oldTask = new OldCompactionTaskWithAnyTuningConfigType(
@@ -549,37 +615,21 @@ public class CompactionTaskTest
         null,
         null,
         null,
-        new IndexTuningConfig(
-            null,
-            null, // null to compute maxRowsPerSegment automatically
-            null,
-            500000,
-            1000000L,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            new IndexSpec(
-                new RoaringBitmapSerdeFactory(true),
-                CompressionStrategy.LZ4,
-                CompressionStrategy.LZF,
-                LongEncodingStrategy.LONGS
-            ),
-            null,
-            null,
-            true,
-            false,
-            5000L,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-        ),
+        TuningConfigBuilder
+            .forIndexTask()
+            .withMaxRowsInMemory(500000)
+            .withIndexSpec(
+                IndexSpec.builder()
+                         .withBitmapSerdeFactory(RoaringBitmapSerdeFactory.getInstance())
+                         .withDimensionCompression(CompressionStrategy.LZ4)
+                         .withMetricCompression(CompressionStrategy.LZF)
+                         .withLongEncoding(LongEncodingStrategy.LONGS)
+                         .build()
+            )
+            .withForceGuaranteedRollup(true)
+            .withReportParseExceptions(false)
+            .withPublishTimeout(5000L)
+            .build(),
         null,
         toolbox.getJsonMapper(),
         AuthTestUtils.TEST_AUTHORIZER_MAPPER,
@@ -587,14 +637,12 @@ public class CompactionTaskTest
         toolbox.getRowIngestionMetersFactory(),
         COORDINATOR_CLIENT,
         segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
         toolbox.getAppenderatorsManager()
     );
 
     final Builder builder = new Builder(
         DATA_SOURCE,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY
+        segmentCacheManagerFactory
     );
 
     final CompactionTask expectedFromJson = builder
@@ -610,77 +658,57 @@ public class CompactionTaskTest
   }
 
   @Test
+  public void testInputSourceResources()
+  {
+    final Builder builder = new Builder(
+        DATA_SOURCE,
+        segmentCacheManagerFactory
+    );
+    final CompactionTask task = builder
+        .inputSpec(
+            new CompactionIntervalSpec(COMPACTION_INTERVAL, SegmentUtils.hashIds(SEGMENTS))
+        )
+        .tuningConfig(createTuningConfig())
+        .context(ImmutableMap.of("testKey", "testContext"))
+        .build();
+
+    Assert.assertTrue(task.getInputSourceResources().isEmpty());
+  }
+
+  @Test
   public void testGetTuningConfigWithIndexTuningConfig()
   {
-    IndexTuningConfig indexTuningConfig = new IndexTuningConfig(
-        null,
-        null, // null to compute maxRowsPerSegment automatically
-        null,
-        500000,
-        1000000L,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        new IndexSpec(
-            new RoaringBitmapSerdeFactory(true),
-            CompressionStrategy.LZ4,
-            CompressionStrategy.LZF,
-            LongEncodingStrategy.LONGS
-        ),
-        null,
-        null,
-        true,
-        false,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-    );
+    IndexTuningConfig indexTuningConfig = TuningConfigBuilder
+        .forIndexTask()
+        .withMaxRowsInMemory(500000)
+        .withMaxBytesInMemory(1000000L)
+        .withIndexSpec(
+            IndexSpec.builder()
+                     .withBitmapSerdeFactory(RoaringBitmapSerdeFactory.getInstance())
+                     .withDimensionCompression(CompressionStrategy.LZ4)
+                     .withMetricCompression(CompressionStrategy.LZF)
+                     .withLongEncoding(LongEncodingStrategy.LONGS)
+                     .build()
+        )
+        .withForceGuaranteedRollup(true)
+        .withReportParseExceptions(false)
+        .build();
 
-    CompactionTask.CompactionTuningConfig compactionTuningConfig = new CompactionTask.CompactionTuningConfig(
-        null,
-        null,
-        null,
-        500000,
-        1000000L,
-        null,
-        null,
-        null,
-        null,
-        null,
-        new IndexSpec(
-            new RoaringBitmapSerdeFactory(true),
-            CompressionStrategy.LZ4,
-            CompressionStrategy.LZF,
-            LongEncodingStrategy.LONGS
-        ),
-        null,
-        null,
-        true,
-        false,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-    );
+    CompactionTask.CompactionTuningConfig compactionTuningConfig = TuningConfigBuilder
+        .forCompactionTask()
+        .withMaxRowsInMemory(500000)
+        .withMaxBytesInMemory(1000000L)
+        .withIndexSpec(
+            IndexSpec.builder()
+                     .withBitmapSerdeFactory(RoaringBitmapSerdeFactory.getInstance())
+                     .withDimensionCompression(CompressionStrategy.LZ4)
+                     .withMetricCompression(CompressionStrategy.LZF)
+                     .withLongEncoding(LongEncodingStrategy.LONGS)
+                     .build()
+        )
+        .withForceGuaranteedRollup(true)
+        .withReportParseExceptions(false)
+        .build();
 
     Assert.assertEquals(compactionTuningConfig, CompactionTask.getTuningConfig(indexTuningConfig));
 
@@ -689,125 +717,41 @@ public class CompactionTaskTest
   @Test
   public void testGetTuningConfigWithParallelIndexTuningConfig()
   {
-    ParallelIndexTuningConfig parallelIndexTuningConfig = new ParallelIndexTuningConfig(
-        null,
-        null, // null to compute maxRowsPerSegment automatically
-        null,
-        500000,
-        1000000L,
-        null,
-        null,
-        null,
-        null,
-        null,
-        new IndexSpec(
-            new RoaringBitmapSerdeFactory(true),
-            CompressionStrategy.LZ4,
-            CompressionStrategy.LZF,
-            LongEncodingStrategy.LONGS
-        ),
-        null,
-        null,
-        true,
-        false,
-        5000L,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-    );
+    ParallelIndexTuningConfig parallelIndexTuningConfig = TuningConfigBuilder
+        .forParallelIndexTask()
+        .withMaxRowsInMemory(500000)
+        .withMaxBytesInMemory(1000000L)
+        .withIndexSpec(
+            IndexSpec.builder()
+                     .withBitmapSerdeFactory(RoaringBitmapSerdeFactory.getInstance())
+                     .withDimensionCompression(CompressionStrategy.LZ4)
+                     .withMetricCompression(CompressionStrategy.LZF)
+                     .withLongEncoding(LongEncodingStrategy.LONGS)
+                     .build()
+        )
+        .withForceGuaranteedRollup(true)
+        .withReportParseExceptions(false)
+        .withPushTimeout(5000L)
+        .build();
 
-    CompactionTask.CompactionTuningConfig compactionTuningConfig = new CompactionTask.CompactionTuningConfig(
-        null,
-        null, // null to compute maxRowsPerSegment automatically
-        null,
-        500000,
-        1000000L,
-        null,
-        null,
-        null,
-        null,
-        null,
-        new IndexSpec(
-            new RoaringBitmapSerdeFactory(true),
-            CompressionStrategy.LZ4,
-            CompressionStrategy.LZF,
-            LongEncodingStrategy.LONGS
-        ),
-        null,
-        null,
-        true,
-        false,
-        5000L,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-    );
+    CompactionTask.CompactionTuningConfig compactionTuningConfig = TuningConfigBuilder
+        .forCompactionTask()
+        .withMaxRowsInMemory(500000)
+        .withMaxBytesInMemory(1000000L)
+        .withIndexSpec(
+            IndexSpec.builder()
+                     .withBitmapSerdeFactory(RoaringBitmapSerdeFactory.getInstance())
+                     .withDimensionCompression(CompressionStrategy.LZ4)
+                     .withMetricCompression(CompressionStrategy.LZF)
+                     .withLongEncoding(LongEncodingStrategy.LONGS)
+                     .build()
+        )
+        .withForceGuaranteedRollup(true)
+        .withReportParseExceptions(false)
+        .withPushTimeout(5000L)
+        .build();
 
     Assert.assertEquals(compactionTuningConfig, CompactionTask.getTuningConfig(parallelIndexTuningConfig));
-  }
-
-  @Test
-  public void testSerdeWithUnknownTuningConfigThrowingError() throws IOException
-  {
-    final OldCompactionTaskWithAnyTuningConfigType taskWithUnknownTuningConfig =
-        new OldCompactionTaskWithAnyTuningConfigType(
-            null,
-            null,
-            DATA_SOURCE,
-            null,
-            SEGMENTS,
-            null,
-            null,
-            null,
-            null,
-            null,
-            RealtimeTuningConfig.makeDefaultTuningConfig(null),
-            null,
-            OBJECT_MAPPER,
-            AuthTestUtils.TEST_AUTHORIZER_MAPPER,
-            null,
-            toolbox.getRowIngestionMetersFactory(),
-            COORDINATOR_CLIENT,
-            segmentCacheManagerFactory,
-            RETRY_POLICY_FACTORY,
-            toolbox.getAppenderatorsManager()
-        );
-
-    final ObjectMapper mapper = new DefaultObjectMapper((DefaultObjectMapper) OBJECT_MAPPER);
-    mapper.registerSubtypes(
-        new NamedType(OldCompactionTaskWithAnyTuningConfigType.class, "compact"),
-        new NamedType(RealtimeTuningConfig.class, "realtime")
-    );
-    final byte[] bytes = mapper.writeValueAsBytes(taskWithUnknownTuningConfig);
-
-    expectedException.expect(ValueInstantiationException.class);
-    expectedException.expectCause(CoreMatchers.instanceOf(IllegalStateException.class));
-    expectedException.expectMessage(
-        "Unknown tuningConfig type: [org.apache.druid.segment.indexing.RealtimeTuningConfig]"
-    );
-    mapper.readValue(bytes, CompactionTask.class);
   }
 
   private static void assertEquals(CompactionTask expected, CompactionTask actual)
@@ -837,21 +781,30 @@ public class CompactionTaskTest
   }
 
   @Test
-  public void testCreateIngestionSchema() throws IOException, SegmentLoadingException
+  public void testCreateIngestionSchema() throws IOException
   {
-    final List<ParallelIndexIngestionSpec> ingestionSpecs = CompactionTask.createIngestionSchema(
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
         new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
+        null,
+        null,
+        null,
+        null,
+        null,
+        METRIC_BUILDER,
+        false
+    );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
         new PartitionConfigurationManager(TUNING_CONFIG),
-        null,
-        null,
-        null,
         COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        segmentCacheManagerFactory
     );
+
     final List<DimensionsSpec> expectedDimensionsSpec = getExpectedDimensionsSpecForAutoGeneration();
 
     ingestionSpecs.sort(
@@ -864,67 +817,57 @@ public class CompactionTaskTest
     assertIngestionSchema(
         ingestionSpecs,
         expectedDimensionsSpec,
-        AGGREGATORS,
+        AGGREGATORS.stream().map(AggregatorFactory::getCombiningFactory).collect(Collectors.toList()),
         SEGMENT_INTERVALS,
         Granularities.MONTH,
         Granularities.NONE,
-        IOConfig.DEFAULT_DROP_EXISTING
+        BatchIOConfig.DEFAULT_DROP_EXISTING
     );
   }
 
   @Test
-  public void testCreateIngestionSchemaWithTargetPartitionSize() throws IOException, SegmentLoadingException
+  public void testCreateIngestionSchemaWithTargetPartitionSize() throws IOException
   {
-    final CompactionTask.CompactionTuningConfig tuningConfig = new CompactionTask.CompactionTuningConfig(
-        100000,
-        null,
-        null,
-        500000,
-        1000000L,
-        null,
-        null,
-        null,
-        null,
-        null,
-        new IndexSpec(
-            new RoaringBitmapSerdeFactory(true),
-            CompressionStrategy.LZ4,
-            CompressionStrategy.LZF,
-            LongEncodingStrategy.LONGS
-        ),
-        null,
-        null,
-        true,
-        false,
-        null,
-        null,
-        null,
-        10,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-    );
-    final List<ParallelIndexIngestionSpec> ingestionSpecs = CompactionTask.createIngestionSchema(
+    final CompactionTask.CompactionTuningConfig tuningConfig = TuningConfigBuilder
+        .forCompactionTask()
+        .withTargetPartitionSize(100000)
+        .withMaxRowsInMemory(500000)
+        .withMaxBytesInMemory(1000000L)
+        .withIndexSpec(
+            IndexSpec.builder()
+                     .withBitmapSerdeFactory(RoaringBitmapSerdeFactory.getInstance())
+                     .withDimensionCompression(CompressionStrategy.LZ4)
+                     .withMetricCompression(CompressionStrategy.LZF)
+                     .withLongEncoding(LongEncodingStrategy.LONGS)
+                     .build()
+        )
+        .withForceGuaranteedRollup(true)
+        .withReportParseExceptions(false)
+        .withMaxNumConcurrentSubTasks(10)
+        .build();
+
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
         new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
-        new PartitionConfigurationManager(tuningConfig),
         null,
         null,
         null,
-        COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        null,
+        null,
+        METRIC_BUILDER,
+        false
     );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
+        new PartitionConfigurationManager(tuningConfig),
+        COORDINATOR_CLIENT,
+        segmentCacheManagerFactory
+    );
+
     final List<DimensionsSpec> expectedDimensionsSpec = getExpectedDimensionsSpecForAutoGeneration();
 
     ingestionSpecs.sort(
@@ -937,67 +880,121 @@ public class CompactionTaskTest
     assertIngestionSchema(
         ingestionSpecs,
         expectedDimensionsSpec,
-        AGGREGATORS,
+        AGGREGATORS.stream().map(AggregatorFactory::getCombiningFactory).collect(Collectors.toList()),
         SEGMENT_INTERVALS,
         tuningConfig,
         Granularities.MONTH,
         Granularities.NONE,
-        IOConfig.DEFAULT_DROP_EXISTING
+        BatchIOConfig.DEFAULT_DROP_EXISTING
     );
   }
 
   @Test
-  public void testCreateIngestionSchemaWithMaxTotalRows() throws IOException, SegmentLoadingException
+  public void testCreateIngestionSchemaWithMaxTotalRows() throws IOException
   {
-    final CompactionTask.CompactionTuningConfig tuningConfig = new CompactionTask.CompactionTuningConfig(
-        null,
-        null,
-        null,
-        500000,
-        1000000L,
-        null,
-        1000000L,
-        null,
-        null,
-        null,
-        new IndexSpec(
-            new RoaringBitmapSerdeFactory(true),
-            CompressionStrategy.LZ4,
-            CompressionStrategy.LZF,
-            LongEncodingStrategy.LONGS
-        ),
-        null,
-        null,
-        false,
-        false,
-        5000L,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-    );
-    final List<ParallelIndexIngestionSpec> ingestionSpecs = CompactionTask.createIngestionSchema(
+    final CompactionTask.CompactionTuningConfig tuningConfig = TuningConfigBuilder
+        .forCompactionTask()
+        .withMaxRowsInMemory(500000)
+        .withMaxBytesInMemory(1000000L)
+        .withMaxTotalRows(1000000L)
+        .withIndexSpec(
+            IndexSpec.builder()
+                     .withBitmapSerdeFactory(RoaringBitmapSerdeFactory.getInstance())
+                     .withDimensionCompression(CompressionStrategy.LZ4)
+                     .withMetricCompression(CompressionStrategy.LZF)
+                     .withLongEncoding(LongEncodingStrategy.LONGS)
+                     .build()
+        )
+        .withForceGuaranteedRollup(false)
+        .withReportParseExceptions(false)
+        .withPushTimeout(5000L)
+        .build();
+
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
         new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
+        null,
+        null,
+        null,
+        null,
+        null,
+        METRIC_BUILDER,
+        false
+    );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
         new PartitionConfigurationManager(tuningConfig),
-        null,
-        null,
-        null,
         COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        segmentCacheManagerFactory
+    );
+
+    final List<DimensionsSpec> expectedDimensionsSpec = getExpectedDimensionsSpecForAutoGeneration();
+
+    ingestionSpecs.sort(
+        (s1, s2) -> Comparators.intervalsByStartThenEnd().compare(
+            s1.getDataSchema().getGranularitySpec().inputIntervals().get(0),
+            s2.getDataSchema().getGranularitySpec().inputIntervals().get(0)
+        )
+    );
+    Assert.assertEquals(6, ingestionSpecs.size());
+    assertIngestionSchema(
+        ingestionSpecs,
+        expectedDimensionsSpec,
+        AGGREGATORS.stream().map(AggregatorFactory::getCombiningFactory).collect(Collectors.toList()),
+        SEGMENT_INTERVALS,
+        tuningConfig,
+        Granularities.MONTH,
+        Granularities.NONE,
+        BatchIOConfig.DEFAULT_DROP_EXISTING
+    );
+  }
+
+  @Test
+  public void testCreateIngestionSchemaWithNumShards() throws IOException
+  {
+    final CompactionTask.CompactionTuningConfig tuningConfig = TuningConfigBuilder
+        .forCompactionTask()
+        .withMaxRowsInMemory(500000)
+        .withMaxBytesInMemory(1000000L)
+        .withPartitionsSpec(new HashedPartitionsSpec(null, 3, null))
+        .withIndexSpec(
+            IndexSpec.builder()
+                     .withBitmapSerdeFactory(RoaringBitmapSerdeFactory.getInstance())
+                     .withDimensionCompression(CompressionStrategy.LZ4)
+                     .withMetricCompression(CompressionStrategy.LZF)
+                     .withLongEncoding(LongEncodingStrategy.LONGS)
+                     .build()
+        )
+        .withForceGuaranteedRollup(true)
+        .withReportParseExceptions(false)
+        .withPushTimeout(5000L)
+        .withMaxNumConcurrentSubTasks(10)
+        .build();
+
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
+        toolbox,
+        LockGranularity.TIME_CHUNK,
+        new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
+        null,
+        null,
+        null,
+        null,
+        null,
+        METRIC_BUILDER,
+        false
+    );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
+        new PartitionConfigurationManager(tuningConfig),
+        COORDINATOR_CLIENT,
+        segmentCacheManagerFactory
     );
     final List<DimensionsSpec> expectedDimensionsSpec = getExpectedDimensionsSpecForAutoGeneration();
 
@@ -1011,91 +1008,17 @@ public class CompactionTaskTest
     assertIngestionSchema(
         ingestionSpecs,
         expectedDimensionsSpec,
-        AGGREGATORS,
+        AGGREGATORS.stream().map(AggregatorFactory::getCombiningFactory).collect(Collectors.toList()),
         SEGMENT_INTERVALS,
         tuningConfig,
         Granularities.MONTH,
         Granularities.NONE,
-        IOConfig.DEFAULT_DROP_EXISTING
+        BatchIOConfig.DEFAULT_DROP_EXISTING
     );
   }
 
   @Test
-  public void testCreateIngestionSchemaWithNumShards() throws IOException, SegmentLoadingException
-  {
-    final CompactionTask.CompactionTuningConfig tuningConfig = new CompactionTask.CompactionTuningConfig(
-        null,
-        null,
-        null,
-        500000,
-        1000000L,
-        null,
-        null,
-        null,
-        null,
-        new HashedPartitionsSpec(null, 3, null),
-        new IndexSpec(
-            new RoaringBitmapSerdeFactory(true),
-            CompressionStrategy.LZ4,
-            CompressionStrategy.LZF,
-            LongEncodingStrategy.LONGS
-        ),
-        null,
-        null,
-        true,
-        false,
-        5000L,
-        null,
-        null,
-        10,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-    );
-    final List<ParallelIndexIngestionSpec> ingestionSpecs = CompactionTask.createIngestionSchema(
-        toolbox,
-        LockGranularity.TIME_CHUNK,
-        new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
-        new PartitionConfigurationManager(tuningConfig),
-        null,
-        null,
-        null,
-        COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
-    );
-    final List<DimensionsSpec> expectedDimensionsSpec = getExpectedDimensionsSpecForAutoGeneration();
-
-    ingestionSpecs.sort(
-        (s1, s2) -> Comparators.intervalsByStartThenEnd().compare(
-            s1.getDataSchema().getGranularitySpec().inputIntervals().get(0),
-            s2.getDataSchema().getGranularitySpec().inputIntervals().get(0)
-        )
-    );
-    Assert.assertEquals(6, ingestionSpecs.size());
-    assertIngestionSchema(
-        ingestionSpecs,
-        expectedDimensionsSpec,
-        AGGREGATORS,
-        SEGMENT_INTERVALS,
-        tuningConfig,
-        Granularities.MONTH,
-        Granularities.NONE,
-        IOConfig.DEFAULT_DROP_EXISTING
-    );
-  }
-
-  @Test
-  public void testCreateIngestionSchemaWithCustomDimensionsSpec() throws IOException, SegmentLoadingException
+  public void testCreateIngestionSchemaWithCustomDimensionsSpec() throws IOException
   {
     final DimensionsSpec customSpec = new DimensionsSpec(
         Lists.newArrayList(
@@ -1124,18 +1047,26 @@ public class CompactionTaskTest
         )
     );
 
-    final List<ParallelIndexIngestionSpec> ingestionSpecs = CompactionTask.createIngestionSchema(
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
         new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
-        new PartitionConfigurationManager(TUNING_CONFIG),
         customSpec,
         null,
         null,
+        null,
+        null,
+        METRIC_BUILDER,
+        false
+    );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
+        new PartitionConfigurationManager(TUNING_CONFIG),
         COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        segmentCacheManagerFactory
     );
 
     ingestionSpecs.sort(
@@ -1150,16 +1081,16 @@ public class CompactionTaskTest
     assertIngestionSchema(
         ingestionSpecs,
         dimensionsSpecs,
-        AGGREGATORS,
+        AGGREGATORS.stream().map(AggregatorFactory::getCombiningFactory).collect(Collectors.toList()),
         SEGMENT_INTERVALS,
         Granularities.MONTH,
         Granularities.NONE,
-        IOConfig.DEFAULT_DROP_EXISTING
+        BatchIOConfig.DEFAULT_DROP_EXISTING
     );
   }
 
   @Test
-  public void testCreateIngestionSchemaWithCustomMetricsSpec() throws IOException, SegmentLoadingException
+  public void testCreateIngestionSchemaWithCustomMetricsSpec() throws IOException
   {
     final AggregatorFactory[] customMetricsSpec = new AggregatorFactory[]{
         new CountAggregatorFactory("custom_count"),
@@ -1168,18 +1099,26 @@ public class CompactionTaskTest
         new DoubleMaxAggregatorFactory("custom_double_max", "agg_4")
     };
 
-    final List<ParallelIndexIngestionSpec> ingestionSpecs = CompactionTask.createIngestionSchema(
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
         new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
-        new PartitionConfigurationManager(TUNING_CONFIG),
+        null,
         null,
         customMetricsSpec,
         null,
+        null,
+        METRIC_BUILDER,
+        false
+    );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
+        new PartitionConfigurationManager(TUNING_CONFIG),
         COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        segmentCacheManagerFactory
     );
 
     final List<DimensionsSpec> expectedDimensionsSpec = getExpectedDimensionsSpecForAutoGeneration();
@@ -1198,26 +1137,35 @@ public class CompactionTaskTest
         SEGMENT_INTERVALS,
         Granularities.MONTH,
         Granularities.NONE,
-        IOConfig.DEFAULT_DROP_EXISTING
+        BatchIOConfig.DEFAULT_DROP_EXISTING
     );
   }
 
   @Test
-  public void testCreateIngestionSchemaWithCustomSegments() throws IOException, SegmentLoadingException
+  public void testCreateIngestionSchemaWithCustomSegments() throws IOException
   {
-    final List<ParallelIndexIngestionSpec> ingestionSpecs = CompactionTask.createIngestionSchema(
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
-        new SegmentProvider(DATA_SOURCE, SpecificSegmentsSpec.fromSegments(SEGMENTS)),
-        new PartitionConfigurationManager(TUNING_CONFIG),
+        new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
         null,
         null,
         null,
-        COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        null,
+        null,
+        METRIC_BUILDER,
+        false
     );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
+        new PartitionConfigurationManager(TUNING_CONFIG),
+        COORDINATOR_CLIENT,
+        segmentCacheManagerFactory
+    );
+
     final List<DimensionsSpec> expectedDimensionsSpec = getExpectedDimensionsSpecForAutoGeneration();
 
     ingestionSpecs.sort(
@@ -1230,16 +1178,16 @@ public class CompactionTaskTest
     assertIngestionSchema(
         ingestionSpecs,
         expectedDimensionsSpec,
-        AGGREGATORS,
+        AGGREGATORS.stream().map(AggregatorFactory::getCombiningFactory).collect(Collectors.toList()),
         SEGMENT_INTERVALS,
         Granularities.MONTH,
         Granularities.NONE,
-        IOConfig.DEFAULT_DROP_EXISTING
+        BatchIOConfig.DEFAULT_DROP_EXISTING
     );
   }
 
   @Test
-  public void testCreateIngestionSchemaWithDifferentSegmentSet() throws IOException, SegmentLoadingException
+  public void testCreateIngestionSchemaWithDifferentSegmentSet() throws IOException
   {
     expectedException.expect(CoreMatchers.instanceOf(IllegalStateException.class));
     expectedException.expectMessage(CoreMatchers.containsString("are different from the current used segments"));
@@ -1248,23 +1196,31 @@ public class CompactionTaskTest
     Collections.sort(segments);
     // Remove one segment in the middle
     segments.remove(segments.size() / 2);
-    CompactionTask.createIngestionSchema(
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
         new SegmentProvider(DATA_SOURCE, SpecificSegmentsSpec.fromSegments(segments)),
+        null,
+        null,
+        null,
+        null,
+        null,
+        METRIC_BUILDER,
+        false
+    );
+
+    NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
         new PartitionConfigurationManager(TUNING_CONFIG),
-        null,
-        null,
-        null,
         COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        segmentCacheManagerFactory
     );
   }
 
   @Test
-  public void testMissingMetadata() throws IOException, SegmentLoadingException
+  public void testMissingMetadata() throws IOException
   {
     expectedException.expect(RuntimeException.class);
     expectedException.expectMessage(CoreMatchers.startsWith("Index metadata doesn't exist for segment"));
@@ -1272,18 +1228,26 @@ public class CompactionTaskTest
     final TestIndexIO indexIO = (TestIndexIO) toolbox.getIndexIO();
     indexIO.removeMetadata(Iterables.getFirst(indexIO.getQueryableIndexMap().keySet(), null));
     final List<DataSegment> segments = new ArrayList<>(SEGMENTS);
-    CompactionTask.createIngestionSchema(
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
         new SegmentProvider(DATA_SOURCE, SpecificSegmentsSpec.fromSegments(segments)),
+        null,
+        null,
+        null,
+        null,
+        null,
+        METRIC_BUILDER,
+        false
+    );
+
+    NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
         new PartitionConfigurationManager(TUNING_CONFIG),
-        null,
-        null,
-        null,
         COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        segmentCacheManagerFactory
     );
   }
 
@@ -1295,30 +1259,38 @@ public class CompactionTaskTest
 
     final Builder builder = new Builder(
         DATA_SOURCE,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY
+        segmentCacheManagerFactory
     );
 
+    @SuppressWarnings("unused")
     final CompactionTask task = builder
         .interval(Intervals.of("2000-01-01/2000-01-01"))
         .build();
   }
 
   @Test
-  public void testSegmentGranularityAndNullQueryGranularity() throws IOException, SegmentLoadingException
+  public void testSegmentGranularityAndNullQueryGranularity() throws IOException
   {
-    final List<ParallelIndexIngestionSpec> ingestionSpecs = CompactionTask.createIngestionSchema(
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
         new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
+        null,
+        null,
+        null,
+        new ClientCompactionTaskGranularitySpec(new PeriodGranularity(Period.months(3), null, null), null, null),
+        null,
+        METRIC_BUILDER,
+        false
+    );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
         new PartitionConfigurationManager(TUNING_CONFIG),
-        null,
-        null,
-        new ClientCompactionTaskGranularitySpec(new PeriodGranularity(Period.months(3), null, null), null),
         COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        segmentCacheManagerFactory
     );
     final List<DimensionsSpec> expectedDimensionsSpec = ImmutableList.of(
         new DimensionsSpec(getDimensionSchema(new DoubleDimensionSchema("string_to_double")))
@@ -1334,29 +1306,36 @@ public class CompactionTaskTest
     assertIngestionSchema(
         ingestionSpecs,
         expectedDimensionsSpec,
-        AGGREGATORS,
+        AGGREGATORS.stream().map(AggregatorFactory::getCombiningFactory).collect(Collectors.toList()),
         Collections.singletonList(COMPACTION_INTERVAL),
         new PeriodGranularity(Period.months(3), null, null),
         Granularities.NONE,
-        IOConfig.DEFAULT_DROP_EXISTING
+        BatchIOConfig.DEFAULT_DROP_EXISTING
     );
   }
 
   @Test
-  public void testQueryGranularityAndNullSegmentGranularity() throws IOException, SegmentLoadingException
+  public void testQueryGranularityAndNullSegmentGranularity() throws IOException
   {
-    final List<ParallelIndexIngestionSpec> ingestionSpecs = CompactionTask.createIngestionSchema(
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
         new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
+        null,
+        null,
+        null,
+        new ClientCompactionTaskGranularitySpec(null, new PeriodGranularity(Period.months(3), null, null), null),
+        null,
+        METRIC_BUILDER,
+        false
+    );
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
         new PartitionConfigurationManager(TUNING_CONFIG),
-        null,
-        null,
-        new ClientCompactionTaskGranularitySpec(null, new PeriodGranularity(Period.months(3), null, null)),
         COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        segmentCacheManagerFactory
     );
     final List<DimensionsSpec> expectedDimensionsSpec = getExpectedDimensionsSpecForAutoGeneration();
 
@@ -1370,33 +1349,44 @@ public class CompactionTaskTest
     assertIngestionSchema(
         ingestionSpecs,
         expectedDimensionsSpec,
-        AGGREGATORS,
+        AGGREGATORS.stream().map(AggregatorFactory::getCombiningFactory).collect(Collectors.toList()),
         SEGMENT_INTERVALS,
         Granularities.MONTH,
         new PeriodGranularity(Period.months(3), null, null),
-        IOConfig.DEFAULT_DROP_EXISTING
+        BatchIOConfig.DEFAULT_DROP_EXISTING
     );
   }
 
   @Test
-  public void testQueryGranularityAndSegmentGranularityNonNull() throws IOException, SegmentLoadingException
+  public void testQueryGranularityAndSegmentGranularityNonNull() throws IOException
   {
-    final List<ParallelIndexIngestionSpec> ingestionSpecs = CompactionTask.createIngestionSchema(
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
         new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
-        new PartitionConfigurationManager(TUNING_CONFIG),
+        null,
         null,
         null,
         new ClientCompactionTaskGranularitySpec(
             new PeriodGranularity(Period.months(3), null, null),
-            new PeriodGranularity(Period.months(3), null, null)
+            new PeriodGranularity(Period.months(3), null, null),
+            null
         ),
-        COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        null,
+        METRIC_BUILDER,
+        false
     );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
+        new PartitionConfigurationManager(TUNING_CONFIG),
+        COORDINATOR_CLIENT,
+        segmentCacheManagerFactory
+    );
+
+
     final List<DimensionsSpec> expectedDimensionsSpec = ImmutableList.of(
         new DimensionsSpec(getDimensionSchema(new DoubleDimensionSchema("string_to_double")))
     );
@@ -1411,30 +1401,41 @@ public class CompactionTaskTest
     assertIngestionSchema(
         ingestionSpecs,
         expectedDimensionsSpec,
-        AGGREGATORS,
+        AGGREGATORS.stream().map(AggregatorFactory::getCombiningFactory).collect(Collectors.toList()),
         Collections.singletonList(COMPACTION_INTERVAL),
         new PeriodGranularity(Period.months(3), null, null),
         new PeriodGranularity(Period.months(3), null, null),
-        IOConfig.DEFAULT_DROP_EXISTING
+        BatchIOConfig.DEFAULT_DROP_EXISTING
     );
+    emitter.verifyEmitted("compact/segmentAnalyzer/fetchAndProcessMillis", 1);
   }
 
   @Test
-  public void testNullGranularitySpec() throws IOException, SegmentLoadingException
+  public void testNullGranularitySpec() throws IOException
   {
-    final List<ParallelIndexIngestionSpec> ingestionSpecs = CompactionTask.createIngestionSchema(
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
         new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
-        new PartitionConfigurationManager(TUNING_CONFIG),
         null,
         null,
         null,
-        COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        null,
+        null,
+        METRIC_BUILDER,
+        false
     );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
+        new PartitionConfigurationManager(TUNING_CONFIG),
+        COORDINATOR_CLIENT,
+        segmentCacheManagerFactory
+    );
+
+
     final List<DimensionsSpec> expectedDimensionsSpec = getExpectedDimensionsSpecForAutoGeneration();
 
     ingestionSpecs.sort(
@@ -1447,31 +1448,41 @@ public class CompactionTaskTest
     assertIngestionSchema(
         ingestionSpecs,
         expectedDimensionsSpec,
-        AGGREGATORS,
+        AGGREGATORS.stream().map(AggregatorFactory::getCombiningFactory).collect(Collectors.toList()),
         SEGMENT_INTERVALS,
         Granularities.MONTH,
         Granularities.NONE,
-        IOConfig.DEFAULT_DROP_EXISTING
+        BatchIOConfig.DEFAULT_DROP_EXISTING
     );
   }
 
   @Test
   public void testGranularitySpecWithNullQueryGranularityAndNullSegmentGranularity()
-      throws IOException, SegmentLoadingException
+      throws IOException
   {
-    final List<ParallelIndexIngestionSpec> ingestionSpecs = CompactionTask.createIngestionSchema(
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
         toolbox,
         LockGranularity.TIME_CHUNK,
         new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
-        new PartitionConfigurationManager(TUNING_CONFIG),
         null,
         null,
-        new ClientCompactionTaskGranularitySpec(null, null),
-        COORDINATOR_CLIENT,
-        segmentCacheManagerFactory,
-        RETRY_POLICY_FACTORY,
-        IOConfig.DEFAULT_DROP_EXISTING
+        null,
+        new ClientCompactionTaskGranularitySpec(null, null, null),
+        null,
+        METRIC_BUILDER,
+        false
     );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
+        new PartitionConfigurationManager(TUNING_CONFIG),
+        COORDINATOR_CLIENT,
+        segmentCacheManagerFactory
+    );
+
+
     final List<DimensionsSpec> expectedDimensionsSpec = getExpectedDimensionsSpecForAutoGeneration();
 
     ingestionSpecs.sort(
@@ -1484,12 +1495,183 @@ public class CompactionTaskTest
     assertIngestionSchema(
         ingestionSpecs,
         expectedDimensionsSpec,
-        AGGREGATORS,
+        AGGREGATORS.stream().map(AggregatorFactory::getCombiningFactory).collect(Collectors.toList()),
         SEGMENT_INTERVALS,
         Granularities.MONTH,
         Granularities.NONE,
-        IOConfig.DEFAULT_DROP_EXISTING
+        BatchIOConfig.DEFAULT_DROP_EXISTING
     );
+  }
+
+  @Test
+  public void testGranularitySpecWithNotNullRollup()
+      throws IOException
+  {
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
+        toolbox,
+        LockGranularity.TIME_CHUNK,
+        new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
+        null,
+        null,
+        null,
+        new ClientCompactionTaskGranularitySpec(null, null, true),
+        null,
+        METRIC_BUILDER,
+        false
+    );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
+        new PartitionConfigurationManager(TUNING_CONFIG),
+        COORDINATOR_CLIENT,
+        segmentCacheManagerFactory
+    );
+
+    Assert.assertEquals(6, ingestionSpecs.size());
+    for (ParallelIndexIngestionSpec indexIngestionSpec : ingestionSpecs) {
+      Assert.assertTrue(indexIngestionSpec.getDataSchema().getGranularitySpec().isRollup());
+    }
+  }
+
+  @Test
+  public void testGranularitySpecWithNullRollup()
+      throws IOException
+  {
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
+        toolbox,
+        LockGranularity.TIME_CHUNK,
+        new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
+        null,
+        null,
+        null,
+        new ClientCompactionTaskGranularitySpec(null, null, null),
+        null,
+        METRIC_BUILDER,
+        false
+    );
+
+    final List<ParallelIndexIngestionSpec> ingestionSpecs = NativeCompactionRunner.createIngestionSpecs(
+        dataSchemasForIntervals,
+        toolbox,
+        new CompactionIOConfig(null, false, null),
+        new PartitionConfigurationManager(TUNING_CONFIG),
+        COORDINATOR_CLIENT,
+        segmentCacheManagerFactory
+    );
+
+
+    Assert.assertEquals(6, ingestionSpecs.size());
+    for (ParallelIndexIngestionSpec indexIngestionSpec : ingestionSpecs) {
+      //Expect false since rollup value in metadata of existing segments are null
+      Assert.assertFalse(indexIngestionSpec.getDataSchema().getGranularitySpec().isRollup());
+    }
+  }
+
+  @Test
+  public void testMultiValuedDimensionsProcessing()
+      throws IOException
+  {
+    final Map<Interval, DataSchema> dataSchemasForIntervals = CompactionTask.createDataSchemasForIntervals(
+        toolbox,
+        LockGranularity.TIME_CHUNK,
+        new SegmentProvider(DATA_SOURCE, new CompactionIntervalSpec(COMPACTION_INTERVAL, null)),
+        null,
+        null,
+        null,
+        new ClientCompactionTaskGranularitySpec(null, null, null),
+        null,
+        METRIC_BUILDER,
+        true
+    );
+    for (DataSchema dataSchema : dataSchemasForIntervals.values()) {
+      Assert.assertTrue(dataSchema instanceof CombinedDataSchema);
+      Assert.assertTrue(((CombinedDataSchema) dataSchema).getMultiValuedDimensions().isEmpty());
+    }
+  }
+
+  @Test
+  public void testMSQRollupWithNoDimensionsSpecNeedsMVDInfo()
+  {
+    final Builder builder = new Builder(
+        DATA_SOURCE,
+        segmentCacheManagerFactory
+    );
+    builder.inputSpec(new CompactionIntervalSpec(COMPACTION_INTERVAL, SegmentUtils.hashIds(SEGMENTS)));
+    builder.compactionRunner(new TestMSQCompactionRunner());
+    final CompactionTask compactionTask = builder.build();
+    // granularitySpec=null should assume a possible rollup
+    Assert.assertTrue(compactionTask.identifyMultiValuedDimensions());
+  }
+
+  @Test
+  public void testMSQRangePartitionWithNoDimensionsSpecNeedsMVDInfo()
+  {
+    final Builder builder = new Builder(
+        DATA_SOURCE,
+        segmentCacheManagerFactory
+    );
+    builder.inputSpec(new CompactionIntervalSpec(COMPACTION_INTERVAL, SegmentUtils.hashIds(SEGMENTS)));
+    builder.compactionRunner(new TestMSQCompactionRunner());
+    builder.tuningConfig(TuningConfigBuilder.forCompactionTask()
+                                            .withForceGuaranteedRollup(true)
+                                            .withPartitionsSpec(
+                                                new DimensionRangePartitionsSpec(
+                                                    3,
+                                                    null,
+                                                    ImmutableList.of(
+                                                        "string_dim_1"),
+                                                    false
+                                                ))
+                                            .build());
+    final CompactionTask compactionTask = builder.build();
+    Assert.assertTrue(compactionTask.identifyMultiValuedDimensions());
+  }
+
+  @Test
+  public void testMSQRollupOnStringNeedsMVDInfo()
+  {
+    final Builder builder = new Builder(
+        DATA_SOURCE,
+        segmentCacheManagerFactory
+    );
+    builder.inputSpec(new CompactionIntervalSpec(COMPACTION_INTERVAL, SegmentUtils.hashIds(SEGMENTS)));
+    builder.compactionRunner(new TestMSQCompactionRunner());
+    builder.granularitySpec(new ClientCompactionTaskGranularitySpec(null, null, true));
+
+    DimensionSchema stringDim = new StringDimensionSchema("string_dim_1", null, null);
+    builder.dimensionsSpec(new DimensionsSpec(ImmutableList.of(stringDim)));
+    final CompactionTask compactionTask = builder.build();
+    // A string dimension with rollup=true should need MVD info
+    Assert.assertTrue(compactionTask.identifyMultiValuedDimensions());
+  }
+
+  @Test
+  public void testMSQRangePartitionOnStringNeedsMVDInfo()
+  {
+    final Builder builder = new Builder(
+        DATA_SOURCE,
+        segmentCacheManagerFactory
+    );
+    builder.inputSpec(new CompactionIntervalSpec(COMPACTION_INTERVAL, SegmentUtils.hashIds(SEGMENTS)));
+    builder.compactionRunner(new TestMSQCompactionRunner());
+
+    DimensionSchema stringDim = new StringDimensionSchema("string_dim_1", null, null);
+    builder.tuningConfig(TuningConfigBuilder.forCompactionTask()
+                                            .withForceGuaranteedRollup(true)
+                                            .withPartitionsSpec(
+                                                new DimensionRangePartitionsSpec(
+                                                    3,
+                                                    null,
+                                                    ImmutableList.of(
+                                                        stringDim.getName()),
+                                                    false
+                                                ))
+                                            .build());
+    builder.dimensionsSpec(new DimensionsSpec(ImmutableList.of(stringDim)));
+    CompactionTask compactionTask = builder.build();
+    Assert.assertTrue(compactionTask.identifyMultiValuedDimensions());
   }
 
   @Test
@@ -1500,12 +1682,13 @@ public class CompactionTaskTest
         Granularities.SECOND,
         Granularities.MINUTE,
         Granularities.SIX_HOUR,
+        Granularities.EIGHT_HOUR,
         Granularities.DAY,
         null,
         Granularities.ALL,
         Granularities.MINUTE
     );
-    Assert.assertTrue(Granularities.SECOND.equals(chooseFinestGranularityHelper(input)));
+    Assert.assertEquals(Granularities.SECOND, chooseFinestGranularityHelper(input));
   }
 
   @Test
@@ -1516,12 +1699,13 @@ public class CompactionTaskTest
         Granularities.SECOND,
         Granularities.MINUTE,
         Granularities.SIX_HOUR,
+        Granularities.EIGHT_HOUR,
         Granularities.NONE,
         Granularities.DAY,
         Granularities.NONE,
         Granularities.MINUTE
     );
-    Assert.assertTrue(Granularities.NONE.equals(chooseFinestGranularityHelper(input)));
+    Assert.assertEquals(Granularities.NONE, chooseFinestGranularityHelper(input));
   }
 
   @Test
@@ -1536,11 +1720,38 @@ public class CompactionTaskTest
     Assert.assertNull(chooseFinestGranularityHelper(input));
   }
 
+  @Test
+  public void testGetDefaultLookupLoadingSpec()
+  {
+    final Builder builder = new Builder(
+        DATA_SOURCE,
+        segmentCacheManagerFactory
+    );
+    final CompactionTask task = builder
+        .interval(Intervals.of("2000-01-01/2000-01-02"))
+        .build();
+    Assert.assertEquals(LookupLoadingSpec.NONE, task.getLookupLoadingSpec());
+  }
+
+  @Test
+  public void testGetDefaultLookupLoadingSpecWithTransformSpec()
+  {
+    final Builder builder = new Builder(
+        DATA_SOURCE,
+        segmentCacheManagerFactory
+    );
+    final CompactionTask task = builder
+        .interval(Intervals.of("2000-01-01/2000-01-02"))
+        .transformSpec(new CompactionTransformSpec(new SelectorDimFilter("dim1", "foo", null)))
+        .build();
+    Assert.assertEquals(LookupLoadingSpec.ALL, task.getLookupLoadingSpec());
+  }
+
   private Granularity chooseFinestGranularityHelper(List<Granularity> granularities)
   {
     SettableSupplier<Granularity> queryGranularity = new SettableSupplier<>();
     for (Granularity current : granularities) {
-      queryGranularity.set(CompactionTask.compareWithCurrent(queryGranularity.get(), current));
+      queryGranularity.set(CompactionTask.ExistingSegmentAnalyzer.compareWithCurrent(queryGranularity.get(), current));
     }
     return queryGranularity.get();
   }
@@ -1549,10 +1760,10 @@ public class CompactionTaskTest
   private static List<DimensionsSpec> getExpectedDimensionsSpecForAutoGeneration()
   {
     return ImmutableList.of(
-        new DimensionsSpec(getDimensionSchema(new StringDimensionSchema("string_to_double"))),
-        new DimensionsSpec(getDimensionSchema(new StringDimensionSchema("string_to_double"))),
-        new DimensionsSpec(getDimensionSchema(new StringDimensionSchema("string_to_double"))),
-        new DimensionsSpec(getDimensionSchema(new StringDimensionSchema("string_to_double"))),
+        new DimensionsSpec(getDimensionSchema(new StringDimensionSchema("string_to_double", DimensionSchema.MultiValueHandling.ARRAY, null))),
+        new DimensionsSpec(getDimensionSchema(new StringDimensionSchema("string_to_double", DimensionSchema.MultiValueHandling.ARRAY, null))),
+        new DimensionsSpec(getDimensionSchema(new StringDimensionSchema("string_to_double", DimensionSchema.MultiValueHandling.ARRAY, null))),
+        new DimensionsSpec(getDimensionSchema(new StringDimensionSchema("string_to_double", DimensionSchema.MultiValueHandling.ARRAY, null))),
         new DimensionsSpec(getDimensionSchema(new DoubleDimensionSchema("string_to_double"))),
         new DimensionsSpec(getDimensionSchema(new DoubleDimensionSchema("string_to_double")))
     );
@@ -1562,27 +1773,27 @@ public class CompactionTaskTest
   {
     return Lists.newArrayList(
         new LongDimensionSchema("timestamp"),
-        new StringDimensionSchema("string_dim_4"),
+        new StringDimensionSchema("string_dim_4", DimensionSchema.MultiValueHandling.ARRAY, null),
         new LongDimensionSchema("long_dim_4"),
         new FloatDimensionSchema("float_dim_4"),
         new DoubleDimensionSchema("double_dim_4"),
-        new StringDimensionSchema("string_dim_0"),
+        new StringDimensionSchema("string_dim_0", DimensionSchema.MultiValueHandling.ARRAY, null),
         new LongDimensionSchema("long_dim_0"),
         new FloatDimensionSchema("float_dim_0"),
         new DoubleDimensionSchema("double_dim_0"),
-        new StringDimensionSchema("string_dim_1"),
+        new StringDimensionSchema("string_dim_1", DimensionSchema.MultiValueHandling.ARRAY, null),
         new LongDimensionSchema("long_dim_1"),
         new FloatDimensionSchema("float_dim_1"),
         new DoubleDimensionSchema("double_dim_1"),
-        new StringDimensionSchema("string_dim_2"),
+        new StringDimensionSchema("string_dim_2", DimensionSchema.MultiValueHandling.ARRAY, null),
         new LongDimensionSchema("long_dim_2"),
         new FloatDimensionSchema("float_dim_2"),
         new DoubleDimensionSchema("double_dim_2"),
-        new StringDimensionSchema("string_dim_3"),
+        new StringDimensionSchema("string_dim_3", DimensionSchema.MultiValueHandling.ARRAY, null),
         new LongDimensionSchema("long_dim_3"),
         new FloatDimensionSchema("float_dim_3"),
         new DoubleDimensionSchema("double_dim_3"),
-        new StringDimensionSchema("string_dim_5"),
+        new StringDimensionSchema("string_dim_5", DimensionSchema.MultiValueHandling.ARRAY, null),
         new LongDimensionSchema("long_dim_5"),
         new FloatDimensionSchema("float_dim_5"),
         new DoubleDimensionSchema("double_dim_5"),
@@ -1605,43 +1816,24 @@ public class CompactionTaskTest
         expectedDimensionsSpecs,
         expectedMetricsSpec,
         expectedSegmentIntervals,
-        new CompactionTask.CompactionTuningConfig(
-            null,
-            null,
-            null,
-            500000,
-            1000000L,
-            null,
-            Long.MAX_VALUE,
-            null,
-            null,
-            new HashedPartitionsSpec(5000000, null, null), // automatically computed targetPartitionSize
-            new IndexSpec(
-                new RoaringBitmapSerdeFactory(true),
-                CompressionStrategy.LZ4,
-                CompressionStrategy.LZF,
-                LongEncodingStrategy.LONGS
-            ),
-            null,
-            null,
-            true,
-            false,
-            5000L,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-        ),
+        TuningConfigBuilder
+            .forCompactionTask()
+            .withMaxRowsInMemory(500000)
+            .withMaxBytesInMemory(1000000L)
+            .withMaxTotalRows(Long.MAX_VALUE)
+            .withPartitionsSpec(new HashedPartitionsSpec(5000000, null, null))
+            .withIndexSpec(
+                IndexSpec.builder()
+                         .withBitmapSerdeFactory(RoaringBitmapSerdeFactory.getInstance())
+                         .withDimensionCompression(CompressionStrategy.LZ4)
+                         .withMetricCompression(CompressionStrategy.LZF)
+                         .withLongEncoding(LongEncodingStrategy.LONGS)
+                         .build()
+            )
+            .withForceGuaranteedRollup(true)
+            .withReportParseExceptions(false)
+            .withPushTimeout(5000L)
+            .build(),
         expectedSegmentGranularity,
         expectedQueryGranularity,
         expectedDropExisting
@@ -1685,11 +1877,7 @@ public class CompactionTaskTest
       );
 
       // metrics
-      final List<AggregatorFactory> expectedAggregators = expectedMetricsSpec
-          .stream()
-          .map(AggregatorFactory::getCombiningFactory)
-          .collect(Collectors.toList());
-      Assert.assertEquals(expectedAggregators, Arrays.asList(dataSchema.getAggregators()));
+      Assert.assertEquals(expectedMetricsSpec, Arrays.asList(dataSchema.getAggregators()));
       Assert.assertEquals(
           new UniformGranularitySpec(
               expectedSegmentGranularity,
@@ -1703,7 +1891,10 @@ public class CompactionTaskTest
       // assert ioConfig
       final ParallelIndexIOConfig ioConfig = ingestionSchema.getIOConfig();
       Assert.assertFalse(ioConfig.isAppendToExisting());
-      Assert.assertEquals(expectedDropExisting, ioConfig.isDropExisting());
+      Assert.assertEquals(
+          expectedDropExisting,
+          ioConfig.isDropExisting()
+      );
       final InputSource inputSource = ioConfig.getInputSource();
       Assert.assertTrue(inputSource instanceof DruidInputSource);
       final DruidInputSource druidInputSource = (DruidInputSource) inputSource;
@@ -1716,101 +1907,71 @@ public class CompactionTaskTest
     }
   }
 
-  private static class TestCoordinatorClient extends CoordinatorClient
+  private static class TestCoordinatorClient extends NoopCoordinatorClient
   {
     private final Map<DataSegment, File> segmentMap;
 
     TestCoordinatorClient(Map<DataSegment, File> segmentMap)
     {
-      super(null, null);
       this.segmentMap = segmentMap;
     }
 
     @Override
-    public Collection<DataSegment> fetchUsedSegmentsInDataSourceForIntervals(
+    public ListenableFuture<List<DataSegment>> fetchUsedSegments(
         String dataSource,
         List<Interval> intervals
     )
     {
-      return ImmutableSet.copyOf(segmentMap.keySet());
+      return Futures.immediateFuture(ImmutableList.copyOf(segmentMap.keySet()));
     }
   }
 
-  private static class TestTaskToolbox extends TaskToolbox
+  private TaskToolbox makeTaskToolbox(
+      TaskActionClient taskActionClient,
+      IndexIO indexIO,
+      Map<DataSegment, File> segments
+  )
   {
-    private final Map<DataSegment, File> segmentFileMap;
-
-    TestTaskToolbox(
-        TaskActionClient taskActionClient,
-        IndexIO indexIO,
-        Map<DataSegment, File> segmentFileMap
-    )
+    final SegmentCacheManager segmentCacheManager = new NoopSegmentCacheManager()
     {
-      super(
-          new TaskConfig(
-              null,
-              null,
-              null,
-              null,
-              null,
-              false,
-              null,
-              null,
-              null,
-              false,
-              false,
-              TaskConfig.BATCH_PROCESSING_MODE_DEFAULT.name()
-          ),
-          null,
-          taskActionClient,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          NoopJoinableFactory.INSTANCE,
-          null,
-          null,
-          null,
-          null,
-          indexIO,
-          null,
-          null,
-          null,
-          new IndexMergerV9(OBJECT_MAPPER, indexIO, OffHeapMemorySegmentWriteOutMediumFactory.instance()),
-          null,
-          null,
-          null,
-          null,
-          new NoopTestTaskReportFileWriter(),
-          null,
-          AuthTestUtils.TEST_AUTHORIZER_MAPPER,
-          new NoopChatHandlerProvider(),
-          TEST_UTILS.getRowIngestionMetersFactory(),
-          new TestAppenderatorsManager(),
-          INDEXING_SERVICE_CLIENT,
-          COORDINATOR_CLIENT,
-          null,
-          null
-      );
-      this.segmentFileMap = segmentFileMap;
-    }
-
-    @Override
-    public Map<DataSegment, File> fetchSegments(List<DataSegment> segments)
-    {
-      final Map<DataSegment, File> submap = Maps.newHashMapWithExpectedSize(segments.size());
-      for (DataSegment segment : segments) {
-        final File file = Preconditions.checkNotNull(segmentFileMap.get(segment));
-        submap.put(segment, file);
+      @Override
+      public File getSegmentFiles(DataSegment segment)
+      {
+        return Preconditions.checkNotNull(segments.get(segment));
       }
-      return submap;
-    }
+
+      @Override
+      public void cleanup(DataSegment segment)
+      {
+        // Do nothing.
+      }
+    };
+
+    final TaskConfig config = new TaskConfigBuilder()
+        .build();
+    return new TaskToolbox.Builder()
+        .config(config)
+        .taskActionClient(taskActionClient)
+        .joinableFactory(NoopJoinableFactory.INSTANCE)
+        .indexIO(indexIO)
+        .indexMergerV9(new IndexMergerV9(
+            OBJECT_MAPPER,
+            indexIO,
+            OffHeapMemorySegmentWriteOutMediumFactory.instance(),
+            true
+        ))
+        .taskReportFileWriter(new NoopTestTaskReportFileWriter())
+        .authorizerMapper(AuthTestUtils.TEST_AUTHORIZER_MAPPER)
+        .chatHandlerProvider(new NoopChatHandlerProvider())
+        .rowIngestionMetersFactory(TEST_UTILS.getRowIngestionMetersFactory())
+        .appenderatorsManager(new TestAppenderatorsManager())
+        .coordinatorClient(COORDINATOR_CLIENT)
+        .segmentCacheManager(segmentCacheManager)
+        .taskLogPusher(null)
+        .attemptId("1")
+        .emitter(emitter)
+        .centralizedTableSchemaConfig(CentralizedDatasourceSchemaConfig.create())
+        .build();
   }
 
   private static class TestTaskActionClient implements TaskActionClient
@@ -1822,6 +1983,7 @@ public class CompactionTaskTest
       this.segments = segments;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public <RetType> RetType submit(TaskAction<RetType> taskAction)
     {
@@ -1841,7 +2003,7 @@ public class CompactionTaskTest
         Map<DataSegment, File> segmentFileMap
     )
     {
-      super(mapper, () -> 0);
+      super(mapper, ColumnConfig.DEFAULT);
 
       queryableIndexMap = Maps.newHashMapWithExpectedSize(segmentFileMap.size());
       for (Entry<DataSegment, File> entry : segmentFileMap.entrySet()) {
@@ -1872,14 +2034,6 @@ public class CompactionTaskTest
           }
         }
 
-        final Metadata metadata = new Metadata(
-            null,
-            aggregatorFactories.toArray(new AggregatorFactory[0]),
-            null,
-            null,
-            null
-        );
-
         queryableIndexMap.put(
             entry.getValue(),
             new SimpleQueryableIndex(
@@ -1887,10 +2041,23 @@ public class CompactionTaskTest
                 new ListIndexed<>(segment.getDimensions()),
                 null,
                 columnMap,
-                null,
-                metadata,
-                false
+                null
             )
+            {
+              @Override
+              public Metadata getMetadata()
+              {
+                return new Metadata(
+                    null,
+                    aggregatorFactories.toArray(new AggregatorFactory[0]),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+                );
+              }
+            }
         );
       }
     }
@@ -1909,15 +2076,18 @@ public class CompactionTaskTest
             file,
             new SimpleQueryableIndex(
                 index.getDataInterval(),
-                index.getColumnNames(),
                 index.getAvailableDimensions(),
                 index.getBitmapFactoryForDimensions(),
                 index.getColumns(),
-                index.getFileMapper(),
-                null,
-                () -> index.getDimensionHandlers()
+                index.getFileMapper()
             )
-        );
+            {
+              @Override
+              public Metadata getMetadata()
+              {
+                return null;
+              }
+            });
       }
     }
 
@@ -1929,24 +2099,24 @@ public class CompactionTaskTest
 
   private static ColumnHolder createColumn(DimensionSchema dimensionSchema)
   {
-    return new TestColumn(dimensionSchema.getValueType());
+    return new TestColumn(dimensionSchema.getColumnType());
   }
 
   private static ColumnHolder createColumn(AggregatorFactory aggregatorFactory)
   {
-    return new TestColumn(aggregatorFactory.getType());
+    return new TestColumn(aggregatorFactory.getIntermediateType());
   }
 
   private static class TestColumn implements ColumnHolder
   {
     private final ColumnCapabilities columnCapabilities;
 
-    TestColumn(ValueType type)
+    TestColumn(ColumnType type)
     {
       columnCapabilities = new ColumnCapabilitiesImpl()
           .setType(type)
-          .setDictionaryEncoded(type == ValueType.STRING) // set a fake value to make string columns
-          .setHasBitmapIndexes(type == ValueType.STRING)
+          .setDictionaryEncoded(type.is(ValueType.STRING)) // set a fake value to make string columns
+          .setHasBitmapIndexes(type.is(ValueType.STRING))
           .setHasSpatialIndexes(false)
           .setHasMultipleValues(false);
     }
@@ -1969,20 +2139,48 @@ public class CompactionTaskTest
       return null;
     }
 
+    @Nullable
     @Override
-    public SettableColumnValueSelector makeNewSettableColumnValueSelector()
+    public ColumnIndexSupplier getIndexSupplier()
     {
       return null;
     }
 
     @Override
-    public BitmapIndex getBitmapIndex()
+    public SettableColumnValueSelector<?> makeNewSettableColumnValueSelector()
+    {
+      return null;
+    }
+
+  }
+
+  /**
+   * A class to mimic validations with MSQCompactionRunner behaviour, since the actual class resides in the MSQ extn.
+   * Since validations just depend on the type of runner, all overrideen functions just return null.
+   */
+  private static class TestMSQCompactionRunner implements CompactionRunner
+  {
+    @Override
+    public TaskStatus runCompactionTasks(
+        CompactionTask compactionTask,
+        Map<Interval, DataSchema> intervalDataSchemaMap,
+        TaskToolbox taskToolbox
+    )
     {
       return null;
     }
 
     @Override
-    public SpatialIndex getSpatialIndex()
+    public CurrentSubTaskHolder getCurrentSubTaskHolder()
+    {
+      return null;
+    }
+
+    @Override
+    public CompactionConfigValidationResult validateCompactionTask(
+        CompactionTask compactionTask,
+        Map<Interval, DataSchema> intervalToDataSchemaMap
+    )
     {
       return null;
     }
@@ -2028,11 +2226,17 @@ public class CompactionTaskTest
         @JacksonInject RowIngestionMetersFactory rowIngestionMetersFactory,
         @JacksonInject CoordinatorClient coordinatorClient,
         @JacksonInject SegmentCacheManagerFactory segmentCacheManagerFactory,
-        @JacksonInject RetryPolicyFactory retryPolicyFactory,
         @JacksonInject AppenderatorsManager appenderatorsManager
     )
     {
-      super(getOrMakeId(id, "compact", dataSource), null, taskResource, dataSource, context);
+      super(
+          getOrMakeId(id, "compact", dataSource),
+          null,
+          taskResource,
+          dataSource,
+          context,
+          IngestionMode.REPLACE_LEGACY
+      );
       this.interval = interval;
       this.segments = segments;
       this.dimensionsSpec = dimensionsSpec;
@@ -2046,6 +2250,14 @@ public class CompactionTaskTest
     public String getType()
     {
       return "compact";
+    }
+
+    @Nonnull
+    @JsonIgnore
+    @Override
+    public Set<ResourceAction> getInputSourceResources()
+    {
+      return ImmutableSet.of();
     }
 
     @JsonProperty
@@ -2108,7 +2320,7 @@ public class CompactionTaskTest
     }
 
     @Override
-    public TaskStatus run(TaskToolbox toolbox)
+    public TaskStatus runTask(TaskToolbox toolbox)
     {
       throw new UnsupportedOperationException();
     }

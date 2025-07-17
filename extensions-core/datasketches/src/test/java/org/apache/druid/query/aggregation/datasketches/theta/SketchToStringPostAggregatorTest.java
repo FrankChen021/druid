@@ -22,7 +22,7 @@ package org.apache.druid.query.aggregation.datasketches.theta;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
 import nl.jqno.equalsverifier.EqualsVerifier;
-import org.apache.datasketches.Family;
+import org.apache.datasketches.common.Family;
 import org.apache.datasketches.theta.SetOperation;
 import org.apache.datasketches.theta.Union;
 import org.apache.druid.jackson.DefaultObjectMapper;
@@ -47,9 +47,10 @@ public class SketchToStringPostAggregatorTest
         new FieldAccessPostAggregator("field", "sketch")
     );
     DefaultObjectMapper mapper = new DefaultObjectMapper();
-    SketchToStringPostAggregator andBackAgain = mapper.readValue(
+    mapper.registerModules(new SketchModule().getJacksonModules());
+    PostAggregator andBackAgain = mapper.readValue(
         mapper.writeValueAsString(there),
-        SketchToStringPostAggregator.class
+        PostAggregator.class
     );
 
     Assert.assertEquals(there, andBackAgain);

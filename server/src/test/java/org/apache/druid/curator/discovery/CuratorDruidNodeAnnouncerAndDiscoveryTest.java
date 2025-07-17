@@ -24,7 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.druid.curator.CuratorTestBase;
-import org.apache.druid.curator.announcement.Announcer;
+import org.apache.druid.curator.announcement.NodeAnnouncer;
 import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscovery;
 import org.apache.druid.discovery.NodeRole;
@@ -64,15 +64,13 @@ public class CuratorDruidNodeAnnouncerAndDiscoveryTest extends CuratorTestBase
             .addValue(ServerConfig.class, new ServerConfig())
             .addValue("java.lang.String", "dummy")
             .addValue("java.lang.Integer", 1234)
+            .addValue(ObjectMapper.class, objectMapper)
     );
 
     curator.start();
     curator.blockUntilConnected();
 
-    Announcer announcer = new Announcer(
-        curator,
-        Execs.directExecutor()
-    );
+    NodeAnnouncer announcer = new NodeAnnouncer(curator, Execs.directExecutor());
     announcer.start();
 
     CuratorDruidNodeAnnouncer druidNodeAnnouncer = new CuratorDruidNodeAnnouncer(

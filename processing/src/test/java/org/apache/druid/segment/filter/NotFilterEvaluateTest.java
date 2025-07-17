@@ -32,8 +32,8 @@ import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.query.filter.NotDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.segment.CursorFactory;
 import org.apache.druid.segment.IndexBuilder;
-import org.apache.druid.segment.StorageAdapter;
 import org.junit.AfterClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,7 +51,7 @@ public class NotFilterEvaluateTest extends BaseFilterTest
   private static final InputRowParser<Map<String, Object>> PARSER = new MapInputRowParser(
       new TimeAndDimsParseSpec(
           new TimestampSpec(TIMESTAMP_COLUMN, "iso", DateTimes.of("2000")),
-          new DimensionsSpec(null, null, null)
+          DimensionsSpec.EMPTY
       )
   );
 
@@ -67,7 +67,7 @@ public class NotFilterEvaluateTest extends BaseFilterTest
   public NotFilterEvaluateTest(
       String testName,
       IndexBuilder indexBuilder,
-      Function<IndexBuilder, Pair<StorageAdapter, Closeable>> finisher,
+      Function<IndexBuilder, Pair<CursorFactory, Closeable>> finisher,
       boolean cnf,
       boolean optimize
   )

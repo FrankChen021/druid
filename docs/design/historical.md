@@ -1,6 +1,7 @@
 ---
 id: historical
-title: "Historical Process"
+title: "Historical service"
+sidebar_label: "Historical"
 ---
 
 <!--
@@ -22,37 +23,51 @@ title: "Historical Process"
   ~ under the License.
   -->
 
+The Historical service is responsible for storing and querying historical data.
+Historical services cache data segments on local disk and serve queries from that cache as well as from an in-memory cache.
 
-### Configuration
+## Configuration
 
-For Apache Druid Historical Process Configuration, see [Historical Configuration](../configuration/index.md#historical).
+For Apache Druid Historical service configuration, see [Historical configuration](../configuration/index.md#historical).
 
-### HTTP endpoints
+For basic tuning guidance for the Historical service, see [Basic cluster tuning](../operations/basic-cluster-tuning.md#historical).
 
-For a list of API endpoints supported by the Historical, please see the [API reference](../operations/api-reference.md#historical).
+## HTTP endpoints
 
-### Running
+For a list of API endpoints supported by the Historical, please see the [Service status API reference](../api-reference/service-status-api.md#historical).
+
+## Running
 
 ```
 org.apache.druid.cli.Main server historical
 ```
 
-### Loading and serving segments
+## Loading and serving segments
 
-Each Historical process maintains a constant connection to Zookeeper and watches a configurable set of Zookeeper paths for new segment information. Historical processes do not communicate directly with each other or with the Coordinator processes but instead rely on Zookeeper for coordination.
+Each Historical service copies or pulls segment files from deep storage to local disk in an area called the segment cache. To configure the size and location of the segment cache on each Historical service, set the `druid.segmentCache.locations`.
+For more information, see [Segment cache size](../operations/basic-cluster-tuning.md#segment-cache-size).
 
-The [Coordinator](../design/coordinator.md) process is responsible for assigning new segments to Historical processes. Assignment is done by creating an ephemeral Zookeeper entry under a load queue path associated with a Historical process. For more information on how the Coordinator assigns segments to Historical processes, please see [Coordinator](../design/coordinator.md).
+The [Coordinator](../design/coordinator.md) controls the assignment of segments to Historicals and the balance of segments between Historicals. Historical services do not communicate directly with each other, nor do they communicate directly with the Coordinator. Instead, the Coordinator creates ephemeral entries in ZooKeeper in a [load queue path](../configuration/index.md#path-configuration). Each Historical service maintains a connection to ZooKeeper, watching those paths for segment information.
 
-When a Historical process notices a new load queue entry in its load queue path, it will first check a local disk directory (cache) for the information about segment. If no information about the segment exists in the cache, the Historical process will download metadata about the new segment to serve from Zookeeper. This metadata includes specifications about where the segment is located in deep storage and about how to decompress and process the segment. For more information about segment metadata and Druid segments in general, please see [Segments](../design/segments.md). Once a Historical process completes processing a segment, the segment is announced in Zookeeper under a served segments path associated with the process. At this point, the segment is available for querying.
+When a Historical service detects a new entry in the ZooKeeper load queue, it checks its own segment cache. If no information about the segment exists there, the Historical service first retrieves metadata from ZooKeeper about the segment, including where the segment is located in deep storage and how it needs to decompress and process it.
 
-### Loading and serving segments from cache
+For more information about segment metadata and Druid segments in general, see [Segments](../design/segments.md).
 
-Recall that when a Historical process notices a new segment entry in its load queue path, the Historical process first checks a configurable cache directory on its local disk to see if the segment had been previously downloaded. If a local cache entry already exists, the Historical process will directly read the segment binary files from disk and load the segment.
+After a Historical service pulls down and processes a segment from deep storage, Druid advertises the segment as being available for queries from the Broker. This announcement by the Historical is made via ZooKeeper, in a [served segments path](../configuration/index.md#path-configuration).
 
-The segment cache is also leveraged when a Historical process is first started. On startup, a Historical process will search through its cache directory and immediately load and serve all segments that are found. This feature allows Historical processes to be queried as soon they come online.
+For more information about how the Broker determines what data is available for queries, see [Broker](broker.md).
 
-### Querying segments
+To make data from the segment cache available for querying as soon as possible, Historical services search the local segment cache upon startup and advertise the segments found there.
 
-Please see [Querying](../querying/querying.md) for more information on querying Historical processes.
+## Loading and serving segments from cache
 
-A Historical can be configured to log and report metrics for every query it services.
+The segment cache uses [memory mapping](https://en.wikipedia.org/wiki/Mmap). The cache consumes memory from the underlying operating system so Historicals can hold parts of segment files in memory to increase query performance at the data level. The in-memory segment cache is affected by the size of the Historical JVM, heap / direct memory buffers, and other services on the operating system itself.
+
+At query time, if the required part of a segment file is available in the memory mapped cache or "page cache", the Historical re-uses it and reads it directly from memory. If it is not in the memory-mapped cache, the Historical reads that part of the segment from disk. In this case, there is potential for new data to flush other segment data from memory. This means that if free operating system memory is close to `druid.server.maxSize`, the more likely that segment data will be available in memory and reduce query times. Conversely, the lower the free operating system memory, the more likely a Historical is to read segments from disk.
+
+Note that this memory-mapped segment cache is in addition to other [query-level caches](../querying/caching.md).
+
+## Querying segments
+
+You can configure a Historical service to log and report metrics for every query it services.
+For information on querying Historical services, see [Querying](../querying/querying.md).

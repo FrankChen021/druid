@@ -22,7 +22,11 @@ package org.apache.druid.query.metadata.metadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.segment.column.ColumnCapabilities;
+import org.apache.druid.segment.column.ColumnType;
 
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
@@ -31,12 +35,21 @@ public class ColumnAnalysis
 {
   private static final String ERROR_PREFIX = "error:";
 
+  public static <T> Builder<T> builder()
+  {
+    return new Builder<>();
+  }
+
   public static ColumnAnalysis error(String reason)
   {
-    return new ColumnAnalysis("STRING", false, false, -1, null, null, null, ERROR_PREFIX + reason);
+    return builder().withType(ColumnType.STRING)
+                    .withSize(-1)
+                    .withErrorMessage(reason)
+                    .build();
   }
 
   private final String type;
+  private final ColumnType typeSignature;
   private final boolean hasMultipleValues;
   private final boolean hasNulls;
   private final long size;
@@ -47,6 +60,7 @@ public class ColumnAnalysis
 
   @JsonCreator
   public ColumnAnalysis(
+      @JsonProperty("typeSignature") ColumnType typeSignature,
       @JsonProperty("type") String type,
       @JsonProperty("hasMultipleValues") boolean hasMultipleValues,
       @JsonProperty("hasNulls") boolean hasNulls,
@@ -57,6 +71,7 @@ public class ColumnAnalysis
       @JsonProperty("errorMessage") String errorMessage
   )
   {
+    this.typeSignature = typeSignature;
     this.type = type;
     this.hasMultipleValues = hasMultipleValues;
     this.hasNulls = hasNulls;
@@ -68,6 +83,13 @@ public class ColumnAnalysis
   }
 
   @JsonProperty
+  public ColumnType getTypeSignature()
+  {
+    return typeSignature;
+  }
+
+  @JsonProperty
+  @Deprecated
   public String getType()
   {
     return type;
@@ -135,8 +157,20 @@ public class ColumnAnalysis
       return rhs;
     }
 
-    if (!type.equals(rhs.getType())) {
-      return ColumnAnalysis.error("cannot_merge_diff_types");
+    if (!Objects.equals(type, rhs.getType())) {
+      return ColumnAnalysis.error(
+          StringUtils.format("cannot_merge_diff_types: [%s] and [%s]", type, rhs.getType())
+      );
+    }
+
+    if (!Objects.equals(typeSignature, rhs.getTypeSignature())) {
+      return ColumnAnalysis.error(
+          StringUtils.format(
+              "cannot_merge_diff_types: [%s] and [%s]",
+              typeSignature.asTypeString(),
+              rhs.getTypeSignature().asTypeString()
+          )
+      );
     }
 
     Integer cardinality = getCardinality();
@@ -152,16 +186,15 @@ public class ColumnAnalysis
     Comparable newMin = choose(minValue, rhs.minValue, false);
     Comparable newMax = choose(maxValue, rhs.maxValue, true);
 
-    return new ColumnAnalysis(
-        type,
-        multipleValues,
-        hasNulls || rhs.hasNulls,
-        size + rhs.getSize(),
-        cardinality,
-        newMin,
-        newMax,
-        null
-    );
+    return builder().withType(typeSignature)
+                    .withTypeName(type)
+                    .hasMultipleValues(multipleValues)
+                    .hasNulls(hasNulls || rhs.hasNulls)
+                    .withSize(size + rhs.getSize())
+                    .withCardinality(cardinality)
+                    .withMinValue(newMin)
+                    .withMaxValue(newMax)
+                    .build();
   }
 
   private <T extends Comparable> T choose(T obj1, T obj2, boolean max)
@@ -180,7 +213,8 @@ public class ColumnAnalysis
   public String toString()
   {
     return "ColumnAnalysis{" +
-           "type='" + type + '\'' +
+           "typeSignature='" + typeSignature + '\'' +
+           ", type=" + type +
            ", hasMultipleValues=" + hasMultipleValues +
            ", hasNulls=" + hasNulls +
            ", size=" + size +
@@ -204,6 +238,7 @@ public class ColumnAnalysis
     return hasMultipleValues == that.hasMultipleValues &&
            hasNulls == that.hasNulls &&
            size == that.size &&
+           Objects.equals(typeSignature, that.typeSignature) &&
            Objects.equals(type, that.type) &&
            Objects.equals(cardinality, that.cardinality) &&
            Objects.equals(minValue, that.minValue) &&
@@ -214,6 +249,106 @@ public class ColumnAnalysis
   @Override
   public int hashCode()
   {
-    return Objects.hash(type, hasMultipleValues, hasNulls, size, cardinality, minValue, maxValue, errorMessage);
+    return Objects.hash(
+        typeSignature,
+        type,
+        hasMultipleValues,
+        hasNulls,
+        size,
+        cardinality,
+        minValue,
+        maxValue,
+        errorMessage
+    );
+  }
+
+  public static class Builder<T>
+  {
+    private ColumnType typeSignature;
+    private String typeName;
+    private boolean hasMultipleValues;
+    private boolean hasNulls;
+    private long size;
+    private Integer cardinality;
+    private Comparable<T> minValue;
+    private Comparable<T> maxValue;
+    private String errorMessage;
+
+    public Builder withCapabilities(ColumnCapabilities capabilities)
+    {
+
+      return withType(capabilities.toColumnType()).hasMultipleValues(capabilities.hasMultipleValues().isTrue())
+                                                  // if we don't know for sure, then we should plan to check for nulls
+                                                  .hasNulls(capabilities.hasNulls().isMaybeTrue());
+    }
+
+    public Builder withType(ColumnType columnType)
+    {
+      this.typeSignature = columnType;
+      return this;
+    }
+
+    public Builder withTypeName(String typeName)
+    {
+      this.typeName = typeName;
+      return this;
+    }
+
+    public Builder hasMultipleValues(boolean hasMultipleValues)
+    {
+      this.hasMultipleValues = hasMultipleValues;
+      return this;
+    }
+
+    public Builder hasNulls(boolean hasNulls)
+    {
+      this.hasNulls = hasNulls;
+      return this;
+    }
+
+    public Builder withSize(long size)
+    {
+      this.size = size;
+      return this;
+    }
+
+    public Builder withCardinality(@Nullable Integer cardinality)
+    {
+      this.cardinality = cardinality;
+      return this;
+    }
+
+    public Builder withMinValue(Comparable<T> minValue)
+    {
+      this.minValue = minValue;
+      return this;
+    }
+
+    public Builder withMaxValue(Comparable<T> maxValue)
+    {
+      this.maxValue = maxValue;
+      return this;
+    }
+
+    public Builder withErrorMessage(String errorMessage)
+    {
+      this.errorMessage = ERROR_PREFIX + errorMessage;
+      return this;
+    }
+
+    public ColumnAnalysis build()
+    {
+      return new ColumnAnalysis(
+          typeSignature,
+          typeName == null ? typeSignature.getType().name() : typeName,
+          hasMultipleValues,
+          hasNulls,
+          size,
+          cardinality,
+          minValue,
+          maxValue,
+          errorMessage
+      );
+    }
   }
 }

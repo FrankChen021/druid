@@ -35,6 +35,10 @@ else
 fi
 
 set -e
+if [ -n "${HADOOP_VERSION}" ] && [ "${HADOOP_VERSION:0:1}" == "3" ]; then
+  docker exec -t druid-it-hadoop sh -c "./usr/local/hadoop/bin/hdfs dfs -mkdir -p /user/root"
+  docker exec -t druid-it-hadoop sh -c "./usr/local/hadoop/bin/hdfs dfs -put /usr/local/hadoop/etc/hadoop/ input"
+fi
 
 # Setup hadoop druid dirs
 echo "Setting up druid hadoop dirs"
@@ -47,7 +51,7 @@ docker exec -t druid-it-hadoop sh -c "./usr/local/hadoop/bin/hdfs dfs -chmod 777
 docker exec -t druid-it-hadoop sh -c "./usr/local/hadoop/bin/hdfs dfs -chmod -R 777 /tmp"
 docker exec -t druid-it-hadoop sh -c "./usr/local/hadoop/bin/hdfs dfs -chmod -R 777 /user"
 # Copy data files to Hadoop container
-docker exec -t druid-it-hadoop sh -c "./usr/local/hadoop/bin/hdfs dfs -put /shared/wikiticker-it/wikiticker-2015-09-12-sampled.json.gz /quickstart/wikiticker-2015-09-12-sampled.json.gz"
+docker exec -t druid-it-hadoop sh -c "./usr/local/hadoop/bin/hdfs dfs -put -f /shared/wikiticker-it/wikiticker-2015-09-12-sampled.json.gz /quickstart/wikiticker-2015-09-12-sampled.json.gz"
 docker exec -t druid-it-hadoop sh -c "./usr/local/hadoop/bin/hdfs dfs -put /resources/data/batch_index /batch_index"
 echo "Finished setting up druid hadoop dirs"
 

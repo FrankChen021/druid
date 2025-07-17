@@ -1,7 +1,7 @@
 ---
 id: tutorial-ingestion-spec
-title: "Tutorial: Writing an ingestion spec"
-sidebar_label: "Writing an ingestion spec"
+title: Write an ingestion spec
+sidebar_label: Write an ingestion spec
 ---
 
 <!--
@@ -251,7 +251,7 @@ If we were not using rollup, all columns would be specified in the `dimensionsSp
 At this point, we are done defining the `parser` and `metricsSpec` within the `dataSchema` and we are almost done writing the ingestion spec.
 
 There are some additional properties we need to set in the `granularitySpec`:
-* Type of granularitySpec: `uniform` and `arbitrary` are the two supported types. For this tutorial, we will use a `uniform` granularity spec, where all segments have uniform interval sizes (for example, all segments cover an hour's worth of data).
+* Type of granularitySpec: the `uniform` granularity spec defines segments with uniform interval sizes. For example, all segments cover an hour's worth of data.
 * The segment granularity: what size of time interval should a single segment contain data for? e.g., `DAY`, `WEEK`
 * The bucketing granularity of the timestamps in the time column (referred to as `queryGranularity`)
 
@@ -511,8 +511,12 @@ As an example, let's add a `tuningConfig` that sets a target segment size for th
 ```json
     "tuningConfig" : {
       "type" : "index_parallel",
-      "maxRowsPerSegment" : 5000000
+      "partitionsSpec": {
+        "type": "dynamic",
+         "maxRowsPerSegment" : 5000000
+      }
     }
+         
 ```
 
 Note that each ingestion task has its own type of `tuningConfig`.
@@ -567,7 +571,10 @@ We've finished defining the ingestion spec, it should now look like the followin
     },
     "tuningConfig" : {
       "type" : "index_parallel",
-      "maxRowsPerSegment" : 5000000
+      "partitionsSpec": {
+        "type": "dynamic",
+         "maxRowsPerSegment" : 5000000
+      }
     }
   }
 }
@@ -575,7 +582,7 @@ We've finished defining the ingestion spec, it should now look like the followin
 
 ## Submit the task and query the data
 
-From the apache-druid-{{DRUIDVERSION}} package root, run the following command:
+From the `apache-druid-{{DRUIDVERSION}}` package root, run the following command:
 
 ```bash
 bin/post-index-task --file quickstart/ingestion-tutorial-index.json --url http://localhost:8081
@@ -583,24 +590,18 @@ bin/post-index-task --file quickstart/ingestion-tutorial-index.json --url http:/
 
 After the script completes, we will query the data.
 
-Let's run `bin/dsql` and issue a `select * from "ingestion-tutorial";` query to see what data was ingested.
+In the web console, open a new tab in the **Query** view. Run the following query to view the ingested data:
 
-```bash
-$ bin/dsql
-Welcome to dsql, the command-line client for Druid SQL.
-Type "\h" for help.
-dsql> select * from "ingestion-tutorial";
-
-┌──────────────────────────┬───────┬──────┬───────┬─────────┬─────────┬─────────┬──────────┬─────────┬─────────┐
-│ __time                   │ bytes │ cost │ count │ dstIP   │ dstPort │ packets │ protocol │ srcIP   │ srcPort │
-├──────────────────────────┼───────┼──────┼───────┼─────────┼─────────┼─────────┼──────────┼─────────┼─────────┤
-│ 2018-01-01T01:01:00.000Z │  6000 │  4.9 │     3 │ 2.2.2.2 │    3000 │      60 │ 6        │ 1.1.1.1 │    2000 │
-│ 2018-01-01T01:02:00.000Z │  9000 │ 18.1 │     2 │ 2.2.2.2 │    7000 │      90 │ 6        │ 1.1.1.1 │    5000 │
-│ 2018-01-01T01:03:00.000Z │  6000 │  4.3 │     1 │ 2.2.2.2 │    7000 │      60 │ 6        │ 1.1.1.1 │    5000 │
-│ 2018-01-01T02:33:00.000Z │ 30000 │ 56.9 │     2 │ 8.8.8.8 │    5000 │     300 │ 17       │ 7.7.7.7 │    4000 │
-│ 2018-01-01T02:35:00.000Z │ 30000 │ 46.3 │     1 │ 8.8.8.8 │    5000 │     300 │ 17       │ 7.7.7.7 │    4000 │
-└──────────────────────────┴───────┴──────┴───────┴─────────┴─────────┴─────────┴──────────┴─────────┴─────────┘
-Retrieved 5 rows in 0.12s.
-
-dsql>
+```sql
+select * from "ingestion-tutorial"
 ```
+
+Returns the following:
+
+| `__time` | `bytes` | `cost` | `count` | `dstIP` | `dstPort` | `packets` | `protocol` | `srcIP` | `srcPort` |
+| -- | -- | -- | -- | -- | -- | -- | -- | -- | -- |
+| `2018-01-01T01:01:00.000Z` | `6000` | `4.9` | `3` | `2.2.2.2` | `3000` | `60` | `6` | `1.1.1.1` | `2000` |
+| `2018-01-01T01:02:00.000Z` |  `9000` | `18.1` | `2` | `2.2.2.2` | `7000` | `90` | `6` | `1.1.1.1` | `5000` |
+| `2018-01-01T01:03:00.000Z` | `6000` |  `4.3` | `1` | `2.2.2.2` | `7000` | `60` | `6` | `1.1.1.1` | `5000` |
+| `2018-01-01T02:33:00.000Z` | `30000` | `56.9` | `2` | `8.8.8.8` | `5000` | `300` | `17` | `7.7.7.7` | `4000` |
+| `2018-01-01T02:35:00.000Z` | `30000` | `46.3` | `1` | `8.8.8.8` | `5000` | `300` | `17` | `7.7.7.7` | `4000` |

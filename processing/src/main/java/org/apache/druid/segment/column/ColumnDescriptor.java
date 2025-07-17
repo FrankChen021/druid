@@ -29,7 +29,6 @@ import org.apache.druid.segment.serde.ColumnPartSerde;
 import org.apache.druid.segment.serde.Serializer;
 
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
@@ -97,7 +96,12 @@ public class ColumnDescriptor implements Serializer
     }
   }
 
-  public ColumnHolder read(ByteBuffer buffer, ColumnConfig columnConfig, SmooshedFileMapper smooshedFiles)
+  public ColumnHolder read(
+      ByteBuffer buffer,
+      ColumnConfig columnConfig,
+      SmooshedFileMapper smooshedFiles,
+      @Nullable ColumnHolder parent
+  )
   {
     final ColumnBuilder builder = new ColumnBuilder()
         .setType(valueType)
@@ -105,9 +109,8 @@ public class ColumnDescriptor implements Serializer
         .setFileMapper(smooshedFiles);
 
     for (ColumnPartSerde part : parts) {
-      part.getDeserializer().read(buffer, builder, columnConfig);
+      part.getDeserializer().read(buffer, builder, columnConfig, parent);
     }
-
     return builder.build();
   }
 

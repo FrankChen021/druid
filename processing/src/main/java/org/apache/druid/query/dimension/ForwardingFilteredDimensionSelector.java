@@ -20,19 +20,21 @@
 package org.apache.druid.query.dimension;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.query.filter.DruidObjectPredicate;
+import org.apache.druid.query.filter.DruidPredicateFactory;
+import org.apache.druid.query.filter.StringPredicateDruidPredicateFactory;
 import org.apache.druid.query.filter.ValueMatcher;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.AbstractDimensionSelector;
 import org.apache.druid.segment.DimensionSelector;
 import org.apache.druid.segment.DimensionSelectorUtils;
 import org.apache.druid.segment.IdLookup;
+import org.apache.druid.segment.IdMapping;
 import org.apache.druid.segment.data.ArrayBasedIndexedInts;
 import org.apache.druid.segment.data.IndexedInts;
-import org.apache.druid.segment.filter.BooleanValueMatcher;
 
 import javax.annotation.Nullable;
 import java.util.BitSet;
@@ -41,18 +43,16 @@ final class ForwardingFilteredDimensionSelector extends AbstractDimensionSelecto
 {
   private final DimensionSelector selector;
   private final IdLookup baseIdLookup;
-  private final Int2IntOpenHashMap forwardMapping;
-  private final int[] reverseMapping;
+  private final IdMapping idMapping;
   private final ArrayBasedIndexedInts row = new ArrayBasedIndexedInts();
 
   /**
    * @param selector must return true from {@link DimensionSelector#nameLookupPossibleInAdvance()}
-   * @param forwardMapping must have {@link Int2IntOpenHashMap#defaultReturnValue(int)} configured to -1.
+   * @param idMapping must have be initialized and populated with the dictionary id mapping.
    */
-  ForwardingFilteredDimensionSelector(
+  public ForwardingFilteredDimensionSelector(
       DimensionSelector selector,
-      Int2IntOpenHashMap forwardMapping,
-      int[] reverseMapping
+      IdMapping idMapping
   )
   {
     this.selector = Preconditions.checkNotNull(selector);
@@ -60,11 +60,7 @@ final class ForwardingFilteredDimensionSelector extends AbstractDimensionSelecto
       throw new IAE("selector.nameLookupPossibleInAdvance() should return true");
     }
     this.baseIdLookup = selector.idLookup();
-    this.forwardMapping = Preconditions.checkNotNull(forwardMapping);
-    if (forwardMapping.defaultReturnValue() != -1) {
-      throw new IAE("forwardMapping.defaultReturnValue() should be -1");
-    }
-    this.reverseMapping = Preconditions.checkNotNull(reverseMapping);
+    this.idMapping = Preconditions.checkNotNull(idMapping);
   }
 
   @Override
@@ -75,7 +71,7 @@ final class ForwardingFilteredDimensionSelector extends AbstractDimensionSelecto
     row.ensureSize(baseRowSize);
     int resultSize = 0;
     for (int i = 0; i < baseRowSize; i++) {
-      int forwardedValue = forwardMapping.get(baseRow.get(i));
+      int forwardedValue = idMapping.getForwardedId(baseRow.get(i));
       if (forwardedValue >= 0) {
         row.setValue(resultSize, forwardedValue);
         resultSize++;
@@ -91,69 +87,80 @@ final class ForwardingFilteredDimensionSelector extends AbstractDimensionSelecto
     IdLookup idLookup = idLookup();
     if (idLookup != null) {
       final int valueId = idLookup.lookupId(value);
-      if (valueId >= 0 || value == null) {
-        return new ValueMatcher()
+      final int nullId = baseIdLookup.lookupId(null);
+      return new ValueMatcher()
+      {
+        @Override
+        public boolean matches(boolean includeUnknown)
         {
-          @Override
-          public boolean matches()
-          {
-            final IndexedInts baseRow = selector.getRow();
-            final int baseRowSize = baseRow.size();
-            boolean nullRow = true;
-            for (int i = 0; i < baseRowSize; i++) {
-              int forwardedValue = forwardMapping.get(baseRow.get(i));
-              if (forwardedValue >= 0) {
-                // Make the following check after the `forwardedValue >= 0` check, because if forwardedValue is -1 and
-                // valueId is -1, we don't want to return true from matches().
-                if (forwardedValue == valueId) {
-                  return true;
-                }
-                nullRow = false;
-              }
+          final IndexedInts baseRow = selector.getRow();
+          final int baseRowSize = baseRow.size();
+          boolean nullRow = true;
+          for (int i = 0; i < baseRowSize; i++) {
+            final int baseId = baseRow.get(i);
+            if (includeUnknown && nullId == baseId) {
+              return true;
             }
-            // null should match empty rows in multi-value columns
-            return nullRow && value == null;
+            final int forwardedId = idMapping.getForwardedId(baseId);
+            if (forwardedId >= 0) {
+              // Make the following check after the `forwardedId >= 0` check, because if forwardedId is -1 and
+              // valueId is -1, we don't want to return true from matches().
+              if (forwardedId == valueId) {
+                return true;
+              }
+              nullRow = false;
+            }
           }
+          // null should match empty rows in multi-value columns
+          return nullRow && (includeUnknown || value == null);
+        }
 
-          @Override
-          public void inspectRuntimeShape(RuntimeShapeInspector inspector)
-          {
-            inspector.visit("selector", selector);
-          }
-        };
-      } else {
-        return BooleanValueMatcher.of(false);
-      }
+        @Override
+        public void inspectRuntimeShape(RuntimeShapeInspector inspector)
+        {
+          inspector.visit("selector", selector);
+        }
+      };
     } else {
       // Employ precomputed BitSet optimization
-      return makeValueMatcher(Predicates.equalTo(value));
+      return makeValueMatcher(StringPredicateDruidPredicateFactory.equalTo(value));
     }
   }
 
   @Override
-  public ValueMatcher makeValueMatcher(Predicate<String> predicate)
+  public ValueMatcher makeValueMatcher(DruidPredicateFactory predicateFactory)
   {
-    final BitSet valueIds = DimensionSelectorUtils.makePredicateMatchingSet(this, predicate);
-    final boolean matchNull = predicate.apply(null);
+    final DruidObjectPredicate<String> predicate = predicateFactory.makeStringPredicate();
+    final Supplier<BitSet> valueIds = Suppliers.memoize(
+        () -> DimensionSelectorUtils.makePredicateMatchingSet(this, predicate, false)
+    );
+    final Supplier<BitSet> valueIdsWithUnknown = Suppliers.memoize(
+        () -> DimensionSelectorUtils.makePredicateMatchingSet(this, predicate, true)
+    );
     return new ValueMatcher()
     {
       @Override
-      public boolean matches()
+      public boolean matches(boolean includeUnknown)
       {
         final IndexedInts baseRow = selector.getRow();
         final int baseRowSize = baseRow.size();
         boolean nullRow = true;
         for (int i = 0; i < baseRowSize; ++i) {
-          int forwardedValue = forwardMapping.get(baseRow.get(i));
+          final int baseId = baseRow.get(i);
+          int forwardedValue = idMapping.getForwardedId(baseId);
           if (forwardedValue >= 0) {
-            if (valueIds.get(forwardedValue)) {
+            if (includeUnknown) {
+              if (valueIdsWithUnknown.get().get(forwardedValue)) {
+                return true;
+              }
+            } else if (valueIds.get().get(forwardedValue)) {
               return true;
             }
             nullRow = false;
           }
         }
         // null should match empty rows in multi-value columns
-        return nullRow && matchNull;
+        return nullRow && predicate.apply(null).matches(includeUnknown);
       }
 
       @Override
@@ -167,13 +174,13 @@ final class ForwardingFilteredDimensionSelector extends AbstractDimensionSelecto
   @Override
   public int getValueCardinality()
   {
-    return forwardMapping.size();
+    return idMapping.getValueCardinality();
   }
 
   @Override
   public String lookupName(int id)
   {
-    return selector.lookupName(reverseMapping[id]);
+    return selector.lookupName(idMapping.getReverseId(id));
   }
 
   @Override
@@ -192,7 +199,7 @@ final class ForwardingFilteredDimensionSelector extends AbstractDimensionSelecto
   @Override
   public int lookupId(String name)
   {
-    return forwardMapping.get(baseIdLookup.lookupId(name));
+    return idMapping.getForwardedId(baseIdLookup.lookupId(name));
   }
 
   @Override

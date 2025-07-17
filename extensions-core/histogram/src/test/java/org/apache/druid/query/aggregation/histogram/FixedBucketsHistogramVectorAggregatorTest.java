@@ -19,11 +19,10 @@
 
 package org.apache.druid.query.aggregation.histogram;
 
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.query.aggregation.VectorAggregator;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 import org.apache.druid.segment.vector.VectorValueSelector;
 import org.easymock.EasyMock;
@@ -45,7 +44,6 @@ public class FixedBucketsHistogramVectorAggregatorTest
   @Before
   public void setup()
   {
-    NullHandling.initializeForTests();
     VectorValueSelector vectorValueSelector_1 = createMock(VectorValueSelector.class);
     expect(vectorValueSelector_1.getDoubleVector()).andReturn(DOUBLES).anyTimes();
     expect(vectorValueSelector_1.getNullVector()).andReturn(NULL_VECTOR).anyTimes();
@@ -58,7 +56,7 @@ public class FixedBucketsHistogramVectorAggregatorTest
     EasyMock.replay(vectorValueSelector_2);
 
     ColumnCapabilities columnCapabilities
-        = ColumnCapabilitiesImpl.createSimpleNumericColumnCapabilities(ValueType.DOUBLE);
+        = ColumnCapabilitiesImpl.createSimpleNumericColumnCapabilities(ColumnType.DOUBLE);
     vectorColumnSelectorFactory = createMock(VectorColumnSelectorFactory.class);
     expect(vectorColumnSelectorFactory.getColumnCapabilities("field_1")).andReturn(columnCapabilities).anyTimes();
     expect(vectorColumnSelectorFactory.makeValueSelector("field_1"))
@@ -89,9 +87,8 @@ public class FixedBucketsHistogramVectorAggregatorTest
     Assert.assertEquals(5, h.getCount());
     Assert.assertEquals(1.0, h.getMin(), 0.01);
     Assert.assertEquals(16.0, h.getMax(), 0.01);
-    // Default value of null is 0 which is an outlier.
-    Assert.assertEquals(NullHandling.replaceWithDefault() ? 0 : 1, h.getMissingValueCount());
-    Assert.assertEquals(NullHandling.replaceWithDefault() ? 1 : 0, h.getLowerOutlierCount());
+    Assert.assertEquals(1, h.getMissingValueCount());
+    Assert.assertEquals(0, h.getLowerOutlierCount());
     Assert.assertEquals(0, h.getUpperOutlierCount());
 
     factory = buildHistogramAggFactory("field_2");

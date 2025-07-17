@@ -22,36 +22,42 @@ package org.apache.druid.metadata.storage.postgresql;
 import com.google.common.base.Suppliers;
 import org.apache.druid.metadata.MetadataStorageConnectorConfig;
 import org.apache.druid.metadata.MetadataStorageTablesConfig;
+import org.apache.druid.segment.metadata.CentralizedDatasourceSchemaConfig;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.sql.SQLException;
 
+@RunWith(Parameterized.class)
 public class PostgreSQLConnectorTest
 {
+  private CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig;
+
+  public PostgreSQLConnectorTest(CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig)
+  {
+    this.centralizedDatasourceSchemaConfig = centralizedDatasourceSchemaConfig;
+  }
+
+  @Parameterized.Parameters(name = "{0}")
+  public static Object[][] constructorFeeder()
+  {
+    return new Object[][]{
+        {CentralizedDatasourceSchemaConfig.enabled(false)},
+        {CentralizedDatasourceSchemaConfig.enabled(true)}
+    };
+  }
 
   @Test
   public void testIsTransientException()
   {
     PostgreSQLConnector connector = new PostgreSQLConnector(
         Suppliers.ofInstance(new MetadataStorageConnectorConfig()),
-        Suppliers.ofInstance(
-            new MetadataStorageTablesConfig(
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-            )
-        ),
+        Suppliers.ofInstance(MetadataStorageTablesConfig.fromBase(null)),
         new PostgreSQLConnectorConfig(),
-        new PostgreSQLTablesConfig()
+        new PostgreSQLTablesConfig(),
+        centralizedDatasourceSchemaConfig
     );
 
     Assert.assertTrue(connector.isTransientException(new SQLException("bummer, connection problem", "08DIE")));
@@ -61,5 +67,18 @@ public class PostgreSQLConnectorTest
     Assert.assertFalse(connector.isTransientException(new SQLException()));
     Assert.assertFalse(connector.isTransientException(new Exception("I'm not happy")));
     Assert.assertFalse(connector.isTransientException(new Throwable("I give up")));
+  }
+
+  @Test
+  public void testLimitClause()
+  {
+    PostgreSQLConnector connector = new PostgreSQLConnector(
+        Suppliers.ofInstance(new MetadataStorageConnectorConfig()),
+        Suppliers.ofInstance(MetadataStorageTablesConfig.fromBase(null)),
+        new PostgreSQLConnectorConfig(),
+        new PostgreSQLTablesConfig(),
+        centralizedDatasourceSchemaConfig
+    );
+    Assert.assertEquals("LIMIT 100", connector.limitClause(100));
   }
 }

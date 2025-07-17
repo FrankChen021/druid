@@ -19,11 +19,10 @@
 
 package org.apache.druid.query.aggregation;
 
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 import org.apache.druid.segment.vector.VectorValueSelector;
 import org.easymock.EasyMock;
@@ -58,11 +57,10 @@ public class LongMaxAggregationTest
   @Before
   public void setup()
   {
-    NullHandling.initializeForTests();
     selector = new TestLongColumnSelector(values);
     colSelectorFactory = EasyMock.createMock(ColumnSelectorFactory.class);
     EasyMock.expect(colSelectorFactory.makeColumnValueSelector("nilly")).andReturn(selector);
-    EasyMock.expect(colSelectorFactory.getColumnCapabilities("nilly")).andReturn(null);
+    EasyMock.expect(colSelectorFactory.getColumnCapabilities("nilly")).andReturn(null).anyTimes();
     EasyMock.replay(colSelectorFactory);
 
 
@@ -73,7 +71,7 @@ public class LongMaxAggregationTest
 
     vectorColumnSelectorFactory = EasyMock.createMock(VectorColumnSelectorFactory.class);
     EasyMock.expect(vectorColumnSelectorFactory.getColumnCapabilities("lngFld"))
-            .andReturn(new ColumnCapabilitiesImpl().setType(ValueType.LONG).setDictionaryEncoded(true)).anyTimes();
+            .andReturn(new ColumnCapabilitiesImpl().setType(ColumnType.LONG).setDictionaryEncoded(true)).anyTimes();
     EasyMock.expect(vectorColumnSelectorFactory.makeValueSelector("lngFld")).andReturn(vectorValueSelector).anyTimes();
     EasyMock.replay(vectorColumnSelectorFactory);
   }

@@ -36,7 +36,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.regex.Pattern;
@@ -45,9 +47,12 @@ public class Metrics
 {
 
   private static final Logger log = new Logger(Metrics.class);
-  private final Map<String, DimensionsAndCollector> registeredMetrics = new HashMap<>();
+  private final Map<String, DimensionsAndCollector> registeredMetrics;
   private final ObjectMapper mapper = new ObjectMapper();
   public static final Pattern PATTERN = Pattern.compile("[^a-zA-Z_:][^a-zA-Z0-9_:]*");
+
+  private static final String TAG_HOSTNAME = "host_name";
+  private static final String TAG_SERVICE = "druid_service";
 
   public DimensionsAndCollector getByName(String name, String service)
   {
@@ -58,13 +63,30 @@ public class Metrics
     }
   }
 
-  public Metrics(String namespace, String path)
+  public Metrics(String namespace, String path, boolean isAddHostAsLabel, boolean isAddServiceAsLabel, Map<String, String> extraLabels)
   {
+    Map<String, DimensionsAndCollector> parsedRegisteredMetrics = new HashMap<>();
     Map<String, Metric> metrics = readConfig(path);
+
+    if (extraLabels == null) {
+      extraLabels = Collections.emptyMap(); // Avoid null checks later
+    }
+
     for (Map.Entry<String, Metric> entry : metrics.entrySet()) {
       String name = entry.getKey();
       Metric metric = entry.getValue();
       Metric.Type type = metric.type;
+
+      if (isAddHostAsLabel) {
+        metric.dimensions.add(TAG_HOSTNAME);
+      }
+
+      if (isAddServiceAsLabel) {
+        metric.dimensions.add(TAG_SERVICE);
+      }
+
+      metric.dimensions.addAll(extraLabels.keySet());
+
       String[] dimensions = metric.dimensions.toArray(new String[0]);
       String formattedName = PATTERN.matcher(StringUtils.toLowerCase(name)).replaceAll("_");
       SimpleCollector collector = null;
@@ -87,7 +109,7 @@ public class Metrics
             .namespace(namespace)
             .name(formattedName)
             .labelNames(dimensions)
-            .buckets(.1, .25, .5, .75, 1, 2.5, 5, 7.5, 10, 30, 60, 120, 300)
+            .buckets(metric.histogramBuckets)
             .help(metric.help)
             .register();
       } else {
@@ -95,10 +117,10 @@ public class Metrics
       }
 
       if (collector != null) {
-        registeredMetrics.put(name, new DimensionsAndCollector(dimensions, collector, metric.conversionFactor));
+        parsedRegisteredMetrics.put(name, new DimensionsAndCollector(dimensions, collector, metric.conversionFactor, metric.histogramBuckets));
       }
     }
-
+    this.registeredMetrics = Collections.unmodifiableMap(parsedRegisteredMetrics);
   }
 
   private Map<String, Metric> readConfig(String path)
@@ -132,19 +154,26 @@ public class Metrics
     public final Type type;
     public final String help;
     public final double conversionFactor;
+    public final double[] histogramBuckets;
 
     @JsonCreator
     public Metric(
         @JsonProperty("dimensions") SortedSet<String> dimensions,
         @JsonProperty("type") Type type,
         @JsonProperty("help") String help,
-        @JsonProperty("conversionFactor") double conversionFactor
+        @JsonProperty("conversionFactor") double conversionFactor,
+        @JsonProperty("histogramBuckets") List<Double> histogramBuckets
     )
     {
       this.dimensions = dimensions;
       this.type = type;
       this.help = help;
       this.conversionFactor = conversionFactor;
+      if (histogramBuckets != null && !histogramBuckets.isEmpty()) {
+        this.histogramBuckets = histogramBuckets.stream().mapToDouble(Double::doubleValue).toArray();
+      } else {
+        this.histogramBuckets = new double[] {0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, 30.0, 60.0, 120.0, 300.0};
+      }
     }
 
     public enum Type

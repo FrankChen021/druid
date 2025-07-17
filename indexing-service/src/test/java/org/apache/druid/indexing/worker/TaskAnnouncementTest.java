@@ -20,22 +20,17 @@
 package org.apache.druid.indexing.worker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.data.input.impl.NoopInputSource;
 import org.apache.druid.indexer.TaskLocation;
 import org.apache.druid.indexer.TaskStatus;
 import org.apache.druid.indexing.common.TestUtils;
-import org.apache.druid.indexing.common.task.RealtimeIndexTask;
+import org.apache.druid.indexing.common.task.IndexTask;
 import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.indexing.common.task.TaskResource;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.apache.druid.segment.indexing.RealtimeIOConfig;
-import org.apache.druid.segment.realtime.FireDepartment;
-import org.apache.druid.segment.realtime.firehose.LocalFirehoseFactory;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.io.File;
 
 public class TaskAnnouncementTest
 {
@@ -50,15 +45,13 @@ public class TaskAnnouncementTest
   @Test
   public void testBackwardsCompatibleSerde() throws Exception
   {
-    final Task task = new RealtimeIndexTask(
+    final IndexTask.IndexIOConfig ioConfig = new IndexTask.IndexIOConfig(new NoopInputSource(), null, null, null);
+    final Task task = new IndexTask(
         "theid",
         new TaskResource("rofl", 2),
-        new FireDepartment(
-            new DataSchema("foo", null, new AggregatorFactory[0], null, null, new DefaultObjectMapper()),
-            new RealtimeIOConfig(
-                new LocalFirehoseFactory(new File("lol"), "rofl", null),
-                (schema, config, metrics) -> null
-            ),
+        new IndexTask.IndexIngestionSpec(
+            DataSchema.builder().withDataSource("foo").withObjectMapper(new DefaultObjectMapper()).build(),
+            ioConfig,
             null
         ),
         null

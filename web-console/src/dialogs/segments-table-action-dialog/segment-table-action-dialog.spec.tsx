@@ -17,11 +17,10 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
 import { SegmentTableActionDialog } from './segment-table-action-dialog';
 
-describe('task table action dialog', () => {
+describe('SegmentTableActionDialog', () => {
   it('matches snapshot', () => {
     const taskTableActionDialog = (
       <SegmentTableActionDialog

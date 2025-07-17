@@ -25,7 +25,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.Row;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.FileUtils;
@@ -126,10 +125,6 @@ public class SearchBenchmark
   private static final IndexIO INDEX_IO;
   public static final ObjectMapper JSON_MAPPER;
 
-  static {
-    NullHandling.initializeForTests();
-  }
-
   private AppendableIndexSpec appendableIndexSpec;
   private DataGenerator generator;
   private QueryRunnerFactory factory;
@@ -143,11 +138,6 @@ public class SearchBenchmark
         JSON_MAPPER,
         new ColumnConfig()
         {
-          @Override
-          public int columnCacheSizeBytes()
-          {
-            return 0;
-          }
         }
     );
     INDEX_MERGER_V9 = new IndexMergerV9(JSON_MAPPER, INDEX_IO, OffHeapMemorySegmentWriteOutMediumFactory.instance());
@@ -317,7 +307,7 @@ public class SearchBenchmark
   {
     log.info("SETUP CALLED AT " + +System.currentTimeMillis());
 
-    ComplexMetrics.registerSerde("hyperUnique", new HyperUniquesSerde());
+    ComplexMetrics.registerSerde(HyperUniquesSerde.TYPE_NAME, new HyperUniquesSerde());
 
     setupQueries();
 
@@ -354,7 +344,7 @@ public class SearchBenchmark
     @Param({"onheap", "offheap"})
     private String indexType;
 
-    IncrementalIndex<?> incIndex;
+    IncrementalIndex incIndex;
 
     @Setup
     public void setup(SearchBenchmark global) throws JsonProcessingException
@@ -401,13 +391,13 @@ public class SearchBenchmark
       for (int i = 0; i < numSegments; i++) {
         log.info("Generating rows for segment " + i);
 
-        IncrementalIndex<?> incIndex = global.makeIncIndex();
+        IncrementalIndex incIndex = global.makeIncIndex();
         global.generator.reset(RNG_SEED + i).addToIndex(incIndex, global.rowsPerSegment);
 
         File indexFile = INDEX_MERGER_V9.persist(
             incIndex,
             new File(qIndexesDir, String.valueOf(i)),
-            new IndexSpec(),
+            IndexSpec.DEFAULT,
             null
         );
         incIndex.close();
@@ -430,7 +420,7 @@ public class SearchBenchmark
     }
   }
 
-  private IncrementalIndex<?> makeIncIndex()
+  private IncrementalIndex makeIncIndex()
   {
     return appendableIndexSpec.builder()
         .setSimpleTestingIndexSchema(schemaInfo.getAggsArray())

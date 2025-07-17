@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`LookupEditDialog matches snapshot 1`] = `
-<Blueprint3.Dialog
+<Blueprint5.Dialog
   canEscapeKeyClose={false}
   canOutsideClickClose={true}
   className="lookup-edit-dialog"
@@ -12,46 +12,44 @@ exports[`LookupEditDialog matches snapshot 1`] = `
   <div
     className="content"
   >
-    <Blueprint3.FormGroup
+    <Blueprint5.FormGroup
       label="Name"
     >
-      <Blueprint3.InputGroup
+      <Blueprint5.InputGroup
         disabled={false}
         intent="none"
         onChange={[Function]}
         placeholder="Enter the lookup name"
         value="test"
       />
-    </Blueprint3.FormGroup>
-    <Blueprint3.FormGroup
+    </Blueprint5.FormGroup>
+    <Blueprint5.FormGroup
       label="Tier"
     >
-      <HTMLSelect
+      <Blueprint5.HTMLSelect
         onChange={[Function]}
         value="test"
       >
         <option
-          key="__default"
           value="__default"
         >
           __default
         </option>
         <option
-          key="alt-tier"
           value="alt-tier"
         >
           alt-tier
         </option>
-      </HTMLSelect>
-    </Blueprint3.FormGroup>
-    <Blueprint3.FormGroup
+      </Blueprint5.HTMLSelect>
+    </Blueprint5.FormGroup>
+    <Blueprint5.FormGroup
       label="Version"
     >
-      <Blueprint3.InputGroup
+      <Blueprint5.InputGroup
         onChange={[Function]}
         placeholder="Enter the lookup version"
         rightElement={
-          <Blueprint3.Button
+          <Blueprint5.Button
             minimal={true}
             onClick={[Function]}
             text="Set to current ISO time"
@@ -59,25 +57,26 @@ exports[`LookupEditDialog matches snapshot 1`] = `
         }
         value="test"
       />
-    </Blueprint3.FormGroup>
+    </Blueprint5.FormGroup>
     <Memo(FormJsonSelector)
       onChange={[Function]}
       tab="form"
     />
     <AutoForm
       fields={
-        Array [
-          Object {
+        [
+          {
             "adjustment": [Function],
             "name": "type",
             "required": true,
-            "suggestions": Array [
+            "suggestions": [
               "map",
               "cachedNamespace",
+              "kafka",
             ],
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "height": "60vh",
             "issueWithValue": [Function],
@@ -85,38 +84,38 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             "required": true,
             "type": "json",
           },
-          Object {
+          {
             "defined": [Function],
             "label": "Extraction type",
             "name": "extractionNamespace.type",
             "placeholder": "uri",
             "required": true,
-            "suggestions": Array [
+            "suggestions": [
               "uri",
               "jdbc",
             ],
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "info": <p>
               A URI which specifies a directory (or other searchable resource) in which to search for files specified as a 
-              <Unknown>
+              <ForwardRef>
                 file
-              </Unknown>
+              </ForwardRef>
               , 
-              <Unknown>
+              <ForwardRef>
                 hdfs
-              </Unknown>
+              </ForwardRef>
               , 
-              <Unknown>
+              <ForwardRef>
                 s3
-              </Unknown>
+              </ForwardRef>
               , or
                
-              <Unknown>
+              <ForwardRef>
                 gs
-              </Unknown>
+              </ForwardRef>
                path prefix.
             </p>,
             "issueWithValue": [Function],
@@ -126,41 +125,36 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             "required": [Function],
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
-            "info": <React.Fragment>
-              <p>
-                URI for the file of interest, specified as a 
-                <Unknown>
-                  file
-                </Unknown>
-                , 
-                <Unknown>
-                  hdfs
-                </Unknown>
-                ,
-                 
-                <Unknown>
-                  s3
-                </Unknown>
-                , or 
-                <Unknown>
-                  gs
-                </Unknown>
-                 path
-              </p>
-              <p>
-                The URI prefix option is strictly better than URI and should be used instead
-              </p>
-            </React.Fragment>,
+            "info": <p>
+              URI for the file of interest, specified as a 
+              <ForwardRef>
+                file
+              </ForwardRef>
+              , 
+              <ForwardRef>
+                hdfs
+              </ForwardRef>
+              ,
+               
+              <ForwardRef>
+                s3
+              </ForwardRef>
+              , or 
+              <ForwardRef>
+                gs
+              </ForwardRef>
+               path
+            </p>,
             "issueWithValue": [Function],
-            "label": "URI (deprecated)",
+            "label": "URI",
             "name": "extractionNamespace.uri",
             "placeholder": "s3://bucket/some/key/prefix/lookups-01.gz",
             "required": [Function],
             "type": "string",
           },
-          Object {
+          {
             "defaultValue": ".*",
             "defined": [Function],
             "info": "Optional regex for matching the file name under uriPrefix.",
@@ -168,7 +162,7 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             "name": "extractionNamespace.fileRegex",
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "info": <React.Fragment>
               <p>
@@ -176,16 +170,16 @@ exports[`LookupEditDialog matches snapshot 1`] = `
               </p>
               <p>
                 The 
-                <Unknown>
+                <ForwardRef>
                   simpleJson
-                </Unknown>
+                </ForwardRef>
                  lookupParseSpec does not take any parameters. It is simply a line delimited JSON file where the field is the key, and the field's value is the value.
               </p>
             </React.Fragment>,
             "label": "Parse format",
             "name": "extractionNamespace.namespaceParseSpec.format",
             "required": true,
-            "suggestions": Array [
+            "suggestions": [
               "csv",
               "tsv",
               "simpleJson",
@@ -193,11 +187,11 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             ],
             "type": "string",
           },
-          Object {
+          {
             "defaultValue": "	",
             "defined": [Function],
             "name": "extractionNamespace.namespaceParseSpec.delimiter",
-            "suggestions": Array [
+            "suggestions": [
               "	",
               ";",
               "|",
@@ -205,21 +199,21 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             ],
             "type": "string",
           },
-          Object {
+          {
             "defaultValue": 0,
             "defined": [Function],
             "info": "Number of header rows to be skipped.",
             "name": "extractionNamespace.namespaceParseSpec.skipHeaderRows",
             "type": "number",
           },
-          Object {
+          {
             "defaultValue": false,
             "defined": [Function],
             "info": "A flag to indicate that column information can be extracted from the input files' header row",
             "name": "extractionNamespace.namespaceParseSpec.hasHeaderRow",
             "type": "boolean",
           },
-          Object {
+          {
             "defined": [Function],
             "info": "The list of columns in the csv file",
             "name": "extractionNamespace.namespaceParseSpec.columns",
@@ -227,35 +221,35 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             "required": [Function],
             "type": "string-array",
           },
-          Object {
+          {
             "defined": [Function],
             "info": "The name of the column containing the key",
             "name": "extractionNamespace.namespaceParseSpec.keyColumn",
             "placeholder": "(optional - defaults to the first column)",
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "info": "The name of the column containing the value",
             "name": "extractionNamespace.namespaceParseSpec.valueColumn",
             "placeholder": "(optional - defaults to the second column)",
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "name": "extractionNamespace.namespaceParseSpec.keyFieldName",
             "placeholder": "key",
             "required": true,
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "name": "extractionNamespace.namespaceParseSpec.valueFieldName",
             "placeholder": "value",
             "required": true,
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "info": "Defines the connectURI for connecting to the database",
             "issueWithValue": [Function],
@@ -264,26 +258,26 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             "required": true,
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "info": "Defines the user to be used by the connector config",
             "name": "extractionNamespace.connectorConfig.user",
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "info": "Defines the password to be used by the connector config",
             "name": "extractionNamespace.connectorConfig.password",
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "info": <React.Fragment>
               <p>
                 The table which contains the key value pairs. This will become the table value in the SQL query:
               </p>
               <p>
-                SELECT keyColumn, valueColumn, tsColumn? FROM namespace.
+                SELECT keyColumn, valueColumn, tsColumn? FROM 
                 <strong>
                   table
                 </strong>
@@ -295,7 +289,7 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             "required": true,
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "info": <React.Fragment>
               <p>
@@ -306,7 +300,7 @@ exports[`LookupEditDialog matches snapshot 1`] = `
                 <strong>
                   keyColumn
                 </strong>
-                , valueColumn, tsColumn? FROM namespace.table WHERE filter
+                , valueColumn, tsColumn? FROM table WHERE filter
               </p>
             </React.Fragment>,
             "name": "extractionNamespace.keyColumn",
@@ -314,7 +308,7 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             "required": true,
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "info": <React.Fragment>
               <p>
@@ -325,7 +319,7 @@ exports[`LookupEditDialog matches snapshot 1`] = `
                 <strong>
                   valueColumn
                 </strong>
-                , tsColumn? FROM namespace.table WHERE filter
+                , tsColumn? FROM table WHERE filter
               </p>
             </React.Fragment>,
             "name": "extractionNamespace.valueColumn",
@@ -333,7 +327,7 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             "required": true,
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "info": <React.Fragment>
               <p>
@@ -344,7 +338,7 @@ exports[`LookupEditDialog matches snapshot 1`] = `
                 <strong>
                   tsColumn
                 </strong>
-                ? FROM namespace.table WHERE filter
+                ? FROM table WHERE filter
               </p>
             </React.Fragment>,
             "label": "Timestamp column",
@@ -352,15 +346,14 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             "placeholder": "timestamp_column (optional)",
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "info": <React.Fragment>
               <p>
                 The filter to be used when selecting lookups, this is used to create a where clause on lookup population. This will become the expression filter in the SQL query:
               </p>
               <p>
-                SELECT keyColumn, valueColumn, tsColumn? FROM namespace.table WHERE
-                 
+                SELECT keyColumn, valueColumn, tsColumn? FROM table WHERE 
                 <strong>
                   filter
                 </strong>
@@ -370,12 +363,12 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             "placeholder": "for_lookup = 1 (optional)",
             "type": "string",
           },
-          Object {
+          {
             "defined": [Function],
             "info": "Period between polling for updates",
             "name": "extractionNamespace.pollPeriod",
             "required": true,
-            "suggestions": Array [
+            "suggestions": [
               "PT1M",
               "PT10M",
               "PT30M",
@@ -385,25 +378,81 @@ exports[`LookupEditDialog matches snapshot 1`] = `
             ],
             "type": "duration",
           },
-          Object {
+          {
+            "defaultValue": 0,
+            "defined": [Function],
+            "info": "How much jitter to add (in seconds) up to maximum as a delay (actual value will be used as random from 0 to jitterSeconds), used to distribute db load more evenly. Default is 0.",
+            "name": "extractionNamespace.jitterSeconds",
+            "required": false,
+            "suggestions": [],
+            "type": "number",
+          },
+          {
+            "defaultValue": 60,
+            "defined": [Function],
+            "info": "How much time (in seconds) it can take to query and populate lookup values. It will be helpful in lookup updates. On lookup update, it will wait maximum of \`loadTimeoutSeconds\` for new lookup to come up and continue serving from old lookup until new lookup successfully loads. Default is 60 Sec.",
+            "name": "extractionNamespace.loadTimeoutSeconds",
+            "required": false,
+            "suggestions": [],
+            "type": "number",
+          },
+          {
+            "defaultValue": 10,
+            "defined": [Function],
+            "info": "The maximum percentage of heap size that the lookup should consume. If the lookup grows beyond this size, warning messages will be logged in the respective service logs. Default is 10 % of jvm size.",
+            "name": "extractionNamespace.maxHeapPercentage",
+            "required": false,
+            "suggestions": [],
+            "type": "number",
+          },
+          {
             "defaultValue": 0,
             "defined": [Function],
             "info": "How long to wait (in ms) for the first run of the cache to populate. 0 indicates to not wait",
             "name": "firstCacheTimeout",
             "type": "number",
           },
-          Object {
+          {
             "defaultValue": false,
             "defined": [Function],
             "info": "If the underlying map is injective (keys and values are unique) then optimizations can occur internally by setting this to true",
             "name": "injective",
             "type": "boolean",
           },
+          {
+            "defined": [Function],
+            "info": "The Kafka topic to read the data from",
+            "name": "kafkaTopic",
+            "required": true,
+            "type": "string",
+          },
+          {
+            "defined": [Function],
+            "height": "100px",
+            "issueWithValue": [Function],
+            "name": "kafkaProperties",
+            "required": true,
+            "type": "json",
+          },
+          {
+            "defaultValue": 0,
+            "defined": [Function],
+            "info": "How long to wait for an initial connection",
+            "name": "connectTimeout",
+            "type": "number",
+          },
+          {
+            "defaultValue": false,
+            "defined": [Function],
+            "info": "If the underlying map is one-to-one (keys and values are unique) then optimizations can occur internally by setting this to true",
+            "name": "isOneToOne",
+            "type": "boolean",
+          },
         ]
       }
       model={
-        Object {
-          "map": Object {
+        {
+          "map": {
             "a": 1,
           },
           "type": "map",
@@ -413,16 +462,16 @@ exports[`LookupEditDialog matches snapshot 1`] = `
     />
   </div>
   <div
-    className="bp3-dialog-footer"
+    className="bp5-dialog-footer"
   >
     <div
-      className="bp3-dialog-footer-actions"
+      className="bp5-dialog-footer-actions"
     >
-      <Blueprint3.Button
+      <Blueprint5.Button
         onClick={[Function]}
         text="Close"
       />
-      <Blueprint3.Button
+      <Blueprint5.Button
         disabled={false}
         intent="primary"
         onClick={[Function]}
@@ -430,5 +479,5 @@ exports[`LookupEditDialog matches snapshot 1`] = `
       />
     </div>
   </div>
-</Blueprint3.Dialog>
+</Blueprint5.Dialog>
 `;

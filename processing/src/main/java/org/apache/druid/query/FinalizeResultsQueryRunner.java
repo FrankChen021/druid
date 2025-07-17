@@ -21,13 +21,15 @@ package org.apache.druid.query;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
 import org.apache.druid.query.context.ResponseContext;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Query runner that applies {@link QueryToolChest#makePostComputeManipulatorFn(Query, MetricManipulationFn)} to the
@@ -56,15 +58,16 @@ public class FinalizeResultsQueryRunner<T> implements QueryRunner<T>
   public Sequence<T> run(final QueryPlus<T> queryPlus, ResponseContext responseContext)
   {
     final Query<T> query = queryPlus.getQuery();
-    final boolean isBySegment = QueryContexts.isBySegment(query);
-    final boolean shouldFinalize = QueryContexts.isFinalize(query, true);
+    final QueryContext queryContext = query.context();
+    final boolean isBySegment = queryContext.isBySegment();
+    final boolean shouldFinalize = queryContext.isFinalize(true);
 
     final Query<T> queryToRun;
     final Function<T, ?> finalizerFn;
     final MetricManipulationFn metricManipulationFn;
 
     if (shouldFinalize) {
-      queryToRun = query.withOverriddenContext(ImmutableMap.of("finalize", false));
+      queryToRun = query.withOverriddenContext(ImmutableMap.of(QueryContexts.FINALIZE_KEY, false));
       metricManipulationFn = MetricManipulatorFns.finalizing();
     } else {
       queryToRun = query;
@@ -91,10 +94,16 @@ public class FinalizeResultsQueryRunner<T> implements QueryRunner<T>
 
           BySegmentResultValue<T> resultsClass = result.getValue();
 
+          final List<T> originalResults = resultsClass.getResults();
+          final ArrayList<T> transformedResults = new ArrayList<>(originalResults.size());
+          for (T originalResult : originalResults) {
+            transformedResults.add(baseFinalizer.apply(originalResult));
+          }
+
           return new Result<>(
               result.getTimestamp(),
               new BySegmentResultValueClass<>(
-                  Lists.transform(resultsClass.getResults(), baseFinalizer),
+                  transformedResults,
                   resultsClass.getSegmentId(),
                   resultsClass.getInterval()
               )

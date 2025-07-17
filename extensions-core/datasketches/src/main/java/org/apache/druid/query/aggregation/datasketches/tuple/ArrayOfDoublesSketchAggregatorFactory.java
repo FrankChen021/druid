@@ -22,7 +22,8 @@ package org.apache.druid.query.aggregation.datasketches.tuple;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
-import org.apache.datasketches.Util;
+import org.apache.datasketches.common.Util;
+import org.apache.datasketches.thetacommon.ThetaUtil;
 import org.apache.datasketches.tuple.arrayofdoubles.ArrayOfDoublesSetOperationBuilder;
 import org.apache.datasketches.tuple.arrayofdoubles.ArrayOfDoublesSketch;
 import org.apache.datasketches.tuple.arrayofdoubles.ArrayOfDoublesUnion;
@@ -41,7 +42,7 @@ import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.DimensionSelector;
 import org.apache.druid.segment.NilColumnValueSelector;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -74,8 +75,8 @@ public class ArrayOfDoublesSketchAggregatorFactory extends AggregatorFactory
   {
     this.name = Preconditions.checkNotNull(name, "Must have a valid, non-null aggregator name");
     this.fieldName = Preconditions.checkNotNull(fieldName, "Must have a valid, non-null fieldName");
-    this.nominalEntries = nominalEntries == null ? Util.DEFAULT_NOMINAL_ENTRIES : nominalEntries;
-    Util.checkIfPowerOf2(this.nominalEntries, "nominalEntries");
+    this.nominalEntries = nominalEntries == null ? ThetaUtil.DEFAULT_NOMINAL_ENTRIES : nominalEntries;
+    Util.checkIfIntPowerOf2(this.nominalEntries, "nominalEntries");
     this.metricColumns = metricColumns;
     this.numberOfValues = numberOfValues == null ? (metricColumns == null ? 1 : metricColumns.size()) : numberOfValues;
     if (metricColumns != null && metricColumns.size() != this.numberOfValues) {
@@ -165,10 +166,10 @@ public class ArrayOfDoublesSketchAggregatorFactory extends AggregatorFactory
     final ArrayOfDoublesUnion union = new ArrayOfDoublesSetOperationBuilder().setNominalEntries(nominalEntries)
         .setNumberOfValues(numberOfValues).buildUnion();
     if (lhs != null) {
-      union.update((ArrayOfDoublesSketch) lhs);
+      union.union((ArrayOfDoublesSketch) lhs);
     }
     if (rhs != null) {
-      union.update((ArrayOfDoublesSketch) rhs);
+      union.union((ArrayOfDoublesSketch) rhs);
     }
     return union.getResult();
   }
@@ -192,7 +193,7 @@ public class ArrayOfDoublesSketchAggregatorFactory extends AggregatorFactory
       public void fold(final ColumnValueSelector selector)
       {
         final ArrayOfDoublesSketch sketch = (ArrayOfDoublesSketch) selector.getObject();
-        union.update(sketch);
+        union.union(sketch);
       }
 
       @Override
@@ -267,16 +268,14 @@ public class ArrayOfDoublesSketchAggregatorFactory extends AggregatorFactory
   }
 
   @Override
-  public List<AggregatorFactory> getRequiredColumns()
+  public AggregatorFactory withName(String newName)
   {
-    return Collections.singletonList(
-      new ArrayOfDoublesSketchAggregatorFactory(
-          fieldName,
-          fieldName,
-          nominalEntries,
-          metricColumns,
-          numberOfValues
-      )
+    return new ArrayOfDoublesSketchAggregatorFactory(
+        newName,
+        getFieldName(),
+        getNominalEntries(),
+        getMetricColumns(),
+        getNumberOfValues()
     );
   }
 
@@ -293,28 +292,42 @@ public class ArrayOfDoublesSketchAggregatorFactory extends AggregatorFactory
     return object == null ? null : ((ArrayOfDoublesSketch) object).getEstimate();
   }
 
-  @Override
-  public String getComplexTypeName()
-  {
-    if (metricColumns == null) {
-      return ArrayOfDoublesSketchModule.ARRAY_OF_DOUBLES_SKETCH_MERGE_AGG;
-    }
-    return ArrayOfDoublesSketchModule.ARRAY_OF_DOUBLES_SKETCH_BUILD_AGG;
-  }
-
   /**
    * actual type is {@link ArrayOfDoublesSketch}
    */
   @Override
-  public ValueType getType()
+  public ColumnType getIntermediateType()
   {
-    return ValueType.COMPLEX;
+    return metricColumns == null ? ArrayOfDoublesSketchModule.MERGE_TYPE : ArrayOfDoublesSketchModule.BUILD_TYPE;
   }
 
   @Override
-  public ValueType getFinalizedType()
+  public ColumnType getResultType()
   {
-    return ValueType.DOUBLE;
+    return ColumnType.DOUBLE;
+  }
+
+  @Nullable
+  @Override
+  public AggregatorFactory substituteCombiningFactory(AggregatorFactory preAggregated)
+  {
+    if (this == preAggregated) {
+      return getCombiningFactory();
+    }
+
+    if (getClass() != preAggregated.getClass()) {
+      return null;
+    }
+
+    ArrayOfDoublesSketchAggregatorFactory that = (ArrayOfDoublesSketchAggregatorFactory) preAggregated;
+    if (nominalEntries <= that.nominalEntries &&
+        numberOfValues == that.numberOfValues &&
+        Objects.equals(fieldName, that.fieldName) &&
+        Objects.equals(metricColumns, that.metricColumns)
+    ) {
+      return getCombiningFactory();
+    }
+    return null;
   }
 
   @Override

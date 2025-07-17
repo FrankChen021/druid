@@ -56,6 +56,7 @@ import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -70,7 +71,7 @@ public class CuratorDruidNodeDiscoveryProvider extends DruidNodeDiscoveryProvide
   private final ZkPathsConfig config;
   private final ObjectMapper jsonMapper;
 
-  private ExecutorService listenerExecutor;
+  private ScheduledExecutorService listenerExecutor;
 
   private final ConcurrentHashMap<NodeRole, NodeRoleWatcher> nodeRoleWatchers = new ConcurrentHashMap<>();
   private final ConcurrentLinkedQueue<NodeDiscoverer> nodeDiscoverers = new ConcurrentLinkedQueue<>();
@@ -131,7 +132,7 @@ public class CuratorDruidNodeDiscoveryProvider extends DruidNodeDiscoveryProvide
     try {
       // This is single-threaded to ensure that all listener calls are executed precisely in the order of add/remove
       // event occurrences.
-      listenerExecutor = Execs.singleThreaded("CuratorDruidNodeDiscoveryProvider-ListenerExecutor");
+      listenerExecutor = Execs.scheduledSingleThreaded("CuratorDruidNodeDiscoveryProvider-ListenerExecutor");
 
       log.debug("Started.");
 
@@ -155,7 +156,7 @@ public class CuratorDruidNodeDiscoveryProvider extends DruidNodeDiscoveryProvide
     closer.registerAll(nodeRoleWatchers.values());
     closer.registerAll(nodeDiscoverers);
 
-    CloseableUtils.closeBoth(closer, listenerExecutor::shutdownNow);
+    CloseableUtils.closeAll(closer, listenerExecutor::shutdownNow);
   }
 
   private static class NodeRoleWatcher implements DruidNodeDiscovery, Closeable
@@ -174,7 +175,7 @@ public class CuratorDruidNodeDiscoveryProvider extends DruidNodeDiscoveryProvide
     private final Object lock = new Object();
 
     NodeRoleWatcher(
-        ExecutorService listenerExecutor,
+        ScheduledExecutorService listenerExecutor,
         CuratorFramework curatorFramework,
         String basePath,
         ObjectMapper jsonMapper,
@@ -184,7 +185,7 @@ public class CuratorDruidNodeDiscoveryProvider extends DruidNodeDiscoveryProvide
       this.curatorFramework = curatorFramework;
       this.nodeRole = nodeRole;
       this.jsonMapper = jsonMapper;
-      this.baseNodeRoleWatcher = new BaseNodeRoleWatcher(listenerExecutor, nodeRole);
+      this.baseNodeRoleWatcher = BaseNodeRoleWatcher.create(listenerExecutor, nodeRole);
 
       // This is required to be single threaded from docs in PathChildrenCache.
       this.cacheExecutor = Execs.singleThreaded(
@@ -213,7 +214,7 @@ public class CuratorDruidNodeDiscoveryProvider extends DruidNodeDiscoveryProvide
     @Override
     public void close() throws IOException
     {
-      CloseableUtils.closeBoth(cache, cacheExecutor::shutdownNow);
+      CloseableUtils.closeAll(cache, cacheExecutor::shutdownNow);
     }
 
     @Override
@@ -246,12 +247,12 @@ public class CuratorDruidNodeDiscoveryProvider extends DruidNodeDiscoveryProvide
               break;
             }
             default: {
-              log.warn("Ignored event type[%s] for node watcher of role[%s].", event.getType(), nodeRole.getJsonName());
+              log.warn("Ignored event type [%s] for node watcher of role [%s].", event.getType(), nodeRole.getJsonName());
             }
           }
         }
         catch (Exception ex) {
-          log.error(ex, "Unknown error in node watcher of role[%s].", nodeRole.getJsonName());
+          log.error(ex, "Unknown error in node watcher of role [%s].", nodeRole.getJsonName());
         }
       }
     }

@@ -49,8 +49,8 @@ public class UnknownTypeComplexColumn implements ComplexColumn
     return "UNKNOWN_COMPLEX_COLUMN_TYPE";
   }
 
-  @Nullable
   @Override
+  @Nullable
   public Object getRowValue(int rowNum)
   {
     return null;
@@ -59,7 +59,7 @@ public class UnknownTypeComplexColumn implements ComplexColumn
   @Override
   public int getLength()
   {
-    return 0;
+    return -1;
   }
 
   @Override

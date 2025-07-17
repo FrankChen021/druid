@@ -34,7 +34,7 @@ import org.apache.druid.query.aggregation.ObjectAggregateCombiner;
 import org.apache.druid.query.cache.CacheKeyBuilder;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.ColumnValueSelector;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -75,6 +75,7 @@ public class TDigestSketchAggregatorFactory extends AggregatorFactory
   private final byte cacheTypeId;
 
   public static final String TYPE_NAME = "tDigestSketch";
+  public static final ColumnType TYPE = ColumnType.ofComplex(TYPE_NAME);
 
   @JsonCreator
   public TDigestSketchAggregatorFactory(
@@ -162,18 +163,6 @@ public class TDigestSketchAggregatorFactory extends AggregatorFactory
   }
 
   @Override
-  public List<AggregatorFactory> getRequiredColumns()
-  {
-    return Collections.singletonList(
-        new TDigestSketchAggregatorFactory(
-            fieldName,
-            fieldName,
-            compression
-        )
-    );
-  }
-
-  @Override
   public Object deserialize(Object serializedSketch)
   {
     return TDigestSketchUtils.deserialize(serializedSketch);
@@ -211,31 +200,31 @@ public class TDigestSketchAggregatorFactory extends AggregatorFactory
     return Collections.singletonList(fieldName);
   }
 
-  @Override
-  public String getComplexTypeName()
-  {
-    return TYPE_NAME;
-  }
-
   /**
    * actual type is {@link MergingDigest}
    */
   @Override
-  public ValueType getType()
+  public ColumnType getIntermediateType()
   {
-    return ValueType.COMPLEX;
+    return TYPE;
   }
 
   @Override
-  public ValueType getFinalizedType()
+  public ColumnType getResultType()
   {
-    return ValueType.COMPLEX;
+    return TYPE;
   }
 
   @Override
   public int getMaxIntermediateSize()
   {
     return TDigestSketchUtils.getMaxIntermdiateTDigestSize(compression);
+  }
+
+  @Override
+  public AggregatorFactory withName(String newName)
+  {
+    return new TDigestSketchAggregatorFactory(newName, getFieldName(), getCompression(), cacheTypeId);
   }
 
   @Override

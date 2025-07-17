@@ -23,10 +23,10 @@ import com.google.common.base.Optional;
 import org.apache.druid.data.input.HandlingInputRowIterator;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.MapBasedInputRow;
+import org.apache.druid.indexer.granularity.GranularitySpec;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
-import org.apache.druid.segment.indexing.granularity.GranularitySpec;
 import org.easymock.EasyMock;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
@@ -44,6 +44,7 @@ class IndexTaskInputRowIteratorBuilderTestingFactory
 {
   static final DateTime TIMESTAMP = DateTimes.utc(0);
   static final String DIMENSION = "dimension";
+  static final List<String> DIMENSIONS = Collections.singletonList(DIMENSION);
   static final Optional<Interval> PRESENT_BUCKET_INTERVAL_OPT = Optional.of(Intervals.ETERNITY);
 
   static InputRow createInputRow(DateTime timestamp)
@@ -62,7 +63,7 @@ class IndexTaskInputRowIteratorBuilderTestingFactory
 
   static CloseableIterator<InputRow> createInputRowIterator(InputRow inputRow)
   {
-    return new CloseableIterator<InputRow>()
+    return new CloseableIterator<>()
     {
       @Override
       public void close()

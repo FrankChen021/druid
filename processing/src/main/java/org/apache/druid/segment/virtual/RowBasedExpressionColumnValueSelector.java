@@ -19,66 +19,70 @@
 
 package org.apache.druid.segment.virtual;
 
+import com.google.common.collect.Lists;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.math.expr.Parser;
+import org.apache.druid.segment.RowIdSupplier;
 
-import java.util.HashSet;
+import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * Expression column value selector that examines a set of 'unknown' type input bindings on a row by row basis,
  * transforming the expression to handle multi-value list typed inputs as they are encountered.
  *
- * Currently, string dimensions are the only bindings which might appear as a {@link String} or a {@link String[]}, so
+ * Currently, string dimensions are the only bindings which might appear as a {@link String} or a {@link Object[]}, so
  * numbers are eliminated from the set of 'unknown' bindings to check as they are encountered.
  */
-public class RowBasedExpressionColumnValueSelector extends ExpressionColumnValueSelector
+public class RowBasedExpressionColumnValueSelector extends BaseExpressionColumnValueSelector
 {
+  private final Expr.ObjectBinding bindings;
+  private final Expr expression;
   private final List<String> unknownColumns;
   private final Expr.BindingAnalysis baseBindingAnalysis;
-  private final Set<String> ignoredColumns;
   private final Int2ObjectMap<Expr> transformedCache;
 
   public RowBasedExpressionColumnValueSelector(
       ExpressionPlan plan,
-      Expr.ObjectBinding bindings
+      Expr.ObjectBinding bindings,
+      @Nullable RowIdSupplier rowIdSupplier
   )
   {
-    super(plan.getAppliedExpression(), bindings);
+    super(rowIdSupplier);
+    this.bindings = bindings;
+    this.expression = plan.getAppliedExpression();
     this.unknownColumns = plan.getUnknownInputs()
                               .stream()
                               .filter(x -> !plan.getAnalysis().getArrayBindings().contains(x))
                               .collect(Collectors.toList());
     this.baseBindingAnalysis = plan.getAnalysis();
-    this.ignoredColumns = new HashSet<>();
     this.transformedCache = new Int2ObjectArrayMap<>(unknownColumns.size());
   }
 
   @Override
-  public ExprEval getObject()
+  protected ExprEval<?> eval()
   {
     // check to find any arrays for this row
-    List<String> arrayBindings = unknownColumns.stream().filter(this::isBindingArray).collect(Collectors.toList());
+    final List<String> arrayBindings = Lists.newArrayListWithCapacity(unknownColumns.size());
 
-    // eliminate anything that will never be an array
-    if (ignoredColumns.size() > 0) {
-      unknownColumns.removeAll(ignoredColumns);
-      ignoredColumns.clear();
+    for (String unknownColumn : unknownColumns) {
+      if (isBindingArray(unknownColumn)) {
+        arrayBindings.add(unknownColumn);
+      }
     }
 
     // if there are arrays, we need to transform the expression to one that applies each value of the array to the
     // base expression, we keep a cache of transformed expressions to minimize extra work
-    if (arrayBindings.size() > 0) {
+    if (!arrayBindings.isEmpty()) {
       final int key = arrayBindings.hashCode();
       if (transformedCache.containsKey(key)) {
         return transformedCache.get(key).eval(bindings);
       }
-      Expr transformed = Parser.applyUnappliedBindings(expression, baseBindingAnalysis, arrayBindings);
+      final Expr transformed = Parser.applyUnappliedBindings(expression, baseBindingAnalysis, arrayBindings);
       transformedCache.put(key, transformed);
       return transformed.eval(bindings);
     }
@@ -94,11 +98,7 @@ public class RowBasedExpressionColumnValueSelector extends ExpressionColumnValue
   {
     Object binding = bindings.get(x);
     if (binding != null) {
-      if (binding instanceof String[]) {
-        return true;
-      } else if (binding instanceof Number) {
-        ignoredColumns.add(x);
-      }
+      return binding instanceof Object[] && ((Object[]) binding).length > 0;
     }
     return false;
   }

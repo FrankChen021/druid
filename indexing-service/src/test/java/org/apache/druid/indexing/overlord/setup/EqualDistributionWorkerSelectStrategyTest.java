@@ -69,7 +69,7 @@ public class EqualDistributionWorkerSelectStrategyTest
   @Test
   public void testFindWorkerForTask()
   {
-    final EqualDistributionWorkerSelectStrategy strategy = new EqualDistributionWorkerSelectStrategy(null);
+    final EqualDistributionWorkerSelectStrategy strategy = new EqualDistributionWorkerSelectStrategy(null, null);
 
     ImmutableWorkerInfo worker = strategy.findWorkerForTask(
         new RemoteTaskRunnerConfig(),
@@ -89,14 +89,7 @@ public class EqualDistributionWorkerSelectStrategyTest
                 DateTimes.nowUtc()
             )
         ),
-        new NoopTask(null, null, null, 1, 0, null, null, null)
-        {
-          @Override
-          public String getDataSource()
-          {
-            return "foo";
-          }
-        }
+        NoopTask.forDatasource("foo")
     );
     Assert.assertEquals("lhost", worker.getWorker().getHost());
   }
@@ -104,7 +97,7 @@ public class EqualDistributionWorkerSelectStrategyTest
   @Test
   public void testFindWorkerForTaskWhenSameCurrCapacityUsed()
   {
-    final EqualDistributionWorkerSelectStrategy strategy = new EqualDistributionWorkerSelectStrategy(null);
+    final EqualDistributionWorkerSelectStrategy strategy = new EqualDistributionWorkerSelectStrategy(null, null);
 
     ImmutableWorkerInfo worker = strategy.findWorkerForTask(
         new RemoteTaskRunnerConfig(),
@@ -124,14 +117,7 @@ public class EqualDistributionWorkerSelectStrategyTest
                 DateTimes.nowUtc()
             )
         ),
-        new NoopTask(null, null, null, 1, 0, null, null, null)
-        {
-          @Override
-          public String getDataSource()
-          {
-            return "foo";
-          }
-        }
+        NoopTask.forDatasource("foo")
     );
     Assert.assertEquals("localhost", worker.getWorker().getHost());
   }
@@ -140,7 +126,7 @@ public class EqualDistributionWorkerSelectStrategyTest
   public void testOneDisableWorkerDifferentUsedCapacity()
   {
     String disabledVersion = "";
-    final EqualDistributionWorkerSelectStrategy strategy = new EqualDistributionWorkerSelectStrategy(null);
+    final EqualDistributionWorkerSelectStrategy strategy = new EqualDistributionWorkerSelectStrategy(null, null);
 
     ImmutableWorkerInfo worker = strategy.findWorkerForTask(
         new RemoteTaskRunnerConfig(),
@@ -160,14 +146,7 @@ public class EqualDistributionWorkerSelectStrategyTest
                 DateTimes.nowUtc()
             )
         ),
-        new NoopTask(null, null, null, 1, 0, null, null, null)
-        {
-          @Override
-          public String getDataSource()
-          {
-            return "foo";
-          }
-        }
+        NoopTask.forDatasource("foo")
     );
     Assert.assertEquals("enableHost", worker.getWorker().getHost());
   }
@@ -176,7 +155,7 @@ public class EqualDistributionWorkerSelectStrategyTest
   public void testOneDisableWorkerSameUsedCapacity()
   {
     String disabledVersion = "";
-    final EqualDistributionWorkerSelectStrategy strategy = new EqualDistributionWorkerSelectStrategy(null);
+    final EqualDistributionWorkerSelectStrategy strategy = new EqualDistributionWorkerSelectStrategy(null, null);
 
     ImmutableWorkerInfo worker = strategy.findWorkerForTask(
         new RemoteTaskRunnerConfig(),
@@ -196,14 +175,7 @@ public class EqualDistributionWorkerSelectStrategyTest
                 DateTimes.nowUtc()
             )
         ),
-        new NoopTask(null, null, null, 1, 0, null, null, null)
-        {
-          @Override
-          public String getDataSource()
-          {
-            return "foo";
-          }
-        }
+        NoopTask.forDatasource("foo")
     );
     Assert.assertEquals("enableHost", worker.getWorker().getHost());
   }
@@ -218,7 +190,8 @@ public class EqualDistributionWorkerSelectStrategyTest
                 "bar", ImmutableSet.of("nonexistent-worker")
             ),
             false
-        )
+        ),
+        null
     );
 
     ImmutableWorkerInfo workerFoo = strategy.findWorkerForTask(
@@ -254,7 +227,8 @@ public class EqualDistributionWorkerSelectStrategyTest
                 "bar", ImmutableSet.of("nonexistent-worker")
             ),
             true
-        )
+        ),
+        null
     );
 
     ImmutableWorkerInfo workerFoo = strategy.findWorkerForTask(
@@ -282,13 +256,6 @@ public class EqualDistributionWorkerSelectStrategyTest
 
   private static NoopTask createDummyTask(final String dataSource)
   {
-    return new NoopTask(null, null, null, 1, 0, null, null, null)
-    {
-      @Override
-      public String getDataSource()
-      {
-        return dataSource;
-      }
-    };
+    return NoopTask.forDatasource(dataSource);
   }
 }

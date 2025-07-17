@@ -19,8 +19,9 @@
 import { IconNames } from '@blueprintjs/icons';
 import React from 'react';
 
-import { LocalStorageKeys } from '../../utils';
-import { DelayLabel, TimedButton } from '../timed-button/timed-button';
+import type { LocalStorageKeys } from '../../utils';
+import type { DelayLabel } from '../timed-button/timed-button';
+import { TimedButton } from '../timed-button/timed-button';
 
 const DELAYS: DelayLabel[] = [
   { label: '5 seconds', delay: 5000 },
@@ -32,22 +33,21 @@ const DELAYS: DelayLabel[] = [
 ];
 
 export interface RefreshButtonProps {
-  onRefresh: (auto: boolean) => void;
+  onRefresh(auto: boolean): void;
   localStorageKey?: LocalStorageKeys;
 }
 
 export const RefreshButton = React.memo(function RefreshButton(props: RefreshButtonProps) {
-  const { onRefresh, localStorageKey } = props;
-
   return (
     <TimedButton
+      className="refresh-button"
       defaultDelay={30000}
       label="Auto refresh every"
       delays={DELAYS}
       icon={IconNames.REFRESH}
       text="Refresh"
-      onRefresh={onRefresh}
-      localStorageKey={localStorageKey}
+      foregroundOnly
+      {...props}
     />
   );
 });

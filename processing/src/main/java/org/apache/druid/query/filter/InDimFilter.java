@@ -26,11 +26,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ForwardingSortedSet;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 import com.google.common.collect.Sets;
@@ -38,17 +39,12 @@ import com.google.common.collect.TreeRangeSet;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntIterable;
-import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.apache.druid.collections.bitmap.ImmutableBitmap;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Comparators;
-import org.apache.druid.query.BitmapResultFactory;
 import org.apache.druid.query.cache.CacheKeyBuilder;
 import org.apache.druid.query.extraction.ExtractionFn;
 import org.apache.druid.query.filter.vector.VectorValueMatcher;
@@ -57,31 +53,43 @@ import org.apache.druid.query.lookup.LookupExtractionFn;
 import org.apache.druid.query.lookup.LookupExtractor;
 import org.apache.druid.segment.ColumnInspector;
 import org.apache.druid.segment.ColumnProcessors;
-import org.apache.druid.segment.ColumnSelector;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.DimensionHandlerUtils;
-import org.apache.druid.segment.IntIteratorUtils;
-import org.apache.druid.segment.column.BitmapIndex;
+import org.apache.druid.segment.column.ColumnIndexSupplier;
 import org.apache.druid.segment.filter.Filters;
+import org.apache.druid.segment.index.BitmapColumnIndex;
+import org.apache.druid.segment.index.semantic.StringValueSetIndexes;
+import org.apache.druid.segment.index.semantic.Utf8ValueSetIndexes;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 
 import javax.annotation.Nullable;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.TreeSet;
 
+/**
+ * Approximately like the SQL 'IN' filter, with the main difference being that this will match NULL values if contained
+ * in the values list instead of ignoring them.
+ * <p>
+ * This filter specifies all match values as a sorted string set; matching against other column types must incur the
+ * cost of converting values to check for matches. For the most part, {@link TypedInFilter} should be used instead.
+ */
 public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
 {
-  // Values can contain `null` object
-  private final Set<String> values;
+  /**
+   * Values matched by this filter. Values are sorted (nulls-first).
+   */
+  private final ValuesSet values;
+  // Computed eagerly, not lazily, because lazy computations would block all processing threads for a given query.
+  private final List<ByteBuffer> valuesUtf8;
   private final String dimension;
   @Nullable
   private final ExtractionFn extractionFn;
@@ -107,7 +115,7 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
       @JsonProperty("dimension") String dimension,
       // This 'values' collection instance can be reused if possible to avoid copying a big collection.
       // Callers should _not_ modify the collection after it is passed to this constructor.
-      @JsonProperty("values") Set<String> values,
+      @JsonProperty("values") ValuesSet values,
       @JsonProperty("extractionFn") @Nullable ExtractionFn extractionFn,
       @JsonProperty("filterTuning") @Nullable FilterTuning filterTuning
   )
@@ -125,32 +133,35 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
    * Creates a new filter without an extraction function or any special filter tuning.
    *
    * @param dimension column to search
-   * @param values    set of values to match. This collection may be reused to avoid copying a big collection.
-   *                  Therefore, callers should <b>not</b> modify the collection after it is passed to this
-   *                  constructor.
+   * @param values    set of values to match. If this collection is a {@link SortedSet}, it may be reused to avoid
+   *                  copying a big collection. Therefore, callers should <b>not</b> modify the collection after it
+   *                  is passed to this constructor.
    */
-  public InDimFilter(
-      String dimension,
-      Set<String> values
-  )
+  public InDimFilter(String dimension, Set<String> values)
   {
     this(
         dimension,
-        values,
+        values instanceof ValuesSet ? (ValuesSet) values : new ValuesSet(values),
+        null,
         null,
         null
     );
   }
 
   /**
-   * This constructor should be called only in unit tests since accepting a Collection makes copying more likely.
+   * Creates a new filter without an extraction function or any special filter tuning.
+   *
+   * @param dimension    column to search
+   * @param values       set of values to match. If this collection is a {@link SortedSet}, it may be reused to avoid
+   *                     copying a big collection. Therefore, callers should <b>not</b> modify the collection after it
+   *                     is passed to this constructor.
+   * @param extractionFn extraction function to apply to the column before checking against "values"
    */
-  @VisibleForTesting
   public InDimFilter(String dimension, Collection<String> values, @Nullable ExtractionFn extractionFn)
   {
     this(
         dimension,
-        values instanceof Set ? (Set<String>) values : new HashSet<>(values),
+        values instanceof ValuesSet ? (ValuesSet) values : new ValuesSet(values),
         extractionFn,
         null,
         null
@@ -162,7 +173,7 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
    */
   private InDimFilter(
       final String dimension,
-      final Set<String> values,
+      final ValuesSet values,
       @Nullable final ExtractionFn extractionFn,
       @Nullable final FilterTuning filterTuning,
       @Nullable final DruidPredicateFactory predicateFactory
@@ -170,19 +181,8 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
   {
     Preconditions.checkNotNull(values, "values cannot be null");
 
-    // The values set can be huge. Try to avoid copying the set if possible.
-    // Note that we may still need to copy values to a list for caching. See getCacheKey().
-    if (!NullHandling.sqlCompatible() && values.contains("")) {
-      // In Non sql compatible mode, empty strings should be converted to nulls for the filter.
-      // In sql compatible mode, empty strings and nulls should be treated differently
-      this.values = Sets.newHashSetWithExpectedSize(values.size());
-      for (String v : values) {
-        this.values.add(NullHandling.emptyToNullIfNeeded(v));
-      }
-    } else {
-      this.values = values;
-    }
-
+    this.values = values;
+    this.valuesUtf8 = this.values.toUtf8();
     this.dimension = Preconditions.checkNotNull(dimension, "dimension cannot be null");
     this.extractionFn = extractionFn;
     this.filterTuning = filterTuning;
@@ -203,7 +203,7 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
   }
 
   @JsonProperty
-  public Set<String> getValues()
+  public SortedSet<String> getValues()
   {
     return values;
   }
@@ -231,22 +231,32 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
   }
 
   @Override
-  public DimFilter optimize()
+  public DimFilter optimize(final boolean mayIncludeUnknown)
   {
-    InDimFilter inFilter = optimizeLookup();
+    final ExtractionFn newExtractionFn;
+    ValuesSet newValues = optimizeLookup(this, mayIncludeUnknown);
 
-    if (inFilter.values.isEmpty()) {
-      return FalseDimFilter.instance();
+    if (newValues == null) {
+      newValues = values;
+      newExtractionFn = extractionFn;
+    } else {
+      newExtractionFn = null;
     }
-    if (inFilter.values.size() == 1) {
+
+    if (newValues.isEmpty()) {
+      return FalseDimFilter.instance();
+    } else if (newValues.size() == 1) {
       return new SelectorDimFilter(
-          inFilter.dimension,
-          inFilter.values.iterator().next(),
-          inFilter.getExtractionFn(),
+          dimension,
+          newValues.iterator().next(),
+          newExtractionFn,
           filterTuning
       );
+    } else if (newValues == values) {
+      return this;
+    } else {
+      return new InDimFilter(dimension, newValues, newExtractionFn, filterTuning);
     }
-    return inFilter;
   }
 
   @Override
@@ -264,14 +274,13 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
     }
     RangeSet<String> retSet = TreeRangeSet.create();
     for (String value : values) {
-      String valueEquivalent = NullHandling.nullToEmptyIfNeeded(value);
-      if (valueEquivalent == null) {
+      if (value == null) {
         // Case when SQL compatible null handling is enabled
         // Range.singleton(null) is invalid, so use the fact that
         // only null values are less than empty string.
         retSet.add(Range.lessThan(""));
       } else {
-        retSet.add(Range.singleton(valueEquivalent));
+        retSet.add(Range.singleton(value));
       }
     }
     return retSet;
@@ -284,38 +293,36 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
   }
 
   @Override
-  public <T> T getBitmapResult(BitmapIndexSelector selector, BitmapResultFactory<T> bitmapResultFactory)
+  @Nullable
+  public BitmapColumnIndex getBitmapColumnIndex(ColumnIndexSelector selector)
   {
-    if (extractionFn == null) {
-      final BitmapIndex bitmapIndex = selector.getBitmapIndex(dimension);
-      return bitmapResultFactory.unionDimensionValueBitmaps(getBitmapIterable(values, bitmapIndex));
-    } else {
-      return Filters.matchPredicate(
-          dimension,
-          selector,
-          bitmapResultFactory,
-          predicateFactory.makeStringPredicate()
-      );
+    if (!Filters.checkFilterTuningUseIndex(dimension, selector, filterTuning)) {
+      return null;
     }
-  }
+    if (extractionFn == null) {
+      final ColumnIndexSupplier indexSupplier = selector.getIndexSupplier(dimension);
 
-  @Override
-  public double estimateSelectivity(BitmapIndexSelector indexSelector)
-  {
-    if (extractionFn == null) {
-      final BitmapIndex bitmapIndex = indexSelector.getBitmapIndex(dimension);
-      return Filters.estimateSelectivity(
-          bitmapIndex,
-          IntIteratorUtils.toIntList(getBitmapIndexIterable(values, bitmapIndex).iterator()),
-          indexSelector.getNumRows()
-      );
-    } else {
-      return Filters.estimateSelectivity(
-          dimension,
-          indexSelector,
-          predicateFactory.makeStringPredicate()
-      );
+      if (indexSupplier == null) {
+        // column doesn't exist, match against null
+        DruidPredicateMatch match = predicateFactory.makeStringPredicate().apply(null);
+        return Filters.makeMissingColumnNullIndex(match, selector);
+      }
+
+      final Utf8ValueSetIndexes utf8ValueSetIndexes = indexSupplier.as(Utf8ValueSetIndexes.class);
+      if (utf8ValueSetIndexes != null) {
+        return utf8ValueSetIndexes.forSortedValuesUtf8(valuesUtf8);
+      }
+
+      final StringValueSetIndexes stringValueSetIndexes = indexSupplier.as(StringValueSetIndexes.class);
+      if (stringValueSetIndexes != null) {
+        return stringValueSetIndexes.forSortedValues(values);
+      }
     }
+    return Filters.makePredicateIndex(
+        dimension,
+        selector,
+        predicateFactory
+    );
   }
 
   @Override
@@ -368,30 +375,12 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
   }
 
   @Override
-  public boolean supportsBitmapIndex(BitmapIndexSelector selector)
-  {
-    return selector.getBitmapIndex(dimension) != null;
-  }
-
-  @Override
-  public boolean shouldUseBitmapIndex(BitmapIndexSelector selector)
-  {
-    return Filters.shouldUseBitmapIndex(this, selector, filterTuning);
-  }
-
-  @Override
-  public boolean supportsSelectivityEstimation(ColumnSelector columnSelector, BitmapIndexSelector indexSelector)
-  {
-    return Filters.supportsSelectivityEstimation(this, dimension, columnSelector, indexSelector);
-  }
-
-  @Override
   public String toString()
   {
     final DimFilterToStringBuilder builder = new DimFilterToStringBuilder();
     return builder.appendDimension(dimension, extractionFn)
                   .append(" IN (")
-                  .append(Joiner.on(", ").join(Iterables.transform(values, StringUtils::nullToEmptyNonDruidDataString)))
+                  .append(Joiner.on(", ").join(Iterables.transform(values, String::valueOf)))
                   .append(")")
                   .appendFilterTuning(filterTuning)
                   .build();
@@ -421,20 +410,9 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
 
   private byte[] computeCacheKey()
   {
-    final Collection<String> sortedValues;
-
-    if (values instanceof SortedSet && isNaturalOrder(((SortedSet<String>) values).comparator())) {
-      // Avoid copying "values" when it is already in the order we need for cache key computation.
-      sortedValues = values;
-    } else {
-      final List<String> sortedValuesList = new ArrayList<>(values);
-      sortedValuesList.sort(Comparators.naturalNullsFirst());
-      sortedValues = sortedValuesList;
-    }
-
     // Hash all values, in sorted order, as their length followed by their content.
     final Hasher hasher = Hashing.sha256().newHasher();
-    for (String v : sortedValues) {
+    for (String v : values) {
       if (v == null) {
         // Encode null as length -1, no content.
         hasher.putInt(-1);
@@ -453,102 +431,136 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
         .build();
   }
 
-  private InDimFilter optimizeLookup()
+  /**
+   * If the provided "in" filter uses a {@link LookupExtractionFn} that can be reversed, then return the matching
+   * set of keys as a {@link ValuesSet}. Otherwise return null.
+   *
+   * @param inFilter          in filter
+   * @param mayIncludeUnknown same as the argument to {@link #optimize(boolean)}
+   */
+  public static ValuesSet optimizeLookup(final InDimFilter inFilter, final boolean mayIncludeUnknown)
   {
-    if (extractionFn instanceof LookupExtractionFn
-        && ((LookupExtractionFn) extractionFn).isOptimize()) {
-      LookupExtractionFn exFn = (LookupExtractionFn) extractionFn;
-      LookupExtractor lookup = exFn.getLookup();
-
-      final Set<String> keys = new HashSet<>();
-      for (String value : values) {
-
-        // We cannot do an unapply()-based optimization if the selector value
-        // and the replaceMissingValuesWith value are the same, since we have to match on
-        // all values that are not present in the lookup.
-        final String convertedValue = NullHandling.emptyToNullIfNeeded(value);
-        if (!exFn.isRetainMissingValue() && Objects.equals(convertedValue, exFn.getReplaceMissingValueWith())) {
-          return this;
-        }
-        keys.addAll(lookup.unapply(convertedValue));
-
-        // If retainMissingValues is true and the selector value is not in the lookup map,
-        // there may be row values that match the selector value but are not included
-        // in the lookup map. Match on the selector value as well.
-        // If the selector value is overwritten in the lookup map, don't add selector value to keys.
-        if (exFn.isRetainMissingValue() && NullHandling.isNullOrEquivalent(lookup.apply(convertedValue))) {
-          keys.add(convertedValue);
-        }
-      }
-
-      if (keys.isEmpty()) {
-        return this;
-      } else {
-        return new InDimFilter(dimension, keys, null, filterTuning);
-      }
-    }
-    return this;
+    return optimizeLookup(inFilter, mayIncludeUnknown, Integer.MAX_VALUE);
   }
 
   /**
-   * Returns true if the comparator is null or the singleton {@link Comparators#naturalNullsFirst()}. Useful for
-   * detecting if a sorted set is in natural order or not.
+   * If the provided "in" filter uses a {@link LookupExtractionFn} that can be reversed, then return the matching
+   * set of keys as a {@link ValuesSet}. Otherwise return null.
    *
-   * May return false negatives (i.e. there are naturally-ordered comparators that will return false here).
+   * @param inFilter          in filter
+   * @param mayIncludeUnknown same as the argument to {@link #optimize(boolean)}
+   * @param maxSize           maximum number of values in the returned filter
    */
-  private static <T> boolean isNaturalOrder(@Nullable final Comparator<T> comparator)
+  @Nullable
+  public static ValuesSet optimizeLookup(final InDimFilter inFilter, final boolean mayIncludeUnknown, final int maxSize)
   {
-    return comparator == null || Comparators.naturalNullsFirst().equals(comparator);
-  }
+    final LookupExtractionFn exFn;
 
-  private static Iterable<ImmutableBitmap> getBitmapIterable(final Set<String> values, final BitmapIndex bitmapIndex)
-  {
-    return Filters.bitmapsFromIndexes(getBitmapIndexIterable(values, bitmapIndex), bitmapIndex);
-  }
+    if (inFilter.getExtractionFn() instanceof LookupExtractionFn) {
+      exFn = (LookupExtractionFn) inFilter.getExtractionFn();
+    } else {
+      // Not a lookup extractionFn.
+      return null;
+    }
 
-  private static IntIterable getBitmapIndexIterable(final Set<String> values, final BitmapIndex bitmapIndex)
-  {
-    return () -> new IntIterator()
-    {
-      final Iterator<String> iterator = values.iterator();
+    if (!exFn.isOptimize()) {
+      return null;
+    }
 
-      @Override
-      public boolean hasNext()
-      {
-        return iterator.hasNext();
+    if (!exFn.isInjective()
+        && !exFn.isRetainMissingValue()
+        && inFilter.values.contains(exFn.getReplaceMissingValueWith())) {
+      // We cannot do an unapply()-based optimization when the original filter is configured to match on values that are
+      // not present in the lookup key set. This would require creating a filter like "NOT IN (lookup key set)", which
+      // we aren't willing to do, since it requires iterating the entire lookup and may be prohibitively large.
+      return null;
+    }
+
+    final LookupExtractor lookup = exFn.getLookup();
+
+    if (mayIncludeUnknown && !inFilter.values.contains(null)) {
+      // We need to return an optimized filter that works as expected when run in includeUnknown mode, which means
+      // it must be able to match in scenarios where the original filter's extractionFn returns null. This is generally
+      // impractical, because it leads to needing to match the complement of the lookup key set. However, it's
+      // manageable if a lookup has no null values, and is either injective (one-to-one) or is being queried with a
+      // nonnull replaceMissingValueWith. In these cases, the extractionFn can't return null, so there isn't anything
+      // to worry about.
+
+      boolean ok = false;
+
+      if (exFn.getReplaceMissingValueWith() != null || exFn.isInjective()) {
+        final Iterator<String> keysWithNullValues = lookup.unapplyAll(Collections.singleton(null));
+        if (keysWithNullValues != null) {
+          if (!keysWithNullValues.hasNext()) {
+            ok = true;
+          } else {
+            final String nullUnapplied = keysWithNullValues.next();
+            if (!keysWithNullValues.hasNext() && nullUnapplied == null) {
+              ok = true;
+            }
+          }
+        }
       }
 
-      @Override
-      public int nextInt()
-      {
-        return bitmapIndex.getIndex(iterator.next());
+      if (!ok) {
+        return null;
       }
-    };
+    }
+
+    final Set<String> valuesToUnapply;
+    if (exFn.getReplaceMissingValueWith() != null
+        && inFilter.values.contains(exFn.getReplaceMissingValueWith())) {
+      // When matching against replaceMissingValueWith, this filter matches null values.
+      valuesToUnapply = Sets.union(inFilter.values, Collections.singleton(null));
+    } else {
+      valuesToUnapply = inFilter.values;
+    }
+
+    final ValuesSet unapplied = new ValuesSet();
+    final Iterator<String> keysIterator = lookup.unapplyAll(valuesToUnapply);
+    if (keysIterator == null) {
+      // unapply not supported by this lookup implementation.
+      return null;
+    }
+
+    while (keysIterator.hasNext()) {
+      unapplied.add(keysIterator.next());
+      if (unapplied.size() > maxSize) {
+        return null;
+      }
+    }
+
+    // lookup of null is always "replaceMissingValueWith", regardless of contents of the lookup. So, if we're matching
+    // against "replaceMissingValueWith", we need to include null in the unapplied set.
+    if (inFilter.values.contains(exFn.getReplaceMissingValueWith())) {
+      unapplied.add(null);
+    }
+
+    // If retainMissingValues is true and the selector value is not in the lookup map,
+    // there may be row values that match the selector value but are not included
+    // in the lookup map. Match on the selector value as well.
+    // If the selector value is overwritten in the lookup map, don't add selector value to keys.
+    if (exFn.isRetainMissingValue()) {
+      for (final String value : inFilter.values) {
+        if (lookup.apply(value) == null) {
+          unapplied.add(value);
+        }
+      }
+    }
+
+    return unapplied;
   }
 
   @SuppressWarnings("ReturnValueIgnored")
-  private static Predicate<String> createStringPredicate(final Set<String> values)
+  private static DruidObjectPredicate<String> createStringPredicate(final Set<String> values)
   {
     Preconditions.checkNotNull(values, "values");
-
-    try {
-      // Check to see if values.contains(null) will throw a NullPointerException. Jackson JSON deserialization won't
-      // lead to this (it will create a HashSet, which can accept nulls). But when InDimFilters are created
-      // programmatically as a result of optimizations like rewriting inner joins as filters, the passed-in Set may
-      // not be able to accept nulls. We don't want to copy the Sets (since they may be large) so instead we'll wrap
-      // it in a null-checking lambda if needed.
-      values.contains(null);
-
-      // Safe to do values.contains(null).
-      return values::contains;
-    }
-    catch (NullPointerException ignored) {
-      // Fall through
-    }
-
-    // Not safe to do values.contains(null); must return a wrapper.
-    // Return false for null, since an exception means the set cannot accept null (and therefore does not include it).
-    return value -> value != null && values.contains(value);
+    return value -> {
+      if (value == null) {
+        return values.contains(null) ? DruidPredicateMatch.TRUE : DruidPredicateMatch.UNKNOWN;
+      }
+      return DruidPredicateMatch.of(values.contains(value));
+    };
   }
 
   private static DruidLongPredicate createLongPredicate(final Set<String> values)
@@ -562,7 +574,21 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
     }
 
     final LongOpenHashSet longHashSet = new LongOpenHashSet(longs);
-    return longHashSet::contains;
+    final boolean matchNull = values.contains(null);
+    return new DruidLongPredicate()
+    {
+      @Override
+      public DruidPredicateMatch applyLong(long n)
+      {
+        return DruidPredicateMatch.of(longHashSet.contains(n));
+      }
+
+      @Override
+      public DruidPredicateMatch applyNull()
+      {
+        return matchNull ? DruidPredicateMatch.TRUE : DruidPredicateMatch.UNKNOWN;
+      }
+    };
   }
 
   private static DruidFloatPredicate createFloatPredicate(final Set<String> values)
@@ -576,7 +602,21 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
     }
 
     final IntOpenHashSet floatBitsHashSet = new IntOpenHashSet(floatBits);
-    return input -> floatBitsHashSet.contains(Float.floatToIntBits(input));
+    final boolean matchNull = values.contains(null);
+    return new DruidFloatPredicate()
+    {
+      @Override
+      public DruidPredicateMatch applyFloat(float n)
+      {
+        return DruidPredicateMatch.of(floatBitsHashSet.contains(Float.floatToIntBits(n)));
+      }
+
+      @Override
+      public DruidPredicateMatch applyNull()
+      {
+        return matchNull ? DruidPredicateMatch.TRUE : DruidPredicateMatch.UNKNOWN;
+      }
+    };
   }
 
   private static DruidDoublePredicate createDoublePredicate(final Set<String> values)
@@ -590,7 +630,21 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
     }
 
     final LongOpenHashSet doubleBitsHashSet = new LongOpenHashSet(doubleBits);
-    return input -> doubleBitsHashSet.contains(Double.doubleToLongBits(input));
+    final boolean matchNull = values.contains(null);
+    return new DruidDoublePredicate()
+    {
+      @Override
+      public DruidPredicateMatch applyDouble(double n)
+      {
+        return DruidPredicateMatch.of(doubleBitsHashSet.contains(Double.doubleToLongBits(n)));
+      }
+
+      @Override
+      public DruidPredicateMatch applyNull()
+      {
+        return matchNull ? DruidPredicateMatch.TRUE : DruidPredicateMatch.UNKNOWN;
+      }
+    };
   }
 
   @VisibleForTesting
@@ -598,14 +652,14 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
   {
     private final ExtractionFn extractionFn;
     private final Set<String> values;
-    private final Supplier<Predicate<String>> stringPredicateSupplier;
+    private final Supplier<DruidObjectPredicate<String>> stringPredicateSupplier;
     private final Supplier<DruidLongPredicate> longPredicateSupplier;
     private final Supplier<DruidFloatPredicate> floatPredicateSupplier;
     private final Supplier<DruidDoublePredicate> doublePredicateSupplier;
 
-    InFilterDruidPredicateFactory(
+    public InFilterDruidPredicateFactory(
         final ExtractionFn extractionFn,
-        final Set<String> values
+        final ValuesSet values
     )
     {
       this.extractionFn = extractionFn;
@@ -622,10 +676,10 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
     }
 
     @Override
-    public Predicate<String> makeStringPredicate()
+    public DruidObjectPredicate<String> makeStringPredicate()
     {
       if (extractionFn != null) {
-        final Predicate<String> stringPredicate = stringPredicateSupplier.get();
+        final DruidObjectPredicate<String> stringPredicate = stringPredicateSupplier.get();
         return input -> stringPredicate.apply(extractionFn.apply(input));
       } else {
         return stringPredicateSupplier.get();
@@ -636,7 +690,7 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
     public DruidLongPredicate makeLongPredicate()
     {
       if (extractionFn != null) {
-        final Predicate<String> stringPredicate = stringPredicateSupplier.get();
+        final DruidObjectPredicate<String> stringPredicate = stringPredicateSupplier.get();
         return input -> stringPredicate.apply(extractionFn.apply(input));
       } else {
         return longPredicateSupplier.get();
@@ -647,7 +701,7 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
     public DruidFloatPredicate makeFloatPredicate()
     {
       if (extractionFn != null) {
-        final Predicate<String> stringPredicate = stringPredicateSupplier.get();
+        final DruidObjectPredicate<String> stringPredicate = stringPredicateSupplier.get();
         return input -> stringPredicate.apply(extractionFn.apply(input));
       } else {
         return floatPredicateSupplier.get();
@@ -658,7 +712,7 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
     public DruidDoublePredicate makeDoublePredicate()
     {
       if (extractionFn != null) {
-        final Predicate<String> stringPredicate = stringPredicateSupplier.get();
+        final DruidObjectPredicate<String> stringPredicate = stringPredicateSupplier.get();
         return input -> stringPredicate.apply(extractionFn.apply(input));
       } else {
         return doublePredicateSupplier.get();
@@ -683,6 +737,104 @@ public class InDimFilter extends AbstractOptimizableDimFilter implements Filter
     public int hashCode()
     {
       return Objects.hash(extractionFn, values);
+    }
+  }
+
+  public static class ValuesSet extends ForwardingSortedSet<String>
+  {
+    private final SortedSet<String> values;
+
+    public ValuesSet()
+    {
+      this.values = new TreeSet<>(Comparators.naturalNullsFirst());
+    }
+
+    /**
+     * Create a ValuesSet from another Collection. The Collection will be reused if it is a {@link SortedSet} with
+     * the {@link Comparators#naturalNullsFirst()} comparator.
+     */
+    private ValuesSet(final Collection<String> values)
+    {
+      if (values instanceof SortedSet
+          && Comparators.naturalNullsFirst().equals(((SortedSet<String>) values).comparator())) {
+        this.values = (SortedSet<String>) values;
+      } else {
+        this.values = new TreeSet<>(Comparators.naturalNullsFirst());
+        this.values.addAll(values);
+      }
+    }
+
+    /**
+     * Creates an empty ValuesSet.
+     */
+    public static ValuesSet create()
+    {
+      return new ValuesSet(new TreeSet<>(Comparators.naturalNullsFirst()));
+    }
+
+    /**
+     * Creates a ValuesSet wrapping the provided single value.
+     *
+     * @throws IllegalStateException if the provided collection cannot be wrapped since it has the wrong comparator
+     */
+    public static ValuesSet of(@Nullable final String value)
+    {
+      final ValuesSet retVal = ValuesSet.create();
+      retVal.add(value);
+      return retVal;
+    }
+
+    /**
+     * Creates a ValuesSet copying the provided iterator.
+     */
+    public static ValuesSet copyOf(final Iterator<String> values)
+    {
+      final TreeSet<String> copyOfValues = new TreeSet<>(Comparators.naturalNullsFirst());
+      while (values.hasNext()) {
+        copyOfValues.add(values.next());
+      }
+      return new ValuesSet(copyOfValues);
+    }
+
+    /**
+     * Creates a ValuesSet copying the provided collection.
+     */
+    public static ValuesSet copyOf(final Collection<String> values)
+    {
+      return copyOf(values.iterator());
+    }
+
+    public List<ByteBuffer> toUtf8()
+    {
+      final List<ByteBuffer> valuesUtf8 = Lists.newArrayListWithCapacity(values.size());
+
+      for (final String value : values) {
+        if (value == null) {
+          valuesUtf8.add(null);
+        } else {
+          valuesUtf8.add(ByteBuffer.wrap(StringUtils.toUtf8(value)));
+        }
+      }
+
+      return valuesUtf8;
+    }
+
+    @Override
+    public boolean add(String s)
+    {
+      return delegate().add(s);
+    }
+
+    @Override
+    public boolean addAll(Collection<? extends String> other)
+    {
+      return standardAddAll(other);
+    }
+
+    @Override
+    protected SortedSet<String> delegate()
+    {
+      return values;
     }
   }
 }

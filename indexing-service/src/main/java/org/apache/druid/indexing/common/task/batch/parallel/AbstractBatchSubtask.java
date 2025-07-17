@@ -19,28 +19,31 @@
 
 package org.apache.druid.indexing.common.task.batch.parallel;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.druid.indexing.common.task.AbstractBatchIndexTask;
 import org.apache.druid.indexing.common.task.TaskResource;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
 
 public abstract class AbstractBatchSubtask extends AbstractBatchIndexTask
 {
-  protected AbstractBatchSubtask(String id, String dataSource, Map<String, Object> context)
-  {
-    super(id, dataSource, context);
-  }
+
+  private final String supervisorTaskId;
 
   protected AbstractBatchSubtask(
       String id,
       @Nullable String groupId,
       @Nullable TaskResource taskResource,
       String dataSource,
-      @Nullable Map<String, Object> context
+      @Nullable Map<String, Object> context,
+      @Nonnull IngestionMode ingestionMode,
+      @Nonnull String supervisorTaskId
   )
   {
-    super(id, groupId, taskResource, dataSource, context);
+    super(id, groupId, taskResource, dataSource, context, -1, ingestionMode);
+    this.supervisorTaskId = supervisorTaskId;
   }
 
   /**
@@ -48,4 +51,13 @@ public abstract class AbstractBatchSubtask extends AbstractBatchIndexTask
    * This ID is used to identify duplicate work of retry tasks for the same spec.
    */
   public abstract String getSubtaskSpecId();
+
+  /**
+   * @return Task ID of the {@code ParallelIndexSupervisorTask} which launched this sub-task.
+   */
+  @JsonProperty
+  public String getSupervisorTaskId()
+  {
+    return supervisorTaskId;
+  }
 }

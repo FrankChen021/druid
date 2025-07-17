@@ -36,4 +36,22 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 public interface ExtractionNamespace
 {
   long getPollMs();
+
+  default long getMaxHeapPercentage()
+  {
+    return -1L;
+  }
+
+  // For larger clusters, when they all startup at the same time and have lookups in the db,
+  // it overwhelms the database, this allows implementations to introduce a jitter, which
+  // should spread out the load.
+  default long getJitterMills()
+  {
+    return 0;
+  }
+
+  default long getLoadTimeoutMills()
+  {
+    return 60 * 1000;
+  }
 }

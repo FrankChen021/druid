@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.servlet.GuiceFilter;
 import org.apache.druid.guice.annotations.Global;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.http.DruidHttpClientConfig;
@@ -41,10 +40,12 @@ import org.apache.druid.server.security.Authenticator;
 import org.apache.druid.server.security.AuthenticatorMapper;
 import org.apache.druid.sql.avatica.DruidAvaticaJsonHandler;
 import org.apache.druid.sql.avatica.DruidAvaticaProtobufHandler;
+import org.eclipse.jetty.rewrite.handler.RewriteHandler;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.servlet.DefaultServlet;
+import org.eclipse.jetty.servlet.FilterHolder;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 
@@ -59,7 +60,9 @@ public class RouterJettyServerInitializer implements JettyServerInitializer
       // The router will keep the connection context in the forwarded message, and the broker is responsible for
       // performing the auth checks.
       DruidAvaticaJsonHandler.AVATICA_PATH,
-      DruidAvaticaProtobufHandler.AVATICA_PATH
+      DruidAvaticaJsonHandler.AVATICA_PATH_NO_TRAILING_SLASH,
+      DruidAvaticaProtobufHandler.AVATICA_PATH,
+      DruidAvaticaProtobufHandler.AVATICA_PATH_NO_TRAILING_SLASH
   );
 
   private final DruidHttpClientConfig routerHttpClientConfig;
@@ -116,6 +119,7 @@ public class RouterJettyServerInitializer implements JettyServerInitializer
     final ObjectMapper jsonMapper = injector.getInstance(Key.get(ObjectMapper.class, Json.class));
     final AuthenticatorMapper authenticatorMapper = injector.getInstance(AuthenticatorMapper.class);
 
+    JettyServerInitUtils.addQosFilters(root, injector);
     AuthenticationUtils.addSecuritySanityCheckFilter(root, jsonMapper);
 
     // perform no-op authorization/authentication for these resources
@@ -139,14 +143,18 @@ public class RouterJettyServerInitializer implements JettyServerInitializer
     );
 
     // Can't use '/*' here because of Guice conflicts with AsyncQueryForwardingServlet path
-    root.addFilter(GuiceFilter.class, "/status/*", null);
-    root.addFilter(GuiceFilter.class, "/druid/router/*", null);
-    root.addFilter(GuiceFilter.class, "/druid-ext/*", null);
+    final FilterHolder guiceFilterHolder = JettyServerInitUtils.getGuiceFilterHolder(injector);
+    root.addFilter(guiceFilterHolder, "/status/*", null);
+    root.addFilter(guiceFilterHolder, "/druid/router/*", null);
+    root.addFilter(guiceFilterHolder, "/druid-ext/*", null);
+
+    RewriteHandler rewriteHandler = WebConsoleJettyServerInitializer.createWebConsoleRewriteHandler();
+    JettyServerInitUtils.maybeAddHSTSPatternRule(serverConfig, rewriteHandler);
 
     final HandlerList handlerList = new HandlerList();
     handlerList.setHandlers(
         new Handler[]{
-            WebConsoleJettyServerInitializer.createWebConsoleRewriteHandler(),
+            rewriteHandler,
             JettyServerInitUtils.getJettyRequestLogHandler(),
             JettyServerInitUtils.wrapWithDefaultGzipHandler(
                 root,
@@ -169,6 +177,7 @@ public class RouterJettyServerInitializer implements JettyServerInitializer
     sh.setInitParameter("maxConnections", Integer.toString(httpClientConfig.getNumConnections()));
     sh.setInitParameter("idleTimeout", Long.toString(httpClientConfig.getReadTimeout().getMillis()));
     sh.setInitParameter("timeout", Long.toString(httpClientConfig.getReadTimeout().getMillis()));
+    sh.setInitParameter("requestBufferSize", Integer.toString(httpClientConfig.getRequestBuffersize()));
 
     return sh;
   }

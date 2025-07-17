@@ -31,9 +31,10 @@ import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import org.apache.datasketches.ArrayOfStringsSerDe;
 import org.apache.datasketches.memory.Memory;
 import org.apache.datasketches.quantiles.ItemsSketch;
+import org.apache.datasketches.quantilescommon.QuantileSearchCriteria;
+import org.apache.druid.data.input.StringTuple;
 import org.apache.druid.timeline.partition.PartitionBoundaries;
 
 import java.io.IOException;
@@ -49,42 +50,40 @@ public class StringSketch implements StringDistribution
 {
   static final String NAME = "sketch";
   static final int SKETCH_K = 1 << 12;  // smallest value with normalized rank error < 0.1%; retain up to ~86k elements
-  static final Comparator<String> SKETCH_COMPARATOR = Comparator.naturalOrder();
-  private static final ArrayOfStringsSerDe ARRAY_OF_STRINGS_SERDE = new ArrayOfStringsSerDe();
+  static final Comparator<StringTuple> STRING_TUPLE_COMPARATOR = Comparator.naturalOrder();
+  private static final ArrayOfStringTuplesSerDe ARRAY_OF_STRINGS_SERDE = new ArrayOfStringTuplesSerDe();
 
-  private final ItemsSketch<String> delegate;
+  private final ItemsSketch<StringTuple> delegate;
 
   public StringSketch()
   {
-    this(ItemsSketch.getInstance(SKETCH_K, SKETCH_COMPARATOR));
+    this(ItemsSketch.getInstance(StringTuple.class, SKETCH_K, STRING_TUPLE_COMPARATOR));
   }
 
-  StringSketch(ItemsSketch<String> sketch)
+  StringSketch(ItemsSketch<StringTuple> sketch)
   {
     this.delegate = sketch;
   }
 
   @Override
-  public void put(String string)
+  public void put(StringTuple string)
   {
     delegate.update(string);
   }
 
   @Override
-  public void putIfNewMin(String string)
+  public void putIfNewMin(StringTuple value)
   {
-    String min = delegate.getMinValue();
-    if (min == null || string.compareTo(min) < 0) {
-      delegate.update(string);
+    if (delegate.isEmpty() || delegate.getMinItem().compareTo(value) > 0) {
+      delegate.update(value);
     }
   }
 
   @Override
-  public void putIfNewMax(String string)
+  public void putIfNewMax(StringTuple value)
   {
-    String max = delegate.getMaxValue();
-    if (max == null || string.compareTo(max) > 0) {
-      delegate.update(string);
+    if (delegate.isEmpty() || delegate.getMaxItem().compareTo(value) < 0) {
+      delegate.update(value);
     }
   }
 
@@ -109,15 +108,15 @@ public class StringSketch implements StringDistribution
   }
 
   @VisibleForTesting
-  public String getMin()
+  public StringTuple getMin()
   {
-    return delegate.getMinValue();
+    return delegate.getMinItem();
   }
 
   @VisibleForTesting
-  public String getMax()
+  public StringTuple getMax()
   {
-    return delegate.getMaxValue();
+    return delegate.getMaxItem();
   }
 
   private PartitionBoundaries getEvenPartitionsByCount(int evenPartitionCount)
@@ -127,8 +126,10 @@ public class StringSketch implements StringDistribution
         "evenPartitionCount must be positive but is %s",
         evenPartitionCount
     );
-    String[] partitions = delegate.getQuantiles(evenPartitionCount + 1); // add 1 since this returns endpoints
-    return new PartitionBoundaries((partitions == null) ? new String[0] : partitions);
+    if (delegate.isEmpty()) {
+      return new PartitionBoundaries(new StringTuple[0]);
+    }
+    return new PartitionBoundaries((delegate.getPartitionBoundaries(evenPartitionCount, QuantileSearchCriteria.EXCLUSIVE)).boundaries);
   }
 
   @Override
@@ -157,8 +158,8 @@ public class StringSketch implements StringDistribution
     // check is best-effort as it is possible for it to return true for sketches that contain different values.
     return delegate.getK() == that.delegate.getK() &&
            delegate.getN() == that.delegate.getN() &&
-           Objects.equals(delegate.getMaxValue(), that.delegate.getMaxValue()) &&
-           Objects.equals(delegate.getMinValue(), that.delegate.getMinValue());
+           Objects.equals(delegate.getMaxItem(), that.delegate.getMaxItem()) &&
+           Objects.equals(delegate.getMinItem(), that.delegate.getMinItem());
   }
 
   @Override
@@ -168,12 +169,12 @@ public class StringSketch implements StringDistribution
     return Objects.hash(
         delegate.getK(),
         delegate.getN(),
-        delegate.getMaxValue(),
-        delegate.getMinValue()
+        delegate.getMaxItem(),
+        delegate.getMinItem()
     );
   }
 
-  ItemsSketch<String> getDelegate()
+  ItemsSketch<StringTuple> getDelegate()
   {
     return delegate;
   }
@@ -231,9 +232,10 @@ public class StringSketch implements StringDistribution
       {
         JsonNode jsonNode = jsonParser.getCodec().readTree(jsonParser);
         byte[] sketchBytes = jsonNode.get(FIELD_SKETCH).binaryValue();
-        ItemsSketch<String> sketch = ItemsSketch.getInstance(
+        ItemsSketch<StringTuple> sketch = ItemsSketch.getInstance(
+            StringTuple.class,
             Memory.wrap(sketchBytes),
-            SKETCH_COMPARATOR,
+            STRING_TUPLE_COMPARATOR,
             ARRAY_OF_STRINGS_SERDE
         );
         return new StringSketch(sketch);

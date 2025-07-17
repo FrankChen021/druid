@@ -52,13 +52,15 @@ public interface ComplexColumn extends BaseColumn
 
   /**
    * Return rows in the column.
+   *
    * @param rowNum the row number
    * @return row object of type same as {@link ComplexColumn#getClazz()}  } at row number "rowNum" .
    */
+  @Nullable
   Object getRowValue(int rowNum);
 
   /**
-   * @return serialized size (in bytes) of this column.
+   * @return serialized size (in bytes) of this column.  -1 for unknown
    */
   int getLength();
 

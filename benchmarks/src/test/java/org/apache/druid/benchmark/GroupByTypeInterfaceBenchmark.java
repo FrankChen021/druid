@@ -28,10 +28,10 @@ import org.apache.druid.collections.BlockingPool;
 import org.apache.druid.collections.DefaultBlockingPool;
 import org.apache.druid.collections.NonBlockingPool;
 import org.apache.druid.collections.StupidPool;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.FileUtils;
+import org.apache.druid.java.util.common.HumanReadableBytes;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.guava.Sequence;
@@ -51,13 +51,12 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
-import org.apache.druid.query.groupby.GroupByQueryEngine;
 import org.apache.druid.query.groupby.GroupByQueryQueryToolChest;
 import org.apache.druid.query.groupby.GroupByQueryRunnerFactory;
+import org.apache.druid.query.groupby.GroupByResourcesReservationPool;
+import org.apache.druid.query.groupby.GroupByStatsProvider;
+import org.apache.druid.query.groupby.GroupingEngine;
 import org.apache.druid.query.groupby.ResultRow;
-import org.apache.druid.query.groupby.strategy.GroupByStrategySelector;
-import org.apache.druid.query.groupby.strategy.GroupByStrategyV1;
-import org.apache.druid.query.groupby.strategy.GroupByStrategyV2;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.segment.IndexIO;
@@ -65,6 +64,7 @@ import org.apache.druid.segment.IndexMergerV9;
 import org.apache.druid.segment.IndexSpec;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.QueryableIndexSegment;
+import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.generator.DataGenerator;
 import org.apache.druid.segment.generator.GeneratorBasicSchemas;
@@ -108,10 +108,6 @@ import java.util.concurrent.TimeUnit;
 @Measurement(iterations = 30)
 public class GroupByTypeInterfaceBenchmark
 {
-  static {
-    NullHandling.initializeForTests();
-  }
-
   private static final SegmentId Q_INDEX_SEGMENT_ID = SegmentId.dummy("qIndex");
 
   @Param({"4"})
@@ -125,9 +121,6 @@ public class GroupByTypeInterfaceBenchmark
 
   @Param({"100000"})
   private int rowsPerSegment;
-
-  @Param({"v2"})
-  private String defaultStrategy;
 
   @Param({"all"})
   private String queryGranularity;
@@ -156,11 +149,6 @@ public class GroupByTypeInterfaceBenchmark
         JSON_MAPPER,
         new ColumnConfig()
         {
-          @Override
-          public int columnCacheSizeBytes()
-          {
-            return 0;
-          }
         }
     );
     INDEX_MERGER_V9 = new IndexMergerV9(JSON_MAPPER, INDEX_IO, OffHeapMemorySegmentWriteOutMediumFactory.instance());
@@ -271,7 +259,7 @@ public class GroupByTypeInterfaceBenchmark
   {
     log.info("SETUP CALLED AT %d", System.currentTimeMillis());
 
-    ComplexMetrics.registerSerde("hyperUnique", new HyperUniquesSerde());
+    ComplexMetrics.registerSerde(HyperUniquesSerde.TYPE_NAME, new HyperUniquesSerde());
 
     setupQueries();
 
@@ -322,7 +310,7 @@ public class GroupByTypeInterfaceBenchmark
       final File file = INDEX_MERGER_V9.persist(
           index,
           new File(tmpDir, String.valueOf(i)),
-          new IndexSpec(),
+          IndexSpec.DEFAULT,
           null
       );
 
@@ -349,11 +337,6 @@ public class GroupByTypeInterfaceBenchmark
     );
     final GroupByQueryConfig config = new GroupByQueryConfig()
     {
-      @Override
-      public String getDefaultStrategy()
-      {
-        return defaultStrategy;
-      }
 
       @Override
       public int getBufferGrouperInitialBuckets()
@@ -362,14 +345,12 @@ public class GroupByTypeInterfaceBenchmark
       }
 
       @Override
-      public long getMaxOnDiskStorage()
+      public HumanReadableBytes getMaxOnDiskStorage()
       {
-        return 1_000_000_000L;
+        return HumanReadableBytes.valueOf(1_000_000_000L);
       }
     };
     config.setSingleThreaded(false);
-    config.setMaxIntermediateRows(Integer.MAX_VALUE);
-    config.setMaxResults(Integer.MAX_VALUE);
 
     DruidProcessingConfig druidProcessingConfig = new DruidProcessingConfig()
     {
@@ -388,27 +369,23 @@ public class GroupByTypeInterfaceBenchmark
     };
 
     final Supplier<GroupByQueryConfig> configSupplier = Suppliers.ofInstance(config);
-    final GroupByStrategySelector strategySelector = new GroupByStrategySelector(
+    final GroupByStatsProvider groupByStatsProvider = new GroupByStatsProvider();
+    final GroupByResourcesReservationPool groupByResourcesReservationPool =
+        new GroupByResourcesReservationPool(mergePool, config);
+    final GroupingEngine groupingEngine = new GroupingEngine(
+        druidProcessingConfig,
         configSupplier,
-        new GroupByStrategyV1(
-            configSupplier,
-            new GroupByQueryEngine(configSupplier, bufferPool),
-            QueryBenchmarkUtil.NOOP_QUERYWATCHER,
-            bufferPool
-        ),
-        new GroupByStrategyV2(
-            druidProcessingConfig,
-            configSupplier,
-            bufferPool,
-            mergePool,
-            new ObjectMapper(new SmileFactory()),
-            QueryBenchmarkUtil.NOOP_QUERYWATCHER
-        )
+        groupByResourcesReservationPool,
+        TestHelper.makeJsonMapper(),
+        new ObjectMapper(new SmileFactory()),
+        QueryBenchmarkUtil.NOOP_QUERYWATCHER,
+        groupByStatsProvider
     );
 
     factory = new GroupByQueryRunnerFactory(
-        strategySelector,
-        new GroupByQueryQueryToolChest(strategySelector)
+        groupingEngine,
+        new GroupByQueryQueryToolChest(groupingEngine, groupByResourcesReservationPool),
+        bufferPool
     );
   }
 
@@ -416,7 +393,6 @@ public class GroupByTypeInterfaceBenchmark
   {
     return new OnheapIncrementalIndex.Builder()
         .setSimpleTestingIndexSchema(schemaInfo.getAggsArray())
-        .setConcurrentEventAdd(true)
         .setMaxRowCount(rowsPerSegment)
         .build();
   }

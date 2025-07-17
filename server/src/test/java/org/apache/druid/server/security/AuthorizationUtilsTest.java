@@ -20,6 +20,7 @@
 package org.apache.druid.server.security;
 
 import com.google.common.base.Function;
+import org.apache.druid.server.mocks.MockHttpServletRequest;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -30,6 +31,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class AuthorizationUtilsTest
 {
@@ -50,7 +52,7 @@ public class AuthorizationUtilsTest
     resources.add("filteredResource");
     resources.add("hello");
 
-    Function<String, Iterable<ResourceAction>> resourceActionGenerator = new Function<String, Iterable<ResourceAction>>()
+    Function<String, Iterable<ResourceAction>> resourceActionGenerator = new Function<>()
     {
       @Nullable
       @Override
@@ -88,16 +90,34 @@ public class AuthorizationUtilsTest
   @Test
   public void testMakeSuperuserPermissions()
   {
+    final String customType = "CUSTOM";
+    ResourceType.registerResourceType(customType);
     final List<ResourceAction> permissions = AuthorizationUtils.makeSuperUserPermissions();
     // every type and action should have a wildcard pattern
-    for (ResourceType type : ResourceType.values()) {
+    for (String type : ResourceType.knownTypes()) {
       for (Action action : Action.values()) {
         Assert.assertTrue(
             permissions.stream()
-                       .filter(ra -> type == ra.getResource().getType())
+                       .filter(ra -> Objects.equals(type, ra.getResource().getType()))
                        .anyMatch(ra -> action == ra.getAction() && ".*".equals(ra.getResource().getName()))
         );
       }
     }
+    // custom type should be there too
+    for (Action action : Action.values()) {
+      Assert.assertTrue(
+          permissions.stream()
+                     .filter(ra -> Objects.equals(customType, ra.getResource().getType()))
+                     .anyMatch(ra -> action == ra.getAction() && ".*".equals(ra.getResource().getName()))
+      );
+    }
+  }
+
+  @Test
+  public void testAuthorizationAttributeIfNeeded()
+  {
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    AuthorizationUtils.setRequestAuthorizationAttributeIfNeeded(request);
+    Assert.assertEquals(true, request.getAttribute(AuthConfig.DRUID_AUTHORIZATION_CHECKED));
   }
 }

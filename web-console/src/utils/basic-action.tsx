@@ -16,27 +16,35 @@
  * limitations under the License.
  */
 
-import { IconName, Intent, Menu, MenuItem } from '@blueprintjs/core';
-import React from 'react';
+import type { IconName, Intent } from '@blueprintjs/core';
+import { Menu, MenuDivider, MenuItem } from '@blueprintjs/core';
+import type { JSX } from 'react';
 
 export interface BasicAction {
   icon?: IconName;
   title: string;
   intent?: Intent;
   onAction: () => void;
+  disabledReason?: string;
 }
 
-export function basicActionsToMenu(basicActions: BasicAction[]): JSX.Element | undefined {
+export function basicActionsToMenu(
+  basicActions: BasicAction[],
+  title?: string,
+): JSX.Element | undefined {
   if (!basicActions.length) return;
   return (
     <Menu>
-      {basicActions.map((action, i) => (
+      {title && <MenuDivider title={title} />}
+      {basicActions.map(({ icon, title, intent, onAction, disabledReason }, i) => (
         <MenuItem
           key={i}
-          icon={action.icon}
-          text={action.title}
-          intent={action.intent}
-          onClick={action.onAction}
+          icon={icon}
+          text={title}
+          intent={intent}
+          onClick={onAction}
+          disabled={Boolean(disabledReason)}
+          data-super-title={disabledReason}
         />
       ))}
     </Menu>

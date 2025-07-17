@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.Pair;
@@ -155,7 +154,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Arrays.<Map<String, Object>>asList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")
@@ -183,7 +182,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedFilteredTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Collections.<Map<String, Object>>singletonList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")
@@ -290,7 +289,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Arrays.<Map<String, Object>>asList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "")
@@ -318,7 +317,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedFilteredTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Arrays.<Map<String, Object>>asList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "")
@@ -402,7 +401,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
                     .put("addRowsIndexConstant", 103.0D)
                     .put("uniques", UNIQUES_1)
                     .put("maxIndex", 100.0D)
-                    .put("minIndex", NullHandling.replaceWithDefault() ? 0.0D : 100.0D)
+                    .put("minIndex", 100.0D)
                     .build()
             )
         )
@@ -427,7 +426,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Arrays.asList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")
@@ -455,7 +454,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedFilteredTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Collections.<Map<String, Object>>singletonList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")
@@ -559,7 +558,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Arrays.<Map<String, Object>>asList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")
@@ -587,7 +586,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedFilteredTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Collections.<Map<String, Object>>singletonList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")
@@ -677,7 +676,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Collections.<Map<String, Object>>singletonList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")
@@ -749,7 +748,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
                     .put("addRowsIndexConstant", 103.0D)
                     .put("uniques", UNIQUES_1)
                     .put("maxIndex", 100.0D)
-                    .put("minIndex", NullHandling.replaceWithDefault() ? 0.0D : 100.0D)
+                    .put("minIndex", 100.0D)
                     .build()
             )
         )
@@ -774,7 +773,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Arrays.asList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")
@@ -802,7 +801,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedFilteredTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Collections.<Map<String, Object>>singletonList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")
@@ -866,13 +865,13 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
             new TimeseriesResultValue(
-                TestHelper.createExpectedMap(
+                TestHelper.makeMap(
                     "rows", 1L,
-                    "index", NullHandling.replaceWithDefault() ? 0.0D : null,
-                    "addRowsIndexConstant", NullHandling.replaceWithDefault() ? 2.0D : null,
+                    "index", null,
+                    "addRowsIndexConstant", null,
                     "uniques", 0.0D,
-                    "maxIndex", NullHandling.replaceWithDefault() ? 0.0D : null,
-                    "minIndex", NullHandling.replaceWithDefault() ? 0.0D : null
+                    "maxIndex", null,
+                    "minIndex", null
                 ))
         )
     );
@@ -881,13 +880,13 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
             new TimeseriesResultValue(
-                TestHelper.createExpectedMap(
+                TestHelper.makeMap(
                     "rows", 0L,
-                    "index", NullHandling.replaceWithDefault() ? 0.0D : null,
-                    "addRowsIndexConstant", NullHandling.replaceWithDefault() ? 1.0D : null,
+                    "index", null,
+                    "addRowsIndexConstant", null,
                     "uniques", 0.0D,
-                    "maxIndex", NullHandling.replaceWithDefault() ? Double.NEGATIVE_INFINITY : null,
-                    "minIndex", NullHandling.replaceWithDefault() ? Double.POSITIVE_INFINITY : null
+                    "maxIndex", null,
+                    "minIndex", null
                 )
             )
         )
@@ -896,7 +895,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Collections.singletonList(
                     QueryRunnerTestHelper.orderedMap(
                         "market", null,
@@ -914,7 +913,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedFilteredTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Collections.<SearchHit>emptyList()
             )
         )
@@ -981,7 +980,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Collections.<Map<String, Object>>singletonList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")
@@ -1078,7 +1077,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Arrays.asList(
                     QueryRunnerTestHelper.orderedMap(
                         "market", null,
@@ -1106,7 +1105,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedFilteredTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Collections.<Map<String, Object>>singletonList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")
@@ -1178,12 +1177,12 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
             DateTimes.of("2011-01-12T00:00:00.000Z"),
             new TimeseriesResultValue(
                 ImmutableMap.<String, Object>builder()
-                    .put("rows", NullHandling.sqlCompatible() ? 11L : 10L)
+                    .put("rows", 11L)
                     .put("index", 900.0D)
-                    .put("addRowsIndexConstant", NullHandling.sqlCompatible() ? 912.0D : 911.0D)
+                    .put("addRowsIndexConstant", 912.0D)
                     .put("uniques", UNIQUES_1)
                     .put("maxIndex", 100.0D)
-                    .put("minIndex", NullHandling.replaceWithDefault() ? 0.0D : 100.0D)
+                    .put("minIndex", 100.0D)
                     .build()
             )
         )
@@ -1209,7 +1208,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedTopNResults = Arrays.asList(
         new Result<TopNResultValue>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Arrays.<Map<String, Object>>asList(
                     ImmutableMap.<String, Object>builder()
                                 .put("market", "")
@@ -1246,7 +1245,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Arrays.<Map<String, Object>>asList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")
@@ -1283,7 +1282,7 @@ public class SchemalessTestFullTest extends InitializedNullHandlingTest
     List<Result<TopNResultValue>> expectedFilteredTopNResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2011-01-12T00:00:00.000Z"),
-            new TopNResultValue(
+            TopNResultValue.create(
                 Arrays.<Map<String, Object>>asList(
                     ImmutableMap.<String, Object>builder()
                         .put("market", "spot")

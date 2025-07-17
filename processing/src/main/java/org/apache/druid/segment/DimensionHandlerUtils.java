@@ -25,10 +25,12 @@ import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Floats;
 import org.apache.druid.common.guava.GuavaUtils;
 import org.apache.druid.data.input.impl.DimensionSchema.MultiValueHandling;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.guava.Comparators;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.parsers.ParseException;
+import org.apache.druid.math.expr.Evals;
 import org.apache.druid.query.ColumnSelectorPlus;
 import org.apache.druid.query.dimension.ColumnSelectorStrategy;
 import org.apache.druid.query.dimension.ColumnSelectorStrategyFactory;
@@ -36,12 +38,16 @@ import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.extraction.ExtractionFn;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.TypeSignature;
 import org.apache.druid.segment.column.ValueType;
 
 import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
@@ -55,7 +61,7 @@ public final class DimensionHandlerUtils
   public static final Long ZERO_LONG = 0L;
 
   public static final ColumnCapabilities DEFAULT_STRING_CAPABILITIES =
-      new ColumnCapabilitiesImpl().setType(ValueType.STRING)
+      new ColumnCapabilitiesImpl().setType(ColumnType.STRING)
                                   .setDictionaryEncoded(false)
                                   .setDictionaryValuesUnique(false)
                                   .setDictionaryValuesSorted(false)
@@ -99,7 +105,7 @@ public final class DimensionHandlerUtils
 
     multiValueHandling = multiValueHandling == null ? MultiValueHandling.ofDefault() : multiValueHandling;
 
-    if (capabilities.getType() == ValueType.STRING) {
+    if (capabilities.is(ValueType.STRING)) {
       if (!capabilities.isDictionaryEncoded().isTrue()) {
         throw new IAE("String column must have dictionary encoding.");
       }
@@ -111,19 +117,19 @@ public final class DimensionHandlerUtils
       );
     }
 
-    if (capabilities.getType() == ValueType.LONG) {
+    if (capabilities.is(ValueType.LONG)) {
       return new LongDimensionHandler(dimensionName);
     }
 
-    if (capabilities.getType() == ValueType.FLOAT) {
+    if (capabilities.is(ValueType.FLOAT)) {
       return new FloatDimensionHandler(dimensionName);
     }
 
-    if (capabilities.getType() == ValueType.DOUBLE) {
+    if (capabilities.is(ValueType.DOUBLE)) {
       return new DoubleDimensionHandler(dimensionName);
     }
 
-    if (capabilities.getType() == ValueType.COMPLEX && capabilities.getComplexTypeName() != null) {
+    if (capabilities.is(ValueType.COMPLEX) && capabilities.getComplexTypeName() != null) {
       DimensionHandlerProvider provider = DIMENSION_HANDLER_PROVIDERS.get(capabilities.getComplexTypeName());
       if (provider == null) {
         throw new ISE("Can't find DimensionHandlerProvider for typeName [%s]", capabilities.getComplexTypeName());
@@ -135,9 +141,9 @@ public final class DimensionHandlerUtils
     return new StringDimensionHandler(dimensionName, multiValueHandling, true, false);
   }
 
-  public static List<ValueType> getValueTypesFromDimensionSpecs(List<DimensionSpec> dimSpecs)
+  public static List<ColumnType> getValueTypesFromDimensionSpecs(List<DimensionSpec> dimSpecs)
   {
-    List<ValueType> types = new ArrayList<>(dimSpecs.size());
+    List<ColumnType> types = new ArrayList<>(dimSpecs.size());
     for (DimensionSpec dimSpec : dimSpecs) {
       types.add(dimSpec.getOutputType());
     }
@@ -153,9 +159,7 @@ public final class DimensionHandlerUtils
    * @param strategyFactory A factory provided by query engines that generates type-handling strategies
    * @param dimensionSpec   column to generate a ColumnSelectorPlus object for
    * @param cursor          Used to create value selectors for columns.
-   *
    * @return A ColumnSelectorPlus object
-   *
    * @see ColumnProcessors#makeProcessor which may replace this in the future
    */
   public static <Strategy extends ColumnSelectorStrategy> ColumnSelectorPlus<Strategy> createColumnSelectorPlus(
@@ -171,10 +175,10 @@ public final class DimensionHandlerUtils
    * Creates an array of ColumnSelectorPlus objects, selectors that handle type-specific operations within
    * query processing engines, using a strategy factory provided by the query engine. One ColumnSelectorPlus
    * will be created for each column specified in dimensionSpecs.
-   *
+   * <p>
    * The ColumnSelectorPlus provides access to a type strategy (e.g., how to group on a float column)
    * and a value selector for a single column.
-   *
+   * <p>
    * A caller should define a strategy factory that provides an interface for type-specific operations
    * in a query engine. See GroupByStrategyFactory for a reference.
    *
@@ -182,9 +186,7 @@ public final class DimensionHandlerUtils
    * @param strategyFactory       A factory provided by query engines that generates type-handling strategies
    * @param dimensionSpecs        The set of columns to generate ColumnSelectorPlus objects for
    * @param columnSelectorFactory Used to create value selectors for columns.
-   *
    * @return An array of ColumnSelectorPlus objects, in the order of the columns specified in dimensionSpecs
-   *
    * @see ColumnProcessors#makeProcessor which may replace this in the future
    */
   public static <Strategy extends ColumnSelectorStrategy> ColumnSelectorPlus<Strategy>[] createColumnSelectorPluses(
@@ -201,7 +203,8 @@ public final class DimensionHandlerUtils
       final String dimName = dimSpec.getDimension();
       final ColumnValueSelector<?> selector = getColumnValueSelectorFromDimensionSpec(
           dimSpec,
-          columnSelectorFactory
+          columnSelectorFactory,
+          strategyFactory.supportsComplexTypes()
       );
       Strategy strategy = makeStrategy(
           strategyFactory,
@@ -222,13 +225,14 @@ public final class DimensionHandlerUtils
 
   private static ColumnValueSelector<?> getColumnValueSelectorFromDimensionSpec(
       DimensionSpec dimSpec,
-      ColumnSelectorFactory columnSelectorFactory
+      ColumnSelectorFactory columnSelectorFactory,
+      boolean supportsComplexTypes
   )
   {
     String dimName = dimSpec.getDimension();
     ColumnCapabilities capabilities = columnSelectorFactory.getColumnCapabilities(dimName);
-    capabilities = getEffectiveCapabilities(dimSpec, capabilities);
-    if (capabilities.getType() == ValueType.STRING) {
+    capabilities = getEffectiveCapabilities(dimSpec, capabilities, supportsComplexTypes);
+    if (capabilities.is(ValueType.STRING)) {
       return columnSelectorFactory.makeDimensionSelector(dimSpec);
     }
     return columnSelectorFactory.makeColumnValueSelector(dimSpec.getDimension());
@@ -241,7 +245,8 @@ public final class DimensionHandlerUtils
    */
   private static ColumnCapabilities getEffectiveCapabilities(
       DimensionSpec dimSpec,
-      @Nullable ColumnCapabilities capabilities
+      @Nullable ColumnCapabilities capabilities,
+      boolean supportsComplexTypes
   )
   {
     if (capabilities == null) {
@@ -249,7 +254,7 @@ public final class DimensionHandlerUtils
     }
 
     // Complex dimension type is not supported
-    if (capabilities.getType() == ValueType.COMPLEX) {
+    if (!supportsComplexTypes && capabilities.is(ValueType.COMPLEX)) {
       capabilities = DEFAULT_STRING_CAPABILITIES;
     }
 
@@ -258,10 +263,13 @@ public final class DimensionHandlerUtils
     if (dimSpec.getExtractionFn() != null) {
       ExtractionFn fn = dimSpec.getExtractionFn();
       capabilities = ColumnCapabilitiesImpl.copyOf(capabilities)
-                                           .setType(ValueType.STRING)
+                                           .setType(ColumnType.STRING)
                                            .setDictionaryValuesUnique(
                                                capabilities.isDictionaryEncoded().isTrue() &&
                                                fn.getExtractionType() == ExtractionFn.ExtractionType.ONE_TO_ONE
+                                           )
+                                           .setHasMultipleValues(
+                                               capabilities.hasMultipleValues().isMaybeTrue() || capabilities.isArray()
                                            )
                                            .setDictionaryValuesSorted(
                                                capabilities.isDictionaryEncoded().isTrue() && fn.preservesOrdering()
@@ -270,7 +278,7 @@ public final class DimensionHandlerUtils
 
     // DimensionSpec's decorate only operates on DimensionSelectors, so if a spec mustDecorate(),
     // we need to wrap selectors on numeric columns with a string casting DimensionSelector.
-    if (ValueType.isNumeric(capabilities.getType())) {
+    if (capabilities.isNumeric()) {
       if (dimSpec.mustDecorate()) {
         capabilities = DEFAULT_STRING_CAPABILITIES;
       }
@@ -286,8 +294,8 @@ public final class DimensionHandlerUtils
       ColumnValueSelector<?> selector
   )
   {
-    capabilities = getEffectiveCapabilities(dimSpec, capabilities);
-    return strategyFactory.makeColumnSelectorStrategy(capabilities, selector);
+    capabilities = getEffectiveCapabilities(dimSpec, capabilities, strategyFactory.supportsComplexTypes());
+    return strategyFactory.makeColumnSelectorStrategy(capabilities, selector, dimSpec.getDimension());
   }
 
   @Nullable
@@ -295,8 +303,88 @@ public final class DimensionHandlerUtils
   {
     if (valObj == null) {
       return null;
+    } else if (valObj instanceof Object[]) {
+      return Arrays.toString((Object[]) valObj);
     }
     return valObj.toString();
+  }
+
+  @Nullable
+  public static Long convertObjectToLong(
+      @Nullable Object valObj,
+      boolean reportParseExceptions,
+      @Nullable String objectKey
+  )
+  {
+    if (valObj == null) {
+      return null;
+    }
+
+    if (valObj instanceof Long) {
+      return (Long) valObj;
+    } else if (valObj instanceof Number) {
+      return ((Number) valObj).longValue();
+    } else if (valObj instanceof Boolean) {
+      return Evals.asLong((Boolean) valObj);
+    } else if (valObj instanceof String) {
+      Long ret = DimensionHandlerUtils.getExactLongFromDecimalString((String) valObj);
+      if (reportParseExceptions && ret == null) {
+        final String message;
+        if (objectKey != null) {
+          message = StringUtils.nonStrictFormat(
+              "Could not convert value [%s] to long for dimension [%s].",
+              valObj,
+              objectKey
+          );
+        } else {
+          message = StringUtils.nonStrictFormat(
+              "Could not convert value [%s] to long.",
+              valObj
+          );
+        }
+        throw new ParseException((String) valObj, message);
+      }
+      return ret;
+    } else if (valObj instanceof List) {
+      final String message;
+      if (objectKey != null) {
+        message = StringUtils.nonStrictFormat(
+            "Could not ingest value [%s] as long for dimension [%s]. A long column cannot have multiple values in the same row.",
+            valObj,
+            objectKey
+        );
+      } else {
+        message = StringUtils.nonStrictFormat(
+            "Could not ingest value [%s] as long. A long column cannot have multiple values in the same row.",
+            valObj
+        );
+      }
+      throw new ParseException(
+          valObj.getClass().toString(),
+          message
+      );
+    } else {
+      final String message;
+      if (objectKey != null) {
+        message = StringUtils.nonStrictFormat(
+            "Could not convert value [%s] to long for dimension [%s]. Invalid type: [%s]",
+            valObj,
+            objectKey,
+            valObj.getClass()
+        );
+      } else {
+        message = StringUtils.nonStrictFormat(
+            valObj.getClass().toString(),
+            "Could not convert value [%s] to long. Invalid type: [%s]",
+            valObj,
+            valObj.getClass()
+        );
+      }
+      throw new ParseException(
+          valObj.getClass().toString(),
+          message
+      );
+    }
   }
 
   @Nullable
@@ -308,23 +396,13 @@ public final class DimensionHandlerUtils
   @Nullable
   public static Long convertObjectToLong(@Nullable Object valObj, boolean reportParseExceptions)
   {
-    if (valObj == null) {
-      return null;
-    }
+    return convertObjectToLong(valObj, reportParseExceptions, null);
+  }
 
-    if (valObj instanceof Long) {
-      return (Long) valObj;
-    } else if (valObj instanceof Number) {
-      return ((Number) valObj).longValue();
-    } else if (valObj instanceof String) {
-      Long ret = DimensionHandlerUtils.getExactLongFromDecimalString((String) valObj);
-      if (reportParseExceptions && ret == null) {
-        throw new ParseException("could not convert value [%s] to long", valObj);
-      }
-      return ret;
-    } else {
-      throw new ParseException("Unknown type[%s]", valObj.getClass());
-    }
+  @Nullable
+  public static Long convertObjectToLong(@Nullable Object valObj, @Nullable String fieldName)
+  {
+    return convertObjectToLong(valObj, false, fieldName);
   }
 
   @Nullable
@@ -336,75 +414,204 @@ public final class DimensionHandlerUtils
   @Nullable
   public static Float convertObjectToFloat(@Nullable Object valObj, boolean reportParseExceptions)
   {
-    if (valObj == null) {
-      return null;
-    }
+    return convertObjectToFloat(valObj, reportParseExceptions, null);
+  }
 
-    if (valObj instanceof Float) {
-      return (Float) valObj;
-    } else if (valObj instanceof Number) {
-      return ((Number) valObj).floatValue();
-    } else if (valObj instanceof String) {
-      Float ret = Floats.tryParse((String) valObj);
-      if (reportParseExceptions && ret == null) {
-        throw new ParseException("could not convert value [%s] to float", valObj);
+  @Nullable
+  public static Float convertObjectToFloat(@Nullable Object valObj, @Nullable String fieldName)
+  {
+    return convertObjectToFloat(valObj, false, fieldName);
+  }
+
+  @Nullable
+  public static Float convertObjectToFloat(@Nullable Object valObj, boolean reportParseExceptions, @Nullable String fieldName)
+  {
+    {
+      if (valObj == null) {
+        return null;
       }
-      return ret;
-    } else {
-      throw new ParseException("Unknown type[%s]", valObj.getClass());
+
+      if (valObj instanceof Float) {
+        return (Float) valObj;
+      } else if (valObj instanceof Number) {
+        return ((Number) valObj).floatValue();
+      } else if (valObj instanceof String) {
+        Float ret = Floats.tryParse((String) valObj);
+        if (reportParseExceptions && ret == null) {
+          final String message;
+          if (fieldName != null) {
+            message = StringUtils.nonStrictFormat(
+                "Could not convert value [%s] to float for dimension [%s].",
+                valObj,
+                fieldName
+            );
+          } else {
+            message = StringUtils.nonStrictFormat(
+                "Could not convert value [%s] to float.",
+                valObj
+            );
+          }
+          throw new ParseException((String) valObj, message);
+        }
+        return ret;
+      } else if (valObj instanceof List) {
+        final String message;
+        if (fieldName != null) {
+          message = StringUtils.nonStrictFormat(
+              "Could not ingest value [%s] as float for dimension [%s]. A float column cannot have multiple values in the same row.",
+              valObj,
+              fieldName
+          );
+        } else {
+          message = StringUtils.nonStrictFormat(
+              "Could not ingest value [%s] as float. A float column cannot have multiple values in the same row.",
+              valObj
+          );
+        }
+        throw new ParseException(
+            valObj.getClass().toString(),
+            message
+        );
+      } else {
+        final String message;
+        if (fieldName != null) {
+          message = StringUtils.nonStrictFormat(
+              "Could not convert value [%s] to float for dimension [%s]. Invalid type: [%s]",
+              valObj,
+              fieldName,
+              valObj.getClass()
+          );
+        } else {
+          message = StringUtils.nonStrictFormat(
+              "Could not convert value [%s] to float. Invalid type: [%s]",
+              valObj,
+              valObj.getClass()
+          );
+        }
+        throw new ParseException(
+            valObj.getClass().toString(),
+            message
+        );
+      }
     }
   }
 
   @Nullable
-  public static Comparable<?> convertObjectToType(
+  public static Object convertObjectToType(
       @Nullable final Object obj,
-      final ValueType type,
-      final boolean reportParseExceptions
+      final TypeSignature<ValueType> type,
+      final boolean reportParseExceptions,
+      @Nullable final String fieldName
   )
   {
     Preconditions.checkNotNull(type, "type");
 
-    switch (type) {
+    switch (type.getType()) {
       case LONG:
-        return convertObjectToLong(obj, reportParseExceptions);
+        return convertObjectToLong(obj, reportParseExceptions, fieldName);
       case FLOAT:
-        return convertObjectToFloat(obj, reportParseExceptions);
+        return convertObjectToFloat(obj, reportParseExceptions, fieldName);
       case DOUBLE:
-        return convertObjectToDouble(obj, reportParseExceptions);
+        return convertObjectToDouble(obj, reportParseExceptions, fieldName);
       case STRING:
         return convertObjectToString(obj);
+      case ARRAY:
+        return coerceToObjectArrayWithElementCoercionFunction(
+            obj,
+            x -> DimensionHandlerUtils.convertObjectToType(x, type.getElementType(), reportParseExceptions, fieldName)
+        );
+      case COMPLEX:
+        // Can't coerce complex objects, and we shouldn't need to. If in future selectors behave weirdly, or we need to
+        // cast them (for some unknown reason), we can have that casting knowledge in the type strategy
+        return obj;
       default:
-        throw new IAE("Type[%s] is not supported for dimensions!", type);
+        throw DruidException.defensive("Type[%s] is not supported for dimensions!", type);
     }
+  }
+
+  @Nullable
+  public static Object convertObjectToType(
+      @Nullable final Object obj,
+      final TypeSignature<ValueType> type,
+      final boolean reportParseExceptions
+  )
+  {
+    return convertObjectToType(obj, type, reportParseExceptions, null);
+  }
+
+  @Nullable
+  public static Object[] convertToArray(Object obj, TypeSignature<ValueType> elementType)
+  {
+    return coerceToObjectArrayWithElementCoercionFunction(obj, (object) -> convertObjectToType(object, elementType));
+  }
+
+
+  @Nullable
+  public static Object[] coerceToObjectArrayWithElementCoercionFunction(
+      @Nullable Object obj,
+      Function<Object, Object> coercionFunction
+  )
+  {
+    if (obj == null) {
+      return null;
+    }
+    // Jackson converts the serialized array into a list. Converting it back to a string array
+    if (obj instanceof List) {
+      Object[] retVal = new Object[((List) obj).size()];
+      for (int i = 0; i < retVal.length; i++) {
+        retVal[i] = coercionFunction.apply(((List) obj).get(i));
+      }
+      return retVal;
+    }
+    if (obj instanceof Object[]) {
+      Object[] objects = (Object[]) obj;
+      Object[] retVal = new Object[objects.length];
+      for (int i = 0; i < objects.length; i++) {
+        retVal[i] = coercionFunction.apply(objects[i]);
+      }
+      return retVal;
+    }
+    throw new ISE(
+        "Unable to convert object of type[%s] to type Object[]",
+        obj.getClass().getName()
+    );
+
+  }
+
+  @Nullable
+  public static Object[] coerceToStringArray(Object obj)
+  {
+    return coerceToObjectArrayWithElementCoercionFunction(obj, DimensionHandlerUtils::convertObjectToString);
   }
 
   public static int compareObjectsAsType(
       @Nullable final Object lhs,
       @Nullable final Object rhs,
-      final ValueType type
+      final ColumnType type
   )
   {
     //noinspection unchecked
-    return Comparators.<Comparable>naturalNullsFirst().compare(
-        convertObjectToType(lhs, type),
-        convertObjectToType(rhs, type)
-    );
+    return type.getNullableStrategy()
+               .compare(convertObjectToType(lhs, type), convertObjectToType(rhs, type));
   }
 
   @Nullable
-  public static Comparable<?> convertObjectToType(@Nullable final Object obj, final ValueType type)
+  public static Object convertObjectToType(@Nullable final Object obj, final TypeSignature<ValueType> type)
   {
     return convertObjectToType(obj, Preconditions.checkNotNull(type, "type"), false);
   }
 
-  public static Function<Object, Comparable<?>> converterFromTypeToType(
-      final ValueType fromType,
-      final ValueType toType
+  /**
+   * Used by TopN engine for type coercion
+   */
+  public static Function<Object, Object> converterFromTypeToType(
+      final TypeSignature<ValueType> fromType,
+      final TypeSignature<ValueType> toType
   )
   {
-    if (fromType == toType) {
+    if (Objects.equals(fromType, toType)) {
       //noinspection unchecked
-      return (Function) Function.identity();
+      return Function.identity();
     } else {
       return obj -> convertObjectToType(obj, toType);
     }
@@ -419,6 +626,18 @@ public final class DimensionHandlerUtils
   @Nullable
   public static Double convertObjectToDouble(@Nullable Object valObj, boolean reportParseExceptions)
   {
+    return convertObjectToDouble(valObj, reportParseExceptions, null);
+  }
+
+  @Nullable
+  public static Double convertObjectToDouble(@Nullable Object valObj, @Nullable String fieldName)
+  {
+    return convertObjectToDouble(valObj, false, fieldName);
+  }
+
+  @Nullable
+  public static Double convertObjectToDouble(@Nullable Object valObj, boolean reportParseExceptions, @Nullable String fieldName)
+  {
     if (valObj == null) {
       return null;
     }
@@ -430,22 +649,70 @@ public final class DimensionHandlerUtils
     } else if (valObj instanceof String) {
       Double ret = Doubles.tryParse((String) valObj);
       if (reportParseExceptions && ret == null) {
-        throw new ParseException("could not convert value [%s] to double", valObj);
+        final String message;
+        if (fieldName != null) {
+          message = StringUtils.nonStrictFormat(
+              "Could not convert value [%s] to double for dimension [%s].",
+              valObj,
+              fieldName
+          );
+        } else {
+          message = StringUtils.nonStrictFormat(
+              "Could not convert value [%s] to double.",
+              valObj
+          );
+        }
+        throw new ParseException((String) valObj, message);
       }
       return ret;
+    } else if (valObj instanceof List) {
+      final String message;
+      if (fieldName != null) {
+        message = StringUtils.nonStrictFormat(
+            "Could not ingest value [%s] as double for dimension [%s]. A double column cannot have multiple values in the same row.",
+            valObj,
+            fieldName
+        );
+      } else {
+        message = StringUtils.nonStrictFormat(
+            "Could not ingest value [%s] as double. A double column cannot have multiple values in the same row.",
+            valObj
+        );
+      }
+
+      throw new ParseException(
+          valObj.getClass().toString(),
+          message
+      );
     } else {
-      throw new ParseException("Unknown type[%s]", valObj.getClass());
+      final String message;
+      if (fieldName != null) {
+        message = StringUtils.nonStrictFormat(
+            "Could not convert value [%s] to double for dimension [%s]. Invalid type: [%s]",
+            valObj,
+            fieldName,
+            valObj.getClass()
+        );
+      } else {
+        message = StringUtils.nonStrictFormat(
+            "Could not convert value [%s] to double. Invalid type: [%s]",
+            valObj, valObj.getClass()
+        );
+      }
+      throw new ParseException(
+          valObj.getClass().toString(),
+          message
+      );
     }
   }
 
   /**
    * Convert a string representing a decimal value to a long.
-   *
+   * <p>
    * If the decimal value is not an exact integral value (e.g. 42.0), or if the decimal value
    * is too large to be contained within a long, this function returns null.
    *
    * @param decimalStr string representing a decimal value
-   *
    * @return long equivalent of decimalStr, returns null for non-integral decimals and integral decimal values outside
    * of the values representable by longs
    */
@@ -487,5 +754,16 @@ public final class DimensionHandlerUtils
   public static Float nullToZero(@Nullable Float number)
   {
     return number == null ? ZERO_FLOAT : number;
+  }
+
+  public static boolean isNumericNull(@Nullable Object o)
+  {
+    if (o instanceof Number) {
+      return false;
+    }
+    if (o instanceof String && Doubles.tryParse((String) o) != null) {
+      return false;
+    }
+    return true;
   }
 }

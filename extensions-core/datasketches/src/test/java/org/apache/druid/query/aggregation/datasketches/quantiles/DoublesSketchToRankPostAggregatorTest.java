@@ -30,8 +30,8 @@ import org.apache.druid.query.aggregation.TestDoubleColumnSelectorImpl;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.query.timeseries.TimeseriesQueryQueryToolChest;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.column.ValueType;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -49,9 +49,10 @@ public class DoublesSketchToRankPostAggregatorTest
         0
     );
     DefaultObjectMapper mapper = new DefaultObjectMapper();
-    DoublesSketchToRankPostAggregator andBackAgain = mapper.readValue(
+    mapper.registerModules(new DoublesSketchModule().getJacksonModules());
+    PostAggregator andBackAgain = mapper.readValue(
         mapper.writeValueAsString(there),
-        DoublesSketchToRankPostAggregator.class
+        PostAggregator.class
     );
 
     Assert.assertEquals(there, andBackAgain);
@@ -120,7 +121,7 @@ public class DoublesSketchToRankPostAggregatorTest
     final PostAggregator postAgg = new DoublesSketchToRankPostAggregator(
         "rank",
         new FieldAccessPostAggregator("field", "sketch"),
-        4
+        3
     );
 
     final double rank = (double) postAgg.compute(fields);
@@ -151,7 +152,7 @@ public class DoublesSketchToRankPostAggregatorTest
         RowSignature.builder()
                     .addTimeColumn()
                     .add("sketch", null)
-                    .add("a", ValueType.DOUBLE)
+                    .add("a", ColumnType.DOUBLE)
                     .build(),
         new TimeseriesQueryQueryToolChest().resultArraySignature(query)
     );

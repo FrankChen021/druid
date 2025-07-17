@@ -24,10 +24,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.sun.jersey.spi.container.ResourceFilters;
-import org.apache.druid.common.utils.ServletResourceUtils;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Smile;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.server.http.ServletResourceUtils;
 import org.apache.druid.server.http.security.ConfigResourceFilter;
 import org.apache.druid.server.listener.resource.AbstractListenerHandler;
 import org.apache.druid.server.listener.resource.ListenerResource;
@@ -46,10 +46,8 @@ class LookupListeningResource extends ListenerResource
 {
   private static final Logger LOG = new Logger(LookupListeningResource.class);
 
-  private static final TypeReference<LookupsState<LookupExtractorFactoryContainer>> LOOKUPS_STATE_TYPE_REFERENCE =
-      new TypeReference<LookupsState<LookupExtractorFactoryContainer>>()
-      {
-      };
+  private static final TypeReference<LookupsState<Object>> LOOKUPS_STATE_GENERIC_REFERENCE =
+      new TypeReference<>() {};
 
   @Inject
   public LookupListeningResource(
@@ -61,16 +59,27 @@ class LookupListeningResource extends ListenerResource
     super(
         jsonMapper,
         smileMapper,
-        new AbstractListenerHandler<LookupExtractorFactory>(new TypeReference<LookupExtractorFactory>()
-        {
-        })
+        new AbstractListenerHandler<LookupExtractorFactory>(new TypeReference<>() {})
         {
           @Override
           public Response handleUpdates(InputStream inputStream, ObjectMapper mapper)
           {
+            final LookupsState<Object> stateGeneric;
             final LookupsState<LookupExtractorFactoryContainer> state;
+            final Map<String, LookupExtractorFactoryContainer> current;
+            final Map<String, LookupExtractorFactoryContainer> toLoad;
             try {
-              state = mapper.readValue(inputStream, LOOKUPS_STATE_TYPE_REFERENCE);
+              stateGeneric = mapper.readValue(inputStream, LOOKUPS_STATE_GENERIC_REFERENCE);
+              current = LookupUtils.tryConvertObjectMapToLookupConfigMap(
+                  stateGeneric.getCurrent(),
+                  mapper
+              );
+              toLoad = LookupUtils.tryConvertObjectMapToLookupConfigMap(
+                  stateGeneric.getToLoad(),
+                  mapper
+              );
+
+              state = new LookupsState<>(current, toLoad, stateGeneric.getToDrop());
             }
             catch (final IOException ex) {
               LOG.debug(ex, "Bad request");
@@ -81,7 +90,9 @@ class LookupListeningResource extends ListenerResource
 
             try {
               state.getToLoad().forEach(manager::add);
-              state.getToDrop().forEach(manager::remove);
+              state.getToDrop().forEach(lookName -> {
+                manager.remove(lookName, state.getToLoad().getOrDefault(lookName, null));
+              });
 
               return Response.status(Response.Status.ACCEPTED).entity(manager.getAllLookupsState()).build();
             }
@@ -122,7 +133,7 @@ class LookupListeningResource extends ListenerResource
           @Override
           public Object delete(String id)
           {
-            manager.remove(id);
+            manager.remove(id, null);
             return id;
           }
         }

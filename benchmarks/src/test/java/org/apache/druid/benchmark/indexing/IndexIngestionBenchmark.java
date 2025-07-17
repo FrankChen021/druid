@@ -20,7 +20,6 @@
 package org.apache.druid.benchmark.indexing;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesSerde;
@@ -74,19 +73,15 @@ public class IndexIngestionBenchmark
   private static final Logger log = new Logger(IndexIngestionBenchmark.class);
   private static final int RNG_SEED = 9999;
 
-  static {
-    NullHandling.initializeForTests();
-  }
-
   private AppendableIndexSpec appendableIndexSpec;
-  private IncrementalIndex<?> incIndex;
+  private IncrementalIndex incIndex;
   private List<InputRow> rows;
   private GeneratorSchemaInfo schemaInfo;
 
   @Setup
   public void setup() throws JsonProcessingException
   {
-    ComplexMetrics.registerSerde("hyperUnique", new HyperUniquesSerde());
+    ComplexMetrics.registerSerde(HyperUniquesSerde.TYPE_NAME, new HyperUniquesSerde());
 
     schemaInfo = GeneratorBasicSchemas.SCHEMA_MAP.get(schema);
 
@@ -119,7 +114,7 @@ public class IndexIngestionBenchmark
     }
   }
 
-  private IncrementalIndex<?> makeIncIndex()
+  private IncrementalIndex makeIncIndex()
   {
     return appendableIndexSpec.builder()
         .setIndexSchema(

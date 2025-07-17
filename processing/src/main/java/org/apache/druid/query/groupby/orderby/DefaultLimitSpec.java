@@ -30,13 +30,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Longs;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.Rows;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.guava.TopNSequence;
+import org.apache.druid.query.DimensionComparisonUtils;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.dimension.DimensionSpec;
@@ -44,7 +45,10 @@ import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.ResultRow;
 import org.apache.druid.query.ordering.StringComparator;
 import org.apache.druid.query.ordering.StringComparators;
+import org.apache.druid.segment.DimensionHandlerUtils;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.segment.column.TypeSignature;
 import org.apache.druid.segment.column.ValueType;
 
 import javax.annotation.Nullable;
@@ -57,6 +61,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -151,7 +156,7 @@ public class DefaultLimitSpec implements LimitSpec
 
   /**
    * Limit for this query; behaves like SQL "LIMIT". Will always be positive. {@link Integer#MAX_VALUE} is used in
-   * situations where the user wants an effectively unlimited resultset.
+   * situations where the user wants an effectively unlimited result set.
    */
   @JsonProperty
   @JsonInclude(value = JsonInclude.Include.CUSTOM, valueFilter = LimitJsonIncludeFilter.class)
@@ -175,8 +180,12 @@ public class DefaultLimitSpec implements LimitSpec
   {
     final List<DimensionSpec> dimensions = query.getDimensions();
 
-    // Can avoid re-sorting if the natural ordering is good enough.
-    boolean sortingNeeded = dimensions.size() < columns.size();
+    // Can avoid re-sorting if the natural ordering is good enough. Set sortingNeeded to true if we definitely must
+    // sort, due to query dimensions list being shorter than the sort columns list, or due to having subtotalsSpec
+    // (when subtotalsSpec is set, dimensions are not naturally sorted).
+    //
+    // If sortingNeeded is false here, we may set it to true later on in this method. False is just a starting point.
+    boolean sortingNeeded = dimensions.size() < columns.size() || query.getSubtotalsSpec() != null;
 
     final Set<String> aggAndPostAggNames = new HashSet<>();
     for (AggregatorFactory agg : query.getAggregatorSpecs()) {
@@ -195,12 +204,18 @@ public class DefaultLimitSpec implements LimitSpec
           break;
         }
 
-        final ValueType columnType = getOrderByType(columnSpec, dimensions);
+        final ColumnType columnType = getOrderByType(columnSpec, dimensions);
         final StringComparator naturalComparator;
-        if (columnType == ValueType.STRING) {
+        if (columnType.is(ValueType.STRING)) {
           naturalComparator = StringComparators.LEXICOGRAPHIC;
-        } else if (ValueType.isNumeric(columnType)) {
+        } else if (columnType.isNumeric()) {
           naturalComparator = StringComparators.NUMERIC;
+        } else if (columnType.isArray()) {
+          if (columnType.getElementType().isNumeric()) {
+            naturalComparator = StringComparators.NUMERIC;
+          } else {
+            naturalComparator = StringComparators.LEXICOGRAPHIC;
+          }
         } else {
           sortingNeeded = true;
           break;
@@ -221,9 +236,11 @@ public class DefaultLimitSpec implements LimitSpec
     }
 
     if (!sortingNeeded) {
-      String timestampField = query.getContextValue(GroupByQuery.CTX_TIMESTAMP_RESULT_FIELD);
+      final QueryContext queryContext = query.context();
+      String timestampField = queryContext.getString(GroupByQuery.CTX_TIMESTAMP_RESULT_FIELD);
       if (timestampField != null && !timestampField.isEmpty()) {
-        int timestampResultFieldIndex = query.getContextValue(GroupByQuery.CTX_TIMESTAMP_RESULT_FIELD_INDEX);
+        // Will NPE if the key is not set
+        int timestampResultFieldIndex = queryContext.getInt(GroupByQuery.CTX_TIMESTAMP_RESULT_FIELD_INDEX);
         sortingNeeded = query.getContextSortByDimsFirst()
                         ? timestampResultFieldIndex != query.getDimensions().size() - 1
                         : timestampResultFieldIndex != 0;
@@ -266,13 +283,7 @@ public class DefaultLimitSpec implements LimitSpec
     }
   }
 
-  @Override
-  public LimitSpec merge(LimitSpec other)
-  {
-    return this;
-  }
-
-  private ValueType getOrderByType(final OrderByColumnSpec columnSpec, final List<DimensionSpec> dimensions)
+  private ColumnType getOrderByType(final OrderByColumnSpec columnSpec, final List<DimensionSpec> dimensions)
   {
     for (DimensionSpec dimSpec : dimensions) {
       if (columnSpec.getDimension().equals(dimSpec.getOutputName())) {
@@ -332,7 +343,7 @@ public class DefaultLimitSpec implements LimitSpec
     final Ordering<ResultRow> timeOrdering;
 
     if (hasTimestamp) {
-      timeOrdering = new Ordering<ResultRow>()
+      timeOrdering = new Ordering<>()
       {
         @Override
         public int compare(ResultRow left, ResultRow right)
@@ -374,7 +385,17 @@ public class DefaultLimitSpec implements LimitSpec
           //noinspection unchecked
           nextOrdering = metricOrdering(columnIndex, aggregatorsMap.get(columnName).getComparator());
         } else if (dimensionsMap.containsKey(columnName)) {
-          nextOrdering = dimensionOrdering(columnIndex, columnSpec.getDimensionComparator());
+          Optional<DimensionSpec> dimensionSpec = dimensions.stream()
+                                                            .filter(ds -> ds.getOutputName().equals(columnName))
+                                                            .findFirst();
+          if (!dimensionSpec.isPresent()) {
+            throw new ISE("Could not find the dimension spec for ordering column %s", columnName);
+          }
+          nextOrdering = dimensionOrdering(
+              columnIndex,
+              dimensionSpec.get().getOutputType(),
+              columnSpec.getDimensionComparator()
+          );
         }
       }
 
@@ -403,18 +424,85 @@ public class DefaultLimitSpec implements LimitSpec
   {
     // As per SQL standard we need to have same ordering for metrics as dimensions i.e nulls first
     // If SQL compatibility is not enabled we use nullsLast ordering for null metrics for backwards compatibility.
-    final Comparator<T> nullFriendlyComparator = NullHandling.sqlCompatible()
-                                                 ? Comparator.nullsFirst(comparator)
-                                                 : Comparator.nullsLast(comparator);
+    final Comparator<T> nullFriendlyComparator = Comparator.nullsFirst(comparator);
 
     //noinspection unchecked
     return Ordering.from(Comparator.comparing(row -> (T) row.get(column), nullFriendlyComparator));
   }
 
-  private Ordering<ResultRow> dimensionOrdering(final int column, final StringComparator comparator)
+  private Ordering<ResultRow> dimensionOrdering(
+      final int column,
+      final ColumnType columnType,
+      final StringComparator stringComparator
+  )
   {
+    Comparator arrayComparator = null;
+    if (columnType.isArray()) {
+      final TypeSignature<ValueType> elementType = columnType.getElementType();
+      if (columnType.getElementType().isNumeric()) {
+        arrayComparator = (o1, o2) -> {
+          if (stringComparator == null
+              || StringComparators.NUMERIC.equals(stringComparator)
+              || StringComparators.NATURAL.equals(stringComparator)) {
+            return columnType.getNullableStrategy().compare(
+                DimensionHandlerUtils.convertToArray(o1, elementType),
+                DimensionHandlerUtils.convertToArray(o2, elementType)
+            );
+          }
+          return new DimensionComparisonUtils.ArrayComparatorForUnnaturalStringComparator(stringComparator)
+              .compare(
+                  DimensionHandlerUtils.convertToArray(o1, elementType),
+                  DimensionHandlerUtils.convertToArray(o2, elementType)
+              );
+        };
+      } else if (columnType.getElementType().equals(ColumnType.STRING)) {
+        arrayComparator = (o1, o2) -> {
+          if (stringComparator == null
+              || StringComparators.NATURAL.equals(stringComparator)
+              || StringComparators.LEXICOGRAPHIC.equals(stringComparator)) {
+            return columnType.getNullableStrategy().compare(
+                DimensionHandlerUtils.coerceToStringArray(o1),
+                DimensionHandlerUtils.coerceToStringArray(o2)
+            );
+          }
+          return new DimensionComparisonUtils.ArrayComparator<>(stringComparator)
+              .compare(
+                  DimensionHandlerUtils.coerceToStringArray(o1),
+                  DimensionHandlerUtils.coerceToStringArray(o2)
+              );
+        };
+      } else {
+        throw new ISE("Cannot create comparator for array type %s.", columnType.toString());
+      }
+    }
+    final Comparator comparatorToUse;
+    if (arrayComparator != null) {
+      comparatorToUse = arrayComparator;
+    } else {
+      comparatorToUse = DimensionComparisonUtils.isNaturalComparator(columnType.getType(), stringComparator)
+                        ? columnType.getNullableStrategy()
+                        : stringComparator;
+    }
+
     return Ordering.from(
-        Comparator.comparing((ResultRow row) -> getDimensionValue(row, column), Comparator.nullsFirst(comparator))
+        Comparator.comparing(
+            (ResultRow row) -> {
+              if (columnType.isArray()) {
+                // Arrays have a specialized comparator, that applies the ordering per element. That will handle the casting
+                // and the comparison
+                return row.get(column);
+              } else if (DimensionComparisonUtils.isNaturalComparator(columnType.getType(), stringComparator)) {
+                // If the natural comparator is used, we can directly extract the dimension value, and the type strategy's comparison
+                // function will handle it, without casting
+                return row.get(column);
+              } else {
+                // If the comparator is not natural, we will be using the string comparator, and we need to cast the dimension to string
+                // before comparison
+                return getDimensionValue(row, column);
+              }
+            },
+            Comparator.nullsFirst(comparatorToUse)
+        )
     );
   }
 
@@ -527,24 +615,16 @@ public class DefaultLimitSpec implements LimitSpec
   /**
    * {@link JsonInclude} filter for {@link #getLimit()}.
    *
-   * This API works by "creative" use of equals. It requires warnings to be suppressed and also requires spotbugs
-   * exclusions (see spotbugs-exclude.xml).
+   * This API works by "creative" use of equals. It requires warnings to be suppressed
+   * and also requires spotbugs exclusions (see spotbugs-exclude.xml).
    */
   @SuppressWarnings({"EqualsAndHashcode", "EqualsHashCode"})
-  static class LimitJsonIncludeFilter // lgtm [java/inconsistent-equals-and-hashcode]
+  public static class LimitJsonIncludeFilter // lgtm [java/inconsistent-equals-and-hashcode]
   {
     @Override
     public boolean equals(Object obj)
     {
-      if (obj == null) {
-        return false;
-      }
-
-      if (obj.getClass() == this.getClass()) {
-        return true;
-      }
-
-      return obj instanceof Long && (long) obj == Long.MAX_VALUE;
+      return obj instanceof Integer && (Integer) obj == Integer.MAX_VALUE;
     }
   }
 }

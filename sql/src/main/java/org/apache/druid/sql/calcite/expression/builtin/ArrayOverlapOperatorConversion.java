@@ -19,18 +19,24 @@
 
 package org.apache.druid.sql.calcite.expression.builtin;
 
-import com.google.common.collect.Sets;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlFunction;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlTypeFamily;
+import org.apache.druid.math.expr.Evals;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprEval;
-import org.apache.druid.math.expr.Parser;
+import org.apache.druid.math.expr.ExpressionType;
+import org.apache.druid.math.expr.InputBindings;
+import org.apache.druid.query.filter.ArrayContainsElementFilter;
 import org.apache.druid.query.filter.DimFilter;
-import org.apache.druid.query.filter.InDimFilter;
+import org.apache.druid.query.filter.EqualityFilter;
+import org.apache.druid.query.filter.NullFilter;
+import org.apache.druid.query.filter.OrDimFilter;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.expression.Expressions;
@@ -39,6 +45,8 @@ import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.rel.VirtualColumnRegistry;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class ArrayOverlapOperatorConversion extends BaseExpressionDimFilterOperatorConversion
@@ -49,7 +57,7 @@ public class ArrayOverlapOperatorConversion extends BaseExpressionDimFilterOpera
       .operatorBuilder("ARRAY_OVERLAP")
       .operandTypeChecker(
           OperandTypes.sequence(
-              "(array,array)",
+              "'ARRAY_OVERLAP(array, array)'",
               OperandTypes.or(
                   OperandTypes.family(SqlTypeFamily.ARRAY),
                   OperandTypes.family(SqlTypeFamily.STRING)
@@ -60,12 +68,17 @@ public class ArrayOverlapOperatorConversion extends BaseExpressionDimFilterOpera
               )
           )
       )
-      .returnTypeInference(ReturnTypes.BOOLEAN)
+      .returnTypeInference(ReturnTypes.BOOLEAN_NULLABLE)
       .build();
 
   public ArrayOverlapOperatorConversion()
   {
-    super(SQL_FUNCTION, EXPR_FUNCTION);
+    this(SQL_FUNCTION, EXPR_FUNCTION);
+  }
+
+  protected ArrayOverlapOperatorConversion(SqlOperator operator, String druidFunctionName)
+  {
+    super(operator, druidFunctionName);
   }
 
   @Nullable
@@ -88,29 +101,31 @@ public class ArrayOverlapOperatorConversion extends BaseExpressionDimFilterOpera
     }
 
     // Converts array_overlaps() function into an OR of Selector filters if possible.
-    final boolean leftSimpleExtractionExpr = druidExpressions.get(0).isSimpleExtraction();
-    final boolean rightSimpleExtractionExpr = druidExpressions.get(1).isSimpleExtraction();
+    final DruidExpression leftExpr = druidExpressions.get(0);
+    final DruidExpression rightExpr = druidExpressions.get(1);
+    final boolean leftSimpleExtractionExpr = leftExpr.isSimpleExtraction();
+    final boolean rightSimpleExtractionExpr = rightExpr.isSimpleExtraction();
     final DruidExpression simpleExtractionExpr;
     final DruidExpression complexExpr;
 
     if (leftSimpleExtractionExpr ^ rightSimpleExtractionExpr) {
       if (leftSimpleExtractionExpr) {
-        simpleExtractionExpr = druidExpressions.get(0);
-        complexExpr = druidExpressions.get(1);
+        simpleExtractionExpr = leftExpr;
+        complexExpr = rightExpr;
       } else {
-        simpleExtractionExpr = druidExpressions.get(1);
-        complexExpr = druidExpressions.get(0);
+        simpleExtractionExpr = rightExpr;
+        complexExpr = leftExpr;
       }
     } else {
-      return toExpressionFilter(plannerContext, getDruidFunctionName(), druidExpressions);
+      return toExpressionFilter(plannerContext, druidExpressions);
     }
 
-    Expr expr = Parser.parse(complexExpr.getExpression(), plannerContext.getExprMacroTable());
-    if (expr.isLiteral()) {
+    final Expr expr = plannerContext.parseExpression(complexExpr.getExpression());
+    if (expr.isLiteral() && !simpleExtractionExpr.isArray()) {
       // Evaluate the expression to take out the array elements.
       // We can safely pass null if the expression is literal.
-      ExprEval<?> exprEval = expr.eval(name -> null);
-      String[] arrayElements = exprEval.asStringArray();
+      ExprEval<?> exprEval = expr.eval(InputBindings.nilBindings());
+      Object[] arrayElements = exprEval.asArray();
       if (arrayElements == null || arrayElements.length == 0) {
         // If arrayElements is empty which means complexExpr is an empty array,
         // it is technically more correct to return a TrueDimFiler here.
@@ -118,16 +133,84 @@ public class ArrayOverlapOperatorConversion extends BaseExpressionDimFilterOpera
         // to create an empty array with no argument, we just return null.
         return null;
       } else if (arrayElements.length == 1) {
-        return newSelectorDimFilter(simpleExtractionExpr.getSimpleExtraction(), arrayElements[0]);
+        if (plannerContext.isUseBoundsAndSelectors()) {
+          return newSelectorDimFilter(simpleExtractionExpr.getSimpleExtraction(), Evals.asString(arrayElements[0]));
+        } else {
+          final String column;
+          if (simpleExtractionExpr.isDirectColumnAccess()) {
+            column = simpleExtractionExpr.getDirectColumn();
+          } else {
+            if (virtualColumnRegistry == null) {
+              // fall back to expression filter
+              return toExpressionFilter(plannerContext, druidExpressions);
+            }
+            column = virtualColumnRegistry.getOrCreateVirtualColumnForExpression(
+                simpleExtractionExpr,
+                simpleExtractionExpr.getDruidType()
+            );
+          }
+          final Object elementValue = arrayElements[0];
+          if (elementValue == null) {
+            return NullFilter.forColumn(column);
+          }
+          return new EqualityFilter(
+              column,
+              ExpressionType.toColumnType(exprEval.type()),
+              elementValue,
+              null
+          );
+        }
       } else {
-        return new InDimFilter(
+        return ScalarInArrayOperatorConversion.makeInFilter(
+            plannerContext,
             simpleExtractionExpr.getSimpleExtraction().getColumn(),
-            Sets.newHashSet(arrayElements),
             simpleExtractionExpr.getSimpleExtraction().getExtractionFn(),
-            null
+            Arrays.asList(arrayElements),
+            ExpressionType.toColumnType((ExpressionType) exprEval.type().getElementType())
         );
       }
     }
-    return toExpressionFilter(plannerContext, getDruidFunctionName(), druidExpressions);
+
+    // if the input is a direct array column, we can use sweet array filter
+    if (simpleExtractionExpr.isDirectColumnAccess() && simpleExtractionExpr.isArray()) {
+      // To convert this expression filter into an OR of ArrayContainsElement filters, we need to extract all array
+      // elements.
+      if (expr.isLiteral()) {
+        // Evaluate the expression to get out the array elements.
+        // We can safely pass a nil ObjectBinding if the expression is literal.
+        ExprEval<?> exprEval = expr.eval(InputBindings.nilBindings());
+        if (exprEval.isArray()) {
+          final Object[] arrayElements = exprEval.asArray();
+          if (arrayElements.length == 0) {
+            // this isn't likely possible today because array constructor function does not accept empty argument list
+            // but just in case, return null
+            return null;
+          }
+          final List<DimFilter> filters = new ArrayList<>(arrayElements.length);
+          final ColumnType elementType = ExpressionType.toColumnType(ExpressionType.elementType(exprEval.type()));
+          for (final Object val : arrayElements) {
+            filters.add(
+                new ArrayContainsElementFilter(
+                    leftExpr.getSimpleExtraction().getColumn(),
+                    elementType,
+                    val,
+                    null
+                )
+            );
+          }
+
+          return filters.size() == 1 ? filters.get(0) : new OrDimFilter(filters);
+        } else {
+          return new ArrayContainsElementFilter(
+              leftExpr.getSimpleExtraction().getColumn(),
+              ExpressionType.toColumnType(exprEval.type()),
+              exprEval.valueOrDefault(),
+              null
+          );
+        }
+      }
+    }
+
+    return toExpressionFilter(plannerContext, druidExpressions);
   }
 }

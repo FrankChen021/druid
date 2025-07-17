@@ -20,6 +20,7 @@
 package org.apache.druid.query.timeseries;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -28,16 +29,24 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.druid.data.input.MapBasedRow;
+import org.apache.druid.frame.Frame;
+import org.apache.druid.frame.allocation.MemoryAllocatorFactory;
+import org.apache.druid.frame.segment.FrameCursorUtils;
+import org.apache.druid.frame.write.FrameWriterFactory;
+import org.apache.druid.frame.write.FrameWriterUtils;
+import org.apache.druid.frame.write.FrameWriters;
 import org.apache.druid.java.util.common.DateTimes;
+import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.CacheStrategy;
+import org.apache.druid.query.FrameSignaturePair;
+import org.apache.druid.query.IterableRowsCursorHelper;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryToolChest;
@@ -50,18 +59,22 @@ import org.apache.druid.query.aggregation.MetricManipulationFn;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.cache.CacheKeyBuilder;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.RowAdapters;
 import org.apache.druid.segment.RowBasedColumnSelectorFactory;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.column.ValueType;
 import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
+import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BinaryOperator;
 
 /**
@@ -71,13 +84,9 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
 {
   private static final byte TIMESERIES_QUERY = 0x0;
   private static final TypeReference<Object> OBJECT_TYPE_REFERENCE =
-      new TypeReference<Object>()
-      {
-      };
+      new TypeReference<>() {};
   private static final TypeReference<Result<TimeseriesResultValue>> TYPE_REFERENCE =
-      new TypeReference<Result<TimeseriesResultValue>>()
-      {
-      };
+      new TypeReference<>() {};
 
   private final TimeseriesQueryMetricsFactory queryMetricsFactory;
 
@@ -98,7 +107,7 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
       QueryRunner<Result<TimeseriesResultValue>> queryRunner
   )
   {
-    final QueryRunner<Result<TimeseriesResultValue>> resultMergeQueryRunner = new ResultMergeQueryRunner<Result<TimeseriesResultValue>>(
+    final QueryRunner<Result<TimeseriesResultValue>> resultMergeQueryRunner = new ResultMergeQueryRunner<>(
         queryRunner,
         this::createResultComparator,
         this::createMergeFn
@@ -147,12 +156,13 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
           !query.isSkipEmptyBuckets() &&
           // Returns empty sequence if bySegment is set because bySegment results are mostly used for
           // caching in historicals or debugging where the exact results are preferred.
-          !QueryContexts.isBySegment(query)) {
+          !query.context().isBySegment()) {
         // Usally it is NOT Okay to materialize results via toList(), but Granularity is ALL thus
         // we have only one record.
         final List<Result<TimeseriesResultValue>> val = baseResults.toList();
-        finalSequence = val.isEmpty() ? Sequences.simple(Collections.singletonList(
-            getNullTimeseriesResultValue(query))) : Sequences.simple(val);
+        finalSequence = val.isEmpty()
+                        ? Sequences.simple(Collections.singletonList(getEmptyTimeseriesResultValue(query)))
+                        : Sequences.simple(val);
       } else {
         finalSequence = baseResults;
       }
@@ -215,32 +225,20 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
   @Override
   public Comparator<Result<TimeseriesResultValue>> createResultComparator(Query<Result<TimeseriesResultValue>> query)
   {
-    return ResultGranularTimestampComparator.create(query.getGranularity(), query.isDescending());
+    return ResultGranularTimestampComparator.create(query.getGranularity(), ((TimeseriesQuery) query).isDescending());
   }
 
-  private Result<TimeseriesResultValue> getNullTimeseriesResultValue(TimeseriesQuery query)
+  /**
+   * Returns a {@link TimeseriesResultValue} that corresponds to an empty-set aggregation, which is used in situations
+   * where we want to return a single result representing "nothing was aggregated".
+   */
+  Result<TimeseriesResultValue> getEmptyTimeseriesResultValue(TimeseriesQuery query)
   {
-    List<AggregatorFactory> aggregatorSpecs = query.getAggregatorSpecs();
-    Aggregator[] aggregators = new Aggregator[aggregatorSpecs.size()];
-    String[] aggregatorNames = new String[aggregatorSpecs.size()];
-    for (int i = 0; i < aggregatorSpecs.size(); i++) {
-      aggregators[i] =
-          aggregatorSpecs.get(i)
-                         .factorize(
-                             RowBasedColumnSelectorFactory.create(
-                                 RowAdapters.standardRow(),
-                                 () -> new MapBasedRow(null, null),
-                                 RowSignature.empty(),
-                                 false
-                             )
-                         );
-      aggregatorNames[i] = aggregatorSpecs.get(i).getName();
-    }
+    final Object[] resultArray = getEmptyAggregations(query.getAggregatorSpecs());
     final DateTime start = query.getIntervals().isEmpty() ? DateTimes.EPOCH : query.getIntervals().get(0).getStart();
     TimeseriesResultBuilder bob = new TimeseriesResultBuilder(start);
-    for (int i = 0; i < aggregatorSpecs.size(); i++) {
-      bob.addMetric(aggregatorNames[i], aggregators[i].get());
-      aggregators[i].close();
+    for (int i = 0; i < query.getAggregatorSpecs().size(); i++) {
+      bob.addMetric(query.getAggregatorSpecs().get(i).getName(), resultArray[i]);
     }
     return bob.build();
   }
@@ -262,12 +260,22 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
   @Override
   public CacheStrategy<Result<TimeseriesResultValue>, Object, TimeseriesQuery> getCacheStrategy(final TimeseriesQuery query)
   {
-    return new CacheStrategy<Result<TimeseriesResultValue>, Object, TimeseriesQuery>()
+    return getCacheStrategy(query, null);
+  }
+
+
+  @Override
+  public CacheStrategy<Result<TimeseriesResultValue>, Object, TimeseriesQuery> getCacheStrategy(
+      final TimeseriesQuery query,
+      @Nullable final ObjectMapper objectMapper
+  )
+  {
+    return new CacheStrategy<>()
     {
       private final List<AggregatorFactory> aggs = query.getAggregatorSpecs();
 
       @Override
-      public boolean isCacheable(TimeseriesQuery query, boolean willMergeRunners)
+      public boolean isCacheable(TimeseriesQuery query, boolean willMergeRunners, boolean bySegment)
       {
         return true;
       }
@@ -337,7 +345,7 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
       @Override
       public Function<Object, Result<TimeseriesResultValue>> pullFromCache(boolean isResultLevelCache)
       {
-        return new Function<Object, Result<TimeseriesResultValue>>()
+        return new Function<>()
         {
           private final Granularity granularity = query.getGranularity();
 
@@ -355,6 +363,13 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
               timestamp = timestampNumber == null ? null : granularity.toDateTime(timestampNumber.longValue());
             } else {
               timestamp = granularity.toDateTime(Preconditions.checkNotNull(timestampNumber, "timestamp").longValue());
+            }
+
+            // If "timestampResultField" is set, we must include a copy of the timestamp in the result.
+            // This is used by the SQL layer when it generates a Timeseries query for a group-by-time-floor SQL query.
+            // The SQL layer expects the result of the time-floor to have a specific name that is not going to be "__time".
+            if (StringUtils.isNotEmpty(query.getTimestampResultField()) && timestamp != null) {
+              retVal.put(query.getTimestampResultField(), timestamp.getMillis());
             }
 
             CacheStrategy.fetchAggregatorsFromCache(
@@ -412,14 +427,7 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
   @Override
   public RowSignature resultArraySignature(TimeseriesQuery query)
   {
-    RowSignature.Builder rowSignatureBuilder = RowSignature.builder();
-    rowSignatureBuilder.addTimeColumn();
-    if (StringUtils.isNotEmpty(query.getTimestampResultField())) {
-      rowSignatureBuilder.add(query.getTimestampResultField(), ValueType.LONG);
-    }
-    rowSignatureBuilder.addAggregators(query.getAggregatorSpecs());
-    rowSignatureBuilder.addPostAggregators(query.getPostAggregatorSpecs());
-    return rowSignatureBuilder.build();
+    return query.getResultRowSignature(RowSignature.Finalization.UNKNOWN);
   }
 
   @Override
@@ -429,7 +437,6 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
   )
   {
     final List<String> fields = resultArraySignature(query).getColumnNames();
-
     return Sequences.map(
         resultSequence,
         result -> {
@@ -447,6 +454,43 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
           return retVal;
         }
     );
+  }
+
+  /**
+   * This returns a single frame containing the results of the timeseries query
+   */
+  @Override
+  public Optional<Sequence<FrameSignaturePair>> resultsAsFrames(
+      TimeseriesQuery query,
+      Sequence<Result<TimeseriesResultValue>> resultSequence,
+      MemoryAllocatorFactory memoryAllocatorFactory,
+      boolean useNestedForUnknownTypes
+  )
+  {
+    final RowSignature rowSignature =
+        query.getResultRowSignature(query.context().isFinalize(true) ? RowSignature.Finalization.YES : RowSignature.Finalization.NO);
+    final Pair<Cursor, Closeable> cursorAndCloseable = IterableRowsCursorHelper.getCursorFromSequence(
+        resultsAsArrays(query, resultSequence),
+        rowSignature
+    );
+    final Cursor cursor = cursorAndCloseable.lhs;
+    final Closeable closeable = cursorAndCloseable.rhs;
+
+    RowSignature modifiedRowSignature = useNestedForUnknownTypes
+                                        ? FrameWriterUtils.replaceUnknownTypesWithNestedColumns(rowSignature)
+                                        : rowSignature;
+    FrameCursorUtils.throwIfColumnsHaveUnknownType(modifiedRowSignature);
+
+    FrameWriterFactory frameWriterFactory = FrameWriters.makeColumnBasedFrameWriterFactory(
+        memoryAllocatorFactory,
+        modifiedRowSignature,
+        new ArrayList<>()
+    );
+
+    Sequence<Frame> frames = FrameCursorUtils.cursorToFramesSequence(cursor, frameWriterFactory).withBaggage(closeable);
+
+    // All frames are generated with the same signature therefore we can attach the row signature
+    return Optional.of(frames.map(frame -> new FrameSignaturePair(frame, modifiedRowSignature)));
   }
 
   private Function<Result<TimeseriesResultValue>, Result<TimeseriesResultValue>> makeComputeManipulatorFn(
@@ -486,5 +530,37 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
           new TimeseriesResultValue(values)
       );
     };
+  }
+
+  /**
+   * Returns a set of values that corresponds to an empty-set aggregation, which is used in situations
+   * where we want to return a single result representing "nothing was aggregated". The returned array has
+   * one element per {@link AggregatorFactory}.
+   */
+  public static Object[] getEmptyAggregations(List<AggregatorFactory> aggregatorSpecs)
+  {
+    final Aggregator[] aggregators = new Aggregator[aggregatorSpecs.size()];
+    final RowSignature aggregatorsSignature =
+        RowSignature.builder().addAggregators(aggregatorSpecs, RowSignature.Finalization.UNKNOWN).build();
+    for (int i = 0; i < aggregatorSpecs.size(); i++) {
+      aggregators[i] =
+          aggregatorSpecs.get(i)
+                         .factorize(
+                             RowBasedColumnSelectorFactory.create(
+                                 RowAdapters.standardRow(),
+                                 () -> new MapBasedRow(null, null),
+                                 aggregatorsSignature,
+                                 false,
+                                 false
+                             )
+                         );
+    }
+
+    final Object[] retVal = new Object[aggregatorSpecs.size()];
+    for (int i = 0; i < aggregatorSpecs.size(); i++) {
+      retVal[i] = aggregators[i].get();
+      aggregators[i].close();
+    }
+    return retVal;
   }
 }

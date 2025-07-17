@@ -1,0 +1,27 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ExecutionProgressBarPane matches snapshot 1`] = `
+<div
+  className="execution-progress-bar-pane"
+>
+  <ForwardRef>
+    Query complete, waiting for segments to be loaded...
+    <React.Fragment>
+       
+      <span
+        className="cancel"
+        onClick={[Function]}
+      >
+        (skip waiting)
+      </span>
+    </React.Fragment>
+  </ForwardRef>
+  <Blueprint5.ProgressBar
+    className="overall"
+    intent="primary"
+  />
+  <ForwardRef>
+    Segments loaded successfully in 0:00:05
+  </ForwardRef>
+</div>
+`;

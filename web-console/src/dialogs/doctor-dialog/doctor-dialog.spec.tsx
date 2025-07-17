@@ -17,11 +17,10 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
 import { DoctorDialog } from './doctor-dialog';
 
-describe('doctor dialog', () => {
+describe('DoctorDialog', () => {
   it('matches snapshot', () => {
     const doctorDialog = <DoctorDialog onClose={() => {}} />;
 

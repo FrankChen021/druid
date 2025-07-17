@@ -20,9 +20,10 @@
 package org.apache.druid.segment.virtual;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.math.expr.Expr;
+import org.apache.druid.math.expr.ExpressionType;
+import org.apache.druid.query.filter.DruidPredicateFactory;
 import org.apache.druid.query.filter.ValueMatcher;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.DimensionDictionarySelector;
@@ -48,7 +49,7 @@ public class SingleStringInputDeferredEvaluationExpressionDimensionSelector impl
 {
   private final DimensionSelector selector;
   private final Expr expression;
-  private final SingleInputBindings bindings = new SingleInputBindings();
+  private final SingleInputBindings bindings = new SingleInputBindings(ExpressionType.STRING);
 
   public SingleStringInputDeferredEvaluationExpressionDimensionSelector(
       final DimensionSelector selector,
@@ -88,9 +89,9 @@ public class SingleStringInputDeferredEvaluationExpressionDimensionSelector impl
   }
 
   @Override
-  public ValueMatcher makeValueMatcher(final Predicate<String> predicate)
+  public ValueMatcher makeValueMatcher(final DruidPredicateFactory predicateFactory)
   {
-    return DimensionSelectorUtils.makeValueMatcherGeneric(this, predicate);
+    return DimensionSelectorUtils.makeValueMatcherGeneric(this, predicateFactory);
   }
 
   @Override

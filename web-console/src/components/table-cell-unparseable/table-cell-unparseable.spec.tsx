@@ -17,11 +17,10 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
 import { TableCellUnparseable } from './table-cell-unparseable';
 
-describe('table cell unparseable', () => {
+describe('TableCellUnparseable', () => {
   it('matches snapshot not timestamp', () => {
     const tableCellUnparseable = <TableCellUnparseable />;
 

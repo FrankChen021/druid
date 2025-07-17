@@ -16,18 +16,16 @@
  * limitations under the License.
  */
 
-import { shallow } from 'enzyme';
-import React from 'react';
-
-import { Capabilities } from '../../utils';
+import { Capabilities } from '../../helpers';
+import { shallow } from '../../utils/shallow-renderer';
 import { SegmentsView } from '../segments-view/segments-view';
 
-describe('segments-view', () => {
+describe('SegmentsView', () => {
   it('matches snapshot', () => {
     const segmentsView = shallow(
       <SegmentsView
-        datasource="test"
-        onlyUnavailable={false}
+        filters={[]}
+        onFiltersChange={() => {}}
         goToQuery={() => {}}
         capabilities={Capabilities.FULL}
       />,

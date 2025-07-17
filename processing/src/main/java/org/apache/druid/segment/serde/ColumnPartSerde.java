@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import org.apache.druid.segment.column.ColumnBuilder;
 import org.apache.druid.segment.column.ColumnConfig;
+import org.apache.druid.segment.column.ColumnHolder;
 
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
@@ -39,16 +40,26 @@ import java.nio.ByteBuffer;
     @JsonSubTypes.Type(name = "floatV2", value = FloatNumericColumnPartSerdeV2.class),
     @JsonSubTypes.Type(name = "longV2", value = LongNumericColumnPartSerdeV2.class),
     @JsonSubTypes.Type(name = "doubleV2", value = DoubleNumericColumnPartSerdeV2.class),
+    @JsonSubTypes.Type(name = "null", value = NullColumnPartSerde.class),
+    @JsonSubTypes.Type(name = "nestedCommonFormat", value = NestedCommonFormatColumnPartSerde.class)
 })
 public interface ColumnPartSerde
 {
   @Nullable
   Serializer getSerializer();
 
+  /**
+   * Returns a Deserializer to read a column from a segment.
+   */
   Deserializer getDeserializer();
 
   interface Deserializer
   {
-    void read(ByteBuffer buffer, ColumnBuilder builder, ColumnConfig columnConfig);
+    void read(
+        ByteBuffer buffer,
+        ColumnBuilder builder,
+        ColumnConfig columnConfig,
+        @Nullable ColumnHolder parent
+    );
   }
 }

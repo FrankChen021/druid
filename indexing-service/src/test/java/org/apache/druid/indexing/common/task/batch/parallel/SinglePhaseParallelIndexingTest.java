@@ -22,34 +22,52 @@ package org.apache.druid.indexing.common.task.batch.parallel;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import org.apache.druid.data.input.impl.DimensionSchema;
+import org.apache.druid.data.input.impl.DimensionsSpec;
+import org.apache.druid.data.input.impl.JsonInputFormat;
 import org.apache.druid.data.input.impl.LocalInputSource;
-import org.apache.druid.data.input.impl.StringInputRowParser;
 import org.apache.druid.indexer.TaskState;
+import org.apache.druid.indexer.TaskStatus;
+import org.apache.druid.indexer.granularity.UniformGranularitySpec;
+import org.apache.druid.indexer.report.IngestionStatsAndErrors;
+import org.apache.druid.indexer.report.IngestionStatsAndErrorsTaskReport;
+import org.apache.druid.indexer.report.TaskReport;
 import org.apache.druid.indexing.common.LockGranularity;
 import org.apache.druid.indexing.common.TaskToolbox;
 import org.apache.druid.indexing.common.actions.TaskActionClient;
 import org.apache.druid.indexing.common.task.Tasks;
+import org.apache.druid.indexing.common.task.TuningConfigBuilder;
 import org.apache.druid.indexing.overlord.Segments;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
-import org.apache.druid.query.aggregation.AggregatorFactory;
+import org.apache.druid.java.util.common.parsers.JSONPathSpec;
+import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
+import org.apache.druid.segment.DataSegmentsWithSchemas;
 import org.apache.druid.segment.SegmentUtils;
+import org.apache.druid.segment.incremental.ParseExceptionReport;
+import org.apache.druid.segment.incremental.RowIngestionMetersTotals;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.apache.druid.segment.indexing.granularity.UniformGranularitySpec;
-import org.apache.druid.segment.realtime.firehose.LocalFirehoseFactory;
+import org.apache.druid.server.security.Action;
+import org.apache.druid.server.security.Resource;
+import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.Partitions;
-import org.apache.druid.timeline.VersionedIntervalTimeline;
+import org.apache.druid.timeline.SegmentTimeline;
 import org.apache.druid.timeline.partition.NumberedOverwriteShardSpec;
 import org.apache.druid.timeline.partition.NumberedShardSpec;
 import org.joda.time.Interval;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -59,6 +77,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -66,17 +85,21 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(Parameterized.class)
 public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSupervisorTaskTest
 {
-  @Parameterized.Parameters(name = "{0}, useInputFormatApi={1}")
+  @Rule
+  public ExpectedException expectedException = ExpectedException.none();
+
+  @Parameterized.Parameters(name = "{0}, useInputFormatApi={1}, useSegmentCache={2}, useConcurrentLocks={3}")
   public static Iterable<Object[]> constructorFeeder()
   {
     return ImmutableList.of(
-        new Object[]{LockGranularity.TIME_CHUNK, false},
-        new Object[]{LockGranularity.TIME_CHUNK, true},
-        new Object[]{LockGranularity.SEGMENT, true}
+        new Object[]{LockGranularity.TIME_CHUNK, false, false, false},
+        new Object[]{LockGranularity.TIME_CHUNK, true, true, true},
+        new Object[]{LockGranularity.SEGMENT, true, false, true}
     );
   }
 
@@ -85,14 +108,21 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
 
   private final LockGranularity lockGranularity;
   private final boolean useInputFormatApi;
+  private final boolean useConcurrentLocks;
 
   private File inputDir;
 
-  public SinglePhaseParallelIndexingTest(LockGranularity lockGranularity, boolean useInputFormatApi)
+  public SinglePhaseParallelIndexingTest(
+      LockGranularity lockGranularity,
+      boolean useInputFormatApi,
+      boolean useSegmentMetadataCache,
+      boolean useConcurrentLocks
+  )
   {
-    super(DEFAULT_TRANSIENT_TASK_FAILURE_RATE, DEFAULT_TRANSIENT_API_FAILURE_RATE);
+    super(DEFAULT_TRANSIENT_TASK_FAILURE_RATE, DEFAULT_TRANSIENT_API_FAILURE_RATE, useSegmentMetadataCache);
     this.lockGranularity = lockGranularity;
     this.useInputFormatApi = useInputFormatApi;
+    this.useConcurrentLocks = useConcurrentLocks;
   }
 
   @Before
@@ -105,6 +135,14 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
                Files.newBufferedWriter(new File(inputDir, "test_" + i).toPath(), StandardCharsets.UTF_8)) {
         writer.write(StringUtils.format("2017-12-%d,%d th test file\n", 24 + i, i));
         writer.write(StringUtils.format("2017-12-%d,%d th test file\n", 25 + i, i));
+        if (i == 0) {
+          // thrown away due to timestamp outside interval
+          writer.write(StringUtils.format("2012-12-%d,%d th test file\n", 25 + i, i));
+          // unparseable metric value
+          writer.write(StringUtils.format("2017-12-%d,%d th test file,badval\n", 25 + i, i));
+          // unparseable row
+          writer.write(StringUtils.format("2017unparseable\n"));
+        }
       }
     }
 
@@ -114,6 +152,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
         writer.write(StringUtils.format("2017-12-%d,%d th test file\n", 25 + i, i));
       }
     }
+
     getObjectMapper().registerSubtypes(SettableSplittableLocalInputSource.class);
   }
 
@@ -126,7 +165,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
   @Test
   public void testIsReady() throws Exception
   {
-    final ParallelIndexSupervisorTask task = newTask(INTERVAL_TO_INDEX, false, true);
+    final ParallelIndexSupervisorTask task = newTask(INTERVAL_TO_INDEX, true);
     final TaskActionClient actionClient = createActionClient(task);
     final TaskToolbox toolbox = createTaskToolbox(task, actionClient);
     prepareTaskForLocking(task);
@@ -150,10 +189,18 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
       final TaskActionClient subTaskActionClient = createActionClient(subTask);
       prepareTaskForLocking(subTask);
       Assert.assertTrue(subTask.isReady(subTaskActionClient));
+      Assert.assertEquals(
+          Collections.singleton(
+              new ResourceAction(new Resource(
+                  LocalInputSource.TYPE_KEY,
+                  ResourceType.EXTERNAL
+              ), Action.READ)),
+          subTask.getInputSourceResources()
+      );
     }
   }
 
-  private void runTestTask(
+  private ParallelIndexSupervisorTask runTestTask(
       @Nullable Interval interval,
       Granularity segmentGranularity,
       boolean appendToExisting,
@@ -170,9 +217,11 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
         appendToExisting,
         originalSegmentsIfAppend
     );
+    TaskContainer taskContainer = getIndexingServiceClient().getTaskContainer(task.getId());
+    return (ParallelIndexSupervisorTask) taskContainer.getTask();
   }
 
-  private void runOverwriteTask(
+  private ParallelIndexSupervisorTask runOverwriteTask(
       @Nullable Interval interval,
       Granularity segmentGranularity,
       LockGranularity actualLockGranularity
@@ -182,6 +231,8 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
     Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
     assertShardSpecAfterOverwrite(task, actualLockGranularity);
+    TaskContainer taskContainer = getIndexingServiceClient().getTaskContainer(task.getId());
+    return (ParallelIndexSupervisorTask) taskContainer.getTask();
   }
 
   private void testRunAndOverwrite(@Nullable Interval inputInterval, Granularity secondSegmentGranularity)
@@ -213,7 +264,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
         : getStorageCoordinator().retrieveUsedSegmentsForInterval("dataSource", inputInterval, Segments.ONLY_VISIBLE);
     Assert.assertFalse(newSegments.isEmpty());
     allSegments.addAll(newSegments);
-    final VersionedIntervalTimeline<String, DataSegment> timeline = VersionedIntervalTimeline.forSegments(allSegments);
+    final SegmentTimeline timeline = SegmentTimeline.forSegments(allSegments);
 
     final Interval timelineInterval = inputInterval == null ? Intervals.ETERNITY : inputInterval;
     final Set<DataSegment> visibles = timeline.findNonOvershadowedObjectsInInterval(
@@ -230,7 +281,9 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
       Collection<DataSegment> originalSegmentsIfAppend
   )
   {
-    final Collection<DataSegment> segments = getIndexingServiceClient().getPublishedSegments(task);
+    final DataSegmentsWithSchemas dataSegmentsWithSchemas = getIndexingServiceClient().getSegmentAndSchemas(task);
+    verifySchema(dataSegmentsWithSchemas);
+    final Collection<DataSegment> segments = dataSegmentsWithSchemas.getSegments();
     if (!appendToExisting && actualLockGranularity == LockGranularity.TIME_CHUNK) {
       // Initial write
       final Map<Interval, List<DataSegment>> intervalToSegments = SegmentUtils.groupSegmentsByInterval(segments);
@@ -261,7 +314,9 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
 
   private void assertShardSpecAfterOverwrite(ParallelIndexSupervisorTask task, LockGranularity actualLockGranularity)
   {
-    final Collection<DataSegment> segments = getIndexingServiceClient().getPublishedSegments(task);
+    DataSegmentsWithSchemas dataSegmentsWithSchemas = getIndexingServiceClient().getSegmentAndSchemas(task);
+    verifySchema(dataSegmentsWithSchemas);
+    final Collection<DataSegment> segments = dataSegmentsWithSchemas.getSegments();
     final Map<Interval, List<DataSegment>> intervalToSegments = SegmentUtils.groupSegmentsByInterval(segments);
     if (actualLockGranularity != LockGranularity.SEGMENT) {
       // Check the core partition set in the shardSpec
@@ -289,12 +344,177 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     testRunAndOverwrite(null, Granularities.DAY);
   }
 
-  @Test()
+  @Test
   public void testRunInParallel()
   {
     // Ingest all data.
     testRunAndOverwrite(Intervals.of("2017-12/P1M"), Granularities.DAY);
   }
+
+  @Test
+  public void testGetRunningTaskReports() throws Exception
+  {
+    final ParallelIndexSupervisorTask task = newTask(
+        Intervals.of("2017-12/P1M"),
+        Granularities.DAY,
+        false,
+        true
+    );
+    task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
+    task.addToContext(DISABLE_TASK_INJECT_CONTEXT_KEY, true);
+
+    // Keep tasks running until finish is triggered
+    getIndexingServiceClient().keepTasksRunning();
+    getIndexingServiceClient().runTask(task.getId(), task);
+
+    // Allow enough time for sub-tasks to be in running state
+    Thread.sleep(2000);
+
+    // Fetch and verify live reports
+    TaskReport.ReportMap reportMap = task.doGetLiveReports(true);
+    IngestionStatsAndErrors statsAndErrors = ((IngestionStatsAndErrorsTaskReport)
+        reportMap.get("ingestionStatsAndErrors")).getPayload();
+    Map<String, Object> rowStats = statsAndErrors.getRowStats();
+    Assert.assertTrue(rowStats.containsKey("totals"));
+
+    getIndexingServiceClient().allowTasksToFinish();
+
+    TaskStatus taskStatus = getIndexingServiceClient().waitToFinish(task, 2, TimeUnit.MINUTES);
+    Assert.assertEquals(TaskState.SUCCESS, taskStatus.getStatusCode());
+  }
+
+  @Test
+  public void testRunInParallelIngestNullColumn()
+  {
+    Assume.assumeTrue(useInputFormatApi);
+    // Ingest all data.
+    final List<DimensionSchema> dimensionSchemas = DimensionsSpec.getDefaultSchemas(
+        Arrays.asList("ts", "unknownDim", "dim")
+    );
+    ParallelIndexSupervisorTask task = new ParallelIndexSupervisorTask(
+        null,
+        null,
+        null,
+        new ParallelIndexIngestionSpec(
+            DataSchema.builder()
+                      .withDataSource("dataSource")
+                      .withTimestamp(DEFAULT_TIMESTAMP_SPEC)
+                      .withDimensions(DEFAULT_DIMENSIONS_SPEC.withDimensions(dimensionSchemas))
+                      .withAggregators(new LongSumAggregatorFactory("val", "val"))
+                      .withGranularity(
+                          new UniformGranularitySpec(
+                              Granularities.DAY,
+                              Granularities.MINUTE,
+                              Collections.singletonList(Intervals.of("2017-12/P1M"))
+                          )
+                      )
+                      .build(),
+            new ParallelIndexIOConfig(
+                new SettableSplittableLocalInputSource(inputDir, VALID_INPUT_SOURCE_FILTER, true),
+                DEFAULT_INPUT_FORMAT,
+                false,
+                null
+            ),
+            DEFAULT_TUNING_CONFIG_FOR_PARALLEL_INDEXING
+        ),
+        null
+    );
+
+    task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
+    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+
+    DataSegmentsWithSchemas dataSegmentsWithSchemas = getIndexingServiceClient().getSegmentAndSchemas(task);
+    verifySchema(dataSegmentsWithSchemas);
+    Set<DataSegment> segments = dataSegmentsWithSchemas.getSegments();
+    for (DataSegment segment : segments) {
+      for (int i = 0; i < dimensionSchemas.size(); i++) {
+        Assert.assertEquals(dimensionSchemas.get(i).getName(), segment.getDimensions().get(i));
+      }
+    }
+  }
+
+  @Test
+  public void testRunInParallelIngestNullColumn_storeEmptyColumnsOff_shouldNotStoreEmptyColumns()
+  {
+    Assume.assumeTrue(useInputFormatApi);
+    // Ingest all data.
+    final List<DimensionSchema> dimensionSchemas = DimensionsSpec.getDefaultSchemas(
+        Arrays.asList("ts", "unknownDim", "dim")
+    );
+    ParallelIndexSupervisorTask task = new ParallelIndexSupervisorTask(
+        null,
+        null,
+        null,
+        new ParallelIndexIngestionSpec(
+            DataSchema.builder()
+                      .withDataSource("dataSource")
+                      .withTimestamp(DEFAULT_TIMESTAMP_SPEC)
+                      .withDimensions(DEFAULT_DIMENSIONS_SPEC.withDimensions(dimensionSchemas))
+                      .withAggregators(new LongSumAggregatorFactory("val", "val"))
+                      .withGranularity(
+                          new UniformGranularitySpec(
+                              Granularities.DAY,
+                              Granularities.MINUTE,
+                              Collections.singletonList(Intervals.of("2017-12/P1M"))
+                          )
+                      )
+                      .build(),
+            new ParallelIndexIOConfig(
+                new SettableSplittableLocalInputSource(inputDir, VALID_INPUT_SOURCE_FILTER, true),
+                DEFAULT_INPUT_FORMAT,
+                false,
+                null
+            ),
+            DEFAULT_TUNING_CONFIG_FOR_PARALLEL_INDEXING
+        ),
+        null
+    );
+
+    task.addToContext(Tasks.STORE_EMPTY_COLUMNS_KEY, false);
+    task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
+    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+
+    DataSegmentsWithSchemas dataSegmentsWithSchemas = getIndexingServiceClient().getSegmentAndSchemas(task);
+    verifySchema(dataSegmentsWithSchemas);
+    Set<DataSegment> segments = dataSegmentsWithSchemas.getSegments();
+    for (DataSegment segment : segments) {
+      Assert.assertFalse(segment.getDimensions().contains("unknownDim"));
+    }
+  }
+
+  @Test
+  public void testRunInParallelTaskReports()
+  {
+    ParallelIndexSupervisorTask task = runTestTask(
+        Intervals.of("2017-12/P1M"),
+        Granularities.DAY,
+        false,
+        Collections.emptyList()
+    );
+    TaskReport.ReportMap actualReports = task.doGetLiveReports(true);
+    TaskReport.ReportMap expectedReports = buildExpectedTaskReportParallel(
+        task.getId(),
+        ImmutableList.of(
+            new ParseExceptionReport(
+                "{ts=2017unparseable}",
+                "unparseable",
+                ImmutableList.of(getErrorMessageForUnparseableTimestamp()),
+                1L
+            ),
+            new ParseExceptionReport(
+                "{ts=2017-12-25, dim=0 th test file, val=badval}",
+                "processedWithError",
+                ImmutableList.of("Unable to parse value[badval] for field[val]"),
+                1L
+            )
+        ),
+        new RowIngestionMetersTotals(10, 335, 1, 1, 1)
+    );
+    compareTaskReports(expectedReports, actualReports);
+  }
+
+  //
+  // Ingest all data.
 
   @Test
   public void testWithoutIntervalWithDifferentSegmentGranularity()
@@ -314,16 +534,56 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
   {
     final Interval interval = Intervals.of("2017-12/P1M");
     final boolean appendToExisting = false;
-    final ParallelIndexSupervisorTask task = newTask(interval, appendToExisting, false);
+    final ParallelIndexSupervisorTask task = newTask(interval, false);
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
     Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
     assertShardSpec(task, lockGranularity, appendToExisting, Collections.emptyList());
+
+    TaskContainer taskContainer = getIndexingServiceClient().getTaskContainer(task.getId());
+    final ParallelIndexSupervisorTask executedTask = (ParallelIndexSupervisorTask) taskContainer.getTask();
+    TaskReport.ReportMap actualReports = executedTask.doGetLiveReports(true);
+
+    final RowIngestionMetersTotals expectedTotals = new RowIngestionMetersTotals(10, 335, 1, 1, 1);
+    List<ParseExceptionReport> expectedUnparseableEvents = ImmutableList.of(
+        new ParseExceptionReport(
+            "{ts=2017unparseable}",
+            "unparseable",
+            ImmutableList.of(getErrorMessageForUnparseableTimestamp()),
+            1L
+        ),
+        new ParseExceptionReport(
+            "{ts=2017-12-25, dim=0 th test file, val=badval}",
+            "processedWithError",
+            ImmutableList.of("Unable to parse value[badval] for field[val]"),
+            1L
+        )
+    );
+
+    TaskReport.ReportMap expectedReports;
+    if (useInputFormatApi) {
+      expectedReports = buildExpectedTaskReportSequential(
+          task.getId(),
+          expectedUnparseableEvents,
+          new RowIngestionMetersTotals(0, 0, 0, 0, 0),
+          expectedTotals
+      );
+    } else {
+      // when useInputFormatApi is false, maxConcurrentSubTasks=2 and it uses the single phase runner
+      // instead of sequential runner
+      expectedReports = buildExpectedTaskReportParallel(
+          task.getId(),
+          expectedUnparseableEvents,
+          expectedTotals
+      );
+    }
+
+    compareTaskReports(expectedReports, actualReports);
   }
 
   @Test
   public void testPublishEmptySegments()
   {
-    final ParallelIndexSupervisorTask task = newTask(Intervals.of("2020-12/P1M"), false, true);
+    final ParallelIndexSupervisorTask task = newTask(Intervals.of("2020-12/P1M"), true);
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
     Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
   }
@@ -338,38 +598,9 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
         Granularities.DAY,
         appendToExisting,
         true,
-        new ParallelIndexTuningConfig(
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            1,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-        ),
+        TuningConfigBuilder.forParallelIndexTask()
+                           .withMaxNumConcurrentSubTasks(1)
+                           .build(),
         VALID_INPUT_SOURCE_FILTER
     );
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
@@ -390,9 +621,26 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     final Collection<DataSegment> newSegments =
         getStorageCoordinator().retrieveUsedSegmentsForInterval("dataSource", interval, Segments.ONLY_VISIBLE);
     Assert.assertTrue(newSegments.containsAll(oldSegments));
-    final VersionedIntervalTimeline<String, DataSegment> timeline = VersionedIntervalTimeline.forSegments(newSegments);
+    final SegmentTimeline timeline = SegmentTimeline.forSegments(newSegments);
     final Set<DataSegment> visibles = timeline.findNonOvershadowedObjectsInInterval(interval, Partitions.ONLY_COMPLETE);
     Assert.assertEquals(new HashSet<>(newSegments), visibles);
+  }
+
+  @Test
+  public void testMultipleAppends()
+  {
+    final Interval interval = null;
+    final ParallelIndexSupervisorTask task = newTask(interval, Granularities.DAY, true, true);
+    final ParallelIndexSupervisorTask task2 = newTask(interval, Granularities.DAY, true, true);
+    task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, true);
+    task.addToContext(Tasks.USE_CONCURRENT_LOCKS, true);
+    task2.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, true);
+    task2.addToContext(Tasks.USE_CONCURRENT_LOCKS, true);
+    getIndexingServiceClient().runTask(task.getId(), task);
+    getIndexingServiceClient().runTask(task2.getId(), task2);
+
+    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().waitToFinish(task, 1, TimeUnit.DAYS).getStatusCode());
+    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().waitToFinish(task2, 1, TimeUnit.DAYS).getStatusCode());
   }
 
   @Test
@@ -430,19 +678,251 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     final Collection<DataSegment> afterAppendSegments =
         getStorageCoordinator().retrieveUsedSegmentsForInterval("dataSource", interval, Segments.ONLY_VISIBLE);
     Assert.assertTrue(afterAppendSegments.containsAll(beforeAppendSegments));
-    final VersionedIntervalTimeline<String, DataSegment> timeline = VersionedIntervalTimeline
-        .forSegments(afterAppendSegments);
+    final SegmentTimeline timeline = SegmentTimeline.forSegments(afterAppendSegments);
     final Set<DataSegment> visibles = timeline.findNonOvershadowedObjectsInInterval(interval, Partitions.ONLY_COMPLETE);
     Assert.assertEquals(new HashSet<>(afterAppendSegments), visibles);
   }
 
+  @Test
+  public void testMaxLocksWith1MaxNumConcurrentSubTasks()
+  {
+    final Interval interval = Intervals.of("2017-12/P1M");
+    final boolean appendToExisting = false;
+    final ParallelIndexSupervisorTask task = newTask(
+        interval,
+        Granularities.DAY,
+        appendToExisting,
+        true,
+        TuningConfigBuilder.forParallelIndexTask()
+                           .withMaxNumConcurrentSubTasks(1)
+                           .withMaxAllowedLockCount(0)
+                           .build(),
+        VALID_INPUT_SOURCE_FILTER
+    );
+    task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
+
+    if (lockGranularity.equals(LockGranularity.TIME_CHUNK)) {
+      expectedException.expect(RuntimeException.class);
+      expectedException.expectMessage(
+          "Number of locks exceeded maxAllowedLockCount [0]"
+      );
+      getIndexingServiceClient().runAndWait(task);
+    } else {
+      Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+      Assert.assertNull("Runner must be null if the task was in the sequential mode", task.getCurrentRunner());
+      assertShardSpec(task, lockGranularity, appendToExisting, Collections.emptyList());
+    }
+  }
+
+
+  @Test
+  public void testMaxLocksWith2MaxNumConcurrentSubTasks()
+  {
+    final Interval interval = Intervals.of("2017-12/P1M");
+    final boolean appendToExisting = false;
+    final ParallelIndexSupervisorTask task = newTask(
+        interval,
+        Granularities.DAY,
+        appendToExisting,
+        true,
+        TuningConfigBuilder.forParallelIndexTask()
+                           .withMaxNumConcurrentSubTasks(2)
+                           .withMaxAllowedLockCount(0)
+                           .build(),
+        VALID_INPUT_SOURCE_FILTER
+    );
+    task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
+
+    if (lockGranularity.equals(LockGranularity.TIME_CHUNK)) {
+      expectedException.expect(RuntimeException.class);
+      expectedException.expectMessage(
+          "Number of locks exceeded maxAllowedLockCount [0]"
+      );
+      getIndexingServiceClient().runAndWait(task);
+    } else {
+      Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+      Assert.assertNull("Runner must be null if the task was in the sequential mode", task.getCurrentRunner());
+      assertShardSpec(task, lockGranularity, appendToExisting, Collections.emptyList());
+    }
+  }
+
+  @Test
+  public void testIngestBothExplicitAndImplicitDims() throws IOException
+  {
+    final Interval interval = Intervals.of("2017-12/P1M");
+    for (int i = 0; i < 5; i++) {
+      try (final Writer writer =
+               Files.newBufferedWriter(new File(inputDir, "test_" + i + ".json").toPath(), StandardCharsets.UTF_8)) {
+
+        writer.write(
+            getObjectMapper().writeValueAsString(
+                ImmutableMap.of(
+                    "ts",
+                    StringUtils.format("2017-12-%d", 24 + i),
+                    "implicitDim",
+                    "implicit_" + i,
+                    "explicitDim",
+                    "explicit_" + i
+                )
+            )
+        );
+        writer.write(
+            getObjectMapper().writeValueAsString(
+                ImmutableMap.of(
+                    "ts",
+                    StringUtils.format("2017-12-%d", 25 + i),
+                    "implicitDim",
+                    "implicit_" + i,
+                    "explicitDim",
+                    "explicit_" + i
+                )
+            )
+        );
+      }
+    }
+
+    final ParallelIndexSupervisorTask task = new ParallelIndexSupervisorTask(
+        null,
+        null,
+        null,
+        new ParallelIndexIngestionSpec(
+            DataSchema.builder()
+                      .withDataSource("dataSource")
+                      .withTimestamp(DEFAULT_TIMESTAMP_SPEC)
+                      .withDimensions(
+                          DimensionsSpec.builder()
+                                        .setDefaultSchemaDimensions(ImmutableList.of("ts", "explicitDim"))
+                                        .setIncludeAllDimensions(true)
+                                        .build()
+                      )
+                      .withAggregators(new CountAggregatorFactory("cnt"))
+                      .withGranularity(
+                          new UniformGranularitySpec(
+                              Granularities.DAY,
+                              Granularities.MINUTE,
+                              Collections.singletonList(interval)
+                          )
+                      )
+                      .build(),
+            new ParallelIndexIOConfig(
+                new SettableSplittableLocalInputSource(inputDir, "*.json", true),
+                new JsonInputFormat(
+                    new JSONPathSpec(true, null),
+                    null,
+                    null,
+                    null,
+                    null
+                ),
+                false,
+                null
+            ),
+            AbstractParallelIndexSupervisorTaskTest.DEFAULT_TUNING_CONFIG_FOR_PARALLEL_INDEXING
+        ),
+        null
+    );
+    task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
+    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+
+    DataSegmentsWithSchemas dataSegmentsWithSchemas = getIndexingServiceClient().getSegmentAndSchemas(task);
+    verifySchema(dataSegmentsWithSchemas);
+    Set<DataSegment> segments = dataSegmentsWithSchemas.getSegments();
+
+    for (DataSegment segment : segments) {
+      Assert.assertEquals(ImmutableList.of("ts", "explicitDim", "implicitDim"), segment.getDimensions());
+    }
+  }
+
+  @Test
+  public void testIngestBothExplicitAndImplicitDimsSchemaDiscovery() throws IOException
+  {
+    final Interval interval = Intervals.of("2017-12/P1M");
+    for (int i = 0; i < 5; i++) {
+      try (final Writer writer =
+               Files.newBufferedWriter(new File(inputDir, "test_" + i + ".json").toPath(), StandardCharsets.UTF_8)) {
+
+        writer.write(
+            getObjectMapper().writeValueAsString(
+                ImmutableMap.of(
+                    "ts",
+                    StringUtils.format("2017-12-%d", 24 + i),
+                    "implicitDim",
+                    "implicit_" + i,
+                    "explicitDim",
+                    "explicit_" + i
+                )
+            )
+        );
+        writer.write(
+            getObjectMapper().writeValueAsString(
+                ImmutableMap.of(
+                    "ts",
+                    StringUtils.format("2017-12-%d", 25 + i),
+                    "implicitDim",
+                    "implicit_" + i,
+                    "explicitDim",
+                    "explicit_" + i
+                )
+            )
+        );
+      }
+    }
+
+    final ParallelIndexSupervisorTask task = new ParallelIndexSupervisorTask(
+        null,
+        null,
+        null,
+        new ParallelIndexIngestionSpec(
+            DataSchema.builder()
+                      .withDataSource("dataSource")
+                      .withTimestamp(DEFAULT_TIMESTAMP_SPEC)
+                      .withDimensions(
+                          DimensionsSpec.builder()
+                                        .setDefaultSchemaDimensions(ImmutableList.of("ts", "explicitDim"))
+                                        .useSchemaDiscovery(true)
+                                        .build()
+                      )
+                      .withAggregators(new CountAggregatorFactory("cnt"))
+                      .withGranularity(
+                          new UniformGranularitySpec(
+                              Granularities.DAY,
+                              Granularities.MINUTE,
+                              Collections.singletonList(interval)
+                          )
+                      )
+                      .build(),
+            new ParallelIndexIOConfig(
+                new SettableSplittableLocalInputSource(inputDir, "*.json", true),
+                new JsonInputFormat(
+                    new JSONPathSpec(true, null),
+                    null,
+                    null,
+                    null,
+                    null
+                ),
+                false,
+                null
+            ),
+            AbstractParallelIndexSupervisorTaskTest.DEFAULT_TUNING_CONFIG_FOR_PARALLEL_INDEXING
+        ),
+        null
+    );
+    task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
+    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+
+    DataSegmentsWithSchemas dataSegmentsWithSchemas = getIndexingServiceClient().getSegmentAndSchemas(task);
+    verifySchema(dataSegmentsWithSchemas);
+    Set<DataSegment> segments = dataSegmentsWithSchemas.getSegments();
+    for (DataSegment segment : segments) {
+      Assert.assertEquals(ImmutableList.of("ts", "explicitDim", "implicitDim"), segment.getDimensions());
+    }
+  }
+
   private ParallelIndexSupervisorTask newTask(
       @Nullable Interval interval,
-      boolean appendToExisting,
       boolean splittableInputSource
   )
   {
-    return newTask(interval, Granularities.DAY, appendToExisting, splittableInputSource);
+    return newTask(interval, Granularities.DAY, false, splittableInputSource);
   }
 
   private ParallelIndexSupervisorTask newTask(
@@ -475,22 +955,20 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     final ParallelIndexIngestionSpec ingestionSpec;
     if (useInputFormatApi) {
       ingestionSpec = new ParallelIndexIngestionSpec(
-          new DataSchema(
-              "dataSource",
-              DEFAULT_TIMESTAMP_SPEC,
-              DEFAULT_DIMENSIONS_SPEC,
-              new AggregatorFactory[]{
-                  new LongSumAggregatorFactory("val", "val")
-              },
-              new UniformGranularitySpec(
-                  segmentGranularity,
-                  Granularities.MINUTE,
-                  interval == null ? null : Collections.singletonList(interval)
-              ),
-              null
-          ),
+          DataSchema.builder()
+                    .withDataSource("dataSource")
+                    .withTimestamp(DEFAULT_TIMESTAMP_SPEC)
+                    .withDimensions(DEFAULT_DIMENSIONS_SPEC)
+                    .withAggregators(new LongSumAggregatorFactory("val", "val"))
+                    .withGranularity(
+                        new UniformGranularitySpec(
+                            segmentGranularity,
+                            Granularities.MINUTE,
+                            interval == null ? null : Collections.singletonList(interval)
+                        )
+                    )
+                    .build(),
           new ParallelIndexIOConfig(
-              null,
               new SettableSplittableLocalInputSource(inputDir, inputSourceFilter, splittableInputSource),
               DEFAULT_INPUT_FORMAT,
               appendToExisting,
@@ -500,29 +978,24 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
       );
     } else {
       ingestionSpec = new ParallelIndexIngestionSpec(
-          new DataSchema(
-              "dataSource",
-              getObjectMapper().convertValue(
-                  new StringInputRowParser(
-                      DEFAULT_PARSE_SPEC,
-                      null
-                  ),
-                  Map.class
-              ),
-              new AggregatorFactory[]{
-                  new LongSumAggregatorFactory("val", "val")
-              },
-              new UniformGranularitySpec(
-                  segmentGranularity,
-                  Granularities.MINUTE,
-                  interval == null ? null : Collections.singletonList(interval)
-              ),
-              null,
-              getObjectMapper()
-          ),
+          DataSchema.builder()
+                    .withDataSource("dataSource")
+                    .withTimestamp(DEFAULT_TIMESTAMP_SPEC)
+                    .withDimensions(DEFAULT_DIMENSIONS_SPEC)
+                    .withAggregators(DEFAULT_METRICS_SPEC)
+                    .withGranularity(
+                        new UniformGranularitySpec(
+                            segmentGranularity,
+                            Granularities.MINUTE,
+                            interval == null ? null : Collections.singletonList(interval)
+                        )
+                    )
+                    .build(),
           new ParallelIndexIOConfig(
-              new LocalFirehoseFactory(inputDir, inputSourceFilter, null),
-              appendToExisting
+              new LocalInputSource(inputDir, inputSourceFilter),
+              createInputFormatFromParseSpec(DEFAULT_PARSE_SPEC),
+              appendToExisting,
+              null
           ),
           tuningConfig
       );
@@ -534,7 +1007,15 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
         null,
         null,
         ingestionSpec,
-        Collections.emptyMap()
+        Map.of(Tasks.USE_CONCURRENT_LOCKS, useConcurrentLocks)
+    );
+  }
+
+  private String getErrorMessageForUnparseableTimestamp()
+  {
+    return StringUtils.format(
+        "Timestamp[2017unparseable] is unparseable! Event: {ts=2017unparseable} (Path: %s, Record: 5, Line: 5)",
+        new File(inputDir, "test_0").toURI()
     );
   }
 

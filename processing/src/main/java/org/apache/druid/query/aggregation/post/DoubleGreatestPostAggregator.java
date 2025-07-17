@@ -22,12 +22,12 @@ package org.apache.druid.query.aggregation.post;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.query.Queries;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.cache.CacheKeyBuilder;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.ColumnInspector;
+import org.apache.druid.segment.column.ColumnType;
 
 import java.util.Comparator;
 import java.util.HashSet;
@@ -52,7 +52,11 @@ public class DoubleGreatestPostAggregator implements PostAggregator
       @JsonProperty("fields") List<PostAggregator> fields
   )
   {
-    Preconditions.checkArgument(fields != null && fields.size() > 0, "Illegal number of fields[%s], must be > 0");
+    Preconditions.checkArgument(
+        fields != null && fields.size() > 0,
+        "Illegal number of fields[%s], must be > 0",
+        fields.size()
+    );
 
     this.name = name;
     this.fields = fields;
@@ -78,7 +82,7 @@ public class DoubleGreatestPostAggregator implements PostAggregator
   public Object compute(Map<String, Object> values)
   {
     Iterator<PostAggregator> fieldsIter = fields.iterator();
-    Double retVal = NullHandling.replaceWithDefault() ? Double.NEGATIVE_INFINITY : null;
+    Double retVal = null;
     while (fieldsIter.hasNext()) {
       Number nextVal = ((Number) fieldsIter.next().compute(values));
       // Ignore NULL values and return the greatest out of non-null values.
@@ -101,9 +105,9 @@ public class DoubleGreatestPostAggregator implements PostAggregator
   }
 
   @Override
-  public ValueType getType()
+  public ColumnType getType(ColumnInspector signature)
   {
-    return ValueType.DOUBLE;
+    return ColumnType.DOUBLE;
   }
 
   @Override

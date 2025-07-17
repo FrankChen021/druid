@@ -32,6 +32,7 @@ public class TaskResponseObject
   private final DateTime createdTime;
   private final DateTime queueInsertionTime;
   private final TaskState status;
+  private final Long duration;
 
   @JsonCreator
   private TaskResponseObject(
@@ -39,7 +40,8 @@ public class TaskResponseObject
       @JsonProperty("type") String type,
       @JsonProperty("createdTime") DateTime createdTime,
       @JsonProperty("queueInsertionTime") DateTime queueInsertionTime,
-      @JsonProperty("status") TaskState status
+      @JsonProperty("status") TaskState status,
+      @JsonProperty("duration") Long duration
   )
   {
     this.id = id;
@@ -47,35 +49,42 @@ public class TaskResponseObject
     this.createdTime = createdTime;
     this.queueInsertionTime = queueInsertionTime;
     this.status = status;
+    this.duration = duration;
   }
 
-  @SuppressWarnings("unused") // Used by Jackson serialization?
+  @JsonProperty
   public String getId()
   {
     return id;
   }
 
-  @SuppressWarnings("unused") // Used by Jackson serialization?
+  @JsonProperty
   public String getType()
   {
     return type;
   }
 
-  @SuppressWarnings("unused") // Used by Jackson serialization?
+  @JsonProperty
   public DateTime getCreatedTime()
   {
     return createdTime;
   }
 
-  @SuppressWarnings("unused") // Used by Jackson serialization?
+  @JsonProperty
   public DateTime getQueueInsertionTime()
   {
     return queueInsertionTime;
   }
 
-  @SuppressWarnings("unused") // Used by Jackson serialization?
+  @JsonProperty
   public TaskState getStatus()
   {
     return status;
+  }
+
+  @JsonProperty
+  public Long getDuration()
+  {
+    return duration;
   }
 }

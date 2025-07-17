@@ -19,11 +19,9 @@
 
 package org.apache.druid.query.search;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntRBTreeMap;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
@@ -44,7 +42,6 @@ import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.DimensionSelector;
 import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.column.ColumnCapabilities;
-import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.data.IndexedInts;
 
 import java.util.List;
@@ -71,11 +68,11 @@ public class SearchQueryRunner implements QueryRunner<Result<SearchResultValue>>
     @Override
     public SearchColumnSelectorStrategy makeColumnSelectorStrategy(
         ColumnCapabilities capabilities,
-        ColumnValueSelector selector
+        ColumnValueSelector selector,
+        String dimension
     )
     {
-      ValueType type = capabilities.getType();
-      switch (type) {
+      switch (capabilities.getType()) {
         case STRING:
           return new StringSearchColumnSelectorStrategy();
         case LONG:
@@ -85,8 +82,14 @@ public class SearchQueryRunner implements QueryRunner<Result<SearchResultValue>>
         case DOUBLE:
           return new DoubleSearchColumnSelectorStrategy();
         default:
-          throw new IAE("Cannot create query type helper from invalid type [%s]", type);
+          throw new IAE("Cannot create query type helper from invalid type [%s]", capabilities.asTypeString());
       }
+    }
+
+    @Override
+    public boolean supportsComplexTypes()
+    {
+      return false;
     }
   }
 
@@ -236,14 +239,10 @@ public class SearchQueryRunner implements QueryRunner<Result<SearchResultValue>>
   )
   {
     Iterable<SearchHit> source = Iterables.transform(
-        retVal.object2IntEntrySet(), new Function<Object2IntMap.Entry<SearchHit>, SearchHit>()
-        {
-          @Override
-          public SearchHit apply(Object2IntMap.Entry<SearchHit> input)
-          {
-            SearchHit hit = input.getKey();
-            return new SearchHit(hit.getDimension(), hit.getValue(), input.getIntValue());
-          }
+        retVal.object2IntEntrySet(),
+        input -> {
+          SearchHit hit = input.getKey();
+          return new SearchHit(hit.getDimension(), hit.getValue(), input.getIntValue());
         }
     );
 

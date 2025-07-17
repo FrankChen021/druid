@@ -21,6 +21,7 @@ package org.apache.druid.metadata.input;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
@@ -32,20 +33,25 @@ import org.apache.druid.data.input.InputSplit;
 import org.apache.druid.data.input.SplitHintSpec;
 import org.apache.druid.data.input.impl.InputEntityIteratingReader;
 import org.apache.druid.data.input.impl.SplittableInputSource;
+import org.apache.druid.data.input.impl.systemfield.SystemFieldDecoratorFactory;
 import org.apache.druid.guice.annotations.Smile;
-import org.apache.druid.metadata.SQLFirehoseDatabaseConnector;
+import org.apache.druid.java.util.common.CloseableIterators;
+import org.apache.druid.metadata.SQLInputSourceDatabaseConnector;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Stream;
 
 public class SqlInputSource extends AbstractInputSource implements SplittableInputSource<String>
 {
+  static final String TYPE_KEY = "sql";
   private final List<String> sqls;
-  private final SQLFirehoseDatabaseConnector sqlFirehoseDatabaseConnector;
+  private final SQLInputSourceDatabaseConnector sqlInputSourceDatabaseConnector;
   private final ObjectMapper objectMapper;
   private final boolean foldCase;
 
@@ -53,7 +59,7 @@ public class SqlInputSource extends AbstractInputSource implements SplittableInp
   public SqlInputSource(
       @JsonProperty("sqls") List<String> sqls,
       @JsonProperty("foldCase") boolean foldCase,
-      @JsonProperty("database") SQLFirehoseDatabaseConnector sqlFirehoseDatabaseConnector,
+      @JsonProperty("database") SQLInputSourceDatabaseConnector sqlInputSourceDatabaseConnector,
       @JacksonInject @Smile ObjectMapper objectMapper
   )
   {
@@ -61,11 +67,19 @@ public class SqlInputSource extends AbstractInputSource implements SplittableInp
 
     this.sqls = sqls;
     this.foldCase = foldCase;
-    this.sqlFirehoseDatabaseConnector = Preconditions.checkNotNull(
-        sqlFirehoseDatabaseConnector,
+    this.sqlInputSourceDatabaseConnector = Preconditions.checkNotNull(
+        sqlInputSourceDatabaseConnector,
         "SQL Metadata Connector not configured!"
     );
     this.objectMapper = objectMapper;
+  }
+
+  @JsonIgnore
+  @Nonnull
+  @Override
+  public Set<String> getTypes()
+  {
+    return Collections.singleton(TYPE_KEY);
   }
 
   @JsonProperty
@@ -81,9 +95,9 @@ public class SqlInputSource extends AbstractInputSource implements SplittableInp
   }
 
   @JsonProperty("database")
-  public SQLFirehoseDatabaseConnector getSQLFirehoseDatabaseConnector()
+  public SQLInputSourceDatabaseConnector getSQLInputSourceDatabaseConnector()
   {
-    return sqlFirehoseDatabaseConnector;
+    return sqlInputSourceDatabaseConnector;
   }
 
   @Override
@@ -104,7 +118,7 @@ public class SqlInputSource extends AbstractInputSource implements SplittableInp
     return new SqlInputSource(
         Collections.singletonList(split.get()),
         foldCase,
-        sqlFirehoseDatabaseConnector,
+        sqlInputSourceDatabaseConnector,
         objectMapper
     );
   }
@@ -116,8 +130,10 @@ public class SqlInputSource extends AbstractInputSource implements SplittableInp
     return new InputEntityIteratingReader(
         inputRowSchema,
         inputFormat,
-        createSplits(inputFormat, null)
-            .map(split -> new SqlEntity(split.get(), sqlFirehoseDatabaseConnector, foldCase, objectMapper)).iterator(),
+        CloseableIterators.withEmptyBaggage(createSplits(inputFormat, null)
+                                                .map(split -> new SqlEntity(split.get(),
+                                                                            sqlInputSourceDatabaseConnector, foldCase, objectMapper)).iterator()),
+        SystemFieldDecoratorFactory.NONE,
         temporaryDirectory
     );
   }
@@ -140,12 +156,12 @@ public class SqlInputSource extends AbstractInputSource implements SplittableInp
     SqlInputSource that = (SqlInputSource) o;
     return foldCase == that.foldCase &&
            sqls.equals(that.sqls) &&
-           sqlFirehoseDatabaseConnector.equals(that.sqlFirehoseDatabaseConnector);
+           sqlInputSourceDatabaseConnector.equals(that.sqlInputSourceDatabaseConnector);
   }
 
   @Override
   public int hashCode()
   {
-    return Objects.hash(sqls, sqlFirehoseDatabaseConnector, foldCase);
+    return Objects.hash(sqls, sqlInputSourceDatabaseConnector, foldCase);
   }
 }

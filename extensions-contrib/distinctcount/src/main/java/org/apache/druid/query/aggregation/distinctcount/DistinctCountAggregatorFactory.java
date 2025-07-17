@@ -34,7 +34,7 @@ import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.DimensionSelector;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
@@ -89,6 +89,12 @@ public class DistinctCountAggregatorFactory extends AggregatorFactory
     }
   }
 
+  @Override
+  public AggregatorFactory withName(String newName)
+  {
+    return new DistinctCountAggregatorFactory(newName, getFieldName(), getBitMapFactory());
+  }
+
   private DimensionSelector makeDimensionSelector(final ColumnSelectorFactory columnFactory)
   {
     return columnFactory.makeDimensionSelector(new DefaultDimensionSpec(fieldName, fieldName));
@@ -133,14 +139,6 @@ public class DistinctCountAggregatorFactory extends AggregatorFactory
   public AggregatorFactory getCombiningFactory()
   {
     return new LongSumAggregatorFactory(name, name);
-  }
-
-  @Override
-  public List<AggregatorFactory> getRequiredColumns()
-  {
-    return Collections.singletonList(
-        new DistinctCountAggregatorFactory(fieldName, fieldName, bitMapFactory)
-    );
   }
 
   @Override
@@ -194,27 +192,21 @@ public class DistinctCountAggregatorFactory extends AggregatorFactory
                      .array();
   }
 
-  @Override
-  public String getComplexTypeName()
-  {
-    return "distinctCount";
-  }
-
   /**
    * this aggregator only works on a single segment, so even though it stores a
    * {@link org.apache.druid.collections.bitmap.MutableBitmap} while computing, this value never leaves the aggregator
    * and {@link DistinctCountAggregator#get} returns an integer for the number of set bits in the bitmap.
    */
   @Override
-  public ValueType getType()
+  public ColumnType getIntermediateType()
   {
-    return ValueType.LONG;
+    return ColumnType.LONG;
   }
 
   @Override
-  public ValueType getFinalizedType()
+  public ColumnType getResultType()
   {
-    return ValueType.LONG;
+    return ColumnType.LONG;
   }
 
   @Override

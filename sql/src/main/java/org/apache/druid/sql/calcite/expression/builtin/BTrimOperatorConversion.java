@@ -30,6 +30,7 @@ import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.expression.OperatorConversions;
 import org.apache.druid.sql.calcite.expression.SqlOperatorConversion;
+import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 
 public class BTrimOperatorConversion implements SqlOperatorConversion
@@ -39,7 +40,7 @@ public class BTrimOperatorConversion implements SqlOperatorConversion
       .operandTypes(SqlTypeFamily.CHARACTER, SqlTypeFamily.CHARACTER)
       .returnTypeCascadeNullable(SqlTypeName.VARCHAR)
       .functionCategory(SqlFunctionCategory.STRING)
-      .requiredOperands(1)
+      .requiredOperandCount(1)
       .build();
 
   @Override
@@ -64,13 +65,15 @@ public class BTrimOperatorConversion implements SqlOperatorConversion
             return TrimOperatorConversion.makeTrimExpression(
                 SqlTrimFunction.Flag.BOTH,
                 druidExpressions.get(0),
-                druidExpressions.get(1)
+                druidExpressions.get(1),
+                Calcites.getColumnTypeForRelDataType(rexNode.getType())
             );
           } else {
             return TrimOperatorConversion.makeTrimExpression(
                 SqlTrimFunction.Flag.BOTH,
                 druidExpressions.get(0),
-                DruidExpression.fromExpression(DruidExpression.stringLiteral(" "))
+                DruidExpression.ofStringLiteral(" "),
+                Calcites.getColumnTypeForRelDataType(rexNode.getType())
             );
           }
         }

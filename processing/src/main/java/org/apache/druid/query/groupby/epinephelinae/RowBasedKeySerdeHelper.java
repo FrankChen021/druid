@@ -22,6 +22,7 @@ package org.apache.druid.query.groupby.epinephelinae;
 import org.apache.druid.query.groupby.epinephelinae.Grouper.BufferComparator;
 import org.apache.druid.query.groupby.epinephelinae.RowBasedGrouperHelper.RowBasedKey;
 
+import javax.annotation.CheckReturnValue;
 import java.nio.ByteBuffer;
 
 interface RowBasedKeySerdeHelper
@@ -43,6 +44,7 @@ interface RowBasedKeySerdeHelper
    *
    * @return true if the value was added to the key, false otherwise
    */
+  @CheckReturnValue
   boolean putToKeyBuffer(RowBasedKey key, int idx);
 
   /**
@@ -57,10 +59,15 @@ interface RowBasedKeySerdeHelper
    * @param dimValIdx     Index within dimValues to store the value read from the buffer
    * @param dimValues     Output array containing grouping key values for a row
    */
-  void getFromByteBuffer(ByteBuffer buffer, int initialOffset, int dimValIdx, Comparable[] dimValues);
+  void getFromByteBuffer(ByteBuffer buffer, int initialOffset, int dimValIdx, Object[] dimValues);
 
   /**
    * Return a {@link BufferComparator} to compare keys stored in ByteBuffer.
    */
   BufferComparator getBufferComparator();
+
+  /**
+   * Returns the expected class of the key which used to deserialize the objects correctly from the spilled files.
+   */
+  Class<?> getClazz();
 }

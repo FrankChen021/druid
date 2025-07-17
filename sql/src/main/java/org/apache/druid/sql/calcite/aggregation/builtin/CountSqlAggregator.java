@@ -22,7 +22,6 @@ package org.apache.druid.sql.calcite.aggregation.builtin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.apache.calcite.rel.core.AggregateCall;
-import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlAggFunction;
@@ -35,18 +34,27 @@ import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.aggregation.Aggregation;
 import org.apache.druid.sql.calcite.aggregation.Aggregations;
+import org.apache.druid.sql.calcite.aggregation.ApproxCountDistinctSqlAggregator;
 import org.apache.druid.sql.calcite.aggregation.SqlAggregator;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.expression.Expressions;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.sql.calcite.rel.InputAccessor;
 import org.apache.druid.sql.calcite.rel.VirtualColumnRegistry;
 
 import javax.annotation.Nullable;
+import javax.inject.Inject;
 import java.util.List;
 
 public class CountSqlAggregator implements SqlAggregator
 {
-  private static final ApproxCountDistinctSqlAggregator APPROX_COUNT_DISTINCT = new ApproxCountDistinctSqlAggregator();
+  private final ApproxCountDistinctSqlAggregator approxCountDistinctAggregator;
+
+  @Inject
+  public CountSqlAggregator(ApproxCountDistinctSqlAggregator approxCountDistinctAggregator)
+  {
+    this.approxCountDistinctAggregator = approxCountDistinctAggregator;
+  }
 
   @Override
   public SqlAggFunction calciteFunction()
@@ -55,27 +63,23 @@ public class CountSqlAggregator implements SqlAggregator
   }
 
   static AggregatorFactory createCountAggregatorFactory(
-          final String countName,
-          final PlannerContext plannerContext,
-          final RowSignature rowSignature,
-          final VirtualColumnRegistry virtualColumnRegistry,
-          final RexBuilder rexBuilder,
-          final AggregateCall aggregateCall,
-          final Project project
+      final String countName,
+      final PlannerContext plannerContext,
+      final RowSignature rowSignature,
+      final VirtualColumnRegistry virtualColumnRegistry,
+      final RexBuilder rexBuilder,
+      final AggregateCall aggregateCall,
+      final InputAccessor inputAccessor
   )
   {
-    final RexNode rexNode = Expressions.fromFieldAccess(
-            rowSignature,
-            project,
-            Iterables.getOnlyElement(aggregateCall.getArgList())
-    );
+    final RexNode rexNode = inputAccessor.getField(Iterables.getOnlyElement(aggregateCall.getArgList()));
 
     if (rexNode.getType().isNullable()) {
       final DimFilter nonNullFilter = Expressions.toFilter(
-              plannerContext,
-              rowSignature,
-              virtualColumnRegistry,
-              rexBuilder.makeCall(SqlStdOperatorTable.IS_NOT_NULL, ImmutableList.of(rexNode))
+          plannerContext,
+          rowSignature,
+          virtualColumnRegistry,
+          rexBuilder.makeCall(SqlStdOperatorTable.IS_NOT_NULL, ImmutableList.of(rexNode))
       );
 
       if (nonNullFilter == null) {
@@ -93,21 +97,18 @@ public class CountSqlAggregator implements SqlAggregator
   @Override
   public Aggregation toDruidAggregation(
       final PlannerContext plannerContext,
-      final RowSignature rowSignature,
       final VirtualColumnRegistry virtualColumnRegistry,
-      final RexBuilder rexBuilder,
       final String name,
       final AggregateCall aggregateCall,
-      final Project project,
+      final InputAccessor inputAccessor,
       final List<Aggregation> existingAggregations,
       final boolean finalizeAggregations
   )
   {
     final List<DruidExpression> args = Aggregations.getArgumentsForSimpleAggregator(
         plannerContext,
-        rowSignature,
         aggregateCall,
-        project
+        inputAccessor
     );
 
     if (args == null) {
@@ -120,12 +121,13 @@ public class CountSqlAggregator implements SqlAggregator
     } else if (aggregateCall.isDistinct()) {
       // COUNT(DISTINCT x)
       if (plannerContext.getPlannerConfig().isUseApproximateCountDistinct()) {
-        return APPROX_COUNT_DISTINCT.toDruidAggregation(
+        return approxCountDistinctAggregator.toDruidAggregation(
             plannerContext,
-            rowSignature,
             virtualColumnRegistry,
-            rexBuilder,
-            name, aggregateCall, project, existingAggregations,
+            name,
+            aggregateCall,
+            inputAccessor,
+            existingAggregations,
             finalizeAggregations
         );
       } else {
@@ -137,11 +139,11 @@ public class CountSqlAggregator implements SqlAggregator
       AggregatorFactory theCount = createCountAggregatorFactory(
             name,
             plannerContext,
-            rowSignature,
+            inputAccessor.getInputRowSignature(),
             virtualColumnRegistry,
-            rexBuilder,
+            inputAccessor.getRexBuilder(),
             aggregateCall,
-            project
+            inputAccessor
       );
 
       return Aggregation.create(theCount);

@@ -202,8 +202,19 @@ class DependencyReportParser(HTMLParser):
 
     def set_license(self, data):
         if data.upper().find("GPL") < 0:
-            if self.license != 'Apache License version 2.0':
-                self.license = self.compatible_license_names[data]
+            # Check if the license assosciated with the component is acccepted
+            # set_license() will pick the first acceptable license
+            # this fixes issue where a multi-licensed component
+            # could override accepted license with not accepted one
+            # e.g., EPL / GPL for logback-core
+            if self.license not in self.compatible_license_names:
+                try:
+                    self.license = self.compatible_license_names[data]
+                except KeyError:
+                    print("Unsupported license: " + data)
+                    print("For:" +  self.group_id + " "  + self.artifact_id + " in: "+ self.druid_module_name)
+            else:
+                print(self.group_id + " "  + self.artifact_id + " in: " + self.druid_module_name + " with: " + self.license + " ignoring " + data)
 
 
 def print_log_to_stderr(string):
@@ -233,6 +244,8 @@ def build_compatible_license_names():
 
     compatible_licenses['BSD-2-Clause License'] = 'BSD-2-Clause License'
     compatible_licenses['BSD-2-Clause'] = 'BSD-2-Clause License'
+    compatible_licenses['BSD 2-Clause license'] = 'BSD-2-Clause License'
+    compatible_licenses['BSD 2-Clause License'] = 'BSD-2-Clause License'
 
     compatible_licenses['BSD-3-Clause License'] = 'BSD-3-Clause License'
     compatible_licenses['New BSD license'] = 'BSD-3-Clause License'
@@ -245,10 +258,12 @@ def build_compatible_license_names():
     compatible_licenses['The BSD 3-Clause License'] = 'BSD-3-Clause License'
     compatible_licenses['Revised BSD'] = 'BSD-3-Clause License'
     compatible_licenses['New BSD License'] = 'BSD-3-Clause License'
+    compatible_licenses['BSD New license'] = 'BSD-3-Clause License'
     compatible_licenses['3-Clause BSD License'] = 'BSD-3-Clause License'
     compatible_licenses['BSD 3-Clause'] = 'BSD-3-Clause License'
+    compatible_licenses['BSD-3-Clause'] = 'BSD-3-Clause License'
 
-    compatible_licenses['ICU License'] = 'ICU License'
+    compatible_licenses['Unicode/ICU License'] = 'Unicode/ICU License'
 
     compatible_licenses['SIL Open Font License 1.1'] = 'SIL Open Font License 1.1'
 
@@ -263,6 +278,8 @@ def build_compatible_license_names():
     compatible_licenses['Eclipse Public License - Version 1.0'] = 'Eclipse Public License 1.0'
     compatible_licenses['Eclipse Public License, Version 1.0'] = 'Eclipse Public License 1.0'
     compatible_licenses['Eclipse Public License v1.0'] = 'Eclipse Public License 1.0'
+    compatible_licenses['Eclipse Public License - v1.0'] = 'Eclipse Public License 1.0'
+    compatible_licenses['Eclipse Public License - v 1.0'] = 'Eclipse Public License 1.0'
     compatible_licenses['EPL 1.0'] = 'Eclipse Public License 1.0'
 
     compatible_licenses['Eclipse Public License 2.0'] = 'Eclipse Public License 2.0'
@@ -284,11 +301,16 @@ def build_compatible_license_names():
 
     compatible_licenses['Creative Commons CC0'] = 'Creative Commons CC0'
     compatible_licenses['CC0'] = 'Creative Commons CC0'
+    compatible_licenses['Public Domain, per Creative Commons CC0'] = 'Creative Commons CC0'
 
     compatible_licenses['The MIT License'] = 'MIT License'
     compatible_licenses['MIT License'] = 'MIT License'
     compatible_licenses['The MIT License (MIT)'] = 'MIT License'
     compatible_licenses['Bouncy Castle Licence'] = 'MIT License'
+    compatible_licenses['SPDX-License-Identifier: MIT'] = 'MIT License'
+
+    compatible_licenses['The Go license'] = 'The Go license'
+    compatible_licenses['Universal Permissive License, Version 1.0'] = 'Universal Permissive License, Version 1.0'
 
     compatible_licenses['-'] = '-'
     return compatible_licenses
@@ -430,7 +452,6 @@ if __name__ == "__main__":
 
         license_yaml = args.license_yaml
         dependency_reports_root = args.dependency_reports_root
-
         check_licenses(license_yaml, dependency_reports_root)
 
     except KeyboardInterrupt:

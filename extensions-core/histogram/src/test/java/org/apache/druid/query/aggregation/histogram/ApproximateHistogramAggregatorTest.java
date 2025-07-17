@@ -19,17 +19,18 @@
 
 package org.apache.druid.query.aggregation.histogram;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.aggregation.BufferAggregator;
+import org.apache.druid.query.aggregation.HistogramAggregatorFactory;
 import org.apache.druid.query.aggregation.TestFloatColumnSelector;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
 import org.apache.druid.query.aggregation.post.FinalizingFieldAccessPostAggregator;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.query.timeseries.TimeseriesQueryQueryToolChest;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.junit.Assert;
 import org.junit.Test;
@@ -106,14 +107,12 @@ public class ApproximateHistogramAggregatorTest extends InitializedNullHandlingT
 
     ApproximateHistogramAggregator agg = new ApproximateHistogramAggregator(selector, resolution, 0, 100);
     agg.aggregate();
-
     Object finalizedObjectHumanReadable = humanReadableFactory.finalizeComputation(agg.get());
     String finalStringHumanReadable = objectMapper.writeValueAsString(finalizedObjectHumanReadable);
-    Assert.assertEquals(
-        "{\"breaks\":[23.0,23.0,23.0,23.0,23.0,23.0],\"counts\":[0.0,0.0,0.0,0.0,0.0]}",
-        finalStringHumanReadable
-    );
-
+    JsonNode expectedJson = objectMapper.readTree(
+            "{\"breaks\":[23.0,23.0,23.0,23.0,23.0,23.0],\"counts\":[0.0,0.0,0.0,0.0,0.0]}");
+    JsonNode actualJson = objectMapper.readTree(finalStringHumanReadable);
+    Assert.assertEquals(expectedJson, actualJson);
     Object finalizedObjectBinary = binaryFactory.finalizeComputation(agg.get());
     String finalStringBinary = objectMapper.writeValueAsString(finalizedObjectBinary);
     Assert.assertEquals(
@@ -145,14 +144,30 @@ public class ApproximateHistogramAggregatorTest extends InitializedNullHandlingT
     Assert.assertEquals(
         RowSignature.builder()
                     .addTimeColumn()
-                    .add("approxHisto", ValueType.COMPLEX)
-                    .add("approxHistoBin", ValueType.COMPLEX)
-                    .add("approxHisto-access", ValueType.COMPLEX)
-                    .add("approxHisto-finalize", ValueType.COMPLEX)
-                    .add("approxHistoBin-access", ValueType.COMPLEX)
-                    .add("approxHistoBin-finalize", ValueType.COMPLEX)
+                    .add("approxHisto", null)
+                    .add("approxHistoBin", ApproximateHistogramAggregatorFactory.TYPE)
+                    .add("approxHisto-access", ApproximateHistogramAggregatorFactory.TYPE)
+                    .add("approxHisto-finalize", HistogramAggregatorFactory.TYPE)
+                    .add("approxHistoBin-access", ApproximateHistogramAggregatorFactory.TYPE)
+                    .add("approxHistoBin-finalize", ApproximateHistogramAggregatorFactory.TYPE)
                     .build(),
         new TimeseriesQueryQueryToolChest().resultArraySignature(query)
     );
+  }
+
+  @Test
+  public void testWithName()
+  {
+    ApproximateHistogramAggregatorFactory factory = new ApproximateHistogramAggregatorFactory(
+        "approxHisto",
+        "col",
+        null,
+        null,
+        null,
+        null,
+        false
+    );
+    Assert.assertEquals(factory, factory.withName("approxHisto"));
+    Assert.assertEquals("newTest", factory.withName("newTest").getName());
   }
 }

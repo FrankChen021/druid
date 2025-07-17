@@ -30,24 +30,31 @@
   <parent>
     <groupId>org.apache.druid</groupId>
     <artifactId>druid</artifactId>
-    <version>0.23.0-SNAPSHOT</version>
+    <version>35.0.0-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
   <properties>
-    <kubernetes.client.version>10.0.1</kubernetes.client.version>
+    <kubernetes.client.version>19.0.0</kubernetes.client.version>
   </properties>
+
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- This is an indirect dependency of io.kubernetes.client-java
+      update to address vulnerability in transitive dependency okio used by okhttp -->
+      <dependency>
+          <groupId>com.squareup.okhttp3</groupId>
+          <artifactId>okhttp</artifactId>
+          <version>4.12.0</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
     <dependency>
       <groupId>org.apache.druid</groupId>
       <artifactId>druid-server</artifactId>
-      <version>${project.parent.version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.druid</groupId>
-      <artifactId>druid-core</artifactId>
       <version>${project.parent.version}</version>
       <scope>provided</scope>
     </dependency>
@@ -86,20 +93,6 @@
       <scope>test</scope>
     </dependency>
 
-    <!-- Version override to address CVE-2020-28052 -->
-    <dependency>
-      <groupId>org.bouncycastle</groupId>
-      <artifactId>bcprov-jdk15on</artifactId>
-      <version>1.68</version>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.bouncycastle</groupId>
-      <artifactId>bcprov-ext-jdk15on</artifactId>
-      <version>1.68</version>
-      <scope>runtime</scope>
-    </dependency>
-
     <!-- others -->
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
@@ -114,11 +107,6 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.google.inject.extensions</groupId>
-      <artifactId>guice-multibindings</artifactId>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -145,19 +133,32 @@
   </dependencies>
 
   <build>
+    <pluginManagement>
+        <plugins>
+          <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-dependency-plugin</artifactId>
+              <configuration>
+              <!-- analyze incorrectly flags this dependency as missing when omitted, and unused when declared -->
+                <ignoredDependencies>io.kubernetes:client-java-api-fluent:jar:19.0.0</ignoredDependencies>
+              </configuration>
+          </plugin>
+        </plugins>
+    </pluginManagement>
     <plugins>
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.8.5</version>
         <configuration>
           <excludes>
             <!-- Initialization code -->
             <exclude>org/apache/druid/k8s/discovery/K8sDiscoveryModule*</exclude>
+            <exclude>org/apache/druid/k8s/discovery/K8sDruidLeaderSelectorProvider*</exclude>
 
             <!-- K8S Api Glue, not unit testable -->
             <exclude>org/apache/druid/k8s/discovery/DefaultK8sApiClient*</exclude>
             <exclude>org/apache/druid/k8s/discovery/DefaultK8sLeaderElectorFactory*</exclude>
+
           </excludes>
         </configuration>
       </plugin>

@@ -44,6 +44,7 @@ import org.apache.druid.query.groupby.ResultRow;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.query.timeseries.TimeseriesQueryQueryToolChest;
 import org.apache.druid.query.timeseries.TimeseriesResultValue;
+import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -53,7 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class MaterializedViewQueryQueryToolChestTest
+public class MaterializedViewQueryQueryToolChestTest extends InitializedNullHandlingTest
 {
   private static final ObjectMapper JSON_MAPPER = new DefaultObjectMapper();
 
@@ -121,7 +122,7 @@ public class MaterializedViewQueryQueryToolChestTest
     QueryToolChest queryToolChest =
         new MaterializedViewQueryQueryToolChest(new MapQueryToolChestWarehouse(
             ImmutableMap.<Class<? extends Query>, QueryToolChest>builder()
-                .put(GroupByQuery.class, new GroupByQueryQueryToolChest(null))
+                .put(GroupByQuery.class, new GroupByQueryQueryToolChest(null, null))
                 .build()
         ));
 
@@ -180,7 +181,7 @@ public class MaterializedViewQueryQueryToolChestTest
     QueryToolChest materializedViewQueryQueryToolChest =
         new MaterializedViewQueryQueryToolChest(new MapQueryToolChestWarehouse(
             ImmutableMap.<Class<? extends Query>, QueryToolChest>builder()
-                .put(GroupByQuery.class, new GroupByQueryQueryToolChest(null))
+                .put(GroupByQuery.class, new GroupByQueryQueryToolChest(null, null))
                 .build()
         ));
 
@@ -239,12 +240,10 @@ public class MaterializedViewQueryQueryToolChestTest
     MaterializedViewQueryQueryToolChest materializedViewQueryQueryToolChest =
         new MaterializedViewQueryQueryToolChest(new MapQueryToolChestWarehouse(
             ImmutableMap.<Class<? extends Query>, QueryToolChest>builder()
-                .put(GroupByQuery.class, new GroupByQueryQueryToolChest(null))
+                .put(GroupByQuery.class, new GroupByQueryQueryToolChest(null, null))
                 .build()
         ));
 
     Assert.assertEquals(realQuery, materializedViewQueryQueryToolChest.getRealQuery(materializedViewQuery));
-    
   }
-  
 }

@@ -26,6 +26,7 @@ import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.core.TableFunctionScan;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalAggregate;
+import org.apache.calcite.rel.logical.LogicalCalc;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.logical.LogicalExchange;
 import org.apache.calcite.rel.logical.LogicalFilter;
@@ -35,6 +36,7 @@ import org.apache.calcite.rel.logical.LogicalMatch;
 import org.apache.calcite.rel.logical.LogicalMinus;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.logical.LogicalSort;
+import org.apache.calcite.rel.logical.LogicalTableModify;
 import org.apache.calcite.rel.logical.LogicalUnion;
 import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -43,7 +45,8 @@ import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.error.DruidException;
+import org.apache.druid.error.InvalidSqlInput;
 
 /**
  * Traverse {@link RelNode} tree and replaces all {@link RexDynamicParam} with {@link org.apache.calcite.rex.RexLiteral}
@@ -153,6 +156,18 @@ public class RelParameterizerShuttle implements RelShuttle
   }
 
   @Override
+  public RelNode visit(LogicalCalc calc)
+  {
+    return bindRel(calc);
+  }
+
+  @Override
+  public RelNode visit(LogicalTableModify modify)
+  {
+    return bindRel(modify);
+  }
+
+  @Override
   public RelNode visit(RelNode other)
   {
     return bindRel(other);
@@ -198,6 +213,9 @@ public class RelParameterizerShuttle implements RelShuttle
       // if we have a value for dynamic parameter, replace with a literal, else add to list of unbound parameters
       if (plannerContext.getParameters().size() > dynamicParam.getIndex()) {
         TypedValue param = plannerContext.getParameters().get(dynamicParam.getIndex());
+        if (param == null) {
+          throw unbound(dynamicParam);
+        }
         if (param.value == null) {
           return builder.makeNullLiteral(typeFactory.createSqlType(SqlTypeName.NULL));
         }
@@ -208,9 +226,14 @@ public class RelParameterizerShuttle implements RelShuttle
             true
         );
       } else {
-        throw new ISE("Parameter: [%s] is not bound", dynamicParam.getName());
+        throw unbound(dynamicParam);
       }
     }
     return node;
+  }
+
+  private static DruidException unbound(RexDynamicParam dynamicParam)
+  {
+    return InvalidSqlInput.exception("No value bound for parameter (position [%s])", dynamicParam.getIndex() + 1);
   }
 }

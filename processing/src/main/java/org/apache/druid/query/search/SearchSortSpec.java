@@ -21,13 +21,14 @@ package org.apache.druid.query.search;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.druid.java.util.common.Cacheable;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.ordering.StringComparator;
 import org.apache.druid.query.ordering.StringComparators;
 
 import java.util.Comparator;
 
-public class SearchSortSpec
+public class SearchSortSpec implements Cacheable
 {
   public static final StringComparator DEFAULT_ORDERING = StringComparators.LEXICOGRAPHIC;
 
@@ -49,7 +50,7 @@ public class SearchSortSpec
 
   public Comparator<SearchHit> getComparator()
   {
-    return new Comparator<SearchHit>()
+    return new Comparator<>()
     {
       @Override
       public int compare(SearchHit searchHit, SearchHit searchHit1)
@@ -66,6 +67,7 @@ public class SearchSortSpec
     };
   }
 
+  @Override
   public byte[] getCacheKey()
   {
     return ordering.getCacheKey();

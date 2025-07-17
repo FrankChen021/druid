@@ -17,14 +17,14 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
 import { ShowValue } from './show-value';
 
-describe('rule editor', () => {
+describe('ShowValue', () => {
   it('matches snapshot', () => {
-    const showJson = <ShowValue endpoint="test" downloadFilename="test" />;
-    const { container } = render(showJson);
+    const { container } = render(
+      <ShowValue jsonValue={`{ hello: 'world' }`} downloadFilename="test" />,
+    );
     expect(container.firstChild).toMatchSnapshot();
   });
 });

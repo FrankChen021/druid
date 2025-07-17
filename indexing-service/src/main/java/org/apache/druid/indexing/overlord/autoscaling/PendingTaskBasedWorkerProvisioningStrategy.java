@@ -31,6 +31,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 import org.apache.druid.indexing.common.task.Task;
+import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTask;
 import org.apache.druid.indexing.overlord.ImmutableWorkerInfo;
 import org.apache.druid.indexing.overlord.WorkerTaskRunner;
 import org.apache.druid.indexing.overlord.config.WorkerTaskRunnerConfig;
@@ -48,6 +49,7 @@ import org.joda.time.Duration;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -115,7 +117,7 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
         config,
         workerConfigRef,
         provisioningSchedulerConfig,
-        new Supplier<ScheduledExecutorService>()
+        new Supplier<>()
         {
           @Override
           public ScheduledExecutorService get()
@@ -176,7 +178,7 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
       final Collection<String> workerNodeIds = getWorkerNodeIDs(
           Collections2.transform(
               workers,
-              new Function<ImmutableWorkerInfo, Worker>()
+              new Function<>()
               {
                 @Override
                 public Worker apply(ImmutableWorkerInfo input)
@@ -267,8 +269,7 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
                                   remoteTaskRunnerConfig,
                                   workerConfig,
                                   pendingTasks,
-                                  workers,
-                                  config.getWorkerCapacityHint()
+                                  workers
                               );
       log.debug("More workers needed: %d", moreWorkersNeeded);
 
@@ -296,8 +297,7 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
         final WorkerTaskRunnerConfig workerTaskRunnerConfig,
         final DefaultWorkerBehaviorConfig workerConfig,
         final Collection<Task> pendingTasks,
-        final Collection<ImmutableWorkerInfo> workers,
-        final int workerCapacityHint
+        final Collection<ImmutableWorkerInfo> workers
     )
     {
       final Collection<ImmutableWorkerInfo> validWorkers = Collections2.filter(
@@ -312,7 +312,7 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
       }
       WorkerSelectStrategy workerSelectStrategy = workerConfig.getSelectStrategy();
       int need = 0;
-      int capacity = getExpectedWorkerCapacity(workers, workerCapacityHint);
+      int capacity = getExpectedWorkerCapacity(workers);
       log.info("Expected worker capacity: %d", capacity);
 
       // Simulate assigning tasks to dummy workers using configured workerSelectStrategy
@@ -378,7 +378,7 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
         final Collection<String> laziestWorkerIps =
             Collections2.transform(
                 runner.markWorkersLazy(isLazyWorker, maxWorkersToTerminate),
-                new Function<Worker, String>()
+                new Function<>()
                 {
                   @Override
                   public String apply(Worker zkWorker)
@@ -458,14 +458,15 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
     return currValidWorkers;
   }
 
-  private static int getExpectedWorkerCapacity(final Collection<ImmutableWorkerInfo> workers, final int workerCapacityHint)
+  @Override
+  public int getExpectedWorkerCapacity(final Collection<ImmutableWorkerInfo> workers)
   {
     int size = workers.size();
     if (size == 0) {
       // No existing workers
-      if (workerCapacityHint > 0) {
+      if (config.getWorkerCapacityHint() > 0) {
         // Return workerCapacityHint if it is set in config
-        return workerCapacityHint;
+        return config.getWorkerCapacityHint();
       } else {
         // Assume capacity per worker as 1
         return 1;
@@ -478,9 +479,19 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
 
   private static ImmutableWorkerInfo workerWithTask(ImmutableWorkerInfo immutableWorker, Task task)
   {
+    int parallelIndexTaskCapacity = task.getType().equals(ParallelIndexSupervisorTask.TYPE)
+                                    ? task.getTaskResource().getRequiredCapacity()
+                                    : 0;
+    int taskCapacity = task.getTaskResource().getRequiredCapacity();
+
+    final Map<String, Integer> typeSpecificCapacity = new HashMap<>(immutableWorker.getCurrCapacityUsedByTaskType());
+    typeSpecificCapacity.merge(task.getType(), taskCapacity, Integer::sum);
+
     return new ImmutableWorkerInfo(
         immutableWorker.getWorker(),
         immutableWorker.getCurrCapacityUsed() + 1,
+        immutableWorker.getCurrParallelIndexCapacityUsed() + parallelIndexTaskCapacity,
+        typeSpecificCapacity,
         Sets.union(
             immutableWorker.getAvailabilityGroups(),
             Sets.newHashSet(
@@ -490,9 +501,7 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
         ),
         Sets.union(
             immutableWorker.getRunningTasks(),
-            Sets.newHashSet(
-                task.getId()
-            )
+            Collections.singleton(task.getId())
         ),
         DateTimes.nowUtc()
     );

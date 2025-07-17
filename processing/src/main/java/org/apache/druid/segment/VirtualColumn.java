@@ -21,11 +21,16 @@ package org.apache.druid.segment;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import org.apache.druid.annotations.SubclassesMustOverrideEqualsAndHashCode;
 import org.apache.druid.java.util.common.Cacheable;
 import org.apache.druid.query.dimension.DimensionSpec;
-import org.apache.druid.segment.column.BitmapIndex;
+import org.apache.druid.query.filter.ColumnIndexSelector;
+import org.apache.druid.query.groupby.DeferExpressionDimensions;
+import org.apache.druid.query.groupby.epinephelinae.vector.GroupByVectorColumnSelector;
 import org.apache.druid.segment.column.ColumnCapabilities;
+import org.apache.druid.segment.column.ColumnIndexSupplier;
 import org.apache.druid.segment.data.ReadableOffset;
+import org.apache.druid.segment.serde.NoIndexesColumnIndexSupplier;
 import org.apache.druid.segment.vector.MultiValueDimensionVectorSelector;
 import org.apache.druid.segment.vector.ReadableVectorOffset;
 import org.apache.druid.segment.vector.SingleValueDimensionVectorSelector;
@@ -33,6 +38,8 @@ import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 import org.apache.druid.segment.vector.VectorObjectSelector;
 import org.apache.druid.segment.vector.VectorValueSelector;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
+import org.apache.druid.segment.virtual.FallbackVirtualColumn;
+import org.apache.druid.segment.virtual.ListFilteredVirtualColumn;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -47,7 +54,9 @@ import java.util.List;
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(value = {
-    @JsonSubTypes.Type(name = "expression", value = ExpressionVirtualColumn.class)
+    @JsonSubTypes.Type(name = "expression", value = ExpressionVirtualColumn.class),
+    @JsonSubTypes.Type(name = "fallback", value = FallbackVirtualColumn.class),
+    @JsonSubTypes.Type(name = "mv-filtered", value = ListFilteredVirtualColumn.class)
 })
 public interface VirtualColumn extends Cacheable
 {
@@ -235,6 +244,26 @@ public interface VirtualColumn extends Cacheable
   }
 
   /**
+   * Returns a group-by selector. Allows virtual columns to control their own grouping behavior.
+   *
+   * @param columnName                column name
+   * @param factory                   column selector factory
+   * @param deferExpressionDimensions active value of {@link org.apache.druid.query.groupby.GroupByQueryConfig#CTX_KEY_DEFER_EXPRESSION_DIMENSIONS}
+   *
+   * @return selector, or null if this virtual column does not have a specialized one
+   */
+  @SuppressWarnings("unused")
+  @Nullable
+  default GroupByVectorColumnSelector makeGroupByVectorColumnSelector(
+      String columnName,
+      VectorColumnSelectorFactory factory,
+      DeferExpressionDimensions deferExpressionDimensions
+  )
+  {
+    return null;
+  }
+
+  /**
    * This method is deprecated in favor of {@link #capabilities(ColumnInspector, String)}, which should be used whenever
    * possible and can support virtual column implementations that need to inspect other columns as inputs.
    *
@@ -252,17 +281,19 @@ public interface VirtualColumn extends Cacheable
 
   /**
    * Return the {@link ColumnCapabilities} which best describe the optimal selector to read from this virtual column.
-   *
+   * <p>
    * The {@link ColumnInspector} (most likely corresponding to an underlying {@link ColumnSelectorFactory} of a query)
    * allows the virtual column to consider this information if necessary to compute its output type details.
-   *
+   * <p>
    * Examples of this include the {@link ExpressionVirtualColumn}, which takes input from other columns and uses the
    * {@link ColumnInspector} to infer the output type of expressions based on the types of the inputs.
    *
-   * @param inspector column inspector to provide additional information of other available columns
+   * @param inspector  column inspector to provide additional information of other available columns
    * @param columnName the name this virtual column was referenced with
+   *
    * @return capabilities, must not be null
    */
+  @Nullable
   default ColumnCapabilities capabilities(ColumnInspector inspector, String columnName)
   {
     return capabilities(columnName);
@@ -292,15 +323,36 @@ public interface VirtualColumn extends Cacheable
   boolean usesDotNotation();
 
   /**
-   * Returns the BitmapIndex for efficient filtering on columns that support it. This method is only used if
-   * {@link ColumnCapabilities} returned from {@link #capabilities(String)} has flag for BitmapIndex support.
-   * @param columnName
-   * @param selector
-   * @return BitmapIndex
+   * Get the {@link ColumnIndexSupplier} for the specified virtual column, with the assistance of a
+   * {@link ColumnIndexSelector} to allow reading things from segments. If the virtual column has no indexes, this
+   * method will return null, or may also return a non-null supplier whose methods may return null values - having a
+   * supplier is no guarantee that the column has indexes.
    */
   @SuppressWarnings("unused")
-  default BitmapIndex getBitmapIndex(String columnName, ColumnSelector selector)
+  @Nullable
+  default ColumnIndexSupplier getIndexSupplier(
+      String columnName,
+      ColumnIndexSelector columnIndexSelector
+  )
   {
-    throw new UnsupportedOperationException("not supported");
+    return NoIndexesColumnIndexSupplier.getInstance();
+  }
+
+  /**
+   * Returns a key used for "equivalence" comparisons, for checking if some virtual column is equivalent to some other
+   * virtual column, regardless of the output name. If this method returns null, it does not participate in equivalence
+   * comparisons.
+   * 
+   * @see VirtualColumns#findEquivalent(VirtualColumn) 
+   */
+  @Nullable
+  default EquivalenceKey getEquivalanceKey()
+  {
+    return null;
+  }
+
+  @SubclassesMustOverrideEqualsAndHashCode
+  interface EquivalenceKey
+  {
   }
 }

@@ -19,10 +19,11 @@
 
 package org.apache.druid.segment.join.table;
 
-import it.unimi.dsi.fastutil.ints.IntList;
-import org.apache.druid.common.config.NullHandling;
-import org.apache.druid.java.util.common.guava.Comparators;
+import com.google.common.collect.ImmutableSet;
+import it.unimi.dsi.fastutil.ints.IntBidirectionalIterator;
+import it.unimi.dsi.fastutil.ints.IntSortedSet;
 import org.apache.druid.java.util.common.io.Closer;
+import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.column.ColumnCapabilities;
@@ -33,12 +34,9 @@ import org.apache.druid.segment.join.Joinable;
 import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
 
 public class IndexedTableJoinable implements Joinable
 {
@@ -78,7 +76,6 @@ public class IndexedTableJoinable implements Joinable
       final ColumnSelectorFactory leftColumnSelectorFactory,
       final JoinConditionAnalysis condition,
       final boolean remainderNeeded,
-      boolean descending,
       Closer closer
   )
   {
@@ -87,44 +84,39 @@ public class IndexedTableJoinable implements Joinable
         leftColumnSelectorFactory,
         condition,
         remainderNeeded,
-        descending,
         closer
     );
   }
 
   @Override
-  public Optional<Set<String>> getNonNullColumnValuesIfAllUnique(final String columnName, final int maxNumValues)
+  public ColumnValuesWithUniqueFlag getMatchableColumnValues(String columnName, boolean includeNull, int maxNumValues)
   {
     final int columnPosition = table.rowSignature().indexOf(columnName);
+    final InDimFilter.ValuesSet matchableValues = InDimFilter.ValuesSet.create();
 
     if (columnPosition < 0) {
-      return Optional.empty();
+      return new ColumnValuesWithUniqueFlag(matchableValues /* empty set */, false);
     }
 
     try (final IndexedTable.Reader reader = table.columnReader(columnPosition)) {
-      // Sorted set to encourage "in" filters that result from this method to do dictionary lookups in order.
-      // The hopes are that this will improve locality and therefore improve performance.
-      //
-      // Note: we are using Comparators.naturalNullsFirst() because it prevents the need for lambda-wrapping in
-      // InDimFilter's "createStringPredicate" method.
-      final Set<String> allValues = new TreeSet<>(Comparators.naturalNullsFirst());
+      boolean allUnique = true;
 
       for (int i = 0; i < table.numRows(); i++) {
         final String s = DimensionHandlerUtils.convertObjectToString(reader.read(i));
 
-        if (!NullHandling.isNullOrEquivalent(s)) {
-          if (!allValues.add(s)) {
-            // Duplicate found. Since the values are not all unique, we must return an empty Optional.
-            return Optional.empty();
+        if (includeNull || s != null) {
+          if (!matchableValues.add(s)) {
+            // Duplicate found
+            allUnique = false;
           }
 
-          if (allValues.size() > maxNumValues) {
-            return Optional.empty();
+          if (matchableValues.size() > maxNumValues) {
+            return new ColumnValuesWithUniqueFlag(ImmutableSet.of(), false);
           }
         }
       }
 
-      return Optional.of(allValues);
+      return new ColumnValuesWithUniqueFlag(matchableValues, allUnique);
     }
     catch (IOException e) {
       throw new RuntimeException(e);
@@ -132,7 +124,7 @@ public class IndexedTableJoinable implements Joinable
   }
 
   @Override
-  public Optional<Set<String>> getCorrelatedColumnValues(
+  public Optional<InDimFilter.ValuesSet> getCorrelatedColumnValues(
       String searchColumnName,
       String searchColumnValue,
       String retrievalColumnName,
@@ -147,14 +139,15 @@ public class IndexedTableJoinable implements Joinable
       return Optional.empty();
     }
     try (final Closer closer = Closer.create()) {
-      Set<String> correlatedValues = new HashSet<>();
+      InDimFilter.ValuesSet correlatedValues = InDimFilter.ValuesSet.create();
       if (table.keyColumns().contains(searchColumnName)) {
         IndexedTable.Index index = table.columnIndex(filterColumnPosition);
         IndexedTable.Reader reader = table.columnReader(correlatedColumnPosition);
         closer.register(reader);
-        IntList rowIndex = index.find(searchColumnValue);
-        for (int i = 0; i < rowIndex.size(); i++) {
-          int rowNum = rowIndex.getInt(i);
+        final IntSortedSet rowIndex = index.find(searchColumnValue);
+        final IntBidirectionalIterator rowIterator = rowIndex.iterator();
+        while (rowIterator.hasNext()) {
+          int rowNum = rowIterator.nextInt();
           String correlatedDimVal = DimensionHandlerUtils.convertObjectToString(reader.read(rowNum));
           correlatedValues.add(correlatedDimVal);
 
@@ -192,8 +185,8 @@ public class IndexedTableJoinable implements Joinable
   }
 
   @Override
-  public Optional<Closeable> acquireReferences()
+  public Optional<Closeable> acquireReference()
   {
-    return table.acquireReferences();
+    return table.acquireReference();
   }
 }

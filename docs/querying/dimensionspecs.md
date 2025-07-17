@@ -23,16 +23,18 @@ sidebar_label: "Dimensions"
   ~ under the License.
   -->
 
-> Apache Druid supports two query languages: [Druid SQL](sql.md) and [native queries](querying.md).
-> This document describes the native
-> language. For information about functions available in SQL, refer to the
-> [SQL documentation](sql.md#scalar-functions).
+:::info
+ Apache Druid supports two query languages: [Druid SQL](sql.md) and [native queries](querying.md).
+ This document describes the native
+ language. For information about functions available in SQL, refer to the
+ [SQL documentation](sql-scalar.md).
+:::
 
 The following JSON fields can be used in a query to operate on dimension values.
 
 ## DimensionSpec
 
-`DimensionSpec`s define how dimension values get transformed prior to aggregation.
+A `DimensionSpec` defines how to transform dimension values prior to aggregation.
 
 ### Default DimensionSpec
 
@@ -47,9 +49,9 @@ Returns dimension values as is and optionally renames the dimension.
 }
 ```
 
-When specifying a DimensionSpec on a numeric column, the user should include the type of the column in the `outputType` field. If left unspecified, the `outputType` defaults to STRING.
+When specifying a `DimensionSpec` on a numeric column, you should include the type of the column in the `outputType` field. The `outputType` defaults to STRING when not specified.
 
-Please refer to the [Output Types](#output-types) section for more details.
+See [Output Types](#output-types) for more details.
 
 ### Extraction DimensionSpec
 
@@ -65,32 +67,35 @@ Returns dimension values transformed using the given [extraction function](#extr
 }
 ```
 
-`outputType` may also be specified in an ExtractionDimensionSpec to apply type conversion to results before merging. If left unspecified, the `outputType` defaults to STRING.
+You can specify an `outputType` in an `ExtractionDimensionSpec` to apply type conversion to results before merging. The `outputType` defaults to STRING when not specified.
 
 Please refer to the [Output Types](#output-types) section for more details.
 
 ### Filtered DimensionSpecs
 
-These are only useful for multi-value dimensions. If you have a row in Apache Druid that has a multi-value dimension with values ["v1", "v2", "v3"] and you send a groupBy/topN query grouping by that dimension with [query filter](filters.md) for value "v1". In the response you will get 3 rows containing "v1", "v2" and "v3". This behavior might be unintuitive for some use cases.
+A filtered `DimensionSpec` is only useful for multi-value dimensions. Say you have a row in Apache Druid that has a multi-value dimension with values ["v1", "v2", "v3"] and you send a groupBy/topN query grouping by that dimension with a [query filter](filters.md) for a value of "v1". In the response you will get 3 rows containing "v1", "v2" and "v3". This behavior might be unintuitive for some use cases.
 
-It happens because "query filter" is internally used on the bitmaps and only used to match the row to be included in the query result processing. With multi-value dimensions, "query filter" behaves like a contains check, which will match the row with dimension value ["v1", "v2", "v3"]. Please see the section on "Multi-value columns" in [segment](../design/segments.md) for more details.
-Then groupBy/topN processing pipeline "explodes" all multi-value dimensions resulting 3 rows for "v1", "v2" and "v3" each.
+This happens because Druid uses the "query filter" internally on bitmaps to match the row to include in query result processing. With multi-value dimensions, "query filter" behaves like a contains check, which matches the row with dimension value ["v1", "v2", "v3"]. 
 
-In addition to "query filter" which efficiently selects the rows to be processed, you can use the filtered dimension spec to filter for specific values within the values of a multi-value dimension. These dimensionSpecs take a delegate DimensionSpec and a filtering criteria. From the "exploded" rows, only rows matching the given filtering criteria are returned in the query result.
+See the section on "Multi-value columns" in [segment](../design/segments.md) for more details.
 
-The following filtered dimension spec acts as a whitelist or blacklist for values as per the "isWhitelist" attribute value.
+Then the groupBy/topN processing pipeline "explodes" all multi-value dimensions resulting 3 rows for "v1", "v2" and "v3" each.
+
+In addition to "query filter", which efficiently selects the rows to be processed, you can use the filtered dimension spec to filter for specific values within the values of a multi-value dimension. These dimension specs take a delegate `DimensionSpec` and a filtering criteria. From the "exploded" rows, only rows matching the given filtering criteria are returned in the query result.
+
+The following filtered dimension spec defines the values to include or exclude as per the `isWhitelist` attribute value.
 
 ```json
 { "type" : "listFiltered", "delegate" : <dimensionSpec>, "values": <array of strings>, "isWhitelist": <optional attribute for true/false, default is true> }
 ```
 
-Following filtered dimension spec retains only the values matching regex. Note that `listFiltered` is faster than this and one should use that for whitelist or blacklist use case.
+The following filtered dimension spec retains only the values matching a regex.  You should use the `listFiltered` function for inclusion and exclusion use cases because it is faster.
 
 ```json
 { "type" : "regexFiltered", "delegate" : <dimensionSpec>, "pattern": <java regex pattern> }
 ```
 
-Following filtered dimension spec retains only the values starting with the same prefix.
+The following filtered dimension spec retains only the values starting with the same prefix.
 
 ```json
 { "type" : "prefixFiltered", "delegate" : <dimensionSpec>, "prefix": <prefix string> }
@@ -100,10 +105,8 @@ For more details and examples, see [multi-value dimensions](multi-value-dimensio
 
 ### Lookup DimensionSpecs
 
-> Lookups are an [experimental](../development/experimental.md) feature.
-
-Lookup DimensionSpecs can be used to define directly a lookup implementation as dimension spec.
-Generally speaking there is two different kind of lookups implementations.
+You can use lookup dimension specs to define a lookup implementation as a dimension spec directly.
+Generally, there are two kinds of lookup implementations.
 The first kind is passed at the query time like `map` implementation.
 
 ```json
@@ -252,7 +255,7 @@ For a regular dimension, it assumes the string is formatted in
 [ISO-8601 date and time format](https://en.wikipedia.org/wiki/ISO_8601).
 
 * `format` : date time format for the resulting dimension value, in [Joda Time DateTimeFormat](http://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html), or null to use the default ISO8601 format.
-* `locale` : locale (language and country) to use, given as a [IETF BCP 47 language tag](http://www.oracle.com/technetwork/java/javase/java8locales-2095355.html#util-text), e.g. `en-US`, `en-GB`, `fr-FR`, `fr-CA`, etc.
+* `locale` : locale (language and country) to use, given as a [IETF BCP 47 language tag](https://www.oracle.com/java/technologies/javase/jdk11-suported-locales.html#util-text), e.g. `en-US`, `en-GB`, `fr-FR`, `fr-CA`, etc.
 * `timeZone` : time zone to use in [IANA tz database format](http://en.wikipedia.org/wiki/List_of_tz_database_time_zones), e.g. `Europe/Berlin` (this can possibly be different than the aggregation time-zone)
 * `granularity` : [granularity](granularities.md) to apply before formatting, or omit to not apply any granularity.
 * `asMillis` : boolean value, set to true to treat input strings as millis rather than ISO8601 strings. Additionally, if `format` is null or not specified, output will be in millis rather than ISO8601.
@@ -343,7 +346,9 @@ Example for the `__time` dimension:
 }
 ```
 
-> JavaScript-based functionality is disabled by default. Please refer to the Druid [JavaScript programming guide](../development/javascript.md) for guidelines about using Druid's JavaScript functionality, including instructions on how to enable it.
+:::info
+ JavaScript-based functionality is disabled by default. Please refer to the Druid [JavaScript programming guide](../development/javascript.md) for guidelines about using Druid's JavaScript functionality, including instructions on how to enable it.
+:::
 
 ### Registered lookup extraction function
 
@@ -371,7 +376,7 @@ be treated as missing.
 It is illegal to set `retainMissingValue = true` and also specify a `replaceMissingValueWith`.
 
 A property of `injective` can override the lookup's own sense of whether or not it is
-[injective](lookups.md#query-execution). If left unspecified, Druid will use the registered cluster-wide lookup
+[injective](lookups.md#injective-lookups). If left unspecified, Druid will use the registered cluster-wide lookup
 configuration.
 
 A property `optimize` can be supplied to allow optimization of lookup based extraction filter (by default `optimize = true`).

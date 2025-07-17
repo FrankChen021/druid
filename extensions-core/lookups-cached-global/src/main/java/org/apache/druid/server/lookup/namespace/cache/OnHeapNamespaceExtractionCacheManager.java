@@ -20,11 +20,14 @@
 package org.apache.druid.server.lookup.namespace.cache;
 
 import com.google.inject.Inject;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.lifecycle.Lifecycle;
-import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
+import org.apache.druid.query.extraction.MapLookupExtractor;
+import org.apache.druid.query.lookup.ImmutableLookupMap;
+import org.apache.druid.query.lookup.LookupExtractor;
 import org.apache.druid.server.lookup.namespace.NamespaceExtractionConfig;
 
 import java.lang.ref.WeakReference;
@@ -34,14 +37,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 
 /**
  *
  */
 public class OnHeapNamespaceExtractionCacheManager extends NamespaceExtractionCacheManager
 {
-  private static final Logger LOG = new Logger(OnHeapNamespaceExtractionCacheManager.class);
-
   /**
    * Weak collection of caches is "the second level of defence". Normally all users of {@link #createCache()} must call
    * {@link CacheHandler#close()} on the returned CacheHandler instance manually. But if they don't do this for
@@ -50,9 +52,7 @@ public class OnHeapNamespaceExtractionCacheManager extends NamespaceExtractionCa
    * <p>{@link WeakReference} doesn't override Object's identity equals() and hashCode(), so effectively this map plays
    * like concurrent {@link java.util.IdentityHashMap}.
    */
-  private final Set<WeakReference<ConcurrentMap<String, String>>> caches = Collections.newSetFromMap(
-      new ConcurrentHashMap<WeakReference<ConcurrentMap<String, String>>, Boolean>()
-  );
+  private final Set<WeakReference<Map<String, String>>> caches = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
   @Inject
   public OnHeapNamespaceExtractionCacheManager(
@@ -66,7 +66,7 @@ public class OnHeapNamespaceExtractionCacheManager extends NamespaceExtractionCa
 
   private void expungeCollectedCaches()
   {
-    for (Iterator<WeakReference<ConcurrentMap<String, String>>> iterator = caches.iterator(); iterator.hasNext(); ) {
+    for (Iterator<WeakReference<Map<String, String>>> iterator = caches.iterator(); iterator.hasNext(); ) {
       WeakReference<?> cacheRef = iterator.next();
       if (cacheRef.get() == null) {
         // This may not necessarily mean leak of CacheHandler, because disposeCache() may be called concurrently with
@@ -85,10 +85,53 @@ public class OnHeapNamespaceExtractionCacheManager extends NamespaceExtractionCa
   public CacheHandler createCache()
   {
     ConcurrentMap<String, String> cache = new ConcurrentHashMap<>();
-    WeakReference<ConcurrentMap<String, String>> cacheRef = new WeakReference<>(cache);
+    WeakReference<Map<String, String>> cacheRef = new WeakReference<>(cache);
     expungeCollectedCaches();
     caches.add(cacheRef);
     return new CacheHandler(this, cache, cacheRef);
+  }
+
+  @Override
+  public CacheHandler allocateCache()
+  {
+    // Object2ObjectOpenHashMap has a bit smaller footprint than HashMap
+    Map<String, String> cache = new Object2ObjectOpenHashMap<>();
+    // untracked, but disposing will explode if we don't create a weak reference here
+    return new CacheHandler(this, cache, new WeakReference<>(cache));
+  }
+
+  @Override
+  public CacheHandler attachCache(CacheHandler cache)
+  {
+    if (caches.contains((WeakReference<Map<String, String>>) cache.id)) {
+      throw new ISE("cache [%s] is already attached", cache.id);
+    }
+    // replace Object2ObjectOpenHashMap with ImmutableLookupMap
+    final ImmutableLookupMap immutable = ImmutableLookupMap.fromMap(cache.getCache());
+    WeakReference<Map<String, String>> cacheRef = new WeakReference<>(immutable);
+    expungeCollectedCaches();
+    caches.add(cacheRef);
+    return new CacheHandler(this, immutable, cacheRef);
+  }
+
+  @Override
+  public LookupExtractor asLookupExtractor(
+      final CacheHandler cache,
+      final boolean isOneToOne,
+      final Supplier<byte[]> cacheKeySupplier
+  )
+  {
+    if (cache.getCache() instanceof ImmutableLookupMap) {
+      return ((ImmutableLookupMap) cache.getCache()).asLookupExtractor(isOneToOne, cacheKeySupplier);
+    } else {
+      return new MapLookupExtractor(cache.getCache(), isOneToOne) {
+        @Override
+        public byte[] getCacheKey()
+        {
+          return cacheKeySupplier.get();
+        }
+      };
+    }
   }
 
   @Override
@@ -111,25 +154,18 @@ public class OnHeapNamespaceExtractionCacheManager extends NamespaceExtractionCa
   void monitor(ServiceEmitter serviceEmitter)
   {
     long numEntries = 0;
-    long size = 0;
+    long heapSizeInBytes = 0;
     expungeCollectedCaches();
-    for (WeakReference<ConcurrentMap<String, String>> cacheRef : caches) {
-      final ConcurrentMap<String, String> cache = cacheRef.get();
-      if (cache == null) {
-        continue;
-      }
-      numEntries += cache.size();
-      for (Map.Entry<String, String> sEntry : cache.entrySet()) {
-        final String key = sEntry.getKey();
-        final String value = sEntry.getValue();
-        if (key == null || value == null) {
-          LOG.debug("Missing entries for cache key");
-          continue;
-        }
-        size += key.length() + value.length();
+    for (WeakReference<Map<String, String>> cacheRef : caches) {
+      final Map<String, String> cache = cacheRef.get();
+
+      if (cache != null) {
+        numEntries += cache.size();
+        heapSizeInBytes += MapLookupExtractor.estimateHeapFootprint(cache.entrySet());
       }
     }
-    serviceEmitter.emit(ServiceMetricEvent.builder().build("namespace/cache/numEntries", numEntries));
-    serviceEmitter.emit(ServiceMetricEvent.builder().build("namespace/cache/heapSizeInBytes", size * Character.BYTES));
+
+    serviceEmitter.emit(ServiceMetricEvent.builder().setMetric("namespace/cache/numEntries", numEntries));
+    serviceEmitter.emit(ServiceMetricEvent.builder().setMetric("namespace/cache/heapSizeInBytes", heapSizeInBytes));
   }
 }

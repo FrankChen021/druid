@@ -23,7 +23,6 @@ import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.benchmark.query.QueryBenchmarkUtil;
 import org.apache.druid.collections.StupidPool;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.FileUtils;
@@ -120,7 +119,6 @@ public class TimeCompareBenchmark
   protected static final Map<String, String> SCRIPT_DOUBLE_SUM = new HashMap<>();
 
   static {
-    NullHandling.initializeForTests();
     SCRIPT_DOUBLE_SUM.put("fnAggregate", "function aggregate(current, a) { return current + a }");
     SCRIPT_DOUBLE_SUM.put("fnReset", "function reset() { return 0 }");
     SCRIPT_DOUBLE_SUM.put("fnCombine", "function combine(a,b) { return a + b }");
@@ -160,11 +158,6 @@ public class TimeCompareBenchmark
         JSON_MAPPER,
         new ColumnConfig()
         {
-          @Override
-          public int columnCacheSizeBytes()
-          {
-            return 0;
-          }
         }
     );
     INDEX_MERGER_V9 = new IndexMergerV9(JSON_MAPPER, INDEX_IO, OffHeapMemorySegmentWriteOutMediumFactory.instance());
@@ -285,7 +278,7 @@ public class TimeCompareBenchmark
   {
     log.info("SETUP CALLED AT " + System.currentTimeMillis());
 
-    ComplexMetrics.registerSerde("hyperUnique", new HyperUniquesSerde());
+    ComplexMetrics.registerSerde(HyperUniquesSerde.TYPE_NAME, new HyperUniquesSerde());
 
     executorService = Execs.multiThreaded(numSegments, "TopNThreadPool");
 
@@ -336,7 +329,7 @@ public class TimeCompareBenchmark
       File indexFile = INDEX_MERGER_V9.persist(
           incIndexes.get(i),
           tmpDir,
-          new IndexSpec(),
+          IndexSpec.DEFAULT,
           null
       );
 

@@ -19,6 +19,7 @@
 
 package org.apache.druid.segment;
 
+import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.databind.AnnotationIntrospector;
 import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,6 +41,7 @@ import org.apache.druid.query.groupby.ResultRow;
 import org.apache.druid.query.timeseries.TimeseriesResultValue;
 import org.apache.druid.query.topn.TopNResultValue;
 import org.apache.druid.segment.column.ColumnConfig;
+import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.segment.writeout.SegmentWriteOutMediumFactory;
 import org.apache.druid.timeline.DataSegment.PruneSpecsHolder;
 import org.junit.Assert;
@@ -59,21 +61,40 @@ import java.util.stream.IntStream;
 public class TestHelper
 {
   public static final ObjectMapper JSON_MAPPER = makeJsonMapper();
-  public static final ColumnConfig NO_CACHE_COLUMN_CONFIG = () -> 0;
 
   public static IndexMergerV9 getTestIndexMergerV9(SegmentWriteOutMediumFactory segmentWriteOutMediumFactory)
   {
-    return new IndexMergerV9(JSON_MAPPER, getTestIndexIO(), segmentWriteOutMediumFactory);
+    return new IndexMergerV9(JSON_MAPPER, getTestIndexIO(), segmentWriteOutMediumFactory, true);
+  }
+
+  public static IndexMergerV9 getTestIndexMergerV9(ObjectMapper jsonMapper, SegmentWriteOutMediumFactory segmentWriteOutMediumFactory)
+  {
+    return new IndexMergerV9(jsonMapper, getTestIndexIO(jsonMapper), segmentWriteOutMediumFactory, true);
+  }
+
+  public static IndexMergerV9 getTestIndexMergerV9(SegmentWriteOutMediumFactory segmentWriteOutMediumFactory, ColumnConfig columnConfig)
+  {
+    return new IndexMergerV9(JSON_MAPPER, getTestIndexIO(columnConfig), segmentWriteOutMediumFactory, true);
   }
 
   public static IndexIO getTestIndexIO()
   {
-    return getTestIndexIO(NO_CACHE_COLUMN_CONFIG);
+    return getTestIndexIO(ColumnConfig.SELECTION_SIZE);
   }
 
   public static IndexIO getTestIndexIO(ColumnConfig columnConfig)
   {
     return new IndexIO(JSON_MAPPER, columnConfig);
+  }
+
+  public static IndexIO getTestIndexIO(ObjectMapper jsonMapper, ColumnConfig columnConfig)
+  {
+    return new IndexIO(jsonMapper, columnConfig);
+  }
+
+  public static IndexIO getTestIndexIO(ObjectMapper jsonMapper)
+  {
+    return new IndexIO(jsonMapper, ColumnConfig.SELECTION_SIZE);
   }
 
   public static AnnotationIntrospector makeAnnotationIntrospector()
@@ -83,7 +104,7 @@ public class TestHelper
     return new GuiceAnnotationIntrospector()
     {
       @Override
-      public Object findInjectableValueId(AnnotatedMember m)
+      public JacksonInject.Value findInjectableValue(AnnotatedMember m)
       {
         return null;
       }
@@ -91,6 +112,21 @@ public class TestHelper
   }
 
   public static ObjectMapper makeJsonMapper()
+  {
+    final ObjectMapper mapper = new DefaultObjectMapper();
+    final AnnotationIntrospector introspector = makeAnnotationIntrospector();
+    DruidSecondaryModule.setupAnnotationIntrospector(mapper, introspector);
+
+    mapper.setInjectableValues(
+        new InjectableValues.Std()
+            .addValue(ExprMacroTable.class.getName(), TestExprMacroTable.INSTANCE)
+            .addValue(ObjectMapper.class.getName(), mapper)
+            .addValue(PruneSpecsHolder.class, PruneSpecsHolder.DEFAULT)
+    );
+    return mapper;
+  }
+
+  public static ObjectMapper makeJsonMapperForJoinable(JoinableFactoryWrapper joinableFactoryWrapper)
   {
     final ObjectMapper mapper = new DefaultObjectMapper();
     AnnotationIntrospector introspector = makeAnnotationIntrospector();
@@ -101,6 +137,7 @@ public class TestHelper
             .addValue(ExprMacroTable.class.getName(), TestExprMacroTable.INSTANCE)
             .addValue(ObjectMapper.class.getName(), mapper)
             .addValue(PruneSpecsHolder.class, PruneSpecsHolder.DEFAULT)
+            .addValue(JoinableFactoryWrapper.class, joinableFactoryWrapper)
     );
     return mapper;
   }
@@ -243,7 +280,7 @@ public class TestHelper
       final Object next = resultsIter.next();
       final Object next2 = resultsIter2.next();
 
-      String failMsg = msg + "-" + index++;
+      String failMsg = msg + "[" + index++ + "]";
       String failMsg2 = StringUtils.format(
           "%s: Second iterator bad, multiple calls to iterator() should be safe",
           failMsg
@@ -348,12 +385,19 @@ public class TestHelper
     final Map<String, Object> expectedMap = ((MapBasedRow) expected).getEvent();
     final Map<String, Object> actualMap = ((MapBasedRow) actual).getEvent();
 
-    Assert.assertEquals(StringUtils.format("%s: map keys", msg), expectedMap.keySet(), actualMap.keySet());
     for (final String key : expectedMap.keySet()) {
       final Object expectedValue = expectedMap.get(key);
+      if (!actualMap.containsKey(key)) {
+        Assert.fail(
+            StringUtils.format("%s: Expected key [%s] to exist, but it did not [%s]", msg, key, actualMap.keySet())
+        );
+      }
+
       final Object actualValue = actualMap.get(key);
 
-      if (expectedValue != null && expectedValue.getClass().isArray()) {
+      if ((expectedValue != null && actualValue == null) || (expectedValue == null && actualValue != null)) {
+        Assert.assertEquals(StringUtils.format("%s: key[%s]", msg, key), expectedValue, actualValue);
+      } else if (expectedValue != null && expectedValue.getClass().isArray()) {
         Assert.assertArrayEquals((Object[]) expectedValue, (Object[]) actualValue);
       } else if (expectedValue instanceof Float || expectedValue instanceof Double) {
         Assert.assertEquals(
@@ -370,9 +414,12 @@ public class TestHelper
         );
       }
     }
+    // Given that we iterated through all of the keys in one, checking that the key exists in the other, then if they
+    // have the same size, they must have the same keyset.
+    Assert.assertEquals(expectedMap.size(), actualMap.size());
   }
 
-  private static void assertRow(String msg, ResultRow expected, ResultRow actual)
+  public static void assertRow(String msg, ResultRow expected, ResultRow actual)
   {
     Assert.assertEquals(
         StringUtils.format("%s: row length", msg),
@@ -392,7 +439,7 @@ public class TestHelper
           Assert.assertEquals(
               message,
               (Object[]) expectedValue,
-              (Object[]) ExprEval.coerceListToArray((List) actualValue, true)
+              (Object[]) ExprEval.coerceListToArray((List) actualValue, true).rhs
           );
         } else {
           Assert.assertArrayEquals(
@@ -402,6 +449,9 @@ public class TestHelper
           );
         }
       } else if (expectedValue instanceof Float || expectedValue instanceof Double) {
+        if (actualValue == null) {
+          Assert.fail(message + ": failed because expected numeric value is actually null");
+        }
         Assert.assertEquals(
             message,
             ((Number) expectedValue).doubleValue(),
@@ -418,7 +468,25 @@ public class TestHelper
     }
   }
 
-  public static Map<String, Object> createExpectedMap(Object... vals)
+  public static Map<String, Object> makeMap(Object... vals)
+  {
+    return makeMap(true, vals);
+  }
+
+  public static Map<String, Object> makeMap(boolean explicitNulls, Object... vals)
+  {
+    Preconditions.checkArgument(vals.length % 2 == 0);
+
+    Map<String, Object> theVals = new HashMap<>();
+    for (int i = 0; i < vals.length; i += 2) {
+      if (explicitNulls || vals[i + 1] != null) {
+        theVals.put(vals[i].toString(), vals[i + 1]);
+      }
+    }
+    return theVals;
+  }
+
+  public static Map<String, Object> makeMapWithExplicitNull(Object... vals)
   {
     Preconditions.checkArgument(vals.length % 2 == 0);
 

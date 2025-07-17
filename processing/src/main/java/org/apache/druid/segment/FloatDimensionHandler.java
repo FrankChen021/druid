@@ -19,12 +19,18 @@
 
 package org.apache.druid.segment;
 
+import org.apache.druid.data.input.impl.DimensionSchema;
+import org.apache.druid.data.input.impl.FloatDimensionSchema;
 import org.apache.druid.java.util.common.io.Closer;
+import org.apache.druid.query.dimension.DefaultDimensionSpec;
+import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.segment.column.ColumnCapabilities;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.selector.settable.SettableColumnValueSelector;
 import org.apache.druid.segment.selector.settable.SettableFloatColumnValueSelector;
 import org.apache.druid.segment.writeout.SegmentWriteOutMedium;
 
+import java.io.File;
 import java.util.Comparator;
 
 public class FloatDimensionHandler implements DimensionHandler<Float, Float, Float>
@@ -53,22 +59,36 @@ public class FloatDimensionHandler implements DimensionHandler<Float, Float, Flo
   }
 
   @Override
+  public DimensionSpec getDimensionSpec()
+  {
+    return new DefaultDimensionSpec(dimensionName, dimensionName, ColumnType.FLOAT);
+  }
+
+  @Override
+  public DimensionSchema getDimensionSchema(ColumnCapabilities capabilities)
+  {
+    return new FloatDimensionSchema(dimensionName);
+  }
+
+  @Override
   public DimensionIndexer<Float, Float, Float> makeIndexer()
   {
-    return new FloatDimensionIndexer();
+    return new FloatDimensionIndexer(dimensionName);
   }
 
   @Override
   public DimensionMergerV9 makeMerger(
+      String outputName,
       IndexSpec indexSpec,
       SegmentWriteOutMedium segmentWriteOutMedium,
       ColumnCapabilities capabilities,
       ProgressIndicator progress,
+      File segmentBaseDir,
       Closer closer
   )
   {
     return new FloatDimensionMergerV9(
-        dimensionName,
+        outputName,
         indexSpec,
         segmentWriteOutMedium
     );

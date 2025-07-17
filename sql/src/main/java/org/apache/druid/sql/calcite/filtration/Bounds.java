@@ -93,7 +93,7 @@ public class Bounds
     return ImmutableList.copyOf(
         Lists.transform(
             bounds,
-            new Function<BoundDimFilter, Range<BoundValue>>()
+            new Function<>()
             {
               @Override
               public Range<BoundValue> apply(BoundDimFilter bound)
@@ -198,7 +198,7 @@ public class Bounds
   public static BoundDimFilter interval(final BoundRefKey boundRefKey, final Interval interval)
   {
     if (!boundRefKey.getComparator().equals(StringComparators.NUMERIC)) {
-      // Interval comparison only works with NUMERIC comparator.
+      // Interval comparison only works with NUMERIC comparator
       throw new ISE("Comparator must be NUMERIC but was[%s]", boundRefKey.getComparator());
     }
 

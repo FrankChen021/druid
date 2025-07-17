@@ -17,18 +17,17 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
 import { ClearableInput } from './clearable-input';
 
-describe('clearable-input', () => {
+describe('ClearableInput', () => {
   it('matches snapshot', () => {
     const centerMessage = (
       <ClearableInput
         className="testClassName"
         value="testValue"
         placeholder="testPlaceholder"
-        onChange={() => {}}
+        onValueChange={() => {}}
       />
     );
 

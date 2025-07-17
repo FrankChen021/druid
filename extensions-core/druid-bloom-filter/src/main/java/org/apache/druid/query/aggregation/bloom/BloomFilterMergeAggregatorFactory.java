@@ -31,8 +31,6 @@ import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.NilColumnValueSelector;
 
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.List;
 
 public class BloomFilterMergeAggregatorFactory extends BloomFilterAggregatorFactory
 {
@@ -57,18 +55,18 @@ public class BloomFilterMergeAggregatorFactory extends BloomFilterAggregatorFact
   }
 
   @Override
-  public List<AggregatorFactory> getRequiredColumns()
-  {
-    return Collections.singletonList(new BloomFilterMergeAggregatorFactory(getName(), fieldName, getMaxNumEntries()));
-  }
-
-  @Override
   public byte[] getCacheKey()
   {
     return new CacheKeyBuilder(AggregatorUtil.BLOOM_FILTER_MERGE_CACHE_TYPE_ID)
         .appendString(fieldName)
         .appendInt(getMaxNumEntries())
         .build();
+  }
+
+  @Override
+  public AggregatorFactory withName(String newName)
+  {
+    return new BloomFilterMergeAggregatorFactory(newName, fieldName, getMaxNumEntries());
   }
 
   private BloomFilterMergeAggregator makeMergeAggregator(ColumnSelectorFactory metricFactory)

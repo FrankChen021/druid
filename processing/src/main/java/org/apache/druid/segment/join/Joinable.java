@@ -20,11 +20,13 @@
 package org.apache.druid.segment.join;
 
 import org.apache.druid.java.util.common.io.Closer;
+import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.segment.ColumnSelectorFactory;
-import org.apache.druid.segment.ReferenceCountedObject;
+import org.apache.druid.segment.ReferenceCountedObjectProvider;
 import org.apache.druid.segment.column.ColumnCapabilities;
 
 import javax.annotation.Nullable;
+import java.io.Closeable;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -35,7 +37,7 @@ import java.util.Set;
  * This class's most important method is {@link #makeJoinMatcher}. Its main user is
  * {@link HashJoinEngine#makeJoinCursor}.
  */
-public interface Joinable extends ReferenceCountedObject
+public interface Joinable extends ReferenceCountedObjectProvider<Closeable>
 {
   int CARDINALITY_UNKNOWN = -1;
 
@@ -71,49 +73,84 @@ public interface Joinable extends ReferenceCountedObject
    * @param condition                 join condition for the matcher
    * @param remainderNeeded           whether or not {@link JoinMatcher#matchRemainder()} will ever be called on the
    *                                  matcher. If we know it will not, additional optimizations are often possible.
-   *
-   * @param descending                true if join cursor is iterated in descending order
    * @param closer                    closer that will run after join cursor has completed to clean up any per query
    *                                  resources the joinable uses
+   *
    * @return the matcher
    */
   JoinMatcher makeJoinMatcher(
       ColumnSelectorFactory leftColumnSelectorFactory,
       JoinConditionAnalysis condition,
       boolean remainderNeeded,
-      boolean descending,
       Closer closer
   );
 
   /**
-   * Returns all nonnull values from a particular column if they are all unique, if there are "maxNumValues" or fewer,
-   * and if the column exists and supports this operation. Otherwise, returns an empty Optional.
+   * Returns all matchable values from a particular column along with a flag to tell if they are all unique in the column.
+   * If the matchable values are greater than "maxNumValues" or if the column doesn't exists or doesn't supports this
+   * operation, returns an object with empty set for column values and false for uniqueness flag.
+   * The uniqueness flag will only be true if we've collected all matchable values in the column and found that they're
+   * all unique. In all other cases it will be false.
+   *
+   * The returned set may be passed to {@link InDimFilter}. For efficiency,
+   * implementations should prefer creating the returned set with
+   * {@code new TreeSet<String>(Comparators.naturalNullsFirst()}}. This avoids a copy in the filter's constructor.
    *
    * @param columnName   name of the column
-   * @param maxNumValues maximum number of values to return
+   * @param includeNull  whether null should be considered a matchable value. If true, this method returns all values
+   *                     that are present in the column. If false, this method returns all non-null values.
+   * @param maxNumValues maximum number of values to return. If exceeded, returns an empty set with the "allUnique"
+   *                     flag set to false.
    */
-  Optional<Set<String>> getNonNullColumnValuesIfAllUnique(String columnName, int maxNumValues);
+  ColumnValuesWithUniqueFlag getMatchableColumnValues(String columnName, boolean includeNull, int maxNumValues);
 
   /**
    * Searches a column from this Joinable for a particular value, finds rows that match,
    * and returns values of a second column for those rows.
    *
-   * @param searchColumnName Name of the search column. This is the column that is being used in the filter
-   * @param searchColumnValue Target value of the search column. This is the value that is being filtered on.
-   * @param retrievalColumnName The column to retrieve values from. This is the column that is being joined against.
-   * @param maxCorrelationSetSize Maximum number of values to retrieve. If we detect that more values would be
-   *                              returned than this limit, return absent.
+   * The returned set may be passed to {@link InDimFilter}. For efficiency,
+   * implementations should prefer creating the returned set with
+   * {@code new TreeSet<String>(Comparators.naturalNullsFirst()}}. This avoids a copy in the filter's constructor.
+   *
+   * @param searchColumnName        Name of the search column. This is the column that is being used in the filter
+   * @param searchColumnValue       Target value of the search column. This is the value that is being filtered on.
+   * @param retrievalColumnName     The column to retrieve values from. This is the column that is being joined against.
+   * @param maxCorrelationSetSize   Maximum number of values to retrieve. If we detect that more values would be
+   *                                returned than this limit, return absent.
    * @param allowNonKeyColumnSearch If true, allow searchs on non-key columns. If this is false,
    *                                a search on a non-key column returns absent.
+   *
    * @return The set of correlated column values. If we cannot determine correlated values, return absent.
    *
    * In case either the search or retrieval column names are not found, this will return absent.
    */
-  Optional<Set<String>> getCorrelatedColumnValues(
+  Optional<InDimFilter.ValuesSet> getCorrelatedColumnValues(
       String searchColumnName,
       String searchColumnValue,
       String retrievalColumnName,
       long maxCorrelationSetSize,
       boolean allowNonKeyColumnSearch
   );
+
+  class ColumnValuesWithUniqueFlag
+  {
+    final Set<String> columnValues;
+    final boolean allUnique;
+
+    public ColumnValuesWithUniqueFlag(Set<String> columnValues, boolean allUnique)
+    {
+      this.columnValues = columnValues;
+      this.allUnique = allUnique;
+    }
+
+    public Set<String> getColumnValues()
+    {
+      return columnValues;
+    }
+
+    public boolean isAllUnique()
+    {
+      return allUnique;
+    }
+  }
 }

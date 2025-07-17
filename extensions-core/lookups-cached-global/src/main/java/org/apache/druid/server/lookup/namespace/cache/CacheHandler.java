@@ -20,18 +20,21 @@
 package org.apache.druid.server.lookup.namespace.cache;
 
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.query.lookup.LookupExtractor;
 
-import java.util.concurrent.ConcurrentMap;
+import java.io.Closeable;
+import java.util.Map;
+import java.util.function.Supplier;
 
-public final class CacheHandler implements AutoCloseable
+public final class CacheHandler implements AutoCloseable, Closeable
 {
   private static final Logger log = new Logger(CacheHandler.class);
 
   private final NamespaceExtractionCacheManager cacheManager;
-  private final ConcurrentMap<String, String> cache;
+  private final Map<String, String> cache;
   final Object id;
 
-  CacheHandler(NamespaceExtractionCacheManager cacheManager, ConcurrentMap<String, String> cache, Object id)
+  CacheHandler(NamespaceExtractionCacheManager cacheManager, Map<String, String> cache, Object id)
   {
     log.debug("Creating %s", super.toString());
     this.cacheManager = cacheManager;
@@ -39,16 +42,24 @@ public final class CacheHandler implements AutoCloseable
     this.id = id;
   }
 
-  public ConcurrentMap<String, String> getCache()
+  public Map<String, String> getCache()
   {
     return cache;
+  }
+
+  /**
+   * Returns a {@link LookupExtractor} view of the cached data.
+   */
+  public LookupExtractor asLookupExtractor(final boolean isOneToOne, final Supplier<byte[]> cacheKeySupplier)
+  {
+    return cacheManager.asLookupExtractor(this, isOneToOne, cacheKeySupplier);
   }
 
   @Override
   public void close()
   {
     cacheManager.disposeCache(this);
-    // Log statement after disposeCache(), because logging may fail (e. g. in shutdown hooks)
+    // Log statement after disposeCache(), because logging may fail (e.g. in shutdown hooks)
     log.debug("Closed %s", super.toString());
   }
 }

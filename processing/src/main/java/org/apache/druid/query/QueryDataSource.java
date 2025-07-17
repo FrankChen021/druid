@@ -23,10 +23,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.query.union.UnionQuery;
+import org.apache.druid.segment.SegmentMapFunction;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -34,7 +37,7 @@ import java.util.Set;
 public class QueryDataSource implements DataSource
 {
   @JsonProperty
-  private final Query query;
+  private final Query<?> query;
 
   @JsonCreator
   public QueryDataSource(@JsonProperty("query") Query query)
@@ -45,7 +48,11 @@ public class QueryDataSource implements DataSource
   @Override
   public Set<String> getTableNames()
   {
-    return query.getDataSource().getTableNames();
+    Set<String> names = new HashSet<>();
+    for (DataSource ds : getQueryDataSources()) {
+      names.addAll(ds.getTableNames());
+    }
+    return names;
   }
 
   @JsonProperty
@@ -57,17 +64,28 @@ public class QueryDataSource implements DataSource
   @Override
   public List<DataSource> getChildren()
   {
+    return getQueryDataSources();
+  }
+
+  private List<DataSource> getQueryDataSources()
+  {
+    if (query instanceof UnionQuery) {
+      return ((UnionQuery) query).getDataSources();
+    }
     return Collections.singletonList(query.getDataSource());
   }
 
   @Override
   public DataSource withChildren(List<DataSource> children)
   {
-    if (children.size() != 1) {
-      throw new IAE("Must have exactly one child");
+    if (query instanceof UnionQuery) {
+      return new QueryDataSource(((UnionQuery) query).withDataSources(children));
+    } else {
+      if (children.size() != 1) {
+        throw new IAE("Must have exactly one child");
+      }
+      return new QueryDataSource(query.withDataSource(children.get(0)));
     }
-
-    return new QueryDataSource(query.withDataSource(Iterables.getOnlyElement(children)));
   }
 
   @Override
@@ -79,13 +97,25 @@ public class QueryDataSource implements DataSource
   @Override
   public boolean isGlobal()
   {
-    return query.getDataSource().isGlobal();
+    return false;
   }
 
   @Override
-  public boolean isConcrete()
+  public boolean isProcessable()
   {
     return false;
+  }
+
+  @Override
+  public SegmentMapFunction createSegmentMapFunction(Query query)
+  {
+    throw DruidException.defensive("Creating a segmentMapFunction for a QueryDataSource is not supported [%s].", query);
+  }
+
+  @Override
+  public byte[] getCacheKey()
+  {
+    return null;
   }
 
   @Override

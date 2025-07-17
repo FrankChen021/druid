@@ -32,11 +32,14 @@ import com.google.inject.Provider;
 import org.apache.curator.utils.ZKPaths;
 import org.apache.druid.common.utils.UUIDUtils;
 import org.apache.druid.curator.ZkEnablementConfig;
-import org.apache.druid.curator.announcement.Announcer;
+import org.apache.druid.curator.announcement.ServiceAnnouncer;
+import org.apache.druid.guice.annotations.SingleThreadedAnnouncer;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.java.util.common.lifecycle.LifecycleStop;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.segment.realtime.appenderator.SegmentSchemas;
 import org.apache.druid.server.initialization.BatchDataSegmentAnnouncerConfig;
 import org.apache.druid.server.initialization.ZkPathsConfig;
 import org.apache.druid.timeline.DataSegment;
@@ -62,7 +65,7 @@ public class BatchDataSegmentAnnouncer implements DataSegmentAnnouncer
   private final BatchDataSegmentAnnouncerConfig config;
 
   @Nullable //Null if zk is disabled or isSkipSegmentAnnouncementOnZk = true
-  private final Announcer announcer;
+  private final ServiceAnnouncer announcer;
 
   private final ObjectMapper jsonMapper;
   private final String liveSegmentLocation;
@@ -71,11 +74,14 @@ public class BatchDataSegmentAnnouncer implements DataSegmentAnnouncer
   private final Object lock = new Object();
   private final AtomicLong counter = new AtomicLong(0);
 
-  private final Set<SegmentZNode> availableZNodes = new ConcurrentSkipListSet<SegmentZNode>();
+  private final Set<SegmentZNode> availableZNodes = new ConcurrentSkipListSet<>();
   private final ConcurrentMap<DataSegment, SegmentZNode> segmentLookup = new ConcurrentHashMap<>();
   private final Function<DataSegment, DataSegment> segmentTransformer;
 
   private final ChangeRequestHistory<DataSegmentChangeRequest> changes = new ChangeRequestHistory<>();
+
+  private final ConcurrentMap<String, SegmentSchemas> taskSinkSchema = new ConcurrentHashMap<>();
+
   @Nullable
   private final SegmentZNode dummyZnode;
 
@@ -86,7 +92,7 @@ public class BatchDataSegmentAnnouncer implements DataSegmentAnnouncer
       DruidServerMetadata server,
       final BatchDataSegmentAnnouncerConfig config,
       ZkPathsConfig zkPaths,
-      Provider<Announcer> announcerProvider,
+      @SingleThreadedAnnouncer Provider<ServiceAnnouncer> announcerProvider,
       ObjectMapper jsonMapper,
       ZkEnablementConfig zkEnablementConfig
   )
@@ -122,12 +128,19 @@ public class BatchDataSegmentAnnouncer implements DataSegmentAnnouncer
       DruidServerMetadata server,
       final BatchDataSegmentAnnouncerConfig config,
       ZkPathsConfig zkPaths,
-      Announcer announcer,
+      ServiceAnnouncer announcer,
       ObjectMapper jsonMapper
   )
   {
     this(server, config, zkPaths, () -> announcer, jsonMapper, ZkEnablementConfig.ENABLED);
   }
+
+  @LifecycleStop
+  public void stop()
+  {
+    changes.stop();
+  }
+
 
   @Override
   public void announceSegment(DataSegment segment) throws IOException
@@ -165,7 +178,6 @@ public class BatchDataSegmentAnnouncer implements DataSegmentAnnouncer
           SegmentZNode availableZNode = iter.next();
           if (availableZNode.getBytes().length + newBytesLen < config.getMaxBytesPerNode()) {
             availableZNode.addSegment(toAnnounce);
-
             log.info(
                 "Announcing segment[%s] at existing path[%s]",
                 toAnnounce.getId(),
@@ -194,7 +206,11 @@ public class BatchDataSegmentAnnouncer implements DataSegmentAnnouncer
         SegmentZNode availableZNode = new SegmentZNode(makeServedSegmentPath());
         availableZNode.addSegment(toAnnounce);
 
-        log.info("Announcing segment[%s] at new path[%s]", toAnnounce.getId(), availableZNode.getPath());
+        log.info("Announcing %s[%s] at new path[%s]",
+                 toAnnounce.isTombstone() ? DataSegment.TOMBSTONE_LOADSPEC_TYPE : "segment",
+                 toAnnounce.getId(),
+                 availableZNode.getPath()
+        );
         announcer.announce(availableZNode.getPath(), availableZNode.getBytes());
         segmentLookup.put(toAnnounce, availableZNode);
         availableZNodes.add(availableZNode);
@@ -299,6 +315,31 @@ public class BatchDataSegmentAnnouncer implements DataSegmentAnnouncer
     }
   }
 
+  @Override
+  public void announceSegmentSchemas(
+      String taskId,
+      SegmentSchemas segmentSchemas,
+      SegmentSchemas segmentSchemasChange
+  )
+  {
+    log.info("Announcing sink schema for task [%s], absolute schema [%s], delta schema [%s].",
+             taskId, segmentSchemas, segmentSchemasChange
+    );
+
+    taskSinkSchema.put(taskId, segmentSchemas);
+
+    if (segmentSchemasChange != null) {
+      changes.addChangeRequest(new SegmentSchemasChangeRequest(segmentSchemasChange));
+    }
+  }
+
+  @Override
+  public void removeSegmentSchemasForTask(String taskId)
+  {
+    log.info("Unannouncing task [%s].", taskId);
+    taskSinkSchema.remove(taskId);
+  }
+
   /**
    * Returns Future that lists the segment load/drop requests since given counter.
    */
@@ -308,19 +349,16 @@ public class BatchDataSegmentAnnouncer implements DataSegmentAnnouncer
       synchronized (lock) {
         Iterable<DataSegmentChangeRequest> segments = Iterables.transform(
             segmentLookup.keySet(),
-            new Function<DataSegment, DataSegmentChangeRequest>()
-            {
-              @Nullable
-              @Override
-              public SegmentChangeRequestLoad apply(DataSegment input)
-              {
-                return new SegmentChangeRequestLoad(input);
-              }
-            }
+            SegmentChangeRequestLoad::new
         );
 
+        Iterable<DataSegmentChangeRequest> sinkSchema = Iterables.transform(
+            taskSinkSchema.values(),
+            SegmentSchemasChangeRequest::new
+        );
+        Iterable<DataSegmentChangeRequest> changeRequestIterables = Iterables.concat(segments, sinkSchema);
         SettableFuture<ChangeRequestsSnapshot<DataSegmentChangeRequest>> future = SettableFuture.create();
-        future.set(ChangeRequestsSnapshot.success(changes.getLastCounter(), Lists.newArrayList(segments)));
+        future.set(ChangeRequestsSnapshot.success(changes.getLastCounter(), Lists.newArrayList(changeRequestIterables)));
         return future;
       }
     } else {
@@ -381,9 +419,7 @@ public class BatchDataSegmentAnnouncer implements DataSegmentAnnouncer
       try {
         return jsonMapper.readValue(
             bytes,
-            new TypeReference<Set<DataSegment>>()
-            {
-            }
+            new TypeReference<>() {}
         );
       }
       catch (Exception e) {

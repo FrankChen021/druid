@@ -21,8 +21,8 @@ package org.apache.druid.indexing.kinesis;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.druid.data.input.impl.ByteEntity;
 import org.apache.druid.data.input.impl.InputRowParser;
+import org.apache.druid.data.input.kinesis.KinesisRecordEntity;
 import org.apache.druid.indexing.common.LockGranularity;
 import org.apache.druid.indexing.common.TaskToolbox;
 import org.apache.druid.indexing.seekablestream.SeekableStreamDataSourceMetadata;
@@ -36,20 +36,19 @@ import org.apache.druid.indexing.seekablestream.common.RecordSupplier;
 import org.apache.druid.indexing.seekablestream.common.StreamPartition;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.emitter.EmittingLogger;
-import org.apache.druid.server.security.AuthorizerMapper;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.stream.Collectors;
 
-public class KinesisIndexTaskRunner extends SeekableStreamIndexTaskRunner<String, String, ByteEntity>
+public class KinesisIndexTaskRunner extends SeekableStreamIndexTaskRunner<String, String, KinesisRecordEntity>
 {
   private static final EmittingLogger log = new EmittingLogger(KinesisIndexTaskRunner.class);
   private static final long POLL_TIMEOUT = 100;
@@ -59,16 +58,10 @@ public class KinesisIndexTaskRunner extends SeekableStreamIndexTaskRunner<String
   KinesisIndexTaskRunner(
       KinesisIndexTask task,
       @Nullable InputRowParser<ByteBuffer> parser,
-      AuthorizerMapper authorizerMapper,
       LockGranularity lockGranularityToUse
   )
   {
-    super(
-        task,
-        parser,
-        authorizerMapper,
-        lockGranularityToUse
-    );
+    super(task, parser, lockGranularityToUse);
     this.task = task;
   }
 
@@ -81,8 +74,8 @@ public class KinesisIndexTaskRunner extends SeekableStreamIndexTaskRunner<String
 
   @Nonnull
   @Override
-  protected List<OrderedPartitionableRecord<String, String, ByteEntity>> getRecords(
-      RecordSupplier<String, String, ByteEntity> recordSupplier, TaskToolbox toolbox
+  protected List<OrderedPartitionableRecord<String, String, KinesisRecordEntity>> getRecords(
+      RecordSupplier<String, String, KinesisRecordEntity> recordSupplier, TaskToolbox toolbox
   )
   {
     return recordSupplier.poll(POLL_TIMEOUT);
@@ -119,37 +112,48 @@ public class KinesisIndexTaskRunner extends SeekableStreamIndexTaskRunner<String
   @Override
   protected void possiblyResetDataSourceMetadata(
       TaskToolbox toolbox,
-      RecordSupplier<String, String, ByteEntity> recordSupplier,
+      RecordSupplier<String, String, KinesisRecordEntity> recordSupplier,
       Set<StreamPartition<String>> assignment
   )
   {
     if (!task.getTuningConfig().isSkipSequenceNumberAvailabilityCheck()) {
       final ConcurrentMap<String, String> currOffsets = getCurrentOffsets();
+      final Map<StreamPartition<String>, String> partitionToSequenceResetMap = new HashMap<>();
       for (final StreamPartition<String> streamPartition : assignment) {
         String sequence = currOffsets.get(streamPartition.getPartitionId());
-        String earliestSequenceNumber = recordSupplier.getEarliestSequenceNumber(streamPartition);
-        if (earliestSequenceNumber == null
-            || createSequenceNumber(earliestSequenceNumber).compareTo(createSequenceNumber(sequence)) > 0) {
-          if (task.getTuningConfig().isResetOffsetAutomatically()) {
-            log.info("Attempting to reset sequences automatically for all partitions");
-            try {
-              sendResetRequestAndWait(
-                  assignment.stream()
-                            .collect(Collectors.toMap(x -> x, x -> currOffsets.get(x.getPartitionId()))),
-                  toolbox
-              );
-            }
-            catch (IOException e) {
-              throw new ISE(e, "Exception while attempting to automatically reset sequences");
-            }
-          } else {
+        if (!recordSupplier.isOffsetAvailable(streamPartition, KinesisSequenceNumber.of(sequence))) {
+          partitionToSequenceResetMap.put(streamPartition, sequence);
+        }
+      }
+
+      if (!partitionToSequenceResetMap.isEmpty()) {
+        for (Map.Entry<StreamPartition<String>, String> partitionToSequence : partitionToSequenceResetMap.entrySet()) {
+          log.warn("Starting sequenceNumber[%s] is no longer available for partition[%s].",
+                   partitionToSequence.getValue(),
+                   partitionToSequence.getKey()
+          );
+        }
+        if (task.getTuningConfig().isResetOffsetAutomatically()) {
+          log.info(
+              "Attempting to reset offsets for [%d] partitions with ids[%s].",
+              partitionToSequenceResetMap.size(),
+              partitionToSequenceResetMap.keySet()
+          );
+          try {
+            sendResetRequestAndWait(partitionToSequenceResetMap, toolbox);
+          }
+          catch (IOException e) {
             throw new ISE(
-                "Starting sequenceNumber [%s] is no longer available for partition [%s] (earliest: [%s]) and resetOffsetAutomatically is not enabled",
-                sequence,
-                streamPartition.getPartitionId(),
-                earliestSequenceNumber
+                e,
+                "Exception while attempting to automatically reset sequences for partitions[%s]",
+                partitionToSequenceResetMap.keySet()
             );
           }
+        } else {
+          throw new ISE(
+              "Automatic offset reset is disabled, but there are partitions with unavailable sequence numbers [%s].",
+              partitionToSequenceResetMap
+          );
         }
       }
     }
@@ -170,9 +174,7 @@ public class KinesisIndexTaskRunner extends SeekableStreamIndexTaskRunner<String
   @Override
   public TypeReference<List<SequenceMetadata<String, String>>> getSequenceMetadataTypeReference()
   {
-    return new TypeReference<List<SequenceMetadata<String, String>>>()
-    {
-    };
+    return new TypeReference<>() {};
   }
 
   @Nullable
@@ -186,13 +188,10 @@ public class KinesisIndexTaskRunner extends SeekableStreamIndexTaskRunner<String
       log.debug("Got checkpoints from task context[%s]", checkpointsString);
       return toolbox.getJsonMapper().readValue(
           checkpointsString,
-          new TypeReference<TreeMap<Integer, Map<String, String>>>()
-          {
-          }
+          new TypeReference<>() {}
       );
     } else {
       return null;
     }
   }
-
 }

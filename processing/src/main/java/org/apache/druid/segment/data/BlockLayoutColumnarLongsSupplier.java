@@ -21,14 +21,21 @@ package org.apache.druid.segment.data;
 
 import com.google.common.base.Supplier;
 import org.apache.druid.collections.ResourceHolder;
-import org.apache.druid.java.util.common.guava.CloseQuietly;
+import org.apache.druid.common.semantic.SemanticUtils;
+import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
 
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.LongBuffer;
+import java.util.Map;
+import java.util.function.Function;
 
 public class BlockLayoutColumnarLongsSupplier implements Supplier<ColumnarLongs>
 {
+  private static final Map<Class<?>, Function<BlockLayoutColumnarLongs, ?>> AS_MAP =
+      SemanticUtils.makeAsMap(BlockLayoutColumnarLongs.class);
+
   private final GenericIndexed<ResourceHolder<ByteBuffer>> baseLongBuffers;
 
   // The number of rows in this column.
@@ -37,6 +44,7 @@ public class BlockLayoutColumnarLongsSupplier implements Supplier<ColumnarLongs>
   // The number of longs per buffer.
   private final int sizePer;
   private final CompressionFactory.LongEncodingReader baseReader;
+  private final CompressionStrategy strategy;
 
   public BlockLayoutColumnarLongsSupplier(
       int totalSize,
@@ -44,10 +52,16 @@ public class BlockLayoutColumnarLongsSupplier implements Supplier<ColumnarLongs>
       ByteBuffer fromBuffer,
       ByteOrder order,
       CompressionFactory.LongEncodingReader reader,
-      CompressionStrategy strategy
+      CompressionStrategy strategy,
+      SmooshedFileMapper smooshMapper
   )
   {
-    baseLongBuffers = GenericIndexed.read(fromBuffer, new DecompressingByteBufferObjectStrategy(order, strategy));
+    this.strategy = strategy;
+    this.baseLongBuffers = GenericIndexed.read(
+        fromBuffer,
+        DecompressingByteBufferObjectStrategy.of(order, strategy),
+        smooshMapper
+    );
     this.totalSize = totalSize;
     this.sizePer = sizePer;
     this.baseReader = reader;
@@ -83,7 +97,9 @@ public class BlockLayoutColumnarLongsSupplier implements Supplier<ColumnarLongs>
           @Override
           protected void loadBuffer(int bufferNum)
           {
-            CloseQuietly.close(holder);
+            if (holder != null) {
+              holder.close();
+            }
             holder = singleThreadedLongBuffers.get(bufferNum);
             buffer = holder.get();
             // asLongBuffer() makes the longBuffer's position = 0
@@ -116,18 +132,32 @@ public class BlockLayoutColumnarLongsSupplier implements Supplier<ColumnarLongs>
     }
   }
 
-  private class BlockLayoutColumnarLongs implements ColumnarLongs
+  // This needs to be a public class so that SemanticCreator is able to call it.
+  public class BlockLayoutColumnarLongs implements ColumnarLongs
   {
     final CompressionFactory.LongEncodingReader reader = baseReader.duplicate();
     final Indexed<ResourceHolder<ByteBuffer>> singleThreadedLongBuffers = baseLongBuffers.singleThreaded();
 
     int currBufferNum = -1;
+    @Nullable
     ResourceHolder<ByteBuffer> holder;
+    @Nullable
     ByteBuffer buffer;
     /**
      * longBuffer's position must be 0
      */
+    @Nullable
     LongBuffer longBuffer;
+
+    public CompressionFactory.LongEncodingStrategy getEncodingStrategy()
+    {
+      return baseReader.getStrategy();
+    }
+
+    public CompressionStrategy getCompressionStrategy()
+    {
+      return strategy;
+    }
 
     @Override
     public int size()
@@ -152,6 +182,12 @@ public class BlockLayoutColumnarLongsSupplier implements Supplier<ColumnarLongs>
     @Override
     public void get(final long[] out, final int start, final int length)
     {
+      get(out, 0, start, length);
+    }
+
+    @Override
+    public void get(long[] out, int offset, int start, int length)
+    {
       // division + remainder is optimized by the compiler so keep those together
       int bufferNum = start / sizePer;
       int bufferIndex = start % sizePer;
@@ -164,7 +200,7 @@ public class BlockLayoutColumnarLongsSupplier implements Supplier<ColumnarLongs>
         }
 
         final int limit = Math.min(length - p, sizePer - bufferIndex);
-        reader.read(out, p, bufferIndex, limit);
+        reader.read(out, offset + p, bufferIndex, limit);
         p += limit;
         bufferNum++;
         bufferIndex = 0;
@@ -190,7 +226,9 @@ public class BlockLayoutColumnarLongsSupplier implements Supplier<ColumnarLongs>
 
     protected void loadBuffer(int bufferNum)
     {
-      CloseQuietly.close(holder);
+      if (holder != null) {
+        holder.close();
+      }
       holder = singleThreadedLongBuffers.get(bufferNum);
       buffer = holder.get();
       currBufferNum = bufferNum;
@@ -201,8 +239,21 @@ public class BlockLayoutColumnarLongsSupplier implements Supplier<ColumnarLongs>
     public void close()
     {
       if (holder != null) {
+        currBufferNum = -1;
         holder.close();
+        holder = null;
+        buffer = null;
+        longBuffer = null;
       }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Nullable
+    @Override
+    public <T> T as(Class<? extends T> clazz)
+    {
+      //noinspection ReturnOfNull
+      return (T) AS_MAP.getOrDefault(clazz, arg -> null).apply(this);
     }
 
     @Override

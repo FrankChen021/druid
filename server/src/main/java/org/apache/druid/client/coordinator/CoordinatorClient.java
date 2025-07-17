@@ -19,174 +19,142 @@
 
 package org.apache.druid.client.coordinator;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
+import com.google.common.util.concurrent.ListenableFuture;
+import org.apache.druid.client.BootstrapSegmentsResponse;
 import org.apache.druid.client.ImmutableSegmentLoadInfo;
-import org.apache.druid.discovery.DruidLeaderClient;
-import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.http.client.response.StringFullResponseHolder;
+import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.lookup.LookupExtractorFactoryContainer;
+import org.apache.druid.rpc.ServiceRetryPolicy;
+import org.apache.druid.segment.metadata.DataSourceInformation;
+import org.apache.druid.server.compaction.CompactionStatusResponse;
+import org.apache.druid.server.coordinator.CoordinatorDynamicConfig;
+import org.apache.druid.server.coordinator.rules.Rule;
 import org.apache.druid.timeline.DataSegment;
-import org.jboss.netty.handler.codec.http.HttpMethod;
-import org.jboss.netty.handler.codec.http.HttpResponseStatus;
+import org.apache.druid.timeline.SegmentStatusInCluster;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
-import javax.ws.rs.core.MediaType;
-import java.util.Collection;
+import java.net.URI;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-public class CoordinatorClient
+public interface CoordinatorClient
 {
-  private final DruidLeaderClient druidLeaderClient;
-  private final ObjectMapper jsonMapper;
-
-  @Inject
-  public CoordinatorClient(
-      ObjectMapper jsonMapper,
-      @Coordinator DruidLeaderClient druidLeaderClient
-  )
-  {
-    this.jsonMapper = jsonMapper;
-    this.druidLeaderClient = druidLeaderClient;
-  }
+  /**
+   * Checks if the given segment is handed off or not.
+   */
+  ListenableFuture<Boolean> isHandoffComplete(String dataSource, SegmentDescriptor descriptor);
 
   /**
-   * Checks the given segment is handed off or not.
-   * It can return null if the HTTP call returns 404 which can happen during rolling update.
+   * Fetches segment metadata for the given dataSource and segmentId. If includeUnused is set to false, the segment is
+   * not returned if it is marked as unused.
    */
-  @Nullable
-  public Boolean isHandOffComplete(String dataSource, SegmentDescriptor descriptor)
-  {
-    try {
-      StringFullResponseHolder response = druidLeaderClient.go(
-          druidLeaderClient.makeRequest(
-              HttpMethod.GET,
-              StringUtils.format(
-                  "/druid/coordinator/v1/datasources/%s/handoffComplete?interval=%s&partitionNumber=%d&version=%s",
-                  StringUtils.urlEncode(dataSource),
-                  descriptor.getInterval(),
-                  descriptor.getPartitionNumber(),
-                  descriptor.getVersion()
-              )
-          )
-      );
+  ListenableFuture<DataSegment> fetchSegment(String dataSource, String segmentId, boolean includeUnused);
 
-      if (response.getStatus().equals(HttpResponseStatus.NOT_FOUND)) {
-        return null;
-      }
+  /**
+   * Fetches segments from the coordinator server view for the given dataSource and intervals.
+   */
+  Iterable<ImmutableSegmentLoadInfo> fetchServerViewSegments(String dataSource, List<Interval> intervals);
 
-      if (!response.getStatus().equals(HttpResponseStatus.OK)) {
-        throw new ISE(
-            "Error while fetching serverView status[%s] content[%s]",
-            response.getStatus(),
-            response.getContent()
-        );
-      }
-      return jsonMapper.readValue(response.getContent(), new TypeReference<Boolean>()
-      {
-      });
-    }
-    catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
+  /**
+   * Fetches segment metadata for the given dataSource and intervals.
+   */
+  ListenableFuture<List<DataSegment>> fetchUsedSegments(String dataSource, List<Interval> intervals);
 
-  public List<ImmutableSegmentLoadInfo> fetchServerView(String dataSource, Interval interval, boolean incompleteOk)
-  {
-    try {
-      StringFullResponseHolder response = druidLeaderClient.go(
-          druidLeaderClient.makeRequest(
-              HttpMethod.GET,
-              StringUtils.format(
-                  "/druid/coordinator/v1/datasources/%s/intervals/%s/serverview?partial=%s",
-                  StringUtils.urlEncode(dataSource),
-                  interval.toString().replace('/', '_'),
-                  incompleteOk
-              )
-          )
-      );
+  /**
+   * Retrieves detailed metadata information for the specified data sources, which includes {@code RowSignature}.
+   */
+  ListenableFuture<List<DataSourceInformation>> fetchDataSourceInformation(Set<String> datasources);
 
-      if (!response.getStatus().equals(HttpResponseStatus.OK)) {
-        throw new ISE(
-            "Error while fetching serverView status[%s] content[%s]",
-            response.getStatus(),
-            response.getContent()
-        );
-      }
-      return jsonMapper.readValue(
-          response.getContent(), new TypeReference<List<ImmutableSegmentLoadInfo>>()
-          {
-          }
-      );
-    }
-    catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
+  /**
+   * Fetch bootstrap segments from the coordinator. The results must be streamed back to the caller as the
+   * result set can be large.
+   */
+  ListenableFuture<BootstrapSegmentsResponse> fetchBootstrapSegments();
 
-  public Collection<DataSegment> fetchUsedSegmentsInDataSourceForIntervals(String dataSource, List<Interval> intervals)
-  {
-    try {
-      StringFullResponseHolder response = druidLeaderClient.go(
-          druidLeaderClient.makeRequest(
-              HttpMethod.POST,
-              StringUtils.format(
-                  "/druid/coordinator/v1/metadata/datasources/%s/segments?full",
-                  StringUtils.urlEncode(dataSource)
-              )
-          ).setContent(MediaType.APPLICATION_JSON, jsonMapper.writeValueAsBytes(intervals))
-      );
+  /**
+   * Returns a new instance backed by a ServiceClient which follows the provided retryPolicy
+   */
+  CoordinatorClient withRetryPolicy(ServiceRetryPolicy retryPolicy);
 
-      if (!response.getStatus().equals(HttpResponseStatus.OK)) {
-        throw new ISE(
-            "Error while fetching used segments in a data source for intervals: status[%s] content[%s]",
-            response.getStatus(),
-            response.getContent()
-        );
-      }
-      return jsonMapper.readValue(
-          response.getContent(), new TypeReference<List<DataSegment>>()
-          {
-          }
-      );
-    }
-    catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
+  /**
+   * Retrieves list of datasources with used segments.
+   */
+  ListenableFuture<Set<String>> fetchDataSourcesWithUsedSegments();
 
-  public DataSegment fetchUsedSegment(String dataSource, String segmentId)
-  {
-    try {
-      StringFullResponseHolder response = druidLeaderClient.go(
-          druidLeaderClient.makeRequest(
-              HttpMethod.GET,
-              StringUtils.format(
-                  "/druid/coordinator/v1/metadata/datasources/%s/segments/%s",
-                  StringUtils.urlEncode(dataSource),
-                  StringUtils.urlEncode(segmentId)
-              )
-          )
-      );
+  /**
+   * Gets the latest compaction snapshots of one or all datasources.
+   * <p>
+   * API: {@code GET /druid/coordinator/v1/compaction/status}
+   *
+   * @param dataSource If passed as non-null, then the returned list contains only
+   *                   the snapshot for this datasource.
+   */
+  ListenableFuture<CompactionStatusResponse> getCompactionSnapshots(@Nullable String dataSource);
 
-      if (!response.getStatus().equals(HttpResponseStatus.OK)) {
-        throw new ISE(
-            "Error while fetching database segment data source segment status[%s] content[%s]",
-            response.getStatus(),
-            response.getContent()
-        );
-      }
-      return jsonMapper.readValue(
-          response.getContent(), new TypeReference<DataSegment>()
-          {
-          }
-      );
-    }
-    catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
+  /**
+   * Gets the latest coordinator dynamic config.
+   * <p>
+   * API: {@code GET /druid/coordinator/v1/config}
+   */
+  ListenableFuture<CoordinatorDynamicConfig> getCoordinatorDynamicConfig();
+
+  /**
+   * Updates the Coordinator dynamic config.
+   * <p>
+   * API: {@code POST /druid/coordinator/v1/config}
+   */
+  ListenableFuture<Void> updateCoordinatorDynamicConfig(CoordinatorDynamicConfig dynamicConfig);
+
+  /**
+   * Updates lookups for all tiers.
+   * <p>
+   * API: {@code POST /druid/coordinator/v1/lookups/config}
+   */
+  ListenableFuture<Void> updateAllLookups(Object lookups);
+
+  /**
+   * Gets the lookup configuration for a tier synchronously.
+   * <p>
+   * API: {@code GET /druid/coordinator/v1/lookups/config/<tier>}
+   *
+   * @param tier The name of the tier for which the lookup configuration is to be fetched.
+   */
+  Map<String, LookupExtractorFactoryContainer> fetchLookupsForTierSync(String tier);
+
+  /**
+   * Returns an iterator over the metadata segments of multiple datasources in the cluster, fetching them in one go.
+   * <p>
+   * API: {@code GET /druid/coordinator/v1/metadata/segments?includeOvershadowedStatus}
+   *
+   * @param watchedDataSources Optional datasources to filter the segments by. If null or empty, all segments are returned.
+   * @param includeRealtimeSegments If true, includes realtime segments in the result.
+   */
+  ListenableFuture<CloseableIterator<SegmentStatusInCluster>> fetchAllUsedSegmentsWithOvershadowedStatus(
+      @Nullable Set<String> watchedDataSources,
+      boolean includeRealtimeSegments
+  );
+
+  /**
+   * Returns the current snapshot of the rules.
+   * <p>
+   * API: {@code GET /druid/coordinator/v1/rules}
+   */
+  ListenableFuture<Map<String, List<Rule>>> getRulesForAllDatasources();
+
+  /**
+   * Returns the current coordinator leader's URI.
+   * <p>
+   * API: {@code GET /druid/coordinator/v1/leader}
+   */
+  ListenableFuture<URI> findCurrentLeader();
+
+  /**
+   * Posts load rules to the coordinator.
+   * <p>
+   * API: {@code POST /druid/coordinator/v1/rules}
+   */
+  ListenableFuture<Void> updateRulesForDatasource(String dataSource, List<Rule> rules);
 }

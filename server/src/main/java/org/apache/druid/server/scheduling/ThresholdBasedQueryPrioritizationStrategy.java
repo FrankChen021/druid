@@ -25,14 +25,15 @@ import com.google.common.base.Preconditions;
 import org.apache.druid.client.SegmentServerSelector;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.server.QueryPrioritizationStrategy;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
 import org.joda.time.Period;
+import org.joda.time.base.AbstractInterval;
 
 import javax.annotation.Nullable;
+
 import java.util.Optional;
 import java.util.Set;
 
@@ -49,12 +50,14 @@ public class ThresholdBasedQueryPrioritizationStrategy implements QueryPrioritiz
 
   private final Optional<Duration> periodThreshold;
   private final Optional<Duration> durationThreshold;
+  private final Optional<Duration> segmentRangeThreshold;
 
   @JsonCreator
   public ThresholdBasedQueryPrioritizationStrategy(
       @JsonProperty("periodThreshold") @Nullable String periodThresholdString,
       @JsonProperty("durationThreshold") @Nullable String durationThresholdString,
       @JsonProperty("segmentCountThreshold") @Nullable Integer segmentCountThreshold,
+      @JsonProperty("segmentRangeThreshold") @Nullable String segmentRangeThresholdString,
       @JsonProperty("adjustment") @Nullable Integer adjustment
   )
   {
@@ -66,9 +69,12 @@ public class ThresholdBasedQueryPrioritizationStrategy implements QueryPrioritiz
     this.durationThreshold = durationThresholdString == null
                              ? Optional.empty()
                              : Optional.of(new Period(durationThresholdString).toStandardDuration());
+    this.segmentRangeThreshold = segmentRangeThresholdString == null
+                                 ? Optional.empty()
+                                 : Optional.of(new Period(segmentRangeThresholdString).toStandardDuration());
     Preconditions.checkArgument(
-        segmentCountThreshold != null || periodThreshold.isPresent() || durationThreshold.isPresent(),
-        "periodThreshold, durationThreshold, or segmentCountThreshold must be set"
+        segmentCountThreshold != null || periodThreshold.isPresent() || durationThreshold.isPresent() || segmentRangeThreshold.isPresent(),
+        "periodThreshold, durationThreshold, segmentCountThreshold or segmentRangeThreshold must be set"
     );
   }
 
@@ -84,10 +90,20 @@ public class ThresholdBasedQueryPrioritizationStrategy implements QueryPrioritiz
     }).orElse(false);
     final boolean violatesDurationThreshold =
         durationThreshold.map(duration -> theQuery.getDuration().isLongerThan(duration)).orElse(false);
+    boolean violatesSegmentRangeThreshold = false;
+    if (segmentRangeThreshold.isPresent()) {
+      long segmentRange = segments.stream().filter(segment -> segment.getSegmentDescriptor() != null)
+              .map(segment -> segment.getSegmentDescriptor().getInterval())
+              .distinct()
+              .mapToLong(AbstractInterval::toDurationMillis)
+              .sum();
+      violatesSegmentRangeThreshold =
+              segmentRangeThreshold.map(duration -> new Duration(segmentRange).isLongerThan(duration)).orElse(false);
+    }
     boolean violatesSegmentThreshold = segments.size() > segmentCountThreshold;
 
-    if (violatesPeriodThreshold || violatesDurationThreshold || violatesSegmentThreshold) {
-      final int adjustedPriority = QueryContexts.getPriority(theQuery) - adjustment;
+    if (violatesPeriodThreshold || violatesDurationThreshold || violatesSegmentThreshold || violatesSegmentRangeThreshold) {
+      final int adjustedPriority = theQuery.context().getPriority() - adjustment;
       return Optional.of(adjustedPriority);
     }
     return Optional.empty();

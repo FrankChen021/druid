@@ -22,68 +22,43 @@
 .header-bar {
   overflow: hidden;
 
-  .druid-logo {
-    position: relative;
-    width: 100px;
-    height: $header-bar-height;
-    overflow: hidden;
-
-    svg {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      height: 48px;
-
-      .letter {
-        fill: $dark-gray2;
-      }
-
-      .swirl {
-        fill: $druid-brand2;
-      }
-
-      .bp3-dark & {
-        .letter {
-          fill: $white;
-        }
-
-        .swirl {
-          fill: $druid-brand;
-        }
-      }
-    }
-  }
-
   * {
     white-space: nowrap;
   }
 
-  .bp3-navbar-divider {
+  .#{$bp-ns}-navbar-divider {
     margin: 0 11px;
   }
 
-  .bp3-button.bp3-minimal {
-    border-radius: 20px;
-    margin: 0 1px;
-
-    .bp3-icon {
+  .header-entry {
+    .#{$bp-ns}-icon {
       svg {
         fill: $blue3;
 
-        .bp3-dark & {
+        .#{$bp-ns}-dark & {
           fill: $druid-brand;
         }
       }
     }
-    .bp3-dark & {
+  }
+
+  .#{$bp-ns}-button.#{$bp-ns}-minimal {
+    border-radius: 20px;
+    margin: 0 1px;
+
+    .#{$bp-ns}-dark & {
       &:hover {
         background: rgba($dark-gray5, 0.5);
       }
 
-      &.bp3-active {
+      &.#{$bp-ns}-active {
         background: rgba($dark-gray5, 0.9);
       }
     }
+  }
+
+  .#{$bp-ns}-navbar-group.#{$bp-ns}-align-right {
+    position: absolute;
+    right: 15px;
   }
 }

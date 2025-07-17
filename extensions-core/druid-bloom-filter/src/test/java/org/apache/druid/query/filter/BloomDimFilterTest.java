@@ -22,7 +22,6 @@ package org.apache.druid.query.filter;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.data.input.impl.InputRowParser;
@@ -37,13 +36,16 @@ import org.apache.druid.query.extraction.MapLookupExtractor;
 import org.apache.druid.query.extraction.TimeDimExtractionFn;
 import org.apache.druid.query.lookup.LookupExtractionFn;
 import org.apache.druid.query.lookup.LookupExtractor;
+import org.apache.druid.segment.CursorFactory;
 import org.apache.druid.segment.IndexBuilder;
-import org.apache.druid.segment.StorageAdapter;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.filter.BaseFilterTest;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -63,31 +65,25 @@ public class BloomDimFilterTest extends BaseFilterTest
       new TimeAndDimsParseSpec(
           new TimestampSpec(TIMESTAMP_COLUMN, "iso", DateTimes.of("2000")),
           new DimensionsSpec(
-              DimensionsSpec.getDefaultSchemas(ImmutableList.of("dim0", "dim1", "dim2", "dim3", "dim6")),
-              null,
-              null
+              DimensionsSpec.getDefaultSchemas(ImmutableList.of("dim0", "dim1", "dim2", "dim3", "dim6"))
           )
       )
   );
 
+  private static final RowSignature ROW_SIGNATURE = RowSignature.builder()
+                                                                .add("dim0", ColumnType.STRING)
+                                                                .add("dim1", ColumnType.STRING)
+                                                                .add("dim2", ColumnType.STRING)
+                                                                .add("dim6", ColumnType.STRING)
+                                                                .build();
+
   private static final List<InputRow> ROWS = ImmutableList.of(
-      PARSER.parseBatch(ImmutableMap.of(
-          "dim0",
-          "0",
-          "dim1",
-          "",
-          "dim2",
-          ImmutableList.of("a", "b"),
-          "dim6",
-          "2017-07-25"
-      )).get(0),
-      PARSER.parseBatch(ImmutableMap.of("dim0", "1", "dim1", "10", "dim2", ImmutableList.of(), "dim6", "2017-07-25"))
-            .get(0),
-      PARSER.parseBatch(ImmutableMap.of("dim0", "2", "dim1", "2", "dim2", ImmutableList.of(""), "dim6", "2017-05-25"))
-            .get(0),
-      PARSER.parseBatch(ImmutableMap.of("dim0", "3", "dim1", "1", "dim2", ImmutableList.of("a"))).get(0),
-      PARSER.parseBatch(ImmutableMap.of("dim0", "4", "dim1", "def", "dim2", ImmutableList.of("c"))).get(0),
-      PARSER.parseBatch(ImmutableMap.of("dim0", "5", "dim1", "abc")).get(0)
+      BaseFilterTest.makeSchemaRow(PARSER, ROW_SIGNATURE, "0", "", ImmutableList.of("a", "b"), "2017-07-25"),
+      BaseFilterTest.makeSchemaRow(PARSER, ROW_SIGNATURE, "1", "10", ImmutableList.of(), "2017-07-25"),
+      BaseFilterTest.makeSchemaRow(PARSER, ROW_SIGNATURE, "2", "2", ImmutableList.of(""), "2017-05-25"),
+      BaseFilterTest.makeSchemaRow(PARSER, ROW_SIGNATURE, "3", "1", ImmutableList.of("a")),
+      BaseFilterTest.makeSchemaRow(PARSER, ROW_SIGNATURE, "4", "def", ImmutableList.of("c")),
+      BaseFilterTest.makeSchemaRow(PARSER, ROW_SIGNATURE, "5", "abc")
   );
 
   private static DefaultObjectMapper mapper = new DefaultObjectMapper();
@@ -95,7 +91,7 @@ public class BloomDimFilterTest extends BaseFilterTest
   public BloomDimFilterTest(
       String testName,
       IndexBuilder indexBuilder,
-      Function<IndexBuilder, Pair<StorageAdapter, Closeable>> finisher,
+      Function<IndexBuilder, Pair<CursorFactory, Closeable>> finisher,
       boolean cnf,
       boolean optimize
   )
@@ -182,12 +178,8 @@ public class BloomDimFilterTest extends BaseFilterTest
   @Test
   public void testSingleValueStringColumnWithNulls() throws IOException
   {
-    if (NullHandling.replaceWithDefault()) {
-      assertFilterMatches(new BloomDimFilter("dim1", bloomKFilter(1000, (String) null), null), ImmutableList.of("0"));
-    } else {
-      assertFilterMatches(new BloomDimFilter("dim1", bloomKFilter(1000, (String) null), null), ImmutableList.of());
-      assertFilterMatches(new BloomDimFilter("dim1", bloomKFilter(1000, ""), null), ImmutableList.of("0"));
-    }
+    assertFilterMatches(new BloomDimFilter("dim1", bloomKFilter(1000, (String) null), null), ImmutableList.of());
+    assertFilterMatches(new BloomDimFilter("dim1", bloomKFilter(1000, ""), null), ImmutableList.of("0"));
     assertFilterMatches(new BloomDimFilter("dim1", bloomKFilter(1000, "10"), null), ImmutableList.of("1"));
     assertFilterMatches(new BloomDimFilter("dim1", bloomKFilter(1000, "2"), null), ImmutableList.of("2"));
     assertFilterMatches(new BloomDimFilter("dim1", bloomKFilter(1000, "1"), null), ImmutableList.of("3"));
@@ -199,22 +191,18 @@ public class BloomDimFilterTest extends BaseFilterTest
   @Test
   public void testMultiValueStringColumn() throws IOException
   {
-    if (NullHandling.replaceWithDefault()) {
-      assertFilterMatches(
-          new BloomDimFilter("dim2", bloomKFilter(1000, (String) null), null),
-          ImmutableList.of("1", "2", "5")
-      );
-    } else {
-      assertFilterMatches(
-          new BloomDimFilter("dim2", bloomKFilter(1000, (String) null), null),
-          ImmutableList.of("1", "5")
-      );
-      assertFilterMatches(new BloomDimFilter("dim2", bloomKFilter(1000, ""), null), ImmutableList.of("2"));
-    }
-    assertFilterMatches(new BloomDimFilter("dim2", bloomKFilter(1000, "a"), null), ImmutableList.of("0", "3"));
-    assertFilterMatches(new BloomDimFilter("dim2", bloomKFilter(1000, "b"), null), ImmutableList.of("0"));
-    assertFilterMatches(new BloomDimFilter("dim2", bloomKFilter(1000, "c"), null), ImmutableList.of("4"));
-    assertFilterMatches(new BloomDimFilter("dim2", bloomKFilter(1000, "d"), null), ImmutableList.of());
+    assertFilterMatchesSkipArrays(
+        new BloomDimFilter("dim2", bloomKFilter(1000, (String) null), null),
+        ImmutableList.of("1", "5")
+    );
+    assertFilterMatchesSkipArrays(
+        new BloomDimFilter("dim2", bloomKFilter(1000, ""), null),
+        ImmutableList.of("2")
+    );
+    assertFilterMatchesSkipArrays(new BloomDimFilter("dim2", bloomKFilter(1000, "a"), null), ImmutableList.of("0", "3"));
+    assertFilterMatchesSkipArrays(new BloomDimFilter("dim2", bloomKFilter(1000, "b"), null), ImmutableList.of("0"));
+    assertFilterMatchesSkipArrays(new BloomDimFilter("dim2", bloomKFilter(1000, "c"), null), ImmutableList.of("4"));
+    assertFilterMatchesSkipArrays(new BloomDimFilter("dim2", bloomKFilter(1000, "d"), null), ImmutableList.of());
   }
 
   @Test
@@ -290,8 +278,8 @@ public class BloomDimFilterTest extends BaseFilterTest
         ImmutableList.of("0", "1", "2", "5")
     );
 
-    assertFilterMatches(new BloomDimFilter("dim2", bloomKFilter(1000, "HELLO"), lookupFn), ImmutableList.of("0", "3"));
-    assertFilterMatches(
+    assertFilterMatchesSkipArrays(new BloomDimFilter("dim2", bloomKFilter(1000, "HELLO"), lookupFn), ImmutableList.of("0", "3"));
+    assertFilterMatchesSkipArrays(
         new BloomDimFilter("dim2", bloomKFilter(1000, "UNKNOWN"), lookupFn),
         ImmutableList.of("0", "1", "2", "4", "5")
     );
@@ -320,22 +308,14 @@ public class BloomDimFilterTest extends BaseFilterTest
     );
     LookupExtractor mapExtractor3 = new MapLookupExtractor(stringMap3, false);
     LookupExtractionFn lookupFn3 = new LookupExtractionFn(mapExtractor3, false, null, false, true);
-    if (NullHandling.replaceWithDefault()) {
-      // Nulls and empty strings are considered equivalent
-      assertFilterMatches(
-          new BloomDimFilter("dim0", bloomKFilter(1000, (String) null), lookupFn3),
-          ImmutableList.of("0", "1", "2", "3", "4", "5")
-      );
-    } else {
-      assertFilterMatches(
-          new BloomDimFilter("dim0", bloomKFilter(1000, (String) null), lookupFn3),
-          ImmutableList.of("0", "2", "3", "4", "5")
-      );
-      assertFilterMatches(
-          new BloomDimFilter("dim0", bloomKFilter(1000, ""), lookupFn3),
-          ImmutableList.of("1")
-      );
-    }
+    assertFilterMatches(
+        new BloomDimFilter("dim0", bloomKFilter(1000, (String) null), lookupFn3),
+        ImmutableList.of("0", "2", "3", "4", "5")
+    );
+    assertFilterMatches(
+        new BloomDimFilter("dim0", bloomKFilter(1000, ""), lookupFn3),
+        ImmutableList.of("1")
+    );
   }
 
   @Test
@@ -379,7 +359,7 @@ public class BloomDimFilterTest extends BaseFilterTest
     Assert.assertFalse(druidFilter.testString("not_match"));
   }
 
-
+  @Ignore
   @Test
   public void testFloatHiveCompat() throws IOException
   {
@@ -483,6 +463,19 @@ public class BloomDimFilterTest extends BaseFilterTest
         filter.addBytes(null, 0, 0);
       } else {
         filter.addLong(value);
+      }
+    }
+    return BloomKFilterHolder.fromBloomKFilter(filter);
+  }
+
+  private static BloomKFilterHolder bloomKFilter(int expectedEntries, byte[]... values) throws IOException
+  {
+    BloomKFilter filter = new BloomKFilter(expectedEntries);
+    for (byte[] value : values) {
+      if (value == null) {
+        filter.addBytes(null, 0, 0);
+      } else {
+        filter.addBytes(value);
       }
     }
     return BloomKFilterHolder.fromBloomKFilter(filter);

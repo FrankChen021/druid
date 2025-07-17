@@ -23,17 +23,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import org.apache.druid.client.selector.HighestPriorityTierSelectorStrategy;
-import org.apache.druid.client.selector.QueryableDruidServer;
+import org.apache.druid.client.selector.HistoricalFilter;
 import org.apache.druid.client.selector.RandomServerSelectorStrategy;
 import org.apache.druid.client.selector.ServerSelector;
 import org.apache.druid.client.selector.TierSelectorStrategy;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.query.QueryRunner;
-import org.apache.druid.query.QueryToolChestWarehouse;
+import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QueryWatcher;
 import org.apache.druid.query.TableDataSource;
-import org.apache.druid.query.planning.DataSourceAnalysis;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
 import org.apache.druid.timeline.DataSegment;
@@ -63,38 +62,26 @@ public class SimpleServerView implements TimelineServerView
   // dataSource -> version -> serverSelector
   private final Map<String, VersionedIntervalTimeline<String, ServerSelector>> timelines = new HashMap<>();
 
-  private final QueryToolChestWarehouse warehouse;
-  private final ObjectMapper objectMapper;
-  private final HttpClient httpClient;
+  private final DirectDruidClientFactory clientFactory;
 
   public SimpleServerView(
-      QueryToolChestWarehouse warehouse,
+      QueryRunnerFactoryConglomerate conglomerate,
       ObjectMapper objectMapper,
       HttpClient httpClient
   )
   {
-    this.warehouse = warehouse;
-    this.objectMapper = objectMapper;
-    this.httpClient = httpClient;
+    this.clientFactory = new DirectDruidClientFactory(
+        new NoopServiceEmitter(),
+        conglomerate,
+        NOOP_QUERY_WATCHER,
+        objectMapper,
+        httpClient
+    );
   }
 
   public void addServer(DruidServer server, DataSegment dataSegment)
   {
-    servers.put(
-        server,
-        new QueryableDruidServer<>(
-            server,
-            new DirectDruidClient<>(
-                warehouse,
-                NOOP_QUERY_WATCHER,
-                objectMapper,
-                httpClient,
-                server.getScheme(),
-                server.getHost(),
-                new NoopServiceEmitter()
-            )
-        )
-    );
+    servers.put(server, new QueryableDruidServer(server, clientFactory.makeDirectClient(server)));
     addSegmentToServer(server, dataSegment);
   }
 
@@ -127,20 +114,17 @@ public class SimpleServerView implements TimelineServerView
   {
     final ServerSelector selector = selectors.computeIfAbsent(
         segment.getId().toString(),
-        k -> new ServerSelector(segment, tierSelectorStrategy)
+        k -> new ServerSelector(segment, tierSelectorStrategy, HistoricalFilter.IDENTITY_FILTER)
     );
     selector.addServerAndUpdateSegment(servers.get(server), segment);
-    timelines.computeIfAbsent(segment.getDataSource(), k -> new VersionedIntervalTimeline<>(Ordering.natural()))
+    // broker needs to skip tombstones in its timelines
+    timelines.computeIfAbsent(segment.getDataSource(), k -> new VersionedIntervalTimeline<>(Ordering.natural(), true))
              .add(segment.getInterval(), segment.getVersion(), segment.getShardSpec().createChunk(selector));
   }
 
   @Override
-  public Optional<? extends TimelineLookup<String, ServerSelector>> getTimeline(DataSourceAnalysis analysis)
+  public Optional<? extends TimelineLookup<String, ServerSelector>> getTimeline(TableDataSource table)
   {
-    final TableDataSource table =
-        analysis.getBaseTableDataSource()
-                .orElseThrow(() -> new ISE("Cannot handle datasource: %s", analysis.getDataSource()));
-
     return Optional.ofNullable(timelines.get(table.getName()));
   }
 
@@ -150,6 +134,7 @@ public class SimpleServerView implements TimelineServerView
     return Collections.emptyList();
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public <T> QueryRunner<T> getQueryRunner(DruidServer server)
   {
@@ -164,7 +149,7 @@ public class SimpleServerView implements TimelineServerView
   }
 
   @Override
-  public void registerServerRemovedCallback(Executor exec, ServerRemovedCallback callback)
+  public void registerServerCallback(Executor exec, ServerCallback callback)
   {
     // do nothing
   }

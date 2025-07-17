@@ -29,6 +29,7 @@ import org.apache.druid.data.input.impl.StringDimensionSchema;
 import org.apache.druid.data.input.impl.StringInputRowParser;
 import org.apache.druid.data.input.impl.TimeAndDimsParseSpec;
 import org.apache.druid.data.input.impl.TimestampSpec;
+import org.apache.druid.indexer.granularity.UniformGranularitySpec;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
@@ -37,7 +38,6 @@ import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFactory;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.apache.druid.segment.indexing.granularity.UniformGranularitySpec;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -64,30 +64,33 @@ public class IndexGeneratorCombinerTest
   {
     HadoopDruidIndexerConfig config = new HadoopDruidIndexerConfig(
         new HadoopIngestionSpec(
-            new DataSchema(
-                "website",
-                HadoopDruidIndexerConfig.JSON_MAPPER.convertValue(
-                    new StringInputRowParser(
-                        new TimeAndDimsParseSpec(
-                            new TimestampSpec("timestamp", "yyyyMMddHH", null),
-                            new DimensionsSpec(DimensionsSpec.getDefaultSchemas(ImmutableList.of("host", "keywords")), null, null)
-                        ),
-                        null
-                    ),
-                    Map.class
-                ),
-                new AggregatorFactory[]{
-                    new LongSumAggregatorFactory("visited_sum", "visited"),
-                    new HyperUniquesAggregatorFactory("unique_hosts", "host")
-                },
-                new UniformGranularitySpec(
-                    Granularities.DAY,
-                    Granularities.NONE,
-                    ImmutableList.of(Intervals.of("2010/2011"))
-                ),
-                null,
-                HadoopDruidIndexerConfig.JSON_MAPPER
-            ),
+            DataSchema.builder()
+                      .withDataSource("website")
+                      .withParserMap(
+                          HadoopDruidIndexerConfig.JSON_MAPPER.convertValue(
+                              new StringInputRowParser(
+                                  new TimeAndDimsParseSpec(
+                                      new TimestampSpec("timestamp", "yyyyMMddHH", null),
+                                      new DimensionsSpec(DimensionsSpec.getDefaultSchemas(ImmutableList.of("host", "keywords")))
+                                  ),
+                                  null
+                              ),
+                              Map.class
+                          )
+                      )
+                      .withAggregators(
+                          new LongSumAggregatorFactory("visited_sum", "visited"),
+                          new HyperUniquesAggregatorFactory("unique_hosts", "host")
+                      )
+                      .withGranularity(
+                          new UniformGranularitySpec(
+                              Granularities.DAY,
+                              Granularities.NONE,
+                              ImmutableList.of(Intervals.of("2010/2011"))
+                          )
+                      )
+                      .withObjectMapper(HadoopDruidIndexerConfig.JSON_MAPPER)
+                      .build(),
             new HadoopIOConfig(
                 ImmutableMap.of(
                     "paths",
@@ -151,9 +154,7 @@ public class IndexGeneratorCombinerTest
         Arrays.asList(
             new StringDimensionSchema("host"),
             new StringDimensionSchema("keywords")
-        ),
-        null,
-        null
+        )
     );
 
     Map<String, InputRowSerde.IndexSerdeTypeHelper> typeHelperMap = InputRowSerde.getTypeHelperMap(dimensionsSpec);
@@ -247,9 +248,7 @@ public class IndexGeneratorCombinerTest
         Arrays.asList(
             new StringDimensionSchema("host"),
             new StringDimensionSchema("keywords")
-        ),
-        null,
-        null
+        )
     );
 
     Map<String, InputRowSerde.IndexSerdeTypeHelper> typeHelperMap = InputRowSerde.getTypeHelperMap(dimensionsSpec);

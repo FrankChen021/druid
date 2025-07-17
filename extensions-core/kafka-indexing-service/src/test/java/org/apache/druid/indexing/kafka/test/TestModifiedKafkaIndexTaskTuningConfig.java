@@ -29,7 +29,6 @@ import org.apache.druid.segment.writeout.SegmentWriteOutMediumFactory;
 import org.joda.time.Period;
 
 import javax.annotation.Nullable;
-import java.io.File;
 
 @JsonTypeName("KafkaTuningConfig")
 public class TestModifiedKafkaIndexTaskTuningConfig extends KafkaIndexTaskTuningConfig
@@ -45,7 +44,6 @@ public class TestModifiedKafkaIndexTaskTuningConfig extends KafkaIndexTaskTuning
       @JsonProperty("maxRowsPerSegment") @Nullable Integer maxRowsPerSegment,
       @JsonProperty("maxTotalRows") @Nullable Long maxTotalRows,
       @JsonProperty("intermediatePersistPeriod") @Nullable Period intermediatePersistPeriod,
-      @JsonProperty("basePersistDirectory") @Nullable File basePersistDirectory,
       @JsonProperty("maxPendingPersists") @Nullable Integer maxPendingPersists,
       @JsonProperty("indexSpec") @Nullable IndexSpec indexSpec,
       @JsonProperty("indexSpecForIntermediatePersists") @Nullable IndexSpec indexSpecForIntermediatePersists,
@@ -57,6 +55,8 @@ public class TestModifiedKafkaIndexTaskTuningConfig extends KafkaIndexTaskTuning
       @JsonProperty("logParseExceptions") @Nullable Boolean logParseExceptions,
       @JsonProperty("maxParseExceptions") @Nullable Integer maxParseExceptions,
       @JsonProperty("maxSavedParseExceptions") @Nullable Integer maxSavedParseExceptions,
+      @JsonProperty("numPersistThreads") @Nullable Integer numPersistThreads,
+      @JsonProperty("maxColumnsToMerge") @Nullable Integer maxColumnsToMerge,
       @JsonProperty("extra") String extra
   )
   {
@@ -68,7 +68,7 @@ public class TestModifiedKafkaIndexTaskTuningConfig extends KafkaIndexTaskTuning
         maxRowsPerSegment,
         maxTotalRows,
         intermediatePersistPeriod,
-        basePersistDirectory,
+        null,
         maxPendingPersists,
         indexSpec,
         indexSpecForIntermediatePersists,
@@ -79,7 +79,9 @@ public class TestModifiedKafkaIndexTaskTuningConfig extends KafkaIndexTaskTuning
         intermediateHandoffPeriod,
         logParseExceptions,
         maxParseExceptions,
-        maxSavedParseExceptions
+        maxSavedParseExceptions,
+        numPersistThreads,
+        maxColumnsToMerge
     );
     this.extra = extra;
   }

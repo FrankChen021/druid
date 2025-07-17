@@ -16,10 +16,11 @@
  * limitations under the License.
  */
 
-import { Button, InputGroup, Intent, Position } from '@blueprintjs/core';
-import { DateRange, DateRangePicker, TimePrecision } from '@blueprintjs/datetime';
+import type { Intent } from '@blueprintjs/core';
+import { Button, InputGroup, Popover, Position } from '@blueprintjs/core';
+import type { DateRange } from '@blueprintjs/datetime';
+import { DateRangePicker3 } from '@blueprintjs/datetime2';
 import { IconNames } from '@blueprintjs/icons';
-import { Popover2 } from '@blueprintjs/popover2';
 import React from 'react';
 
 import { intervalToLocalDateRange, localDateRangeToInterval } from '../../utils';
@@ -40,27 +41,28 @@ export const IntervalInput = React.memo(function IntervalInput(props: IntervalIn
       placeholder={placeholder}
       rightElement={
         <div>
-          <Popover2
+          <Popover
             popoverClassName="calendar"
             content={
-              <DateRangePicker
-                timePrecision={TimePrecision.SECOND}
+              <DateRangePicker3
                 value={intervalToLocalDateRange(interval)}
                 contiguousCalendarMonths={false}
                 reverseMonthAndYearMenus
                 onChange={(selectedRange: DateRange) => {
                   onValueChange(localDateRangeToInterval(selectedRange));
                 }}
+                timePickerProps={undefined}
+                shortcuts={false}
               />
             }
             position={Position.BOTTOM_RIGHT}
           >
             <Button rightIcon={IconNames.CALENDAR} />
-          </Popover2>
+          </Popover>
         </div>
       }
       onChange={(e: any) => {
-        const value = e.target.value.replace(/[^\-0-9T:/]/g, '').substring(0, 39);
+        const value = e.target.value.replace(/[^\-\dT:/]/g, '').substring(0, 39);
         onValueChange(value);
       }}
       intent={intent}

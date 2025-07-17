@@ -43,6 +43,10 @@ public class DoubleMeanAggregator implements Aggregator
   {
     Object update = selector.getObject();
 
+    if (update == null) {
+      return;
+    }
+
     if (update instanceof DoubleMeanHolder) {
       value.update((DoubleMeanHolder) update);
     } else if (update instanceof List) {

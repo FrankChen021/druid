@@ -19,7 +19,7 @@
 
 # Apache Druid web console
 
-This is the Druid web console that servers as a data management interface for Druid.
+This is the Druid web console that serves as a data management interface for Druid.
 
 ## Developing the console
 
@@ -27,11 +27,11 @@ This is the Druid web console that servers as a data management interface for Dr
 
 1. You need to be within the `web-console` directory
 2. Install the modules with `npm install`
-3. Run `npm run compile` to compile the scss files (this usually needs to be done only once)
-4. Run `npm start` will start in development mode and will proxy druid requests to `localhost:8888`
+3. Run `npm run compile` to compile the SCSS files (this usually needs to be done only once)
+4. Run `npm start` to start in development mode and proxy Druid requests to `localhost:8888`
 
 **Note:** you can provide an environment variable to proxy to a different Druid host like so: `druid_host=1.2.3.4:8888 npm start`
-**Note:** you can provide an environment variable use webpack-bundle-analyzer as a plugin in the build script or like so: `BUNDLE_ANALYZER_PLUGIN='TRUE' npm start`
+**Note:** you can provide an environment variable to use webpack-bundle-analyzer as a plugin in the build script like so: `BUNDLE_ANALYZER_PLUGIN='TRUE' npm start`
 
 To try the console in (say) coordinator mode you could run it as such:
 
@@ -46,6 +46,7 @@ The console relies on [eslint](https://eslint.org) (and various plugins), [sass-
 #### Configuring WebStorm
 
 - **Preferences | Languages & Frameworks | JavaScript | Code Quality Tools | ESLint**
+
   - Select "Automatic ESLint Configuration"
   - Check "Run eslint --fix on save"
 
@@ -55,9 +56,11 @@ The console relies on [eslint](https://eslint.org) (and various plugins), [sass-
   - Check "On save"
 
 #### Configuring VS Code
+
 - Install `dbaeumer.vscode-eslint` extension
 - Install `esbenp.prettier-vscode` extension
-- Open User Settings (JSON) and set the following:
+- Select `Open User Settings (JSON)` from the editor commands (`Ctrl+Shift+P` or `Command+Shift+P`) and set the following:
+
   ```json
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true,
@@ -67,10 +70,11 @@ The console relies on [eslint](https://eslint.org) (and various plugins), [sass-
   ```
 
 #### Auto-fixing manually
+
 It is also possible to auto-fix and format code without making IDE changes by running the following script:
 
 - `npm run autofix` &mdash; run code linters and formatter
-  
+
 You could also run fixers individually:
 
 - `npm run eslint-fix` &mdash; run code linter and fix issues
@@ -79,7 +83,7 @@ You could also run fixers individually:
 
 ### Updating the list of license files
 
-If you change the dependencies of the console in any way please run `script/licenses` (from the web-console directory).
+If you change the dependencies of the console in any way, please run `script/licenses` (from the web-console directory).
 It will analyze the changes and update the `../licenses` file as needed.
 
 Please be conscious of not introducing dependencies on packages with Apache incompatible licenses.
@@ -115,13 +119,20 @@ The environment variable `DRUID_E2E_TEST_UNIFIED_CONSOLE_PORT` can be used to ta
 non-default port (i.e., not port `8888`). For example, this environment variable can be used to target the
 development mode of the web console (started via `npm start`), which runs on port `18081`.
 
+Like so: `DRUID_E2E_TEST_UNIFIED_CONSOLE_PORT=18081 npm run test-e2e`
+
+#### Running and debugging a single e2e test using Jest and Playwright
+
+- Run - `jest --config jest.e2e.config.js e2e-tests/tutorial-batch.spec.ts`
+- Debug - `PWDEBUG=console jest --config jest.e2e.config.js e2e-tests/tutorial-batch.spec.ts`
+
 ## Description of the directory structure
 
 As part of this directory:
 
 - `assets/` - The images (and other assets) used within the console
 - `e2e-tests/` - End-to-end tests for the console
-- `lib/` - A place where some overrides to the react-table stylus files live, this is outside of the normal SCSS build system.
+- `lib/` - A place where keywords and generated docs live.
 - `public/` - The compiled destination for the files powering this console
 - `script/` - Some helper bash scripts for running this console
 - `src/` - This directory (together with `lib`) constitutes all the source code for this console

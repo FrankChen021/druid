@@ -17,7 +17,6 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
 import { JSON_STRING_FORMATTER } from '../../utils';
 
@@ -39,6 +38,20 @@ describe('FormattedInput', () => {
         value={`Here are some chars \t\r\n lol`}
         onValueChange={() => {}}
         formatter={JSON_STRING_FORMATTER}
+      />
+    );
+
+    const { container } = render(suggestibleInput);
+    expect(container.firstChild).toMatchSnapshot();
+  });
+
+  it('matches works with multiline', () => {
+    const suggestibleInput = (
+      <FormattedInput
+        value={`Here are some chars \t\r\n lol`}
+        onValueChange={() => {}}
+        formatter={JSON_STRING_FORMATTER}
+        multiline
       />
     );
 

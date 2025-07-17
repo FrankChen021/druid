@@ -19,21 +19,40 @@
 
 package org.apache.druid.server.metrics;
 
+import org.apache.druid.collections.BlockingPool;
+import org.apache.druid.collections.DefaultBlockingPool;
 import org.apache.druid.java.util.metrics.StubServiceEmitter;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class QueryCountStatsMonitorTest
 {
   private QueryCountStatsProvider queryCountStatsProvider;
+  private BlockingPool<ByteBuffer> mergeBufferPool;
+  private MonitorsConfig monitorsConfig;
+  private ExecutorService executorService;
 
   @Before
   public void setUp()
   {
+    monitorsConfig = new MonitorsConfig(
+        new ArrayList<>(
+            Arrays.asList(
+                GroupByStatsMonitor.class.getName(),
+                QueryCountStatsMonitor.class.getName()
+            )
+        )
+    );
+
     queryCountStatsProvider = new QueryCountStatsProvider()
     {
       private long successEmitCount = 0;
@@ -69,28 +88,54 @@ public class QueryCountStatsMonitorTest
         return timedOutEmitCount;
       }
     };
+
+    mergeBufferPool = new DefaultBlockingPool(() -> ByteBuffer.allocate(1024), 5);
+    executorService = Executors.newSingleThreadExecutor();
+  }
+
+  @After
+  public void tearDown()
+  {
+    executorService.shutdown();
   }
 
   @Test
   public void testMonitor()
   {
-    final QueryCountStatsMonitor monitor = new QueryCountStatsMonitor(queryCountStatsProvider);
+    final QueryCountStatsMonitor monitor =
+        new QueryCountStatsMonitor(queryCountStatsProvider, monitorsConfig, mergeBufferPool);
     final StubServiceEmitter emitter = new StubServiceEmitter("service", "host");
     monitor.doMonitor(emitter);
+    emitter.flush();
     // Trigger metric emission
     monitor.doMonitor(emitter);
-    Map<String, Long> resultMap = emitter.getEvents()
-                                         .stream()
-                                         .collect(Collectors.toMap(
-                                             event -> (String) event.toMap().get("metric"),
-                                             event -> (Long) event.toMap().get("value")
-                                         ));
-    Assert.assertEquals(5, resultMap.size());
-    Assert.assertEquals(1L, (long) resultMap.get("query/success/count"));
-    Assert.assertEquals(2L, (long) resultMap.get("query/failed/count"));
-    Assert.assertEquals(3L, (long) resultMap.get("query/interrupted/count"));
-    Assert.assertEquals(4L, (long) resultMap.get("query/timeout/count"));
-    Assert.assertEquals(10L, (long) resultMap.get("query/count"));
+    Assert.assertEquals(5, emitter.getNumEmittedEvents());
+    emitter.verifyValue("query/success/count", 1L);
+    emitter.verifyValue("query/failed/count", 2L);
+    emitter.verifyValue("query/interrupted/count", 3L);
+    emitter.verifyValue("query/timeout/count", 4L);
+    emitter.verifyValue("query/count", 10L);
+  }
 
+  @Test
+  public void testMonitor_emitPendingRequests()
+  {
+    monitorsConfig = new MonitorsConfig(Collections.singletonList(QueryCountStatsMonitor.class.getName()));
+
+    final QueryCountStatsMonitor monitor =
+        new QueryCountStatsMonitor(queryCountStatsProvider, monitorsConfig, mergeBufferPool);
+    final StubServiceEmitter emitter = new StubServiceEmitter("service", "host");
+    monitor.doMonitor(emitter);
+    emitter.flush();
+    // Trigger metric emission
+    monitor.doMonitor(emitter);
+
+    Assert.assertEquals(6, emitter.getNumEmittedEvents());
+    emitter.verifyValue("mergeBuffer/pendingRequests", 0L);
+    emitter.verifyValue("query/success/count", 1L);
+    emitter.verifyValue("query/failed/count", 2L);
+    emitter.verifyValue("query/interrupted/count", 3L);
+    emitter.verifyValue("query/timeout/count", 4L);
+    emitter.verifyValue("query/count", 10L);
   }
 }

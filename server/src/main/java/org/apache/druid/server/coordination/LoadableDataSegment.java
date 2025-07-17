@@ -19,7 +19,6 @@
 
 package org.apache.druid.server.coordination;
 
-import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -48,19 +47,13 @@ public class LoadableDataSegment extends DataSegment
       @JsonProperty("version") String version,
       // use `Map` *NOT* `LoadSpec` because we want to do lazy materialization to prevent dependency pollution
       @JsonProperty("loadSpec") @Nullable Map<String, Object> loadSpec,
-      @JsonProperty("dimensions")
-      @JsonDeserialize(using = CommaListJoinDeserializer.class)
-      @Nullable
-      List<String> dimensions,
-      @JsonProperty("metrics")
-      @JsonDeserialize(using = CommaListJoinDeserializer.class)
-      @Nullable
-      List<String> metrics,
+      @JsonProperty("dimensions") @JsonDeserialize(using = CommaListJoinDeserializer.class) @Nullable List<String> dimensions,
+      @JsonProperty("metrics") @JsonDeserialize(using = CommaListJoinDeserializer.class) @Nullable List<String> metrics,
+      @JsonProperty("projections") @JsonDeserialize(using = CommaListJoinDeserializer.class) @Nullable List<String> projections,
       @JsonProperty("shardSpec") @Nullable ShardSpec shardSpec,
       @JsonProperty("lastCompactionState") @Nullable CompactionState lastCompactionState,
       @JsonProperty("binaryVersion") Integer binaryVersion,
-      @JsonProperty("size") long size,
-      @JacksonInject PruneSpecsHolder pruneSpecsHolder
+      @JsonProperty("size") long size
   )
   {
     super(
@@ -70,6 +63,7 @@ public class LoadableDataSegment extends DataSegment
         loadSpec,
         dimensions,
         metrics,
+        projections,
         shardSpec,
         lastCompactionState,
         binaryVersion,

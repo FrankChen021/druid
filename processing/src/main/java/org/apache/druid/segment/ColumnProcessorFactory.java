@@ -20,7 +20,10 @@
 package org.apache.druid.segment;
 
 import org.apache.druid.query.dimension.ColumnSelectorStrategyFactory;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnCapabilities;
+import org.apache.druid.segment.column.ColumnType;
+
+import javax.annotation.Nullable;
 
 /**
  * Class that encapsulates knowledge about how to create "column processors", which are... objects that process columns
@@ -45,7 +48,7 @@ public interface ColumnProcessorFactory<T>
    * This allows a column processor factory to specify what type it prefers to deal with (the most 'natural' type for
    * whatever it is doing) when all else is equal.
    */
-  ValueType defaultType();
+  ColumnType defaultType();
 
   /**
    * Create a processor for a string column.
@@ -75,6 +78,14 @@ public interface ColumnProcessorFactory<T>
    * @param selector long selector
    */
   T makeLongProcessor(BaseLongColumnValueSelector selector);
+
+  /**
+   *
+   * @param selector            array selector
+   * @param columnCapabilities  information about the underlying column to match. Null here just means the capabilities
+   *                            are unknown, and not necessarily indicative that the column doesn't exist
+   */
+  T makeArrayProcessor(BaseObjectColumnValueSelector<?> selector, @Nullable ColumnCapabilities columnCapabilities);
 
   /**
    * Create a processor for a complex column.

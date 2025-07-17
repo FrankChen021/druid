@@ -35,8 +35,8 @@ import org.apache.druid.query.aggregation.DoubleMaxAggregatorFactory;
 import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFactory;
 import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.segment.CursorFactory;
 import org.apache.druid.segment.IndexBuilder;
-import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.junit.AfterClass;
 import org.junit.Test;
@@ -56,11 +56,7 @@ public class InvalidFilteringTest extends BaseFilterTest
   private static final InputRowParser<Map<String, Object>> PARSER = new MapInputRowParser(
       new TimeAndDimsParseSpec(
           new TimestampSpec(TIMESTAMP_COLUMN, "millis", DateTimes.of("2000")),
-          new DimensionsSpec(
-              DimensionsSpec.getDefaultSchemas(ImmutableList.of("dim0", "dim1", "dim2", "dim3")),
-              null,
-              null
-          )
+          new DimensionsSpec(DimensionsSpec.getDefaultSchemas(ImmutableList.of("dim0", "dim1", "dim2", "dim3")))
       )
   );
 
@@ -83,7 +79,7 @@ public class InvalidFilteringTest extends BaseFilterTest
   public InvalidFilteringTest(
       String testName,
       IndexBuilder indexBuilder,
-      Function<IndexBuilder, Pair<StorageAdapter, Closeable>> finisher,
+      Function<IndexBuilder, Pair<CursorFactory, Closeable>> finisher,
       boolean cnf,
       boolean optimize
   )

@@ -21,7 +21,6 @@ package org.apache.druid.benchmark.indexing;
 
 import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.FileUtils;
 import org.apache.druid.java.util.common.logger.Logger;
@@ -31,6 +30,7 @@ import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.IndexMergerV9;
 import org.apache.druid.segment.IndexSpec;
 import org.apache.druid.segment.QueryableIndex;
+import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.generator.DataGenerator;
 import org.apache.druid.segment.generator.GeneratorBasicSchemas;
 import org.apache.druid.segment.generator.GeneratorSchemaInfo;
@@ -91,10 +91,6 @@ public class IndexMergeBenchmark
   private static final IndexIO INDEX_IO;
   public static final ObjectMapper JSON_MAPPER;
 
-  static {
-    NullHandling.initializeForTests();
-  }
-
   private List<QueryableIndex> indexesToMerge;
   private GeneratorSchemaInfo schemaInfo;
   private File tmpDir;
@@ -105,10 +101,7 @@ public class IndexMergeBenchmark
     InjectableValues.Std injectableValues = new InjectableValues.Std();
     injectableValues.addValue(ExprMacroTable.class, ExprMacroTable.nil());
     JSON_MAPPER.setInjectableValues(injectableValues);
-    INDEX_IO = new IndexIO(
-        JSON_MAPPER,
-        () -> 0
-    );
+    INDEX_IO = new IndexIO(JSON_MAPPER, ColumnConfig.DEFAULT);
   }
 
   @Setup
@@ -117,7 +110,7 @@ public class IndexMergeBenchmark
 
     log.info("SETUP CALLED AT " + System.currentTimeMillis());
     indexMergerV9 = new IndexMergerV9(JSON_MAPPER, INDEX_IO, getSegmentWriteOutMediumFactory(factoryType));
-    ComplexMetrics.registerSerde("hyperUnique", new HyperUniquesSerde());
+    ComplexMetrics.registerSerde(HyperUniquesSerde.TYPE_NAME, new HyperUniquesSerde());
 
     indexesToMerge = new ArrayList<>();
 
@@ -131,7 +124,7 @@ public class IndexMergeBenchmark
           rowsPerSegment
       );
 
-      IncrementalIndex<?> incIndex = makeIncIndex();
+      IncrementalIndex incIndex = makeIncIndex();
 
       gen.addToIndex(incIndex, rowsPerSegment);
 
@@ -141,7 +134,7 @@ public class IndexMergeBenchmark
       File indexFile = indexMergerV9.persist(
           incIndex,
           tmpDir,
-          new IndexSpec(),
+          IndexSpec.DEFAULT,
           null
       );
 
@@ -157,7 +150,7 @@ public class IndexMergeBenchmark
   {
     File tmpFile = File.createTempFile("IndexMergeBenchmark-MERGEDFILE-V9-" + System.currentTimeMillis(), ".TEMPFILE");
     tmpFile.delete();
-    tmpFile.mkdirs();
+    FileUtils.mkdirp(tmpFile);
     try {
       log.info(tmpFile.getAbsolutePath() + " isFile: " + tmpFile.isFile() + " isDir:" + tmpFile.isDirectory());
 
@@ -166,7 +159,7 @@ public class IndexMergeBenchmark
           rollup,
           schemaInfo.getAggsArray(),
           tmpFile,
-          new IndexSpec(),
+          IndexSpec.DEFAULT,
           null,
           -1
       );

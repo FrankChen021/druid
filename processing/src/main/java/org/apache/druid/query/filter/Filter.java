@@ -23,13 +23,13 @@ import org.apache.druid.annotations.SubclassesMustOverrideEqualsAndHashCode;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.query.BitmapResultFactory;
-import org.apache.druid.query.DefaultBitmapResultFactory;
 import org.apache.druid.query.filter.vector.VectorValueMatcher;
 import org.apache.druid.segment.ColumnInspector;
-import org.apache.druid.segment.ColumnSelector;
 import org.apache.druid.segment.ColumnSelectorFactory;
+import org.apache.druid.segment.index.BitmapColumnIndex;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 
+import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,67 +37,105 @@ import java.util.Set;
 public interface Filter
 {
   /**
-   * Get a bitmap index, indicating rows that match this filter. Do not call this method unless
-   * {@link #supportsBitmapIndex(BitmapIndexSelector)} returns true. Behavior in the case that
-   * {@link #supportsBitmapIndex(BitmapIndexSelector)} returns false is undefined.
+   * Compute indexes and build a container {@link FilterBundle} to be used during
+   * {@link org.apache.druid.segment.Cursor} or {@link org.apache.druid.segment.vector.VectorCursor} creation, combining
+   * the computed outputs of {@link #getBitmapColumnIndex(ColumnIndexSelector)} as well as references to
+   * {@link #makeMatcher(ColumnSelectorFactory)} and {@link #makeVectorMatcher(VectorColumnSelectorFactory)}.
+   * <p>
+   * Filters populating the {@link FilterBundle} container should only set the values which MUST be evaluated by the
+   * cursor. If both are set, the cursor will effectively perform a logical AND to combine them.
+   * See {@link FilterBundle} for additional details.
    *
-   * This method is OK to be called, but generally should not be overridden, override {@link #getBitmapResult} instead.
-   *
-   * @param selector Object used to retrieve bitmap indexes
-   *
-   * @return A bitmap indicating rows that match this filter.
-   *
-   * @see Filter#estimateSelectivity(BitmapIndexSelector)
+   * @param filterBundleBuilder contains {@link BitmapColumnIndex} and {@link ColumnIndexSelector}, and some additional
+   *                            info needed.
+   * @param bitmapResultFactory wrapper for {@link ImmutableBitmap} operations to tie into
+   *                            {@link org.apache.druid.query.QueryMetrics} and build the output indexes
+   * @param applyRowCount       upper bound on number of rows this filter would be applied to, after removing rows
+   *                            short-circuited by prior bundle operations. For example, given "x AND y", if "x" is
+   *                            resolved using an index, then "y" will receive the number of rows that matched
+   *                            the filter "x". As another example, given "x OR y", if "x" is resolved using an
+   *                            index, then "y" will receive the number of rows that did *not* match the filter "x".
+   * @param totalRowCount       total number of rows to be scanned if no indexes are applied
+   * @param includeUnknown      mapping for Druid native two state logic system into SQL three-state logic system. If
+   *                            set to true, bitmaps returned by this method should include true bits for any rows
+   *                            where the matching result is 'unknown', such as from the input being null valued.
+   * @param <T>                 type of {@link BitmapResultFactory} results, {@link ImmutableBitmap} by default
+   * @return {@link FilterBundle} containing any indexes and/or matchers that are needed to build
+   * a cursor
    */
-  default ImmutableBitmap getBitmapIndex(BitmapIndexSelector selector)
+  default <T> FilterBundle makeFilterBundle(
+      FilterBundle.Builder filterBundleBuilder,
+      BitmapResultFactory<T> bitmapResultFactory,
+      int applyRowCount,
+      int totalRowCount,
+      boolean includeUnknown
+  )
   {
-    return getBitmapResult(selector, new DefaultBitmapResultFactory(selector.getBitmapFactory()));
+    final FilterBundle.IndexBundle indexBundle;
+    final boolean needMatcher;
+    final BitmapColumnIndex columnIndex = filterBundleBuilder.getBitmapColumnIndex();
+    if (columnIndex != null) {
+      final long bitmapConstructionStartNs = System.nanoTime();
+      final T result = columnIndex.computeBitmapResult(
+          bitmapResultFactory,
+          applyRowCount,
+          totalRowCount,
+          includeUnknown
+      );
+      final long totalConstructionTimeNs = System.nanoTime() - bitmapConstructionStartNs;
+      if (result == null) {
+        indexBundle = null;
+      } else {
+        final ImmutableBitmap bitmap = bitmapResultFactory.toImmutableBitmap(result);
+        indexBundle = new FilterBundle.SimpleIndexBundle(
+            new FilterBundle.IndexBundleInfo(this::toString, bitmap.size(), totalConstructionTimeNs, null),
+            bitmap,
+            columnIndex.getIndexCapabilities()
+        );
+      }
+      needMatcher = result == null || !columnIndex.getIndexCapabilities().isExact();
+    } else {
+      indexBundle = null;
+      needMatcher = true;
+    }
+    final FilterBundle.SimpleMatcherBundle matcherBundle;
+    if (needMatcher) {
+      matcherBundle = new FilterBundle.SimpleMatcherBundle(
+          new FilterBundle.MatcherBundleInfo(this::toString, null, null),
+          this::makeMatcher,
+          this::makeVectorMatcher,
+          this.canVectorizeMatcher(filterBundleBuilder.getColumnIndexSelector())
+      );
+    } else {
+      matcherBundle = null;
+    }
+    return new FilterBundle(indexBundle, matcherBundle);
   }
 
   /**
-   * Get a (possibly wrapped) bitmap index, indicating rows that match this filter. Do not call this method unless
-   * {@link #supportsBitmapIndex(BitmapIndexSelector)} returns true. Behavior in the case that
-   * {@link #supportsBitmapIndex(BitmapIndexSelector)} returns false is undefined.
+   * Returns a {@link BitmapColumnIndex} if this filter supports using a bitmap index for filtering for the given input
+   * {@link ColumnIndexSelector}. The {@link BitmapColumnIndex} can be used to compute into a bitmap indicating rows
+   * that match this filter result {@link BitmapColumnIndex#computeBitmapResult(BitmapResultFactory, boolean)}, or
+   * examine details about the index prior to computing it, via {@link BitmapColumnIndex#getIndexCapabilities()}.
    *
-   * @param selector Object used to retrieve bitmap indexes
-   *
-   * @return A bitmap indicating rows that match this filter.
-   *
-   * @see Filter#estimateSelectivity(BitmapIndexSelector)
+   * @param selector Object used to create BitmapColumnIndex
+   * @return BitmapColumnIndex that can build ImmutableBitmap of matched row numbers
    */
-  <T> T getBitmapResult(BitmapIndexSelector selector, BitmapResultFactory<T> bitmapResultFactory);
+  @Nullable
+  BitmapColumnIndex getBitmapColumnIndex(ColumnIndexSelector selector);
 
   /**
-   * Estimate selectivity of this filter.
-   * This method can be used for cost-based query planning like in {@link org.apache.druid.query.search.AutoStrategy}.
-   * To avoid significant performance degradation for calculating the exact cost,
-   * implementation of this method targets to achieve rapid selectivity estimation
-   * with reasonable sacrifice of the accuracy.
-   * As a result, the estimated selectivity might be different from the exact value.
-   *
-   * @param indexSelector Object used to retrieve bitmap indexes
-   *
-   * @return an estimated selectivity ranging from 0 (filter selects no rows) to 1 (filter selects all rows).
-   *
-   * @see Filter#getBitmapIndex(BitmapIndexSelector)
-   */
-  double estimateSelectivity(BitmapIndexSelector indexSelector);
-
-
-  /**
-   * Get a ValueMatcher that applies this filter to row values.
+   * Get a {@link ValueMatcher} that applies this filter to row values.
    *
    * @param factory Object used to create ValueMatchers
-   *
    * @return ValueMatcher that applies this filter to row values.
    */
   ValueMatcher makeMatcher(ColumnSelectorFactory factory);
 
   /**
-   * Get a VectorValueMatcher that applies this filter to row vectors.
+   * Get a {@link VectorValueMatcher} that applies this filter to row vectors.
    *
    * @param factory Object used to create ValueMatchers
-   *
    * @return VectorValueMatcher that applies this filter to row vectors.
    */
   default VectorValueMatcher makeVectorMatcher(VectorColumnSelectorFactory factory)
@@ -106,55 +144,8 @@ public interface Filter
   }
 
   /**
-   * Indicates whether this filter can return a bitmap index for filtering, based on the information provided by the
-   * input {@link BitmapIndexSelector}.
-   *
-   * Returning a value of true here guarantees that {@link #getBitmapIndex(BitmapIndexSelector)} will return a non-null
-   * {@link BitmapIndexSelector}, and also that all columns specified in {@link #getRequiredColumns()} have a bitmap
-   * index retrievable via {@link BitmapIndexSelector#getBitmapIndex(String)}.
-   *
-   * @param selector Object used to retrieve bitmap indexes
-   *
-   * @return true if this Filter can provide a bitmap index using the selector, false otherwise.
-   */
-  boolean supportsBitmapIndex(BitmapIndexSelector selector);
-
-  /**
-   * Determine if a filter *should* use a bitmap index based on information collected from the supplied
-   * {@link BitmapIndexSelector}. This method differs from {@link #supportsBitmapIndex(BitmapIndexSelector)} in that
-   * the former only indicates if a bitmap index is available and {@link #getBitmapIndex(BitmapIndexSelector)} may be
-   * used.
-   *
-   * If shouldUseFilter(selector) returns true, {@link #supportsBitmapIndex} must also return true when called with the
-   * same selector object. Returning a value of true here guarantees that {@link #getBitmapIndex(BitmapIndexSelector)}
-   * will return a non-null {@link BitmapIndexSelector}, and also that all columns specified in
-   * {@link #getRequiredColumns()} have a bitmap index retrievable via
-   * {@link BitmapIndexSelector#getBitmapIndex(String)}.
-   *
-   * Implementations of this methods typically consider a {@link FilterTuning} to make decisions about when to
-   * use an available index. A "standard" implementation of this is available to all {@link Filter} implementations in
-   * {@link org.apache.druid.segment.filter.Filters#shouldUseBitmapIndex(Filter, BitmapIndexSelector, FilterTuning)}.
-   *
-   * @param selector Object used to retrieve bitmap indexes and provide information about the column
-   *
-   * @return true if this Filter should provide a bitmap index using the selector, false otherwise.
-   */
-  boolean shouldUseBitmapIndex(BitmapIndexSelector selector);
-
-  /**
-   * Indicates whether this filter supports selectivity estimation.
-   * A filter supports selectivity estimation if it supports bitmap index and
-   * the dimension which the filter evaluates does not have multi values.
-   *
-   * @param columnSelector Object to check the dimension has multi values.
-   * @param indexSelector  Object used to retrieve bitmap indexes
-   *
-   * @return true if this Filter supports selectivity estimation, false otherwise.
-   */
-  boolean supportsSelectivityEstimation(ColumnSelector columnSelector, BitmapIndexSelector indexSelector);
-
-  /**
    * Returns true if this filter can produce a vectorized matcher from its "makeVectorMatcher" method.
+   *
    * @param inspector Supplies type information for the selectors this filter will match against
    */
   default boolean canVectorizeMatcher(ColumnInspector inspector)
@@ -163,8 +154,7 @@ public interface Filter
   }
 
   /**
-   * Set of columns used by a filter. If {@link #supportsBitmapIndex} returns true, all columns returned by this method
-   * can be expected to have a bitmap index retrievable via {@link BitmapIndexSelector#getBitmapIndex(String)}
+   * Set of columns used by a filter.
    */
   Set<String> getRequiredColumns();
 
@@ -181,7 +171,7 @@ public interface Filter
    * Return a copy of this filter that is identical to the this filter except that it operates on different columns,
    * based on a renaming map where the key is the column to be renamed in the filter, and the value is the new
    * column name.
-   *
+   * <p>
    * For example, if I have a filter (A = hello), and I have a renaming map (A -> B),
    * this should return the filter (B = hello)
    *

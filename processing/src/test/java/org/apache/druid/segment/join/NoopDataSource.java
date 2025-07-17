@@ -20,6 +20,9 @@
 package org.apache.druid.segment.join;
 
 import org.apache.druid.query.DataSource;
+import org.apache.druid.query.Query;
+import org.apache.druid.query.cache.CacheKeyBuilder;
+import org.apache.druid.segment.SegmentMapFunction;
 
 import java.util.List;
 import java.util.Set;
@@ -60,8 +63,20 @@ public class NoopDataSource implements DataSource
   }
 
   @Override
-  public boolean isConcrete()
+  public boolean isProcessable()
   {
     return false;
+  }
+
+  @Override
+  public SegmentMapFunction createSegmentMapFunction(Query query)
+  {
+    return SegmentMapFunction.IDENTITY;
+  }
+
+  @Override
+  public byte[] getCacheKey()
+  {
+    return new CacheKeyBuilder(DataSource.NOOP_CACHE_ID).build();
   }
 }

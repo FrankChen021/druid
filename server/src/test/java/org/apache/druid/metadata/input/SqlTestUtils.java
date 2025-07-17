@@ -23,9 +23,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.commons.dbcp2.BasicDataSource;
+import org.apache.druid.data.input.InputRow;
+import org.apache.druid.data.input.MapBasedInputRow;
+import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.metadata.MetadataStorageConnectorConfig;
-import org.apache.druid.metadata.SQLFirehoseDatabaseConnector;
+import org.apache.druid.metadata.SQLInputSourceDatabaseConnector;
 import org.apache.druid.metadata.TestDerbyConnector;
 import org.apache.druid.server.initialization.JdbcAccessSecurityConfig;
 import org.junit.Rule;
@@ -33,30 +36,61 @@ import org.skife.jdbi.v2.Batch;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.tweak.HandleCallback;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class SqlTestUtils
 {
   @Rule
   public final TestDerbyConnector.DerbyConnectorRule derbyConnectorRule = new TestDerbyConnector.DerbyConnectorRule();
-  private final TestDerbyFirehoseConnector derbyFirehoseConnector;
+  private final TestDerbyInputSourceConnector derbyInputSourceConnector;
   private final TestDerbyConnector derbyConnector;
 
   public SqlTestUtils(TestDerbyConnector derbyConnector)
   {
     this.derbyConnector = derbyConnector;
-    this.derbyFirehoseConnector = new SqlTestUtils.TestDerbyFirehoseConnector(
+    this.derbyInputSourceConnector = new TestDerbyInputSourceConnector(
         new MetadataStorageConnectorConfig(),
         derbyConnector.getDBI()
     );
   }
 
-  private static class TestDerbyFirehoseConnector extends SQLFirehoseDatabaseConnector
+  public SqlTestUtils(TestDerbyConnector derbyConnector, MetadataStorageConnectorConfig config)
+  {
+    this.derbyConnector = derbyConnector;
+    this.derbyInputSourceConnector = new TestDerbyInputSourceConnector(
+        config,
+        derbyConnector.getDBI()
+    );
+  }
+
+  public SqlTestUtils(
+      TestDerbyConnector derbyConnector,
+      MetadataStorageConnectorConfig config,
+      JdbcAccessSecurityConfig securityConfig
+  )
+  {
+    this.derbyConnector = derbyConnector;
+    this.derbyInputSourceConnector = new TestDerbyInputSourceConnector(
+        config,
+        securityConfig,
+        derbyConnector.getDBI()
+    );
+  }
+
+  private static class TestDerbyInputSourceConnector extends SQLInputSourceDatabaseConnector
   {
     private final DBI dbi;
 
-    private TestDerbyFirehoseConnector(
-        @JsonProperty("connectorConfig") MetadataStorageConnectorConfig metadataStorageConnectorConfig, DBI dbi
+    private TestDerbyInputSourceConnector(
+        @JsonProperty("connectorConfig") MetadataStorageConnectorConfig metadataStorageConnectorConfig,
+        DBI dbi
     )
     {
       final BasicDataSource datasource = getDatasource(
@@ -69,6 +103,21 @@ public class SqlTestUtils
               return ImmutableSet.of("user", "create");
             }
           }
+      );
+      datasource.setDriverClassLoader(getClass().getClassLoader());
+      datasource.setDriverClassName("org.apache.derby.jdbc.ClientDriver");
+      this.dbi = dbi;
+    }
+
+    private TestDerbyInputSourceConnector(
+        MetadataStorageConnectorConfig metadataStorageConnectorConfig,
+        JdbcAccessSecurityConfig securityConfig,
+        DBI dbi
+    )
+    {
+      final BasicDataSource datasource = getDatasource(
+          metadataStorageConnectorConfig,
+          securityConfig
       );
       datasource.setDriverClassLoader(getClass().getClassLoader());
       datasource.setDriverClassName("org.apache.derby.jdbc.ClientDriver");
@@ -88,7 +137,7 @@ public class SqlTestUtils
     }
   }
 
-  public void createAndUpdateTable(final String tableName, int numEntries)
+  public List<InputRow> createTableWithRows(final String tableName, int numEntries)
   {
     derbyConnector.createTable(
         tableName,
@@ -104,20 +153,30 @@ public class SqlTestUtils
         )
     );
 
+    final List<InputRow> rowsToCreate = IntStream.range(0, numEntries).mapToObj(i -> {
+      final String timestamp = StringUtils.format("2011-01-12T00:%02d:00.000Z", i);
+      final Map<String, Object> event = new LinkedHashMap<>();
+      event.put("a", "a " + i);
+      event.put("b", "b" + i);
+      event.put("timestamp", timestamp);
+      return new MapBasedInputRow(DateTimes.of(timestamp), Arrays.asList("timestamp", "a", "b"), event);
+    }).collect(Collectors.toList());
+
     derbyConnector.getDBI().withHandle(
         (handle) -> {
           Batch batch = handle.createBatch();
-          for (int i = 0; i < numEntries; i++) {
-            String timestampSt = StringUtils.format("2011-01-12T00:0%s:00.000Z", i);
-            batch.add(StringUtils.format("INSERT INTO %1$s (timestamp, a, b) VALUES ('%2$s', '%3$s', '%4$s')",
-                                         tableName, timestampSt,
-                                         i, i
+          for (InputRow row : rowsToCreate) {
+            batch.add(StringUtils.format(
+                "INSERT INTO %1$s (timestamp, a, b) VALUES ('%2$s', '%3$s', '%4$s')",
+                tableName, row.getTimestamp(), row.getDimension("a").get(0), row.getDimension("b").get(0)
             ));
           }
           batch.execute();
           return null;
         }
     );
+
+    return rowsToCreate;
   }
 
   public void dropTable(final String tableName)
@@ -131,8 +190,21 @@ public class SqlTestUtils
     );
   }
 
-  public TestDerbyFirehoseConnector getDerbyFirehoseConnector()
+  public TestDerbyInputSourceConnector getDerbyInputSourceConnector()
   {
-    return derbyFirehoseConnector;
+    return derbyInputSourceConnector;
+  }
+
+  /**
+   * Builds a {@code SELECT timestamp, a, b FROM tableName} query for each of
+   * the given tables.
+   */
+  public static List<String> selectFrom(String... tableNames)
+  {
+    final List<String> selects = new ArrayList<>();
+    for (String tableName : tableNames) {
+      selects.add(StringUtils.format("SELECT timestamp, a, b FROM %s", tableName));
+    }
+    return selects;
   }
 }

@@ -20,34 +20,35 @@
 package org.apache.druid.cli;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.rvesse.airline.annotations.Arguments;
+import com.github.rvesse.airline.annotations.Command;
+import com.github.rvesse.airline.annotations.Option;
+import com.github.rvesse.airline.annotations.restrictions.Required;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
-import com.google.inject.multibindings.Multibinder;
 import com.google.inject.name.Named;
 import com.google.inject.name.Names;
-import io.airlift.airline.Arguments;
-import io.airlift.airline.Command;
-import io.airlift.airline.Option;
 import io.netty.util.SuppressForbidden;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.druid.client.cache.CacheConfig;
-import org.apache.druid.client.coordinator.CoordinatorClient;
-import org.apache.druid.client.indexing.HttpIndexingServiceClient;
-import org.apache.druid.client.indexing.IndexingServiceClient;
 import org.apache.druid.curator.ZkEnablementConfig;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.Binders;
 import org.apache.druid.guice.CacheModule;
-import org.apache.druid.guice.DruidProcessingModule;
-import org.apache.druid.guice.IndexingServiceFirehoseModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
+import org.apache.druid.guice.IndexingServiceTaskLogsModule;
 import org.apache.druid.guice.IndexingServiceTuningConfigModule;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JoinableFactoryModule;
@@ -55,39 +56,37 @@ import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ManageLifecycle;
+import org.apache.druid.guice.ManageLifecycleServer;
+import org.apache.druid.guice.PeonProcessingModule;
 import org.apache.druid.guice.PolyBind;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.QueryablePeonModule;
+import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.ServerTypeConfig;
+import org.apache.druid.guice.annotations.AttemptId;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Parent;
 import org.apache.druid.guice.annotations.Self;
+import org.apache.druid.indexer.HadoopIndexTaskModule;
+import org.apache.druid.indexer.report.SingleFileTaskReportFileWriter;
+import org.apache.druid.indexer.report.TaskReportFileWriter;
 import org.apache.druid.indexing.common.RetryPolicyConfig;
 import org.apache.druid.indexing.common.RetryPolicyFactory;
-import org.apache.druid.indexing.common.SingleFileTaskReportFileWriter;
-import org.apache.druid.indexing.common.TaskReportFileWriter;
 import org.apache.druid.indexing.common.TaskToolboxFactory;
-import org.apache.druid.indexing.common.actions.LocalTaskActionClientFactory;
 import org.apache.druid.indexing.common.actions.RemoteTaskActionClientFactory;
 import org.apache.druid.indexing.common.actions.TaskActionClientFactory;
-import org.apache.druid.indexing.common.actions.TaskActionToolbox;
-import org.apache.druid.indexing.common.actions.TaskAuditLogConfig;
 import org.apache.druid.indexing.common.config.TaskConfig;
-import org.apache.druid.indexing.common.config.TaskStorageConfig;
 import org.apache.druid.indexing.common.stats.DropwizardRowIngestionMetersFactory;
-import org.apache.druid.indexing.common.task.IndexTaskClientFactory;
 import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.indexing.common.task.batch.parallel.DeepStorageShuffleClient;
 import org.apache.druid.indexing.common.task.batch.parallel.HttpShuffleClient;
-import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTaskClient;
-import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexTaskClientFactory;
+import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTaskClientProvider;
+import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTaskClientProviderImpl;
 import org.apache.druid.indexing.common.task.batch.parallel.ShuffleClient;
-import org.apache.druid.indexing.overlord.HeapMemoryTaskStorage;
-import org.apache.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
 import org.apache.druid.indexing.overlord.SingleTaskBackgroundRunner;
 import org.apache.druid.indexing.overlord.TaskRunner;
-import org.apache.druid.indexing.overlord.TaskStorage;
+import org.apache.druid.indexing.seekablestream.SeekableStreamIndexTask;
 import org.apache.druid.indexing.worker.executor.ExecutorLifecycle;
 import org.apache.druid.indexing.worker.executor.ExecutorLifecycleConfig;
 import org.apache.druid.indexing.worker.shuffle.DeepStorageIntermediaryDataManager;
@@ -95,8 +94,8 @@ import org.apache.druid.indexing.worker.shuffle.IntermediaryDataManager;
 import org.apache.druid.indexing.worker.shuffle.LocalIntermediaryDataManager;
 import org.apache.druid.java.util.common.lifecycle.Lifecycle;
 import org.apache.druid.java.util.common.logger.Logger;
-import org.apache.druid.metadata.IndexerSQLMetadataStorageCoordinator;
 import org.apache.druid.metadata.input.InputSourceModule;
+import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.lookup.LookupModule;
 import org.apache.druid.segment.handoff.CoordinatorBasedSegmentHandoffNotifierConfig;
@@ -109,26 +108,36 @@ import org.apache.druid.segment.loading.DataSegmentMover;
 import org.apache.druid.segment.loading.OmniDataSegmentArchiver;
 import org.apache.druid.segment.loading.OmniDataSegmentKiller;
 import org.apache.druid.segment.loading.OmniDataSegmentMover;
+import org.apache.druid.segment.loading.StorageLocation;
+import org.apache.druid.segment.realtime.ChatHandlerProvider;
+import org.apache.druid.segment.realtime.NoopChatHandlerProvider;
+import org.apache.druid.segment.realtime.ServiceAnnouncingChatHandlerProvider;
 import org.apache.druid.segment.realtime.appenderator.AppenderatorsManager;
 import org.apache.druid.segment.realtime.appenderator.PeonAppenderatorsManager;
-import org.apache.druid.segment.realtime.firehose.ChatHandlerProvider;
-import org.apache.druid.segment.realtime.firehose.NoopChatHandlerProvider;
-import org.apache.druid.segment.realtime.firehose.ServiceAnnouncingChatHandlerProvider;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.ResponseContextConfig;
 import org.apache.druid.server.SegmentManager;
+import org.apache.druid.server.coordination.BroadcastDatasourceLoadingSpec;
+import org.apache.druid.server.coordination.SegmentBootstrapper;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.coordination.ZkCoordinator;
 import org.apache.druid.server.http.HistoricalResource;
 import org.apache.druid.server.http.SegmentListerResource;
 import org.apache.druid.server.initialization.jetty.ChatHandlerServerModule;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
+import org.apache.druid.server.lookup.cache.LookupLoadingSpec;
 import org.apache.druid.server.metrics.DataSourceTaskIdHolder;
+import org.apache.druid.server.metrics.ServiceStatusMonitor;
+import org.apache.druid.storage.local.LocalTmpStorageConfig;
+import org.apache.druid.tasklogs.TaskPayloadManager;
 import org.eclipse.jetty.server.Server;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -143,17 +152,15 @@ import java.util.Set;
 public class CliPeon extends GuiceRunnable
 {
   @SuppressWarnings("WeakerAccess")
-  @Arguments(description = "task.json status.json report.json", required = true)
+  @Required
+  @Arguments(description = "taskDirPath attemptId")
   public List<String> taskAndStatusFile;
 
-  // path to store the task's stdout log
-  private String taskLogPath;
+  // path to the task Directory
+  private String taskDirPath;
 
-  // path to store the task's TaskStatus
-  private String taskStatusPath;
-
-  // path to store the task's TaskReport objects
-  private String taskReportPath;
+  // the attemptId
+  private String attemptId;
 
   /**
    * Still using --nodeType as the flag for backward compatibility, although the concept is now more precisely called
@@ -165,11 +172,28 @@ public class CliPeon extends GuiceRunnable
   private boolean isZkEnabled = true;
 
   /**
+   * <p> This option is deprecated, see {@link #loadBroadcastDatasourcesMode} option. </p>
+   *
    * If set to "true", the peon will bind classes necessary for loading broadcast segments. This is used for
    * queryable tasks, such as streaming ingestion tasks.
+   *
    */
-  @Option(name = "--loadBroadcastSegments", title = "loadBroadcastSegments", description = "Enable loading of broadcast segments")
+  @Deprecated
+  @Option(name = "--loadBroadcastSegments", title = "loadBroadcastSegments",
+      description = "Enable loading of broadcast segments. This option is deprecated and will be removed in a"
+                    + " future release. Use --loadBroadcastDatasourceMode instead.")
   public String loadBroadcastSegments = "false";
+
+  /**
+   * Broadcast datasource loading mode. The peon will bind classes necessary required for loading broadcast segments if
+   * the mode is {@link BroadcastDatasourceLoadingSpec.Mode#ALL} or {@link BroadcastDatasourceLoadingSpec.Mode#ONLY_REQUIRED}.
+   */
+  @Option(name = "--loadBroadcastDatasourceMode", title = "loadBroadcastDatasourceMode",
+      description = "Specify the broadcast datasource loading mode for the peon. Supported values are ALL, NONE, ONLY_REQUIRED.")
+  public String loadBroadcastDatasourcesMode = BroadcastDatasourceLoadingSpec.Mode.ALL.toString();
+
+  @Option(name = "--taskId", title = "taskId", description = "TaskId for fetching task.json remotely")
+  public String taskId = "";
 
   private static final Logger log = new Logger(CliPeon.class);
 
@@ -191,24 +215,33 @@ public class CliPeon extends GuiceRunnable
   protected List<? extends Module> getModules()
   {
     return ImmutableList.of(
-        new DruidProcessingModule(),
+        new PeonProcessingModule(),
         new QueryableModule(),
         new QueryRunnerFactoryModule(),
+        new SegmentWranglerModule(),
         new JoinableFactoryModule(),
+        new IndexingServiceTaskLogsModule(),
         new Module()
         {
           @SuppressForbidden(reason = "System#out, System#err")
           @Override
           public void configure(Binder binder)
           {
-            taskLogPath = taskAndStatusFile.get(0);
-            taskStatusPath = taskAndStatusFile.get(1);
-            taskReportPath = taskAndStatusFile.get(2);
+            ServerRunnable.validateCentralizedDatasourceSchemaConfig(getProperties());
+            Preconditions.checkArgument(
+                taskAndStatusFile.size() >= 2,
+                "taskAndStatusFile array should contain 2 or more elements. Current array elements: [%s]",
+                taskAndStatusFile.toString()
+            );
+
+            taskDirPath = taskAndStatusFile.get(0);
+            attemptId = taskAndStatusFile.get(1);
 
             binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/peon");
             binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
             binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
             binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
+            binder.bindConstant().annotatedWith(AttemptId.class).to(attemptId);
 
             JsonConfigProvider.bind(binder, "druid.task.executor", DruidNode.class, Parent.class);
 
@@ -220,21 +253,33 @@ public class CliPeon extends GuiceRunnable
 
             binder.bind(ExecutorLifecycle.class).in(ManageLifecycle.class);
             LifecycleModule.register(binder, ExecutorLifecycle.class);
-            binder.bind(ExecutorLifecycleConfig.class).toInstance(
-                new ExecutorLifecycleConfig()
-                    .setTaskFile(new File(taskLogPath))
-                    .setStatusFile(new File(taskStatusPath))
-            );
+            ExecutorLifecycleConfig executorLifecycleConfig = new ExecutorLifecycleConfig()
+                .setTaskFile(Paths.get(taskDirPath, "task.json").toFile())
+                .setStatusFile(Paths.get(taskDirPath, "attempt", attemptId, "status.json").toFile());
+
+            binder.bind(Properties.class).toInstance(properties);
+            if (properties.getProperty("druid.indexer.runner.type", "").contains("k8s")) {
+              log.info("Running peon in k8s mode");
+              executorLifecycleConfig.setParentStreamDefined(false);
+            }
+
+            binder.bind(ExecutorLifecycleConfig.class).toInstance(executorLifecycleConfig);
 
             binder.bind(TaskReportFileWriter.class)
-                  .toInstance(new SingleFileTaskReportFileWriter(new File(taskReportPath)));
+                  .toInstance(
+                      new SingleFileTaskReportFileWriter(
+                          Paths.get(taskDirPath, "attempt", attemptId, "report.json").toFile()
+                      ));
 
             binder.bind(TaskRunner.class).to(SingleTaskBackgroundRunner.class);
             binder.bind(QuerySegmentWalker.class).to(SingleTaskBackgroundRunner.class);
-            binder.bind(SingleTaskBackgroundRunner.class).in(ManageLifecycle.class);
+            // Bind to ManageLifecycleServer to ensure SingleTaskBackgroundRunner is closed before
+            // its dependent services, such as DiscoveryServiceLocator and OverlordClient.
+            // This order ensures that tasks can finalize their cleanup operations before service location closure.
+            binder.bind(SingleTaskBackgroundRunner.class).in(ManageLifecycleServer.class);
 
             bindRealtimeCache(binder);
-            bindCoordinatorHandoffNotiferAndClient(binder);
+            bindCoordinatorHandoffNotifer(binder);
 
             binder.bind(AppenderatorsManager.class)
                   .to(PeonAppenderatorsManager.class)
@@ -245,22 +290,34 @@ public class CliPeon extends GuiceRunnable
             binder.bind(ServerTypeConfig.class).toInstance(new ServerTypeConfig(ServerType.fromString(serverType)));
             LifecycleModule.register(binder, Server.class);
 
-            if ("true".equals(loadBroadcastSegments)) {
-              binder.bind(SegmentManager.class).in(LazySingleton.class);
-              binder.bind(ZkCoordinator.class).in(ManageLifecycle.class);
-              Jerseys.addResource(binder, HistoricalResource.class);
-
-              if (isZkEnabled) {
-                LifecycleModule.register(binder, ZkCoordinator.class);
-              }
+            final BroadcastDatasourceLoadingSpec.Mode mode =
+                BroadcastDatasourceLoadingSpec.Mode.valueOf(loadBroadcastDatasourcesMode);
+            if ("true".equals(loadBroadcastSegments)
+                || mode == BroadcastDatasourceLoadingSpec.Mode.ALL
+                || mode == BroadcastDatasourceLoadingSpec.Mode.ONLY_REQUIRED) {
+              binder.install(new BroadcastSegmentLoadingModule());
             }
           }
 
           @Provides
           @LazySingleton
-          public Task readTask(@Json ObjectMapper mapper, ExecutorLifecycleConfig config)
+          @Named(ServiceStatusMonitor.HEARTBEAT_TAGS_BINDING)
+          public Supplier<Map<String, Object>> heartbeatDimensions(Task task)
+          {
+            return () -> CliPeon.heartbeatDimensions(task);
+          }
+
+          @Provides
+          @LazySingleton
+          public Task readTask(@Json ObjectMapper mapper, ExecutorLifecycleConfig config, TaskPayloadManager taskPayloadManager)
           {
             try {
+              if (!config.getTaskFile().exists() || config.getTaskFile().length() == 0) {
+                log.info("Task file not found, trying to pull task payload from deep storage");
+                String task = IOUtils.toString(taskPayloadManager.streamTaskPayload(taskId).get(), Charset.defaultCharset());
+                // write the remote task.json to the task file location for ExecutorLifecycle to pickup
+                FileUtils.write(config.getTaskFile(), task, Charset.defaultCharset());
+              }
               return mapper.readValue(config.getTaskFile(), Task.class);
             }
             catch (IOException e) {
@@ -283,12 +340,43 @@ public class CliPeon extends GuiceRunnable
           {
             return task.getId();
           }
+
+          @Provides
+          @LazySingleton
+          @Named(DataSourceTaskIdHolder.LOOKUPS_TO_LOAD_FOR_TASK)
+          public LookupLoadingSpec getLookupsToLoad(final Task task)
+          {
+            return task.getLookupLoadingSpec();
+          }
+
+          @Provides
+          @LazySingleton
+          @Named(DataSourceTaskIdHolder.BROADCAST_DATASOURCES_TO_LOAD_FOR_TASK)
+          public BroadcastDatasourceLoadingSpec getBroadcastDatasourcesToLoad(final Task task)
+          {
+            return task.getBroadcastDatasourceLoadingSpec();
+          }
+
+          @Provides
+          @LazySingleton
+          public LocalTmpStorageConfig getLocalTmpStorage()
+          {
+            File tmpDir = new File(taskDirPath, "tmp");
+            try {
+              org.apache.druid.java.util.common.FileUtils.mkdirp(tmpDir);
+            }
+            catch (IOException e) {
+              log.error("Failed to create tmp directory for the task");
+              throw new RuntimeException(e);
+            }
+            return () -> tmpDir;
+          }
         },
         new QueryablePeonModule(),
-        new IndexingServiceFirehoseModule(),
         new IndexingServiceInputSourceModule(),
         new IndexingServiceTuningConfigModule(),
         new InputSourceModule(),
+        new HadoopIndexTaskModule(),
         new ChatHandlerServerModule(properties),
         new LookupModule()
     );
@@ -299,7 +387,7 @@ public class CliPeon extends GuiceRunnable
   public void run()
   {
     try {
-      Injector injector = makeInjector();
+      Injector injector = makeInjector(ImmutableSet.of(NodeRole.PEON));
       try {
         final Lifecycle lifecycle = initLifecycle(injector);
         final Thread hook = new Thread(
@@ -382,42 +470,26 @@ public class CliPeon extends GuiceRunnable
   static void bindPeonDataSegmentHandlers(Binder binder)
   {
     // Build it to make it bind even if nothing binds to it.
-    Binders.dataSegmentKillerBinder(binder);
-    binder.bind(DataSegmentKiller.class).to(OmniDataSegmentKiller.class).in(LazySingleton.class);
+    bindDataSegmentKiller(binder);
     Binders.dataSegmentMoverBinder(binder);
     binder.bind(DataSegmentMover.class).to(OmniDataSegmentMover.class).in(LazySingleton.class);
     Binders.dataSegmentArchiverBinder(binder);
     binder.bind(DataSegmentArchiver.class).to(OmniDataSegmentArchiver.class).in(LazySingleton.class);
   }
 
+  static void bindDataSegmentKiller(Binder binder)
+  {
+    Binders.dataSegmentKillerBinder(binder);
+    binder.bind(DataSegmentKiller.class).to(OmniDataSegmentKiller.class).in(LazySingleton.class);
+  }
+
   private static void configureTaskActionClient(Binder binder)
   {
-    PolyBind.createChoice(
-        binder,
-        "druid.peon.mode",
-        Key.get(TaskActionClientFactory.class),
-        Key.get(RemoteTaskActionClientFactory.class)
-    );
-    final MapBinder<String, TaskActionClientFactory> taskActionBinder =
-        PolyBind.optionBinder(binder, Key.get(TaskActionClientFactory.class));
-    taskActionBinder
-        .addBinding("local")
-        .to(LocalTaskActionClientFactory.class)
-        .in(LazySingleton.class);
-    // all of these bindings are so that we can run the peon in local mode
-    JsonConfigProvider.bind(binder, "druid.indexer.storage", TaskStorageConfig.class);
-    binder.bind(TaskStorage.class).to(HeapMemoryTaskStorage.class).in(LazySingleton.class);
-    binder.bind(TaskActionToolbox.class).in(LazySingleton.class);
-    binder.bind(IndexerMetadataStorageCoordinator.class)
-          .to(IndexerSQLMetadataStorageCoordinator.class)
+    binder.bind(TaskActionClientFactory.class)
+          .to(RemoteTaskActionClientFactory.class)
           .in(LazySingleton.class);
-    taskActionBinder
-        .addBinding("remote")
-        .to(RemoteTaskActionClientFactory.class)
-        .in(LazySingleton.class);
 
     binder.bind(NodeRole.class).annotatedWith(Self.class).toInstance(NodeRole.PEON);
-    Multibinder.newSetBinder(binder, NodeRole.class, Self.class).addBinding().toInstance(NodeRole.PEON);
   }
 
   static void bindTaskConfigAndClients(Binder binder)
@@ -425,14 +497,12 @@ public class CliPeon extends GuiceRunnable
     binder.bind(TaskToolboxFactory.class).in(LazySingleton.class);
 
     JsonConfigProvider.bind(binder, "druid.indexer.task", TaskConfig.class);
-    JsonConfigProvider.bind(binder, "druid.indexer.auditlog", TaskAuditLogConfig.class);
     JsonConfigProvider.bind(binder, "druid.peon.taskActionClient.retry", RetryPolicyConfig.class);
 
     configureTaskActionClient(binder);
-    binder.bind(IndexingServiceClient.class).to(HttpIndexingServiceClient.class).in(LazySingleton.class);
 
-    binder.bind(new TypeLiteral<IndexTaskClientFactory<ParallelIndexSupervisorTaskClient>>(){})
-          .to(ParallelIndexTaskClientFactory.class)
+    binder.bind(ParallelIndexSupervisorTaskClientProvider.class)
+          .to(ParallelIndexSupervisorTaskClientProviderImpl.class)
           .in(LazySingleton.class);
 
     binder.bind(RetryPolicyFactory.class).in(LazySingleton.class);
@@ -444,7 +514,7 @@ public class CliPeon extends GuiceRunnable
     binder.install(new CacheModule());
   }
 
-  static void bindCoordinatorHandoffNotiferAndClient(Binder binder)
+  static void bindCoordinatorHandoffNotifer(Binder binder)
   {
     JsonConfigProvider.bind(
         binder,
@@ -454,8 +524,6 @@ public class CliPeon extends GuiceRunnable
     binder.bind(SegmentHandoffNotifierFactory.class)
           .to(CoordinatorBasedSegmentHandoffNotifierFactory.class)
           .in(LazySingleton.class);
-
-    binder.bind(CoordinatorClient.class).in(LazySingleton.class);
   }
 
   static void configureIntermediaryData(Binder binder)
@@ -485,5 +553,53 @@ public class CliPeon extends GuiceRunnable
     );
     shuffleClientBiddy.addBinding("local").to(HttpShuffleClient.class).in(LazySingleton.class);
     shuffleClientBiddy.addBinding("deepstore").to(DeepStorageShuffleClient.class).in(LazySingleton.class);
+  }
+
+  static Map<String, Object> heartbeatDimensions(Task task)
+  {
+    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+    builder.put(DruidMetrics.TASK_ID, task.getId());
+    builder.put(DruidMetrics.DATASOURCE, task.getDataSource());
+    builder.put(DruidMetrics.TASK_TYPE, task.getType());
+    builder.put(DruidMetrics.GROUP_ID, task.getGroupId());
+    Map<String, Object> tags = task.getContextValue(DruidMetrics.TAGS);
+    if (tags != null && !tags.isEmpty()) {
+      builder.put(DruidMetrics.TAGS, tags);
+    }
+
+    if (task instanceof SeekableStreamIndexTask) {
+      SeekableStreamIndexTask streamingTask = (SeekableStreamIndexTask) task;
+      String status = streamingTask.getCurrentRunnerStatus();
+      if (status != null) {
+        builder.put(DruidMetrics.STATUS, status);
+      }
+    }
+
+    return builder.build();
+  }
+
+  public class BroadcastSegmentLoadingModule implements Module
+  {
+    @Override
+    public void configure(Binder binder)
+    {
+      binder.bind(SegmentManager.class).in(LazySingleton.class);
+      binder.bind(ZkCoordinator.class).in(ManageLifecycle.class);
+      Jerseys.addResource(binder, HistoricalResource.class);
+
+      if (isZkEnabled) {
+        LifecycleModule.register(binder, ZkCoordinator.class);
+      }
+      LifecycleModule.register(binder, SegmentBootstrapper.class);
+    }
+
+    @Provides
+    @LazySingleton
+    public List<StorageLocation> getCliPeonStorageLocations(TaskConfig config)
+    {
+      File broadcastStorage = new File(new File(taskDirPath, "broadcast"), "segments");
+
+      return ImmutableList.of(new StorageLocation(broadcastStorage, config.getTmpStorageBytesPerTask(), null));
+    }
   }
 }

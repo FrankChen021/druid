@@ -22,11 +22,9 @@ package org.apache.druid.sql.calcite.schema;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import com.google.inject.Scopes;
-import com.google.inject.Singleton;
 import com.google.inject.name.Named;
 import com.google.inject.name.Names;
-import org.apache.calcite.schema.SchemaPlus;
+import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.sql.guice.SqlBindings;
 
@@ -45,16 +43,18 @@ public class DruidCalciteSchemaModule implements Module
     binder.bind(String.class).annotatedWith(DruidSchemaName.class).toInstance(DRUID_SCHEMA_NAME);
 
     // Should only be used by the information schema
-    binder.bind(SchemaPlus.class)
+    binder.bind(DruidSchemaCatalog.class)
           .annotatedWith(Names.named(INCOMPLETE_SCHEMA))
           .toProvider(RootSchemaProvider.class)
-          .in(Scopes.SINGLETON);
+          .in(LazySingleton.class);
 
-    // DruidSchema needs to listen to changes for incoming segments
-    LifecycleModule.register(binder, DruidSchema.class);
-    binder.bind(SystemSchema.class).in(Scopes.SINGLETON);
-    binder.bind(InformationSchema.class).in(Scopes.SINGLETON);
-    binder.bind(LookupSchema.class).in(Scopes.SINGLETON);
+    // BrokerSegmentMetadataCache needs to listen to changes for incoming segments
+    LifecycleModule.register(binder, BrokerSegmentMetadataCache.class);
+
+    binder.bind(DruidSchema.class).in(LazySingleton.class);
+    binder.bind(SystemSchema.class).in(LazySingleton.class);
+    binder.bind(InformationSchema.class).in(LazySingleton.class);
+    binder.bind(LookupSchema.class).in(LazySingleton.class);
 
     // Binder to inject different schema to Calcite
     SqlBindings.addSchema(binder, NamedDruidSchema.class);
@@ -64,10 +64,10 @@ public class DruidCalciteSchemaModule implements Module
   }
 
   @Provides
-  @Singleton
-  private SchemaPlus getRootSchema(@Named(INCOMPLETE_SCHEMA) SchemaPlus rootSchema, InformationSchema informationSchema)
+  @LazySingleton
+  private DruidSchemaCatalog getRootSchema(@Named(INCOMPLETE_SCHEMA) DruidSchemaCatalog rootSchema, InformationSchema informationSchema)
   {
-    rootSchema.add(INFORMATION_SCHEMA_NAME, informationSchema);
+    rootSchema.getRootSchema().add(INFORMATION_SCHEMA_NAME, informationSchema);
     return rootSchema;
   }
 }

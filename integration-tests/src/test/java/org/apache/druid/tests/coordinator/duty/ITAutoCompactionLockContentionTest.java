@@ -22,15 +22,15 @@ package org.apache.druid.tests.coordinator.duty;
 import com.google.inject.Inject;
 import org.apache.druid.indexer.partitions.DynamicPartitionsSpec;
 import org.apache.druid.java.util.common.Intervals;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.metadata.LockFilterPolicy;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
-import org.apache.druid.server.coordinator.CoordinatorCompactionConfig;
+import org.apache.druid.server.coordinator.ClusterCompactionConfig;
 import org.apache.druid.server.coordinator.DataSourceCompactionConfig;
+import org.apache.druid.server.coordinator.InlineSchemaDataSourceCompactionConfig;
 import org.apache.druid.testing.clients.CompactionResourceTestClient;
 import org.apache.druid.testing.clients.TaskResponseObject;
 import org.apache.druid.testing.guice.DruidTestModuleFactory;
-import org.apache.druid.testing.utils.CompactionUtil;
 import org.apache.druid.testing.utils.EventSerializer;
 import org.apache.druid.testing.utils.ITRetryUtil;
 import org.apache.druid.testing.utils.KafkaUtil;
@@ -53,11 +53,11 @@ import org.testng.annotations.Test;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Integration Test to verify behaviour when there is a lock contention between
@@ -180,22 +180,10 @@ public class ITAutoCompactionLockContentionTest extends AbstractKafkaIndexingSer
    */
   private void ensureSegmentsCount(int numExpectedSegments)
   {
-    ITRetryUtil.retryUntilTrue(
-        () -> {
-          List<DataSegment> segments = coordinator.getFullSegmentsMetadata(fullDatasourceName);
-          StringBuilder sb = new StringBuilder();
-          segments.forEach(
-              seg -> sb.append("{")
-                       .append(seg.getId())
-                       .append(", ")
-                       .append(seg.getSize())
-                       .append("}, ")
-          );
-          LOG.info("Found Segments: %s", sb);
-          LOG.info("Current metadata segment count: %d, expected: %d", segments.size(), numExpectedSegments);
-          return segments.size() == numExpectedSegments;
-        },
-        "Segment count check"
+    ITRetryUtil.retryUntilEquals(
+        () -> coordinator.getFullSegmentsMetadata(fullDatasourceName).size(),
+        numExpectedSegments,
+        "Segment count"
     );
   }
 
@@ -255,7 +243,7 @@ public class ITAutoCompactionLockContentionTest extends AbstractKafkaIndexingSer
   {
     ITRetryUtil.retryUntilTrue(
         () -> coordinator.areSegmentsLoaded(fullDatasourceName),
-        "Segment Loading"
+        "Segments are loaded"
     );
   }
 
@@ -265,24 +253,16 @@ public class ITAutoCompactionLockContentionTest extends AbstractKafkaIndexingSer
    */
   private void ensureLockedIntervals(Interval... intervals)
   {
-    final Map<String, Integer> minTaskPriority = Collections.singletonMap(fullDatasourceName, 0);
-    final List<Interval> lockedIntervals = new ArrayList<>();
-    ITRetryUtil.retryUntilTrue(
-        () -> {
-          lockedIntervals.clear();
-
-          Map<String, List<Interval>> allIntervals = indexer.getLockedIntervals(minTaskPriority);
-          if (allIntervals.containsKey(fullDatasourceName)) {
-            lockedIntervals.addAll(allIntervals.get(fullDatasourceName));
-          }
-
-          LOG.info("Locked intervals: %s", lockedIntervals);
-          return intervals.length == lockedIntervals.size();
-        },
-        "Verify Locked Intervals"
+    final LockFilterPolicy lockFilterPolicy = new LockFilterPolicy(fullDatasourceName, 0, null, null);
+    final Set<Interval> expectedLockedIntervals = Arrays.stream(intervals).collect(Collectors.toSet());
+    ITRetryUtil.retryUntilEquals(
+        () -> Set.copyOf(
+            indexer.getLockedIntervals(List.of(lockFilterPolicy))
+                   .getOrDefault(fullDatasourceName, List.of())
+        ),
+        expectedLockedIntervals,
+        "Locked intervals"
     );
-
-    Assert.assertEquals(lockedIntervals, Arrays.asList(intervals));
   }
 
   /**
@@ -304,26 +284,19 @@ public class ITAutoCompactionLockContentionTest extends AbstractKafkaIndexingSer
    */
   private void submitAndVerifyCompactionConfig() throws Exception
   {
-    final DataSourceCompactionConfig compactionConfig = CompactionUtil
-        .createCompactionConfig(fullDatasourceName, Specs.MAX_ROWS_PER_SEGMENT, Period.ZERO);
-    compactionResource.updateCompactionTaskSlot(0.5, 10);
-    compactionResource.submitCompactionConfig(compactionConfig);
-
-    // Wait for compaction config to persist
-    Thread.sleep(2000);
+    final DataSourceCompactionConfig dataSourceCompactionConfig = InlineSchemaDataSourceCompactionConfig
+        .builder()
+        .forDataSource(fullDatasourceName)
+        .withSkipOffsetFromLatest(Period.ZERO)
+        .withMaxRowsPerSegment(Specs.MAX_ROWS_PER_SEGMENT)
+        .build();
+    compactionResource.updateClusterConfig(new ClusterCompactionConfig(0.5, 10, null, null, null));
+    compactionResource.submitCompactionConfig(dataSourceCompactionConfig);
 
     // Verify that the compaction config is updated correctly.
-    CoordinatorCompactionConfig coordinatorCompactionConfig = compactionResource.getCoordinatorCompactionConfigs();
-    DataSourceCompactionConfig observedCompactionConfig = null;
-    for (DataSourceCompactionConfig dataSourceCompactionConfig : coordinatorCompactionConfig.getCompactionConfigs()) {
-      if (dataSourceCompactionConfig.getDataSource().equals(fullDatasourceName)) {
-        observedCompactionConfig = dataSourceCompactionConfig;
-      }
-    }
-    Assert.assertEquals(observedCompactionConfig, compactionConfig);
-
-    observedCompactionConfig = compactionResource.getDataSourceCompactionConfig(fullDatasourceName);
-    Assert.assertEquals(observedCompactionConfig, compactionConfig);
+    DataSourceCompactionConfig observedCompactionConfig
+        = compactionResource.getDataSourceCompactionConfig(fullDatasourceName);
+    Assert.assertEquals(observedCompactionConfig, dataSourceCompactionConfig);
   }
 
   /**
@@ -339,42 +312,22 @@ public class ITAutoCompactionLockContentionTest extends AbstractKafkaIndexingSer
    */
   private void ensureCompactionTaskCount(int expectedCount)
   {
-    LOG.info("Verifying compaction task count. Expected: %d", expectedCount);
-    ITRetryUtil.retryUntilTrue(
-        () -> getCompactionTaskCount() == expectedCount,
-        "Compaction Task Count"
+    ITRetryUtil.retryUntilEquals(
+        this::getNumberOfCompletedCompactionTasks,
+        expectedCount,
+        "Number of completed compaction tasks"
     );
   }
 
   /**
    * Gets the number of complete compaction tasks.
    */
-  private long getCompactionTaskCount()
+  private int getNumberOfCompletedCompactionTasks()
   {
-    List<TaskResponseObject> incompleteTasks = indexer
-        .getUncompletedTasksForDataSource(fullDatasourceName);
     List<TaskResponseObject> completeTasks = indexer
         .getCompleteTasksForDataSource(fullDatasourceName);
 
-    printTasks(incompleteTasks, "Incomplete");
-    printTasks(completeTasks, "Complete");
-
-    return completeTasks.stream().filter(this::isCompactionTask).count();
-  }
-
-  private void printTasks(List<TaskResponseObject> tasks, String taskState)
-  {
-    StringBuilder sb = new StringBuilder();
-    tasks.forEach(
-        task -> sb.append("{")
-                  .append(task.getType())
-                  .append(", ")
-                  .append(task.getStatus())
-                  .append(", ")
-                  .append(task.getCreatedTime())
-                  .append("}, ")
-    );
-    LOG.info("%s Tasks: %s", taskState, sb);
+    return (int) completeTasks.stream().filter(this::isCompactionTask).count();
   }
 
   /**
@@ -382,24 +335,14 @@ public class ITAutoCompactionLockContentionTest extends AbstractKafkaIndexingSer
    */
   private void ensureRowCount(long totalRows)
   {
-    LOG.info("Verifying Row Count. Expected: %s", totalRows);
-    ITRetryUtil.retryUntilTrue(
-        () ->
-            totalRows == this.queryHelper.countRows(
-                fullDatasourceName,
-                Intervals.ETERNITY,
-                name -> new LongSumAggregatorFactory(name, "count")
-            ),
-        StringUtils.format(
-            "dataSource[%s] consumed [%,d] events, expected [%,d]",
+    ITRetryUtil.retryUntilEquals(
+        () -> queryHelper.countRows(
             fullDatasourceName,
-            this.queryHelper.countRows(
-                fullDatasourceName,
-                Intervals.ETERNITY,
-                name -> new LongSumAggregatorFactory(name, "count")
-            ),
-            totalRows
-        )
+            Intervals.ETERNITY,
+            name -> new LongSumAggregatorFactory(name, "count")
+        ),
+        totalRows,
+        "Total row count in datasource"
     );
   }
 

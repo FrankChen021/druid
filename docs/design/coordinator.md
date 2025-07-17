@@ -1,6 +1,7 @@
 ---
 id: coordinator
-title: "Coordinator Process"
+title: "Coordinator service"
+sidebar_label: "Coordinator"
 ---
 
 <!--
@@ -23,91 +24,110 @@ title: "Coordinator Process"
   -->
 
 
-### Configuration
-
-For Apache Druid Coordinator Process Configuration, see [Coordinator Configuration](../configuration/index.md#coordinator).
-
-### HTTP endpoints
-
-For a list of API endpoints supported by the Coordinator, see [Coordinator API](../operations/api-reference.md#coordinator).
-
-### Overview
-
-The Druid Coordinator process is primarily responsible for segment management and distribution. More specifically, the
-Druid Coordinator process communicates to Historical processes to load or drop segments based on configurations. The
-Druid Coordinator is responsible for loading new segments, dropping outdated segments, ensuring that segments are
-"replicated" (that is, loaded on multiple different Historical nodes) proper (configured) number of times, and moving
+The Coordinator service is primarily responsible for segment management and distribution. More specifically, the
+Coordinator service communicates to Historical services to load or drop segments based on configurations. The Coordinator is responsible for loading new segments, dropping outdated segments, ensuring that segments are "replicated" (that is, loaded on multiple different Historical nodes) proper (configured) number of times, and moving
 ("balancing") segments between Historical nodes to keep the latter evenly loaded.
 
-The Druid Coordinator runs its duties periodically and the time between each run is a configurable parameter. On each
+The Coordinator runs its duties periodically and the time between each run is a configurable parameter. On each
 run, the Coordinator assesses the current state of the cluster before deciding on the appropriate actions to take.
-Similar to the Broker and Historical processes, the Druid Coordinator maintains a connection to a Zookeeper cluster for
+Similar to the Broker and Historical services, the Coordinator maintains a connection to a ZooKeeper cluster for
 current cluster information. The Coordinator also maintains a connection to a database containing information about
 "used" segments (that is, the segments that *should* be loaded in the cluster) and the loading rules.
 
-Before any unassigned segments are serviced by Historical processes, the Historical processes for each tier are first
+Before any unassigned segments are serviced by Historical services, the Historical services for each tier are first
 sorted in terms of capacity, with least capacity servers having the highest priority. Unassigned segments are always
-assigned to the processes with least capacity to maintain a level of balance between processes. The Coordinator does not
-directly communicate with a historical process when assigning it a new segment; instead the Coordinator creates some
-temporary information about the new segment under load queue path of the historical process. Once this request is seen,
-the historical process will load the segment and begin servicing it.
+assigned to the services with least capacity to maintain a level of balance between services. The Coordinator does not
+directly communicate with a Historical service when assigning it a new segment; instead the Coordinator creates some
+temporary information about the new segment under load queue path of the Historical service. Once this request is seen,
+the Historical service loads the segment and begins servicing it.
 
-### Running
+## Configuration
+
+For Apache Druid Coordinator service configuration, see [Coordinator configuration](../configuration/index.md#coordinator).
+
+For basic tuning guidance for the Coordinator service, see [Basic cluster tuning](../operations/basic-cluster-tuning.md#coordinator).
+
+## HTTP endpoints
+
+For a list of API endpoints supported by the Coordinator, see [Service status API reference](../api-reference/service-status-api.md#coordinator).
+
+## Running
 
 ```
 org.apache.druid.cli.Main server coordinator
 ```
 
-### Rules
+## Rules
 
 Segments can be automatically loaded and dropped from the cluster based on a set of rules. For more information on rules, see [Rule Configuration](../operations/rule-configuration.md).
 
-### Cleaning up segments
+### Clean up overshadowed segments
 
-On each run, the Druid Coordinator compares the set of used segments in the database with the segments served by some
-Historical nodes in the cluster. Coordinator sends requests to Historical nodes to unload unused segments or segments
+On each run, the Coordinator compares the set of used segments in the database with the segments served by some
+Historical nodes in the cluster. The Coordinator sends requests to Historical nodes to unload unused segments or segments
 that are removed from the database.
 
 Segments that are overshadowed (their versions are too old and their data has been replaced by newer segments) are
 marked as unused. During the next Coordinator's run, they will be unloaded from Historical nodes in the cluster.
 
-### Segment availability
+### Clean up non-overshadowed eternity tombstone segments
 
-If a Historical process restarts or becomes unavailable for any reason, the Druid Coordinator will notice a process has gone missing and treat all segments served by that process as being dropped. Given a sufficient period of time, the segments may be reassigned to other Historical processes in the cluster. However, each segment that is dropped is not immediately forgotten. Instead, there is a transitional data structure that stores all dropped segments with an associated lifetime. The lifetime represents a period of time in which the Coordinator will not reassign a dropped segment. Hence, if a historical process becomes unavailable and available again within a short period of time, the historical process will start up and serve segments from its cache without any those segments being reassigned across the cluster.
+On each run, the Coordinator determines and cleans up unneeded eternity tombstone segments for each datasource. These segments must fit all the following criteria:
+- It is a tombstone segment that starts at -INF or ends at INF (for example, a tombstone with an interval of `-146136543-09-08T08:23:32.096Z/2000-01-01` or `2020-01-01/146140482-04-24T15:36:27.903Z` or `-146136543-09-08T08:23:32.096Z/146140482-04-24T15:36:27.903Z`)
+- It does not overlap with any overshadowed segment
+- It has 0 core partitions
 
-### Balancing segment load
+## Segment availability
 
-To ensure an even distribution of segments across Historical processes in the cluster, the Coordinator process will find the total size of all segments being served by every Historical process each time the Coordinator runs. For every Historical process tier in the cluster, the Coordinator process will determine the Historical process with the highest utilization and the Historical process with the lowest utilization. The percent difference in utilization between the two processes is computed, and if the result exceeds a certain threshold, a number of segments will be moved from the highest utilized process to the lowest utilized process. There is a configurable limit on the number of segments that can be moved from one process to another each time the Coordinator runs. Segments to be moved are selected at random and only moved if the resulting utilization calculation indicates the percentage difference between the highest and lowest servers has decreased.
+If a Historical service restarts or becomes unavailable for any reason, the Coordinator notices that a service has gone missing and treats all segments served by that service as being dropped. The segments are then reassigned to other Historical services in the cluster. However, each segment that is dropped is not immediately forgotten. Instead, there is a transitional data structure that stores all dropped segments with an associated lifetime. The lifetime represents a period of time in which the Coordinator will not reassign a dropped segment. Hence, if a Historical service becomes unavailable and available again within a short period of time, the Historical service will start up and serve segments from its cache without any of those segments being reassigned across the cluster.
 
-### Compacting Segments
+## Balancing segments in a tier
 
-Each run, the Druid Coordinator compacts segments by merging small segments or splitting a large one. This is useful when your segments are not optimized
-in terms of segment size which may degrade query performance. See [Segment Size Optimization](../operations/segment-optimization.md) for details.
+Druid queries perform optimally when segments are distributed evenly across Historical services. An ideal distribution would ensure that all Historicals participate equally in the query load thus avoiding hot-spots in the system. To some extent, this can be achieved by keeping multiple replicas of a segment in a cluster.
+But in a tier with several Historicals (or a low replication factor), segment replication is not sufficient to attain balance.
+Thus, the Coordinator constantly monitors the set of segments present on each Historical in a tier and employs one of the following strategies to identify segments that may be moved from one Historical to another to retain balance.
 
-The Coordinator first finds the segments to compact based on the [segment search policy](#segment-search-policy).
+- `cost` (default): For a given segment in a tier, this strategy picks the server with the minimum "cost" of placing that segment. The cost is a function of the data interval of the segment and the data intervals of all the segments already present on the candidate server. In essence, this strategy tries to avoid placing segments with adjacent or overlapping data intervals on the same server. This is based on the premise that adjacent-interval segments are more likely to be used together in a query and placing them on the same server may lead to skewed CPU usages of Historicals.
+- `diskNormalized`: A derivative of the `cost` strategy that weights the cost of placing a segment on a server with the disk usage ratio of the server. There are known issues with this strategy and is not recommended for a production cluster.
+- `random`: Distributes segments randomly across servers. This is an experimental strategy and is not recommended for a production cluster.
+
+All of the above strategies prioritize moving segments from the Historical with the least available disk space.
+
+## Automatic compaction
+
+The Coordinator manages the [automatic compaction system](../data-management/automatic-compaction.md).
+Each run, the Coordinator compacts segments by merging small segments or splitting a large one. This is useful when the size of your segments is not optimized which may degrade query performance.
+See [Segment size optimization](../operations/segment-optimization.md) for details.
+
+The Coordinator first finds the segments to compact based on the [segment search policy](#segment-search-policy-in-automatic-compaction).
 Once some segments are found, it issues a [compaction task](../ingestion/tasks.md#compact) to compact those segments.
 The maximum number of running compaction tasks is `min(sum of worker capacity * slotRatio, maxSlots)`.
-Note that even though `min(sum of worker capacity * slotRatio, maxSlots)` = 0, at least one compaction task is always submitted
+Note that even if `min(sum of worker capacity * slotRatio, maxSlots) = 0`, at least one compaction task is always submitted
 if the compaction is enabled for a dataSource.
-See [Compaction Configuration API](../operations/api-reference.md#compaction-configuration) and [Compaction Configuration](../configuration/index.md#compaction-dynamic-configuration) to enable the compaction.
+See [Automatic compaction configuration API](../api-reference/automatic-compaction-api.md#manage-automatic-compaction) and [Automatic compaction configuration](../configuration/index.md#automatic-compaction-dynamic-configuration) to enable and configure automatic compaction.
 
-Compaction tasks might fail due to the following reasons.
+Compaction tasks might fail due to the following reasons:
 
 - If the input segments of a compaction task are removed or overshadowed before it starts, that compaction task fails immediately.
 - If a task of a higher priority acquires a [time chunk lock](../ingestion/tasks.md#locking) for an interval overlapping with the interval of a compaction task, the compaction task fails.
 
 Once a compaction task fails, the Coordinator simply checks the segments in the interval of the failed task again, and issues another compaction task in the next run.
 
-### Segment search policy
+Note that Compacting Segments Coordinator Duty is automatically enabled and run as part of the Indexing Service Duties group. However, Compacting Segments Coordinator Duty can be configured to run in isolation as a separate Coordinator duty group. This allows changing the period of Compacting Segments Coordinator Duty without impacting the period of other Indexing Service Duties. This can be done by setting the following properties. For more details, see [custom pluggable Coordinator Duty](../development/modules.md#adding-your-own-custom-pluggable-coordinator-duty).
+```
+druid.coordinator.dutyGroups=[<SOME_GROUP_NAME>]
+druid.coordinator.<SOME_GROUP_NAME>.duties=["compactSegments"]
+druid.coordinator.<SOME_GROUP_NAME>.period=<PERIOD_TO_RUN_COMPACTING_SEGMENTS_DUTY>
+```
 
-#### Recent segment first policy
+## Segment search policy in automatic compaction
 
-At every coordinator run, this policy looks up time chunks in order of newest-to-oldest and checks whether the segments in those time chunks
-need compaction or not.
-A set of segments need compaction if all conditions below are satisfied.
+At every Coordinator run, this policy looks up time chunks from newest to oldest and checks whether the segments in those time chunks
+need compaction.
+A set of segments needs compaction if all conditions below are satisfied:
 
-1) Total size of segments in the time chunk is smaller than or equal to the configured `inputSegmentSizeBytes`.
-2) Segments have never been compacted yet or compaction spec has been updated since the last compaction, especially `maxRowsPerSegment`, `maxTotalRows`, and `indexSpec`.
+* Total size of segments in the time chunk is smaller than or equal to the configured `inputSegmentSizeBytes`.
+* Segments have never been compacted yet or compaction spec has been updated since the last compaction: `maxTotalRows` or `indexSpec`.
 
 Here are some details with an example. Suppose we have two dataSources (`foo`, `bar`) as seen below:
 
@@ -123,35 +143,34 @@ Assuming that each segment is 10 MB and haven't been compacted yet, this policy 
 `foo_2017-11-01T00:00:00.000Z_2017-12-01T00:00:00.000Z_VERSION` and `foo_2017-11-01T00:00:00.000Z_2017-12-01T00:00:00.000Z_VERSION_1` to compact together because
 `2017-11-01T00:00:00.000Z/2017-12-01T00:00:00.000Z` is the most recent time chunk.
 
-If the coordinator has enough task slots for compaction, this policy will continue searching for the next segments and return
+If the Coordinator has enough task slots for compaction, this policy will continue searching for the next segments and return
 `bar_2017-10-01T00:00:00.000Z_2017-11-01T00:00:00.000Z_VERSION` and `bar_2017-10-01T00:00:00.000Z_2017-11-01T00:00:00.000Z_VERSION_1`.
 Finally, `foo_2017-09-01T00:00:00.000Z_2017-10-01T00:00:00.000Z_VERSION` will be picked up even though there is only one segment in the time chunk of `2017-09-01T00:00:00.000Z/2017-10-01T00:00:00.000Z`.
 
-The search start point can be changed by setting [skipOffsetFromLatest](../configuration/index.md#compaction-dynamic-configuration).
+The search start point can be changed by setting `skipOffsetFromLatest`.
 If this is set, this policy will ignore the segments falling into the time chunk of (the end time of the most recent segment - `skipOffsetFromLatest`).
 This is to avoid conflicts between compaction tasks and realtime tasks.
 Note that realtime tasks have a higher priority than compaction tasks by default. Realtime tasks will revoke the locks of compaction tasks if their intervals overlap, resulting in the termination of the compaction task.
+For more information, see [Avoid conflicts with ingestion](../data-management/automatic-compaction.md#avoid-conflicts-with-ingestion).
 
-> This policy currently cannot handle the situation when there are a lot of small segments which have the same interval,
-> and their total size exceeds [inputSegmentSizeBytes](../configuration/index.md#compaction-dynamic-configuration).
-> If it finds such segments, it simply skips them.
+:::info
+ This policy currently cannot handle the situation when there are a lot of small segments which have the same interval,
+ and their total size exceeds [`inputSegmentSizeBytes`](../configuration/index.md#automatic-compaction-dynamic-configuration).
+ If it finds such segments, it simply skips them.
+:::
 
-### The Coordinator console
+## FAQ
 
-The Druid Coordinator exposes a web GUI for displaying cluster information and rule configuration. For more details, please see [coordinator console](../operations/management-uis.md#coordinator-consoles).
-
-### FAQ
-
-1. **Do clients ever contact the Coordinator process?**
+1. **Do clients ever contact the Coordinator service?**
 
     The Coordinator is not involved in a query.
 
-    Historical processes never directly contact the Coordinator process. The Druid Coordinator tells the Historical processes to load/drop data via Zookeeper, but the Historical processes are completely unaware of the Coordinator.
+    Historical services never directly contact the Coordinator service. The Coordinator tells the Historical services to load/drop data via ZooKeeper, but the Historical services are completely unaware of the Coordinator.
 
-    Brokers also never contact the Coordinator. Brokers base their understanding of the data topology on metadata exposed by the Historical processes via ZK and are completely unaware of the Coordinator.
+    Brokers also never contact the Coordinator. Brokers base their understanding of the data topology on metadata exposed by the Historical services via ZooKeeper and are completely unaware of the Coordinator.
 
-2. **Does it matter if the Coordinator process starts up before or after other processes?**
+2. **Does it matter if the Coordinator service starts up before or after other services?**
 
-    No. If the Druid Coordinator is not started up, no new segments will be loaded in the cluster and outdated segments will not be dropped. However, the Coordinator process can be started up at any time, and after a configurable delay, will start running Coordinator tasks.
+    No. If the Coordinator is not started up, no new segments will be loaded in the cluster and outdated segments will not be dropped. However, the Coordinator service can be started up at any time, and after a configurable delay, will start running Coordinator tasks.
 
     This also means that if you have a working cluster and all of your Coordinators die, the cluster will continue to function, it just won’t experience any changes to its data topology.

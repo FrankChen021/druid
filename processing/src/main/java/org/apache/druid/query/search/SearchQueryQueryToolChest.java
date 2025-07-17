@@ -20,13 +20,13 @@
 package org.apache.druid.query.search;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.IAE;
@@ -35,19 +35,17 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.CacheStrategy;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.ResultGranularTimestampComparator;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
+import org.apache.druid.query.cache.CacheKeyBuilder;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.dimension.DimensionSpec;
-import org.apache.druid.query.filter.DimFilter;
 
 import javax.annotation.Nullable;
-import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -61,12 +59,8 @@ import java.util.function.BinaryOperator;
 public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResultValue>, SearchQuery>
 {
   private static final byte SEARCH_QUERY = 0x15;
-  private static final TypeReference<Result<SearchResultValue>> TYPE_REFERENCE = new TypeReference<Result<SearchResultValue>>()
-  {
-  };
-  private static final TypeReference<Object> OBJECT_TYPE_REFERENCE = new TypeReference<Object>()
-  {
-  };
+  private static final TypeReference<Result<SearchResultValue>> TYPE_REFERENCE = new TypeReference<>() {};
+  private static final TypeReference<Object> OBJECT_TYPE_REFERENCE = new TypeReference<>() {};
 
   private final SearchQueryConfig config;
   private final SearchQueryMetricsFactory queryMetricsFactory;
@@ -99,7 +93,7 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
   @Override
   public Comparator<Result<SearchResultValue>> createResultComparator(Query<Result<SearchResultValue>> query)
   {
-    return ResultGranularTimestampComparator.create(query.getGranularity(), query.isDescending());
+    return ResultGranularTimestampComparator.create(query.getGranularity(), false);
   }
 
   @Override
@@ -128,8 +122,17 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
   @Override
   public CacheStrategy<Result<SearchResultValue>, Object, SearchQuery> getCacheStrategy(final SearchQuery query)
   {
+    return getCacheStrategy(query, null);
+  }
 
-    return new CacheStrategy<Result<SearchResultValue>, Object, SearchQuery>()
+  @Override
+  public CacheStrategy<Result<SearchResultValue>, Object, SearchQuery> getCacheStrategy(
+      final SearchQuery query,
+      @Nullable final ObjectMapper objectMapper
+  )
+  {
+
+    return new CacheStrategy<>()
     {
       private final List<DimensionSpec> dimensionSpecs =
           query.getDimensions() != null ? query.getDimensions() : Collections.emptyList();
@@ -139,7 +142,7 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
                                                   : Collections.emptyList();
 
       @Override
-      public boolean isCacheable(SearchQuery query, boolean willMergeRunners)
+      public boolean isCacheable(SearchQuery query, boolean willMergeRunners, boolean bySegment)
       {
         return true;
       }
@@ -147,41 +150,14 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
       @Override
       public byte[] computeCacheKey(SearchQuery query)
       {
-        final DimFilter dimFilter = query.getDimensionsFilter();
-        final byte[] filterBytes = dimFilter == null ? new byte[]{} : dimFilter.getCacheKey();
-        final byte[] querySpecBytes = query.getQuery().getCacheKey();
-        final byte[] granularityBytes = query.getGranularity().getCacheKey();
-
-        final List<DimensionSpec> dimensionSpecs =
-            query.getDimensions() != null ? query.getDimensions() : Collections.emptyList();
-        final byte[][] dimensionsBytes = new byte[dimensionSpecs.size()][];
-        int dimensionsBytesSize = 0;
-        int index = 0;
-        for (DimensionSpec dimensionSpec : dimensionSpecs) {
-          dimensionsBytes[index] = dimensionSpec.getCacheKey();
-          dimensionsBytesSize += dimensionsBytes[index].length;
-          ++index;
-        }
-
-        final byte[] sortSpecBytes = query.getSort().getCacheKey();
-
-        final ByteBuffer queryCacheKey = ByteBuffer
-            .allocate(
-                1 + 4 + granularityBytes.length + filterBytes.length +
-                querySpecBytes.length + dimensionsBytesSize + sortSpecBytes.length
-            )
-            .put(SEARCH_QUERY)
-            .put(Ints.toByteArray(query.getLimit()))
-            .put(granularityBytes)
-            .put(filterBytes)
-            .put(querySpecBytes)
-            .put(sortSpecBytes);
-
-        for (byte[] bytes : dimensionsBytes) {
-          queryCacheKey.put(bytes);
-        }
-
-        return queryCacheKey.array();
+        return new CacheKeyBuilder(SEARCH_QUERY).appendInt(query.getLimit())
+                                                .appendCacheable(query.getGranularity())
+                                                .appendCacheable(query.getFilter())
+                                                .appendCacheable(query.getQuery())
+                                                .appendCacheable(query.getSort())
+                                                .appendCacheables(query.getDimensions())
+                                                .appendCacheable(query.getVirtualColumns())
+                                                .build();
       }
 
       @Override
@@ -199,7 +175,7 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
       @Override
       public Function<Result<SearchResultValue>, Object> prepareForCache(boolean isResultLevelCache)
       {
-        return new Function<Result<SearchResultValue>, Object>()
+        return new Function<>()
         {
           @Override
           public Object apply(Result<SearchResultValue> input)
@@ -214,7 +190,7 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
       @Override
       public Function<Object, Result<SearchResultValue>> pullFromCache(boolean isResultLevelCache)
       {
-        return new Function<Object, Result<SearchResultValue>>()
+        return new Function<>()
         {
           @Override
           @SuppressWarnings("unchecked")
@@ -358,11 +334,11 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
         return runner.run(queryPlus, responseContext);
       }
 
-      final boolean isBySegment = QueryContexts.isBySegment(query);
+      final boolean isBySegment = query.context().isBySegment();
 
       return Sequences.map(
           runner.run(queryPlus.withQuery(query.withLimit(config.getMaxSearchLimit())), responseContext),
-          new Function<Result<SearchResultValue>, Result<SearchResultValue>>()
+          new Function<>()
           {
             @Override
             public Result<SearchResultValue> apply(Result<SearchResultValue> input)
@@ -370,17 +346,17 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
               if (isBySegment) {
                 BySegmentSearchResultValue value = (BySegmentSearchResultValue) input.getValue();
 
-                return new Result<SearchResultValue>(
+                return new Result<>(
                     input.getTimestamp(),
                     new BySegmentSearchResultValue(
                         Lists.transform(
                             value.getResults(),
-                            new Function<Result<SearchResultValue>, Result<SearchResultValue>>()
+                            new Function<>()
                             {
                               @Override
                               public Result<SearchResultValue> apply(@Nullable Result<SearchResultValue> input)
                               {
-                                return new Result<SearchResultValue>(
+                                return new Result<>(
                                     input.getTimestamp(),
                                     new SearchResultValue(
                                         Lists.newArrayList(
@@ -400,7 +376,7 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
                 );
               }
 
-              return new Result<SearchResultValue>(
+              return new Result<>(
                   input.getTimestamp(),
                   new SearchResultValue(
                       Lists.newArrayList(

@@ -56,6 +56,8 @@ public class FlattenJSONBenchmark
   Parser flatParser;
   Parser nestedParser;
   Parser jqParser;
+  Parser treeJqParser;
+  Parser treeTreeParser;
   Parser fieldDiscoveryParser;
   Parser forcedPathParser;
   int flatCounter = 0;
@@ -66,15 +68,15 @@ public class FlattenJSONBenchmark
   public void prepare() throws Exception
   {
     FlattenJSONBenchmarkUtil gen = new FlattenJSONBenchmarkUtil();
-    flatInputs = new ArrayList<String>();
+    flatInputs = new ArrayList<>();
     for (int i = 0; i < NUM_EVENTS; i++) {
       flatInputs.add(gen.generateFlatEvent());
     }
-    nestedInputs = new ArrayList<String>();
+    nestedInputs = new ArrayList<>();
     for (int i = 0; i < NUM_EVENTS; i++) {
       nestedInputs.add(gen.generateNestedEvent());
     }
-    jqInputs = new ArrayList<String>();
+    jqInputs = new ArrayList<>();
     for (int i = 0; i < NUM_EVENTS; i++) {
       jqInputs.add(gen.generateNestedEvent()); // reuse the same event as "nested"
     }
@@ -82,6 +84,8 @@ public class FlattenJSONBenchmark
     flatParser = gen.getFlatParser();
     nestedParser = gen.getNestedParser();
     jqParser = gen.getJqParser();
+    treeJqParser = gen.getTreeJqParser();
+    treeTreeParser = gen.getTreeTreeParser();
     fieldDiscoveryParser = gen.getFieldDiscoveryParser();
     forcedPathParser = gen.getForcedPathParser();
   }
@@ -109,6 +113,32 @@ public class FlattenJSONBenchmark
       blackhole.consume(parsed.get(s));
     }
     nestedCounter = (nestedCounter + 1) % NUM_EVENTS;
+    return parsed;
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  public Map<String, Object> treejqflatten(final Blackhole blackhole)
+  {
+    Map<String, Object> parsed = treeJqParser.parseToMap(nestedInputs.get(jqCounter));
+    for (String s : parsed.keySet()) {
+      blackhole.consume(parsed.get(s));
+    }
+    jqCounter = (jqCounter + 1) % NUM_EVENTS;
+    return parsed;
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  public Map<String, Object> treetreeflatten(final Blackhole blackhole)
+  {
+    Map<String, Object> parsed = treeTreeParser.parseToMap(nestedInputs.get(jqCounter));
+    for (String s : parsed.keySet()) {
+      blackhole.consume(parsed.get(s));
+    }
+    jqCounter = (jqCounter + 1) % NUM_EVENTS;
     return parsed;
   }
 

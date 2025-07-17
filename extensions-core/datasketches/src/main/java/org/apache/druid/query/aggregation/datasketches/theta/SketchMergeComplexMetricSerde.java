@@ -20,18 +20,11 @@
 package org.apache.druid.query.aggregation.datasketches.theta;
 
 import org.apache.druid.data.input.InputRow;
-import org.apache.druid.segment.GenericColumnSerializer;
-import org.apache.druid.segment.column.ColumnBuilder;
-import org.apache.druid.segment.data.GenericIndexed;
 import org.apache.druid.segment.data.ObjectStrategy;
-import org.apache.druid.segment.serde.ComplexColumnPartSupplier;
 import org.apache.druid.segment.serde.ComplexMetricExtractor;
 import org.apache.druid.segment.serde.ComplexMetricSerde;
-import org.apache.druid.segment.serde.LargeColumnSupportedComplexColumnSerializer;
-import org.apache.druid.segment.writeout.SegmentWriteOutMedium;
 
 import javax.annotation.Nullable;
-import java.nio.ByteBuffer;
 
 public class SketchMergeComplexMetricSerde extends ComplexMetricSerde
 {
@@ -59,16 +52,9 @@ public class SketchMergeComplexMetricSerde extends ComplexMetricSerde
       public SketchHolder extractValue(InputRow inputRow, String metricName)
       {
         final Object object = inputRow.getRaw(metricName);
-        return object == null ? null : SketchHolder.deserialize(object);
+        return object == null ? null : SketchHolder.deserializeSafe(object);
       }
     };
-  }
-
-  @Override
-  public void deserializeColumn(ByteBuffer buffer, ColumnBuilder builder)
-  {
-    GenericIndexed<SketchHolder> ge = GenericIndexed.read(buffer, strategy, builder.getFileMapper());
-    builder.setComplexColumnSupplier(new ComplexColumnPartSupplier(getTypeName(), ge));
   }
 
   @Override
@@ -76,11 +62,4 @@ public class SketchMergeComplexMetricSerde extends ComplexMetricSerde
   {
     return strategy;
   }
-
-  @Override
-  public GenericColumnSerializer getSerializer(SegmentWriteOutMedium segmentWriteOutMedium, String column)
-  {
-    return LargeColumnSupportedComplexColumnSerializer.create(segmentWriteOutMedium, column, this.getObjectStrategy());
-  }
-
 }

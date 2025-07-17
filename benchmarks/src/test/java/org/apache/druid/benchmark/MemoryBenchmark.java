@@ -20,7 +20,6 @@
 package org.apache.druid.benchmark;
 
 import org.apache.datasketches.memory.WritableMemory;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.query.groupby.epinephelinae.collection.HashTableUtils;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -46,10 +45,6 @@ import java.util.concurrent.TimeUnit;
 @Measurement(iterations = 15)
 public class MemoryBenchmark
 {
-  static {
-    NullHandling.initializeForTests();
-  }
-
   @Param({"4", "5", "8", "9", "12", "16", "31", "32", "64", "128"})
   public int numBytes;
 
@@ -76,9 +71,9 @@ public class MemoryBenchmark
       buffer3 = ByteBuffer.allocateDirect(numBytes).order(ByteOrder.nativeOrder());
     }
 
-    memory1 = WritableMemory.wrap(buffer1, ByteOrder.nativeOrder());
-    memory2 = WritableMemory.wrap(buffer2, ByteOrder.nativeOrder());
-    memory3 = WritableMemory.wrap(buffer3, ByteOrder.nativeOrder());
+    memory1 = WritableMemory.writableWrap(buffer1, ByteOrder.nativeOrder());
+    memory2 = WritableMemory.writableWrap(buffer2, ByteOrder.nativeOrder());
+    memory3 = WritableMemory.writableWrap(buffer3, ByteOrder.nativeOrder());
 
     // Scribble in some random but consistent (same seed) garbage.
     final Random random = new Random(0);

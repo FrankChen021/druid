@@ -19,23 +19,28 @@
 
 package org.apache.druid.sql.calcite.rel;
 
+import com.google.common.collect.Iterables;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.plan.volcano.RelSubset;
 import org.apache.calcite.rel.AbstractRelNode;
-import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelShuttleImpl;
+import org.apache.calcite.rel.RelWriter;
+import org.apache.druid.server.QueryResponse;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 
 import javax.annotation.Nullable;
 import java.util.Set;
 
-public abstract class DruidRel<T extends DruidRel> extends AbstractRelNode
+public abstract class DruidRel<T extends DruidRel<?>> extends AbstractRelNode
 {
-  private final QueryMaker queryMaker;
+  private final PlannerContext plannerContext;
 
-  protected DruidRel(RelOptCluster cluster, RelTraitSet traitSet, QueryMaker queryMaker)
+  protected DruidRel(RelOptCluster cluster, RelTraitSet traitSet, PlannerContext plannerContext)
   {
     super(cluster, traitSet);
-    this.queryMaker = queryMaker;
+    this.plannerContext = plannerContext;
   }
 
   /**
@@ -45,7 +50,14 @@ public abstract class DruidRel<T extends DruidRel> extends AbstractRelNode
   @Nullable
   public abstract PartialDruidQuery getPartialDruidQuery();
 
-  public abstract Sequence<Object[]> runQuery();
+  public QueryResponse<Object[]> runQuery()
+  {
+    // runQuery doesn't need to finalize aggregations, because the fact that runQuery is happening suggests this
+    // is the outermost query, and it will actually get run as a native query. Druid's native query layer will
+    // finalize aggregations for the outermost query even if we don't explicitly ask it to.
+
+    return getPlannerContext().getQueryMaker().runQuery(toDruidQuery(false));
+  }
 
   public abstract T withPartialQuery(PartialDruidQuery newQueryBuilder);
 
@@ -83,20 +95,64 @@ public abstract class DruidRel<T extends DruidRel> extends AbstractRelNode
    */
   public abstract DruidQuery toDruidQueryForExplaining();
 
-  public QueryMaker getQueryMaker()
-  {
-    return queryMaker;
-  }
-
   public PlannerContext getPlannerContext()
   {
-    return queryMaker.getPlannerContext();
+    return plannerContext;
   }
 
+  /**
+   * Overridden to ensure that subclasses provide a proper implementation. The default implementation from
+   * {@link AbstractRelNode} does nothing and is not appropriate.
+   */
+  @Override
+  public RelWriter explainTerms(RelWriter pw)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected Object clone() throws CloneNotSupportedException
+  {
+    // RelNode implements Cloneable, but our class of rels is not cloned, so does not need to implement clone().
+    throw new CloneNotSupportedException();
+  }
+
+  /**
+   * Returns a copy of this rel with the {@link DruidConvention} trait.
+   */
   public abstract T asDruidConvention();
 
   /**
    * Get the set of names of table datasources read by this DruidRel
    */
   public abstract Set<String> getDataSourceNames();
+
+  public final RelNode unwrapLogicalPlan()
+  {
+    return accept(new LogicalPlanUnwrapperShuttle());
+  }
+
+  private static class LogicalPlanUnwrapperShuttle extends RelShuttleImpl
+  {
+    @Override
+    public RelNode visit(RelNode other)
+    {
+      return super.visit(visitNode(other));
+    }
+
+    private RelNode visitNode(RelNode other)
+    {
+      if (other instanceof RelSubset) {
+        final RelSubset subset = (RelSubset) other;
+        return visitNode(Iterables.getFirst(subset.getRels(), null));
+      }
+      if (other instanceof DruidRel<?>) {
+        DruidRel<?> druidRel = (DruidRel<?>) other;
+        if (druidRel.getPartialDruidQuery() != null && druidRel.getPartialDruidQuery().leafRel() != null) {
+          return druidRel.getPartialDruidQuery().leafRel();
+        }
+      }
+      return other;
+    }
+  }
 }

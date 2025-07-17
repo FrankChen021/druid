@@ -19,7 +19,6 @@
 
 package org.apache.druid.client.cache;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -33,6 +32,8 @@ import net.spy.memcached.BroadcastOpFactory;
 import net.spy.memcached.CASResponse;
 import net.spy.memcached.CASValue;
 import net.spy.memcached.CachedData;
+import net.spy.memcached.ClientMode;
+import net.spy.memcached.ConnectionFactory;
 import net.spy.memcached.ConnectionObserver;
 import net.spy.memcached.MemcachedClientIF;
 import net.spy.memcached.MemcachedNode;
@@ -48,21 +49,20 @@ import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.initialization.Initialization;
-import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.lifecycle.Lifecycle;
 import org.apache.druid.java.util.common.logger.Logger;
-import org.apache.druid.java.util.emitter.core.Emitter;
-import org.apache.druid.java.util.emitter.core.Event;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.metrics.AbstractMonitor;
-import org.easymock.EasyMock;
+import org.apache.druid.java.util.metrics.StubServiceEmitter;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.net.SocketAddress;
-import java.util.ArrayList;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -77,7 +77,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  */
-public class MemcachedCacheTest
+public class MemcachedCacheTest extends CacheTestBase<MemcachedCache>
 {
   private static final Logger log = new Logger(MemcachedCacheTest.class);
   private static final byte[] HI = StringUtils.toUtf8("hiiiiiiiiiiiiiiiiiii");
@@ -90,7 +90,7 @@ public class MemcachedCacheTest
       return false;
     }
   };
-  private MemcachedCache cache;
+
   private final MemcachedCacheConfig memcachedCacheConfig = new MemcachedCacheConfig()
   {
     @Override
@@ -201,29 +201,74 @@ public class MemcachedCacheTest
   public void testMonitor() throws Exception
   {
     final MemcachedCache cache = MemcachedCache.create(memcachedCacheConfig);
-    final Emitter emitter = EasyMock.createNiceMock(Emitter.class);
-    final Collection<Event> events = new ArrayList<>();
-    final ServiceEmitter serviceEmitter = new ServiceEmitter("service", "host", emitter)
-    {
-      @Override
-      public void emit(Event event)
-      {
-        events.add(event);
-      }
-    };
+    final StubServiceEmitter serviceEmitter = new StubServiceEmitter("service", "host");
 
-    while (events.isEmpty()) {
+    while (serviceEmitter.getNumEmittedEvents() <= 0) {
       Thread.sleep(memcachedCacheConfig.getTimeout());
       cache.doMonitor(serviceEmitter);
     }
 
-    Assert.assertFalse(events.isEmpty());
-    ObjectMapper mapper = new DefaultObjectMapper();
-    for (Event event : events) {
-      log.debug("Found event `%s`", mapper.writeValueAsString(event.toMap()));
-    }
+    Assert.assertTrue(serviceEmitter.getNumEmittedEvents() > 0);
+    Assert.assertFalse(serviceEmitter.getMetricEvents("query/cache/memcached/total").isEmpty());
   }
 
+  @Test
+  public void testDefaultClientMode() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException
+  {
+    ConnectionFactory connectionFactory = MemcachedCache.createConnectionFactory(memcachedCacheConfig, null, null, null);
+    // Ensure that clientMode is set to Static by default
+    Assert.assertEquals(connectionFactory.getClientMode(), ClientMode.Static);
+    Assert.assertNull(connectionFactory.getSSLContext());
+  }
+  @Test
+  public void testConnectionFactory() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException
+  {
+    final MemcachedCacheConfig config = new MemcachedCacheConfig()
+    {
+      @Override
+      public boolean enableTls()
+      {
+        return true;
+      }
+
+      @Override
+      public String getClientMode()
+      {
+        return "dynamic";
+      }
+      @Override
+      public String getHosts()
+      {
+        return "localhost:9999";
+      }
+    };
+    // Dynamic mode
+    ConnectionFactory connectionFactoryDynamic = MemcachedCache.createConnectionFactory(config, null, null, null);
+    // Ensure client mode is set to the value passed in config.
+    Assert.assertEquals(connectionFactoryDynamic.getClientMode(), ClientMode.Dynamic);
+    //enableTls is true so sslContext is not null
+    Assert.assertNotNull(connectionFactoryDynamic.getSSLContext());
+    // Ensure Protocol is TLSv1.2
+    Assert.assertEquals("TLSv1.2", connectionFactoryDynamic.getSSLContext().getProtocol());
+  }
+
+  @Test
+  public void testInvalidClientMode()
+  {
+    final MemcachedCacheConfig config = new MemcachedCacheConfig()
+    {
+
+      @Override
+      public String getClientMode()
+      {
+        return "invalid-name";
+      }
+    };
+    RuntimeException exception = Assert.assertThrows(RuntimeException.class, () -> {
+      MemcachedCache.createConnectionFactory(config, null, null, null);
+    });
+    Assert.assertEquals(exception.getMessage(), "Invalid value provided for `druid.cache.clientMode`. Value must be 'static' or 'dynamic'.");
+  }
   @Test
   public void testSanity()
   {
@@ -301,7 +346,7 @@ class MemcachedProviderWithConfig extends MemcachedCacheProvider
 
 class MockMemcachedClient implements MemcachedClientIF
 {
-  private final ConcurrentMap<String, CachedData> theMap = new ConcurrentHashMap<String, CachedData>();
+  private final ConcurrentMap<String, CachedData> theMap = new ConcurrentHashMap<>();
   private final SerializingTranscoder transcoder;
 
   public MockMemcachedClient()
@@ -314,6 +359,12 @@ class MockMemcachedClient implements MemcachedClientIF
   public Collection<SocketAddress> getAvailableServers()
   {
     throw new UnsupportedOperationException("not implemented");
+  }
+
+  @Override
+  public boolean refreshCertificate()
+  {
+    return true;
   }
 
   @Override
@@ -447,7 +498,7 @@ class MockMemcachedClient implements MemcachedClientIF
   {
     theMap.put(key, tc.encode(o));
 
-    return new Future<Boolean>()
+    return new Future<>()
     {
       @Override
       public boolean cancel(boolean b)
@@ -505,7 +556,7 @@ class MockMemcachedClient implements MemcachedClientIF
     CachedData data = theMap.get(key);
     final T theValue = data != null ? tc.decode(data) : null;
 
-    return new Future<T>()
+    return new Future<>()
     {
       @Override
       public boolean cancel(boolean b)
@@ -621,7 +672,7 @@ class MockMemcachedClient implements MemcachedClientIF
   @Override
   public <T> BulkFuture<Map<String, T>> asyncGetBulk(final Iterator<String> keys, final Transcoder<T> tc)
   {
-    return new BulkFuture<Map<String, T>>()
+    return new BulkFuture<>()
     {
       @Override
       public boolean isTimeout()

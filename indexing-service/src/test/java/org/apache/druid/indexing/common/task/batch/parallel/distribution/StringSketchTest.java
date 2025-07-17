@@ -22,6 +22,7 @@ package org.apache.druid.indexing.common.task.batch.parallel.distribution;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.datasketches.quantiles.ItemsSketch;
+import org.apache.druid.data.input.StringTuple;
 import org.apache.druid.jackson.JacksonModule;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.TestHelper;
@@ -32,28 +33,26 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
 import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-@RunWith(Enclosed.class)
 public class StringSketchTest
 {
   private static final int FACTOR = 2;
   private static final int NUM_STRING = StringSketch.SKETCH_K * FACTOR;
   private static final double DELTA = ItemsSketch.getNormalizedRankError(StringSketch.SKETCH_K, true) * NUM_STRING;
-  private static final List<String> STRINGS = IntStream.range(0, NUM_STRING)
-                                                       .mapToObj(i -> StringUtils.format("%010d", i))
-                                                       .collect(Collectors.toCollection(ArrayList::new));
-  private static final String MIN_STRING = STRINGS.get(0);
-  private static final String MAX_STRING = STRINGS.get(NUM_STRING - 1);
+  private static final List<StringTuple> STRINGS = IntStream.range(0, NUM_STRING)
+                                                            .mapToObj(i -> StringTuple.create(StringUtils.format("%010d", i)))
+                                                            .collect(Collectors.toCollection(ArrayList::new));
+  private static final StringTuple MIN_STRING = STRINGS.get(0);
+  private static final StringTuple MAX_STRING = STRINGS.get(NUM_STRING - 1);
 
   static {
     ItemsSketch.rand.setSeed(0);  // make sketches deterministic for testing
@@ -61,7 +60,7 @@ public class StringSketchTest
 
   public static class SerializationDeserializationTest
   {
-    private static final ObjectMapper OBJECT_MAPPER = new JacksonModule().smileMapper();
+    private static final ObjectMapper OBJECT_MAPPER = new JacksonModule().smileMapper(new Properties());
 
     @Test
     public void serializesDeserializes()
@@ -95,7 +94,7 @@ public class StringSketchTest
     @Test
     public void putIfNewMin()
     {
-      String value = MAX_STRING;
+      StringTuple value = MAX_STRING;
       Assert.assertEquals(0, getCount());
 
       target.putIfNewMin(value);
@@ -103,19 +102,19 @@ public class StringSketchTest
 
       target.putIfNewMin(value);
       Assert.assertEquals(1, getCount());
-      Assert.assertEquals(value, target.getDelegate().getMinValue());
-      Assert.assertEquals(value, target.getDelegate().getMaxValue());
+      Assert.assertEquals(value, target.getDelegate().getMinItem());
+      Assert.assertEquals(value, target.getDelegate().getMaxItem());
 
       target.putIfNewMin(MIN_STRING);
       Assert.assertEquals(2, getCount());
-      Assert.assertEquals(MIN_STRING, target.getDelegate().getMinValue());
-      Assert.assertEquals(MAX_STRING, target.getDelegate().getMaxValue());
+      Assert.assertEquals(MIN_STRING, target.getDelegate().getMinItem());
+      Assert.assertEquals(MAX_STRING, target.getDelegate().getMaxItem());
     }
 
     @Test
     public void putIfNewMax()
     {
-      String value = MIN_STRING;
+      StringTuple value = MIN_STRING;
       Assert.assertEquals(0, getCount());
 
       target.putIfNewMax(value);
@@ -123,13 +122,13 @@ public class StringSketchTest
 
       target.putIfNewMax(value);
       Assert.assertEquals(1, getCount());
-      Assert.assertEquals(value, target.getDelegate().getMinValue());
-      Assert.assertEquals(value, target.getDelegate().getMaxValue());
+      Assert.assertEquals(value, target.getDelegate().getMinItem());
+      Assert.assertEquals(value, target.getDelegate().getMaxItem());
 
       target.putIfNewMax(MAX_STRING);
       Assert.assertEquals(2, getCount());
-      Assert.assertEquals(MIN_STRING, target.getDelegate().getMinValue());
-      Assert.assertEquals(MAX_STRING, target.getDelegate().getMaxValue());
+      Assert.assertEquals(MIN_STRING, target.getDelegate().getMinItem());
+      Assert.assertEquals(MAX_STRING, target.getDelegate().getMaxItem());
     }
 
     private long getCount()
@@ -138,7 +137,6 @@ public class StringSketchTest
     }
   }
 
-  @RunWith(Enclosed.class)
   public static class PartitionTest
   {
     private static final StringSketch SKETCH;
@@ -217,7 +215,7 @@ public class StringSketchTest
 
         int previous = 0;
         for (int i = 1; i < partitionBoundaries.size() - 1; i++) {
-          int current = Integer.parseInt(partitionBoundaries.get(i));
+          int current = Integer.parseInt(partitionBoundaries.get(i).get(0));
           int size = current - previous;
           Assert.assertThat(
               getErrMsgPrefix(targetSize, i) + partitionBoundariesString,
@@ -308,7 +306,7 @@ public class StringSketchTest
 
         int previous = 0;
         for (int i = 1; i < partitionBoundaries.size() - 1; i++) {
-          int current = Integer.parseInt(partitionBoundaries.get(i));
+          int current = Integer.parseInt(partitionBoundaries.get(i).get(0));
           int size = current - previous;
           Assert.assertThat(
               getErrMsgPrefix(maxSize, i) + partitionBoundariesString,
@@ -350,7 +348,7 @@ public class StringSketchTest
 
       int previous = 0;
       for (int i = 1; i < partitionBoundaries.size() - 1; i++) {
-        int current = Integer.parseInt(partitionBoundaries.get(i));
+        int current = Integer.parseInt(partitionBoundaries.get(i).get(0));
         Assert.assertEquals(
             getErrMsgPrefix(1, i) + partitionBoundariesString,
             1,

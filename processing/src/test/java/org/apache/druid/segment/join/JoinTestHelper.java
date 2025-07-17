@@ -24,7 +24,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.MapBasedInputRow;
 import org.apache.druid.data.input.impl.DimensionSchema;
@@ -34,11 +33,10 @@ import org.apache.druid.data.input.impl.StringDimensionSchema;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.granularity.Granularities;
-import org.apache.druid.java.util.common.guava.Sequence;
-import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFactory;
+import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.extraction.MapLookupExtractor;
 import org.apache.druid.segment.BaseDoubleColumnValueSelector;
 import org.apache.druid.segment.BaseFloatColumnValueSelector;
@@ -47,18 +45,21 @@ import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.ColumnProcessorFactory;
 import org.apache.druid.segment.ColumnProcessors;
 import org.apache.druid.segment.Cursor;
+import org.apache.druid.segment.CursorHolder;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.DimensionSelector;
 import org.apache.druid.segment.IndexBuilder;
 import org.apache.druid.segment.RowAdapter;
 import org.apache.druid.segment.TestHelper;
+import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnConfig;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.join.table.RowBasedIndexedTable;
 import org.junit.Assert;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -88,28 +89,43 @@ public class JoinTestHelper
       new StringDimensionSchema("page"),
       new LongDimensionSchema("delta")
   );
-  private static final RowSignature COUNTRIES_SIGNATURE =
+
+  public static final String FACT_RESOURCE = "/wikipedia/data.json";
+  public static final String COUNTRIES_RESOURCE = "/wikipedia/countries.json";
+  public static final String REGIONS_RESOURCE = "/wikipedia/regions.json";
+
+  public static final RowSignature FACT_SIGNATURE = RowSignature.builder().addDimensions(
+      FACT_DIMENSIONS.stream().map(
+          dimensionSchema -> new DefaultDimensionSpec(
+              dimensionSchema.getName(),
+              dimensionSchema.getName(),
+              dimensionSchema.getColumnType()
+          )
+      ).collect(Collectors.toList())
+  ).build();
+
+  public static final RowSignature COUNTRIES_SIGNATURE =
       RowSignature.builder()
-                  .add("countryNumber", ValueType.LONG)
-                  .add("countryIsoCode", ValueType.STRING)
-                  .add("countryName", ValueType.STRING)
+                  .add("countryNumber", ColumnType.LONG)
+                  .add("countryIsoCode", ColumnType.STRING)
+                  .add("countryName", ColumnType.STRING)
                   .build();
 
-  private static final RowSignature REGIONS_SIGNATURE =
+  public static final RowSignature REGIONS_SIGNATURE =
       RowSignature.builder()
-                  .add("regionIsoCode", ValueType.STRING)
-                  .add("countryIsoCode", ValueType.STRING)
-                  .add("regionName", ValueType.STRING)
-                  .add("extraField", ValueType.STRING)
+                  .add("regionIsoCode", ColumnType.STRING)
+                  .add("countryIsoCode", ColumnType.STRING)
+                  .add("regionName", ColumnType.STRING)
+                  .add("extraField", ColumnType.STRING)
                   .build();
 
   private static final ColumnProcessorFactory<Supplier<Object>> SIMPLE_READER =
-      new ColumnProcessorFactory<Supplier<Object>>()
+      new ColumnProcessorFactory<>()
       {
         @Override
-        public ValueType defaultType()
+        public ColumnType defaultType()
         {
-          return ValueType.STRING;
+          return ColumnType.STRING;
         }
 
         @Override
@@ -121,19 +137,28 @@ public class JoinTestHelper
         @Override
         public Supplier<Object> makeFloatProcessor(BaseFloatColumnValueSelector selector)
         {
-          return () -> NullHandling.sqlCompatible() && selector.isNull() ? null : selector.getFloat();
+          return () -> selector.isNull() ? null : selector.getFloat();
         }
 
         @Override
         public Supplier<Object> makeDoubleProcessor(BaseDoubleColumnValueSelector selector)
         {
-          return () -> NullHandling.sqlCompatible() && selector.isNull() ? null : selector.getDouble();
+          return () -> selector.isNull() ? null : selector.getDouble();
         }
 
         @Override
         public Supplier<Object> makeLongProcessor(BaseLongColumnValueSelector selector)
         {
-          return () -> NullHandling.sqlCompatible() && selector.isNull() ? null : selector.getLong();
+          return () -> selector.isNull() ? null : selector.getLong();
+        }
+
+        @Override
+        public Supplier<Object> makeArrayProcessor(
+            BaseObjectColumnValueSelector<?> selector,
+            @Nullable ColumnCapabilities columnCapabilities
+        )
+        {
+          return selector::getObject;
         }
 
         @Override
@@ -144,11 +169,11 @@ public class JoinTestHelper
       };
 
   public static final String INDEXED_TABLE_VERSION = DateTimes.nowUtc().toString();
-  public static final byte[] INDEXED_TABLE_CACHE_KEY = new byte[] {1, 2, 3};
+  public static final byte[] INDEXED_TABLE_CACHE_KEY = new byte[]{1, 2, 3};
 
   private static RowAdapter<Map<String, Object>> createMapRowAdapter(final RowSignature signature)
   {
-    return new RowAdapter<Map<String, Object>>()
+    return new RowAdapter<>()
     {
       @Override
       public ToLongFunction<Map<String, Object>> timestampFunction()
@@ -159,7 +184,7 @@ public class JoinTestHelper
       @Override
       public Function<Map<String, Object>, Object> columnFunction(String columnName)
       {
-        final ValueType columnType = signature.getColumnType(columnName).orElse(null);
+        final ColumnType columnType = signature.getColumnType(columnName).orElse(null);
 
         if (columnType == null) {
           return row -> row.get(columnName);
@@ -172,7 +197,7 @@ public class JoinTestHelper
 
   public static IndexBuilder createFactIndexBuilder(final File tmpDir) throws IOException
   {
-    return createFactIndexBuilder(TestHelper.NO_CACHE_COLUMN_CONFIG, tmpDir, -1);
+    return createFactIndexBuilder(ColumnConfig.SELECTION_SIZE, tmpDir, -1);
   }
 
   public static IndexBuilder createFactIndexBuilder(
@@ -182,7 +207,7 @@ public class JoinTestHelper
   ) throws IOException
   {
     return withRowsFromResource(
-        "/wikipedia/data.json",
+        FACT_RESOURCE,
         rows -> IndexBuilder
             .create(columnConfig)
             .tmpDir(tmpDir)
@@ -258,7 +283,7 @@ public class JoinTestHelper
   public static RowBasedIndexedTable<Map<String, Object>> createCountriesIndexedTable() throws IOException
   {
     return withRowsFromResource(
-        "/wikipedia/countries.json",
+        COUNTRIES_RESOURCE,
         rows -> new RowBasedIndexedTable<>(
             rows,
             createMapRowAdapter(COUNTRIES_SIGNATURE),
@@ -287,7 +312,7 @@ public class JoinTestHelper
   public static RowBasedIndexedTable<Map<String, Object>> createRegionsIndexedTable() throws IOException
   {
     return withRowsFromResource(
-        "/wikipedia/regions.json",
+        REGIONS_RESOURCE,
         rows -> new RowBasedIndexedTable<>(
             rows,
             createMapRowAdapter(REGIONS_SIGNATURE),
@@ -298,47 +323,70 @@ public class JoinTestHelper
     );
   }
 
-  public static List<Object[]> readCursors(final Sequence<Cursor> cursors, final List<String> columns)
+  public static List<Object[]> readCursor(final CursorHolder cursorHolder, final List<String> columns)
   {
-    return cursors.flatMap(
-        cursor -> {
-          final List<Supplier<Object>> readers = columns
-              .stream()
-              .map(
-                  column ->
-                      ColumnProcessors.makeProcessor(
-                          column,
-                          SIMPLE_READER,
-                          cursor.getColumnSelectorFactory()
-                      )
-              )
-              .collect(Collectors.toList());
+    try {
+      final Cursor cursor = cursorHolder.asCursor();
+      final List<Supplier<Object>> readers = columns
+          .stream()
+          .map(
+              column ->
+                  ColumnProcessors.makeProcessor(
+                      column,
+                      SIMPLE_READER,
+                      cursor.getColumnSelectorFactory()
+                  )
+          )
+          .collect(Collectors.toList());
 
-          final List<Object[]> rows = new ArrayList<>();
+      final List<Object[]> rows = new ArrayList<>();
+      boolean interruptible = false; // test both advance() and advanceUninterruptibly()
 
-          while (!cursor.isDone()) {
-            final Object[] row = new Object[columns.size()];
-
-            for (int i = 0; i < row.length; i++) {
-              row[i] = readers.get(i).get();
-            }
-
-            rows.add(row);
-            cursor.advance();
-          }
-
-          return Sequences.simple(rows);
+      // test cursor reset
+      while (!cursor.isDone()) {
+        if (interruptible) {
+          cursor.advance();
+        } else {
+          cursor.advanceUninterruptibly();
         }
-    ).toList();
+
+        interruptible = !interruptible;
+      }
+
+      cursor.reset();
+
+      while (!cursor.isDone()) {
+        final Object[] row = new Object[columns.size()];
+
+        for (int i = 0; i < row.length; i++) {
+          row[i] = readers.get(i).get();
+        }
+
+        rows.add(row);
+        if (interruptible) {
+          cursor.advance();
+        } else {
+          cursor.advanceUninterruptibly();
+        }
+
+        interruptible = !interruptible;
+      }
+
+      return rows;
+    }
+    finally {
+      cursorHolder.close();
+    }
   }
 
-  public static void verifyCursors(
-      final Sequence<Cursor> cursors,
+
+  public static void verifyCursor(
+      final CursorHolder cursorHolder,
       final List<String> columns,
       final List<Object[]> expectedRows
   )
   {
-    final List<Object[]> rows = readCursors(cursors, columns);
+    final List<Object[]> rows = readCursor(cursorHolder, columns);
 
     for (int i = 0; i < rows.size(); i++) {
       try {
@@ -356,7 +404,7 @@ public class JoinTestHelper
     }
   }
 
-  private static <T> T withRowsFromResource(
+  public static <T> T withRowsFromResource(
       final String resource,
       final Function<List<Map<String, Object>>, T> f
   ) throws IOException

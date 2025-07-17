@@ -27,6 +27,7 @@ import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.metadata.MetadataStorageConnectorConfig;
 import org.apache.druid.metadata.MetadataStorageTablesConfig;
 import org.apache.druid.metadata.SQLMetadataConnector;
+import org.apache.druid.segment.metadata.CentralizedDatasourceSchemaConfig;
 import org.skife.jdbi.v2.Binding;
 import org.skife.jdbi.v2.ColonPrefixNamedParamStatementRewriter;
 import org.skife.jdbi.v2.DBI;
@@ -40,6 +41,7 @@ import org.skife.jdbi.v2.util.StringMapper;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -132,9 +134,13 @@ public class SQLServerConnector extends SQLMetadataConnector
   ));
 
   @Inject
-  public SQLServerConnector(Supplier<MetadataStorageConnectorConfig> config, Supplier<MetadataStorageTablesConfig> dbTables)
+  public SQLServerConnector(
+      Supplier<MetadataStorageConnectorConfig> config,
+      Supplier<MetadataStorageTablesConfig> dbTables,
+      CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig
+  )
   {
-    super(config, dbTables);
+    super(config, dbTables, centralizedDatasourceSchemaConfig);
 
     final BasicDataSource datasource = getDatasource();
     datasource.setDriverClassLoader(getClass().getClassLoader());
@@ -212,6 +218,12 @@ public class SQLServerConnector extends SQLMetadataConnector
         .isEmpty();
   }
 
+  @Override
+  public String limitClause(int limit)
+  {
+    return String.format(Locale.ENGLISH, "FETCH NEXT %d ROWS ONLY", limit);
+  }
+
   /**
    *
    * {@inheritDoc}
@@ -228,7 +240,7 @@ public class SQLServerConnector extends SQLMetadataConnector
       final byte[] value)
   {
     return getDBI().withHandle(
-        new HandleCallback<Void>()
+        new HandleCallback<>()
         {
           @Override
           public Void withHandle(Handle handle)

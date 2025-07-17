@@ -19,8 +19,10 @@
 
 package org.apache.druid.query.topn.types;
 
+import org.apache.druid.query.CursorGranularizer;
 import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.topn.BaseTopNAlgorithm;
+import org.apache.druid.query.topn.TopNCursorInspector;
 import org.apache.druid.query.topn.TopNParams;
 import org.apache.druid.query.topn.TopNQuery;
 import org.apache.druid.query.topn.TopNResultBuilder;
@@ -28,9 +30,8 @@ import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.DimensionDictionarySelector;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.DimensionSelector;
-import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.column.ColumnCapabilities;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.data.IndexedInts;
 
 import java.util.HashMap;
@@ -40,28 +41,27 @@ import java.util.function.Function;
 public class StringTopNColumnAggregatesProcessor implements TopNColumnAggregatesProcessor<DimensionSelector>
 {
   private final ColumnCapabilities capabilities;
-  private final Function<Object, Comparable<?>> dimensionValueConverter;
-  private HashMap<Comparable<?>, Aggregator[]> aggregatesStore;
+  private final Function<Object, Object> dimensionValueConverter;
+  private HashMap<Object, Aggregator[]> aggregatesStore;
 
-  public StringTopNColumnAggregatesProcessor(final ColumnCapabilities capabilities, final ValueType dimensionType)
+  public StringTopNColumnAggregatesProcessor(final ColumnCapabilities capabilities, final ColumnType dimensionType)
   {
     this.capabilities = capabilities;
-    this.dimensionValueConverter = DimensionHandlerUtils.converterFromTypeToType(ValueType.STRING, dimensionType);
+    this.dimensionValueConverter = DimensionHandlerUtils.converterFromTypeToType(ColumnType.STRING, dimensionType);
   }
 
   @Override
   public int getCardinality(DimensionSelector selector)
   {
-    // only report the underlying selector cardinality if the column the selector is for is dictionary encoded, and
-    // the dictionary values are unique, that is they have a 1:1 mapping between dictionaryId and column value
-    if (capabilities.isDictionaryEncoded().and(capabilities.areDictionaryValuesUnique()).isTrue()) {
+    // only report the underlying selector cardinality if the column the selector is for is dictionary encoded
+    if (capabilities.isDictionaryEncoded().isTrue()) {
       return selector.getValueCardinality();
     }
     return DimensionDictionarySelector.CARDINALITY_UNKNOWN;
   }
 
   @Override
-  public Aggregator[][] getRowSelector(TopNQuery query, TopNParams params, StorageAdapter storageAdapter)
+  public Aggregator[][] getRowSelector(TopNQuery query, TopNParams params, TopNCursorInspector cursorInspector)
   {
     if (params.getCardinality() < 0) {
       throw new UnsupportedOperationException("Cannot operate on a dimension with unknown cardinality");
@@ -74,8 +74,8 @@ public class StringTopNColumnAggregatesProcessor implements TopNColumnAggregates
     final BaseTopNAlgorithm.AggregatorArrayProvider provider = new BaseTopNAlgorithm.AggregatorArrayProvider(
         (DimensionSelector) params.getSelectorPlus().getSelector(),
         query,
-        params.getCardinality(),
-        storageAdapter
+        cursorInspector,
+        params.getCardinality()
     );
 
     return provider.build();
@@ -92,7 +92,7 @@ public class StringTopNColumnAggregatesProcessor implements TopNColumnAggregates
           vals[i] = aggs[i].get();
         }
 
-        final Comparable<?> key = dimensionValueConverter.apply(entry.getKey());
+        final Object key = dimensionValueConverter.apply(entry.getKey());
         resultBuilder.addEntry(key, key, vals);
       }
     }
@@ -113,24 +113,20 @@ public class StringTopNColumnAggregatesProcessor implements TopNColumnAggregates
       TopNQuery query,
       DimensionSelector selector,
       Cursor cursor,
+      CursorGranularizer granularizer,
       Aggregator[][] rowSelector
   )
   {
     final boolean notUnknown = selector.getValueCardinality() != DimensionDictionarySelector.CARDINALITY_UNKNOWN;
-    final boolean unique = capabilities.isDictionaryEncoded().and(capabilities.areDictionaryValuesUnique()).isTrue();
-    // we must know cardinality to use array based aggregation
-    // we check for uniquely dictionary encoded values because non-unique (meaning dictionary ids do not have a 1:1
-    // relation with values) negates many of the benefits of array aggregation:
-    // - if different dictionary ids map to the same value but dictionary ids are unique to that value (*:1), then
-    //   array aggregation will be correct but will still have to potentially perform many map lookups and lose the
-    //   performance benefit array aggregation is trying to provide
-    // - in cases where the same dictionary ids map to different values (1:* or *:*), results can be entirely
-    //   incorrect since an aggregator for a different value might be chosen from the array based on the re-used
-    //   dictionary id
-    if (notUnknown && unique) {
-      return scanAndAggregateWithCardinalityKnown(query, cursor, selector, rowSelector);
+    final boolean hasDictionary = capabilities.isDictionaryEncoded().isTrue();
+    // we must know cardinality to use array based aggregation. in cases where the same dictionary ids map to different
+    // values (1:* or *:*), results can be entirely incorrect since an aggregator for a different value might be
+    // chosen from the array based on the re-used dictionary id
+    // finally, 'run' passes in selector as null for unknown case, so to be safe check for null
+    if (notUnknown && hasDictionary && rowSelector != null) {
+      return scanAndAggregateWithCardinalityKnown(query, cursor, granularizer, selector, rowSelector);
     } else {
-      return scanAndAggregateWithCardinalityUnknown(query, cursor, selector);
+      return scanAndAggregateWithCardinalityUnknown(query, cursor, granularizer, selector);
     }
   }
 
@@ -140,60 +136,83 @@ public class StringTopNColumnAggregatesProcessor implements TopNColumnAggregates
     this.aggregatesStore = new HashMap<>();
   }
 
+  /**
+   * scan and aggregate when column is dictionary encoded and value cardinality is known up front, so values are
+   * aggregated into an array position specified by the dictionaryid, which if not already present, are translated
+   * into the key and fetched (or created if they key hasn't been encountered) from the {@link #aggregatesStore}
+   */
   private long scanAndAggregateWithCardinalityKnown(
       TopNQuery query,
       Cursor cursor,
+      CursorGranularizer granularizer,
       DimensionSelector selector,
       Aggregator[][] rowSelector
   )
   {
     long processedRows = 0;
-    while (!cursor.isDone()) {
-      final IndexedInts dimValues = selector.getRow();
-      for (int i = 0, size = dimValues.size(); i < size; ++i) {
-        final int dimIndex = dimValues.get(i);
-        Aggregator[] aggs = rowSelector[dimIndex];
-        if (aggs == null) {
-          final Comparable<?> key = dimensionValueConverter.apply(selector.lookupName(dimIndex));
-          aggs = aggregatesStore.computeIfAbsent(
-              key,
-              k -> BaseTopNAlgorithm.makeAggregators(cursor, query.getAggregatorSpecs())
-          );
-          rowSelector[dimIndex] = aggs;
-        }
+    if (granularizer.currentOffsetWithinBucket()) {
+      while (!cursor.isDone()) {
+        final IndexedInts dimValues = selector.getRow();
+        for (int i = 0, size = dimValues.size(); i < size; ++i) {
+          final int dimIndex = dimValues.get(i);
+          Aggregator[] aggs = rowSelector[dimIndex];
+          if (aggs == null) {
+            final Object key = dimensionValueConverter.apply(selector.lookupName(dimIndex));
+            aggs = aggregatesStore.computeIfAbsent(
+                key,
+                k -> BaseTopNAlgorithm.makeAggregators(cursor, query.getAggregatorSpecs())
+            );
+            rowSelector[dimIndex] = aggs;
+          }
 
-        for (Aggregator aggregator : aggs) {
-          aggregator.aggregate();
+          for (Aggregator aggregator : aggs) {
+            aggregator.aggregate();
+          }
+        }
+        processedRows++;
+        if (!granularizer.advanceCursorWithinBucket()) {
+          break;
         }
       }
-      cursor.advance();
-      processedRows++;
     }
     return processedRows;
   }
 
+  /**
+   * this method is to allow scan and aggregate when values are not dictionary encoded
+   * (e.g. {@link DimensionSelector#nameLookupPossibleInAdvance()} is false and/or when
+   * {@link ColumnCapabilities#isDictionaryEncoded()} is false). This mode also uses hash table aggregation, storing
+   * results in {@link #aggregatesStore}, and must call {@link DimensionSelector#lookupName(int)} for every row which
+   * is processed and cannot cache lookups, or use the dictionary id in any way other than to lookup the current row
+   * value.
+   */
   private long scanAndAggregateWithCardinalityUnknown(
       TopNQuery query,
       Cursor cursor,
+      CursorGranularizer granularizer,
       DimensionSelector selector
   )
   {
     long processedRows = 0;
-    while (!cursor.isDone()) {
-      final IndexedInts dimValues = selector.getRow();
-      for (int i = 0, size = dimValues.size(); i < size; ++i) {
-        final int dimIndex = dimValues.get(i);
-        final Comparable<?> key = dimensionValueConverter.apply(selector.lookupName(dimIndex));
-        Aggregator[] aggs = aggregatesStore.computeIfAbsent(
-            key,
-            k -> BaseTopNAlgorithm.makeAggregators(cursor, query.getAggregatorSpecs())
-        );
-        for (Aggregator aggregator : aggs) {
-          aggregator.aggregate();
+    if (granularizer.currentOffsetWithinBucket()) {
+      while (!cursor.isDone()) {
+        final IndexedInts dimValues = selector.getRow();
+        for (int i = 0, size = dimValues.size(); i < size; ++i) {
+          final int dimIndex = dimValues.get(i);
+          final Object key = dimensionValueConverter.apply(selector.lookupName(dimIndex));
+          Aggregator[] aggs = aggregatesStore.computeIfAbsent(
+              key,
+              k -> BaseTopNAlgorithm.makeAggregators(cursor, query.getAggregatorSpecs())
+          );
+          for (Aggregator aggregator : aggs) {
+            aggregator.aggregate();
+          }
+        }
+        processedRows++;
+        if (!granularizer.advanceCursorWithinBucket()) {
+          break;
         }
       }
-      cursor.advance();
-      processedRows++;
     }
     return processedRows;
   }

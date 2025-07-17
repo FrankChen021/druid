@@ -22,6 +22,9 @@ package org.apache.druid.query.expression;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.math.expr.ExprMacroTable;
+import org.apache.druid.math.expr.ExpressionValidationException;
+import org.apache.druid.math.expr.InputBindings;
+import org.apache.druid.math.expr.Parser;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -39,7 +42,7 @@ public class IPv4AddressMatchExprMacroTest extends MacroTestBase
   private static final Expr IPV6_MAPPED = ExprEval.of("::ffff:192.168.0.1").toExpr();
   private static final Expr SUBNET_192_168 = ExprEval.of("192.168.0.0/16").toExpr();
   private static final Expr SUBNET_10 = ExprEval.of("10.0.0.0/8").toExpr();
-  private static final Expr NOT_LITERAL = new NotLiteralExpr(null);
+  private static final Expr NOT_LITERAL = Parser.parse("\"notliteral\"", ExprMacroTable.nil());
 
   public IPv4AddressMatchExprMacroTest()
   {
@@ -49,7 +52,7 @@ public class IPv4AddressMatchExprMacroTest extends MacroTestBase
   @Test
   public void testTooFewArgs()
   {
-    expectException(IllegalArgumentException.class, "must have 2 arguments");
+    expectException(ExpressionValidationException.class, "requires 2 arguments");
 
     apply(Collections.emptyList());
   }
@@ -57,7 +60,7 @@ public class IPv4AddressMatchExprMacroTest extends MacroTestBase
   @Test
   public void testTooManyArgs()
   {
-    expectException(IllegalArgumentException.class, "must have 2 arguments");
+    expectException(ExpressionValidationException.class, "requires 2 arguments");
 
     apply(Arrays.asList(IPV4, SUBNET_192_168, NOT_LITERAL));
   }
@@ -65,7 +68,7 @@ public class IPv4AddressMatchExprMacroTest extends MacroTestBase
   @Test
   public void testSubnetArgNotLiteral()
   {
-    expectException(IllegalArgumentException.class, "subnet arg must be a literal");
+    expectException(ExpressionValidationException.class, "subnet argument must be a literal");
 
     apply(Arrays.asList(IPV4, NOT_LITERAL));
   }
@@ -176,32 +179,36 @@ public class IPv4AddressMatchExprMacroTest extends MacroTestBase
     Assert.assertTrue(eval(IPV4_BROADCAST, subnet));
   }
 
+  @Test
+  public void testMatchesPrefix()
+  {
+    Assert.assertTrue(eval(ExprEval.of("192.168.1.250").toExpr(), ExprEval.of("192.168.1.251/31").toExpr()));
+    Assert.assertFalse(eval(ExprEval.of("192.168.1.240").toExpr(), ExprEval.of("192.168.1.251/31").toExpr()));
+    Assert.assertFalse(eval(ExprEval.of("192.168.1.250").toExpr(), ExprEval.of("192.168.1.251/32").toExpr()));
+    Assert.assertTrue(eval(ExprEval.of("192.168.1.251").toExpr(), ExprEval.of("192.168.1.251/32").toExpr()));
+
+    Assert.assertTrue(eval(
+        ExprEval.of(IPv4AddressExprUtils.parse("192.168.1.250").longValue()).toExpr(),
+        ExprEval.of("192.168.1.251/31").toExpr()
+    ));
+    Assert.assertFalse(eval(
+        ExprEval.of(IPv4AddressExprUtils.parse("192.168.1.240").longValue()).toExpr(),
+        ExprEval.of("192.168.1.251/31").toExpr()
+    ));
+    Assert.assertFalse(eval(
+        ExprEval.of(IPv4AddressExprUtils.parse("192.168.1.250").longValue()).toExpr(),
+        ExprEval.of("192.168.1.251/32").toExpr()
+    ));
+    Assert.assertTrue(eval(
+        ExprEval.of(IPv4AddressExprUtils.parse("192.168.1.251").longValue()).toExpr(),
+        ExprEval.of("192.168.1.251/32").toExpr()
+    ));
+  }
+
   private boolean eval(Expr... args)
   {
     Expr expr = apply(Arrays.asList(args));
-    ExprEval eval = expr.eval(ExprUtils.nilBindings());
+    ExprEval eval = expr.eval(InputBindings.nilBindings());
     return eval.asBoolean();
-  }
-
-  /* Helper for tests */
-  @SuppressWarnings({"ReturnOfNull", "NullableProblems"})  // suppressed since this is a test helper class
-  private static class NotLiteralExpr extends ExprMacroTable.BaseScalarUnivariateMacroFunctionExpr
-  {
-    NotLiteralExpr(Expr arg)
-    {
-      super("not", arg);
-    }
-
-    @Override
-    public ExprEval eval(ObjectBinding bindings)
-    {
-      return null;
-    }
-
-    @Override
-    public Expr visit(Shuttle shuttle)
-    {
-      return null;
-    }
   }
 }

@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.RangeSet;
 import org.apache.druid.java.util.common.Cacheable;
 import org.apache.druid.query.extraction.ExtractionFn;
+import org.apache.druid.segment.CursorBuildSpec;
 
 import javax.annotation.Nullable;
 import java.util.Set;
@@ -48,15 +49,23 @@ import java.util.Set;
     @JsonSubTypes.Type(name = "like", value = LikeDimFilter.class),
     @JsonSubTypes.Type(name = "expression", value = ExpressionDimFilter.class),
     @JsonSubTypes.Type(name = "true", value = TrueDimFilter.class),
-    @JsonSubTypes.Type(name = "false", value = FalseDimFilter.class)
+    @JsonSubTypes.Type(name = "false", value = FalseDimFilter.class),
+    @JsonSubTypes.Type(name = "null", value = NullFilter.class),
+    @JsonSubTypes.Type(name = "equals", value = EqualityFilter.class),
+    @JsonSubTypes.Type(name = "range", value = RangeFilter.class),
+    @JsonSubTypes.Type(name = "isfalse", value = IsFalseDimFilter.class),
+    @JsonSubTypes.Type(name = "istrue", value = IsTrueDimFilter.class),
+    @JsonSubTypes.Type(name = "arrayContainsElement", value = ArrayContainsElementFilter.class),
+    @JsonSubTypes.Type(name = "inType", value = TypedInFilter.class)
 })
 public interface DimFilter extends Cacheable
 {
   /**
-   * @return Returns an optimized filter.
-   * returning the same filter can be a straightforward default implementation.
+   * Returns an optimized version of this filter.
+   *
+   * @param mayIncludeUnknown whether the optimized filter may need to operate in "includeUnknown" mode.
    */
-  DimFilter optimize();
+  DimFilter optimize(boolean mayIncludeUnknown);
 
   /**
    * @return Return a Filter that implements this DimFilter, after applying optimizations to this DimFilter.
@@ -66,9 +75,12 @@ public interface DimFilter extends Cacheable
    *
    * The Filter returned by this method across multiple calls must be the same object: parts of the query stack
    * compare Filters, and returning the same object allows these checks to avoid deep comparisons.
-   * (see {@link org.apache.druid.segment.join.HashJoinSegmentStorageAdapter#makeCursors for an example}
+   * (see {@link org.apache.druid.segment.join.HashJoinSegmentCursorFactory#makeCursorHolder(CursorBuildSpec)}
+   * for an example}
+   *
+   * @param mayIncludeUnknown whether the optimized filter may need to operate in "includeUnknown" mode.
    */
-  Filter toOptimizedFilter();
+  Filter toOptimizedFilter(boolean mayIncludeUnknown);
 
   /**
    * Returns a Filter that implements this DimFilter. This does not generally involve optimizing the DimFilter,
@@ -114,7 +126,7 @@ public interface DimFilter extends Cacheable
     /**
      * Append dimension name OR {@link ExtractionFn#toString()} with dimension wrapped in parenthesis
      */
-    DimFilterToStringBuilder appendDimension(String dimension, @Nullable ExtractionFn extractionFn)
+    public DimFilterToStringBuilder appendDimension(String dimension, @Nullable ExtractionFn extractionFn)
     {
       if (extractionFn != null) {
         builder.append(extractionFn).append("(");
@@ -131,7 +143,7 @@ public interface DimFilter extends Cacheable
     /**
      * Add "=" expression
      */
-    DimFilterToStringBuilder appendEquals(String value)
+    public DimFilterToStringBuilder appendEquals(String value)
     {
       builder.append(" = ").append(value);
       return this;
@@ -140,7 +152,7 @@ public interface DimFilter extends Cacheable
     /**
      * Add filter tuning to {@link #builder} if tuning exists
      */
-    DimFilterToStringBuilder appendFilterTuning(@Nullable FilterTuning tuning)
+    public DimFilterToStringBuilder appendFilterTuning(@Nullable FilterTuning tuning)
     {
       if (tuning != null) {
         builder.append(" (filterTuning=").append(tuning).append(")");
@@ -152,7 +164,7 @@ public interface DimFilter extends Cacheable
     /**
      * Generic passthrough to {@link StringBuilder#append}
      */
-    <T> DimFilterToStringBuilder append(T s)
+    public <T> DimFilterToStringBuilder append(T s)
     {
       builder.append(s);
       return this;

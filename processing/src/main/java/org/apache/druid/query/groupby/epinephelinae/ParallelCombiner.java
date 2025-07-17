@@ -28,7 +28,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import it.unimi.dsi.fastutil.objects.Object2IntArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import org.apache.druid.collections.ReferenceCountingResourceHolder;
-import org.apache.druid.collections.Releaser;
 import org.apache.druid.java.util.common.CloseableIterators;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Pair;
@@ -44,11 +43,11 @@ import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.DimensionSelector;
-import org.apache.druid.segment.ObjectColumnSelector;
+import org.apache.druid.segment.ObjectBasedColumnSelector;
 import org.apache.druid.segment.column.ColumnCapabilities;
 
 import javax.annotation.Nullable;
-
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -213,7 +212,7 @@ public class ParallelCombiner<KeyType>
       int sliceSize
   )
   {
-    return new Supplier<ByteBuffer>()
+    return new Supplier<>()
     {
       private int i = 0;
 
@@ -409,13 +408,13 @@ public class ParallelCombiner<KeyType>
                 );
                 // This variable is used to close releaser automatically.
                 @SuppressWarnings("unused")
-                final Releaser releaser = combineBufferHolder.increment()
+                final Closeable releaser = combineBufferHolder.increment()
             ) {
               while (mergedIterator.hasNext()) {
                 final Entry<KeyType> next = mergedIterator.next();
 
-                settableColumnSelectorFactory.set(next.values);
-                grouper.aggregate(next.key); // grouper always returns ok or throws an exception
+                settableColumnSelectorFactory.set(next.getValues());
+                grouper.aggregate(next.getKey()); // grouper always returns ok or throws an exception
                 settableColumnSelectorFactory.set(null);
               }
             }
@@ -472,9 +471,9 @@ public class ParallelCombiner<KeyType>
     }
 
     @Override
-    public ColumnValueSelector makeColumnValueSelector(String columnName)
+    public ColumnValueSelector<Object> makeColumnValueSelector(String columnName)
     {
-      return new ObjectColumnSelector()
+      return new ObjectBasedColumnSelector<>()
       {
         @Override
         public void inspectRuntimeShape(RuntimeShapeInspector inspector)
@@ -483,7 +482,7 @@ public class ParallelCombiner<KeyType>
         }
 
         @Override
-        public Class classOfObject()
+        public Class<Object> classOfObject()
         {
           return Object.class;
         }

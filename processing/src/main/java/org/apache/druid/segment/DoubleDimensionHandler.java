@@ -19,12 +19,18 @@
 
 package org.apache.druid.segment;
 
+import org.apache.druid.data.input.impl.DimensionSchema;
+import org.apache.druid.data.input.impl.DoubleDimensionSchema;
 import org.apache.druid.java.util.common.io.Closer;
+import org.apache.druid.query.dimension.DefaultDimensionSpec;
+import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.segment.column.ColumnCapabilities;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.selector.settable.SettableColumnValueSelector;
 import org.apache.druid.segment.selector.settable.SettableDoubleColumnValueSelector;
 import org.apache.druid.segment.writeout.SegmentWriteOutMedium;
 
+import java.io.File;
 import java.util.Comparator;
 
 public class DoubleDimensionHandler implements DimensionHandler<Double, Double, Double>
@@ -53,22 +59,36 @@ public class DoubleDimensionHandler implements DimensionHandler<Double, Double, 
   }
 
   @Override
+  public DimensionSpec getDimensionSpec()
+  {
+    return new DefaultDimensionSpec(dimensionName, dimensionName, ColumnType.DOUBLE);
+  }
+
+  @Override
+  public DimensionSchema getDimensionSchema(ColumnCapabilities capabilities)
+  {
+    return new DoubleDimensionSchema(dimensionName);
+  }
+
+  @Override
   public DimensionIndexer<Double, Double, Double> makeIndexer()
   {
-    return new DoubleDimensionIndexer();
+    return new DoubleDimensionIndexer(dimensionName);
   }
 
   @Override
   public DimensionMergerV9 makeMerger(
+      String outputName,
       IndexSpec indexSpec,
       SegmentWriteOutMedium segmentWriteOutMedium,
       ColumnCapabilities capabilities,
       ProgressIndicator progress,
+      File segmentBaseDir,
       Closer closer
   )
   {
     return new DoubleDimensionMergerV9(
-        dimensionName,
+        outputName,
         indexSpec,
         segmentWriteOutMedium
     );

@@ -29,13 +29,11 @@ import org.joda.time.Duration;
 import org.joda.time.Period;
 
 import javax.annotation.Nullable;
-import java.io.File;
 
 public class KafkaSupervisorTuningConfig extends KafkaIndexTaskTuningConfig
     implements SeekableStreamSupervisorTuningConfig
 {
   private final Integer workerThreads;
-  private final Integer chatThreads;
   private final Long chatRetries;
   private final Duration httpTimeout;
   private final Duration shutdownTimeout;
@@ -80,7 +78,6 @@ public class KafkaSupervisorTuningConfig extends KafkaIndexTaskTuningConfig
       @JsonProperty("maxRowsPerSegment") Integer maxRowsPerSegment,
       @JsonProperty("maxTotalRows") Long maxTotalRows,
       @JsonProperty("intermediatePersistPeriod") Period intermediatePersistPeriod,
-      @JsonProperty("basePersistDirectory") File basePersistDirectory,
       @JsonProperty("maxPendingPersists") Integer maxPendingPersists,
       @JsonProperty("indexSpec") IndexSpec indexSpec,
       @JsonProperty("indexSpecForIntermediatePersists") @Nullable IndexSpec indexSpecForIntermediatePersists,
@@ -89,7 +86,6 @@ public class KafkaSupervisorTuningConfig extends KafkaIndexTaskTuningConfig
       @JsonProperty("resetOffsetAutomatically") Boolean resetOffsetAutomatically,
       @JsonProperty("segmentWriteOutMediumFactory") @Nullable SegmentWriteOutMediumFactory segmentWriteOutMediumFactory,
       @JsonProperty("workerThreads") Integer workerThreads,
-      @JsonProperty("chatThreads") Integer chatThreads,
       @JsonProperty("chatRetries") Long chatRetries,
       @JsonProperty("httpTimeout") Period httpTimeout,
       @JsonProperty("shutdownTimeout") Period shutdownTimeout,
@@ -97,7 +93,9 @@ public class KafkaSupervisorTuningConfig extends KafkaIndexTaskTuningConfig
       @JsonProperty("intermediateHandoffPeriod") Period intermediateHandoffPeriod,
       @JsonProperty("logParseExceptions") @Nullable Boolean logParseExceptions,
       @JsonProperty("maxParseExceptions") @Nullable Integer maxParseExceptions,
-      @JsonProperty("maxSavedParseExceptions") @Nullable Integer maxSavedParseExceptions
+      @JsonProperty("maxSavedParseExceptions") @Nullable Integer maxSavedParseExceptions,
+      @JsonProperty("numPersistThreads") @Nullable Integer numPersistThreads,
+      @JsonProperty("maxColumnsToMerge") @Nullable Integer maxColumnsToMerge
   )
   {
     super(
@@ -108,7 +106,7 @@ public class KafkaSupervisorTuningConfig extends KafkaIndexTaskTuningConfig
         maxRowsPerSegment,
         maxTotalRows,
         intermediatePersistPeriod,
-        basePersistDirectory,
+        null,
         maxPendingPersists,
         indexSpec,
         indexSpecForIntermediatePersists,
@@ -119,10 +117,11 @@ public class KafkaSupervisorTuningConfig extends KafkaIndexTaskTuningConfig
         intermediateHandoffPeriod,
         logParseExceptions,
         maxParseExceptions,
-        maxSavedParseExceptions
+        maxSavedParseExceptions,
+        numPersistThreads,
+        maxColumnsToMerge
     );
     this.workerThreads = workerThreads;
-    this.chatThreads = chatThreads;
     this.chatRetries = (chatRetries != null ? chatRetries : DEFAULT_CHAT_RETRIES);
     this.httpTimeout = SeekableStreamSupervisorTuningConfig.defaultDuration(httpTimeout, DEFAULT_HTTP_TIMEOUT);
     this.shutdownTimeout = SeekableStreamSupervisorTuningConfig.defaultDuration(
@@ -140,13 +139,6 @@ public class KafkaSupervisorTuningConfig extends KafkaIndexTaskTuningConfig
   public Integer getWorkerThreads()
   {
     return workerThreads;
-  }
-
-  @Override
-  @JsonProperty
-  public Integer getChatThreads()
-  {
-    return chatThreads;
   }
 
   @Override
@@ -198,7 +190,6 @@ public class KafkaSupervisorTuningConfig extends KafkaIndexTaskTuningConfig
            ", maxBytesInMemory=" + getMaxBytesInMemoryOrDefault() +
            ", skipBytesInMemoryOverheadCheck=" + isSkipBytesInMemoryOverheadCheck() +
            ", intermediatePersistPeriod=" + getIntermediatePersistPeriod() +
-           ", basePersistDirectory=" + getBasePersistDirectory() +
            ", maxPendingPersists=" + getMaxPendingPersists() +
            ", indexSpec=" + getIndexSpec() +
            ", reportParseExceptions=" + isReportParseExceptions() +
@@ -206,7 +197,6 @@ public class KafkaSupervisorTuningConfig extends KafkaIndexTaskTuningConfig
            ", resetOffsetAutomatically=" + isResetOffsetAutomatically() +
            ", segmentWriteOutMediumFactory=" + getSegmentWriteOutMediumFactory() +
            ", workerThreads=" + workerThreads +
-           ", chatThreads=" + chatThreads +
            ", chatRetries=" + chatRetries +
            ", httpTimeout=" + httpTimeout +
            ", shutdownTimeout=" + shutdownTimeout +
@@ -215,6 +205,7 @@ public class KafkaSupervisorTuningConfig extends KafkaIndexTaskTuningConfig
            ", logParseExceptions=" + isLogParseExceptions() +
            ", maxParseExceptions=" + getMaxParseExceptions() +
            ", maxSavedParseExceptions=" + getMaxSavedParseExceptions() +
+           ", numPersistThreads=" + getNumPersistThreads() +
            '}';
   }
 
@@ -229,7 +220,7 @@ public class KafkaSupervisorTuningConfig extends KafkaIndexTaskTuningConfig
         getMaxRowsPerSegment(),
         getMaxTotalRows(),
         getIntermediatePersistPeriod(),
-        getBasePersistDirectory(),
+        null,
         getMaxPendingPersists(),
         getIndexSpec(),
         getIndexSpecForIntermediatePersists(),
@@ -240,7 +231,9 @@ public class KafkaSupervisorTuningConfig extends KafkaIndexTaskTuningConfig
         getIntermediateHandoffPeriod(),
         isLogParseExceptions(),
         getMaxParseExceptions(),
-        getMaxSavedParseExceptions()
+        getMaxSavedParseExceptions(),
+        getNumPersistThreads(),
+        getMaxColumnsToMerge()
     );
   }
 }

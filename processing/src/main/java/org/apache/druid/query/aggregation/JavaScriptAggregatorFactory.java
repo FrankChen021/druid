@@ -25,15 +25,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import it.unimi.dsi.fastutil.objects.ObjectArrays;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.js.JavaScriptConfig;
 import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.ColumnValueSelector;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -177,24 +175,6 @@ public class JavaScriptAggregatorFactory extends AggregatorFactory
   }
 
   @Override
-  public List<AggregatorFactory> getRequiredColumns()
-  {
-    return ImmutableList.copyOf(
-        Lists.transform(
-            fieldNames,
-            new com.google.common.base.Function<String, AggregatorFactory>()
-            {
-              @Override
-              public AggregatorFactory apply(String input)
-              {
-                return new JavaScriptAggregatorFactory(input, Collections.singletonList(input), fnCombine, fnReset, fnCombine, config);
-              }
-            }
-        )
-    );
-  }
-
-  @Override
   public Object deserialize(Object object)
   {
     // handle "NaN" / "Infinity" values serialized as strings in JSON
@@ -268,21 +248,34 @@ public class JavaScriptAggregatorFactory extends AggregatorFactory
   }
 
   @Override
-  public ValueType getType()
+  public ColumnType getIntermediateType()
   {
-    return ValueType.FLOAT;
+    return ColumnType.FLOAT;
   }
 
   @Override
-  public ValueType getFinalizedType()
+  public ColumnType getResultType()
   {
-    return ValueType.FLOAT;
+    return ColumnType.FLOAT;
   }
 
   @Override
   public int getMaxIntermediateSize()
   {
     return Double.BYTES;
+  }
+
+  @Override
+  public AggregatorFactory withName(String newName)
+  {
+    return new JavaScriptAggregatorFactory(
+        newName,
+        getFieldNames(),
+        getFnAggregate(),
+        getFnReset(),
+        getFnCombine(),
+        config
+    );
   }
 
   @Override

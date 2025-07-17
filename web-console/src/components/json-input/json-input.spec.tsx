@@ -18,11 +18,10 @@
 
 import { render } from '@testing-library/react';
 import Hjson from 'hjson';
-import React from 'react';
 
 import { extractRowColumnFromHjsonError, JsonInput } from './json-input';
 
-describe('json input', () => {
+describe('JsonInput', () => {
   it('matches snapshot (null)', () => {
     const jsonCollapse = <JsonInput onChange={() => {}} value={null} />;
     const { container } = render(jsonCollapse);

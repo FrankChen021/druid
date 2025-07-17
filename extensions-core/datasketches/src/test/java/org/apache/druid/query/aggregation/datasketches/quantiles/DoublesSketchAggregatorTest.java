@@ -21,7 +21,6 @@ package org.apache.druid.query.aggregation.datasketches.quantiles;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
@@ -31,15 +30,11 @@ import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
 import org.apache.druid.query.groupby.ResultRow;
-import org.apache.druid.query.groupby.strategy.GroupByStrategySelector;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -59,9 +54,6 @@ public class DoublesSketchAggregatorTest extends InitializedNullHandlingTest
 
   @Rule
   public final TemporaryFolder tempFolder = new TemporaryFolder();
-
-  @Rule
-  public final ExpectedException expectedException = ExpectedException.none();
 
   public DoublesSketchAggregatorTest(final GroupByQueryConfig config, final String vectorize)
   {
@@ -369,7 +361,7 @@ public class DoublesSketchAggregatorTest extends InitializedNullHandlingTest
     Object sketchObjectWithNulls = row.get(1);
     Assert.assertTrue(sketchObjectWithNulls instanceof Long);
     long sketchValueWithNulls = (long) sketchObjectWithNulls;
-    Assert.assertEquals(NullHandling.replaceWithDefault() ? 400 : 377, sketchValueWithNulls);
+    Assert.assertEquals(377, sketchValueWithNulls);
 
     // post agg
     Object quantileObject = row.get(2);
@@ -397,7 +389,7 @@ public class DoublesSketchAggregatorTest extends InitializedNullHandlingTest
     Object quantileObjectWithNulls = row.get(5);
     Assert.assertTrue(quantileObjectWithNulls instanceof Double);
     Assert.assertEquals(
-        NullHandling.replaceWithDefault() ? 7.4 : 7.5,
+        7.5,
         (double) quantileObjectWithNulls,
         0.1
     ); // median value
@@ -406,8 +398,8 @@ public class DoublesSketchAggregatorTest extends InitializedNullHandlingTest
     Object quantilesObjectWithNulls = row.get(6);
     Assert.assertTrue(quantilesObjectWithNulls instanceof double[]);
     double[] quantilesWithNulls = (double[]) quantilesObjectWithNulls;
-    Assert.assertEquals(NullHandling.replaceWithDefault() ? 0.0 : 5.0, quantilesWithNulls[0], 0.05); // min value
-    Assert.assertEquals(NullHandling.replaceWithDefault() ? 7.4 : 7.5, quantilesWithNulls[1], 0.1); // median value
+    Assert.assertEquals(5.0, quantilesWithNulls[0], 0.05); // min value
+    Assert.assertEquals(7.5, quantilesWithNulls[1], 0.1); // median value
     Assert.assertEquals(10.0, quantilesWithNulls[2], 0.05); // max value
 
     // post agg with nulls
@@ -544,128 +536,49 @@ public class DoublesSketchAggregatorTest extends InitializedNullHandlingTest
   }
 
   @Test
-  public void testFailureWhenMaxStreamLengthHit() throws Exception
+  public void testSuccessWhenMaxStreamLengthHit() throws Exception
   {
-    if (GroupByStrategySelector.STRATEGY_V1.equals(config.getDefaultStrategy())) {
-      expectedException.expect(new RecursiveExceptionMatcher(IllegalStateException.class));
-      expectedException.expectMessage("NullPointerException was thrown while updating Doubles sketch");
-
-      helper.createIndexAndRunQueryOnSegment(
-          new File(this.getClass().getClassLoader().getResource("quantiles/doubles_build_data.tsv").getFile()),
-          String.join(
-              "\n",
-              "{",
-              "  \"type\": \"string\",",
-              "  \"parseSpec\": {",
-              "    \"format\": \"tsv\",",
-              "    \"timestampSpec\": {\"column\": \"timestamp\", \"format\": \"yyyyMMddHH\"},",
-              "    \"dimensionsSpec\": {",
-              "      \"dimensions\": [\"sequenceNumber\", \"product\"],",
-              "      \"dimensionExclusions\": [],",
-              "      \"spatialDimensions\": []",
-              "    },",
-              "    \"columns\": [\"timestamp\", \"sequenceNumber\", \"product\", \"value\"]",
-              "  }",
-              "}"
-          ),
-          "[{\"type\": \"doubleSum\", \"name\": \"value\", \"fieldName\": \"value\"}]",
-          0, // minTimestamp
-          Granularities.NONE,
-          10, // maxRowCount
-          String.join(
-              "\n",
-              "{",
-              "  \"queryType\": \"groupBy\",",
-              "  \"dataSource\": \"test_datasource\",",
-              "  \"granularity\": \"ALL\",",
-              "  \"dimensions\": [],",
-              "  \"aggregations\": [",
-              "    {\"type\": \"quantilesDoublesSketch\", \"name\": \"sketch\", \"fieldName\": \"value\", \"k\": 128, \"maxStreamLength\": 10}",
-              "  ],",
-              "  \"postAggregations\": [",
-              "    {\"type\": \"quantilesDoublesSketchToQuantile\", \"name\": \"quantile\", \"fraction\": 0.5, \"field\": {\"type\": \"fieldAccess\", \"fieldName\": \"sketch\"}},",
-              "    {\"type\": \"quantilesDoublesSketchToQuantiles\", \"name\": \"quantiles\", \"fractions\": [0, 0.5, 1], \"field\": {\"type\": \"fieldAccess\", \"fieldName\": \"sketch\"}},",
-              "    {\"type\": \"quantilesDoublesSketchToHistogram\", \"name\": \"histogram\", \"splitPoints\": [0.25, 0.5, 0.75], \"field\": {\"type\": \"fieldAccess\", \"fieldName\": \"sketch\"}}",
-              "  ],",
-              "  \"intervals\": [\"2016-01-01T00:00:00.000Z/2016-01-31T00:00:00.000Z\"]",
-              "}"
-          )
-      );
-    } else {
-      Sequence<ResultRow> seq = helper.createIndexAndRunQueryOnSegment(
-          new File(this.getClass().getClassLoader().getResource("quantiles/doubles_build_data.tsv").getFile()),
-          String.join(
-              "\n",
-              "{",
-              "  \"type\": \"string\",",
-              "  \"parseSpec\": {",
-              "    \"format\": \"tsv\",",
-              "    \"timestampSpec\": {\"column\": \"timestamp\", \"format\": \"yyyyMMddHH\"},",
-              "    \"dimensionsSpec\": {",
-              "      \"dimensions\": [\"sequenceNumber\", \"product\"],",
-              "      \"dimensionExclusions\": [],",
-              "      \"spatialDimensions\": []",
-              "    },",
-              "    \"columns\": [\"timestamp\", \"sequenceNumber\", \"product\", \"value\"]",
-              "  }",
-              "}"
-          ),
-          "[{\"type\": \"doubleSum\", \"name\": \"value\", \"fieldName\": \"value\"}]",
-          0, // minTimestamp
-          Granularities.NONE,
-          10, // maxRowCount
-          String.join(
-              "\n",
-              "{",
-              "  \"queryType\": \"groupBy\",",
-              "  \"dataSource\": \"test_datasource\",",
-              "  \"granularity\": \"ALL\",",
-              "  \"dimensions\": [],",
-              "  \"aggregations\": [",
-              "    {\"type\": \"quantilesDoublesSketch\", \"name\": \"sketch\", \"fieldName\": \"value\", \"k\": 128, \"maxStreamLength\": 10}",
-              "  ],",
-              "  \"postAggregations\": [",
-              "    {\"type\": \"quantilesDoublesSketchToQuantile\", \"name\": \"quantile\", \"fraction\": 0.5, \"field\": {\"type\": \"fieldAccess\", \"fieldName\": \"sketch\"}},",
-              "    {\"type\": \"quantilesDoublesSketchToQuantiles\", \"name\": \"quantiles\", \"fractions\": [0, 0.5, 1], \"field\": {\"type\": \"fieldAccess\", \"fieldName\": \"sketch\"}},",
-              "    {\"type\": \"quantilesDoublesSketchToHistogram\", \"name\": \"histogram\", \"splitPoints\": [0.25, 0.5, 0.75], \"field\": {\"type\": \"fieldAccess\", \"fieldName\": \"sketch\"}}",
-              "  ],",
-              "  \"intervals\": [\"2016-01-01T00:00:00.000Z/2016-01-31T00:00:00.000Z\"]",
-              "}"
-          )
-      );
-
-      expectedException.expect(new RecursiveExceptionMatcher(IllegalStateException.class));
-      expectedException.expectMessage("NullPointerException was thrown while updating Doubles sketch");
-      seq.toList();
-    }
-  }
-
-  private static class RecursiveExceptionMatcher extends BaseMatcher<Object>
-  {
-    private final Class<? extends Throwable> expected;
-
-    private RecursiveExceptionMatcher(Class<? extends Throwable> expected)
-    {
-      this.expected = expected;
-    }
-
-    @Override
-    public boolean matches(Object item)
-    {
-      if (expected.isInstance(item)) {
-        return true;
-      } else if (item instanceof Throwable) {
-        if (((Throwable) item).getCause() != null) {
-          return matches(((Throwable) item).getCause());
-        }
-      }
-      return false;
-    }
-
-    @Override
-    public void describeTo(Description description)
-    {
-      description.appendText("a recursive instance of ").appendText(expected.getName());
-    }
+    Sequence<ResultRow> seq = helper.createIndexAndRunQueryOnSegment(
+        new File(this.getClass().getClassLoader().getResource("quantiles/doubles_build_data.tsv").getFile()),
+        String.join(
+            "\n",
+            "{",
+            "  \"type\": \"string\",",
+            "  \"parseSpec\": {",
+            "    \"format\": \"tsv\",",
+            "    \"timestampSpec\": {\"column\": \"timestamp\", \"format\": \"yyyyMMddHH\"},",
+            "    \"dimensionsSpec\": {",
+            "      \"dimensions\": [\"sequenceNumber\", \"product\"],",
+            "      \"dimensionExclusions\": [],",
+            "      \"spatialDimensions\": []",
+            "    },",
+            "    \"columns\": [\"timestamp\", \"sequenceNumber\", \"product\", \"value\"]",
+            "  }",
+            "}"
+        ),
+        "[{\"type\": \"doubleSum\", \"name\": \"value\", \"fieldName\": \"value\"}]",
+        0, // minTimestamp
+        Granularities.NONE,
+        10, // maxRowCount
+        String.join(
+            "\n",
+            "{",
+            "  \"queryType\": \"groupBy\",",
+            "  \"dataSource\": \"test_datasource\",",
+            "  \"granularity\": \"ALL\",",
+            "  \"dimensions\": [],",
+            "  \"aggregations\": [",
+            "    {\"type\": \"quantilesDoublesSketch\", \"name\": \"sketch\", \"fieldName\": \"value\", \"k\": 128, \"maxStreamLength\": 10}",
+            "  ],",
+            "  \"postAggregations\": [",
+            "    {\"type\": \"quantilesDoublesSketchToQuantile\", \"name\": \"quantile\", \"fraction\": 0.5, \"field\": {\"type\": \"fieldAccess\", \"fieldName\": \"sketch\"}},",
+            "    {\"type\": \"quantilesDoublesSketchToQuantiles\", \"name\": \"quantiles\", \"fractions\": [0, 0.5, 1], \"field\": {\"type\": \"fieldAccess\", \"fieldName\": \"sketch\"}},",
+            "    {\"type\": \"quantilesDoublesSketchToHistogram\", \"name\": \"histogram\", \"splitPoints\": [0.25, 0.5, 0.75], \"field\": {\"type\": \"fieldAccess\", \"fieldName\": \"sketch\"}}",
+            "  ],",
+            "  \"intervals\": [\"2016-01-01T00:00:00.000Z/2016-01-31T00:00:00.000Z\"]",
+            "}"
+        )
+    );
+    seq.toList();
   }
 }

@@ -20,38 +20,44 @@ import { Intent } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import React, { useState } from 'react';
 
-import { AutoForm, ExternalLink } from '../../components';
-import { OVERLORD_DYNAMIC_CONFIG_FIELDS, OverlordDynamicConfig } from '../../druid-models';
+import type { FormJsonTabs } from '../../components';
+import { AutoForm, ExternalLink, FormJsonSelector, JsonInput, Loader } from '../../components';
+import type { OverlordDynamicConfig } from '../../druid-models';
+import { OVERLORD_DYNAMIC_CONFIG_FIELDS } from '../../druid-models';
 import { useQueryManager } from '../../hooks';
 import { getLink } from '../../links';
 import { Api, AppToaster } from '../../singletons';
-import { getDruidErrorMessage } from '../../utils';
+import { getApiArray, getDruidErrorMessage } from '../../utils';
 import { SnitchDialog } from '..';
+
+import { OVERLORD_DYNAMIC_CONFIG_COMPLETIONS } from './overlord-dynamic-config-completions';
 
 import './overlord-dynamic-config-dialog.scss';
 
 export interface OverlordDynamicConfigDialogProps {
-  onClose: () => void;
+  onClose(): void;
 }
 
 export const OverlordDynamicConfigDialog = React.memo(function OverlordDynamicConfigDialog(
   props: OverlordDynamicConfigDialogProps,
 ) {
   const { onClose } = props;
-  const [dynamicConfig, setDynamicConfig] = useState<OverlordDynamicConfig>({});
+  const [currentTab, setCurrentTab] = useState<FormJsonTabs>('form');
+  const [dynamicConfig, setDynamicConfig] = useState<OverlordDynamicConfig | undefined>();
+  const [jsonError, setJsonError] = useState<Error | undefined>();
 
   const [historyRecordsState] = useQueryManager<null, any[]>({
-    processQuery: async () => {
-      const historyResp = await Api.instance.get(`/druid/indexer/v1/worker/history?count=100`);
-      return historyResp.data;
-    },
     initQuery: null,
+    processQuery: async (_, cancelToken) => {
+      return await getApiArray(`/druid/indexer/v1/worker/history?count=100`, cancelToken);
+    },
   });
 
   useQueryManager<null, Record<string, any>>({
-    processQuery: async () => {
+    initQuery: null,
+    processQuery: async (_, cancelToken) => {
       try {
-        const configResp = await Api.instance.get(`/druid/indexer/v1/worker`);
+        const configResp = await Api.instance.get(`/druid/indexer/v1/worker`, { cancelToken });
         setDynamicConfig(configResp.data || {});
       } catch (e) {
         AppToaster.show({
@@ -59,12 +65,10 @@ export const OverlordDynamicConfigDialog = React.memo(function OverlordDynamicCo
           intent: Intent.DANGER,
           message: `Could not load overlord dynamic config: ${getDruidErrorMessage(e)}`,
         });
-        setDynamicConfig({});
         onClose();
       }
       return {};
     },
-    initQuery: null,
   });
 
   async function saveConfig(comment: string) {
@@ -93,25 +97,48 @@ export const OverlordDynamicConfigDialog = React.memo(function OverlordDynamicCo
   return (
     <SnitchDialog
       className="overlord-dynamic-config-dialog"
-      onSave={saveConfig}
+      saveDisabled={Boolean(jsonError)}
+      onSave={comment => void saveConfig(comment)}
       onClose={onClose}
       title="Overlord dynamic config"
       historyRecords={historyRecordsState.data}
     >
-      <p>
-        Edit the overlord dynamic configuration on the fly. For more information please refer to the{' '}
-        <ExternalLink
-          href={`${getLink('DOCS')}/configuration/index.html#overlord-dynamic-configuration`}
-        >
-          documentation
-        </ExternalLink>
-        .
-      </p>
-      <AutoForm
-        fields={OVERLORD_DYNAMIC_CONFIG_FIELDS}
-        model={dynamicConfig}
-        onChange={setDynamicConfig}
-      />
+      {dynamicConfig ? (
+        <>
+          <p>
+            Edit the overlord dynamic configuration at runtime. For more information please refer to
+            the{' '}
+            <ExternalLink href={`${getLink('DOCS')}/configuration/#overlord-dynamic-configuration`}>
+              documentation
+            </ExternalLink>
+            .
+          </p>
+          <FormJsonSelector
+            tab={currentTab}
+            onChange={t => {
+              setJsonError(undefined);
+              setCurrentTab(t);
+            }}
+          />
+          {currentTab === 'form' ? (
+            <AutoForm
+              fields={OVERLORD_DYNAMIC_CONFIG_FIELDS}
+              model={dynamicConfig}
+              onChange={setDynamicConfig}
+            />
+          ) : (
+            <JsonInput
+              value={dynamicConfig}
+              height="50vh"
+              onChange={setDynamicConfig}
+              setError={setJsonError}
+              jsonCompletions={OVERLORD_DYNAMIC_CONFIG_COMPLETIONS}
+            />
+          )}
+        </>
+      ) : (
+        <Loader />
+      )}
     </SnitchDialog>
   );
 });

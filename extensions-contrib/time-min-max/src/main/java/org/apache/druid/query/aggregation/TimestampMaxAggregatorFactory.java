@@ -22,11 +22,9 @@ package org.apache.druid.query.aggregation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 
 import javax.annotation.Nullable;
-import java.util.List;
 
 public class TimestampMaxAggregatorFactory extends TimestampAggregatorFactory
 {
@@ -48,11 +46,9 @@ public class TimestampMaxAggregatorFactory extends TimestampAggregatorFactory
   }
 
   @Override
-  public List<AggregatorFactory> getRequiredColumns()
+  public AggregatorFactory withName(String newName)
   {
-    return ImmutableList.of(
-        new TimestampMaxAggregatorFactory(name, fieldName, timeFormat)
-    );
+    return new TimestampMaxAggregatorFactory(newName, getFieldName(), getTimeFormat());
   }
 
   @Override

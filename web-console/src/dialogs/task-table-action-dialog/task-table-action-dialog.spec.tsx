@@ -17,12 +17,11 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
 import { TaskTableActionDialog } from './task-table-action-dialog';
 
 const basicAction = { title: 'test', onAction: () => null };
-describe('task table action dialog', () => {
+describe('TaskTableActionDialog', () => {
   it('matches snapshot', () => {
     const taskTableActionDialog = (
       <TaskTableActionDialog

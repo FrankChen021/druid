@@ -21,6 +21,7 @@ package org.apache.druid.client;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializerProvider;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -45,6 +46,7 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.SequenceWrapper;
 import org.apache.druid.java.util.common.guava.Sequences;
+import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.CacheStrategy;
 import org.apache.druid.query.Druids;
@@ -66,6 +68,7 @@ import org.apache.druid.query.topn.TopNQueryBuilder;
 import org.apache.druid.query.topn.TopNQueryConfig;
 import org.apache.druid.query.topn.TopNQueryQueryToolChest;
 import org.apache.druid.query.topn.TopNResultValue;
+import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.easymock.EasyMock;
 import org.joda.time.DateTime;
 import org.junit.Assert;
@@ -88,7 +91,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @RunWith(Parameterized.class)
-public class CachingQueryRunnerTest
+public class CachingQueryRunnerTest extends InitializedNullHandlingTest
 {
   @Parameterized.Parameters(name = "numBackgroundThreads={0}")
   public static Iterable<Object[]> constructorFeeder()
@@ -220,8 +223,8 @@ public class CachingQueryRunnerTest
     Cache cache = EasyMock.mock(Cache.class);
     EasyMock.replay(cache);
     CachingQueryRunner queryRunner = makeCachingQueryRunner(null, cache, toolchest, Sequences.empty());
-    Assert.assertFalse(queryRunner.canPopulateCache(query, toolchest.getCacheStrategy(query)));
-    Assert.assertFalse(queryRunner.canUseCache(query, toolchest.getCacheStrategy(query)));
+    Assert.assertFalse(queryRunner.canPopulateCache(query, toolchest.getCacheStrategy(query, null)));
+    Assert.assertFalse(queryRunner.canUseCache(query, toolchest.getCacheStrategy(query, null)));
     queryRunner.run(QueryPlus.wrap(query));
     EasyMock.verifyUnexpectedCalls(cache);
   }
@@ -241,7 +244,7 @@ public class CachingQueryRunnerTest
 
     QueryToolChest toolchest = EasyMock.mock(QueryToolChest.class);
     Cache cache = EasyMock.mock(Cache.class);
-    EasyMock.expect(toolchest.getCacheStrategy(query)).andReturn(null);
+    EasyMock.expect(toolchest.getCacheStrategy(EasyMock.eq(query), EasyMock.anyObject())).andReturn(null);
     EasyMock.replay(cache, toolchest);
     CachingQueryRunner queryRunner = makeCachingQueryRunner(new byte[0], cache, toolchest, Sequences.empty());
     Assert.assertFalse(queryRunner.canPopulateCache(query, null));
@@ -337,7 +340,7 @@ public class CachingQueryRunnerTest
         resultSeq
     );
 
-    CacheStrategy cacheStrategy = toolchest.getCacheStrategy(query);
+    CacheStrategy cacheStrategy = toolchest.getCacheStrategy(query, null);
     Cache.NamedKey cacheKey = CacheUtil.computeSegmentCacheKey(
         CACHE_ID,
         SEGMENT_DESCRIPTOR,
@@ -381,7 +384,7 @@ public class CachingQueryRunnerTest
 
     byte[] cacheKeyPrefix = RandomUtils.nextBytes(10);
 
-    CacheStrategy cacheStrategy = toolchest.getCacheStrategy(query);
+    CacheStrategy cacheStrategy = toolchest.getCacheStrategy(query, null);
     Cache.NamedKey cacheKey = CacheUtil.computeSegmentCacheKey(
         CACHE_ID,
         SEGMENT_DESCRIPTOR,
@@ -397,7 +400,7 @@ public class CachingQueryRunnerTest
         toolchest,
         Sequences.empty()
     );
-    Assert.assertTrue(runner.canUseCache(query, toolchest.getCacheStrategy(query)));
+    Assert.assertTrue(runner.canUseCache(query, toolchest.getCacheStrategy(query, null)));
     List<Result> results = runner.run(QueryPlus.wrap(query)).toList();
     Assert.assertEquals(expectedResults.toString(), results.toString());
   }
@@ -485,7 +488,7 @@ public class CachingQueryRunnerTest
         index += 3;
       }
 
-      retVal.add(new Result<>(timestamp, new TopNResultValue(values)));
+      retVal.add(new Result<>(timestamp, TopNResultValue.create(values)));
     }
     return retVal;
   }
@@ -495,8 +498,9 @@ public class CachingQueryRunnerTest
     final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
     try (JsonGenerator gen = objectMapper.getFactory().createGenerator(bytes)) {
+      final SerializerProvider serializers = objectMapper.getSerializerProviderInstance();
       for (T result : results) {
-        gen.writeObject(result);
+        JacksonUtils.writeObjectUsingSerializerProvider(gen, serializers, result);
       }
     }
 

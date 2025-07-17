@@ -19,23 +19,23 @@
 
 package org.apache.druid.cli;
 
+import com.github.rvesse.airline.annotations.Command;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
+import com.google.inject.name.Named;
 import com.google.inject.name.Names;
 import com.google.inject.util.Providers;
-import io.airlift.airline.Command;
-import org.apache.druid.client.indexing.HttpIndexingServiceClient;
-import org.apache.druid.client.indexing.IndexingServiceClient;
 import org.apache.druid.curator.ZkEnablementConfig;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.discovery.WorkerNodeService;
-import org.apache.druid.guice.IndexingServiceFirehoseModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.IndexingServiceModuleHelper;
 import org.apache.druid.guice.IndexingServiceTaskLogsModule;
@@ -45,12 +45,15 @@ import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ManageLifecycle;
+import org.apache.druid.guice.MiddleManagerServiceModule;
 import org.apache.druid.guice.PolyBind;
 import org.apache.druid.guice.annotations.Self;
+import org.apache.druid.indexer.HadoopIndexTaskModule;
+import org.apache.druid.indexing.common.RetryPolicyFactory;
+import org.apache.druid.indexing.common.TaskStorageDirTracker;
 import org.apache.druid.indexing.common.config.TaskConfig;
 import org.apache.druid.indexing.common.stats.DropwizardRowIngestionMetersFactory;
-import org.apache.druid.indexing.common.task.IndexTaskClientFactory;
-import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTaskClient;
+import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTaskClientProvider;
 import org.apache.druid.indexing.common.task.batch.parallel.ShuffleClient;
 import org.apache.druid.indexing.overlord.ForkingTaskRunner;
 import org.apache.druid.indexing.overlord.TaskRunner;
@@ -67,20 +70,26 @@ import org.apache.druid.indexing.worker.shuffle.LocalIntermediaryDataManager;
 import org.apache.druid.indexing.worker.shuffle.ShuffleModule;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.metadata.input.InputSourceModule;
+import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.lookup.LookupSerdeModule;
 import org.apache.druid.segment.incremental.RowIngestionMetersFactory;
+import org.apache.druid.segment.realtime.ChatHandlerProvider;
+import org.apache.druid.segment.realtime.NoopChatHandlerProvider;
 import org.apache.druid.segment.realtime.appenderator.AppenderatorsManager;
 import org.apache.druid.segment.realtime.appenderator.DummyForInjectionAppenderatorsManager;
-import org.apache.druid.segment.realtime.firehose.ChatHandlerProvider;
-import org.apache.druid.segment.realtime.firehose.NoopChatHandlerProvider;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.http.SelfDiscoveryResource;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
+import org.apache.druid.server.metrics.ServiceStatusMonitor;
+import org.apache.druid.server.metrics.WorkerTaskCountStatsProvider;
+import org.apache.druid.storage.local.LocalTmpStorageConfig;
 import org.apache.druid.timeline.PruneLastCompactionState;
 import org.eclipse.jetty.server.Server;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  *
@@ -107,14 +116,23 @@ public class CliMiddleManager extends ServerRunnable
   }
 
   @Override
+  protected Set<NodeRole> getNodeRoles(Properties properties)
+  {
+    return ImmutableSet.of(NodeRole.MIDDLE_MANAGER);
+  }
+
+  @Override
   protected List<? extends Module> getModules()
   {
     return ImmutableList.of(
+        new MiddleManagerServiceModule(),
         new Module()
         {
           @Override
           public void configure(Binder binder)
           {
+            validateCentralizedDatasourceSchemaConfig(getProperties());
+
             binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/middlemanager");
             binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8091);
             binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(8291);
@@ -124,13 +142,13 @@ public class CliMiddleManager extends ServerRunnable
 
             JsonConfigProvider.bind(binder, "druid.indexer.task", TaskConfig.class);
             JsonConfigProvider.bind(binder, "druid.worker", WorkerConfig.class);
+            binder.bind(RetryPolicyFactory.class).in(LazySingleton.class);
 
             binder.bind(TaskRunner.class).to(ForkingTaskRunner.class);
-            binder.bind(ForkingTaskRunner.class).in(LazySingleton.class);
+            binder.bind(ForkingTaskRunner.class).in(ManageLifecycle.class);
+            binder.bind(WorkerTaskCountStatsProvider.class).to(ForkingTaskRunner.class);
 
-            binder.bind(IndexingServiceClient.class).to(HttpIndexingServiceClient.class).in(LazySingleton.class);
-            binder.bind(new TypeLiteral<IndexTaskClientFactory<ParallelIndexSupervisorTaskClient>>() {})
-                  .toProvider(Providers.of(null));
+            binder.bind(ParallelIndexSupervisorTaskClientProvider.class).toProvider(Providers.of(null));
             binder.bind(ShuffleClient.class).toProvider(Providers.of(null));
             binder.bind(ChatHandlerProvider.class).toProvider(Providers.of(new NoopChatHandlerProvider()));
             PolyBind.createChoice(
@@ -147,7 +165,7 @@ public class CliMiddleManager extends ServerRunnable
                 .in(LazySingleton.class);
             binder.bind(DropwizardRowIngestionMetersFactory.class).in(LazySingleton.class);
 
-            bindWorkerManagementClasses(binder, isZkEnabled);
+            binder.install(makeWorkerManagementModule(isZkEnabled));
 
             binder.bind(JettyServerInitializer.class)
                   .to(MiddleManagerJettyServerInitializer.class)
@@ -159,18 +177,19 @@ public class CliMiddleManager extends ServerRunnable
 
             LifecycleModule.register(binder, Server.class);
 
-            bindNodeRoleAndAnnouncer(
+            bindAnnouncer(
                 binder,
-                DiscoverySideEffectsProvider
-                    .builder(NodeRole.MIDDLE_MANAGER)
-                    .serviceClasses(ImmutableList.of(WorkerNodeService.class))
-                    .build()
+                DiscoverySideEffectsProvider.create()
             );
 
             Jerseys.addResource(binder, SelfDiscoveryResource.class);
             LifecycleModule.registerKey(binder, Key.get(SelfDiscoveryResource.class));
 
             configureIntermediaryData(binder);
+
+            binder.bind(LocalTmpStorageConfig.class)
+                  .toProvider(new LocalTmpStorageConfig.DefaultLocalTmpStorageConfigProvider("middle-manager"))
+                  .in(LazySingleton.class);
           }
 
           private void configureIntermediaryData(Binder binder)
@@ -187,6 +206,18 @@ public class CliMiddleManager extends ServerRunnable
             );
             biddy.addBinding("local").to(LocalIntermediaryDataManager.class);
             biddy.addBinding("deepstore").to(DeepStorageIntermediaryDataManager.class).in(LazySingleton.class);
+          }
+
+          @Provides
+          @LazySingleton
+          @Named(ServiceStatusMonitor.HEARTBEAT_TAGS_BINDING)
+          public Supplier<Map<String, Object>> heartbeatDimensions(WorkerConfig workerConfig, WorkerTaskManager workerTaskManager)
+          {
+            return () -> ImmutableMap.of(
+                DruidMetrics.WORKER_VERSION, workerConfig.getVersion(),
+                DruidMetrics.CATEGORY, workerConfig.getCategory(),
+                DruidMetrics.STATUS, workerTaskManager.isWorkerEnabled() ? "Enabled" : "Disabled"
+            );
           }
 
           @Provides
@@ -216,27 +247,41 @@ public class CliMiddleManager extends ServerRunnable
           }
         },
         new ShuffleModule(),
-        new IndexingServiceFirehoseModule(),
         new IndexingServiceInputSourceModule(),
         new IndexingServiceTaskLogsModule(),
         new IndexingServiceTuningConfigModule(),
         new InputSourceModule(),
+        new HadoopIndexTaskModule(),
         new LookupSerdeModule()
     );
   }
 
-  public static void bindWorkerManagementClasses(Binder binder, boolean isZkEnabled)
+  public static Module makeWorkerManagementModule(boolean isZkEnabled)
   {
-    if (isZkEnabled) {
-      binder.bind(WorkerTaskManager.class).to(WorkerTaskMonitor.class);
-      binder.bind(WorkerTaskMonitor.class).in(ManageLifecycle.class);
-      binder.bind(WorkerCuratorCoordinator.class).in(ManageLifecycle.class);
-      LifecycleModule.register(binder, WorkerTaskMonitor.class);
-    } else {
-      binder.bind(WorkerTaskManager.class).in(ManageLifecycle.class);
-    }
+    return new Module()
+    {
+      @Override
+      public void configure(Binder binder)
+      {
+        if (isZkEnabled) {
+          binder.bind(WorkerTaskManager.class).to(WorkerTaskMonitor.class);
+          binder.bind(WorkerTaskMonitor.class).in(ManageLifecycle.class);
+          binder.bind(WorkerCuratorCoordinator.class).in(ManageLifecycle.class);
+          LifecycleModule.register(binder, WorkerTaskMonitor.class);
+        } else {
+          binder.bind(WorkerTaskManager.class).in(ManageLifecycle.class);
+        }
 
-    Jerseys.addResource(binder, WorkerResource.class);
-    Jerseys.addResource(binder, TaskManagementResource.class);
+        Jerseys.addResource(binder, WorkerResource.class);
+        Jerseys.addResource(binder, TaskManagementResource.class);
+      }
+
+      @Provides
+      @ManageLifecycle
+      public TaskStorageDirTracker getTaskStorageDirTracker(WorkerConfig workerConfig, TaskConfig taskConfig)
+      {
+        return TaskStorageDirTracker.fromConfigs(workerConfig, taskConfig);
+      }
+    };
   }
 }

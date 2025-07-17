@@ -22,6 +22,8 @@ package org.apache.druid.query.scan;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
+import org.apache.druid.query.Order;
+import org.apache.druid.query.OrderBy;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.TableDataSource;
@@ -31,6 +33,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 public class ScanQuerySpecTest
 {
@@ -42,25 +45,11 @@ public class ScanQuerySpecTest
     String legacy =
         "{\"queryType\":\"scan\",\"dataSource\":{\"type\":\"table\",\"name\":\"testing\"},"
         + "\"intervals\":{\"type\":\"LegacySegmentSpec\",\"intervals\":[\"2011-01-12T00:00:00.000Z/2011-01-14T00:00:00.000Z\"]},"
-        + "\"filter\":null,"
         + "\"columns\":[\"market\",\"quality\",\"index\"],"
-        + "\"limit\":3,"
-        + "\"context\":null}";
+        + "\"limit\":3}";
 
     String current =
-        "{\"queryType\":\"scan\",\"dataSource\":{\"type\":\"table\",\"name\":\"testing\"},"
-        + "\"intervals\":{\"type\":\"LegacySegmentSpec\",\"intervals\":[\"2011-01-12T00:00:00.000Z/2011-01-14T00:00:00.000Z\"]},"
-        + "\"virtualColumns\":[],"
-        + "\"resultFormat\":\"list\","
-        + "\"batchSize\":20480,"
-        + "\"limit\":3,"
-        + "\"order\":\"none\","
-        + "\"filter\":null,"
-        + "\"columns\":[\"market\",\"quality\",\"index\"],"
-        + "\"legacy\":null,"
-        + "\"context\":null,"
-        + "\"descending\":false,"
-        + "\"granularity\":{\"type\":\"all\"}}";
+        "{\"queryType\":\"scan\",\"dataSource\":{\"type\":\"table\",\"name\":\"testing\"},\"intervals\":{\"type\":\"LegacySegmentSpec\",\"intervals\":[\"2011-01-12T00:00:00.000Z/2011-01-14T00:00:00.000Z\"]},\"resultFormat\":\"list\",\"limit\":3,\"columns\":[\"market\",\"quality\",\"index\"],\"granularity\":{\"type\":\"all\"},\"legacy\":false}";
 
     ScanQuery query = new ScanQuery(
         new TableDataSource(QueryRunnerTestHelper.DATA_SOURCE),
@@ -70,7 +59,8 @@ public class ScanQuerySpecTest
         0,
         0,
         3,
-        ScanQuery.Order.NONE,
+        Order.NONE,
+        null,
         null,
         Arrays.asList("market", "quality", "index"),
         null,
@@ -84,6 +74,70 @@ public class ScanQuerySpecTest
   }
 
   @Test
+  public void testSerializationWithTimeOrder() throws Exception
+  {
+    String originalJson =
+        "{\"queryType\":\"scan\",\"dataSource\":{\"type\":\"table\",\"name\":\"testing\"},\"intervals\":{\"type\":\"LegacySegmentSpec\",\"intervals\":[\"2011-01-12T00:00:00.000Z/2011-01-14T00:00:00.000Z\"]},\"resultFormat\":\"list\",\"limit\":3,\"order\":\"ascending\",\"columns\":[\"market\",\"quality\",\"index\",\"__time\"],\"granularity\":{\"type\":\"all\"},\"legacy\":false}";
+
+    ScanQuery expectedQuery = new ScanQuery(
+        new TableDataSource(QueryRunnerTestHelper.DATA_SOURCE),
+        new LegacySegmentSpec(Intervals.of("2011-01-12/2011-01-14")),
+        VirtualColumns.EMPTY,
+        ScanQuery.ResultFormat.RESULT_FORMAT_LIST,
+        0,
+        0,
+        3,
+        Order.ASCENDING,
+        null,
+        null,
+        Arrays.asList("market", "quality", "index", "__time"),
+        null,
+        null
+    );
+
+    String serializedJson = JSON_MAPPER.writeValueAsString(expectedQuery);
+    Assert.assertEquals(originalJson, serializedJson);
+    Assert.assertEquals(expectedQuery, JSON_MAPPER.readValue(originalJson, ScanQuery.class));
+    Assert.assertEquals(Order.ASCENDING, expectedQuery.getTimeOrder());
+    Assert.assertEquals(
+        Collections.singletonList(OrderBy.ascending("__time")),
+        expectedQuery.getOrderBys()
+    );
+  }
+
+  @Test
+  public void testSerializationWithOrderBy() throws Exception
+  {
+    String originalJson =
+        "{\"queryType\":\"scan\",\"dataSource\":{\"type\":\"table\",\"name\":\"testing\"},\"intervals\":{\"type\":\"LegacySegmentSpec\",\"intervals\":[\"2011-01-12T00:00:00.000Z/2011-01-14T00:00:00.000Z\"]},\"resultFormat\":\"list\",\"limit\":3,\"orderBy\":[{\"columnName\":\"quality\",\"order\":\"ascending\"}],\"columns\":[\"market\",\"quality\",\"index\",\"__time\"],\"granularity\":{\"type\":\"all\"},\"legacy\":false}";
+
+    ScanQuery expectedQuery = new ScanQuery(
+        new TableDataSource(QueryRunnerTestHelper.DATA_SOURCE),
+        new LegacySegmentSpec(Intervals.of("2011-01-12/2011-01-14")),
+        VirtualColumns.EMPTY,
+        ScanQuery.ResultFormat.RESULT_FORMAT_LIST,
+        0,
+        0,
+        3,
+        null,
+        Collections.singletonList(OrderBy.ascending("quality")),
+        null,
+        Arrays.asList("market", "quality", "index", "__time"),
+        null,
+        null
+    );
+
+    String serializedJson = JSON_MAPPER.writeValueAsString(expectedQuery);
+    Assert.assertEquals(originalJson, serializedJson);
+    Assert.assertEquals(expectedQuery, JSON_MAPPER.readValue(originalJson, ScanQuery.class));
+    Assert.assertEquals(Order.NONE, expectedQuery.getTimeOrder());
+    Assert.assertEquals(
+        Collections.singletonList(OrderBy.ascending("quality")),
+        expectedQuery.getOrderBys()
+    );
+  }
+
+  @Test
   public void testSerializationLegacyString() throws Exception
   {
     ScanQuery query = new ScanQuery(
@@ -94,7 +148,8 @@ public class ScanQuerySpecTest
         0,
         1,
         3,
-        ScanQuery.Order.NONE,
+        Order.NONE,
+        null,
         null,
         Arrays.asList("market", "quality", "index"),
         null,

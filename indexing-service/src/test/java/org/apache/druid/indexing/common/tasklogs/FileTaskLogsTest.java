@@ -19,12 +19,17 @@
 
 package org.apache.druid.indexing.common.tasklogs;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
+import org.apache.druid.indexer.TaskStatus;
+import org.apache.druid.indexer.report.TaskReport;
 import org.apache.druid.indexing.common.config.FileTaskLogsConfig;
 import org.apache.druid.java.util.common.FileUtils;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.segment.TestHelper;
 import org.apache.druid.tasklogs.TaskLogs;
 import org.junit.Assert;
 import org.junit.Rule;
@@ -53,13 +58,13 @@ public class FileTaskLogsTest
     try {
       final File logDir = new File(tmpDir, "druid/logs");
       final File logFile = new File(tmpDir, "log");
-      Files.write("blah", logFile, StandardCharsets.UTF_8);
+      Files.asCharSink(logFile, StandardCharsets.UTF_8).write("blah");
       final TaskLogs taskLogs = new FileTaskLogs(new FileTaskLogsConfig(logDir));
       taskLogs.pushTaskLog("foo", logFile);
 
       final Map<Long, String> expected = ImmutableMap.of(0L, "blah", 1L, "lah", -2L, "ah", -5L, "blah");
       for (Map.Entry<Long, String> entry : expected.entrySet()) {
-        final byte[] bytes = ByteStreams.toByteArray(taskLogs.streamTaskLog("foo", entry.getKey()).get().openStream());
+        final byte[] bytes = ByteStreams.toByteArray(taskLogs.streamTaskLog("foo", entry.getKey()).get());
         final String string = StringUtils.fromUtf8(bytes);
         Assert.assertEquals(StringUtils.format("Read with offset %,d", entry.getKey()), string, entry.getValue());
       }
@@ -70,12 +75,56 @@ public class FileTaskLogsTest
   }
 
   @Test
+  public void testSimpleReport() throws Exception
+  {
+    final ObjectMapper mapper = TestHelper.makeJsonMapper();
+    final File tmpDir = temporaryFolder.newFolder();
+    final File logDir = new File(tmpDir, "druid/logs");
+    final File reportFile = new File(tmpDir, "report.json");
+
+    final String taskId = "myTask";
+    final TestTaskReport testReport = new TestTaskReport(taskId);
+    final String testReportString = mapper.writeValueAsString(TaskReport.buildTaskReports(testReport));
+    Files.asCharSink(reportFile, StandardCharsets.UTF_8).write(testReportString);
+
+    final TaskLogs taskLogs = new FileTaskLogs(new FileTaskLogsConfig(logDir));
+    taskLogs.pushTaskReports("foo", reportFile);
+
+    Assert.assertEquals(
+        testReportString,
+        StringUtils.fromUtf8(ByteStreams.toByteArray(taskLogs.streamTaskReports("foo").get()))
+    );
+  }
+
+  @Test
+  public void testSimpleStatus() throws Exception
+  {
+    final ObjectMapper mapper = TestHelper.makeJsonMapper();
+    final File tmpDir = temporaryFolder.newFolder();
+    final File logDir = new File(tmpDir, "druid/myTask");
+    final File statusFile = new File(tmpDir, "status.json");
+
+    final String taskId = "myTask";
+    final TaskStatus taskStatus = TaskStatus.success(taskId);
+    final String taskStatusString = mapper.writeValueAsString(taskStatus);
+    Files.asCharSink(statusFile, StandardCharsets.UTF_8).write(taskStatusString);
+
+    final TaskLogs taskLogs = new FileTaskLogs(new FileTaskLogsConfig(logDir));
+    taskLogs.pushTaskStatus(taskId, statusFile);
+
+    Assert.assertEquals(
+        taskStatusString,
+        StringUtils.fromUtf8(ByteStreams.toByteArray(taskLogs.streamTaskStatus(taskId).get()))
+    );
+  }
+
+  @Test
   public void testPushTaskLogDirCreationFails() throws Exception
   {
     final File tmpDir = temporaryFolder.newFolder();
     final File logDir = new File(tmpDir, "druid/logs");
     final File logFile = new File(tmpDir, "log");
-    Files.write("blah", logFile, StandardCharsets.UTF_8);
+    Files.asCharSink(logFile, StandardCharsets.UTF_8).write("blah");
 
     if (!tmpDir.setWritable(false)) {
       throw new RuntimeException("failed to make tmp dir read-only");
@@ -84,7 +133,7 @@ public class FileTaskLogsTest
     final TaskLogs taskLogs = new FileTaskLogs(new FileTaskLogsConfig(logDir));
 
     expectedException.expect(IOException.class);
-    expectedException.expectMessage("Unable to create task log dir");
+    expectedException.expectMessage("Cannot create directory");
     taskLogs.pushTaskLog("foo", logFile);
   }
 
@@ -96,7 +145,7 @@ public class FileTaskLogsTest
     final File logFile = new File(tmpDir, "log");
     final TaskLogs taskLogs = new FileTaskLogs(new FileTaskLogsConfig(logDir));
 
-    Files.write("log1content", logFile, StandardCharsets.UTF_8);
+    Files.asCharSink(logFile, StandardCharsets.UTF_8).write("log1content");
     taskLogs.pushTaskLog("log1", logFile);
     Assert.assertEquals("log1content", readLog(taskLogs, "log1", 0));
 
@@ -107,7 +156,7 @@ public class FileTaskLogsTest
     long time = (System.currentTimeMillis() / 1000) * 1000;
     Assert.assertTrue(new File(logDir, "log1.log").lastModified() < time);
 
-    Files.write("log2content", logFile, StandardCharsets.UTF_8);
+    Files.asCharSink(logFile, StandardCharsets.UTF_8).write("log2content");
     taskLogs.pushTaskLog("log2", logFile);
     Assert.assertEquals("log2content", readLog(taskLogs, "log2", 0));
     Assert.assertTrue(new File(logDir, "log2.log").lastModified() >= time);
@@ -121,6 +170,39 @@ public class FileTaskLogsTest
 
   private String readLog(TaskLogs taskLogs, String logFile, long offset) throws IOException
   {
-    return StringUtils.fromUtf8(ByteStreams.toByteArray(taskLogs.streamTaskLog(logFile, offset).get().openStream()));
+    return StringUtils.fromUtf8(ByteStreams.toByteArray(taskLogs.streamTaskLog(logFile, offset).get()));
+  }
+
+  private static class TestTaskReport implements TaskReport
+  {
+    static final String KEY = "testReport";
+    static final Map<String, Object> PAYLOAD = ImmutableMap.of("foo", "bar");
+
+    private final String taskId;
+
+    public TestTaskReport(String taskId)
+    {
+      this.taskId = taskId;
+    }
+
+    @Override
+    @JsonProperty
+    public String getTaskId()
+    {
+      return taskId;
+    }
+
+    @Override
+    public String getReportKey()
+    {
+      return KEY;
+    }
+
+    @Override
+    @JsonProperty
+    public Object getPayload()
+    {
+      return PAYLOAD;
+    }
   }
 }

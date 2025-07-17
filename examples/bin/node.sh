@@ -17,6 +17,7 @@
 ## Initialization script for druid nodes
 ## Runs druid nodes as a daemon
 ## Environment Variables used by this script -
+## DRUID_BIN_DIR - directory having druid bin files, default=bin
 ## DRUID_LIB_DIR - directory having druid jar files, default=lib
 ## DRUID_CONF_DIR - directory having druid config files, default=conf/druid
 ## DRUID_LOG_DIR - directory used to store druid logs, default=log
@@ -36,12 +37,18 @@ shift
 command=$1
 
 LIB_DIR="${DRUID_LIB_DIR:=lib}"
+BIN_DIR="${DRUID_BIN_DIR:=$DRUID_LIB_DIR/../bin}"
 CONF_DIR="${DRUID_CONF_DIR:=conf/druid}"
-LOG_DIR="${DRUID_LOG_DIR:=log}"
 PID_DIR="${DRUID_PID_DIR:=var/druid/pids}"
 WHEREAMI="$(dirname "$0")"
 WHEREAMI="$(cd "$WHEREAMI" && pwd)"
-JAVA_BIN_DIR="$(source "$WHEREAMI"/java-util && get_java_bin_dir)"
+
+# Remove possilble ending slash
+LOG_DIR="${DRUID_LOG_DIR:=${WHEREAMI}/log}"
+if [[ $LOG_DIR == */ ]];
+then
+  LOG_DIR=${LOG_DIR%?}
+fi
 
 pid=$PID_DIR/$nodeType.pid
 
@@ -58,16 +65,11 @@ case $command in
     if [ ! -d "$PID_DIR" ]; then mkdir -p $PID_DIR; fi
     if [ ! -d "$LOG_DIR" ]; then mkdir -p $LOG_DIR; fi
 
-    if [ -z "$JAVA_BIN_DIR" ]; then
-      echo "Could not find java - please run $WHEREAMI/verify-java to confirm it is installed."
-      exit 1
-    fi
-    JAVA="$JAVA_BIN_DIR/java"
-
-    nohup $JAVA `cat $CONF_DIR/$nodeType/jvm.config | xargs` -cp $CONF_DIR/_common:$CONF_DIR/$nodeType:$LIB_DIR/*:$HADOOP_CONF_DIR org.apache.druid.cli.Main server $nodeType >> $LOG_DIR/$nodeType.log 2>&1 &
+    nohup "$BIN_DIR/run-java" -Ddruid.node.type=$nodeType "-Ddruid.log.path=$LOG_DIR" `cat $CONF_DIR/$nodeType/jvm.config | xargs` -cp $CONF_DIR/_common:$CONF_DIR/$nodeType:$LIB_DIR/*:$HADOOP_CONF_DIR org.apache.druid.cli.Main server $nodeType >> /dev/null 2>&1 &
     nodeType_PID=$!
     echo $nodeType_PID > $pid
-    echo "Started $nodeType node ($nodeType_PID)"
+    echo "Started $nodeType node, pid: $nodeType_PID"
+    echo "Logging to default file[$LOG_DIR/$nodeType.log] if no changes made to log4j2.xml"
     ;;
 
   (stop)

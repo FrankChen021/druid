@@ -21,10 +21,10 @@ package org.apache.druid.indexing.common.config;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import org.apache.commons.lang3.EnumUtils;
-import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.common.config.Configs;
+import org.apache.druid.common.utils.IdUtils;
 import org.apache.druid.segment.loading.StorageLocationConfig;
+import org.apache.druid.segment.realtime.appenderator.TaskDirectory;
 import org.joda.time.Period;
 
 import javax.annotation.Nullable;
@@ -35,45 +35,22 @@ import java.util.List;
 
 /**
  * Configurations for ingestion tasks. These configurations can be applied per middleManager, indexer, or overlord.
- *
+ * <p>
  * See {@link org.apache.druid.indexing.overlord.config.DefaultTaskConfig} if you want to apply the same configuration
  * to all tasks submitted to the overlord.
  */
-public class TaskConfig
+public class TaskConfig implements TaskDirectory
 {
-  private static final Logger log = new Logger(TaskConfig.class);
-
-  public static final List<String> DEFAULT_DEFAULT_HADOOP_COORDINATES = ImmutableList.of(
-      "org.apache.hadoop:hadoop-client:2.8.5"
-  );
-
-  // This enum controls processing mode of batch ingestion "segment creation" phase (i.e. appenderator logic)
-  public enum BatchProcessingMode
-  {
-    OPEN_SEGMENTS, /* mmap segments, legacy code */
-    CLOSED_SEGMENTS, /* Do not mmap segments but keep most other legacy code */
-    CLOSED_SEGMENTS_SINKS /* Most aggressive memory optimization, do not mmap segments and eliminate sinks, etc. */
-  }
-
-  public static final BatchProcessingMode BATCH_PROCESSING_MODE_DEFAULT = BatchProcessingMode.CLOSED_SEGMENTS;
-
   private static final Period DEFAULT_DIRECTORY_LOCK_TIMEOUT = new Period("PT10M");
   private static final Period DEFAULT_GRACEFUL_SHUTDOWN_TIMEOUT = new Period("PT5M");
+  private static final boolean DEFAULT_STORE_EMPTY_COLUMNS = true;
+  private static final long DEFAULT_TMP_STORAGE_BYTES_PER_TASK = -1;
 
   @JsonProperty
   private final String baseDir;
 
   @JsonProperty
   private final File baseTaskDir;
-
-  @JsonProperty
-  private final String hadoopWorkingPath;
-
-  @JsonProperty
-  private final int defaultRowFlushBoundary;
-
-  @JsonProperty
-  private final List<String> defaultHadoopCoordinates;
 
   @JsonProperty
   private final boolean restoreTasksOnRestart;
@@ -91,67 +68,76 @@ public class TaskConfig
   private final boolean ignoreTimestampSpecForDruidInputSource;
 
   @JsonProperty
-  private final boolean batchMemoryMappedIndex;
+  private final boolean storeEmptyColumns;
 
   @JsonProperty
-  private final BatchProcessingMode batchProcessingMode;
+  private final boolean encapsulatedTask;
+
+  @JsonProperty
+  private final long tmpStorageBytesPerTask;
 
   @JsonCreator
   public TaskConfig(
       @JsonProperty("baseDir") String baseDir,
       @JsonProperty("baseTaskDir") String baseTaskDir,
-      @JsonProperty("hadoopWorkingPath") String hadoopWorkingPath,
-      @JsonProperty("defaultRowFlushBoundary") Integer defaultRowFlushBoundary,
-      @JsonProperty("defaultHadoopCoordinates") List<String> defaultHadoopCoordinates,
       @JsonProperty("restoreTasksOnRestart") boolean restoreTasksOnRestart,
       @JsonProperty("gracefulShutdownTimeout") Period gracefulShutdownTimeout,
       @JsonProperty("directoryLockTimeout") Period directoryLockTimeout,
       @JsonProperty("shuffleDataLocations") List<StorageLocationConfig> shuffleDataLocations,
       @JsonProperty("ignoreTimestampSpecForDruidInputSource") boolean ignoreTimestampSpecForDruidInputSource,
-      @JsonProperty("batchMemoryMappedIndex") boolean batchMemoryMappedIndex, // deprecated, only set to true to fall back to older behavior
-      @JsonProperty("batchProcessingMode") String batchProcessingMode
+      @JsonProperty("storeEmptyColumns") @Nullable Boolean storeEmptyColumns,
+      @JsonProperty("encapsulatedTask") boolean enableTaskLevelLogPush,
+      @JsonProperty("tmpStorageBytesPerTask") @Nullable Long tmpStorageBytesPerTask
   )
   {
-    this.baseDir = baseDir == null ? System.getProperty("java.io.tmpdir") : baseDir;
+    this.baseDir = Configs.valueOrDefault(baseDir, System.getProperty("java.io.tmpdir"));
     this.baseTaskDir = new File(defaultDir(baseTaskDir, "persistent/task"));
-    // This is usually on HDFS or similar, so we can't use java.io.tmpdir
-    this.hadoopWorkingPath = hadoopWorkingPath == null ? "/tmp/druid-indexing" : hadoopWorkingPath;
-    this.defaultRowFlushBoundary = defaultRowFlushBoundary == null ? 75000 : defaultRowFlushBoundary;
-    this.defaultHadoopCoordinates = defaultHadoopCoordinates == null
-                                    ? DEFAULT_DEFAULT_HADOOP_COORDINATES
-                                    : defaultHadoopCoordinates;
     this.restoreTasksOnRestart = restoreTasksOnRestart;
-    this.gracefulShutdownTimeout = gracefulShutdownTimeout == null
-                                   ? DEFAULT_GRACEFUL_SHUTDOWN_TIMEOUT
-                                   : gracefulShutdownTimeout;
-    this.directoryLockTimeout = directoryLockTimeout == null
-                                ? DEFAULT_DIRECTORY_LOCK_TIMEOUT
-                                : directoryLockTimeout;
-    if (shuffleDataLocations == null) {
-      this.shuffleDataLocations = Collections.singletonList(
-          new StorageLocationConfig(new File(defaultDir(null, "intermediary-segments")), null, null)
-      );
-    } else {
-      this.shuffleDataLocations = shuffleDataLocations;
-    }
-    this.ignoreTimestampSpecForDruidInputSource = ignoreTimestampSpecForDruidInputSource;
+    this.gracefulShutdownTimeout = Configs.valueOrDefault(
+        gracefulShutdownTimeout,
+        DEFAULT_GRACEFUL_SHUTDOWN_TIMEOUT
+    );
+    this.directoryLockTimeout = Configs.valueOrDefault(
+        directoryLockTimeout,
+        DEFAULT_DIRECTORY_LOCK_TIMEOUT
+    );
+    this.shuffleDataLocations = Configs.valueOrDefault(
+        shuffleDataLocations,
+        Collections.singletonList(
+            new StorageLocationConfig(new File(defaultDir(null, "intermediary-segments")), null, null)
+        )
+    );
 
-    this.batchMemoryMappedIndex = batchMemoryMappedIndex;
-    // Conflict resolution. Assume that if batchMemoryMappedIndex is set (since false is the default) that
-    // the user changed it intentionally to use legacy, in this case oveeride batchProcessingMode and also
-    // set it to legacy else just use batchProcessingMode and don't pay attention to batchMemoryMappedIndexMode:
-    if (batchMemoryMappedIndex) {
-      this.batchProcessingMode = BatchProcessingMode.OPEN_SEGMENTS;
-    } else if (EnumUtils.isValidEnum(BatchProcessingMode.class, batchProcessingMode)) {
-      this.batchProcessingMode = BatchProcessingMode.valueOf(batchProcessingMode);
-    } else {
-      // batchProcessingMode input string is invalid, log & use the default.
-      this.batchProcessingMode = BatchProcessingMode.CLOSED_SEGMENTS; // Default
-      log.warn("Batch processing mode argument value is null or not valid:[%s], defaulting to[%s] ",
-               batchProcessingMode, this.batchProcessingMode
-      );
-    }
-    log.info("Batch processing mode:[%s]", this.batchProcessingMode);
+    this.ignoreTimestampSpecForDruidInputSource = ignoreTimestampSpecForDruidInputSource;
+    this.encapsulatedTask = enableTaskLevelLogPush;
+
+    this.storeEmptyColumns = Configs.valueOrDefault(storeEmptyColumns, DEFAULT_STORE_EMPTY_COLUMNS);
+    this.tmpStorageBytesPerTask = Configs.valueOrDefault(tmpStorageBytesPerTask, DEFAULT_TMP_STORAGE_BYTES_PER_TASK);
+  }
+
+  private TaskConfig(
+      String baseDir,
+      File baseTaskDir,
+      boolean restoreTasksOnRestart,
+      Period gracefulShutdownTimeout,
+      Period directoryLockTimeout,
+      List<StorageLocationConfig> shuffleDataLocations,
+      boolean ignoreTimestampSpecForDruidInputSource,
+      boolean storeEmptyColumns,
+      boolean encapsulatedTask,
+      long tmpStorageBytesPerTask
+  )
+  {
+    this.baseDir = baseDir;
+    this.baseTaskDir = baseTaskDir;
+    this.restoreTasksOnRestart = restoreTasksOnRestart;
+    this.gracefulShutdownTimeout = gracefulShutdownTimeout;
+    this.directoryLockTimeout = directoryLockTimeout;
+    this.shuffleDataLocations = shuffleDataLocations;
+    this.ignoreTimestampSpecForDruidInputSource = ignoreTimestampSpecForDruidInputSource;
+    this.storeEmptyColumns = storeEmptyColumns;
+    this.encapsulatedTask = encapsulatedTask;
+    this.tmpStorageBytesPerTask = tmpStorageBytesPerTask;
   }
 
   @JsonProperty
@@ -166,42 +152,34 @@ public class TaskConfig
     return baseTaskDir;
   }
 
+  @Override
   public File getTaskDir(String taskId)
   {
-    return new File(baseTaskDir, taskId);
+    return new File(baseTaskDir, IdUtils.validateId("task ID", taskId));
   }
 
+  @Override
   public File getTaskWorkDir(String taskId)
   {
     return new File(getTaskDir(taskId), "work");
   }
 
+  @Override
+  public File getTaskLogFile(String taskId)
+  {
+    return new File(getTaskDir(taskId), "log");
+  }
+
+  @Override
   public File getTaskTempDir(String taskId)
   {
     return new File(getTaskDir(taskId), "temp");
   }
 
+  @Override
   public File getTaskLockFile(String taskId)
   {
     return new File(getTaskDir(taskId), "lock");
-  }
-
-  @JsonProperty
-  public String getHadoopWorkingPath()
-  {
-    return hadoopWorkingPath;
-  }
-
-  @JsonProperty
-  public int getDefaultRowFlushBoundary()
-  {
-    return defaultRowFlushBoundary;
-  }
-
-  @JsonProperty
-  public List<String> getDefaultHadoopCoordinates()
-  {
-    return defaultHadoopCoordinates;
   }
 
   @JsonProperty
@@ -235,21 +213,22 @@ public class TaskConfig
   }
 
   @JsonProperty
-  public BatchProcessingMode getBatchProcessingMode()
+  public boolean isStoreEmptyColumns()
   {
-    return batchProcessingMode;
+    return storeEmptyColumns;
   }
 
-  /**
-   * Do not use in code! use {@link TaskConfig#getBatchProcessingMode() instead}
-   */
-  @Deprecated
   @JsonProperty
-  public boolean getbatchMemoryMappedIndex()
+  public boolean isEncapsulatedTask()
   {
-    return batchMemoryMappedIndex;
+    return encapsulatedTask;
   }
 
+  @JsonProperty
+  public long getTmpStorageBytesPerTask()
+  {
+    return tmpStorageBytesPerTask;
+  }
 
   private String defaultDir(@Nullable String configParameter, final String defaultVal)
   {
@@ -258,5 +237,37 @@ public class TaskConfig
     }
 
     return configParameter;
+  }
+
+  public TaskConfig withBaseTaskDir(File baseTaskDir)
+  {
+    return new TaskConfig(
+        baseDir,
+        baseTaskDir,
+        restoreTasksOnRestart,
+        gracefulShutdownTimeout,
+        directoryLockTimeout,
+        shuffleDataLocations,
+        ignoreTimestampSpecForDruidInputSource,
+        storeEmptyColumns,
+        encapsulatedTask,
+        tmpStorageBytesPerTask
+    );
+  }
+
+  public TaskConfig withTmpStorageBytesPerTask(long tmpStorageBytesPerTask)
+  {
+    return new TaskConfig(
+        baseDir,
+        baseTaskDir,
+        restoreTasksOnRestart,
+        gracefulShutdownTimeout,
+        directoryLockTimeout,
+        shuffleDataLocations,
+        ignoreTimestampSpecForDruidInputSource,
+        storeEmptyColumns,
+        encapsulatedTask,
+        tmpStorageBytesPerTask
+    );
   }
 }

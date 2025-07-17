@@ -16,47 +16,72 @@
  * limitations under the License.
  */
 
-import { sane } from 'druid-query-toolkit/build/test-utils';
+import { sane } from 'druid-query-toolkit';
 
-import {
-  DruidError,
-  getDruidErrorMessage,
-  parseHtmlError,
-  parseQueryPlan,
-  trimSemicolon,
-} from './druid-query';
+import { DruidError, getDruidErrorMessage } from './druid-query';
 
 describe('DruidQuery', () => {
-  describe('DruidError.parsePosition', () => {
+  describe('DruidError.extractStartRowColumn', () => {
     it('works for single error 1', () => {
-      const message = `Encountered "COUNT" at line 2, column 12. Was expecting one of: <EOF> "AS" ... "EXCEPT" ... "FETCH" ... "FROM" ... "INTERSECT" ... "LIMIT" ...`;
-
-      expect(DruidError.parsePosition(message)).toEqual({
-        match: 'at line 2, column 12',
+      expect(
+        DruidError.extractStartRowColumn({
+          sourceType: 'sql',
+          line: '2',
+          column: '12',
+          token: "AS \\'l\\'",
+          expected: '...',
+        }),
+      ).toEqual({
         row: 1,
         column: 11,
       });
     });
 
-    it('works for single error 2', () => {
-      const message = `org.apache.calcite.runtime.CalciteContextException: At line 2, column 20: Unknown identifier '*'`;
-
-      expect(DruidError.parsePosition(message)).toEqual({
-        match: 'At line 2, column 20',
-        row: 1,
-        column: 19,
+    it('works for range', () => {
+      expect(
+        DruidError.extractStartRowColumn({
+          sourceType: 'sql',
+          line: '1',
+          column: '16',
+          endLine: '1',
+          endColumn: '17',
+          token: "AS \\'l\\'",
+          expected: '...',
+        }),
+      ).toEqual({
+        row: 0,
+        column: 15,
       });
+    });
+  });
+
+  describe('DruidError.extractEndRowColumn', () => {
+    it('works for single error 1', () => {
+      expect(
+        DruidError.extractEndRowColumn({
+          sourceType: 'sql',
+          line: '2',
+          column: '12',
+          token: "AS \\'l\\'",
+          expected: '...',
+        }),
+      ).toBeUndefined();
     });
 
     it('works for range', () => {
-      const message = `org.apache.calcite.runtime.CalciteContextException: From line 2, column 13 to line 2, column 25: No match found for function signature SUMP(<NUMERIC>)`;
-
-      expect(DruidError.parsePosition(message)).toEqual({
-        match: 'From line 2, column 13 to line 2, column 25',
-        row: 1,
-        column: 12,
-        endRow: 1,
-        endColumn: 25,
+      expect(
+        DruidError.extractEndRowColumn({
+          sourceType: 'sql',
+          line: '1',
+          column: '16',
+          endLine: '1',
+          endColumn: '17',
+          token: "AS \\'l\\'",
+          expected: '...',
+        }),
+      ).toEqual({
+        row: 0,
+        column: 16,
       });
     });
   });
@@ -68,7 +93,9 @@ describe('DruidQuery', () => {
         FROM wikipedia -- test ==
         WHERE channel == '#ar.wikipedia'
       `;
-      const suggestion = DruidError.getSuggestion(`Encountered "= =" at line 3, column 15.`);
+      const suggestion = DruidError.getSuggestion(
+        `Received an unexpected token [= =] (line [3], column [15]), acceptable options:`,
+      );
       expect(suggestion!.label).toEqual(`Replace == with =`);
       expect(suggestion!.fn(sql)).toEqual(sane`
         SELECT *
@@ -87,7 +114,7 @@ describe('DruidQuery', () => {
         ORDER BY 2 DESC
       `;
       const suggestion = DruidError.getSuggestion(
-        `Encountered "= =" at line 4, column 15. Was expecting one of: <EOF> "EXCEPT" ... "FETCH" ... "GROUP" ...`,
+        `Received an unexpected token [= =] (line [4], column [15]), acceptable options:`,
       );
       expect(suggestion!.label).toEqual(`Replace == with =`);
       expect(suggestion!.fn(sql)).toEqual(sane`
@@ -146,7 +173,7 @@ describe('DruidQuery', () => {
         WHERE channel = "#ar.wikipedia"
       `;
       const suggestion = DruidError.getSuggestion(
-        `org.apache.calcite.runtime.CalciteContextException: From line 3, column 17 to line 3, column 31: Column '#ar.wikipedia' not found in any table`,
+        `Column '#ar.wikipedia' not found in any table (line [3], column [17])`,
       );
       expect(suggestion!.label).toEqual(`Replace "#ar.wikipedia" with '#ar.wikipedia'`);
       expect(suggestion!.fn(sql)).toEqual(sane`
@@ -157,58 +184,43 @@ describe('DruidQuery', () => {
     });
 
     it('works for incorrectly quoted AS alias', () => {
-      const sql = sane`
-        SELECT
-          channel,
-          COUNT(*) AS 'Count'
-        FROM wikipedia
-        GROUP BY 1
-        ORDER BY 2 DESC
-      `;
+      const sql = `SELECT channel AS 'c' FROM wikipedia`;
       const suggestion = DruidError.getSuggestion(
-        `Encountered "\\'Count\\'" at line 3, column 15...`,
+        `Received an unexpected token [AS \\'c\\'] (line [1], column [16]), acceptable options:`,
       );
-      expect(suggestion!.label).toEqual(`Replace 'Count' with "Count"`);
-      expect(suggestion!.fn(sql)).toEqual(sane`
-        SELECT
-          channel,
-          COUNT(*) AS "Count"
-        FROM wikipedia
-        GROUP BY 1
-        ORDER BY 2 DESC
-      `);
+      expect(suggestion!.label).toEqual(`Replace 'c' with "c"`);
+      expect(suggestion!.fn(sql)).toEqual(`SELECT channel AS "c" FROM wikipedia`);
     });
 
     it('removes comma (,) before FROM', () => {
+      const sql = `SELECT page, FROM wikipedia WHERE channel = '#ar.wikipedia'`;
       const suggestion = DruidError.getSuggestion(
-        `Encountered "FROM" at line 1, column 14. Was expecting one of: "ABS" ...`,
+        `Received an unexpected token [, FROM] (line [1], column [12]), acceptable options:`,
       );
-      expect(suggestion!.label).toEqual(`Remove , before FROM`);
-      expect(suggestion!.fn(`SELECT page, FROM wikipedia WHERE channel = '#ar.wikipedia'`)).toEqual(
+      expect(suggestion!.label).toEqual(`Remove comma (,) before FROM`);
+      expect(suggestion!.fn(sql)).toEqual(
         `SELECT page FROM wikipedia WHERE channel = '#ar.wikipedia'`,
       );
     });
 
     it('removes comma (,) before ORDER', () => {
+      const sql = `SELECT page FROM wikipedia WHERE channel = '#ar.wikipedia' GROUP BY 1, ORDER BY 1`;
       const suggestion = DruidError.getSuggestion(
-        `Encountered ", ORDER" at line 1, column 14. Was expecting one of: "ABS" ...`,
+        `Received an unexpected token [, ORDER] (line [1], column [70]), acceptable options:`,
       );
-      expect(suggestion!.label).toEqual(`Remove , before ORDER`);
-      expect(
-        suggestion!.fn(
-          `SELECT page FROM wikipedia WHERE channel = '#ar.wikipedia' GROUP BY 1, ORDER BY 1`,
-        ),
-      ).toEqual(`SELECT page FROM wikipedia WHERE channel = '#ar.wikipedia' GROUP BY 1 ORDER BY 1`);
+      expect(suggestion!.label).toEqual(`Remove comma (,) before ORDER`);
+      expect(suggestion!.fn(sql)).toEqual(
+        `SELECT page FROM wikipedia WHERE channel = '#ar.wikipedia' GROUP BY 1 ORDER BY 1`,
+      );
     });
 
-    it('removes trailing semicolon (;)', () => {
+    it('adds missing semicolon (;)', () => {
+      const sql = `SET x = 1 SELECT * FROM wikipedia`;
       const suggestion = DruidError.getSuggestion(
-        `Encountered ";" at line 1, column 14. Was expecting one of: "ABS" ...`,
+        `Received an unexpected token [SELECT] (line [1], column [11]), acceptable options: [<EOF>, ";"]`,
       );
-      expect(suggestion!.label).toEqual(`Remove trailing ;`);
-      expect(suggestion!.fn(`SELECT page FROM wikipedia WHERE channel = '#ar.wikipedia';`)).toEqual(
-        `SELECT page FROM wikipedia WHERE channel = '#ar.wikipedia'`,
-      );
+      expect(suggestion!.label).toEqual(`Add semicolon (;) after SET statement`);
+      expect(suggestion!.fn(sql)).toEqual(`SET x = 1; SELECT * FROM wikipedia`);
     });
 
     it('does nothing there there is nothing to do', () => {
@@ -219,25 +231,41 @@ describe('DruidQuery', () => {
     });
   });
 
-  describe('misc', () => {
-    it('parseHtmlError', () => {
-      expect(parseHtmlError('<div></div>')).toMatchInlineSnapshot(`undefined`);
+  describe('getDruidErrorMessage', () => {
+    it('works with regular error response', () => {
+      expect(
+        getDruidErrorMessage({
+          response: {
+            data: {
+              error: 'SQL parse failed',
+              errorMessage: 'Encountered "<EOF>" at line 1, column 26.\nWas expecting one of:...',
+              errorClass: 'org.apache.calcite.sql.parser.SqlParseException',
+              host: null,
+            },
+          },
+        }),
+      ).toEqual(`SQL parse failed / Encountered "<EOF>" at line 1, column 26.
+Was expecting one of:... / org.apache.calcite.sql.parser.SqlParseException`);
     });
 
-    it('parseHtmlError', () => {
-      expect(getDruidErrorMessage({})).toMatchInlineSnapshot(`undefined`);
-    });
-
-    it('parseQueryPlan', () => {
-      expect(parseQueryPlan('start')).toMatchInlineSnapshot(`"start"`);
-    });
-  });
-
-  describe('.trimSemicolon', () => {
-    it('works', () => {
-      expect(trimSemicolon('SELECT * FROM tbl;')).toEqual('SELECT * FROM tbl');
-      expect(trimSemicolon('SELECT * FROM tbl;   ')).toEqual('SELECT * FROM tbl   ');
-      expect(trimSemicolon('SELECT * FROM tbl; --hello  ')).toEqual('SELECT * FROM tbl --hello  ');
+    it('works with task error response', () => {
+      expect(
+        getDruidErrorMessage({
+          response: {
+            data: {
+              taskId: '60a761ee-1ef5-437f-ae4c-adcc78c8a94c',
+              state: 'FAILED',
+              error: {
+                error: 'SQL parse failed',
+                errorMessage: 'Encountered "<EOF>" at line 1, column 26.\nWas expecting one of:...',
+                errorClass: 'org.apache.calcite.sql.parser.SqlParseException',
+                host: null,
+              },
+            },
+          },
+        }),
+      ).toEqual(`SQL parse failed / Encountered "<EOF>" at line 1, column 26.
+Was expecting one of:... / org.apache.calcite.sql.parser.SqlParseException`);
     });
   });
 });

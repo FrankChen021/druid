@@ -19,7 +19,6 @@
 
 package org.apache.druid.indexing.seekablestream;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.jsontype.NamedType;
@@ -31,7 +30,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import org.apache.druid.common.config.NullHandling;
+import org.apache.druid.client.cache.CacheConfig;
+import org.apache.druid.client.cache.CachePopulatorStats;
+import org.apache.druid.client.cache.MapCache;
+import org.apache.druid.client.coordinator.NoopCoordinatorClient;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.impl.ByteEntity;
 import org.apache.druid.data.input.impl.DimensionsSpec;
@@ -42,19 +44,38 @@ import org.apache.druid.data.input.impl.LongDimensionSchema;
 import org.apache.druid.data.input.impl.StringDimensionSchema;
 import org.apache.druid.data.input.impl.StringInputRowParser;
 import org.apache.druid.data.input.impl.TimestampSpec;
+import org.apache.druid.discovery.DataNodeService;
+import org.apache.druid.discovery.DruidNodeAnnouncer;
+import org.apache.druid.discovery.LookupNodeService;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.indexer.TaskStatus;
-import org.apache.druid.indexing.common.IngestionStatsAndErrorsTaskReportData;
+import org.apache.druid.indexer.granularity.UniformGranularitySpec;
+import org.apache.druid.indexer.report.IngestionStatsAndErrors;
+import org.apache.druid.indexer.report.SingleFileTaskReportFileWriter;
+import org.apache.druid.indexer.report.TaskReport;
 import org.apache.druid.indexing.common.LockGranularity;
-import org.apache.druid.indexing.common.TaskReport;
+import org.apache.druid.indexing.common.SegmentCacheManagerFactory;
 import org.apache.druid.indexing.common.TaskToolbox;
 import org.apache.druid.indexing.common.TaskToolboxFactory;
 import org.apache.druid.indexing.common.TestUtils;
+import org.apache.druid.indexing.common.actions.LocalTaskActionClientFactory;
+import org.apache.druid.indexing.common.actions.TaskActionClientFactory;
+import org.apache.druid.indexing.common.actions.TaskActionToolbox;
+import org.apache.druid.indexing.common.config.TaskConfig;
+import org.apache.druid.indexing.common.config.TaskConfigBuilder;
+import org.apache.druid.indexing.common.config.TaskStorageConfig;
 import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.indexing.common.task.Tasks;
+import org.apache.druid.indexing.common.task.TestAppenderatorsManager;
+import org.apache.druid.indexing.overlord.DataSourceMetadata;
+import org.apache.druid.indexing.overlord.GlobalTaskLockbox;
 import org.apache.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
+import org.apache.druid.indexing.overlord.MetadataTaskStorage;
 import org.apache.druid.indexing.overlord.Segments;
-import org.apache.druid.indexing.overlord.TaskLockbox;
 import org.apache.druid.indexing.overlord.TaskStorage;
+import org.apache.druid.indexing.overlord.supervisor.SupervisorManager;
+import org.apache.druid.indexing.test.TestDataSegmentAnnouncer;
+import org.apache.druid.indexing.test.TestDataSegmentKiller;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
@@ -62,31 +83,62 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Comparators;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.common.parsers.JSONPathSpec;
-import org.apache.druid.metadata.EntryExistsException;
+import org.apache.druid.java.util.emitter.service.ServiceEmitter;
+import org.apache.druid.java.util.metrics.MonitorScheduler;
+import org.apache.druid.metadata.DerbyMetadataStorageActionHandlerFactory;
+import org.apache.druid.metadata.IndexerSQLMetadataStorageCoordinator;
+import org.apache.druid.metadata.TestDerbyConnector;
+import org.apache.druid.metadata.segment.SqlSegmentMetadataTransactionFactory;
+import org.apache.druid.metadata.segment.cache.NoopSegmentMetadataCache;
+import org.apache.druid.query.DirectQueryProcessingPool;
+import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryPlus;
+import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
+import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.query.timeseries.TimeseriesResultValue;
+import org.apache.druid.rpc.indexing.NoopOverlordClient;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.QueryableIndex;
+import org.apache.druid.segment.TestIndex;
 import org.apache.druid.segment.column.DictionaryEncodedColumn;
+import org.apache.druid.segment.handoff.SegmentHandoffNotifier;
+import org.apache.druid.segment.handoff.SegmentHandoffNotifierFactory;
+import org.apache.druid.segment.incremental.RowIngestionMetersTotals;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.apache.druid.segment.indexing.granularity.UniformGranularitySpec;
+import org.apache.druid.segment.join.NoopJoinableFactory;
+import org.apache.druid.segment.loading.DataSegmentPusher;
+import org.apache.druid.segment.loading.LocalDataSegmentPusher;
+import org.apache.druid.segment.loading.LocalDataSegmentPusherConfig;
+import org.apache.druid.segment.metadata.CentralizedDatasourceSchemaConfig;
+import org.apache.druid.segment.metadata.SegmentSchemaManager;
+import org.apache.druid.segment.realtime.NoopChatHandlerProvider;
 import org.apache.druid.segment.realtime.appenderator.StreamAppenderator;
+import org.apache.druid.server.DruidNode;
+import org.apache.druid.server.coordination.DataSegmentServerAnnouncer;
+import org.apache.druid.server.coordination.ServerType;
+import org.apache.druid.server.coordinator.simulate.TestDruidLeaderSelector;
+import org.apache.druid.server.metrics.NoopServiceEmitter;
+import org.apache.druid.server.security.AuthTestUtils;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.utils.CompressionUtils;
+import org.apache.druid.utils.JvmUtils;
 import org.assertj.core.api.Assertions;
+import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
 import org.joda.time.Interval;
 import org.junit.Assert;
+import org.junit.Rule;
+import org.junit.rules.TemporaryFolder;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -94,49 +146,55 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
-public class SeekableStreamIndexTaskTestBase extends EasyMockSupport
+public abstract class SeekableStreamIndexTaskTestBase extends EasyMockSupport
 {
+  private static final Logger log = new Logger(SeekableStreamIndexTaskTestBase.class);
+
+  @Rule
+  public final TemporaryFolder tempFolder = new TemporaryFolder();
+
+  @Rule
+  public final TestDerbyConnector.DerbyConnectorRule derby = new TestDerbyConnector.DerbyConnectorRule();
+
   protected static final ObjectMapper OBJECT_MAPPER;
   protected static final DataSchema OLD_DATA_SCHEMA;
-  protected static final DataSchema NEW_DATA_SCHEMA = new DataSchema(
-      "test_ds",
-      new TimestampSpec("timestamp", "iso", null),
-      new DimensionsSpec(
-          Arrays.asList(
-              new StringDimensionSchema("dim1"),
-              new StringDimensionSchema("dim1t"),
-              new StringDimensionSchema("dim2"),
-              new LongDimensionSchema("dimLong"),
-              new FloatDimensionSchema("dimFloat")
-          ),
-          null,
-          null
-      ),
-      new AggregatorFactory[]{
-          new DoubleSumAggregatorFactory("met1sum", "met1"),
-          new CountAggregatorFactory("rows")
-      },
-      new UniformGranularitySpec(Granularities.DAY, Granularities.NONE, null),
-      null
-  );
+  protected static final DataSchema NEW_DATA_SCHEMA =
+      DataSchema.builder()
+                .withDataSource("test_ds")
+                .withTimestamp(new TimestampSpec("timestamp", "iso", null))
+                .withDimensions(
+                    new StringDimensionSchema("dim1"),
+                    new StringDimensionSchema("dim1t"),
+                    new StringDimensionSchema("dim2"),
+                    new LongDimensionSchema("dimLong"),
+                    new FloatDimensionSchema("dimFloat")
+                )
+                .withAggregators(
+                    new DoubleSumAggregatorFactory("met1sum", "met1"),
+                    new CountAggregatorFactory("rows")
+                )
+                .withGranularity(new UniformGranularitySpec(Granularities.DAY, Granularities.NONE, null))
+                .build();
   protected static final InputFormat INPUT_FORMAT = new JsonInputFormat(
       new JSONPathSpec(true, ImmutableList.of()),
       ImmutableMap.of(),
+      null,
+      null,
       null
   );
   protected static final Logger LOG = new Logger(SeekableStreamIndexTaskTestBase.class);
   protected static ListeningExecutorService taskExec;
-
-  static {
-    NullHandling.initializeForTests();
-  }
 
   protected final List<Task> runningTasks = new ArrayList<>();
   protected final LockGranularity lockGranularity;
@@ -144,45 +202,46 @@ public class SeekableStreamIndexTaskTestBase extends EasyMockSupport
   protected File reportsFile;
   protected TaskToolboxFactory toolboxFactory;
   protected TaskStorage taskStorage;
-  protected TaskLockbox taskLockbox;
+  protected GlobalTaskLockbox taskLockbox;
   protected IndexerMetadataStorageCoordinator metadataStorageCoordinator;
+  protected final Set<Integer> checkpointRequestsHash = new HashSet<>();
+  protected SegmentSchemaManager segmentSchemaManager;
 
   static {
     OBJECT_MAPPER = new TestUtils().getTestObjectMapper();
     OBJECT_MAPPER.registerSubtypes(new NamedType(JSONParseSpec.class, "json"));
-    OLD_DATA_SCHEMA = new DataSchema(
-        "test_ds",
-        OBJECT_MAPPER.convertValue(
-            new StringInputRowParser(
-                new JSONParseSpec(
-                    new TimestampSpec("timestamp", "iso", null),
-                    new DimensionsSpec(
-                        Arrays.asList(
-                            new StringDimensionSchema("dim1"),
-                            new StringDimensionSchema("dim1t"),
-                            new StringDimensionSchema("dim2"),
-                            new LongDimensionSchema("dimLong"),
-                            new FloatDimensionSchema("dimFloat")
-                        ),
-                        null,
-                        null
-                    ),
-                    new JSONPathSpec(true, ImmutableList.of()),
-                    ImmutableMap.of(),
-                    false
-                ),
-                StandardCharsets.UTF_8.name()
-            ),
-            Map.class
-        ),
-        new AggregatorFactory[]{
-            new DoubleSumAggregatorFactory("met1sum", "met1"),
-            new CountAggregatorFactory("rows")
-        },
-        new UniformGranularitySpec(Granularities.DAY, Granularities.NONE, null),
-        null,
-        OBJECT_MAPPER
-    );
+    OLD_DATA_SCHEMA = DataSchema.builder()
+                                      .withDataSource("test_ds")
+                                      .withParserMap(
+                                          OBJECT_MAPPER.convertValue(
+                                              new StringInputRowParser(
+                                                  new JSONParseSpec(
+                                                      new TimestampSpec("timestamp", "iso", null),
+                                                      new DimensionsSpec(
+                                                          Arrays.asList(
+                                                              new StringDimensionSchema("dim1"),
+                                                              new StringDimensionSchema("dim1t"),
+                                                              new StringDimensionSchema("dim2"),
+                                                              new LongDimensionSchema("dimLong"),
+                                                              new FloatDimensionSchema("dimFloat")
+                                                          )
+                                                      ),
+                                                      new JSONPathSpec(true, ImmutableList.of()),
+                                                      ImmutableMap.of(),
+                                                      false
+                                                  ),
+                                                  StandardCharsets.UTF_8.name()
+                                              ),
+                                              Map.class
+                                          )
+                                      )
+                                      .withAggregators(
+                                          new DoubleSumAggregatorFactory("met1sum", "met1"),
+                                          new CountAggregatorFactory("rows")
+                                      )
+                                      .withGranularity(new UniformGranularitySpec(Granularities.DAY, Granularities.NONE, null))
+                                      .withObjectMapper(OBJECT_MAPPER)
+                                      .build();
   }
 
   public SeekableStreamIndexTaskTestBase(
@@ -328,15 +387,18 @@ public class SeekableStreamIndexTaskTestBase extends EasyMockSupport
         false
     );
     IndexIO indexIO = new TestUtils().getTestIndexIO();
-    QueryableIndex index = indexIO.loadIndex(outputLocation);
-    DictionaryEncodedColumn<String> theColumn =
-        (DictionaryEncodedColumn<String>) index.getColumnHolder(column).getColumn();
     List<String> values = new ArrayList<>();
-    for (int i = 0; i < theColumn.length(); i++) {
-      int id = theColumn.getSingleValueRow(i);
-      String value = theColumn.lookupName(id);
-      values.add(value);
+
+    QueryableIndex index = indexIO.loadIndex(outputLocation);
+    try (DictionaryEncodedColumn<String> theColumn =
+        (DictionaryEncodedColumn<String>) index.getColumnHolder(column).getColumn()) {
+      for (int i = 0; i < theColumn.length(); i++) {
+        int id = theColumn.getSingleValueRow(i);
+        String value = theColumn.lookupName(id);
+        values.add(value);
+      }
     }
+
     return values;
   }
 
@@ -351,7 +413,7 @@ public class SeekableStreamIndexTaskTestBase extends EasyMockSupport
       List<SegmentDescriptor> actualDescriptors
   ) throws IOException
   {
-    Assert.assertEquals(expectedDescriptors.size(), actualDescriptors.size());
+    Assert.assertEquals("number of segments", expectedDescriptors.size(), actualDescriptors.size());
     final Comparator<SegmentDescriptor> comparator = (s1, s2) -> {
       final int intervalCompare = Comparators.intervalsByStartThenEnd().compare(s1.getInterval(), s2.getInterval());
       if (intervalCompare == 0) {
@@ -382,7 +444,9 @@ public class SeekableStreamIndexTaskTestBase extends EasyMockSupport
       if (expectedDesc.expectedDim1Values.isEmpty()) {
         continue; // Treating empty expectedDim1Values as a signal that checking the dim1 column value is not needed.
       }
-      Assertions.assertThat(readSegmentColumn("dim1", actualDesc)).isIn(expectedDesc.expectedDim1Values);
+      Assertions.assertThat(readSegmentColumn("dim1", actualDesc))
+                .describedAs("dim1 values")
+                .isIn(expectedDesc.expectedDim1Values);
     }
   }
 
@@ -396,15 +460,13 @@ public class SeekableStreamIndexTaskTestBase extends EasyMockSupport
     return new SegmentDescriptorAndExpectedDim1Values(interval, partitionNum, expectedDim1Values);
   }
 
-  protected IngestionStatsAndErrorsTaskReportData getTaskReportData() throws IOException
+  protected IngestionStatsAndErrors getTaskReportData() throws IOException
   {
-    Map<String, TaskReport> taskReports = OBJECT_MAPPER.readValue(
+    TaskReport.ReportMap taskReports = OBJECT_MAPPER.readValue(
         reportsFile,
-        new TypeReference<Map<String, TaskReport>>()
-        {
-        }
+        TaskReport.ReportMap.class
     );
-    return IngestionStatsAndErrorsTaskReportData.getPayloadFromTaskReports(
+    return IngestionStatsAndErrors.getPayloadFromTaskReports(
         taskReports
     );
   }
@@ -414,8 +476,8 @@ public class SeekableStreamIndexTaskTestBase extends EasyMockSupport
     try {
       taskStorage.insert(task, TaskStatus.running(task.getId()));
     }
-    catch (EntryExistsException e) {
-      // suppress
+    catch (DruidException e) {
+      log.noStackTrace().info(e, "Suppressing exception while inserting task [%s]", task.getId());
     }
     taskLockbox.syncFromStorage();
     final TaskToolbox toolbox = toolboxFactory.build(task);
@@ -450,7 +512,7 @@ public class SeekableStreamIndexTaskTestBase extends EasyMockSupport
                                           new LongSumAggregatorFactory("rows", "rows")
                                       )
                                   ).granularity(Granularities.ALL)
-                                  .intervals("0000/3000")
+                                  .intervals(Intervals.ONLY_ETERNITY)
                                   .build();
 
     List<Result<TimeseriesResultValue>> results = task.getQueryRunner(query).run(QueryPlus.wrap(query)).toList();
@@ -468,10 +530,15 @@ public class SeekableStreamIndexTaskTestBase extends EasyMockSupport
     unlockBasePersistDir.invoke(task.getAppenderator());
   }
 
-  protected List<SegmentDescriptor> publishedDescriptors()
+  protected Collection<DataSegment> publishedSegments()
   {
     return metadataStorageCoordinator
-        .retrieveAllUsedSegments(OLD_DATA_SCHEMA.getDataSource(), Segments.ONLY_VISIBLE)
+        .retrieveAllUsedSegments(OLD_DATA_SCHEMA.getDataSource(), Segments.ONLY_VISIBLE);
+  }
+
+  protected List<SegmentDescriptor> publishedDescriptors()
+  {
+    return publishedSegments()
         .stream()
         .map(DataSegment::toDescriptor)
         .collect(Collectors.toList());
@@ -483,6 +550,172 @@ public class SeekableStreamIndexTaskTestBase extends EasyMockSupport
     taskStorage = null;
     taskLockbox = null;
     metadataStorageCoordinator = null;
+  }
+
+  protected void verifyTaskMetrics(
+      SeekableStreamIndexTask<?, ?, ?> task,
+      RowIngestionMetersTotals expectedTotals
+  )
+  {
+    Assert.assertEquals(expectedTotals, task.getRunner().getRowIngestionMeters().getTotals());
+  }
+
+  protected abstract QueryRunnerFactoryConglomerate makeQueryRunnerConglomerate();
+
+  protected void makeToolboxFactory(TestUtils testUtils, ServiceEmitter emitter, boolean doHandoff)
+      throws IOException
+  {
+    final ObjectMapper objectMapper = testUtils.getTestObjectMapper();
+    directory = tempFolder.newFolder();
+    final TaskConfig taskConfig =
+        new TaskConfigBuilder()
+            .setBaseDir(new File(directory, "baseDir").getPath())
+            .setBaseTaskDir(new File(directory, "baseTaskDir").getPath())
+            .setRestoreTasksOnRestart(true)
+            .build();
+    final TestDerbyConnector derbyConnector = derby.getConnector();
+    derbyConnector.createDataSourceTable();
+    derbyConnector.createPendingSegmentsTable();
+    derbyConnector.createSegmentSchemasTable();
+    derbyConnector.createSegmentTable();
+    derbyConnector.createRulesTable();
+    derbyConnector.createConfigTable();
+    derbyConnector.createTaskTables();
+    derbyConnector.createAuditTable();
+    taskStorage = new MetadataTaskStorage(
+        derbyConnector,
+        new TaskStorageConfig(null),
+        new DerbyMetadataStorageActionHandlerFactory(
+            derbyConnector,
+            derby.metadataTablesConfigSupplier().get(),
+            objectMapper
+        )
+    );
+    segmentSchemaManager = new SegmentSchemaManager(derby.metadataTablesConfigSupplier().get(), objectMapper, derbyConnector);
+    metadataStorageCoordinator = new IndexerSQLMetadataStorageCoordinator(
+        new SqlSegmentMetadataTransactionFactory(
+            objectMapper,
+            derby.metadataTablesConfigSupplier().get(),
+            derbyConnector,
+            new TestDruidLeaderSelector(),
+            NoopSegmentMetadataCache.instance(),
+            NoopServiceEmitter.instance()
+        ),
+        objectMapper,
+        derby.metadataTablesConfigSupplier().get(),
+        derbyConnector,
+        segmentSchemaManager,
+        CentralizedDatasourceSchemaConfig.create()
+    );
+    taskLockbox = new GlobalTaskLockbox(taskStorage, metadataStorageCoordinator);
+    final TaskActionToolbox taskActionToolbox = new TaskActionToolbox(
+        taskLockbox,
+        taskStorage,
+        metadataStorageCoordinator,
+        emitter,
+        new SupervisorManager(OBJECT_MAPPER, null)
+        {
+          @Override
+          public boolean checkPointDataSourceMetadata(
+              String supervisorId,
+              int taskGroupId,
+              @Nullable DataSourceMetadata previousDataSourceMetadata
+          )
+          {
+            // log.info("Adding checkpoint hash to the set");
+            checkpointRequestsHash.add(
+                Objects.hash(
+                    supervisorId,
+                    taskGroupId,
+                    previousDataSourceMetadata
+                )
+            );
+            return true;
+          }
+        },
+        objectMapper
+    );
+    final TaskActionClientFactory taskActionClientFactory = new LocalTaskActionClientFactory(
+        taskActionToolbox
+    );
+    final SegmentHandoffNotifierFactory handoffNotifierFactory = (dataSource, taskId) -> new SegmentHandoffNotifier()
+    {
+      @Override
+      public boolean registerSegmentHandoffCallback(
+          SegmentDescriptor descriptor,
+          Executor exec,
+          Runnable handOffRunnable
+      )
+      {
+        if (doHandoff) {
+          // Simulate immediate handoff
+          exec.execute(handOffRunnable);
+        }
+        return true;
+      }
+
+      @Override
+      public void start()
+      {
+        //Noop
+      }
+
+      @Override
+      public void close()
+      {
+        //Noop
+      }
+    };
+    final LocalDataSegmentPusherConfig dataSegmentPusherConfig = new LocalDataSegmentPusherConfig();
+    dataSegmentPusherConfig.storageDirectory = getSegmentDirectory();
+    dataSegmentPusherConfig.zip = true;
+    final DataSegmentPusher dataSegmentPusher = new LocalDataSegmentPusher(dataSegmentPusherConfig);
+
+    toolboxFactory = new TaskToolboxFactory(
+        null,
+        taskConfig,
+        null, // taskExecutorNode
+        taskActionClientFactory,
+        emitter,
+        NoopPolicyEnforcer.instance(),
+        dataSegmentPusher,
+        new TestDataSegmentKiller(),
+        null, // DataSegmentMover
+        null, // DataSegmentArchiver
+        new TestDataSegmentAnnouncer(),
+        EasyMock.createNiceMock(DataSegmentServerAnnouncer.class),
+        handoffNotifierFactory,
+        this::makeQueryRunnerConglomerate,
+        DruidProcessingConfig::new,
+        DirectQueryProcessingPool.INSTANCE,
+        NoopJoinableFactory.INSTANCE,
+        () -> EasyMock.createMock(MonitorScheduler.class),
+        new SegmentCacheManagerFactory(TestIndex.INDEX_IO, objectMapper),
+        objectMapper,
+        testUtils.getTestIndexIO(),
+        MapCache.create(1024),
+        new CacheConfig(),
+        new CachePopulatorStats(),
+        testUtils.getIndexMergerV9Factory(),
+        EasyMock.createNiceMock(DruidNodeAnnouncer.class),
+        EasyMock.createNiceMock(DruidNode.class),
+        new LookupNodeService("tier"),
+        new DataNodeService("tier", 1, ServerType.INDEXER_EXECUTOR, 0),
+        new SingleFileTaskReportFileWriter(reportsFile),
+        null,
+        AuthTestUtils.TEST_AUTHORIZER_MAPPER,
+        new NoopChatHandlerProvider(),
+        testUtils.getRowIngestionMetersFactory(),
+        new TestAppenderatorsManager(),
+        new NoopOverlordClient(),
+        new NoopCoordinatorClient(),
+        null,
+        null,
+        null,
+        "1",
+        CentralizedDatasourceSchemaConfig.create(),
+        JvmUtils.getRuntimeInfo()
+    );
   }
 
   protected class SegmentDescriptorAndExpectedDim1Values

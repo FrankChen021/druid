@@ -21,12 +21,15 @@ package org.apache.druid.query.aggregation;
 
 import org.apache.druid.guice.annotations.ExtensionPoint;
 import org.apache.druid.java.util.common.Cacheable;
-import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.PerSegmentQueryOptimizationContext;
 import org.apache.druid.segment.ColumnInspector;
 import org.apache.druid.segment.ColumnSelectorFactory;
+import org.apache.druid.segment.CursorBuildSpec;
+import org.apache.druid.segment.CursorHolder;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.ColumnTypeFactory;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 
@@ -66,6 +69,27 @@ public abstract class AggregatorFactory implements Cacheable
   public VectorAggregator factorizeVector(VectorColumnSelectorFactory selectorFactory)
   {
     throw new UOE("Aggregator[%s] cannot vectorize", getClass().getName());
+  }
+
+  /**
+   * Creates an {@link Aggregator} based on the provided column selector factory.
+   * The returned value is a holder object which contains both the aggregator
+   * and its initial size in bytes. The callers can then invoke
+   * {@link Aggregator#aggregateWithSize()} to perform aggregation and get back
+   * the incremental memory required in each aggregate call. Combined with the
+   * initial size, this gives the total on-heap memory required by the aggregator.
+   * <p>
+   * This method must include JVM object overheads in the estimated size and must
+   * ensure not to underestimate required memory as that might lead to OOM errors.
+   * <p>
+   * This flow does not require invoking {@link #guessAggregatorHeapFootprint(long)}
+   * which tends to over-estimate the required memory.
+   *
+   * @return AggregatorAndSize which contains the actual aggregator and its initial size.
+   */
+  public AggregatorAndSize factorizeWithSize(ColumnSelectorFactory metricFactory)
+  {
+    return new AggregatorAndSize(factorize(metricFactory), guessAggregatorHeapFootprint(0));
   }
 
   /**
@@ -172,17 +196,15 @@ public abstract class AggregatorFactory implements Cacheable
   }
 
   /**
-   * Used by {@link org.apache.druid.query.groupby.strategy.GroupByStrategyV1} when running nested groupBys, to
-   * "transfer" values from this aggreagtor to an incremental index that the outer query will run on. This method
-   * only exists due to the design of GroupByStrategyV1, and should probably not be used for anything else. If you are
-   * here because you are looking for a way to get the input fields required by this aggregator, and thought
-   * "getRequiredColumns" sounded right, please use {@link #requiredFields()} instead.
-   *
-   * @return AggregatorFactories that can be used to "transfer" values from this aggregator into an incremental index
-   *
-   * @see #requiredFields() a similarly-named method that is perhaps the one you want instead.
+   * This was previously used by group-by v1 and will be removed in a future release
    */
-  public abstract List<AggregatorFactory> getRequiredColumns();
+  @Deprecated
+  public List<AggregatorFactory> getRequiredColumns()
+  {
+    throw new UnsupportedOperationException(
+        "Do not call or implement this method, it is deprecated and will be removed in a future releases."
+    );
+  }
 
   /**
    * A method that knows how to "deserialize" the object from whatever form it might have been put into
@@ -205,6 +227,9 @@ public abstract class AggregatorFactory implements Cacheable
   @Nullable
   public abstract Object finalizeComputation(@Nullable Object object);
 
+  /**
+   * @return output name of the aggregator column.
+   */
   public abstract String getName();
 
   /**
@@ -213,37 +238,71 @@ public abstract class AggregatorFactory implements Cacheable
   public abstract List<String> requiredFields();
 
   /**
-   * Get the "intermediate" {@link ValueType} for this aggregator. This is the same as the type returned by
+   * Get the "intermediate" {@link ColumnType} for this aggregator. This is the same as the type returned by
    * {@link #deserialize} and the type accepted by {@link #combine}. However, it is *not* necessarily the same type
    * returned by {@link #finalizeComputation}.
    *
-   * Refer to the {@link ValueType} javadocs for details on the implications of choosing a type.
+   * Refer to the {@link ColumnType} javadocs for details on the implications of choosing a type.
    */
-  public abstract ValueType getType();
+  public ColumnType getIntermediateType()
+  {
+    final ValueType intermediateType = getType();
+    if (intermediateType == ValueType.COMPLEX) {
+      return ColumnType.ofComplex(getComplexTypeName());
+    }
+    return ColumnTypeFactory.ofValueType(intermediateType);
+  }
 
   /**
-   * Get the type for the final form of this this aggregator, i.e. the type of the value returned by
+   * Get the {@link ColumnType} for the final form of this aggregator, i.e. the type of the value returned by
    * {@link #finalizeComputation}. This may be the same as or different than the types expected in {@link #deserialize}
    * and {@link #combine}.
    *
-   * Refer to the {@link ValueType} javadocs for details on the implications of choosing a type.
+   * Refer to the {@link ColumnType} javadocs for details on the implications of choosing a type.
    */
-  public abstract ValueType getFinalizedType();
+  public ColumnType getResultType()
+  {
+    // this default 'fill' method is incomplete and can at best return 'unknown' complex
+    final ValueType finalized = getFinalizedType();
+    if (finalized == ValueType.COMPLEX) {
+      return ColumnType.UNKNOWN_COMPLEX;
+    }
+    return ColumnTypeFactory.ofValueType(finalized);
+  }
 
   /**
-   * Get the complex type name of the intermediate type for this aggregator.
-   *
-   * This should ONLY be implemented if the type is complex (i.e. not a simple, numeric {@link ValueType}), and there
-   * must be a corresponding {@link org.apache.druid.segment.serde.ComplexMetricSerde} which was registered with
-   * {@link org.apache.druid.segment.serde.ComplexMetrics#registerSerde} using this type name.
-   *
-   * If you need a ValueType enum corresponding to this aggregator, use {@link #getType} instead.
-   *
-   * @throws IllegalStateException if getType() != ValueType.COMPLEX
+   * This method is deprecated and will be removed soon. Use {@link #getIntermediateType()} instead. Do not call this
+   * method, it will likely produce incorrect results, it exists for backwards compatibility.
    */
+  @Deprecated
+  public ValueType getType()
+  {
+    throw new UnsupportedOperationException(
+        "Do not call or implement this method, it is deprecated, use 'getIntermediateType'"
+    );
+  }
+
+  /**
+   * This method is deprecated and will be removed soon. Use {@link #getResultType()} instead. Do not call this
+   * method, it will likely produce incorrect results, it exists for backwards compatibility.
+   */
+  @Deprecated
+  public ValueType getFinalizedType()
+  {
+    throw new UnsupportedOperationException(
+        "Do not call or implement this method, it is deprecated, use 'getResultType'"
+    );
+  }
+
+  /**
+   * This method is deprecated and will be removed soon. Use {@link #getIntermediateType()} instead. Do not call this
+   * method, it will likely produce incorrect results, it exists for backwards compatibility.
+   */
+  @Nullable
+  @Deprecated
   public String getComplexTypeName()
   {
-    throw new ISE("Complex type name not is not available for %s of type %s", getName(), getType());
+    return null;
   }
 
   /**
@@ -267,11 +326,77 @@ public abstract class AggregatorFactory implements Cacheable
   }
 
   /**
+   * Returns a best guess as to how much memory the on-heap {@link Aggregator} returned by {@link #factorize} will
+   * require when a certain number of rows have been aggregated into it.
+   *
+   * The main user of this method is {@link org.apache.druid.segment.incremental.OnheapIncrementalIndex}, which
+   * uses it to determine when to persist the current in-memory data to disk.
+   *
+   * Important note for callers! In nearly all cases, callers that wish to constrain memory would be better off
+   * using {@link #factorizeBuffered} or {@link #factorizeVector}, which offer precise control over how much memory
+   * is being used.
+   */
+  public int guessAggregatorHeapFootprint(long rows)
+  {
+    // By default, guess that on-heap footprint is equal to off-heap footprint.
+    return getMaxIntermediateSizeWithNulls();
+  }
+
+  /**
    * Return a potentially optimized form of this AggregatorFactory for per-segment queries.
    */
   public AggregatorFactory optimizeForSegment(PerSegmentQueryOptimizationContext optimizationContext)
   {
     return this;
+  }
+
+  /**
+   * Used in cases where we want to change the output name of the aggregator to something else. For eg: if we have
+   * a query `select a, sum(b) as total group by a from table` the aggregator returned from the native group by query is "a0" set in
+   * {@link org.apache.druid.sql.calcite.rel.DruidQuery#computeAggregations}. We can use withName("total") to set the output name
+   * of the aggregator to "total".
+   * <p>
+   * As all implementations of this interface method may not exist, callers of this method are advised to handle such a case.
+   *
+   * @param newName newName of the output for aggregator factory
+   * @return AggregatorFactory with the output name set as the input param.
+   */
+  @SuppressWarnings("unused")
+  public AggregatorFactory withName(String newName)
+  {
+    throw new UOE("Cannot change output name for AggregatorFactory[%s].", this.getClass().getName());
+  }
+
+  /**
+   * Check to see if we can make a 'combining' factory of this aggregator that is suitable to process input from a
+   * selector of values produced by the other {@link AggregatorFactory} representing pre-aggregated data. Typically,
+   * this means that this and the other aggregator have the same inputs ({@link #requiredFields()}, and the same
+   * options for how the data was constructed into the intermediary type. If suitable, this method returns a
+   * 'combining' aggregator factory of this aggregator to use to process the pre-aggregated data which was produced by
+   * the other aggregator.
+   * <p>
+   * This method is used indirectly in service of checking if a
+   * {@link org.apache.druid.segment.projections.QueryableProjection} can be used instead of the base table during
+   * {@link org.apache.druid.segment.CursorFactory#makeCursorHolder(CursorBuildSpec)}, which checks if this
+   * aggregator can be substituted for its combining aggregator if and only if there exists a column that a cursor can
+   * read which was created by an aggregator that satisfies this method. In other words, this aggregator is the 'query'
+   * aggregator defined on the {@link CursorBuildSpec}, the argument to this method is the aggregator which created
+   * some column whose selectors are available to the cursor. If all aggregators on the {@link CursorBuildSpec} can be
+   * paired with aggregators from the underlying table in the cursor factory, then
+   * {@link CursorHolder#isPreAggregated()} will be set to true indicating that query engines should use this
+   * substituted aggregator instead of the original aggregators.
+   *
+   * @param preAggregated {@link AggregatorFactory} which produced the partially aggregated values which are
+   *                      available in a selector
+   * @return a "combining" {@link AggregatorFactory} to use with the pre-aggregated selector data
+   */
+  @Nullable
+  public AggregatorFactory substituteCombiningFactory(AggregatorFactory preAggregated)
+  {
+    if (equals(preAggregated.withName(getName()))) {
+      return getCombiningFactory();
+    }
+    return null;
   }
 
   /**
@@ -318,20 +443,20 @@ public abstract class AggregatorFactory implements Cacheable
               mergedAggregators.put(name, aggregator.getMergingFactory(other));
             }
             catch (AggregatorFactoryNotMergeableException ex) {
+              // Aggregator with the same name can't be merged, log it and return null early
               log.warn(ex, "failed to merge aggregator factories");
-              mergedAggregators = null;
-              break;
+              return null;
             }
           } else {
             mergedAggregators.put(name, aggregator);
           }
         }
       } else {
-        mergedAggregators = null;
-        break;
+        // one of the segments being merged has unknown aggregators, return null early
+        return null;
       }
     }
 
-    return mergedAggregators == null ? null : mergedAggregators.values().toArray(new AggregatorFactory[0]);
+    return mergedAggregators.values().toArray(new AggregatorFactory[0]);
   }
 }

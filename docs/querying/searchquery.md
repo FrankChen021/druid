@@ -23,9 +23,11 @@ sidebar_label: "Search"
   ~ under the License.
   -->
 
-> Apache Druid supports two query languages: [Druid SQL](sql.md) and [native queries](querying.md).
-> This document describes a query
-> type that is only available in the native language.
+:::info
+ Apache Druid supports two query languages: [Druid SQL](sql.md) and [native queries](querying.md).
+ This document describes a query
+ type that is only available in the native language.
+:::
 
 A search query returns dimension values that match the search specification.
 
@@ -62,6 +64,7 @@ There are several main parts to a search query:
 |limit| Defines the maximum number per Historical process (parsed as int) of search results to return. |no (default to 1000)|
 |intervals|A JSON Object representing ISO-8601 Intervals. This defines the time ranges to run the query over.|yes|
 |searchDimensions|The dimensions to run the search over. Excluding this means the search is run over all dimensions.|no|
+|virtualColumns|A JSON list of [virtual columns](./virtual-columns.md) available to use in `searchDimensions`.| no (default none)|
 |query|See [SearchQuerySpec](#searchqueryspec).|yes|
 |sort|An object specifying how the results of the search should be sorted.<br/>Possible types are "lexicographic" (the default sort), "alphanumeric", "strlen", and "numeric".<br/>See [Sorting Orders](./sorting-orders.md) for more details.|no|
 |context|See [Context](../querying/query-context.md)|no|
@@ -123,10 +126,6 @@ are unique.
 queryableIndexSegment, and then evaluates search predicates. If some filters support bitmap indexes, the cursor can read
 only the rows which satisfy those filters, thereby saving I/O cost. However, it might be slow with filters of low selectivity.
 
-- "auto" strategy uses a cost-based planner for choosing an optimal search strategy. It estimates the cost of index-only
-and cursor-based execution plans, and chooses the optimal one. Currently, it is not enabled by default due to the overhead
-of cost estimation.
-
 ## Server configuration
 
 The following runtime properties apply:
@@ -158,7 +157,7 @@ If any part of a dimension value contains the value specified in this search que
 
 ### `fragment`
 
-If any part of a dimension value contains all of the values specified in this search query spec, regardless of case by default, a "match" occurs. The grammar is:
+If any part of a dimension value contains all the values specified in this search query spec, regardless of case by default, a "match" occurs. The grammar is:
 
 ```json
 {

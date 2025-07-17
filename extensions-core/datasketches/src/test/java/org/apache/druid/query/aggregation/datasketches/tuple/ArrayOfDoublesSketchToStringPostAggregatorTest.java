@@ -30,8 +30,8 @@ import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.aggregation.post.ConstantPostAggregator;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.query.timeseries.TimeseriesQueryQueryToolChest;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.column.ValueType;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -50,9 +50,10 @@ public class ArrayOfDoublesSketchToStringPostAggregatorTest
         new ConstantPostAggregator("", 0)
     );
     DefaultObjectMapper mapper = new DefaultObjectMapper();
-    ArrayOfDoublesSketchToStringPostAggregator andBackAgain = mapper.readValue(
+    mapper.registerModules(new ArrayOfDoublesSketchModule().getJacksonModules());
+    PostAggregator andBackAgain = mapper.readValue(
         mapper.writeValueAsString(there),
-        ArrayOfDoublesSketchToStringPostAggregator.class
+        PostAggregator.class
     );
 
     Assert.assertEquals(there, andBackAgain);
@@ -116,8 +117,8 @@ public class ArrayOfDoublesSketchToStringPostAggregatorTest
     Assert.assertEquals(
         RowSignature.builder()
                     .addTimeColumn()
-                    .add("count", ValueType.LONG)
-                    .add("a", ValueType.STRING)
+                    .add("count", ColumnType.LONG)
+                    .add("a", ColumnType.STRING)
                     .build(),
         new TimeseriesQueryQueryToolChest().resultArraySignature(query)
     );

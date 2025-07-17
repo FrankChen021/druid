@@ -24,7 +24,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.extraction.ExtractionFn;
@@ -33,7 +32,7 @@ import org.apache.druid.query.lookup.LookupExtractionFn;
 import org.apache.druid.query.lookup.LookupExtractor;
 import org.apache.druid.query.lookup.LookupExtractorFactoryContainerProvider;
 import org.apache.druid.segment.DimensionSelector;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
@@ -80,7 +79,7 @@ public class LookupDimensionSpec implements DimensionSpec
   {
     this.retainMissingValue = retainMissingValue;
     this.optimize = optimize == null ? true : optimize;
-    this.replaceMissingValueWith = NullHandling.emptyToNullIfNeeded(replaceMissingValueWith);
+    this.replaceMissingValueWith = replaceMissingValueWith;
     this.dimension = Preconditions.checkNotNull(dimension, "dimension can not be Null");
     this.outputName = Preconditions.checkNotNull(outputName, "outputName can not be Null");
     this.lookupExtractorFactoryContainerProvider = lookupExtractorFactoryContainerProvider;
@@ -114,10 +113,10 @@ public class LookupDimensionSpec implements DimensionSpec
   }
 
   @Override
-  public ValueType getOutputType()
+  public ColumnType getOutputType()
   {
     // Extraction functions always output String
-    return ValueType.STRING;
+    return ColumnType.STRING;
   }
 
   @JsonProperty

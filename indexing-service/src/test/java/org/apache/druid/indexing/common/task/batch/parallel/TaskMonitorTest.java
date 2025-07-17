@@ -19,8 +19,8 @@
 
 package org.apache.druid.indexing.common.task.batch.parallel;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import org.apache.druid.client.indexing.NoopIndexingServiceClient;
 import org.apache.druid.client.indexing.TaskStatusResponse;
 import org.apache.druid.data.input.InputSplit;
 import org.apache.druid.indexer.RunnerTaskState;
@@ -34,13 +34,16 @@ import org.apache.druid.indexing.common.task.batch.parallel.TaskMonitor.SubTaskC
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.concurrent.Execs;
+import org.apache.druid.rpc.indexing.NoopOverlordClient;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -57,9 +60,10 @@ public class TaskMonitorTest
   private final ExecutorService taskRunner = Execs.multiThreaded(5, "task-monitor-test-%d");
   private final ConcurrentMap<String, TaskState> tasks = new ConcurrentHashMap<>();
   private final TaskMonitor<TestTask, SimpleSubTaskReport> monitor = new TaskMonitor<>(
-      new TestIndexingServiceClient(),
+      new TestOverlordClient(),
       3,
-      SPLIT_NUM
+      SPLIT_NUM,
+      0
   );
 
   @Before
@@ -184,6 +188,26 @@ public class TaskMonitorTest
     }
   }
 
+  @Test
+  public void testTimeout() throws InterruptedException, ExecutionException, TimeoutException
+  {
+    TaskMonitor<TestTask, SimpleSubTaskReport> timeoutMonitor = new TaskMonitor<>(
+            new TestOverlordClient(),
+            0,
+            1,
+            10L
+    );
+    timeoutMonitor.start(50);
+    ListenableFuture<SubTaskCompleteEvent<TestTask>> future = timeoutMonitor.submit(
+            new TestTaskSpec("timeoutSpec", "groupId", "supervisorId", null, new IntegerInputSplit(0), 100L, 0, false)
+    );
+    SubTaskCompleteEvent<TestTask> result = future.get(1, TimeUnit.SECONDS);
+    Assert.assertNotNull(result.getLastStatus());
+    Assert.assertEquals(TaskState.FAILED, result.getLastStatus().getStatusCode());
+    Assert.assertEquals(TaskState.FAILED, result.getLastState());
+    timeoutMonitor.stop();
+  }
+
   private class TestTaskSpec extends SubTaskSpec<TestTask>
   {
     private final long runTime;
@@ -229,28 +253,43 @@ public class TaskMonitorTest
 
     TestTask(String id, long runTime, boolean shouldFail, boolean throwUnknownTypeIdError)
     {
-      super(id, null, "testDataSource", runTime, 0, null, null, null);
+      super(id, null, "testDataSource", runTime, 0, null);
       this.shouldFail = shouldFail;
       this.throwUnknownTypeIdError = throwUnknownTypeIdError;
     }
 
+    @Nullable
     @Override
-    public TaskStatus run(TaskToolbox toolbox) throws Exception
+    public String setup(TaskToolbox toolbox)
+    {
+      return null;
+    }
+
+    @Override
+    public void cleanUp(TaskToolbox toolbox, TaskStatus taskStatus)
+    {
+      // do nothing
+    }
+
+    @Override
+    public TaskStatus runTask(TaskToolbox toolbox) throws Exception
     {
       monitor.collectReport(new SimpleSubTaskReport(getId()));
       if (shouldFail) {
         Thread.sleep(getRunTime());
         return TaskStatus.failure(getId(), "Dummy task status failure for testing");
       } else {
-        return super.run(toolbox);
+        return super.runTask(toolbox);
       }
     }
   }
 
-  private class TestIndexingServiceClient extends NoopIndexingServiceClient
+  private class TestOverlordClient extends NoopOverlordClient
   {
+    private final Set<String> cancelled = ConcurrentHashMap.newKeySet();
+
     @Override
-    public String runTask(String taskId, Object taskObject)
+    public ListenableFuture<Void> runTask(String taskId, Object taskObject)
     {
       final TestTask task = (TestTask) taskObject;
       tasks.put(task.getId(), TaskState.RUNNING);
@@ -258,13 +297,16 @@ public class TaskMonitorTest
         throw new RuntimeException(new ISE("Could not resolve type id 'test_task_id'"));
       }
       taskRunner.submit(() -> tasks.put(task.getId(), task.run(null).getStatusCode()));
-      return task.getId();
+      return Futures.immediateFuture(null);
     }
 
     @Override
-    public TaskStatusResponse getTaskStatus(String taskId)
+    public ListenableFuture<TaskStatusResponse> taskStatus(String taskId)
     {
-      return new TaskStatusResponse(
+      final TaskState state = cancelled.contains(taskId)
+              ? TaskState.FAILED
+              : tasks.get(taskId);
+      final TaskStatusResponse retVal = new TaskStatusResponse(
           taskId,
           new TaskStatusPlus(
               taskId,
@@ -272,7 +314,7 @@ public class TaskMonitorTest
               "testTask",
               DateTimes.EPOCH,
               DateTimes.EPOCH,
-              tasks.get(taskId),
+              state,
               RunnerTaskState.RUNNING,
               -1L,
               TaskLocation.unknown(),
@@ -280,6 +322,15 @@ public class TaskMonitorTest
               null
           )
       );
+
+      return Futures.immediateFuture(retVal);
+    }
+
+    @Override
+    public ListenableFuture<Void> cancelTask(String taskId)
+    {
+      cancelled.add(taskId);
+      return Futures.immediateFuture(null);
     }
   }
 

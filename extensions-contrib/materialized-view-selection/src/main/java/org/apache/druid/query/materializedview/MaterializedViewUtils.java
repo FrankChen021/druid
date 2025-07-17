@@ -47,7 +47,7 @@ public class MaterializedViewUtils
    */
   public static Set<String> getRequiredFields(Query query)
   {
-    Set<String> dimsInFilter = null == query.getFilter() ? new HashSet<String>() : query.getFilter().getRequiredColumns();
+    Set<String> dimsInFilter = null == query.getFilter() ? new HashSet<>() : query.getFilter().getRequiredColumns();
     Set<String> dimensions = new HashSet<>(dimsInFilter);
 
     if (query instanceof TopNQuery) {
@@ -65,7 +65,7 @@ public class MaterializedViewUtils
         dimensions.add(dim);
       }
     } else {
-      throw new UnsupportedOperationException("Method getRequeiredFields only support TopNQuery/TimeseriesQuery/GroupByQuery");
+      throw new UnsupportedOperationException("Method getRequiredFields only supports TopNQuery/TimeseriesQuery/GroupByQuery");
     }
     return dimensions;
   }

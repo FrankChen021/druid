@@ -35,8 +35,6 @@ import org.apache.druid.segment.loading.LocalDataSegmentPusherConfig;
 import org.apache.druid.segment.loading.LocalFileTimestampVersionFinder;
 import org.apache.druid.segment.loading.LocalLoadSpec;
 import org.apache.druid.segment.loading.SegmentCacheManager;
-import org.apache.druid.segment.loading.SegmentLoader;
-import org.apache.druid.segment.loading.SegmentLocalCacheLoader;
 import org.apache.druid.segment.loading.SegmentLocalCacheManager;
 
 import java.util.List;
@@ -51,7 +49,6 @@ public class LocalDataStorageDruidModule implements DruidModule
   public void configure(Binder binder)
   {
     binder.bind(SegmentCacheManager.class).to(SegmentLocalCacheManager.class).in(LazySingleton.class);
-    binder.bind(SegmentLoader.class).to(SegmentLocalCacheLoader.class).in(LazySingleton.class);
 
     bindDeepStorageLocal(binder);
 
@@ -77,10 +74,10 @@ public class LocalDataStorageDruidModule implements DruidModule
              .to(LocalFileTimestampVersionFinder.class)
              .in(LazySingleton.class);
 
-    PolyBind.optionBinder(binder, Key.get(DataSegmentKiller.class))
-            .addBinding(SCHEME)
-            .to(LocalDataSegmentKiller.class)
-            .in(LazySingleton.class);
+    Binders.dataSegmentKillerBinder(binder)
+           .addBinding(SCHEME)
+           .to(LocalDataSegmentKiller.class)
+           .in(LazySingleton.class);
 
     PolyBind.optionBinder(binder, Key.get(DataSegmentPusher.class))
             .addBinding(SCHEME)

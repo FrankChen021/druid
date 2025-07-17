@@ -42,7 +42,7 @@ public class SleepOperatorConversion implements SqlOperatorConversion
   private static final SqlFunction SQL_FUNCTION = OperatorConversions
       .operatorBuilder("SLEEP")
       .operandTypes(SqlTypeFamily.NUMERIC)
-      .requiredOperands(1)
+      .requiredOperandCount(1)
       .returnTypeNullable(SqlTypeName.VARCHAR) // always null
       .functionCategory(SqlFunctionCategory.TIMEDATE)
       .build();
@@ -57,6 +57,6 @@ public class SleepOperatorConversion implements SqlOperatorConversion
   @Override
   public DruidExpression toDruidExpression(PlannerContext plannerContext, RowSignature rowSignature, RexNode rexNode)
   {
-    return OperatorConversions.convertCall(plannerContext, rowSignature, rexNode, "sleep");
+    return OperatorConversions.convertDirectCall(plannerContext, rowSignature, rexNode, "sleep");
   }
 }

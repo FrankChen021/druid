@@ -27,7 +27,6 @@ import com.google.inject.multibindings.MapBinder;
 import org.apache.druid.query.DefaultGenericQueryMetricsFactory;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.GenericQueryMetricsFactory;
-import org.apache.druid.query.MapQueryToolChestWarehouse;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
@@ -41,6 +40,8 @@ import org.apache.druid.query.groupby.GroupByQueryQueryToolChest;
 import org.apache.druid.query.metadata.SegmentMetadataQueryConfig;
 import org.apache.druid.query.metadata.SegmentMetadataQueryQueryToolChest;
 import org.apache.druid.query.metadata.metadata.SegmentMetadataQuery;
+import org.apache.druid.query.operator.WindowOperatorQuery;
+import org.apache.druid.query.operator.WindowOperatorQueryQueryToolChest;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryConfig;
 import org.apache.druid.query.scan.ScanQueryQueryToolChest;
@@ -60,7 +61,6 @@ import org.apache.druid.query.topn.TopNQuery;
 import org.apache.druid.query.topn.TopNQueryConfig;
 import org.apache.druid.query.topn.TopNQueryMetricsFactory;
 import org.apache.druid.query.topn.TopNQueryQueryToolChest;
-
 import java.util.Map;
 
 /**
@@ -75,14 +75,15 @@ public class QueryToolChestModule implements Module
 
   public final Map<Class<? extends Query>, Class<? extends QueryToolChest>> mappings =
       ImmutableMap.<Class<? extends Query>, Class<? extends QueryToolChest>>builder()
-                  .put(TimeseriesQuery.class, TimeseriesQueryQueryToolChest.class)
-                  .put(SearchQuery.class, SearchQueryQueryToolChest.class)
-                  .put(TimeBoundaryQuery.class, TimeBoundaryQueryQueryToolChest.class)
-                  .put(SegmentMetadataQuery.class, SegmentMetadataQueryQueryToolChest.class)
+                  .put(DataSourceMetadataQuery.class, DataSourceQueryQueryToolChest.class)
                   .put(GroupByQuery.class, GroupByQueryQueryToolChest.class)
                   .put(ScanQuery.class, ScanQueryQueryToolChest.class)
+                  .put(SearchQuery.class, SearchQueryQueryToolChest.class)
+                  .put(SegmentMetadataQuery.class, SegmentMetadataQueryQueryToolChest.class)
+                  .put(TimeBoundaryQuery.class, TimeBoundaryQueryQueryToolChest.class)
+                  .put(TimeseriesQuery.class, TimeseriesQueryQueryToolChest.class)
                   .put(TopNQuery.class, TopNQueryQueryToolChest.class)
-                  .put(DataSourceMetadataQuery.class, DataSourceQueryQueryToolChest.class)
+                  .put(WindowOperatorQuery.class, WindowOperatorQueryQueryToolChest.class)
                   .build();
 
   @Override
@@ -95,7 +96,7 @@ public class QueryToolChestModule implements Module
       binder.bind(entry.getValue()).in(LazySingleton.class);
     }
 
-    binder.bind(QueryToolChestWarehouse.class).to(MapQueryToolChestWarehouse.class);
+    binder.bind(QueryToolChestWarehouse.class).to(ConglomerateBackedToolChestWarehouse.class);
 
     JsonConfigProvider.bind(binder, "druid.query.default", DefaultQueryConfig.class);
     JsonConfigProvider.bind(binder, "druid.query.groupBy", GroupByQueryConfig.class);

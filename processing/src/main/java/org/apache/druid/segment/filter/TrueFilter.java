@@ -19,17 +19,17 @@
 
 package org.apache.druid.segment.filter;
 
-import org.apache.druid.query.BitmapResultFactory;
-import org.apache.druid.query.filter.BitmapIndexSelector;
+import org.apache.druid.query.filter.ColumnIndexSelector;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.ValueMatcher;
-import org.apache.druid.query.filter.vector.BooleanVectorValueMatcher;
 import org.apache.druid.query.filter.vector.VectorValueMatcher;
 import org.apache.druid.segment.ColumnInspector;
-import org.apache.druid.segment.ColumnSelector;
 import org.apache.druid.segment.ColumnSelectorFactory;
+import org.apache.druid.segment.index.AllTrueBitmapColumnIndex;
+import org.apache.druid.segment.index.BitmapColumnIndex;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -50,40 +50,23 @@ public class TrueFilter implements Filter
   {
   }
 
+  @Nullable
   @Override
-  public <T> T getBitmapResult(BitmapIndexSelector selector, BitmapResultFactory<T> bitmapResultFactory)
+  public BitmapColumnIndex getBitmapColumnIndex(ColumnIndexSelector selector)
   {
-    return bitmapResultFactory.wrapAllTrue(Filters.allTrue(selector));
+    return new AllTrueBitmapColumnIndex(selector);
   }
 
   @Override
   public ValueMatcher makeMatcher(ColumnSelectorFactory factory)
   {
-    return BooleanValueMatcher.of(true);
+    return ConstantMatcherType.ALL_TRUE.asValueMatcher();
   }
 
   @Override
   public VectorValueMatcher makeVectorMatcher(VectorColumnSelectorFactory factory)
   {
-    return BooleanVectorValueMatcher.of(factory.getReadableVectorInspector(), true);
-  }
-
-  @Override
-  public boolean supportsBitmapIndex(BitmapIndexSelector selector)
-  {
-    return true;
-  }
-
-  @Override
-  public boolean shouldUseBitmapIndex(BitmapIndexSelector selector)
-  {
-    return true;
-  }
-
-  @Override
-  public boolean supportsSelectivityEstimation(ColumnSelector columnSelector, BitmapIndexSelector indexSelector)
-  {
-    return true;
+    return ConstantMatcherType.ALL_TRUE.asVectorMatcher(factory.getReadableVectorInspector());
   }
 
   @Override
@@ -108,12 +91,6 @@ public class TrueFilter implements Filter
   public Filter rewriteRequiredColumns(Map<String, String> columnRewrites)
   {
     return this;
-  }
-
-  @Override
-  public double estimateSelectivity(BitmapIndexSelector indexSelector)
-  {
-    return 1;
   }
 
   @Override

@@ -16,12 +16,13 @@
  * limitations under the License.
  */
 
-import { IconNames } from '@blueprintjs/icons';
 import React from 'react';
 
+import type { IngestionSpec } from '../../../druid-models';
+import { getConsoleViewIcon } from '../../../druid-models';
+import type { Capabilities } from '../../../helpers';
 import { useQueryManager } from '../../../hooks';
-import { Api } from '../../../singletons';
-import { Capabilities, pluralIfNeeded, queryDruidSql } from '../../../utils';
+import { getApiArray, partition, pluralIfNeeded, queryDruidSql } from '../../../utils';
 import { HomeViewCard } from '../home-view-card/home-view-card';
 
 export interface SupervisorCounts {
@@ -35,22 +36,28 @@ export interface SupervisorsCardProps {
 
 export const SupervisorsCard = React.memo(function SupervisorsCard(props: SupervisorsCardProps) {
   const [supervisorCountState] = useQueryManager<Capabilities, SupervisorCounts>({
-    processQuery: async capabilities => {
+    processQuery: async (capabilities, cancelToken) => {
       if (capabilities.hasSql()) {
         return (
-          await queryDruidSql({
-            query: `SELECT
+          await queryDruidSql(
+            {
+              query: `SELECT
   COUNT(*) FILTER (WHERE "suspended" = 0) AS "running",
   COUNT(*) FILTER (WHERE "suspended" = 1) AS "suspended"
 FROM sys.supervisors`,
-          })
+            },
+            cancelToken,
+          )
         )[0];
       } else if (capabilities.hasOverlordAccess()) {
-        const resp = await Api.instance.get('/druid/indexer/v1/supervisor?full');
-        const data = resp.data;
+        const supervisors = await getApiArray<{ spec: IngestionSpec }>(
+          '/druid/indexer/v1/supervisor?full',
+          cancelToken,
+        );
+        const [running, suspended] = partition(supervisors, d => !d.spec.suspended);
         return {
-          running: data.filter((d: any) => d.spec.suspended === false).length,
-          suspended: data.filter((d: any) => d.spec.suspended === true).length,
+          running: running.length,
+          suspended: suspended.length,
         };
       } else {
         throw new Error(`must have SQL or overlord access`);
@@ -67,8 +74,8 @@ FROM sys.supervisors`,
   return (
     <HomeViewCard
       className="supervisors-card"
-      href="#ingestion"
-      icon={IconNames.LIST_COLUMNS}
+      href="#supervisors"
+      icon={getConsoleViewIcon('supervisors')}
       title="Supervisors"
       loading={supervisorCountState.loading}
       error={supervisorCountState.error}

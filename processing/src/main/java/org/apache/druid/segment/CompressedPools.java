@@ -21,7 +21,6 @@ package org.apache.druid.segment;
 
 import com.google.common.base.Supplier;
 import com.ning.compress.BufferRecycler;
-import org.apache.druid.collections.NonBlockingPool;
 import org.apache.druid.collections.ResourceHolder;
 import org.apache.druid.collections.StupidPool;
 import org.apache.druid.java.util.common.logger.Logger;
@@ -35,9 +34,9 @@ public class CompressedPools
   private static final Logger log = new Logger(CompressedPools.class);
 
   public static final int BUFFER_SIZE = 0x10000;
-  private static final NonBlockingPool<BufferRecycler> BUFFER_RECYCLER_POOL = new StupidPool<>(
+  private static final StupidPool<BufferRecycler> BUFFER_RECYCLER_POOL = new StupidPool<>(
       "bufferRecyclerPool",
-      new Supplier<BufferRecycler>()
+      new Supplier<>()
       {
         private final AtomicLong counter = new AtomicLong(0);
 
@@ -55,9 +54,9 @@ public class CompressedPools
     return BUFFER_RECYCLER_POOL.take();
   }
 
-  private static final NonBlockingPool<byte[]> OUTPUT_BYTES_POOL = new StupidPool<byte[]>(
+  private static final StupidPool<byte[]> OUTPUT_BYTES_POOL = new StupidPool<>(
       "outputBytesPool",
-      new Supplier<byte[]>()
+      new Supplier<>()
       {
         private final AtomicLong counter = new AtomicLong(0);
 
@@ -75,9 +74,9 @@ public class CompressedPools
     return OUTPUT_BYTES_POOL.take();
   }
 
-  private static final NonBlockingPool<ByteBuffer> BIG_ENDIAN_BYTE_BUF_POOL = new StupidPool<ByteBuffer>(
+  private static final StupidPool<ByteBuffer> BIG_ENDIAN_BYTE_BUF_POOL = new StupidPool<>(
       "bigEndByteBufPool",
-      new Supplier<ByteBuffer>()
+      new Supplier<>()
       {
         private final AtomicLong counter = new AtomicLong(0);
 
@@ -90,9 +89,9 @@ public class CompressedPools
       }
   );
 
-  private static final NonBlockingPool<ByteBuffer> LITTLE_ENDIAN_BYTE_BUF_POOL = new StupidPool<ByteBuffer>(
+  private static final StupidPool<ByteBuffer> LITTLE_ENDIAN_BYTE_BUF_POOL = new StupidPool<>(
       "littleEndByteBufPool",
-      new Supplier<ByteBuffer>()
+      new Supplier<>()
       {
         private final AtomicLong counter = new AtomicLong(0);
 

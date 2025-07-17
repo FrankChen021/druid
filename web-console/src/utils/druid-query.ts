@@ -16,25 +16,42 @@
  * limitations under the License.
  */
 
-import axios, { AxiosResponse } from 'axios';
+import type { AxiosResponse, CancelToken } from 'axios';
+import axios from 'axios';
+import { C } from 'druid-query-toolkit';
 
 import { Api } from '../singletons';
 
-import { assemble } from './general';
-import { QueryContext } from './query-context';
-import { RowColumn } from './query-cursor';
+import type { RowColumn } from './general';
+import { assemble, lookupBy } from './general';
 
 const CANCELED_MESSAGE = 'Query canceled by user.';
 
-export interface QueryWithContext {
-  queryString: string;
-  queryContext: QueryContext;
-  wrapQueryLimit: number | undefined;
-}
+// https://github.com/apache/druid/blob/master/processing/src/main/java/org/apache/druid/error/DruidException.java#L292
+export type ErrorResponsePersona = 'USER' | 'ADMIN' | 'OPERATOR' | 'DEVELOPER';
 
-export interface DruidErrorResponse {
+// https://github.com/apache/druid/blob/master/processing/src/main/java/org/apache/druid/error/DruidException.java#L321
+export type ErrorResponseCategory =
+  | 'DEFENSIVE'
+  | 'INVALID_INPUT'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'CAPACITY_EXCEEDED'
+  | 'CANCELED'
+  | 'RUNTIME_FAILURE'
+  | 'TIMEOUT'
+  | 'UNSUPPORTED'
+  | 'UNCATEGORIZED';
+
+export interface ErrorResponse {
+  persona: ErrorResponsePersona;
+  category: ErrorResponseCategory;
+  errorCode?: string;
+  errorMessage: string; // a message for the intended audience
+  context?: Record<string, any>; // a map of extra context values that might be helpful
+
+  // Deprecated as per https://github.com/apache/druid/blob/master/processing/src/main/java/org/apache/druid/error/ErrorResponse.java
   error?: string;
-  errorMessage?: string;
   errorClass?: string;
   host?: string;
 }
@@ -56,8 +73,20 @@ export function parseHtmlError(htmlStr: string): string | undefined {
     .replace(/&gt;/g, '>');
 }
 
+function errorResponseFromWhatever(e: any): ErrorResponse | string {
+  if (e.response) {
+    // This is a direct axios response error
+    let data = e.response.data || {};
+    // MSQ errors nest their error objects inside the error key. Yo dawg, I heard you like errors...
+    if (typeof data.error?.error === 'string') data = data.error;
+    return data;
+  } else {
+    return e; // Assume the error was passed in directly
+  }
+}
+
 export function getDruidErrorMessage(e: any): string {
-  const data: DruidErrorResponse | string = (e.response || {}).data || {};
+  const data = errorResponseFromWhatever(e);
   switch (typeof data) {
     case 'object':
       return (
@@ -80,30 +109,28 @@ export function getDruidErrorMessage(e: any): string {
 }
 
 export class DruidError extends Error {
-  static parsePosition(errorMessage: string): RowColumn | undefined {
-    const range = /from line (\d+), column (\d+) to line (\d+), column (\d+)/i.exec(
-      String(errorMessage),
-    );
-    if (range) {
-      return {
-        match: range[0],
-        row: Number(range[1]) - 1,
-        column: Number(range[2]) - 1,
-        endRow: Number(range[3]) - 1,
-        endColumn: Number(range[4]), // No -1 because we need to include the last char
-      };
-    }
+  static extractStartRowColumn(
+    context: Record<string, any> | undefined,
+    offsetLines = 0,
+  ): RowColumn | undefined {
+    if (context?.sourceType !== 'sql' || !context.line || !context.column) return;
 
-    const single = /at line (\d+), column (\d+)/i.exec(String(errorMessage));
-    if (single) {
-      return {
-        match: single[0],
-        row: Number(single[1]) - 1,
-        column: Number(single[2]) - 1,
-      };
-    }
+    return {
+      row: Number(context.line) - 1 + offsetLines,
+      column: Number(context.column) - 1,
+    };
+  }
 
-    return;
+  static extractEndRowColumn(
+    context: Record<string, any> | undefined,
+    offsetLines = 0,
+  ): RowColumn | undefined {
+    if (context?.sourceType !== 'sql' || !context.endLine || !context.endColumn) return;
+
+    return {
+      row: Number(context.endLine) - 1 + offsetLines,
+      column: Number(context.endColumn) - 1,
+    };
   }
 
   static positionToIndex(str: string, line: number, column: number): number {
@@ -115,8 +142,10 @@ export class DruidError extends Error {
 
   static getSuggestion(errorMessage: string): QuerySuggestion | undefined {
     // == is used instead of =
-    // ex: Encountered "= =" at line 3, column 15. Was expecting one of
-    const matchEquals = /Encountered "= =" at line (\d+), column (\d+)./.exec(errorMessage);
+    // ex: SELECT * FROM wikipedia WHERE channel == '#en.wikipedia'
+    // er: Received an unexpected token [= =] (line [1], column [39]), acceptable options:
+    const matchEquals =
+      /Received an unexpected token \[= =] \(line \[(\d+)], column \[(\d+)]\),/.exec(errorMessage);
     if (matchEquals) {
       const line = Number(matchEquals[1]);
       const column = Number(matchEquals[2]);
@@ -130,9 +159,11 @@ export class DruidError extends Error {
       };
     }
 
-    const matchLexical = /Lexical error at line (\d+), column (\d+).\s+Encountered: "\\u201\w"/.exec(
-      errorMessage,
-    );
+    // Mangled quotes from copy/paste
+    // ex: SELECT * FROM wikipedia WHERE channel = ‘#en.wikipedia‛
+    // er: Lexical error at line 1, column 41.  Encountered: "\u2018"
+    const matchLexical =
+      /Lexical error at line (\d+), column (\d+).\s+Encountered: "\\u201\w"/.exec(errorMessage);
     if (matchLexical) {
       return {
         label: 'Replace fancy quotes with ASCII quotes',
@@ -146,15 +177,17 @@ export class DruidError extends Error {
       };
     }
 
-    // Incorrect quoting on table
-    // ex: org.apache.calcite.runtime.CalciteContextException: From line 3, column 17 to line 3, column 31: Column '#ar.wikipedia' not found in any table
-    const matchQuotes = /org.apache.calcite.runtime.CalciteContextException: From line (\d+), column (\d+) to line \d+, column \d+: Column '([^']+)' not found in any table/.exec(
-      errorMessage,
-    );
+    // Incorrect quoting on table column
+    // ex: SELECT * FROM wikipedia WHERE channel = "#en.wikipedia"
+    // er: Column '#en.wikipedia' not found in any table (line [1], column [41])
+    const matchQuotes =
+      /Column '([^']+)' not found in any table \(line \[(\d+)], column \[(\d+)]\)/.exec(
+        errorMessage,
+      );
     if (matchQuotes) {
-      const line = Number(matchQuotes[1]);
-      const column = Number(matchQuotes[2]);
-      const literalString = matchQuotes[3];
+      const literalString = matchQuotes[1];
+      const line = Number(matchQuotes[2]);
+      const column = Number(matchQuotes[3]);
       return {
         label: `Replace "${literalString}" with '${literalString}'`,
         fn: str => {
@@ -168,7 +201,11 @@ export class DruidError extends Error {
     }
 
     // Single quotes on AS alias
-    const matchSingleQuotesAlias = /Encountered "\\'([\w-]+)\\'" at/i.exec(errorMessage);
+    // ex: SELECT channel AS 'c' FROM wikipedia
+    // er: Received an unexpected token [AS \'c\'] (line [1], column [16]), acceptable options:
+    const matchSingleQuotesAlias = /Received an unexpected token \[AS \\'([\w-]+)\\']/i.exec(
+      errorMessage,
+    );
     if (matchSingleQuotesAlias) {
       const alias = matchSingleQuotesAlias[1];
       return {
@@ -181,26 +218,16 @@ export class DruidError extends Error {
       };
     }
 
-    // , before FROM
-    const matchCommaFrom = /Encountered "(FROM)" at/i.exec(errorMessage);
-    if (matchCommaFrom) {
-      const keyword = matchCommaFrom[1];
-      return {
-        label: `Remove , before ${keyword}`,
-        fn: str => {
-          const newQuery = str.replace(/,(\s+FROM)/gim, '$1');
-          if (newQuery === str) return;
-          return newQuery;
-        },
-      };
-    }
-
-    // , before GROUP, ORDER, or LIMIT
-    const matchComma = /Encountered ", (GROUP|ORDER|LIMIT)" at/i.exec(errorMessage);
+    // Comma (,) before FROM, GROUP, ORDER, or LIMIT
+    // ex: SELECT channel, FROM wikipedia
+    // er: Received an unexpected token [, FROM] (line [1], column [15]), acceptable options:
+    const matchComma = /Received an unexpected token \[, (FROM|GROUP|ORDER|LIMIT)]/i.exec(
+      errorMessage,
+    );
     if (matchComma) {
       const keyword = matchComma[1];
       return {
-        label: `Remove , before ${keyword}`,
+        label: `Remove comma (,) before ${keyword}`,
         fn: str => {
           const newQuery = str.replace(new RegExp(`,(\\s+${keyword})`, 'gim'), '$1');
           if (newQuery === str) return;
@@ -209,15 +236,23 @@ export class DruidError extends Error {
       };
     }
 
-    // ; at the end
-    const matchSemicolon = /Encountered ";" at/i.exec(errorMessage);
+    // Missing (;) after SET statement
+    // ex: SET sqlTimeZone = 'America/Los_Angeles' SELECT * FROM "kttm_simple"
+    // ex: Received an unexpected token [SELECT] (line [1], column [41]), acceptable options: [<EOF>, <QUOTED_STRING>, ";", "UESCAPE"]
+    const matchSemicolon =
+      /Received an unexpected token \[(?:SET|SELECT)] \(line \[(\d+)], column \[(\d+)]\), acceptable options: \[[^;]*";"/i.exec(
+        errorMessage,
+      );
     if (matchSemicolon) {
+      const line = Number(matchSemicolon[1]);
+      const column = Number(matchSemicolon[2]);
       return {
-        label: `Remove trailing ;`,
+        label: `Add semicolon (;) after SET statement`,
         fn: str => {
-          const newQuery = str.replace(/;+(\s*)$/m, '$1');
-          if (newQuery === str) return;
-          return newQuery;
+          const index = DruidError.positionToIndex(str, line, column);
+          const prefix = str.slice(0, index).trimEnd();
+          if (prefix.endsWith(';')) return;
+          return prefix + ';' + str.slice(prefix.length);
         },
       };
     }
@@ -226,42 +261,53 @@ export class DruidError extends Error {
   }
 
   public canceled?: boolean;
-  public error?: string;
+  public persona?: ErrorResponsePersona;
+  public category?: ErrorResponseCategory;
+  public context?: Record<string, any>;
   public errorMessage?: string;
   public errorMessageWithoutExpectation?: string;
   public expectation?: string;
-  public position?: RowColumn;
+  public startRowColumn?: RowColumn;
+  public endRowColumn?: RowColumn;
+  public suggestion?: QuerySuggestion;
+  public queryDuration?: number;
+
+  // Deprecated
+  public error?: string;
   public errorClass?: string;
   public host?: string;
-  public suggestion?: QuerySuggestion;
 
-  constructor(e: any) {
+  constructor(e: any, offsetLines = 0) {
     super(axios.isCancel(e) ? CANCELED_MESSAGE : getDruidErrorMessage(e));
     if (axios.isCancel(e)) {
       this.canceled = true;
     } else {
-      const data: DruidErrorResponse | string = (e.response || {}).data || {};
+      const data = errorResponseFromWhatever(e);
 
-      let druidErrorResponse: DruidErrorResponse;
+      let druidErrorResponse: ErrorResponse;
       switch (typeof data) {
         case 'object':
           druidErrorResponse = data;
           break;
 
-        case 'string':
+        default:
           druidErrorResponse = {
             errorClass: 'HTML error',
-          };
-          break;
-
-        default:
-          druidErrorResponse = {};
+          } as any; // ToDo
           break;
       }
       Object.assign(this, druidErrorResponse);
 
       if (this.errorMessage) {
-        this.position = DruidError.parsePosition(this.errorMessage);
+        if (offsetLines) {
+          this.errorMessage = this.errorMessage.replace(
+            /line \[(\d+)],/g,
+            (_, c) => `line [${Number(c) + offsetLines}],`,
+          );
+        }
+
+        this.startRowColumn = DruidError.extractStartRowColumn(this.context, offsetLines);
+        this.endRowColumn = DruidError.extractEndRowColumn(this.context, offsetLines);
         this.suggestion = DruidError.getSuggestion(this.errorMessage);
 
         const expectationIndex = this.errorMessage.indexOf('Was expecting one of');
@@ -276,96 +322,69 @@ export class DruidError extends Error {
   }
 }
 
-export async function queryDruidRune(runeQuery: Record<string, any>): Promise<any> {
+export async function queryDruidRune(
+  runeQuery: Record<string, any>,
+  cancelToken?: CancelToken,
+): Promise<any> {
   let runeResultResp: AxiosResponse;
   try {
-    runeResultResp = await Api.instance.post('/druid/v2', runeQuery);
+    runeResultResp = await Api.instance.post('/druid/v2', runeQuery, { cancelToken });
   } catch (e) {
     throw new Error(getDruidErrorMessage(e));
   }
   return runeResultResp.data;
 }
 
-export async function queryDruidSql<T = any>(sqlQueryPayload: Record<string, any>): Promise<T[]> {
+export async function queryDruidSql<T = any>(
+  sqlQueryPayload: Record<string, any>,
+  cancelToken?: CancelToken,
+): Promise<T[]> {
   let sqlResultResp: AxiosResponse;
   try {
-    sqlResultResp = await Api.instance.post('/druid/v2/sql', sqlQueryPayload);
+    sqlResultResp = await Api.instance.post('/druid/v2/sql', sqlQueryPayload, { cancelToken });
   } catch (e) {
     throw new Error(getDruidErrorMessage(e));
   }
   return sqlResultResp.data;
 }
 
-export interface BasicQueryExplanation {
+export async function getApiArray<T = any>(url: string, cancelToken?: CancelToken): Promise<T[]> {
+  const result = (await Api.instance.get(url, { cancelToken })).data;
+  if (!Array.isArray(result)) throw new Error('unexpected result');
+  return result;
+}
+
+export async function getApiArrayFromKey<T = any>(
+  url: string,
+  key: string,
+  cancelToken?: CancelToken,
+): Promise<T[]> {
+  const result = (await Api.instance.get(url, { cancelToken })).data?.[key];
+  if (!Array.isArray(result)) throw new Error('unexpected result');
+  return result;
+}
+
+export interface QueryExplanation {
   query: any;
-  signature: string | null;
+  signature: { name: string; type: string }[];
+  columnMappings: {
+    queryColumn: string;
+    outputColumn: string;
+  }[];
 }
 
-export interface SemiJoinQueryExplanation {
-  mainQuery: BasicQueryExplanation;
-  subQueryRight: BasicQueryExplanation;
-}
-
-function parseQueryPlanResult(queryPlanResult: string): BasicQueryExplanation {
-  if (!queryPlanResult) {
-    return {
-      query: null,
-      signature: null,
-    };
-  }
-
-  const queryAndSignature = queryPlanResult.split(', signature=');
-  const queryValue = new RegExp(/query=(.+)/).exec(queryAndSignature[0]);
-  const signatureValue = queryAndSignature[1];
-
-  let parsedQuery: any;
-
-  if (queryValue && queryValue[1]) {
-    try {
-      parsedQuery = JSON.parse(queryValue[1]);
-    } catch (e) {}
-  }
-
-  return {
-    query: parsedQuery || queryPlanResult,
-    signature: signatureValue || null,
-  };
-}
-
-export function parseQueryPlan(
-  raw: string,
-): BasicQueryExplanation | SemiJoinQueryExplanation | string {
-  let plan: string = raw;
-  plan = plan.replace(/\n/g, '');
-
-  if (plan.includes('DruidOuterQueryRel(')) {
-    return plan; // don't know how to parse this
-  }
-
-  let queryArgs: string;
-  const queryRelFnStart = 'DruidQueryRel(';
-  const semiJoinFnStart = 'DruidSemiJoin(';
-
-  if (plan.startsWith(queryRelFnStart)) {
-    queryArgs = plan.substring(queryRelFnStart.length, plan.length - 1);
-  } else if (plan.startsWith(semiJoinFnStart)) {
-    queryArgs = plan.substring(semiJoinFnStart.length, plan.length - 1);
-    const leftExpressionsArgs = ', leftExpressions=';
-    const keysArgumentIdx = queryArgs.indexOf(leftExpressionsArgs);
-    if (keysArgumentIdx !== -1) {
-      return {
-        mainQuery: parseQueryPlanResult(queryArgs.substring(0, keysArgumentIdx)),
-        subQueryRight: parseQueryPlan(queryArgs.substring(queryArgs.indexOf(queryRelFnStart))),
-      } as SemiJoinQueryExplanation;
-    }
-  } else {
-    return plan;
-  }
-
-  return parseQueryPlanResult(queryArgs);
-}
-
-export function trimSemicolon(query: string): string {
-  // Trims out a trailing semicolon while preserving space (https://bit.ly/1n1yfkJ)
-  return query.replace(/;+((?:\s*--[^\n]*)?\s*)$/, '$1');
+export function formatColumnMappingsAndSignature(queryExplanation: QueryExplanation): string {
+  const columnNameToType = lookupBy(
+    queryExplanation.signature,
+    c => c.name,
+    c => c.type,
+  );
+  return queryExplanation.columnMappings
+    .map(({ queryColumn, outputColumn }) => {
+      const type = columnNameToType[queryColumn];
+      return `${C.optionalQuotes(queryColumn)}${type ? `::${type}` : ''}→${C.optionalQuotes(
+        outputColumn,
+      )}`;
+    })
+    .join(', ');
 }

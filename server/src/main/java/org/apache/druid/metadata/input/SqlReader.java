@@ -44,7 +44,7 @@ import java.util.Map;
 public class SqlReader extends IntermediateRowParsingReader<Map<String, Object>>
 {
   private final InputRowSchema inputRowSchema;
-  private final SqlEntity source;
+  private final InputEntity source;
   private final File temporaryDirectory;
   private final ObjectMapper objectMapper;
 
@@ -57,7 +57,7 @@ public class SqlReader extends IntermediateRowParsingReader<Map<String, Object>>
   )
   {
     this.inputRowSchema = inputRowSchema;
-    this.source = (SqlEntity) source;
+    this.source = source;
     this.temporaryDirectory = temporaryDirectory;
     this.objectMapper = objectMapper;
   }
@@ -69,10 +69,14 @@ public class SqlReader extends IntermediateRowParsingReader<Map<String, Object>>
     //The results are fetched into local storage as this avoids having to keep a persistent database connection for a long time
     final InputEntity.CleanableFile resultFile = closer.register(source.fetch(temporaryDirectory, null));
     FileInputStream inputStream = new FileInputStream(resultFile.file());
-    JsonIterator<Map<String, Object>> jsonIterator = new JsonIterator<>(new TypeReference<Map<String, Object>>()
-    {
-    }, inputStream, closer, objectMapper);
+    JsonIterator<Map<String, Object>> jsonIterator = new JsonIterator<>(new TypeReference<>() {}, inputStream, closer, objectMapper);
     return jsonIterator;
+  }
+
+  @Override
+  protected InputEntity source()
+  {
+    return source;
   }
 
   @Override

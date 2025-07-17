@@ -20,13 +20,13 @@
 package org.apache.druid.indexing.common.task.batch.parallel;
 
 import com.google.common.base.Preconditions;
+import org.apache.druid.indexer.granularity.ArbitraryGranularitySpec;
+import org.apache.druid.indexer.granularity.GranularitySpec;
 import org.apache.druid.indexer.partitions.PartitionsSpec;
 import org.apache.druid.indexing.common.actions.TaskActionClient;
 import org.apache.druid.indexing.common.task.TaskResource;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.apache.druid.segment.indexing.granularity.ArbitraryGranularitySpec;
-import org.apache.druid.segment.indexing.granularity.GranularitySpec;
 import org.apache.druid.timeline.DataSegment;
 import org.joda.time.Interval;
 
@@ -49,10 +49,11 @@ abstract class PerfectRollupWorkerTask extends AbstractBatchSubtask
       @Nullable TaskResource taskResource,
       DataSchema dataSchema,
       ParallelIndexTuningConfig tuningConfig,
-      @Nullable Map<String, Object> context
+      @Nullable Map<String, Object> context,
+      String supervisorTaskId
   )
   {
-    super(id, groupId, taskResource, dataSchema.getDataSource(), context);
+    super(id, groupId, taskResource, dataSchema.getDataSource(), context, IngestionMode.NONE, supervisorTaskId);
 
     Preconditions.checkArgument(
         tuningConfig.isForceGuaranteedRollup(),

@@ -17,11 +17,10 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
 import { PopoverText } from './popover-text';
 
-describe('popover text', () => {
+describe('PopoverText', () => {
   it('matches snapshot', () => {
     const popoverText = <PopoverText>Hello world</PopoverText>;
 

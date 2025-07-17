@@ -21,7 +21,7 @@ package org.apache.druid.segment.filter;
 
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.BitmapResultFactory;
-import org.apache.druid.query.filter.BitmapIndexSelector;
+import org.apache.druid.query.filter.ColumnIndexSelector;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.ValueMatcher;
 import org.apache.druid.query.filter.vector.BaseVectorValueMatcher;
@@ -30,15 +30,28 @@ import org.apache.druid.query.filter.vector.VectorMatch;
 import org.apache.druid.query.filter.vector.VectorValueMatcher;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.ColumnInspector;
-import org.apache.druid.segment.ColumnSelector;
 import org.apache.druid.segment.ColumnSelectorFactory;
+import org.apache.druid.segment.column.ColumnIndexCapabilities;
+import org.apache.druid.segment.index.BitmapColumnIndex;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 
+import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
 /**
+ * Nice filter you have there... NOT!
+ *
+ * This filter inverts the {@code includeUnknown} flag to properly ap Druids native two-valued logic (true, false) to
+ * SQL three-valued logic (true, false, unknown). At the top level, this flag is always passed in as 'false', and is
+ * only flipped by this filter. Other logical filters ({@link AndFilter} and {@link OrFilter}) propagate the value of
+ * {@code includeUnknown} to their children.
+ *
+ * For example, if the base filter is equality, by default value matchers and indexes only return true for the rows
+ * that are equal to the value. When wrapped in a not filter, the not filter indicates that the equality matchers and
+ * indexes should also include the null or 'unknown' values as matches, so that inverting the match does not incorrectly
+ * include these null values as matches.
  */
 public class NotFilter implements Filter
 {
@@ -49,13 +62,58 @@ public class NotFilter implements Filter
     this.baseFilter = baseFilter;
   }
 
+  @Nullable
   @Override
-  public <T> T getBitmapResult(BitmapIndexSelector selector, BitmapResultFactory<T> bitmapResultFactory)
+  public BitmapColumnIndex getBitmapColumnIndex(ColumnIndexSelector selector)
   {
-    return bitmapResultFactory.complement(
-        baseFilter.getBitmapResult(selector, bitmapResultFactory),
-        selector.getNumRows()
-    );
+    final BitmapColumnIndex baseIndex = baseFilter.getBitmapColumnIndex(selector);
+    if (baseIndex != null && baseIndex.getIndexCapabilities().isInvertible()) {
+      return new BitmapColumnIndex()
+      {
+        @Override
+        public ColumnIndexCapabilities getIndexCapabilities()
+        {
+          return baseIndex.getIndexCapabilities();
+        }
+
+        @Override
+        public int estimatedComputeCost()
+        {
+          return baseIndex.estimatedComputeCost();
+        }
+
+        @Override
+        public <T> T computeBitmapResult(BitmapResultFactory<T> bitmapResultFactory, boolean includeUnknown)
+        {
+          return bitmapResultFactory.complement(
+              baseIndex.computeBitmapResult(bitmapResultFactory, !includeUnknown),
+              selector.getNumRows()
+          );
+        }
+
+        @Nullable
+        @Override
+        public <T> T computeBitmapResult(
+            BitmapResultFactory<T> bitmapResultFactory,
+            int applyRowCount,
+            int totalRowCount,
+            boolean includeUnknown
+        )
+        {
+          final T result = baseIndex.computeBitmapResult(
+              bitmapResultFactory,
+              applyRowCount,
+              totalRowCount,
+              !includeUnknown
+          );
+          if (result == null) {
+            return null;
+          }
+          return bitmapResultFactory.complement(result, selector.getNumRows());
+        }
+      };
+    }
+    return null;
   }
 
   @Override
@@ -66,9 +124,9 @@ public class NotFilter implements Filter
     return new ValueMatcher()
     {
       @Override
-      public boolean matches()
+      public boolean matches(boolean includeUnknown)
       {
-        return !baseMatcher.matches();
+        return !baseMatcher.matches(!includeUnknown);
       }
 
       @Override
@@ -86,12 +144,12 @@ public class NotFilter implements Filter
 
     return new BaseVectorValueMatcher(baseMatcher)
     {
-      final VectorMatch scratch = VectorMatch.wrap(new int[factory.getMaxVectorSize()]);
+      private final VectorMatch scratch = VectorMatch.wrap(new int[factory.getMaxVectorSize()]);
 
       @Override
-      public ReadableVectorMatch match(final ReadableVectorMatch mask)
+      public ReadableVectorMatch match(final ReadableVectorMatch mask, boolean includeUnknown)
       {
-        final ReadableVectorMatch baseMatch = baseMatcher.match(mask);
+        final ReadableVectorMatch baseMatch = baseMatcher.match(mask, !includeUnknown);
 
         scratch.copyFrom(mask);
         scratch.removeAll(baseMatch);
@@ -123,30 +181,6 @@ public class NotFilter implements Filter
   public Filter rewriteRequiredColumns(Map<String, String> columnRewrites)
   {
     return new NotFilter(baseFilter.rewriteRequiredColumns(columnRewrites));
-  }
-
-  @Override
-  public boolean supportsBitmapIndex(BitmapIndexSelector selector)
-  {
-    return baseFilter.supportsBitmapIndex(selector);
-  }
-
-  @Override
-  public boolean shouldUseBitmapIndex(BitmapIndexSelector selector)
-  {
-    return baseFilter.shouldUseBitmapIndex(selector);
-  }
-
-  @Override
-  public boolean supportsSelectivityEstimation(ColumnSelector columnSelector, BitmapIndexSelector indexSelector)
-  {
-    return baseFilter.supportsSelectivityEstimation(columnSelector, indexSelector);
-  }
-
-  @Override
-  public double estimateSelectivity(BitmapIndexSelector indexSelector)
-  {
-    return 1. - baseFilter.estimateSelectivity(indexSelector);
   }
 
   @Override

@@ -21,7 +21,6 @@ package org.apache.druid.benchmark;
 
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.data.input.impl.JSONParseSpec;
@@ -64,10 +63,6 @@ public class ProtobufParserBenchmark
 
   private static final Logger log = new Logger(ProtobufParserBenchmark.class);
 
-  static {
-    NullHandling.initializeForTests();
-  }
-
   private ParseSpec nestedParseSpec;
   private ProtobufInputRowParser nestedParser;
   private ParseSpec flatParseSpec;
@@ -86,7 +81,7 @@ public class ProtobufParserBenchmark
                         new StringDimensionSchema("id"),
                         new StringDimensionSchema("someOtherId"),
                         new StringDimensionSchema("isValid")
-                ), null, null),
+                )),
                 new JSONPathSpec(
                         true,
                         Lists.newArrayList(
@@ -106,7 +101,7 @@ public class ProtobufParserBenchmark
                     new StringDimensionSchema("id"),
                     new StringDimensionSchema("someOtherId"),
                     new StringDimensionSchema("isValid")
-            ), null, null),
+            )),
             null,
             null,
             null

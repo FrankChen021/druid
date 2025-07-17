@@ -19,6 +19,7 @@
 
 package org.apache.druid.segment.incremental;
 
+import org.apache.druid.data.input.impl.AggregateProjectionSpec;
 import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.data.input.impl.InputRowParser;
 import org.apache.druid.data.input.impl.TimestampSpec;
@@ -28,36 +29,47 @@ import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.segment.VirtualColumns;
 
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.List;
 
 /**
  */
 public class IncrementalIndexSchema
 {
+  public static IncrementalIndexSchema.Builder builder()
+  {
+    return new Builder();
+  }
+
   private final long minTimestamp;
   private final TimestampSpec timestampSpec;
-  private final Granularity gran;
+  private final Granularity queryGranularity;
   private final VirtualColumns virtualColumns;
   private final DimensionsSpec dimensionsSpec;
   private final AggregatorFactory[] metrics;
   private final boolean rollup;
 
+  private final List<AggregateProjectionSpec> projections;
+
   public IncrementalIndexSchema(
       long minTimestamp,
       TimestampSpec timestampSpec,
-      Granularity gran,
+      Granularity queryGranularity,
       VirtualColumns virtualColumns,
       DimensionsSpec dimensionsSpec,
       AggregatorFactory[] metrics,
-      boolean rollup
+      boolean rollup,
+      List<AggregateProjectionSpec> projections
   )
   {
     this.minTimestamp = minTimestamp;
     this.timestampSpec = timestampSpec;
-    this.gran = gran;
+    this.queryGranularity = queryGranularity;
     this.virtualColumns = VirtualColumns.nullToEmpty(virtualColumns);
     this.dimensionsSpec = dimensionsSpec;
     this.metrics = metrics;
     this.rollup = rollup;
+    this.projections = projections;
   }
 
   public long getMinTimestamp()
@@ -70,9 +82,9 @@ public class IncrementalIndexSchema
     return timestampSpec;
   }
 
-  public Granularity getGran()
+  public Granularity getQueryGranularity()
   {
-    return gran;
+    return queryGranularity;
   }
 
   public VirtualColumns getVirtualColumns()
@@ -95,24 +107,31 @@ public class IncrementalIndexSchema
     return rollup;
   }
 
+  public List<AggregateProjectionSpec> getProjections()
+  {
+    return projections;
+  }
+
   public static class Builder
   {
     private long minTimestamp;
     private TimestampSpec timestampSpec;
-    private Granularity gran;
+    private Granularity queryGranularity;
     private VirtualColumns virtualColumns;
     private DimensionsSpec dimensionsSpec;
     private AggregatorFactory[] metrics;
     private boolean rollup;
+    private List<AggregateProjectionSpec> projections;
 
     public Builder()
     {
       this.minTimestamp = 0L;
-      this.gran = Granularities.NONE;
+      this.queryGranularity = Granularities.NONE;
       this.virtualColumns = VirtualColumns.EMPTY;
       this.dimensionsSpec = DimensionsSpec.EMPTY;
       this.metrics = new AggregatorFactory[]{};
       this.rollup = true;
+      this.projections = Collections.emptyList();
     }
 
     public Builder withMinTimestamp(long minTimestamp)
@@ -129,7 +148,7 @@ public class IncrementalIndexSchema
 
     public Builder withQueryGranularity(Granularity gran)
     {
-      this.gran = gran;
+      this.queryGranularity = gran;
       return this;
     }
 
@@ -153,7 +172,7 @@ public class IncrementalIndexSchema
           && parser.getParseSpec().getDimensionsSpec() != null) {
         this.dimensionsSpec = parser.getParseSpec().getDimensionsSpec();
       } else {
-        this.dimensionsSpec = new DimensionsSpec(null, null, null);
+        this.dimensionsSpec = DimensionsSpec.EMPTY;
       }
 
       return this;
@@ -171,16 +190,23 @@ public class IncrementalIndexSchema
       return this;
     }
 
+    public Builder withProjections(@Nullable List<AggregateProjectionSpec> projections)
+    {
+      this.projections = projections == null ? Collections.emptyList() : projections;
+      return this;
+    }
+
     public IncrementalIndexSchema build()
     {
       return new IncrementalIndexSchema(
           minTimestamp,
           timestampSpec,
-          gran,
+          queryGranularity,
           virtualColumns,
           dimensionsSpec,
           metrics,
-          rollup
+          rollup,
+          projections
       );
     }
   }

@@ -17,11 +17,10 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
 import { SpecDialog } from './spec-dialog';
 
-describe('spec dialog', () => {
+describe('SpecDialog', () => {
   it('matches snapshot no initSpec', () => {
     const specDialog = <SpecDialog onSubmit={() => {}} onClose={() => {}} title="test" />;
     render(specDialog);

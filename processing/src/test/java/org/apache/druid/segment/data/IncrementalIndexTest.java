@@ -32,11 +32,13 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.druid.data.input.MapBasedInputRow;
 import org.apache.druid.data.input.Row;
 import org.apache.druid.data.input.impl.DimensionsSpec;
+import org.apache.druid.guice.BuiltInTypesModule;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Accumulator;
 import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.java.util.common.parsers.ParseException;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
 import org.apache.druid.query.QueryPlus;
@@ -48,6 +50,7 @@ import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.FilteredAggregatorFactory;
+import org.apache.druid.query.aggregation.FloatSumAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.filter.BoundDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
@@ -63,13 +66,13 @@ import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.incremental.IncrementalIndexCreator;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
-import org.apache.druid.segment.incremental.IndexSizeExceededException;
 import org.apache.druid.segment.incremental.OnheapIncrementalIndex;
 import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.joda.time.Interval;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -81,9 +84,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -92,23 +93,31 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class IncrementalIndexTest extends InitializedNullHandlingTest
 {
   public final IncrementalIndexCreator indexCreator;
+  private final boolean isPreserveExistingMetrics;
 
+  @Rule
+  public ExpectedException expectedException = ExpectedException.none();
   @Rule
   public final CloserRule closer = new CloserRule(false);
 
-  public IncrementalIndexTest(String indexType, String mode) throws JsonProcessingException
+  public IncrementalIndexTest(String indexType, String mode, boolean isPreserveExistingMetrics) throws JsonProcessingException
   {
+    BuiltInTypesModule.registerHandlersAndSerde();
+    this.isPreserveExistingMetrics = isPreserveExistingMetrics;
     indexCreator = closer.closeLater(new IncrementalIndexCreator(indexType, (builder, args) -> builder
-        .setSimpleTestingIndexSchema("rollup".equals(mode), (AggregatorFactory[]) args[0])
+        .setSimpleTestingIndexSchema("rollup".equals(mode), isPreserveExistingMetrics, (AggregatorFactory[]) args[0])
         .setMaxRowCount(1_000_000)
         .build()
     ));
   }
 
-  @Parameterized.Parameters(name = "{index}: {0}, {1}")
+  @Parameterized.Parameters(name = "{index}: {0}, {1}, {2}")
   public static Collection<?> constructorFeeder()
   {
-    return IncrementalIndexCreator.indexTypeCartesianProduct(ImmutableList.of("rollup", "plain"));
+    return IncrementalIndexCreator.indexTypeCartesianProduct(
+        ImmutableList.of("rollup", "plain"),
+        ImmutableList.of(true, false)
+    );
   }
 
   public static AggregatorFactory[] getDefaultCombiningAggregatorFactories()
@@ -155,12 +164,12 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
     }
 
     return new OnheapIncrementalIndex.Builder()
-        .setSimpleTestingIndexSchema(false, aggregatorFactories)
+        .setSimpleTestingIndexSchema(false, false, aggregatorFactories)
         .setMaxRowCount(1000000)
         .build();
   }
 
-  public static void populateIndex(long timestamp, IncrementalIndex index) throws IndexSizeExceededException
+  public static void populateIndex(long timestamp, IncrementalIndex index)
   {
     index.add(
         new MapBasedInputRow(
@@ -181,7 +190,7 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
 
   public static MapBasedInputRow getRow(long timestamp, int rowID, int dimensionCount)
   {
-    List<String> dimensionList = new ArrayList<String>(dimensionCount);
+    List<String> dimensionList = new ArrayList<>(dimensionCount);
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     for (int i = 0; i < dimensionCount; i++) {
       String dimName = StringUtils.format("Dim_%d", i);
@@ -193,7 +202,7 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
 
   private static MapBasedInputRow getLongRow(long timestamp, int dimensionCount)
   {
-    List<String> dimensionList = new ArrayList<String>(dimensionCount);
+    List<String> dimensionList = new ArrayList<>(dimensionCount);
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     for (int i = 0; i < dimensionCount; i++) {
       String dimName = StringUtils.format("Dim_%d", i);
@@ -217,11 +226,12 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
   public void testCaseSensitivity() throws Exception
   {
     long timestamp = System.currentTimeMillis();
-    IncrementalIndex<?> index = indexCreator.createIndex((Object) DEFAULT_AGGREGATOR_FACTORIES);
+    IncrementalIndex index = indexCreator.createIndex((Object) DEFAULT_AGGREGATOR_FACTORIES);
 
     populateIndex(timestamp, index);
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), index.getDimensionNames());
-    Assert.assertEquals(2, index.size());
+    Assert.assertEquals(Arrays.asList("__time", "dim1", "dim2"), index.getDimensionNames(true));
+    Assert.assertEquals(Arrays.asList("dim1", "dim2"), index.getDimensionNames(false));
+    Assert.assertEquals(2, index.numRows());
 
     final Iterator<Row> rows = index.iterator();
     Row row = rows.next();
@@ -239,7 +249,7 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
   public void testFilteredAggregators() throws Exception
   {
     long timestamp = System.currentTimeMillis();
-    IncrementalIndex<?> index = indexCreator.createIndex((Object) new AggregatorFactory[]{
+    IncrementalIndex index = indexCreator.createIndex((Object) new AggregatorFactory[]{
         new CountAggregatorFactory("count"),
         new FilteredAggregatorFactory(
             new CountAggregatorFactory("count_selector_filtered"),
@@ -275,7 +285,8 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(Arrays.asList("dim1", "dim2", "dim3"), index.getDimensionNames());
+    Assert.assertEquals(Arrays.asList("__time", "dim1", "dim2", "dim3"), index.getDimensionNames(true));
+    Assert.assertEquals(Arrays.asList("dim1", "dim2", "dim3"), index.getDimensionNames(false));
     Assert.assertEquals(
         Arrays.asList(
             "count",
@@ -286,7 +297,7 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
         ),
         index.getMetricNames()
     );
-    Assert.assertEquals(2, index.size());
+    Assert.assertEquals(2, index.numRows());
 
     final Iterator<Row> rows = index.iterator();
     Row row = rows.next();
@@ -333,7 +344,7 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
       );
     }
 
-    final IncrementalIndex<?> index = indexCreator.createIndex(
+    final IncrementalIndex index = indexCreator.createIndex(
         (Object) ingestAggregatorFactories.toArray(
             new AggregatorFactory[0]
         )
@@ -446,14 +457,14 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
     }
 
 
-    final IncrementalIndex<?> index = indexCreator.createIndex(
+    final IncrementalIndex index = indexCreator.createIndex(
         (Object) ingestAggregatorFactories.toArray(new AggregatorFactory[0])
     );
-    final int concurrentThreads = 2;
+    final int addThreads = 1;
     final int elementsPerThread = 10_000;
     final ListeningExecutorService indexExecutor = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(
-            concurrentThreads,
+            addThreads,
             new ThreadFactoryBuilder()
                 .setDaemon(false)
                 .setNameFormat("index-executor-%d")
@@ -463,7 +474,7 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
     );
     final ListeningExecutorService queryExecutor = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(
-            concurrentThreads,
+            addThreads,
             new ThreadFactoryBuilder()
                 .setDaemon(false)
                 .setNameFormat("query-executor-%d")
@@ -472,8 +483,8 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
     );
     final long timestamp = System.currentTimeMillis();
     final Interval queryInterval = Intervals.of("1900-01-01T00:00:00Z/2900-01-01T00:00:00Z");
-    final List<ListenableFuture<?>> indexFutures = Lists.newArrayListWithExpectedSize(concurrentThreads);
-    final List<ListenableFuture<?>> queryFutures = Lists.newArrayListWithExpectedSize(concurrentThreads);
+    final List<ListenableFuture<?>> indexFutures = Lists.newArrayListWithExpectedSize(addThreads);
+    final List<ListenableFuture<?>> queryFutures = Lists.newArrayListWithExpectedSize(addThreads);
     final Segment incrementalIndexSegment = new IncrementalIndexSegment(index, null);
     final QueryRunnerFactory factory = new TimeseriesQueryRunnerFactory(
         new TimeseriesQueryQueryToolChest(),
@@ -484,9 +495,9 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
     final AtomicInteger concurrentlyRan = new AtomicInteger(0);
     final AtomicInteger someoneRan = new AtomicInteger(0);
     final CountDownLatch startLatch = new CountDownLatch(1);
-    final CountDownLatch readyLatch = new CountDownLatch(concurrentThreads * 2);
+    final CountDownLatch readyLatch = new CountDownLatch(addThreads * 2);
     final AtomicInteger queriesAccumualted = new AtomicInteger(0);
-    for (int j = 0; j < concurrentThreads; j++) {
+    for (int j = 0; j < addThreads; j++) {
       indexFutures.add(
           indexExecutor.submit(
               new Runnable()
@@ -503,14 +514,9 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
                     throw new RuntimeException(e);
                   }
                   currentlyRunning.incrementAndGet();
-                  try {
-                    for (int i = 0; i < elementsPerThread; i++) {
-                      index.add(getLongRow(timestamp + i, dimensionCount));
-                      someoneRan.incrementAndGet();
-                    }
-                  }
-                  catch (IndexSizeExceededException e) {
-                    throw new RuntimeException(e);
+                  for (int i = 0; i < elementsPerThread; i++) {
+                    index.add(getLongRow(timestamp + i, dimensionCount));
+                    someoneRan.incrementAndGet();
                   }
                   currentlyRunning.decrementAndGet();
                 }
@@ -548,7 +554,7 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
 
                     Double[] results = sequence.accumulate(
                         new Double[0],
-                        new Accumulator<Double[], Result<TimeseriesResultValue>>()
+                        new Accumulator<>()
                         {
                           @Override
                           public Double[] accumulate(Double[] accumulated, Result<TimeseriesResultValue> in)
@@ -563,7 +569,7 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
                         }
                     );
                     for (Double result : results) {
-                      final Integer maxValueExpected = someoneRan.get() + concurrentThreads;
+                      final int maxValueExpected = someoneRan.get() + addThreads;
                       if (maxValueExpected > 0) {
                         // Eventually consistent, but should be somewhere in that range
                         // Actual result is validated after all writes are guaranteed done.
@@ -603,18 +609,18 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
     boolean isRollup = index.isRollup();
     for (Result<TimeseriesResultValue> result : results) {
       Assert.assertEquals(
-          elementsPerThread * (isRollup ? 1 : concurrentThreads),
+          elementsPerThread * (isRollup ? 1 : addThreads),
           result.getValue().getLongMetric("rows").intValue()
       );
       for (int i = 0; i < dimensionCount; ++i) {
         Assert.assertEquals(
             StringUtils.format("Failed long sum on dimension %d", i),
-            elementsPerThread * concurrentThreads,
+            elementsPerThread * addThreads,
             result.getValue().getLongMetric(StringUtils.format("sumResult%s", i)).intValue()
         );
         Assert.assertEquals(
             StringUtils.format("Failed double sum on dimension %d", i),
-            elementsPerThread * concurrentThreads,
+            elementsPerThread * addThreads,
             result.getValue().getDoubleMetric(StringUtils.format("doubleSumResult%s", i)).intValue()
         );
       }
@@ -622,65 +628,15 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
   }
 
   @Test
-  public void testConcurrentAdd() throws Exception
-  {
-    final IncrementalIndex<?> index = indexCreator.createIndex((Object) DEFAULT_AGGREGATOR_FACTORIES);
-    final int threadCount = 10;
-    final int elementsPerThread = 200;
-    final int dimensionCount = 5;
-    ExecutorService executor = Executors.newFixedThreadPool(threadCount);
-    final long timestamp = System.currentTimeMillis();
-    final CountDownLatch latch = new CountDownLatch(threadCount);
-    for (int j = 0; j < threadCount; j++) {
-      executor.submit(
-          new Runnable()
-          {
-            @Override
-            public void run()
-            {
-              try {
-                for (int i = 0; i < elementsPerThread; i++) {
-                  index.add(getRow(timestamp + i, i, dimensionCount));
-                }
-              }
-              catch (Exception e) {
-                e.printStackTrace();
-              }
-              latch.countDown();
-            }
-          }
-      );
-    }
-    Assert.assertTrue(latch.await(60, TimeUnit.SECONDS));
-
-    boolean isRollup = index.isRollup();
-    Assert.assertEquals(dimensionCount, index.getDimensionNames().size());
-    Assert.assertEquals(elementsPerThread * (isRollup ? 1 : threadCount), index.size());
-    Iterator<Row> iterator = index.iterator();
-    int curr = 0;
-    while (iterator.hasNext()) {
-      Row row = iterator.next();
-      Assert.assertEquals(timestamp + (isRollup ? curr : curr / threadCount), row.getTimestampFromEpoch());
-      Assert.assertEquals(isRollup ? threadCount : 1, row.getMetric("count").intValue());
-      curr++;
-    }
-    Assert.assertEquals(elementsPerThread * (isRollup ? 1 : threadCount), curr);
-  }
-
-  @Test
   public void testgetDimensions()
   {
-    final IncrementalIndex<?> incrementalIndex = indexCreator.createIndex(
+    final IncrementalIndex incrementalIndex = indexCreator.createIndex(
         (builder, args) -> builder
             .setIndexSchema(
                 new IncrementalIndexSchema.Builder()
                     .withMetrics(new CountAggregatorFactory("count"))
                     .withDimensionsSpec(
-                        new DimensionsSpec(
-                            DimensionsSpec.getDefaultSchemas(Arrays.asList("dim0", "dim1")),
-                            null,
-                            null
-                        )
+                        new DimensionsSpec(DimensionsSpec.getDefaultSchemas(Arrays.asList("dim0", "dim1")))
                     )
                     .build()
             )
@@ -688,13 +644,14 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
             .build()
     );
 
-    Assert.assertEquals(Arrays.asList("dim0", "dim1"), incrementalIndex.getDimensionNames());
+    Assert.assertEquals(Arrays.asList("__time", "dim0", "dim1"), incrementalIndex.getDimensionNames(true));
+    Assert.assertEquals(Arrays.asList("dim0", "dim1"), incrementalIndex.getDimensionNames(false));
   }
 
   @Test
-  public void testDynamicSchemaRollup() throws IndexSizeExceededException
+  public void testDynamicSchemaRollup()
   {
-    final IncrementalIndex<?> index = indexCreator.createIndex(
+    final IncrementalIndex index = indexCreator.createIndex(
         (builder, args) -> builder
             .setSimpleTestingIndexSchema(/* empty */)
             .setMaxRowCount(10)
@@ -723,6 +680,335 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(2, index.size());
+    Assert.assertEquals(2, index.numRows());
+  }
+
+  @Test
+  public void testSchemaRollupWithRowWithExistingMetricsAndWithoutMetric()
+  {
+    AggregatorFactory[] aggregatorFactories = new AggregatorFactory[]{
+        new CountAggregatorFactory("count"),
+        new LongSumAggregatorFactory("sum_of_x", "x")
+    };
+    final IncrementalIndex index = indexCreator.createIndex((Object) aggregatorFactories);
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "x", 2)
+        )
+    );
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "x", 3)
+        )
+    );
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "count", 2, "sum_of_x", 4)
+        )
+    );
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "count", 3, "sum_of_x", 5)
+        )
+    );
+
+    Assert.assertEquals(index.isRollup() ? 1 : 4, index.numRows());
+    Iterator<Row> iterator = index.iterator();
+    int rowCount = 0;
+    while (iterator.hasNext()) {
+      rowCount++;
+      Row row = iterator.next();
+      Assert.assertEquals(1481871600000L, row.getTimestampFromEpoch());
+      if (index.isRollup()) {
+        // All rows are rollup into one row
+        Assert.assertEquals(isPreserveExistingMetrics ? 7 : 4, row.getMetric("count").intValue());
+        Assert.assertEquals(isPreserveExistingMetrics ? 14 : 5, row.getMetric("sum_of_x").intValue());
+      } else {
+        // We still have 4 rows
+        if (rowCount == 1 || rowCount == 2) {
+          Assert.assertEquals(1, row.getMetric("count").intValue());
+          Assert.assertEquals(1 + rowCount, row.getMetric("sum_of_x").intValue());
+        } else {
+          if (isPreserveExistingMetrics) {
+            Assert.assertEquals(rowCount - 1, row.getMetric("count").intValue());
+            Assert.assertEquals(1 + rowCount, row.getMetric("sum_of_x").intValue());
+          } else {
+            Assert.assertEquals(1, row.getMetric("count").intValue());
+            Assert.assertNull(row.getMetric("sum_of_x"));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testSchemaRollupWithRowWithExistingMetricsAndWithoutMetricUsingAggregatorWithDifferentReturnType()
+  {
+    AggregatorFactory[] aggregatorFactories = new AggregatorFactory[]{
+        new CountAggregatorFactory("count"),
+        // FloatSumAggregator combine method takes in two Float but return Double
+        new FloatSumAggregatorFactory("sum_of_x", "x")
+    };
+    final IncrementalIndex index = indexCreator.createIndex((Object) aggregatorFactories);
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "x", 2)
+        )
+    );
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "x", 3)
+        )
+    );
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "count", 2, "sum_of_x", 4)
+        )
+    );
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "count", 3, "sum_of_x", 5)
+        )
+    );
+
+    Assert.assertEquals(index.isRollup() ? 1 : 4, index.numRows());
+    Iterator<Row> iterator = index.iterator();
+    int rowCount = 0;
+    while (iterator.hasNext()) {
+      rowCount++;
+      Row row = iterator.next();
+      Assert.assertEquals(1481871600000L, row.getTimestampFromEpoch());
+      if (index.isRollup()) {
+        // All rows are rollup into one row
+        Assert.assertEquals(isPreserveExistingMetrics ? 7 : 4, row.getMetric("count").intValue());
+        Assert.assertEquals(isPreserveExistingMetrics ? 14 : 5, row.getMetric("sum_of_x").intValue());
+      } else {
+        // We still have 4 rows
+        if (rowCount == 1 || rowCount == 2) {
+          Assert.assertEquals(1, row.getMetric("count").intValue());
+          Assert.assertEquals(1 + rowCount, row.getMetric("sum_of_x").intValue());
+        } else {
+          if (isPreserveExistingMetrics) {
+            Assert.assertEquals(rowCount - 1, row.getMetric("count").intValue());
+            Assert.assertEquals(1 + rowCount, row.getMetric("sum_of_x").intValue());
+          } else {
+            Assert.assertEquals(1, row.getMetric("count").intValue());
+            Assert.assertNull(row.getMetric("sum_of_x"));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testSchemaRollupWithRowWithOnlyExistingMetrics()
+  {
+    AggregatorFactory[] aggregatorFactories = new AggregatorFactory[]{
+        new CountAggregatorFactory("count"),
+        new LongSumAggregatorFactory("sum_of_x", "x")
+    };
+    final IncrementalIndex index = indexCreator.createIndex((Object) aggregatorFactories);
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "count", 2, "sum_of_x", 4)
+        )
+    );
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "count", 3, "x", 3, "sum_of_x", 5)
+        )
+    );
+
+    Assert.assertEquals(index.isRollup() ? 1 : 2, index.numRows());
+    Iterator<Row> iterator = index.iterator();
+    int rowCount = 0;
+    while (iterator.hasNext()) {
+      rowCount++;
+      Row row = iterator.next();
+      Assert.assertEquals(1481871600000L, row.getTimestampFromEpoch());
+      if (index.isRollup()) {
+        // All rows are rollup into one row
+        Assert.assertEquals(isPreserveExistingMetrics ? 5 : 2, row.getMetric("count").intValue());
+        Assert.assertEquals(isPreserveExistingMetrics ? 9 : 3, row.getMetric("sum_of_x").intValue());
+      } else {
+        // We still have 2 rows
+        if (rowCount == 1) {
+          if (isPreserveExistingMetrics) {
+            Assert.assertEquals(2, row.getMetric("count").intValue());
+            Assert.assertEquals(4, row.getMetric("sum_of_x").intValue());
+          } else {
+            Assert.assertEquals(1, row.getMetric("count").intValue());
+            Assert.assertNull(row.getMetric("sum_of_x"));
+          }
+        } else {
+          Assert.assertEquals(isPreserveExistingMetrics ? 3 : 1, row.getMetric("count").intValue());
+          Assert.assertEquals(isPreserveExistingMetrics ? 5 : 3, row.getMetric("sum_of_x").intValue());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testSchemaRollupWithRowsWithNoMetrics()
+  {
+    AggregatorFactory[] aggregatorFactories = new AggregatorFactory[]{
+        new CountAggregatorFactory("count"),
+        new LongSumAggregatorFactory("sum_of_x", "x")
+    };
+    final IncrementalIndex index = indexCreator.createIndex((Object) aggregatorFactories);
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "x", 4)
+        )
+    );
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "x", 3)
+        )
+    );
+
+    Assert.assertEquals(index.isRollup() ? 1 : 2, index.numRows());
+    Iterator<Row> iterator = index.iterator();
+    int rowCount = 0;
+    while (iterator.hasNext()) {
+      rowCount++;
+      Row row = iterator.next();
+      Assert.assertEquals(1481871600000L, row.getTimestampFromEpoch());
+      if (index.isRollup()) {
+        // All rows are rollup into one row
+        Assert.assertEquals(2, row.getMetric("count").intValue());
+        Assert.assertEquals(7, row.getMetric("sum_of_x").intValue());
+      } else {
+        // We still have 2 rows
+        if (rowCount == 1) {
+          Assert.assertEquals(1, row.getMetric("count").intValue());
+          Assert.assertEquals(4, row.getMetric("sum_of_x").intValue());
+        } else {
+          Assert.assertEquals(1, row.getMetric("count").intValue());
+          Assert.assertEquals(3, row.getMetric("sum_of_x").intValue());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testSchemaRollupWithRowWithMixedTypeMetrics()
+  {
+    if (isPreserveExistingMetrics) {
+      expectedException.expect(ParseException.class);
+    }
+    AggregatorFactory[] aggregatorFactories = new AggregatorFactory[]{
+        new CountAggregatorFactory("count"),
+        new LongSumAggregatorFactory("sum_of_x", "x")
+    };
+    final IncrementalIndex index = indexCreator.createIndex((Object) aggregatorFactories);
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "count", "not a number 1", "sum_of_x", 4)
+        )
+    );
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "host", "host", "count", 3, "x", 3, "sum_of_x", "not a number 2")
+        )
+    );
+
+    Assert.assertEquals(index.isRollup() ? 1 : 2, index.numRows());
+    Iterator<Row> iterator = index.iterator();
+    int rowCount = 0;
+    while (iterator.hasNext()) {
+      rowCount++;
+      Row row = iterator.next();
+      Assert.assertEquals(1481871600000L, row.getTimestampFromEpoch());
+      if (index.isRollup()) {
+        // All rows are rollup into one row
+        Assert.assertEquals(2, row.getMetric("count").intValue());
+        Assert.assertEquals(3, row.getMetric("sum_of_x").intValue());
+      } else {
+        // We still have 2 rows
+        if (rowCount == 1) {
+          Assert.assertEquals(1, row.getMetric("count").intValue());
+          Assert.assertNull(row.getMetric("sum_of_x"));
+        } else {
+          Assert.assertEquals(1, row.getMetric("count").intValue());
+          Assert.assertEquals(3, row.getMetric("sum_of_x").intValue());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testSchemaRollupWithRowsWithNonRolledUpSameColumnName()
+  {
+    AggregatorFactory[] aggregatorFactories = new AggregatorFactory[]{
+        new CountAggregatorFactory("count"),
+        new LongSumAggregatorFactory("sum_of_x", "x")
+    };
+    final IncrementalIndex index = indexCreator.createIndex((Object) aggregatorFactories);
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "sum_of_x", 100, "x", 4)
+        )
+    );
+    index.add(
+        new MapBasedInputRow(
+            1481871600000L,
+            Arrays.asList("name", "host"),
+            ImmutableMap.of("name", "name1", "sum_of_x", 100, "x", 3)
+        )
+    );
+
+    Assert.assertEquals(index.isRollup() ? 1 : 2, index.numRows());
+    Iterator<Row> iterator = index.iterator();
+    int rowCount = 0;
+    while (iterator.hasNext()) {
+      rowCount++;
+      Row row = iterator.next();
+      Assert.assertEquals(1481871600000L, row.getTimestampFromEpoch());
+      if (index.isRollup()) {
+        // All rows are rollup into one row
+        Assert.assertEquals(2, row.getMetric("count").intValue());
+        Assert.assertEquals(isPreserveExistingMetrics ? 200 : 7, row.getMetric("sum_of_x").intValue());
+      } else {
+        // We still have 2 rows
+        if (rowCount == 1) {
+          Assert.assertEquals(1, row.getMetric("count").intValue());
+          Assert.assertEquals(isPreserveExistingMetrics ? 100 : 4, row.getMetric("sum_of_x").intValue());
+        } else {
+          Assert.assertEquals(1, row.getMetric("count").intValue());
+          Assert.assertEquals(isPreserveExistingMetrics ? 100 : 3, row.getMetric("sum_of_x").intValue());
+        }
+      }
+    }
   }
 }

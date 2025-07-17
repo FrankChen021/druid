@@ -23,7 +23,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.Row;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.FileUtils;
@@ -34,6 +33,7 @@ import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.DefaultGenericQueryMetricsFactory;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
+import org.apache.druid.query.Order;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
@@ -64,6 +64,7 @@ import org.apache.druid.segment.IndexMergerV9;
 import org.apache.druid.segment.IndexSpec;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.QueryableIndexSegment;
+import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.generator.DataGenerator;
 import org.apache.druid.segment.generator.GeneratorBasicSchemas;
 import org.apache.druid.segment.generator.GeneratorSchemaInfo;
@@ -115,17 +116,13 @@ public class ScanBenchmark
   private int limit;
 
   @Param({"NONE", "DESCENDING", "ASCENDING"})
-  private static ScanQuery.Order ordering;
+  private static Order ordering;
 
   private static final Logger log = new Logger(ScanBenchmark.class);
   private static final int RNG_SEED = 9999;
   private static final ObjectMapper JSON_MAPPER;
   private static final IndexMergerV9 INDEX_MERGER_V9;
   private static final IndexIO INDEX_IO;
-
-  static {
-    NullHandling.initializeForTests();
-  }
 
   private AppendableIndexSpec appendableIndexSpec;
   private DataGenerator generator;
@@ -136,10 +133,7 @@ public class ScanBenchmark
 
   static {
     JSON_MAPPER = new DefaultObjectMapper();
-    INDEX_IO = new IndexIO(
-        JSON_MAPPER,
-        () -> 0
-    );
+    INDEX_IO = new IndexIO(JSON_MAPPER, ColumnConfig.DEFAULT);
     INDEX_MERGER_V9 = new IndexMergerV9(JSON_MAPPER, INDEX_IO, OffHeapMemorySegmentWriteOutMediumFactory.instance());
   }
 
@@ -244,7 +238,7 @@ public class ScanBenchmark
   {
     log.info("SETUP CALLED AT " + +System.currentTimeMillis());
 
-    ComplexMetrics.registerSerde("hyperUnique", new HyperUniquesSerde());
+    ComplexMetrics.registerSerde(HyperUniquesSerde.TYPE_NAME, new HyperUniquesSerde());
 
     setupQueries();
 
@@ -264,12 +258,8 @@ public class ScanBenchmark
         rowsPerSegment
     );
 
-    final ScanQueryConfig config = new ScanQueryConfig().setLegacy(false);
     factory = new ScanQueryRunnerFactory(
-        new ScanQueryQueryToolChest(
-            config,
-            DefaultGenericQueryMetricsFactory.instance()
-        ),
+        new ScanQueryQueryToolChest(DefaultGenericQueryMetricsFactory.instance()),
         new ScanQueryEngine(),
         new ScanQueryConfig()
     );
@@ -284,7 +274,7 @@ public class ScanBenchmark
     @Param({"onheap", "offheap"})
     private String indexType;
 
-    IncrementalIndex<?> incIndex;
+    IncrementalIndex incIndex;
 
     @Setup
     public void setup(ScanBenchmark global) throws JsonProcessingException
@@ -334,13 +324,13 @@ public class ScanBenchmark
       for (int i = 0; i < numSegments; i++) {
         log.info("Generating rows for segment " + i);
 
-        IncrementalIndex<?> incIndex = global.makeIncIndex();
+        IncrementalIndex incIndex = global.makeIncIndex();
         global.generator.reset(RNG_SEED + i).addToIndex(incIndex, global.rowsPerSegment);
 
         File indexFile = INDEX_MERGER_V9.persist(
             incIndex,
             new File(qIndexesDir, String.valueOf(i)),
-            new IndexSpec(),
+            IndexSpec.DEFAULT,
             null
         );
         incIndex.close();
@@ -363,7 +353,7 @@ public class ScanBenchmark
     }
   }
 
-  private IncrementalIndex<?> makeIncIndex()
+  private IncrementalIndex makeIncIndex()
   {
     return appendableIndexSpec.builder()
         .setSimpleTestingIndexSchema(schemaInfo.getAggsArray())

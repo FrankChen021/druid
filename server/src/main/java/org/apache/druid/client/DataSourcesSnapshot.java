@@ -21,12 +21,15 @@ package org.apache.druid.client;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
-import org.apache.druid.metadata.SqlSegmentsMetadataManager;
+import org.apache.druid.java.util.common.DateTimes;
+import org.apache.druid.metadata.SegmentsMetadataManager;
 import org.apache.druid.timeline.DataSegment;
-import org.apache.druid.timeline.SegmentId;
+import org.apache.druid.timeline.Partitions;
+import org.apache.druid.timeline.SegmentTimeline;
 import org.apache.druid.timeline.VersionedIntervalTimeline;
 import org.apache.druid.utils.CollectionUtils;
+import org.joda.time.DateTime;
+import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -34,67 +37,86 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * An immutable snapshot of metadata information about used segments and overshadowed segments, coming from
- * {@link SqlSegmentsMetadataManager}.
+ * {@link SegmentsMetadataManager}.
  */
 public class DataSourcesSnapshot
 {
+  public static DataSourcesSnapshot fromUsedSegments(Iterable<DataSegment> segments)
+  {
+    return fromUsedSegments(segments, DateTimes.nowUtc());
+  }
+
+  /**
+   * Creates a snapshot of all "used" segments that existed in the database at
+   * the {@code snapshotTime}.
+   */
   public static DataSourcesSnapshot fromUsedSegments(
-      Iterable<DataSegment> segments,
-      ImmutableMap<String, String> dataSourceProperties
+      Map<String, Set<DataSegment>> datasourceToUsedSegments,
+      DateTime snapshotTime
   )
   {
-    Map<String, DruidDataSource> dataSources = new HashMap<>();
-    segments.forEach(segment -> {
-      dataSources
-          .computeIfAbsent(segment.getDataSource(), dsName -> new DruidDataSource(dsName, dataSourceProperties))
-          .addSegmentIfAbsent(segment);
-    });
-    return new DataSourcesSnapshot(CollectionUtils.mapValues(dataSources, DruidDataSource::toImmutableDruidDataSource));
-  }
+    final Map<String, String> properties = Map.of("created", snapshotTime.toString());
 
-  public static DataSourcesSnapshot fromUsedSegmentsTimelines(
-      Map<String, VersionedIntervalTimeline<String, DataSegment>> usedSegmentsTimelinesPerDataSource,
-      ImmutableMap<String, String> dataSourceProperties
-  )
-  {
-    Map<String, ImmutableDruidDataSource> dataSourcesWithAllUsedSegments =
-        Maps.newHashMapWithExpectedSize(usedSegmentsTimelinesPerDataSource.size());
-    usedSegmentsTimelinesPerDataSource.forEach(
-        (dataSourceName, usedSegmentsTimeline) -> {
-          DruidDataSource dataSource = new DruidDataSource(dataSourceName, dataSourceProperties);
-          usedSegmentsTimeline.iterateAllObjects().forEach(dataSource::addSegment);
-          dataSourcesWithAllUsedSegments.put(dataSourceName, dataSource.toImmutableDruidDataSource());
-        }
-    );
-    return new DataSourcesSnapshot(dataSourcesWithAllUsedSegments, usedSegmentsTimelinesPerDataSource);
-  }
-
-  private final Map<String, ImmutableDruidDataSource> dataSourcesWithAllUsedSegments;
-  private final Map<String, VersionedIntervalTimeline<String, DataSegment>> usedSegmentsTimelinesPerDataSource;
-  private final ImmutableSet<SegmentId> overshadowedSegments;
-
-  public DataSourcesSnapshot(Map<String, ImmutableDruidDataSource> dataSourcesWithAllUsedSegments)
-  {
-    this(
-        dataSourcesWithAllUsedSegments,
-        CollectionUtils.mapValues(
-            dataSourcesWithAllUsedSegments,
-            dataSource -> VersionedIntervalTimeline.forSegments(dataSource.getSegments())
+    final Map<String, ImmutableDruidDataSource> dataSources = new HashMap<>();
+    datasourceToUsedSegments.forEach(
+        (dataSource, segments) -> dataSources.put(
+            dataSource,
+            new ImmutableDruidDataSource(dataSource, properties, segments)
         )
     );
+
+    return new DataSourcesSnapshot(snapshotTime, dataSources);
   }
 
+  /**
+   * Creates a snapshot of all "used" segments that existed in the database at
+   * the {@code snapshotTime}.
+   */
+  public static DataSourcesSnapshot fromUsedSegments(Iterable<DataSegment> segments, DateTime snapshotTime)
+  {
+    final Map<String, String> dataSourceProperties = ImmutableMap.of("created", DateTimes.nowUtc().toString());
+    Map<String, DruidDataSource> dataSources = new HashMap<>();
+    segments.forEach(
+        segment -> dataSources
+            .computeIfAbsent(segment.getDataSource(), dsName -> new DruidDataSource(dsName, dataSourceProperties))
+            .addSegmentIfAbsent(segment)
+    );
+    return new DataSourcesSnapshot(
+        snapshotTime,
+        CollectionUtils.mapValues(dataSources, DruidDataSource::toImmutableDruidDataSource)
+    );
+  }
+
+  private final DateTime snapshotTime;
+  private final Map<String, ImmutableDruidDataSource> dataSourcesWithAllUsedSegments;
+  private final Map<String, SegmentTimeline> usedSegmentsTimelinesPerDataSource;
+  private final ImmutableSet<DataSegment> overshadowedSegments;
+
   private DataSourcesSnapshot(
-      Map<String, ImmutableDruidDataSource> dataSourcesWithAllUsedSegments,
-      Map<String, VersionedIntervalTimeline<String, DataSegment>> usedSegmentsTimelinesPerDataSource
+      DateTime snapshotTime,
+      Map<String, ImmutableDruidDataSource> dataSourcesWithAllUsedSegments
   )
   {
+    this.snapshotTime = snapshotTime;
     this.dataSourcesWithAllUsedSegments = dataSourcesWithAllUsedSegments;
-    this.usedSegmentsTimelinesPerDataSource = usedSegmentsTimelinesPerDataSource;
+    this.usedSegmentsTimelinesPerDataSource = CollectionUtils.mapValues(
+        dataSourcesWithAllUsedSegments,
+        dataSource -> SegmentTimeline.forSegments(dataSource.getSegments())
+    );
     this.overshadowedSegments = ImmutableSet.copyOf(determineOvershadowedSegments());
+  }
+
+  /**
+   * Time when this snapshot was taken. Since polling segments from the database
+   * may be a slow operation, this represents the poll start time.
+   */
+  public DateTime getSnapshotTime()
+  {
+    return snapshotTime;
   }
 
   public Collection<ImmutableDruidDataSource> getDataSourcesWithAllUsedSegments()
@@ -113,14 +135,31 @@ public class DataSourcesSnapshot
     return dataSourcesWithAllUsedSegments.get(dataSourceName);
   }
 
-  public Map<String, VersionedIntervalTimeline<String, DataSegment>> getUsedSegmentsTimelinesPerDataSource()
+  public Map<String, SegmentTimeline> getUsedSegmentsTimelinesPerDataSource()
   {
     return usedSegmentsTimelinesPerDataSource;
   }
 
-  public ImmutableSet<SegmentId> getOvershadowedSegments()
+  public ImmutableSet<DataSegment> getOvershadowedSegments()
   {
     return overshadowedSegments;
+  }
+
+  /**
+   * Gets all the used segments for the datasource that overlap with the given
+   * interval and are not completely overshadowed.
+   */
+  public Set<DataSegment> getAllUsedNonOvershadowedSegments(
+      String dataSource,
+      Interval interval
+  )
+  {
+    final SegmentTimeline timeline = usedSegmentsTimelinesPerDataSource.get(dataSource);
+    if (timeline == null) {
+      return Set.of();
+    }
+
+    return timeline.findNonOvershadowedObjectsInInterval(interval, Partitions.ONLY_COMPLETE);
   }
 
   /**
@@ -150,20 +189,20 @@ public class DataSourcesSnapshot
    * This method should be deduplicated with {@link VersionedIntervalTimeline#findFullyOvershadowed()}: see
    * https://github.com/apache/druid/issues/8070.
    *
-   * @return overshadowed segment Ids list
+   * @return List of overshadowed segments
    */
-  private List<SegmentId> determineOvershadowedSegments()
+  private List<DataSegment> determineOvershadowedSegments()
   {
     // It's fine to add all overshadowed segments to a single collection because only
     // a small fraction of the segments in the cluster are expected to be overshadowed,
     // so building this collection shouldn't generate a lot of garbage.
-    final List<SegmentId> overshadowedSegments = new ArrayList<>();
+    final List<DataSegment> overshadowedSegments = new ArrayList<>();
     for (ImmutableDruidDataSource dataSource : dataSourcesWithAllUsedSegments.values()) {
-      VersionedIntervalTimeline<String, DataSegment> usedSegmentsTimeline =
+      SegmentTimeline usedSegmentsTimeline =
           usedSegmentsTimelinesPerDataSource.get(dataSource.getName());
       for (DataSegment segment : dataSource.getSegments()) {
-        if (usedSegmentsTimeline.isOvershadowed(segment.getInterval(), segment.getVersion(), segment)) {
-          overshadowedSegments.add(segment.getId());
+        if (usedSegmentsTimeline.isOvershadowed(segment)) {
+          overshadowedSegments.add(segment);
         }
       }
     }

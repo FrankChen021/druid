@@ -23,9 +23,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import org.apache.druid.guice.GuiceInjectors;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+
+import java.util.Properties;
 
 @RunWith(Parameterized.class)
 public class MainTest
@@ -36,29 +39,17 @@ public class MainTest
     return ImmutableList.of(
         new Object[]{new CliOverlord()},
         new Object[]{new CliBroker()},
-
-        // Takes arguments. Cannot be used in this test
-        //new Object[]{new CliPeon()},
-
         new Object[]{new CliHistorical()},
         new Object[]{new CliCoordinator()},
-
-        // Implements Runnable, not GuiceRunnable
-        //new Object[]{new CliHadoopIndexer()},
-
-        // Takes arguments. Cannot be used in this test
-        //new Object[]{new CliInternalHadoopIndexer()},
-
         new Object[]{new CliMiddleManager()},
         new Object[]{new CliRouter()},
-
         new Object[]{new CliIndexer()}
     );
   }
 
-  private final GuiceRunnable runnable;
+  private final ServerRunnable runnable;
 
-  public MainTest(GuiceRunnable runnable)
+  public MainTest(ServerRunnable runnable)
   {
     this.runnable = runnable;
   }
@@ -68,6 +59,28 @@ public class MainTest
   {
     final Injector injector = GuiceInjectors.makeStartupInjector();
     injector.injectMembers(runnable);
-    Assert.assertNotNull(runnable.makeInjector());
+    Assert.assertNotNull(runnable.makeInjector(runnable.getNodeRoles(new Properties())));
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void testSimpleInjection_centralizedDatasourceSchemaEnabled()
+  {
+    // Do not run the test for CliRouter or CliHistorical
+    Assume.assumeFalse(runnable instanceof CliRouter || runnable instanceof CliHistorical);
+
+    try {
+      System.setProperty("druid.centralizedDatasourceSchema.enabled", "true");
+      System.setProperty("druid.serverview.type", "batch");
+      System.setProperty("druid.server.http.numThreads", "2");
+
+      final Injector injector = GuiceInjectors.makeStartupInjector();
+      injector.injectMembers(runnable);
+      Assert.assertNotNull(runnable.makeInjector(runnable.getNodeRoles(new Properties())));
+    }
+    finally {
+      System.clearProperty("druid.centralizedDatasourceSchema.enabled");
+      System.clearProperty("druid.serverview.type");
+      System.clearProperty("druid.server.http.numThreads");
+    }
   }
 }

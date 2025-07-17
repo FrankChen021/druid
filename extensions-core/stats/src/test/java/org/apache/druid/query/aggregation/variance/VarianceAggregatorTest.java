@@ -19,13 +19,11 @@
 
 package org.apache.druid.query.aggregation.variance;
 
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.query.aggregation.TestFloatColumnSelector;
 import org.apache.druid.query.aggregation.TestObjectColumnSelector;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
-import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.easymock.EasyMock;
 import org.junit.Assert;
@@ -97,7 +95,7 @@ public class VarianceAggregatorTest extends InitializedNullHandlingTest
     Assert.assertEquals(sum, holder.sum, 0.0001);
     Assert.assertEquals(nvariance, holder.nvariance, 0.0001);
     if (count == 0) {
-      Assert.assertEquals(NullHandling.defaultDoubleValue(), holder.getVariance(false));
+      Assert.assertNull(holder.getVariance(false));
     } else {
       Assert.assertEquals(variances_pop[(int) count - 1], holder.getVariance(true), 0.0001);
       Assert.assertEquals(variances_samp[(int) count - 1], holder.getVariance(false), 0.0001);
@@ -135,7 +133,7 @@ public class VarianceAggregatorTest extends InitializedNullHandlingTest
     TestObjectColumnSelector<VarianceAggregatorCollector> selector = new TestObjectColumnSelector(values);
     colSelectorFactory = EasyMock.createMock(ColumnSelectorFactory.class);
     EasyMock.expect(colSelectorFactory.makeColumnValueSelector("nilly")).andReturn(selector);
-    EasyMock.expect(colSelectorFactory.getColumnCapabilities("nilly")).andReturn(new ColumnCapabilitiesImpl().setType(ValueType.COMPLEX));
+    EasyMock.expect(colSelectorFactory.getColumnCapabilities("nilly")).andReturn(new ColumnCapabilitiesImpl().setType(VarianceAggregatorFactory.TYPE));
     EasyMock.replay(colSelectorFactory);
 
     VarianceBufferAggregator agg = (VarianceBufferAggregator) aggFactory.factorizeBuffered(

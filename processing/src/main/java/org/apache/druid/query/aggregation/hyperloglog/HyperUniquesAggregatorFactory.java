@@ -21,8 +21,8 @@ package org.apache.druid.query.aggregation.hyperloglog;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.hll.HyperLogLogCollector;
-import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Comparators;
 import org.apache.druid.query.aggregation.AggregateCombiner;
@@ -42,6 +42,8 @@ import org.apache.druid.segment.ColumnInspector;
 import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.NilColumnValueSelector;
 import org.apache.druid.segment.column.ColumnCapabilities;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.Types;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 
@@ -56,6 +58,9 @@ import java.util.Objects;
  */
 public class HyperUniquesAggregatorFactory extends AggregatorFactory
 {
+  public static final ColumnType PRECOMPUTED_TYPE = ColumnType.ofComplex("preComputedHyperUnique");
+  public static final ColumnType TYPE = ColumnType.ofComplex("hyperUnique");
+
   public static Object estimateCardinality(@Nullable Object object, boolean round)
   {
     final HyperLogLogCollector collector = (HyperLogLogCollector) object;
@@ -102,12 +107,8 @@ public class HyperUniquesAggregatorFactory extends AggregatorFactory
     if (selector instanceof NilColumnValueSelector) {
       return NoopAggregator.instance();
     }
-    final Class classOfObject = selector.classOfObject();
-    if (classOfObject.equals(Object.class) || HyperLogLogCollector.class.isAssignableFrom(classOfObject)) {
-      return new HyperUniquesAggregator(selector);
-    }
-
-    throw new IAE("Incompatible type for metric[%s], expected a HyperUnique, got a %s", fieldName, classOfObject);
+    validateInputs(metricFactory.getColumnCapabilities(fieldName));
+    return new HyperUniquesAggregator(selector);
   }
 
   @Override
@@ -117,22 +118,40 @@ public class HyperUniquesAggregatorFactory extends AggregatorFactory
     if (selector instanceof NilColumnValueSelector) {
       return NoopBufferAggregator.instance();
     }
-    final Class classOfObject = selector.classOfObject();
-    if (classOfObject.equals(Object.class) || HyperLogLogCollector.class.isAssignableFrom(classOfObject)) {
-      return new HyperUniquesBufferAggregator(selector);
-    }
-
-    throw new IAE("Incompatible type for metric[%s], expected a HyperUnique, got a %s", fieldName, classOfObject);
+    validateInputs(metricFactory.getColumnCapabilities(fieldName));
+    return new HyperUniquesBufferAggregator(selector);
   }
 
   @Override
   public VectorAggregator factorizeVector(final VectorColumnSelectorFactory selectorFactory)
   {
-    final ColumnCapabilities capabilities = selectorFactory.getColumnCapabilities(fieldName);
-    if (capabilities == null || capabilities.getType() != ValueType.COMPLEX) {
+    final ColumnCapabilities columnCapabilities = selectorFactory.getColumnCapabilities(fieldName);
+    if (!Types.is(columnCapabilities, ValueType.COMPLEX)) {
       return NoopVectorAggregator.instance();
     } else {
+      validateInputs(columnCapabilities);
       return new HyperUniquesVectorAggregator(selectorFactory.makeObjectSelector(fieldName));
+    }
+  }
+
+  /**
+   * Validates whether the aggregator supports the input column type.
+   * Supported column types are complex types of hyperUnique, preComputedHyperUnique, as well as UNKNOWN_COMPLEX.
+   * @param capabilities
+   */
+  private void validateInputs(@Nullable ColumnCapabilities capabilities)
+  {
+    if (capabilities != null) {
+      final ColumnType type = capabilities.toColumnType();
+      if (!(ColumnType.UNKNOWN_COMPLEX.equals(type) || TYPE.equals(type) || PRECOMPUTED_TYPE.equals(type))) {
+        throw DruidException.forPersona(DruidException.Persona.USER)
+                            .ofCategory(DruidException.Category.UNSUPPORTED)
+                            .build(
+                                "Using aggregator [%s] is not supported for complex columns with type [%s].",
+                                getIntermediateType().getComplexTypeName(),
+                                type
+                            );
+      }
     }
   }
 
@@ -180,17 +199,6 @@ public class HyperUniquesAggregatorFactory extends AggregatorFactory
     } else {
       throw new AggregatorFactoryNotMergeableException(this, other);
     }
-  }
-
-  @Override
-  public List<AggregatorFactory> getRequiredColumns()
-  {
-    return Collections.singletonList(new HyperUniquesAggregatorFactory(
-        fieldName,
-        fieldName,
-        isInputHyperUnique,
-        round
-    ));
   }
 
   @Override
@@ -258,36 +266,31 @@ public class HyperUniquesAggregatorFactory extends AggregatorFactory
         .appendBoolean(round)
         .build();
   }
-
-  @Override
-  public String getComplexTypeName()
-  {
-    if (isInputHyperUnique) {
-      return "preComputedHyperUnique";
-    } else {
-      return "hyperUnique";
-    }
-  }
-
   /**
    * actual type is {@link HyperLogLogCollector}
    */
   @Override
-  public ValueType getType()
+  public ColumnType getIntermediateType()
   {
-    return ValueType.COMPLEX;
+    return isInputHyperUnique ? PRECOMPUTED_TYPE : TYPE;
   }
 
   @Override
-  public ValueType getFinalizedType()
+  public ColumnType getResultType()
   {
-    return round ? ValueType.LONG : ValueType.DOUBLE;
+    return round ? ColumnType.LONG : ColumnType.DOUBLE;
   }
 
   @Override
   public int getMaxIntermediateSize()
   {
     return HyperLogLogCollector.getLatestNumBytesForDenseStorage();
+  }
+
+  @Override
+  public AggregatorFactory withName(String newName)
+  {
+    return new HyperUniquesAggregatorFactory(newName, getFieldName(), getIsInputHyperUnique(), isRound());
   }
 
   @Override

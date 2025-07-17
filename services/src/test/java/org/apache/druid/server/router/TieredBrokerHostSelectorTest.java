@@ -19,7 +19,6 @@
 
 package org.apache.druid.server.router;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -33,7 +32,6 @@ import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscovery;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.query.Druids;
@@ -116,13 +114,13 @@ public class TieredBrokerHostSelectorTest
     EasyMock.replay(druidNodeDiscoveryProvider);
 
     brokerSelector = new TieredBrokerHostSelector(
-        new TestRuleManager(null, null),
+        new TestRuleManager(null),
         new TieredBrokerConfig()
         {
           @Override
           public LinkedHashMap<String, String> getTierToBrokerMap()
           {
-            return new LinkedHashMap<String, String>(
+            return new LinkedHashMap<>(
                 ImmutableMap.of(
                     "hot", "hotBroker",
                     "medium", "mediumBroker",
@@ -391,6 +389,8 @@ public class TieredBrokerHostSelectorTest
         "SELECT * FROM test",
         null,
         false,
+        false,
+        false,
         queryContext,
         null
     );
@@ -399,11 +399,10 @@ public class TieredBrokerHostSelectorTest
   private static class TestRuleManager extends CoordinatorRuleManager
   {
     public TestRuleManager(
-        @Json ObjectMapper jsonMapper,
         Supplier<TieredBrokerConfig> config
     )
     {
-      super(jsonMapper, config, null);
+      super(config, null);
     }
 
     @Override
@@ -416,11 +415,12 @@ public class TieredBrokerHostSelectorTest
     public List<Rule> getRulesWithDefault(String dataSource)
     {
       return Arrays.asList(
-          new IntervalLoadRule(Intervals.of("2013/2014"), ImmutableMap.of("hot", 1)),
-          new IntervalLoadRule(Intervals.of("2012/2013"), ImmutableMap.of("medium", 1)),
+          new IntervalLoadRule(Intervals.of("2013/2014"), ImmutableMap.of("hot", 1), null),
+          new IntervalLoadRule(Intervals.of("2012/2013"), ImmutableMap.of("medium", 1), null),
           new IntervalLoadRule(
               Intervals.of("2011/2012"),
-              ImmutableMap.of(DruidServer.DEFAULT_TIER, 1)
+              ImmutableMap.of(DruidServer.DEFAULT_TIER, 1),
+              null
           )
       );
     }

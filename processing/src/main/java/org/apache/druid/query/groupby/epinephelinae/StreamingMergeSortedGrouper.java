@@ -348,6 +348,7 @@ public class StreamingMergeSortedGrouper<KeyType> implements Grouper<KeyType>
   @Override
   public void close()
   {
+    keySerde.reset();
     for (BufferAggregator aggregator : aggregators) {
       try {
         aggregator.close();
@@ -382,8 +383,10 @@ public class StreamingMergeSortedGrouper<KeyType> implements Grouper<KeyType>
       throw new ISE("Grouper should be initialized first");
     }
 
-    return new CloseableIterator<Entry<KeyType>>()
+    return new CloseableIterator<>()
     {
+      final ReusableEntry<KeyType> reusableEntry = ReusableEntry.create(keySerde, aggregators.length);
+
       {
         // Wait for some data to be ready and initialize nextReadIndex.
         increaseReadIndexTo(0);
@@ -429,11 +432,10 @@ public class StreamingMergeSortedGrouper<KeyType> implements Grouper<KeyType>
         // - an index of the array slot where the aggregation for the corresponding grouping key is done
         // - an index of the array slot which is not read yet
         final int recordOffset = recordSize * nextReadIndex;
-        final KeyType key = keySerde.fromByteBuffer(buffer, recordOffset);
+        keySerde.readFromByteBuffer(reusableEntry.getKey(), buffer, recordOffset);
 
-        final Object[] values = new Object[aggregators.length];
         for (int i = 0; i < aggregators.length; i++) {
-          values[i] = aggregators[i].get(buffer, recordOffset + aggregatorOffsets[i]);
+          reusableEntry.getValues()[i] = aggregators[i].get(buffer, recordOffset + aggregatorOffsets[i]);
         }
 
         final int targetIndex = nextReadIndex == maxNumSlots - 1 ? 0 : nextReadIndex + 1;
@@ -441,7 +443,7 @@ public class StreamingMergeSortedGrouper<KeyType> implements Grouper<KeyType>
         // nextReadIndex.
         increaseReadIndexTo(targetIndex);
 
-        return new Entry<>(key, values);
+        return reusableEntry;
       }
 
       /**

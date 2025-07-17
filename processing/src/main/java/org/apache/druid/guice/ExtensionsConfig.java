@@ -28,6 +28,8 @@ import java.util.LinkedHashSet;
  */
 public class ExtensionsConfig
 {
+  public static final String PROPERTY_BASE = "druid.extensions";
+
   @JsonProperty
   @NotNull
   private boolean searchCurrentClassloader = true;
@@ -50,6 +52,9 @@ public class ExtensionsConfig
 
   @JsonProperty
   private LinkedHashSet<String> loadList;
+
+  @JsonProperty
+  private LinkedHashSet<String> modulesForEmbeddedTest = null;
 
   public boolean searchCurrentClassloader()
   {
@@ -84,6 +89,16 @@ public class ExtensionsConfig
   public LinkedHashSet<String> getLoadList()
   {
     return loadList;
+  }
+
+  /**
+   * List of extension {@code DruidModule} class names that should be used in an
+   * embedded test. This property is for TESTING ONLY and must NEVER be set in
+   * production.
+   */
+  public LinkedHashSet<String> getModulesForEmbeddedTest()
+  {
+    return modulesForEmbeddedTest;
   }
 
   @Override

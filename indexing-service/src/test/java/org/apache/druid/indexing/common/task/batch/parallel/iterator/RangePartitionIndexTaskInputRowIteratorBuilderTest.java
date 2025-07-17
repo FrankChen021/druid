@@ -20,8 +20,8 @@
 package org.apache.druid.indexing.common.task.batch.parallel.iterator;
 
 import org.apache.druid.data.input.InputRow;
+import org.apache.druid.indexer.granularity.GranularitySpec;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
-import org.apache.druid.segment.indexing.granularity.GranularitySpec;
 import org.hamcrest.Matchers;
 import org.joda.time.DateTime;
 import org.junit.Assert;
@@ -39,7 +39,7 @@ public class RangePartitionIndexTaskInputRowIteratorBuilderTest
   private static final IndexTaskInputRowIteratorBuilderTestingFactory.HandlerTester HANDLER_TESTER =
       IndexTaskInputRowIteratorBuilderTestingFactory.createHandlerTester(
           () -> new RangePartitionIndexTaskInputRowIteratorBuilder(
-              IndexTaskInputRowIteratorBuilderTestingFactory.DIMENSION,
+              IndexTaskInputRowIteratorBuilderTestingFactory.DIMENSIONS,
               SKIP_NULL
           )
       );
@@ -181,7 +181,7 @@ public class RangePartitionIndexTaskInputRowIteratorBuilderTest
     IndexTaskInputRowIteratorBuilderTestingFactory.HandlerTester handlerTester =
         IndexTaskInputRowIteratorBuilderTestingFactory.createHandlerTester(
             () -> new RangePartitionIndexTaskInputRowIteratorBuilder(
-                IndexTaskInputRowIteratorBuilderTestingFactory.DIMENSION,
+                IndexTaskInputRowIteratorBuilderTestingFactory.DIMENSIONS,
                 !SKIP_NULL
             )
         );

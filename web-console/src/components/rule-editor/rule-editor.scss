@@ -17,10 +17,6 @@
  */
 
 .rule-editor {
-  .right {
-    text-align: right;
-  }
-
   .title {
     display: flex;
 
@@ -31,5 +27,9 @@
 
   .include-future {
     margin-left: 15px;
+  }
+
+  .rule-detail {
+    border: 1px solid rgba(255, 255, 255, 0.15);
   }
 }

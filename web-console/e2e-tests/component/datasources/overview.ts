@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import * as playwright from 'playwright-chromium';
+import type * as playwright from 'playwright-chromium';
 
 import { clickButton, getLabeledInput, setLabeledInput } from '../../util/playwright';
 import { extractTable } from '../../util/table';
@@ -33,8 +33,10 @@ enum DatasourceColumn {
   AVAILABILITY,
   SEGMENT_LOAD_DROP,
   TOTAL_DATA_SIZE,
-  SEGMENT_SIZE,
-  SEGMENT_GRANULARITY,
+  RUNNING_TASKS,
+  SEGMENT_ROWS,
+  // SEGMENT_SIZE, (Hidden by default)
+  // SEGMENT_GRANULARITY, (Hidden by default)
   TOTAL_ROWS,
   AVG_ROW_SIZE,
   REPLICATED_SIZE,
@@ -98,7 +100,7 @@ export class DatasourcesOverview {
   private async openCompactionConfigurationDialog(datasourceName: string): Promise<void> {
     await this.openEditActions(datasourceName);
     await this.clickMenuItem('Edit compaction configuration');
-    await this.page.waitForSelector('div.compaction-dialog');
+    await this.page.waitForSelector('div.compaction-config-dialog');
   }
 
   private async clickMenuItem(text: string): Promise<void> {
@@ -123,13 +125,13 @@ export class DatasourcesOverview {
       throw new Error(`Could not find datasource: ${datasourceName}`);
     }
 
-    const editActions = await this.page.$$('span[icon=wrench]');
+    const editActions = await this.page.$$('.action-cell span.bp5-icon-more');
     await editActions[index].click();
     await this.waitForPopupMenu();
   }
 
   private async waitForPopupMenu(): Promise<void> {
-    await this.page.waitForSelector('ul.bp3-menu');
+    await this.page.waitForSelector('ul.bp5-menu');
   }
 
   async triggerCompaction(): Promise<void> {
@@ -140,7 +142,7 @@ export class DatasourcesOverview {
   }
 
   private async clickMoreButton(options: any): Promise<void> {
-    await this.page.click('//button[span[@icon="more"]]', options);
+    await this.page.click('.more-button button', options);
     await this.waitForPopupMenu();
   }
 }

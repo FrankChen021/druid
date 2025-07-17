@@ -56,4 +56,5 @@ public class LegacySinglePhaseSubTask extends SinglePhaseSubTask
   {
     return SinglePhaseSubTask.OLD_TYPE_NAME;
   }
+
 }

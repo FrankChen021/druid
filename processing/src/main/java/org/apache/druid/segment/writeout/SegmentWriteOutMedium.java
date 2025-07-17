@@ -28,7 +28,7 @@ import java.io.IOException;
  * SegmentWriteOutMedium is an umbrella "resource disposer" for temporary buffers (in the form of {@link WriteOutBytes},
  * obtained by calling {@link #makeWriteOutBytes()} on the SegmentWriteOutMedium instance), that are used during new Druid
  * segment creation, and other resources (see {@link #getCloser()}).
- *
+ * <p>
  * When SegmentWriteOutMedium is closed, all child WriteOutBytes couldn't be used anymore.
  */
 public interface SegmentWriteOutMedium extends Closeable
@@ -37,7 +37,20 @@ public interface SegmentWriteOutMedium extends Closeable
    * Creates a new empty {@link WriteOutBytes}, attached to this SegmentWriteOutMedium. When this SegmentWriteOutMedium is
    * closed, the returned WriteOutBytes couldn't be used anymore.
    */
+  @SuppressWarnings("RedundantThrows")
   WriteOutBytes makeWriteOutBytes() throws IOException;
+
+  /**
+   * Creates a 'child' version of the {@link SegmentWriteOutMedium}, which can be optionally closed,
+   * independent of this {@link SegmentWriteOutMedium} but otherwise shares the same configuration. This allows callers
+   * using a shared {@link SegmentWriteOutMedium} but which control the complete lifecycle of the {@link WriteOutBytes}
+   * which they require to free the backing resources when they are finished, rather than waiting until
+   * {@link #close()} is called for this medium.
+   * <p>
+   * The 'child' medium will be closed when {@link #close()} is called, if not called explicitly prior to closing this
+   * medium.
+   */
+  SegmentWriteOutMedium makeChildWriteOutMedium() throws IOException;
 
   /**
    * Returns a closer of this SegmentWriteOutMedium, which is closed in this SegmentWriteOutMedium's close() method.

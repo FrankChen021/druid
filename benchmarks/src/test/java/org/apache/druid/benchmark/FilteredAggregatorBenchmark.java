@@ -23,7 +23,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.benchmark.query.QueryBenchmarkUtil;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.FileUtils;
@@ -104,10 +103,6 @@ import java.util.concurrent.TimeUnit;
 @Measurement(iterations = 25)
 public class FilteredAggregatorBenchmark
 {
-  static {
-    NullHandling.initializeForTests();
-  }
-
   @Param({"75000"})
   private int rowsPerSegment;
 
@@ -140,11 +135,6 @@ public class FilteredAggregatorBenchmark
         JSON_MAPPER,
         new ColumnConfig()
         {
-          @Override
-          public int columnCacheSizeBytes()
-          {
-            return 0;
-          }
         }
     );
     INDEX_MERGER_V9 = new IndexMergerV9(JSON_MAPPER, INDEX_IO, OffHeapMemorySegmentWriteOutMediumFactory.instance());
@@ -158,7 +148,7 @@ public class FilteredAggregatorBenchmark
   {
     log.info("SETUP CALLED AT " + System.currentTimeMillis());
 
-    ComplexMetrics.registerSerde("hyperUnique", new HyperUniquesSerde());
+    ComplexMetrics.registerSerde(HyperUniquesSerde.TYPE_NAME, new HyperUniquesSerde());
 
     schemaInfo = GeneratorBasicSchemas.SCHEMA_MAP.get(schema);
 
@@ -207,7 +197,7 @@ public class FilteredAggregatorBenchmark
     @Param({"onheap", "offheap"})
     private String indexType;
 
-    IncrementalIndex<?> incIndex;
+    IncrementalIndex incIndex;
 
     @Setup
     public void setup(FilteredAggregatorBenchmark global) throws JsonProcessingException
@@ -237,7 +227,7 @@ public class FilteredAggregatorBenchmark
     @Param({"onheap", "offheap"})
     private String indexType;
 
-    IncrementalIndex<?> incIndex;
+    IncrementalIndex incIndex;
     List<InputRow> inputRows;
 
     @Setup(Level.Invocation)
@@ -273,7 +263,7 @@ public class FilteredAggregatorBenchmark
     {
       global.appendableIndexSpec = new OnheapIncrementalIndex.Spec();
 
-      IncrementalIndex<?> incIndex = global.makeIncIndex(global.schemaInfo.getAggsArray());
+      IncrementalIndex incIndex = global.makeIncIndex(global.schemaInfo.getAggsArray());
       global.generator.addToIndex(incIndex, global.rowsPerSegment);
 
       qIndexesDir = FileUtils.createTempDir();
@@ -282,7 +272,7 @@ public class FilteredAggregatorBenchmark
       File indexFile = INDEX_MERGER_V9.persist(
           incIndex,
           qIndexesDir,
-          new IndexSpec(),
+          IndexSpec.DEFAULT,
           null
       );
       incIndex.close();
@@ -302,7 +292,7 @@ public class FilteredAggregatorBenchmark
     }
   }
 
-  private IncrementalIndex<?> makeIncIndex(AggregatorFactory[] metrics)
+  private IncrementalIndex makeIncIndex(AggregatorFactory[] metrics)
   {
     return appendableIndexSpec.builder()
         .setSimpleTestingIndexSchema(metrics)

@@ -19,14 +19,12 @@
 
 package org.apache.druid.server.http;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import com.sun.jersey.spi.container.ResourceFilters;
 import org.apache.druid.server.coordinator.DruidCoordinator;
-import org.apache.druid.server.coordinator.LoadQueuePeon;
 import org.apache.druid.server.http.security.StateResourceFilter;
 import org.apache.druid.timeline.DataSegment;
 
@@ -47,9 +45,7 @@ public class CoordinatorResource
   private final DruidCoordinator coordinator;
 
   @Inject
-  public CoordinatorResource(
-      DruidCoordinator coordinator
-  )
+  public CoordinatorResource(DruidCoordinator coordinator)
   {
     this.coordinator = coordinator;
   }
@@ -91,15 +87,15 @@ public class CoordinatorResource
   )
   {
     if (simple != null) {
-      return Response.ok(coordinator.computeNumsUnavailableUsedSegmentsPerDataSource()).build();
+      return Response.ok(coordinator.getDatasourceToUnavailableSegmentCount()).build();
     }
 
     if (full != null) {
-      return computeUsingClusterView != null
-             ? Response.ok(coordinator.computeUnderReplicationCountsPerDataSourcePerTierUsingClusterView()).build() :
-             Response.ok(coordinator.computeUnderReplicationCountsPerDataSourcePerTier()).build();
+      return Response.ok(
+          coordinator.getTierToDatasourceToUnderReplicatedCount(computeUsingClusterView != null)
+      ).build();
     }
-    return Response.ok(coordinator.getLoadStatus()).build();
+    return Response.ok(coordinator.getDatasourceToLoadStatus()).build();
   }
 
   @GET
@@ -115,28 +111,24 @@ public class CoordinatorResource
       return Response.ok(
           Maps.transformValues(
               coordinator.getLoadManagementPeons(),
-              new Function<LoadQueuePeon, Object>()
-              {
-                @Override
-                public Object apply(LoadQueuePeon input)
-                {
-                  long loadSize = 0;
-                  for (DataSegment dataSegment : input.getSegmentsToLoad()) {
-                    loadSize += dataSegment.getSize();
-                  }
+              peon -> {
+                long loadSize = peon.getSizeOfSegmentsToLoad();
+                long dropSize = peon.getSegmentsToDrop().stream().mapToLong(DataSegment::getSize).sum();
 
-                  long dropSize = 0;
-                  for (DataSegment dataSegment : input.getSegmentsToDrop()) {
-                    dropSize += dataSegment.getSize();
-                  }
+                // 1 kbps = 1/8 kB/s = 1/8 B/ms
+                long loadRateKbps = peon.getLoadRateKbps();
+                long expectedLoadTimeMillis
+                    = loadRateKbps > 0 && loadSize > 0
+                      ? (8 * loadSize) / loadRateKbps
+                      : 0;
 
-                  return new ImmutableMap.Builder<>()
-                      .put("segmentsToLoad", input.getSegmentsToLoad().size())
-                      .put("segmentsToDrop", input.getSegmentsToDrop().size())
-                      .put("segmentsToLoadSize", loadSize)
-                      .put("segmentsToDropSize", dropSize)
-                      .build();
-                }
+                return new ImmutableMap.Builder<>()
+                    .put("segmentsToLoad", peon.getSegmentsToLoad().size())
+                    .put("segmentsToDrop", peon.getSegmentsToDrop().size())
+                    .put("segmentsToLoadSize", loadSize)
+                    .put("segmentsToDropSize", dropSize)
+                    .put("expectedLoadTimeMillis", expectedLoadTimeMillis)
+                    .build();
               }
           )
       ).build();
@@ -149,19 +141,21 @@ public class CoordinatorResource
     return Response.ok(
         Maps.transformValues(
             coordinator.getLoadManagementPeons(),
-            new Function<LoadQueuePeon, Object>()
-            {
-              @Override
-              public Object apply(LoadQueuePeon peon)
-              {
-                return ImmutableMap
-                    .builder()
-                    .put("segmentsToLoad", Collections2.transform(peon.getSegmentsToLoad(), DataSegment::getId))
-                    .put("segmentsToDrop", Collections2.transform(peon.getSegmentsToDrop(), DataSegment::getId))
-                    .build();
-              }
-            }
+            peon -> ImmutableMap
+                .builder()
+                .put("segmentsToLoad", Collections2.transform(peon.getSegmentsToLoad(), DataSegment::getId))
+                .put("segmentsToDrop", Collections2.transform(peon.getSegmentsToDrop(), DataSegment::getId))
+                .build()
         )
     ).build();
+  }
+
+  @GET
+  @Path("/duties")
+  @ResourceFilters(StateResourceFilter.class)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getStatusOfDuties()
+  {
+    return Response.ok(new CoordinatorDutyStatus(coordinator.getStatusOfDuties())).build();
   }
 }

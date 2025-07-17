@@ -91,7 +91,7 @@ public class CoordinatorBasicAuthorizerMetadataStorageUpdater implements BasicAu
   private final BasicAuthorizerCacheNotifier cacheNotifier;
   private final BasicAuthCommonCacheConfig commonCacheConfig;
   private final ObjectMapper objectMapper;
-  private final int numRetries = 5;
+  private static final int numRetries = 5;
 
   private final Map<String, BasicAuthorizerUserMapBundle> cachedUserMaps;
   private final Map<String, BasicAuthorizerGroupMappingMapBundle> cachedGroupMappingMaps;
@@ -235,7 +235,7 @@ public class CoordinatorBasicAuthorizerMetadataStorageUpdater implements BasicAu
               LOG.debug("Scheduled db poll is done");
             }
             catch (Throwable t) {
-              LOG.makeAlert(t, "Error occured while polling for cachedUserMaps, cachedGroupMappingMaps, cachedRoleMaps.").emit();
+              LOG.makeAlert(t, "Error occurred while polling for cachedUserMaps, cachedGroupMappingMaps, cachedRoleMaps.").emit();
             }
             return ScheduledExecutors.Signal.REPEAT;
           }

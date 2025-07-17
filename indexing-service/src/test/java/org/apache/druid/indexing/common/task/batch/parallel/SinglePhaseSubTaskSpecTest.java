@@ -26,14 +26,18 @@ import org.apache.druid.data.input.impl.JsonInputFormat;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.indexing.common.TestUtils;
-import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.segment.indexing.DataSchema;
+import org.apache.druid.server.security.Action;
+import org.apache.druid.server.security.Resource;
+import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.server.security.ResourceType;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 
 public class SinglePhaseSubTaskSpecTest
@@ -43,18 +47,14 @@ public class SinglePhaseSubTaskSpecTest
       "groupId",
       "supervisorTaskId",
       new ParallelIndexIngestionSpec(
-          new DataSchema(
-              "dataSource",
-              new TimestampSpec(null, null, null),
-              new DimensionsSpec(null),
-              new AggregatorFactory[0],
-              null,
-              null
-          ),
+          DataSchema.builder()
+                    .withDataSource("dataSource")
+                    .withTimestamp(new TimestampSpec(null, null, null))
+                    .withDimensions(DimensionsSpec.builder().build())
+                    .build(),
           new ParallelIndexIOConfig(
-              null,
               new LocalInputSource(new File("baseDir"), "filter"),
-              new JsonInputFormat(null, null, null),
+              new JsonInputFormat(null, null, null, null, null),
               null,
               null
           ),
@@ -88,5 +88,13 @@ public class SinglePhaseSubTaskSpecTest
     final byte[] json = mapper.writeValueAsBytes(expected);
     final Map<String, Object> actual = mapper.readValue(json, Map.class);
     Assert.assertEquals(SinglePhaseSubTask.OLD_TYPE_NAME, actual.get("type"));
+    Assert.assertEquals(
+        Collections.singleton(
+            new ResourceAction(new Resource(
+                LocalInputSource.TYPE_KEY,
+                ResourceType.EXTERNAL
+            ), Action.READ)),
+        expected.getInputSourceResources()
+    );
   }
 }

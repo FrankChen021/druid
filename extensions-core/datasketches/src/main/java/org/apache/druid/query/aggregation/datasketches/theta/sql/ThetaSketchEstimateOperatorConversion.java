@@ -29,28 +29,23 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.aggregation.datasketches.theta.SketchEstimatePostAggregator;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.sql.calcite.expression.DirectOperatorConversion;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.expression.OperatorConversions;
 import org.apache.druid.sql.calcite.expression.PostAggregatorVisitor;
+import org.apache.druid.sql.calcite.expression.SqlOperatorConversion;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 
 import javax.annotation.Nullable;
 import java.util.List;
 
-public class ThetaSketchEstimateOperatorConversion extends DirectOperatorConversion
+public class ThetaSketchEstimateOperatorConversion implements SqlOperatorConversion
 {
-  private static final String FUNCTION_NAME = "THETA_SKETCH_ESTIMATE";
+  private static final String FUNCTION_NAME = "theta_sketch_estimate";
   private static final SqlFunction SQL_FUNCTION = OperatorConversions
       .operatorBuilder(StringUtils.toUpperCase(FUNCTION_NAME))
       .operandTypes(SqlTypeFamily.ANY)
       .returnTypeInference(ReturnTypes.DOUBLE)
       .build();
-
-  public ThetaSketchEstimateOperatorConversion()
-  {
-    super(SQL_FUNCTION, FUNCTION_NAME);
-  }
 
   @Override
   public SqlOperator calciteOperator()
@@ -65,7 +60,7 @@ public class ThetaSketchEstimateOperatorConversion extends DirectOperatorConvers
       RexNode rexNode
   )
   {
-    return null;
+    return OperatorConversions.convertDirectCall(plannerContext, rowSignature, rexNode, FUNCTION_NAME);
   }
 
   @Nullable
@@ -82,7 +77,8 @@ public class ThetaSketchEstimateOperatorConversion extends DirectOperatorConvers
         plannerContext,
         rowSignature,
         operands.get(0),
-        postAggregatorVisitor
+        postAggregatorVisitor,
+        true
     );
 
     if (firstOperand == null) {

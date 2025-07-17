@@ -27,19 +27,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 import com.google.common.collect.TreeRangeSet;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.query.cache.CacheKeyBuilder;
 import org.apache.druid.query.extraction.ExtractionFn;
+import org.apache.druid.segment.column.TypeStrategies;
 import org.apache.druid.segment.filter.DimensionPredicateFilter;
 import org.apache.druid.segment.filter.SelectorFilter;
 
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
 
 /**
- *
+ * Recommended to use {@link EqualityFilter} or {@link NullFilter} instead
  */
 public class SelectorDimFilter extends AbstractOptimizableDimFilter implements DimFilter
 {
@@ -65,7 +64,7 @@ public class SelectorDimFilter extends AbstractOptimizableDimFilter implements D
     Preconditions.checkArgument(dimension != null, "dimension must not be null");
 
     this.dimension = dimension;
-    this.value = NullHandling.emptyToNullIfNeeded(value);
+    this.value = value;
     this.extractionFn = extractionFn;
     this.filterTuning = filterTuning;
 
@@ -86,7 +85,7 @@ public class SelectorDimFilter extends AbstractOptimizableDimFilter implements D
         .appendByte(DimFilterUtils.STRING_SEPARATOR)
         .appendString(dimension)
         .appendByte(DimFilterUtils.STRING_SEPARATOR)
-        .appendByte(value == null ? NullHandling.IS_NULL_BYTE : NullHandling.IS_NOT_NULL_BYTE)
+        .appendByte(value == null ? TypeStrategies.IS_NULL_BYTE : TypeStrategies.IS_NOT_NULL_BYTE)
         .appendString(value)
         .appendByte(DimFilterUtils.STRING_SEPARATOR)
         .appendByteArray(extractionFn == null ? new byte[0] : extractionFn.getCacheKey())
@@ -94,9 +93,11 @@ public class SelectorDimFilter extends AbstractOptimizableDimFilter implements D
   }
 
   @Override
-  public DimFilter optimize()
+  public DimFilter optimize(final boolean mayIncludeUnknown)
   {
-    return new InDimFilter(dimension, Collections.singleton(value), extractionFn, filterTuning).optimize();
+    final InDimFilter.ValuesSet valuesSet = new InDimFilter.ValuesSet();
+    valuesSet.add(value);
+    return new InDimFilter(dimension, valuesSet, extractionFn, filterTuning).optimize(mayIncludeUnknown);
   }
 
   @Override
@@ -115,6 +116,9 @@ public class SelectorDimFilter extends AbstractOptimizableDimFilter implements D
     return dimension;
   }
 
+  /**
+   * Value to filter against. If {@code null}, then the meaning is `is null`.
+   */
   @Nullable
   @JsonProperty
   public String getValue()
@@ -124,14 +128,15 @@ public class SelectorDimFilter extends AbstractOptimizableDimFilter implements D
 
   @Nullable
   @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public ExtractionFn getExtractionFn()
   {
     return extractionFn;
   }
 
   @Nullable
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public FilterTuning getFilterTuning()
   {
     return filterTuning;
@@ -175,13 +180,12 @@ public class SelectorDimFilter extends AbstractOptimizableDimFilter implements D
       return null;
     }
     RangeSet<String> retSet = TreeRangeSet.create();
-    String valueEquivalent = NullHandling.nullToEmptyIfNeeded(value);
-    if (valueEquivalent == null) {
+    if (value == null) {
       // Case when SQL compatible null handling is enabled
       // Nulls are less than empty String in segments
       retSet.add(Range.lessThan(""));
     } else {
-      retSet.add(Range.singleton(valueEquivalent));
+      retSet.add(Range.singleton(value));
     }
     return retSet;
   }

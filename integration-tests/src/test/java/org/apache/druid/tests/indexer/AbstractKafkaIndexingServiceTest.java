@@ -21,6 +21,7 @@ package org.apache.druid.tests.indexer;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.indexing.kafka.KafkaConsumerConfigs;
+import org.apache.druid.indexing.seekablestream.supervisor.LagAggregator;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.testing.IntegrationTestingConfig;
 import org.apache.druid.testing.utils.KafkaAdminClient;
@@ -29,6 +30,7 @@ import org.apache.druid.testing.utils.KafkaUtil;
 import org.apache.druid.testing.utils.StreamAdminClient;
 import org.apache.druid.testing.utils.StreamEventWriter;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.function.Function;
@@ -49,10 +51,14 @@ public abstract class AbstractKafkaIndexingServiceTest extends AbstractStreamInd
 
   @Override
   Function<String, String> generateStreamIngestionPropsTransform(
+      String supervisorId,
       String streamName,
       String fullDatasourceName,
       String parserType,
       String parserOrInputFormat,
+      List<String> dimensions,
+      Map<String, Object> context,
+      LagAggregator lagAggregator,
       IntegrationTestingConfig config
   )
   {
@@ -63,6 +69,11 @@ public abstract class AbstractKafkaIndexingServiceTest extends AbstractStreamInd
     KafkaUtil.addPropertiesFromTestConfig(config, consumerProperties);
     return spec -> {
       try {
+        spec = StringUtils.replace(
+            spec,
+            "%%SUPERVISOR_ID%%",
+            supervisorId
+        );
         spec = StringUtils.replace(
             spec,
             "%%DATASOURCE%%",
@@ -117,13 +128,26 @@ public abstract class AbstractKafkaIndexingServiceTest extends AbstractStreamInd
             "%%STREAM_PROPERTIES_KEY%%",
             "consumerProperties"
         );
-
         spec = StringUtils.replace(
             spec,
             "%%SCHEMA_REGISTRY_HOST%%",
             StringUtils.format("http://%s", config.getSchemaRegistryInternalHost())
         );
-
+        spec = StringUtils.replace(
+            spec,
+            "%%DIMENSIONS%%",
+            jsonMapper.writeValueAsString(dimensions)
+        );
+        spec = StringUtils.replace(
+            spec,
+            "%%CONTEXT%%",
+            jsonMapper.writeValueAsString(context)
+        );
+        spec = StringUtils.replace(
+            spec,
+            "%%LAG_AGGREGATOR%%",
+            jsonMapper.writeValueAsString(lagAggregator)
+        );
         return StringUtils.replace(
             spec,
             "%%STREAM_PROPERTIES_VALUE%%",

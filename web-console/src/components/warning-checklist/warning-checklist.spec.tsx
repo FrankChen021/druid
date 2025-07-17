@@ -17,11 +17,10 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
 import { WarningChecklist } from './warning-checklist';
 
-describe('warning checklist', () => {
+describe('WarningChecklist', () => {
   it('matches snapshot', () => {
     const warningChecklist = (
       <WarningChecklist checks={['Check A', 'Check B', 'I am totes sure']} onChange={() => {}} />

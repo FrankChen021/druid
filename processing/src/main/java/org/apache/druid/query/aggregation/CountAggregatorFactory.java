@@ -25,11 +25,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.apache.druid.segment.ColumnInspector;
 import org.apache.druid.segment.ColumnSelectorFactory;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -98,15 +97,15 @@ public class CountAggregatorFactory extends AggregatorFactory
   }
 
   @Override
-  public List<AggregatorFactory> getRequiredColumns()
-  {
-    return Collections.singletonList(new CountAggregatorFactory(name));
-  }
-
-  @Override
   public Object deserialize(Object object)
   {
     return object;
+  }
+
+  @Override
+  public AggregatorFactory withName(String newName)
+  {
+    return new CountAggregatorFactory(newName);
   }
 
   @Nullable
@@ -136,15 +135,15 @@ public class CountAggregatorFactory extends AggregatorFactory
   }
 
   @Override
-  public ValueType getType()
+  public ColumnType getIntermediateType()
   {
-    return ValueType.LONG;
+    return ColumnType.LONG;
   }
 
   @Override
-  public ValueType getFinalizedType()
+  public ColumnType getResultType()
   {
-    return ValueType.LONG;
+    return ColumnType.LONG;
   }
 
   @Override

@@ -1,7 +1,7 @@
 ---
 id: tutorial-batch
-title: "Tutorial: Loading a file"
-sidebar_label: "Loading files natively"
+title: "Load a file"
+sidebar_label: "Load files natively"
 ---
 
 <!--
@@ -27,13 +27,11 @@ sidebar_label: "Loading files natively"
 This tutorial demonstrates how to load data into Apache Druid from a file using Apache Druid's native batch ingestion feature.
 
 You initiate data loading in Druid by submitting an *ingestion task* spec to the Druid Overlord. You can write ingestion 
-specs by hand or using the _data loader_ built into the Druid console. 
+specs by hand or using the _data loader_ built into the web console. 
 
-The [Quickstart](./index.md) shows you how to use the data loader to build an ingestion spec. For production environments, it's 
-likely that you'll want to automate data ingestion. This tutorial starts by showing you how to submit an ingestion spec 
-directly in the Druid console, and then introduces ways to ingest batch data that lend themselves to 
-automation&mdash;from the command line and from a script. 
-
+For production environments, it's likely that you'll want to automate data ingestion. This tutorial starts by showing
+you how to submit an ingestion spec directly in the web console, and then introduces ways to ingest batch data that
+lend themselves to automation&mdash;from the command line and from a script. 
 
 ## Loading data with a spec (via console)
 
@@ -96,7 +94,9 @@ which has been configured to read the `quickstart/tutorial/wikiticker-2015-09-12
     },
     "tuningConfig" : {
       "type" : "index_parallel",
-      "maxRowsPerSegment" : 5000000,
+      "partitionsSpec": {
+        "type": "dynamic"
+      },
       "maxRowsInMemory" : 25000
     }
   }
@@ -149,7 +149,7 @@ Once the spec is submitted, you can follow the same instructions as above to wai
 
 Let's briefly discuss how we would've submitted the ingestion task without using the script. You do not need to run these commands.
 
-To submit the task, POST it to Druid in a new terminal window from the apache-druid-{{DRUIDVERSION}} directory:
+To submit the task, POST it to Druid in a new terminal window from the `apache-druid-{{DRUIDVERSION}}` directory:
 
 ```bash
 curl -X 'POST' -H 'Content-Type:application/json' -d @quickstart/tutorial/wikipedia-index.json http://localhost:8081/druid/indexer/v1/task

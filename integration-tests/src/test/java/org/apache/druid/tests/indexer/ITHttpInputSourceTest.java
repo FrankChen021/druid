@@ -29,14 +29,13 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.UUID;
 
-@Test(groups = TestNGGroup.INPUT_SOURCE)
+@Test(groups = {TestNGGroup.INPUT_SOURCE})
 @Guice(moduleFactory = DruidTestModuleFactory.class)
 public class ITHttpInputSourceTest extends AbstractITBatchIndexTest
 {
   private static final String INDEX_TASK = "/indexer/wikipedia_http_inputsource_task.json";
   private static final String INDEX_QUERIES_RESOURCE = "/indexer/wikipedia_http_inputsource_queries.json";
 
-  @Test
   public void doTest() throws IOException
   {
     final String indexDatasource = "wikipedia_http_inputsource_test_" + UUID.randomUUID();

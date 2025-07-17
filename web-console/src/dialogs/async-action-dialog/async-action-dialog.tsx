@@ -16,21 +16,14 @@
  * limitations under the License.
  */
 
-import {
-  Button,
-  Classes,
-  Dialog,
-  FormGroup,
-  Icon,
-  IconName,
-  Intent,
-  ProgressBar,
-} from '@blueprintjs/core';
+import type { IconName } from '@blueprintjs/core';
+import { Button, Classes, Dialog, FormGroup, Icon, Intent, ProgressBar } from '@blueprintjs/core';
 import { IconNames } from '@blueprintjs/icons';
 import classNames from 'classnames';
-import React, { ReactNode, useState } from 'react';
+import type { ReactNode } from 'react';
+import React, { useState } from 'react';
 
-import { WarningChecklist } from '../../components/warning-checklist/warning-checklist';
+import { WarningChecklist } from '../../components';
 import { AppToaster } from '../../singletons';
 
 import './async-action-dialog.scss';
@@ -45,9 +38,9 @@ export interface AsyncActionDialogProps {
   className?: string;
   icon?: IconName;
   intent?: Intent;
-  successText: string;
-  failText: string;
-  warningChecks?: string[];
+  successText: ReactNode;
+  failText: ReactNode;
+  warningChecks?: ReactNode[];
   children?: ReactNode;
 }
 
@@ -132,7 +125,7 @@ export const AsyncActionDialog = React.memo(function AsyncActionDialog(
             <Button
               intent={intent}
               text={confirmButtonText}
-              onClick={handleConfirm}
+              onClick={() => void handleConfirm()}
               disabled={confirmButtonDisabled || needsMoreChecks}
             />
             <Button text={cancelButtonText || 'Cancel'} onClick={onClose} />

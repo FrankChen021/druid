@@ -31,6 +31,9 @@ import java.nio.ByteBuffer;
  * {@link org.apache.druid.query.monomorphicprocessing.CalledFromHotLoop} because vectorized query engines do not use
  * monomorphic-processing-style specialization.
  *
+ * Unlike {@link Aggregator}, VectorAggregators are never used by multiple threads at once. Implementations are not
+ * required to be thread safe.
+ *
  * @see BufferAggregator, the vectorized version.
  */
 public interface VectorAggregator
@@ -80,7 +83,11 @@ public interface VectorAggregator
   }
 
   /**
-   * Release any resources used by the aggregator.
+   * Release any resources used by the aggregator. The aggregator may be reused after this call, by calling
+   * {@link #init(ByteBuffer, int)} followed by other methods as normal.
+   *
+   * This call would be more properly named "reset", but we use the name "close" to improve compatibility with
+   * existing aggregator implementations in extensions.
    */
   void close();
 }

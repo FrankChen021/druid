@@ -23,7 +23,7 @@ import com.google.inject.Inject;
 import com.sun.jersey.spi.container.ContainerRequest;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.server.http.security.AbstractResourceFilter;
-import org.apache.druid.server.security.Access;
+import org.apache.druid.server.security.AuthorizationResult;
 import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.Resource;
@@ -31,6 +31,7 @@ import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 public class BasicSecurityResourceFilter extends AbstractResourceFilter
@@ -53,16 +54,17 @@ public class BasicSecurityResourceFilter extends AbstractResourceFilter
         getAction(request)
     );
 
-    final Access authResult = AuthorizationUtils.authorizeResourceAction(
+    final AuthorizationResult authResult = AuthorizationUtils.authorizeResourceAction(
         getReq(),
         resourceAction,
         getAuthorizerMapper()
     );
 
-    if (!authResult.isAllowed()) {
+    if (!authResult.allowAccessWithNoRestriction()) {
       throw new WebApplicationException(
           Response.status(Response.Status.FORBIDDEN)
-                  .entity(StringUtils.format("Access-Check-Result: %s", authResult.toString()))
+                  .type(MediaType.TEXT_PLAIN)
+                  .entity(StringUtils.format("Access-Check-Result: %s", authResult.getErrorMessage()))
                   .build()
       );
     }

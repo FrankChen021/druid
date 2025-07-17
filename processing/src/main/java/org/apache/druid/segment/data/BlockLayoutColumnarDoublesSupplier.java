@@ -21,8 +21,9 @@ package org.apache.druid.segment.data;
 
 import com.google.common.base.Supplier;
 import org.apache.druid.collections.ResourceHolder;
-import org.apache.druid.java.util.common.guava.CloseQuietly;
+import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
 
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.DoubleBuffer;
@@ -36,16 +37,23 @@ public class BlockLayoutColumnarDoublesSupplier implements Supplier<ColumnarDoub
 
   // The number of doubles per buffer.
   private final int sizePer;
+  private final CompressionStrategy strategy;
 
   public BlockLayoutColumnarDoublesSupplier(
       int totalSize,
       int sizePer,
       ByteBuffer fromBuffer,
       ByteOrder byteOrder,
-      CompressionStrategy strategy
+      CompressionStrategy strategy,
+      SmooshedFileMapper smooshMapper
   )
   {
-    baseDoubleBuffers = GenericIndexed.read(fromBuffer, new DecompressingByteBufferObjectStrategy(byteOrder, strategy));
+    this.strategy = strategy;
+    this.baseDoubleBuffers = GenericIndexed.read(
+        fromBuffer,
+        DecompressingByteBufferObjectStrategy.of(byteOrder, strategy),
+        smooshMapper
+    );
     this.totalSize = totalSize;
     this.sizePer = sizePer;
   }
@@ -78,16 +86,24 @@ public class BlockLayoutColumnarDoublesSupplier implements Supplier<ColumnarDoub
     }
   }
 
-  private class BlockLayoutColumnarDoubles implements ColumnarDoubles
+  // This needs to be a public class so that SemanticCreator is able to call it.
+  public class BlockLayoutColumnarDoubles implements ColumnarDoubles
   {
     final Indexed<ResourceHolder<ByteBuffer>> singleThreadedDoubleBuffers = baseDoubleBuffers.singleThreaded();
 
     int currBufferNum = -1;
+    @Nullable
     ResourceHolder<ByteBuffer> holder;
     /**
      * doubleBuffer's position must be 0
      */
+    @Nullable
     DoubleBuffer doubleBuffer;
+
+    public CompressionStrategy getCompressionStrategy()
+    {
+      return strategy;
+    }
 
     @Override
     public int size()
@@ -110,7 +126,7 @@ public class BlockLayoutColumnarDoublesSupplier implements Supplier<ColumnarDoub
     }
 
     @Override
-    public void get(final double[] out, final int start, final int length)
+    public void get(final double[] out, int offset, final int start, final int length)
     {
       // division + remainder is optimized by the compiler so keep those together
       int bufferNum = start / sizePer;
@@ -127,7 +143,7 @@ public class BlockLayoutColumnarDoublesSupplier implements Supplier<ColumnarDoub
         final int oldPosition = doubleBuffer.position();
         try {
           doubleBuffer.position(bufferIndex);
-          doubleBuffer.get(out, p, limit);
+          doubleBuffer.get(out, offset + p, limit);
         }
         finally {
           doubleBuffer.position(oldPosition);
@@ -168,7 +184,9 @@ public class BlockLayoutColumnarDoublesSupplier implements Supplier<ColumnarDoub
 
     protected void loadBuffer(int bufferNum)
     {
-      CloseQuietly.close(holder);
+      if (holder != null) {
+        holder.close();
+      }
       holder = singleThreadedDoubleBuffers.get(bufferNum);
       // asDoubleBuffer() makes the doubleBuffer's position = 0
       doubleBuffer = holder.get().asDoubleBuffer();
@@ -179,7 +197,10 @@ public class BlockLayoutColumnarDoublesSupplier implements Supplier<ColumnarDoub
     public void close()
     {
       if (holder != null) {
+        currBufferNum = -1;
         holder.close();
+        holder = null;
+        doubleBuffer = null;
       }
     }
 

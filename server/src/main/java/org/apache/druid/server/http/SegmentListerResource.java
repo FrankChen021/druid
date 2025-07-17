@@ -24,18 +24,21 @@ import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Inject;
 import com.sun.jersey.spi.container.ResourceFilters;
 import org.apache.druid.client.HttpServerInventoryView;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Smile;
 import org.apache.druid.java.util.emitter.EmittingLogger;
+import org.apache.druid.segment.loading.SegmentLoaderConfig;
 import org.apache.druid.server.coordination.BatchDataSegmentAnnouncer;
 import org.apache.druid.server.coordination.ChangeRequestHistory;
 import org.apache.druid.server.coordination.ChangeRequestsSnapshot;
 import org.apache.druid.server.coordination.DataSegmentChangeRequest;
+import org.apache.druid.server.coordination.DataSegmentChangeResponse;
 import org.apache.druid.server.coordination.SegmentLoadDropHandler;
-import org.apache.druid.server.coordinator.HttpLoadQueuePeon;
+import org.apache.druid.server.coordinator.loading.HttpLoadQueuePeon;
 import org.apache.druid.server.http.security.StateResourceFilter;
 
 import javax.annotation.Nullable;
@@ -52,13 +55,14 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.List;
 
 /**
  * Endpoints exposed here are to be used only for druid internal management of segments by Coordinators, Brokers etc.
  */
-@Path("/druid-internal/v1/segments/")
+@Path("/druid-internal/v1/segments")
 @ResourceFilters(StateResourceFilter.class)
 public class SegmentListerResource
 {
@@ -172,7 +176,7 @@ public class SegmentListerResource
 
     Futures.addCallback(
         future,
-        new FutureCallback<ChangeRequestsSnapshot<DataSegmentChangeRequest>>()
+        new FutureCallback<>()
         {
           @Override
           public void onSuccess(ChangeRequestsSnapshot<DataSegmentChangeRequest> result)
@@ -180,7 +184,7 @@ public class SegmentListerResource
             try {
               HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
               response.setStatus(HttpServletResponse.SC_OK);
-              context.inputMapper.writerWithType(HttpServerInventoryView.SEGMENT_LIST_RESP_TYPE_REF)
+              context.inputMapper.writerFor(HttpServerInventoryView.SEGMENT_LIST_RESP_TYPE_REF)
                                  .writeValue(asyncContext.getResponse().getOutputStream(), result);
               asyncContext.complete();
             }
@@ -205,7 +209,8 @@ public class SegmentListerResource
               log.debug(ex, "Request timed out or closed already.");
             }
           }
-        }
+        },
+        MoreExecutors.directExecutor()
     );
 
     asyncContext.setTimeout(timeout);
@@ -216,10 +221,10 @@ public class SegmentListerResource
    * This endpoint is used by HttpLoadQueuePeon to assign segment load/drop requests batch. This endpoint makes the
    * client wait till one of the following events occur. Note that this is implemented using async IO so no jetty
    * threads are held while in wait.
-   *
-   * (1) Given timeout elapses.
-   * (2) Some load/drop request completed.
-   *
+   * <ol>
+   *   <li>Given timeout elapses.</li>
+   *   <li>Some load/drop request completed.</li>
+   * </ol>
    * It returns a map of "load/drop request -> SUCCESS/FAILED/PENDING status" for each request in the batch.
    */
   @POST
@@ -228,6 +233,7 @@ public class SegmentListerResource
   @Consumes({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
   public void applyDataSegmentChangeRequests(
       @QueryParam("timeout") long timeout,
+      @QueryParam("loadingMode") @Nullable SegmentLoadingMode loadingMode,
       List<DataSegmentChangeRequest> changeRequestList,
       @Context final HttpServletRequest req
   ) throws IOException
@@ -248,8 +254,8 @@ public class SegmentListerResource
     }
 
     final ResponseContext context = createContext(req.getHeader("Accept"));
-    final ListenableFuture<List<SegmentLoadDropHandler.DataSegmentChangeRequestAndStatus>> future =
-        loadDropRequestHandler.processBatch(changeRequestList);
+    final ListenableFuture<List<DataSegmentChangeResponse>> future =
+        loadDropRequestHandler.processBatch(changeRequestList, loadingMode == null ? SegmentLoadingMode.NORMAL : loadingMode);
 
     final AsyncContext asyncContext = req.startAsync();
 
@@ -284,15 +290,15 @@ public class SegmentListerResource
 
     Futures.addCallback(
         future,
-        new FutureCallback<List<SegmentLoadDropHandler.DataSegmentChangeRequestAndStatus>>()
+        new FutureCallback<>()
         {
           @Override
-          public void onSuccess(List<SegmentLoadDropHandler.DataSegmentChangeRequestAndStatus> result)
+          public void onSuccess(List<DataSegmentChangeResponse> result)
           {
             try {
               HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
               response.setStatus(HttpServletResponse.SC_OK);
-              context.inputMapper.writerWithType(HttpLoadQueuePeon.RESPONSE_ENTITY_TYPE_REF)
+              context.inputMapper.writerFor(HttpLoadQueuePeon.RESPONSE_ENTITY_TYPE_REF)
                                  .writeValue(asyncContext.getResponse().getOutputStream(), result);
               asyncContext.complete();
             }
@@ -317,10 +323,29 @@ public class SegmentListerResource
               log.debug(ex, "Request timed out or closed already.");
             }
           }
-        }
+        },
+        MoreExecutors.directExecutor()
     );
 
     asyncContext.setTimeout(timeout);
+  }
+
+  @GET
+  @Path("/loadCapabilities")
+  @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
+  public Response getSegmentLoadingCapabilities(
+      @Context final HttpServletRequest req
+  )
+  {
+    if (loadDropRequestHandler == null) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
+    }
+
+    SegmentLoaderConfig config = loadDropRequestHandler.getSegmentLoaderConfig();
+    SegmentLoadingCapabilities capabilitiesResponse =
+        new SegmentLoadingCapabilities(config.getNumLoadingThreads(), config.getNumBootstrapThreads());
+
+    return Response.status(Response.Status.OK).entity(capabilitiesResponse).build();
   }
 
   private void sendErrorResponse(HttpServletRequest req, int code, String error) throws IOException

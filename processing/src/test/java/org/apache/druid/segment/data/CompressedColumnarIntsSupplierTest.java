@@ -22,9 +22,9 @@ package org.apache.druid.segment.data;
 import com.google.common.primitives.Longs;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.common.guava.CloseQuietly;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.segment.CompressedPools;
+import org.apache.druid.utils.CloseableUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -36,6 +36,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.channels.Channels;
+import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
@@ -58,7 +59,7 @@ public class CompressedColumnarIntsSupplierTest extends CompressionStrategyTest
   public void setUp()
   {
     closer = Closer.create();
-    CloseQuietly.close(columnarInts);
+    CloseableUtils.closeAndWrapExceptions(columnarInts);
     columnarInts = null;
     supplier = null;
     vals = null;
@@ -68,12 +69,12 @@ public class CompressedColumnarIntsSupplierTest extends CompressionStrategyTest
   public void tearDown() throws Exception
   {
     closer.close();
-    CloseQuietly.close(columnarInts);
+    CloseableUtils.closeAndWrapExceptions(columnarInts);
   }
 
   private void setupSimple(final int chunkSize)
   {
-    CloseQuietly.close(columnarInts);
+    CloseableUtils.closeAndWrapExceptions(columnarInts);
 
     vals = new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16};
 
@@ -97,7 +98,7 @@ public class CompressedColumnarIntsSupplierTest extends CompressionStrategyTest
 
   private void makeWithSerde(final int chunkSize) throws IOException
   {
-    CloseQuietly.close(columnarInts);
+    CloseableUtils.closeAndWrapExceptions(columnarInts);
 
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     final CompressedColumnarIntsSupplier theSupplier = CompressedColumnarIntsSupplier.fromIntBuffer(
@@ -108,7 +109,7 @@ public class CompressedColumnarIntsSupplierTest extends CompressionStrategyTest
     final byte[] bytes = baos.toByteArray();
     Assert.assertEquals(theSupplier.getSerializedSize(), bytes.length);
 
-    supplier = CompressedColumnarIntsSupplier.fromByteBuffer(ByteBuffer.wrap(bytes), ByteOrder.nativeOrder());
+    supplier = CompressedColumnarIntsSupplier.fromByteBuffer(ByteBuffer.wrap(bytes), ByteOrder.nativeOrder(), null);
     columnarInts = supplier.get();
   }
 
@@ -182,7 +183,7 @@ public class CompressedColumnarIntsSupplierTest extends CompressionStrategyTest
   {
     setupSimple(5);
 
-    final AtomicReference<String> reason = new AtomicReference<String>("none");
+    final AtomicReference<String> reason = new AtomicReference<>("none");
 
     final int numRuns = 1000;
     final CountDownLatch startLatch = new CountDownLatch(1);
@@ -271,7 +272,7 @@ public class CompressedColumnarIntsSupplierTest extends CompressionStrategyTest
       stopLatch.await();
     }
     finally {
-      CloseQuietly.close(columnarInts2);
+      CloseableUtils.closeAndWrapExceptions(columnarInts2);
     }
 
     if (failureHappened.get()) {
@@ -289,6 +290,11 @@ public class CompressedColumnarIntsSupplierTest extends CompressionStrategyTest
       Assert.assertEquals(vals[i], columnarInts.get(i), 0.0);
       indices[i] = i;
     }
+
+    int[] offsetValues = new int[columnarInts.size() + 1];
+    columnarInts.get(offsetValues, 1, 0, columnarInts.size());
+    Assert.assertEquals(0, offsetValues[0]);
+    Assert.assertArrayEquals(vals, Arrays.copyOfRange(offsetValues, 1, offsetValues.length));
 
     // random access, limited to 1000 elements for large lists (every element would take too long)
     IntArrays.shuffle(indices, ThreadLocalRandom.current());

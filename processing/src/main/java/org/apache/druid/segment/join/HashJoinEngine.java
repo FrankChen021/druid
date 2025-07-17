@@ -26,8 +26,8 @@ import org.apache.druid.segment.ColumnSelectorFactory;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.DimensionSelector;
+import org.apache.druid.segment.RowIdSupplier;
 import org.apache.druid.segment.column.ColumnCapabilities;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -55,7 +55,6 @@ public class HashJoinEngine
   public static Cursor makeJoinCursor(
       final Cursor leftCursor,
       final JoinableClause joinableClause,
-      final boolean descending,
       final Closer closer
   )
   {
@@ -65,12 +64,13 @@ public class HashJoinEngine
                                                       leftColumnSelectorFactory,
                                                       joinableClause.getCondition(),
                                                       joinableClause.getJoinType().isRighty(),
-                                                      descending,
                                                       closer
                                                   );
 
-    class JoinColumnSelectorFactory implements ColumnSelectorFactory
+    class JoinColumnSelectorFactory implements ColumnSelectorFactory, RowIdSupplier
     {
+      private long rowId = 0;
+
       @Override
       public DimensionSelector makeDimensionSelector(DimensionSpec dimensionSpec)
       {
@@ -116,6 +116,29 @@ public class HashJoinEngine
           return leftColumnSelectorFactory.getColumnCapabilities(column);
         }
       }
+
+      @Nullable
+      @Override
+      public RowIdSupplier getRowIdSupplier()
+      {
+        return this;
+      }
+
+      @Override
+      public long getRowId()
+      {
+        return rowId;
+      }
+
+      void advanceRowId()
+      {
+        rowId++;
+      }
+
+      void resetRowId()
+      {
+        rowId = 0;
+      }
     }
 
     final JoinColumnSelectorFactory joinColumnSelectorFactory = new JoinColumnSelectorFactory();
@@ -142,16 +165,9 @@ public class HashJoinEngine
       }
 
       @Override
-      @Nonnull
-      public DateTime getTime()
-      {
-        return leftCursor.getTime();
-      }
-
-      @Override
       public void advance()
       {
-        advanceUninterruptibly();
+        advance(true);
         BaseQuery.checkInterrupted();
       }
 
@@ -171,6 +187,13 @@ public class HashJoinEngine
       @Override
       public void advanceUninterruptibly()
       {
+        advance(false);
+      }
+
+      private void advance(boolean interruptibly)
+      {
+        joinColumnSelectorFactory.advanceRowId();
+
         if (joinMatcher.hasMatch()) {
           joinMatcher.nextMatch();
 
@@ -181,9 +204,19 @@ public class HashJoinEngine
 
         assert !joinMatcher.hasMatch();
 
+        if (leftCursor.isDone()) {
+          // No right-hand matches and nothing on the left cursor. We're done; return.
+          assert isDone();
+          return;
+        }
+
         do {
           // No more right-hand side matches; advance the left-hand side.
-          leftCursor.advanceUninterruptibly();
+          if (interruptibly) {
+            leftCursor.advance();
+          } else {
+            leftCursor.advanceUninterruptibly();
+          }
 
           // Update joinMatcher state to match new cursor position.
           matchCurrentPosition();
@@ -212,6 +245,8 @@ public class HashJoinEngine
       {
         leftCursor.reset();
         joinMatcher.reset();
+        joinColumnSelectorFactory.resetRowId();
+        initialize();
       }
     }
 

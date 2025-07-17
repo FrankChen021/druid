@@ -27,13 +27,16 @@ import org.joda.time.Duration;
 import org.joda.time.Period;
 
 import javax.validation.constraints.Min;
+import java.util.concurrent.TimeUnit;
 
 /**
+ *
  */
 
 public class DruidHttpClientConfig
 {
-  private final String DEFAULT_COMPRESSION_CODEC = "gzip";
+  private static final String DEFAULT_COMPRESSION_CODEC = "gzip";
+  private static final double DEFAULT_MAX_QUEUED_BYTES_HEAP_FRACTION = 0.02; // Per query, so 2% is reasonably safe
   private static final Logger LOG = new Logger(DruidHttpClientConfig.class);
 
   @JsonProperty
@@ -65,7 +68,13 @@ public class DruidHttpClientConfig
    * respected by CachingClusteredClient (broker -> data server communication).
    */
   @JsonProperty
-  private HumanReadableBytes maxQueuedBytes = HumanReadableBytes.ZERO;
+  private HumanReadableBytes maxQueuedBytes = computeDefaultMaxQueuedBytes();
+
+  @JsonProperty
+  private Boolean eagerInitialization = null;
+
+  @JsonProperty
+  private long clientConnectTimeout = TimeUnit.MILLISECONDS.toMillis(500);
 
   public int getNumConnections()
   {
@@ -114,5 +123,28 @@ public class DruidHttpClientConfig
   public long getMaxQueuedBytes()
   {
     return maxQueuedBytes.getBytes();
+  }
+
+  public boolean isEagerInitialization(boolean defaultValue)
+  {
+    if (null == eagerInitialization) {
+      return defaultValue;
+    }
+    return eagerInitialization;
+  }
+
+  public long getClientConnectTimeout()
+  {
+    return clientConnectTimeout;
+  }
+
+  private static HumanReadableBytes computeDefaultMaxQueuedBytes()
+  {
+    return HumanReadableBytes.valueOf(
+        Math.max(
+            25_000_000,
+            (long) (JvmUtils.getRuntimeInfo().getMaxHeapSizeBytes() * DEFAULT_MAX_QUEUED_BYTES_HEAP_FRACTION)
+        )
+    );
   }
 }

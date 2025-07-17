@@ -19,23 +19,23 @@
 
 package org.apache.druid.cli;
 
+import com.github.rvesse.airline.annotations.Command;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.name.Names;
-import io.airlift.airline.Command;
 import org.apache.druid.client.DruidServer;
 import org.apache.druid.client.DruidServerConfig;
 import org.apache.druid.curator.ZkEnablementConfig;
 import org.apache.druid.discovery.DataNodeService;
-import org.apache.druid.discovery.LookupNodeService;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.discovery.WorkerNodeService;
 import org.apache.druid.guice.DruidProcessingModule;
-import org.apache.druid.guice.IndexingServiceFirehoseModule;
+import org.apache.druid.guice.IndexerServiceModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.IndexingServiceModuleHelper;
 import org.apache.druid.guice.IndexingServiceTaskLogsModule;
@@ -49,15 +49,19 @@ import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.QueryablePeonModule;
+import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.ServerTypeConfig;
+import org.apache.druid.guice.annotations.AttemptId;
 import org.apache.druid.guice.annotations.Parent;
 import org.apache.druid.guice.annotations.RemoteChatHandler;
 import org.apache.druid.guice.annotations.Self;
+import org.apache.druid.indexer.HadoopIndexTaskModule;
+import org.apache.druid.indexer.report.TaskReportFileWriter;
 import org.apache.druid.indexing.common.MultipleFileTaskReportFileWriter;
-import org.apache.druid.indexing.common.TaskReportFileWriter;
 import org.apache.druid.indexing.overlord.TaskRunner;
 import org.apache.druid.indexing.overlord.ThreadingTaskRunner;
 import org.apache.druid.indexing.worker.Worker;
+import org.apache.druid.indexing.worker.WorkerTaskManager;
 import org.apache.druid.indexing.worker.config.WorkerConfig;
 import org.apache.druid.indexing.worker.shuffle.ShuffleModule;
 import org.apache.druid.java.util.common.logger.Logger;
@@ -69,6 +73,7 @@ import org.apache.druid.segment.realtime.appenderator.UnifiedIndexerAppenderator
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.ResponseContextConfig;
 import org.apache.druid.server.SegmentManager;
+import org.apache.druid.server.coordination.SegmentBootstrapper;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.coordination.ZkCoordinator;
 import org.apache.druid.server.http.HistoricalResource;
@@ -76,10 +81,13 @@ import org.apache.druid.server.http.SegmentListerResource;
 import org.apache.druid.server.http.SelfDiscoveryResource;
 import org.apache.druid.server.initialization.jetty.CliIndexerServerModule;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
+import org.apache.druid.server.metrics.IndexerTaskCountStatsProvider;
+import org.apache.druid.storage.local.LocalTmpStorageConfig;
 import org.eclipse.jetty.server.Server;
 
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  *
@@ -108,22 +116,34 @@ public class CliIndexer extends ServerRunnable
   }
 
   @Override
+  protected Set<NodeRole> getNodeRoles(Properties properties)
+  {
+    return ImmutableSet.of(NodeRole.INDEXER);
+  }
+
+  @Override
   protected List<? extends Module> getModules()
   {
     return ImmutableList.of(
         new DruidProcessingModule(),
         new QueryableModule(),
         new QueryRunnerFactoryModule(),
+        new SegmentWranglerModule(),
         new JoinableFactoryModule(),
+        new IndexerServiceModule(),
         new Module()
         {
           @Override
           public void configure(Binder binder)
           {
+            validateCentralizedDatasourceSchemaConfig(properties);
+
             binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/indexer");
             binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8091);
             binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(8291);
             binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
+            // needed for the CliPeon, not needed for indexer, but have to bind annotation.
+            binder.bindConstant().annotatedWith(AttemptId.class).to("");
 
             IndexingServiceModuleHelper.configureTaskRunnerConfigs(binder);
 
@@ -138,13 +158,14 @@ public class CliIndexer extends ServerRunnable
             binder.bind(TaskRunner.class).to(ThreadingTaskRunner.class);
             binder.bind(QuerySegmentWalker.class).to(ThreadingTaskRunner.class);
             binder.bind(ThreadingTaskRunner.class).in(LazySingleton.class);
+            binder.bind(IndexerTaskCountStatsProvider.class).to(WorkerTaskManager.class);
 
             CliPeon.bindRowIngestionMeters(binder);
             CliPeon.bindChatHandler(binder);
             CliPeon.bindPeonDataSegmentHandlers(binder);
             CliPeon.bindRealtimeCache(binder);
-            CliPeon.bindCoordinatorHandoffNotiferAndClient(binder);
-            CliMiddleManager.bindWorkerManagementClasses(binder, isZkEnabled);
+            CliPeon.bindCoordinatorHandoffNotifer(binder);
+            binder.install(CliMiddleManager.makeWorkerManagementModule(isZkEnabled));
 
             binder.bind(AppenderatorsManager.class)
                   .to(UnifiedIndexerAppenderatorsManager.class)
@@ -164,19 +185,18 @@ public class CliIndexer extends ServerRunnable
             if (isZkEnabled) {
               LifecycleModule.register(binder, ZkCoordinator.class);
             }
+            LifecycleModule.register(binder, SegmentBootstrapper.class);
 
-            bindNodeRoleAndAnnouncer(
+            bindAnnouncer(
                 binder,
-                DiscoverySideEffectsProvider
-                    .builder(NodeRole.INDEXER)
-                    .serviceClasses(
-                        ImmutableList.of(LookupNodeService.class, WorkerNodeService.class, DataNodeService.class)
-                    )
-                    .build()
+                DiscoverySideEffectsProvider.create()
             );
 
             Jerseys.addResource(binder, SelfDiscoveryResource.class);
             LifecycleModule.registerKey(binder, Key.get(SelfDiscoveryResource.class));
+            binder.bind(LocalTmpStorageConfig.class)
+                  .toProvider(new LocalTmpStorageConfig.DefaultLocalTmpStorageConfigProvider("indexer"))
+                  .in(LazySingleton.class);
           }
 
           @Provides
@@ -218,11 +238,11 @@ public class CliIndexer extends ServerRunnable
           }
         },
         new ShuffleModule(),
-        new IndexingServiceFirehoseModule(),
         new IndexingServiceInputSourceModule(),
         new IndexingServiceTaskLogsModule(),
         new IndexingServiceTuningConfigModule(),
         new InputSourceModule(),
+        new HadoopIndexTaskModule(),
         new QueryablePeonModule(),
         new CliIndexerServerModule(properties),
         new LookupModule()

@@ -22,10 +22,6 @@ package org.apache.druid.segment.filter;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.data.input.impl.InputRowParser;
@@ -38,7 +34,6 @@ import org.apache.druid.js.JavaScriptConfig;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.extraction.MapLookupExtractor;
 import org.apache.druid.query.filter.BoundDimFilter;
-import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.query.filter.JavaScriptDimFilter;
 import org.apache.druid.query.filter.RegexDimFilter;
@@ -48,11 +43,10 @@ import org.apache.druid.query.lookup.LookupExtractionFn;
 import org.apache.druid.query.lookup.LookupExtractor;
 import org.apache.druid.query.ordering.StringComparators;
 import org.apache.druid.query.search.ContainsSearchQuerySpec;
+import org.apache.druid.segment.CursorFactory;
 import org.apache.druid.segment.IndexBuilder;
-import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -63,26 +57,18 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 @RunWith(Parameterized.class)
 public class LongFilteringTest extends BaseFilterTest
 {
   private static final String LONG_COLUMN = "lng";
   private static final String TIMESTAMP_COLUMN = "ts";
-  private static int EXECUTOR_NUM_THREADS = 16;
-  private static int EXECUTOR_NUM_TASKS = 2000;
   private static final int NUM_FILTER_VALUES = 32;
 
   private static final InputRowParser<Map<String, Object>> PARSER = new MapInputRowParser(
       new TimeAndDimsParseSpec(
           new TimestampSpec(TIMESTAMP_COLUMN, "millis", DateTimes.of("2000")),
-          new DimensionsSpec(
-              DimensionsSpec.getDefaultSchemas(ImmutableList.of("dim0", "dim1", "dim2", "dim3")),
-              null,
-              null
-          )
+          new DimensionsSpec(DimensionsSpec.getDefaultSchemas(ImmutableList.of("dim0", "dim1", "dim2", "dim3")))
       )
   );
 
@@ -102,7 +88,7 @@ public class LongFilteringTest extends BaseFilterTest
   public LongFilteringTest(
       String testName,
       IndexBuilder indexBuilder,
-      Function<IndexBuilder, Pair<StorageAdapter, Closeable>> finisher,
+      Function<IndexBuilder, Pair<CursorFactory, Closeable>> finisher,
       boolean cnf,
       boolean optimize
   )
@@ -378,82 +364,5 @@ public class LongFilteringTest extends BaseFilterTest
         new SearchQueryDimFilter(LONG_COLUMN, new ContainsSearchQuerySpec("s", true), exfn),
         ImmutableList.of("2", "3", "4")
     );
-  }
-
-  @Test
-  public void testMultithreaded()
-  {
-    assertFilterMatchesMultithreaded(
-        new SelectorDimFilter(LONG_COLUMN, "3", null),
-        ImmutableList.of("3")
-    );
-
-    assertFilterMatchesMultithreaded(
-        new InDimFilter(LONG_COLUMN, Arrays.asList("2", "4", "8"), null),
-        ImmutableList.of("2", "4")
-    );
-
-    // cross the hashing threshold to test hashset implementation, filter on even values
-    List<String> infilterValues = new ArrayList<>(NUM_FILTER_VALUES);
-    for (int i = 0; i < NUM_FILTER_VALUES; i++) {
-      infilterValues.add(String.valueOf(i * 2));
-    }
-    assertFilterMatchesMultithreaded(
-        new InDimFilter(LONG_COLUMN, infilterValues, null),
-        ImmutableList.of("2", "4", "6")
-    );
-
-    assertFilterMatches(
-        new BoundDimFilter(LONG_COLUMN, "2", "5", false, false, null, null, StringComparators.NUMERIC),
-        ImmutableList.of("2", "3", "4", "5")
-    );
-  }
-
-  private void assertFilterMatchesMultithreaded(
-      final DimFilter filter,
-      final List<String> expectedRows
-  )
-  {
-    testWithExecutor(filter, expectedRows);
-  }
-
-  private Runnable makeFilterRunner(
-      final DimFilter filter,
-      final List<String> expectedRows
-  )
-  {
-    return new Runnable()
-    {
-      @Override
-      public void run()
-      {
-        assertFilterMatches(filter, expectedRows);
-      }
-    };
-  }
-
-  private void testWithExecutor(
-      final DimFilter filter,
-      final List<String> expectedRows
-  )
-  {
-    ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(EXECUTOR_NUM_THREADS));
-
-    List<ListenableFuture<?>> futures = new ArrayList<>();
-
-    for (int i = 0; i < EXECUTOR_NUM_TASKS; i++) {
-      Runnable runnable = makeFilterRunner(filter, expectedRows);
-      ListenableFuture fut = executor.submit(runnable);
-      futures.add(fut);
-    }
-
-    try {
-      Futures.allAsList(futures).get(60, TimeUnit.SECONDS);
-    }
-    catch (Exception ex) {
-      Assert.fail(ex.getMessage());
-    }
-
-    executor.shutdown();
   }
 }

@@ -33,6 +33,7 @@ import org.apache.druid.java.util.common.StringUtils;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 /**
@@ -124,14 +125,51 @@ public interface TaskRunner
 
   /**
    * APIs useful for emitting statistics for @TaskSlotCountStatsMonitor
-  */
-  long getTotalTaskSlotCount();
+   */
+  Map<String, Long> getTotalTaskSlotCount();
 
-  long getIdleTaskSlotCount();
+  Map<String, Long> getIdleTaskSlotCount();
 
-  long getUsedTaskSlotCount();
+  Map<String, Long> getUsedTaskSlotCount();
 
-  long getLazyTaskSlotCount();
+  Map<String, Long> getLazyTaskSlotCount();
 
-  long getBlacklistedTaskSlotCount();
+  Map<String, Long> getBlacklistedTaskSlotCount();
+
+  default void updateStatus(Task task, TaskStatus status)
+  {
+    // do nothing
+  }
+
+  default void updateLocation(Task task, TaskLocation location)
+  {
+    // do nothing
+  }
+
+  /**
+   * The maximum number of tasks this TaskRunner can run concurrently.
+   * Can return -1 if this method is not implemented or capacity can't be found.
+   */
+  default int getTotalCapacity()
+  {
+    return -1;
+  }
+
+  /**
+   * The maximum number of tasks this TaskRunner can run concurrently with autoscaling hints.
+   * @return -1 if this method is not implemented or capacity can't be found.
+   */
+  default int getMaximumCapacityWithAutoscale()
+  {
+    return -1;
+  }
+
+  /**
+   * The current number of tasks this TaskRunner is running.
+   * Can return -1 if this method is not implemented or the # of tasks can't be found.
+   */
+  default int getUsedCapacity()
+  {
+    return -1;
+  }
 }

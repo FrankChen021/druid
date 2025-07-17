@@ -19,11 +19,16 @@
 
 package org.apache.druid.indexing.overlord.supervisor;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.indexing.overlord.supervisor.autoscaler.SupervisorTaskAutoScaler;
+import org.apache.druid.server.security.ResourceAction;
 
+import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Set;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(value = {
@@ -72,10 +77,40 @@ public interface SupervisorSpec
   String getType();
 
   /**
+   * @return The types of {@link org.apache.druid.data.input.InputSource} that the task uses. Empty set is returned if
+   * the task does not use any. Users can be given permission to access particular types of
+   * input sources but not others, using the
+   * {@link org.apache.druid.server.security.AuthConfig#enableInputSourceSecurity} config.
+   */
+  @JsonIgnore
+  @Nonnull
+  default Set<ResourceAction> getInputSourceResources() throws UnsupportedOperationException
+  {
+    throw DruidException.forPersona(DruidException.Persona.OPERATOR)
+                        .ofCategory(DruidException.Category.UNSUPPORTED)
+                        .build("Supervisor type[%s] does not support input source based security", getType());
+  }
+
+  /**
    * This API is only used for informational purposes in
    * org.apache.druid.sql.calcite.schema.SystemSchema.SupervisorsTable
    *
    * @return source like stream or topic name
    */
   String getSource();
+
+  /**
+   * Checks if a spec can be replaced with a proposed spec (proposesSpec).
+   * <p>
+   * By default, this method does no validation checks. Implementations of this method can choose to define rules
+   * for spec updates and throw an exception if the update is not allowed.
+   * </p>
+   *
+   * @param proposedSpec the proposed supervisor spec
+   * @throws DruidException if the spec update is not allowed
+   */
+  default void validateSpecUpdateTo(SupervisorSpec proposedSpec) throws DruidException
+  {
+    // The default implementation does not do any validation checks.
+  }
 }

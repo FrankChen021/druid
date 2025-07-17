@@ -24,12 +24,8 @@ import junitparams.Parameters;
 import org.apache.commons.io.IOUtils;
 import org.apache.druid.annotations.UsedByJUnitParamsRunner;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
-import org.easymock.EasyMock;
-import org.joda.time.DateTime;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -37,7 +33,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.HashMap;
 
 
 @RunWith(JUnitParamsRunner.class)
@@ -52,22 +47,9 @@ public class WhiteListBasedConverterTest
       null,
       new DefaultObjectMapper()
   );
-  private ServiceMetricEvent event;
-  private DateTime createdTime = DateTimes.nowUtc();
-  private String hostname = "testHost.yahoo.com:8080";
-  private String serviceName = "historical";
-  private String defaultNamespace = prefix + "." + serviceName + "." + GraphiteEmitter.sanitize(hostname);
-
-  @Before
-  public void setUp()
-  {
-    event = EasyMock.createMock(ServiceMetricEvent.class);
-    EasyMock.expect(event.getHost()).andReturn(hostname).anyTimes();
-    EasyMock.expect(event.getService()).andReturn(serviceName).anyTimes();
-    EasyMock.expect(event.getCreatedTime()).andReturn(createdTime).anyTimes();
-    EasyMock.expect(event.getUserDims()).andReturn(new HashMap<>()).anyTimes();
-    EasyMock.expect(event.getValue()).andReturn(10).anyTimes();
-  }
+  private final String hostname = "testHost.yahoo.com:8080";
+  private final String serviceName = "historical";
+  private final String defaultNamespace = prefix + "." + serviceName + "." + GraphiteEmitter.sanitize(hostname);
 
   @Test
   @Parameters(
@@ -94,8 +76,11 @@ public class WhiteListBasedConverterTest
   )
   public void testDefaultIsInWhiteList(String key, boolean expectedValue)
   {
-    EasyMock.expect(event.getMetric()).andReturn(key).anyTimes();
-    EasyMock.replay(event);
+    ServiceMetricEvent event = ServiceMetricEvent
+        .builder()
+        .setMetric(key, 10)
+        .build(serviceName, hostname);
+
     boolean isIn = defaultWhiteListBasedConverter.druidEventToGraphite(event) != null;
     Assert.assertEquals(expectedValue, isIn);
   }
@@ -136,7 +121,7 @@ public class WhiteListBasedConverterTest
 
     ServiceMetricEvent event = new ServiceMetricEvent.Builder()
         .setDimension("gcName", new String[]{"g1"})
-        .build(createdTime, "jvm/gc/cpu", 10)
+        .setMetric("jvm/gc/cpu", 10)
         .build(serviceName, hostname);
 
     GraphiteEvent graphiteEvent = converter.druidEventToGraphite(event);
@@ -154,14 +139,14 @@ public class WhiteListBasedConverterTest
                                             .setDimension("status", "some_status")
                                             .setDimension("numDimensions", "1")
                                             .setDimension("segment", "dummy_segment")
-                                            .build(createdTime, "query/segment/time/balabla/more", 10)
+                                            .setMetric("query/segment/time/balabla/more", 10)
                 .build(serviceName, hostname),
             defaultNamespace + ".query/segment/time/balabla/more"
         },
         new Object[]{
             new ServiceMetricEvent.Builder().setDimension("dataSource", "some_data_source")
                                             .setDimension("tier", "_default_tier")
-                                            .build(createdTime, "segment/max", 10)
+                                            .setMetric("segment/max", 10)
                 .build(serviceName, hostname),
             null
         },
@@ -176,7 +161,7 @@ public class WhiteListBasedConverterTest
                                             .setDimension("remoteAddress", "194.0.90.2")
                                             .setDimension("id", "ID")
                                             .setDimension("context", "{context}")
-                                            .build(createdTime, "query/time", 10)
+                                            .setMetric("query/time", 10)
                 .build(serviceName, hostname),
             defaultNamespace + ".data-source.groupBy.query/time"
         },
@@ -184,7 +169,7 @@ public class WhiteListBasedConverterTest
             new ServiceMetricEvent.Builder().setDimension("dataSource", "data-source")
                                             .setDimension("type", "groupBy")
                                             .setDimension("some_random_dim1", "random_dim_value1")
-                                            .build(createdTime, "ingest/persists/count", 10)
+                                            .setMetric("ingest/persists/count", 10)
                 .build(serviceName, hostname),
             defaultNamespace + ".ingest/persists/count"
         },
@@ -192,7 +177,7 @@ public class WhiteListBasedConverterTest
             new ServiceMetricEvent.Builder().setDimension("bufferpoolName", "BufferPool")
                                             .setDimension("type", "groupBy")
                                             .setDimension("some_random_dim1", "random_dim_value1")
-                                            .build(createdTime, "jvm/bufferpool/capacity", 10)
+                                            .setMetric("jvm/bufferpool/capacity", 10)
                 .build(serviceName, hostname),
             null
         }

@@ -31,9 +31,15 @@ import org.apache.druid.metadata.MetadataStorage;
 import org.apache.druid.metadata.MetadataStorageConnectorConfig;
 import org.apache.druid.metadata.MetadataStorageTablesConfig;
 import org.apache.druid.metadata.SQLMetadataConnector;
+import org.apache.druid.segment.metadata.CentralizedDatasourceSchemaConfig;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.tweak.HandleCallback;
+
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Locale;
 
 @ManageLifecycle
 public class DerbyConnector extends SQLMetadataConnector
@@ -48,10 +54,11 @@ public class DerbyConnector extends SQLMetadataConnector
   public DerbyConnector(
       MetadataStorage storage,
       Supplier<MetadataStorageConnectorConfig> config,
-      Supplier<MetadataStorageTablesConfig> dbTables
+      Supplier<MetadataStorageTablesConfig> dbTables,
+      CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig
   )
   {
-    super(config, dbTables);
+    super(config, dbTables, centralizedDatasourceSchemaConfig);
 
     final BasicDataSource datasource = getDatasource();
     datasource.setDriverClassLoader(getClass().getClassLoader());
@@ -66,10 +73,11 @@ public class DerbyConnector extends SQLMetadataConnector
       MetadataStorage storage,
       Supplier<MetadataStorageConnectorConfig> config,
       Supplier<MetadataStorageTablesConfig> dbTables,
-      DBI dbi
+      DBI dbi,
+      CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig
   )
   {
-    super(config, dbTables);
+    super(config, dbTables, centralizedDatasourceSchemaConfig);
     this.dbi = dbi;
     this.storage = storage;
   }
@@ -115,6 +123,12 @@ public class DerbyConnector extends SQLMetadataConnector
   }
 
   @Override
+  public String limitClause(int limit)
+  {
+    return String.format(Locale.ENGLISH, "FETCH NEXT %d ROWS ONLY", limit);
+  }
+
+  @Override
   public void exportTable(
       String tableName,
       String outputPath
@@ -134,6 +148,65 @@ public class DerbyConnector extends SQLMetadataConnector
                 )
             ).execute();
             return null;
+          }
+        }
+    );
+  }
+
+  /**
+   * Get the ResultSet for indexInfo for given table
+   *
+   * @param databaseMetaData DatabaseMetaData
+   * @param tableName        Name of table
+   * @return ResultSet with index info
+   */
+  @Override
+  public ResultSet getIndexInfo(DatabaseMetaData databaseMetaData, String tableName) throws SQLException
+  {
+    return databaseMetaData.getIndexInfo(
+        null,
+        null,
+        StringUtils.toUpperCase(tableName),  // tableName needs to be uppercase in derby default setting
+        false,
+        false
+    );
+  }
+  /**
+   * Interrogate table metadata and return true or false depending on the existance of the indicated column
+   *
+   * public visibility because DerbyConnector needs to override thanks to uppercase table and column names.
+   *
+   * @param tableName The table being interrogated
+   * @param columnName The column being looked for
+   * @return boolean indicating the existence of the column in question
+   */
+  @Override
+  public boolean tableHasColumn(String tableName, String columnName)
+  {
+    return getDBI().withHandle(
+        new HandleCallback<>()
+        {
+          @Override
+          public Boolean withHandle(Handle handle)
+          {
+            try {
+              if (tableExists(handle, tableName)) {
+                DatabaseMetaData dbMetaData = handle.getConnection().getMetaData();
+                try (ResultSet columns = dbMetaData.getColumns(
+                        null,
+                        null,
+                        tableName.toUpperCase(Locale.ENGLISH),
+                        columnName.toUpperCase(Locale.ENGLISH)
+                )) {
+                  return columns.next();
+                }
+              } else {
+                return false;
+              }
+            }
+            catch (SQLException e) {
+              return false;
+            }
           }
         }
     );

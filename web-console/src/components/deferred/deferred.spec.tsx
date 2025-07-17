@@ -17,11 +17,10 @@
  */
 
 import { render } from '@testing-library/react';
-import React from 'react';
 
 import { Deferred } from './deferred';
 
-describe('deferred', () => {
+describe('Deferred', () => {
   it('matches snapshot', () => {
     const deferred = <Deferred content={() => <div />} />;
 

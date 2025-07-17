@@ -23,17 +23,17 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import nl.jqno.equalsverifier.EqualsVerifier;
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.query.extraction.MapLookupExtractor;
 import org.apache.druid.query.extraction.TimeDimExtractionFn;
 import org.apache.druid.query.filter.ExtractionDimFilter;
+import org.apache.druid.query.filter.FalseDimFilter;
 import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.lookup.LookupExtractionFn;
 import org.apache.druid.query.lookup.LookupExtractor;
+import org.apache.druid.segment.CursorFactory;
 import org.apache.druid.segment.IndexBuilder;
-import org.apache.druid.segment.StorageAdapter;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
@@ -44,13 +44,17 @@ import java.io.Closeable;
 import java.util.Arrays;
 import java.util.Map;
 
+/**
+ * Classic {@link SelectorFilter} test. Consider adding tests to {@link EqualityFilterTests} in addition to, or
+ * instead of here.
+ */
 @RunWith(Parameterized.class)
 public class SelectorFilterTest extends BaseFilterTest
 {
   public SelectorFilterTest(
       String testName,
       IndexBuilder indexBuilder,
-      Function<IndexBuilder, Pair<StorageAdapter, Closeable>> finisher,
+      Function<IndexBuilder, Pair<CursorFactory, Closeable>> finisher,
       boolean cnf,
       boolean optimize
   )
@@ -116,14 +120,40 @@ public class SelectorFilterTest extends BaseFilterTest
   }
 
   @Test
+  public void testListFilteredVirtualColumn()
+  {
+    assertFilterMatchesSkipVectorize(new SelectorDimFilter("allow-dim0", "1", null), ImmutableList.of());
+    assertFilterMatchesSkipVectorize(new SelectorDimFilter("allow-dim0", "4", null), ImmutableList.of("4"));
+    assertFilterMatchesSkipVectorize(
+        new SelectorDimFilter("allow-dim0", null, null),
+        ImmutableList.of("0", "1", "2", "5")
+    );
+    assertFilterMatchesSkipVectorize(new SelectorDimFilter("deny-dim0", "0", null), ImmutableList.of("0"));
+    assertFilterMatchesSkipVectorize(new SelectorDimFilter("deny-dim0", "4", null), ImmutableList.of());
+    assertFilterMatchesSkipVectorize(new SelectorDimFilter("deny-dim0", null, null), ImmutableList.of("3", "4"));
+    if (isAutoSchema()) {
+      return;
+    }
+    assertFilterMatchesSkipVectorize(new SelectorDimFilter("allow-dim2", "b", null), ImmutableList.of());
+    assertFilterMatchesSkipVectorize(new SelectorDimFilter("allow-dim2", "a", null), ImmutableList.of("0", "3"));
+    assertFilterMatchesSkipVectorize(
+        new SelectorDimFilter("allow-dim2", null, null),
+        ImmutableList.of("1", "2", "4", "5")
+    );
+    assertFilterMatchesSkipVectorize(new SelectorDimFilter("deny-dim2", "b", null), ImmutableList.of("0"));
+    assertFilterMatchesSkipVectorize(new SelectorDimFilter("deny-dim2", "a", null), ImmutableList.of());
+
+    assertFilterMatchesSkipVectorize(
+        new SelectorDimFilter("deny-dim2", null, null),
+        ImmutableList.of("1", "3", "5")
+    );
+  }
+
+  @Test
   public void testSingleValueStringColumnWithNulls()
   {
     // testSingleValueStringColumnWithoutNulls but with virtual column selector
-    if (NullHandling.replaceWithDefault()) {
-      assertFilterMatches(new SelectorDimFilter("dim1", null, null), ImmutableList.of("0"));
-    } else {
-      assertFilterMatches(new SelectorDimFilter("dim1", null, null), ImmutableList.of());
-    }
+    assertFilterMatches(new SelectorDimFilter("dim1", null, null), ImmutableList.of());
     assertFilterMatches(new SelectorDimFilter("dim1", "", null), ImmutableList.of("0"));
     assertFilterMatches(new SelectorDimFilter("dim1", "10", null), ImmutableList.of("1"));
     assertFilterMatches(new SelectorDimFilter("dim1", "2", null), ImmutableList.of("2"));
@@ -137,11 +167,7 @@ public class SelectorFilterTest extends BaseFilterTest
   public void testSingleValueVirtualStringColumnWithNulls()
   {
     // testSingleValueStringColumnWithNulls but with virtual column selector
-    if (NullHandling.replaceWithDefault()) {
-      assertFilterMatches(new SelectorDimFilter("vdim1", null, null), ImmutableList.of("0"));
-    } else {
-      assertFilterMatches(new SelectorDimFilter("vdim1", null, null), ImmutableList.of());
-    }
+    assertFilterMatches(new SelectorDimFilter("vdim1", null, null), ImmutableList.of());
     assertFilterMatches(new SelectorDimFilter("vdim1", "", null), ImmutableList.of("0"));
     assertFilterMatches(new SelectorDimFilter("vdim1", "10", null), ImmutableList.of("1"));
     assertFilterMatches(new SelectorDimFilter("vdim1", "2", null), ImmutableList.of("2"));
@@ -154,13 +180,11 @@ public class SelectorFilterTest extends BaseFilterTest
   @Test
   public void testMultiValueStringColumn()
   {
-    if (NullHandling.replaceWithDefault()) {
-      assertFilterMatches(new SelectorDimFilter("dim2", null, null), ImmutableList.of("1", "2", "5"));
-      assertFilterMatches(new SelectorDimFilter("dim2", "", null), ImmutableList.of("1", "2", "5"));
-    } else {
-      assertFilterMatches(new SelectorDimFilter("dim2", null, null), ImmutableList.of("1", "5"));
-      assertFilterMatches(new SelectorDimFilter("dim2", "", null), ImmutableList.of("2"));
+    if (isAutoSchema()) {
+      return;
     }
+    assertFilterMatches(new SelectorDimFilter("dim2", null, null), ImmutableList.of("1", "5"));
+    assertFilterMatches(new SelectorDimFilter("dim2", "", null), ImmutableList.of("2"));
     assertFilterMatches(new SelectorDimFilter("dim2", "a", null), ImmutableList.of("0", "3"));
     assertFilterMatches(new SelectorDimFilter("dim2", "b", null), ImmutableList.of("0"));
     assertFilterMatches(new SelectorDimFilter("dim2", "c", null), ImmutableList.of("4"));
@@ -171,11 +195,7 @@ public class SelectorFilterTest extends BaseFilterTest
   public void testMissingColumnSpecifiedInDimensionList()
   {
     assertFilterMatches(new SelectorDimFilter("dim3", null, null), ImmutableList.of("0", "1", "2", "3", "4", "5"));
-    if (NullHandling.replaceWithDefault()) {
-      assertFilterMatches(new SelectorDimFilter("dim3", "", null), ImmutableList.of("0", "1", "2", "3", "4", "5"));
-    } else {
-      assertFilterMatches(new SelectorDimFilter("dim3", "", null), ImmutableList.of());
-    }
+    assertFilterMatches(new SelectorDimFilter("dim3", "", null), ImmutableList.of());
     assertFilterMatches(new SelectorDimFilter("dim3", "a", null), ImmutableList.of());
     assertFilterMatches(new SelectorDimFilter("dim3", "b", null), ImmutableList.of());
     assertFilterMatches(new SelectorDimFilter("dim3", "c", null), ImmutableList.of());
@@ -185,11 +205,7 @@ public class SelectorFilterTest extends BaseFilterTest
   public void testMissingColumnNotSpecifiedInDimensionList()
   {
     assertFilterMatches(new SelectorDimFilter("dim4", null, null), ImmutableList.of("0", "1", "2", "3", "4", "5"));
-    if (NullHandling.replaceWithDefault()) {
-      assertFilterMatches(new SelectorDimFilter("dim4", "", null), ImmutableList.of("0", "1", "2", "3", "4", "5"));
-    } else {
-      assertFilterMatches(new SelectorDimFilter("dim4", "", null), ImmutableList.of());
-    }
+    assertFilterMatches(new SelectorDimFilter("dim4", "", null), ImmutableList.of());
     assertFilterMatches(new SelectorDimFilter("dim4", "a", null), ImmutableList.of());
     assertFilterMatches(new SelectorDimFilter("dim4", "b", null), ImmutableList.of());
     assertFilterMatches(new SelectorDimFilter("dim4", "c", null), ImmutableList.of());
@@ -223,8 +239,11 @@ public class SelectorFilterTest extends BaseFilterTest
     assertFilterMatches(new SelectorDimFilter("dim1", "HELLO", lookupFn), ImmutableList.of("3", "4"));
     assertFilterMatches(new SelectorDimFilter("dim1", "UNKNOWN", lookupFn), ImmutableList.of("0", "1", "2", "5"));
 
-    assertFilterMatches(new SelectorDimFilter("dim2", "HELLO", lookupFn), ImmutableList.of("0", "3"));
-    assertFilterMatches(new SelectorDimFilter("dim2", "UNKNOWN", lookupFn), ImmutableList.of("0", "1", "2", "4", "5"));
+    assertFilterMatchesSkipArrays(new SelectorDimFilter("dim2", "HELLO", lookupFn), ImmutableList.of("0", "3"));
+    assertFilterMatchesSkipArrays(
+        new SelectorDimFilter("dim2", "UNKNOWN", lookupFn),
+        ImmutableList.of("0", "1", "2", "4", "5")
+    );
 
     assertFilterMatches(new SelectorDimFilter("dim3", "HELLO", lookupFn), ImmutableList.of());
     assertFilterMatches(
@@ -250,22 +269,14 @@ public class SelectorFilterTest extends BaseFilterTest
     );
     LookupExtractor mapExtractor3 = new MapLookupExtractor(stringMap3, false);
     LookupExtractionFn lookupFn3 = new LookupExtractionFn(mapExtractor3, false, null, false, true);
-    if (NullHandling.replaceWithDefault()) {
-      // Nulls and empty strings are considered equivalent
-      assertFilterMatches(
-          new SelectorDimFilter("dim0", null, lookupFn3),
-          ImmutableList.of("0", "1", "2", "3", "4", "5")
-      );
-    } else {
-      assertFilterMatches(
-          new SelectorDimFilter("dim0", null, lookupFn3),
-          ImmutableList.of("0", "2", "3", "4", "5")
-      );
-      assertFilterMatches(
-          new SelectorDimFilter("dim0", "", lookupFn3),
-          ImmutableList.of("1")
-      );
-    }
+    assertFilterMatches(
+        new SelectorDimFilter("dim0", null, lookupFn3),
+        ImmutableList.of("0", "2", "3", "4", "5")
+    );
+    assertFilterMatches(
+        new SelectorDimFilter("dim0", "", lookupFn3),
+        ImmutableList.of("1")
+    );
 
 
     final Map<String, String> stringMap4 = ImmutableMap.of(
@@ -298,21 +309,16 @@ public class SelectorFilterTest extends BaseFilterTest
     SelectorDimFilter optFilter4Optimized = new SelectorDimFilter("dim0", "5", null);
     SelectorDimFilter optFilter6Optimized = new SelectorDimFilter("dim0", "5", null);
 
-    Assert.assertTrue(optFilter1.equals(optFilter1.optimize()));
-    Assert.assertTrue(optFilter2Optimized.equals(optFilter2.optimize()));
-    Assert.assertTrue(optFilter3.equals(optFilter3.optimize()));
-    Assert.assertTrue(optFilter4Optimized.equals(optFilter4.optimize()));
-    Assert.assertTrue(optFilter5.equals(optFilter5.optimize()));
-    Assert.assertTrue(optFilter6Optimized.equals(optFilter6.optimize()));
+    Assert.assertEquals(optFilter1, optFilter1.optimize(false));
+    Assert.assertEquals(optFilter2Optimized, optFilter2.optimize(false));
+    Assert.assertEquals(optFilter3, optFilter3.optimize(false));
+    Assert.assertEquals(optFilter4Optimized, optFilter4.optimize(false));
+    Assert.assertEquals(FalseDimFilter.instance(), optFilter5.optimize(false));
+    Assert.assertEquals(optFilter6Optimized, optFilter6.optimize(false));
 
     assertFilterMatches(optFilter1, ImmutableList.of("0", "1", "2", "5"));
     assertFilterMatches(optFilter2, ImmutableList.of("2", "5"));
-    if (NullHandling.replaceWithDefault()) {
-      // Null and Empty strings are same
-      assertFilterMatches(optFilter3, ImmutableList.of("0", "1", "2", "3", "4", "5"));
-    } else {
-      assertFilterMatches(optFilter3, ImmutableList.of("0", "2", "3", "4", "5"));
-    }
+    assertFilterMatches(optFilter3, ImmutableList.of("0", "2", "3", "4", "5"));
     assertFilterMatches(optFilter4, ImmutableList.of("5"));
     assertFilterMatches(optFilter5, ImmutableList.of());
     assertFilterMatches(optFilter6, ImmutableList.of("5"));
@@ -324,61 +330,37 @@ public class SelectorFilterTest extends BaseFilterTest
         ImmutableList.of("0", "1", "2", "5")
     );
     assertFilterMatches(new ExtractionDimFilter("dim0", "5", lookupFn2, null), ImmutableList.of("2", "5"));
-    if (NullHandling.replaceWithDefault()) {
-      assertFilterMatches(
-          new ExtractionDimFilter("dim0", null, lookupFn3, null),
-          ImmutableList.of("0", "1", "2", "3", "4", "5")
-      );
-    } else {
-      assertFilterMatches(
-          new ExtractionDimFilter("dim0", null, lookupFn3, null),
-          ImmutableList.of("0", "2", "3", "4", "5")
-      );
-      assertFilterMatches(
-          new ExtractionDimFilter("dim0", "", lookupFn3, null),
-          ImmutableList.of("1")
-      );
-    }
+
+    assertFilterMatches(
+        new ExtractionDimFilter("dim0", null, lookupFn3, null),
+        ImmutableList.of("0", "2", "3", "4", "5")
+    );
+    assertFilterMatches(
+        new ExtractionDimFilter("dim0", "", lookupFn3, null),
+        ImmutableList.of("1")
+    );
   }
 
   @Test
   public void testNumericColumnNullsAndDefaults()
   {
-    if (canTestNumericNullsAsDefaultValues) {
-      assertFilterMatches(new SelectorDimFilter("f0", "0", null), ImmutableList.of("0", "4"));
-      assertFilterMatches(new SelectorDimFilter("d0", "0", null), ImmutableList.of("0", "2"));
-      assertFilterMatches(new SelectorDimFilter("l0", "0", null), ImmutableList.of("0", "3"));
-      assertFilterMatches(new SelectorDimFilter("f0", null, null), ImmutableList.of());
-      assertFilterMatches(new SelectorDimFilter("d0", null, null), ImmutableList.of());
-      assertFilterMatches(new SelectorDimFilter("l0", null, null), ImmutableList.of());
-    } else {
-      assertFilterMatches(new SelectorDimFilter("f0", "0", null), ImmutableList.of("0"));
-      assertFilterMatches(new SelectorDimFilter("d0", "0", null), ImmutableList.of("0"));
-      assertFilterMatches(new SelectorDimFilter("l0", "0", null), ImmutableList.of("0"));
-      assertFilterMatches(new SelectorDimFilter("f0", null, null), ImmutableList.of("4"));
-      assertFilterMatches(new SelectorDimFilter("d0", null, null), ImmutableList.of("2"));
-      assertFilterMatches(new SelectorDimFilter("l0", null, null), ImmutableList.of("3"));
-    }
+    assertFilterMatches(new SelectorDimFilter("f0", "0", null), ImmutableList.of("0"));
+    assertFilterMatches(new SelectorDimFilter("d0", "0", null), ImmutableList.of("0"));
+    assertFilterMatches(new SelectorDimFilter("l0", "0", null), ImmutableList.of("0"));
+    assertFilterMatches(new SelectorDimFilter("f0", null, null), ImmutableList.of("4"));
+    assertFilterMatches(new SelectorDimFilter("d0", null, null), ImmutableList.of("2"));
+    assertFilterMatches(new SelectorDimFilter("l0", null, null), ImmutableList.of("3"));
   }
 
   @Test
   public void testVirtualNumericColumnNullsAndDefaults()
   {
-    if (canTestNumericNullsAsDefaultValues) {
-      assertFilterMatches(new SelectorDimFilter("vf0", "0", null), ImmutableList.of("0", "4"));
-      assertFilterMatches(new SelectorDimFilter("vd0", "0", null), ImmutableList.of("0", "2"));
-      assertFilterMatches(new SelectorDimFilter("vl0", "0", null), ImmutableList.of("0", "3"));
-      assertFilterMatches(new SelectorDimFilter("vf0", null, null), ImmutableList.of());
-      assertFilterMatches(new SelectorDimFilter("vd0", null, null), ImmutableList.of());
-      assertFilterMatches(new SelectorDimFilter("vl0", null, null), ImmutableList.of());
-    } else {
-      assertFilterMatches(new SelectorDimFilter("vf0", "0", null), ImmutableList.of("0"));
-      assertFilterMatches(new SelectorDimFilter("vd0", "0", null), ImmutableList.of("0"));
-      assertFilterMatches(new SelectorDimFilter("vl0", "0", null), ImmutableList.of("0"));
-      assertFilterMatches(new SelectorDimFilter("vf0", null, null), ImmutableList.of("4"));
-      assertFilterMatches(new SelectorDimFilter("vd0", null, null), ImmutableList.of("2"));
-      assertFilterMatches(new SelectorDimFilter("vl0", null, null), ImmutableList.of("3"));
-    }
+    assertFilterMatches(new SelectorDimFilter("vf0", "0", null), ImmutableList.of("0"));
+    assertFilterMatches(new SelectorDimFilter("vd0", "0", null), ImmutableList.of("0"));
+    assertFilterMatches(new SelectorDimFilter("vl0", "0", null), ImmutableList.of("0"));
+    assertFilterMatches(new SelectorDimFilter("vf0", null, null), ImmutableList.of("4"));
+    assertFilterMatches(new SelectorDimFilter("vd0", null, null), ImmutableList.of("2"));
+    assertFilterMatches(new SelectorDimFilter("vl0", null, null), ImmutableList.of("3"));
   }
 
   @Test

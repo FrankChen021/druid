@@ -29,9 +29,6 @@ import com.google.common.base.Strings;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
 import com.sun.jersey.spi.container.ResourceFilters;
-import org.apache.druid.audit.AuditInfo;
-import org.apache.druid.audit.AuditManager;
-import org.apache.druid.common.utils.ServletResourceUtils;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Smile;
 import org.apache.druid.java.util.common.IAE;
@@ -41,6 +38,7 @@ import org.apache.druid.query.lookup.LookupsState;
 import org.apache.druid.server.http.security.ConfigResourceFilter;
 import org.apache.druid.server.lookup.cache.LookupCoordinatorManager;
 import org.apache.druid.server.lookup.cache.LookupExtractorFactoryMapContainer;
+import org.apache.druid.server.security.AuthorizationUtils;
 
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
@@ -48,7 +46,6 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -149,8 +146,6 @@ public class LookupCoordinatorResource
   @Consumes({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
   public Response updateAllLookups(
       InputStream in,
-      @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
-      @HeaderParam(AuditManager.X_DRUID_COMMENT) @DefaultValue("") final String comment,
       @Context HttpServletRequest req
   )
   {
@@ -159,14 +154,12 @@ public class LookupCoordinatorResource
       final ObjectMapper mapper = isSmile ? smileMapper : jsonMapper;
       final Map<String, Map<String, LookupExtractorFactoryMapContainer>> map;
       try {
-        map = mapper.readValue(in, new TypeReference<Map<String, Map<String, LookupExtractorFactoryMapContainer>>>()
-        {
-        });
+        map = mapper.readValue(in, new TypeReference<>() {});
       }
       catch (IOException e) {
         return Response.status(Response.Status.BAD_REQUEST).entity(ServletResourceUtils.sanitizeException(e)).build();
       }
-      if (lookupCoordinatorManager.updateLookups(map, new AuditInfo(author, comment, req.getRemoteAddr()))) {
+      if (lookupCoordinatorManager.updateLookups(map, AuthorizationUtils.buildAuditInfo(req))) {
         return Response.status(Response.Status.ACCEPTED).entity(map).build();
       } else {
         throw new RuntimeException("Unknown error updating configuration");
@@ -183,8 +176,6 @@ public class LookupCoordinatorResource
   @Path("/config/{tier}")
   public Response deleteTier(
       @PathParam("tier") String tier,
-      @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
-      @HeaderParam(AuditManager.X_DRUID_COMMENT) @DefaultValue("") final String comment,
       @Context HttpServletRequest req
   )
   {
@@ -195,7 +186,7 @@ public class LookupCoordinatorResource
                        .build();
       }
 
-      if (lookupCoordinatorManager.deleteTier(tier, new AuditInfo(author, comment, req.getRemoteAddr()))) {
+      if (lookupCoordinatorManager.deleteTier(tier, AuthorizationUtils.buildAuditInfo(req))) {
         return Response.status(Response.Status.ACCEPTED).build();
       } else {
         return Response.status(Response.Status.NOT_FOUND).build();
@@ -213,8 +204,6 @@ public class LookupCoordinatorResource
   public Response deleteLookup(
       @PathParam("tier") String tier,
       @PathParam("lookup") String lookup,
-      @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
-      @HeaderParam(AuditManager.X_DRUID_COMMENT) @DefaultValue("") final String comment,
       @Context HttpServletRequest req
   )
   {
@@ -231,7 +220,7 @@ public class LookupCoordinatorResource
                        .build();
       }
 
-      if (lookupCoordinatorManager.deleteLookup(tier, lookup, new AuditInfo(author, comment, req.getRemoteAddr()))) {
+      if (lookupCoordinatorManager.deleteLookup(tier, lookup, AuthorizationUtils.buildAuditInfo(req))) {
         return Response.status(Response.Status.ACCEPTED).build();
       } else {
         return Response.status(Response.Status.NOT_FOUND).build();
@@ -249,8 +238,6 @@ public class LookupCoordinatorResource
   public Response createOrUpdateLookup(
       @PathParam("tier") String tier,
       @PathParam("lookup") String lookup,
-      @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
-      @HeaderParam(AuditManager.X_DRUID_COMMENT) @DefaultValue("") final String comment,
       InputStream in,
       @Context HttpServletRequest req
   )
@@ -280,7 +267,7 @@ public class LookupCoordinatorResource
           tier,
           lookup,
           lookupSpec,
-          new AuditInfo(author, comment, req.getRemoteAddr())
+          AuthorizationUtils.buildAuditInfo(req)
       )) {
         return Response.status(Response.Status.ACCEPTED).build();
       } else {

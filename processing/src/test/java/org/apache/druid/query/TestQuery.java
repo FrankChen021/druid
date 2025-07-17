@@ -22,14 +22,18 @@ package org.apache.druid.query;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 
+import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Set;
 
 public class TestQuery extends BaseQuery
 {
+  @Nullable
+  private Set<String> requiredColumns;
 
-  public TestQuery(DataSource dataSource, QuerySegmentSpec querySegmentSpec, boolean descending, Map context)
+  public TestQuery(DataSource dataSource, QuerySegmentSpec querySegmentSpec, Map context)
   {
-    super(dataSource, querySegmentSpec, descending, context);
+    super(dataSource, querySegmentSpec, context);
   }
 
   @Override
@@ -68,8 +72,19 @@ public class TestQuery extends BaseQuery
     return new TestQuery(
         getDataSource(),
         getQuerySegmentSpec(),
-        isDescending(),
         BaseQuery.computeOverriddenContext(getContext(), contextOverride)
     );
+  }
+
+  @Nullable
+  @Override
+  public Set<String> getRequiredColumns()
+  {
+    return requiredColumns;
+  }
+
+  public void setRequiredColumns(Set<String> requiredColumns)
+  {
+    this.requiredColumns = requiredColumns;
   }
 }

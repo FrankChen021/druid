@@ -19,7 +19,6 @@
 
 package org.apache.druid.server.emitter;
 
-import com.fasterxml.jackson.databind.Module;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.google.inject.Binder;
@@ -35,7 +34,6 @@ import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.core.ComposingEmitter;
 import org.apache.druid.java.util.emitter.core.Emitter;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -50,12 +48,6 @@ public class ComposingEmitterModule implements DruidModule
     JsonConfigProvider.bind(binder, "druid.emitter.composing", ComposingEmitterConfig.class);
   }
 
-  @Override
-  public List<? extends Module> getJacksonModules()
-  {
-    return Collections.emptyList();
-  }
-
   @Provides
   @ManageLifecycle
   @Named("composing")
@@ -65,7 +57,7 @@ public class ComposingEmitterModule implements DruidModule
 
     List<Emitter> emitters = Lists.transform(
         config.getEmitters(),
-        new Function<String, Emitter>()
+        new Function<>()
         {
           @Override
           public Emitter apply(String s)

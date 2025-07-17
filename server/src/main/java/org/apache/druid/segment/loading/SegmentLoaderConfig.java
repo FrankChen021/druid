@@ -20,7 +20,6 @@
 package org.apache.druid.segment.loading;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import org.apache.druid.utils.JvmUtils;
 
@@ -55,6 +54,12 @@ public class SegmentLoaderConfig
 
   @JsonProperty("numBootstrapThreads")
   private Integer numBootstrapThreads = null;
+
+  @JsonProperty("numThreadsToLoadSegmentsIntoPageCacheOnDownload")
+  private int numThreadsToLoadSegmentsIntoPageCacheOnDownload = 0;
+
+  @JsonProperty("numThreadsToLoadSegmentsIntoPageCacheOnBootstrap")
+  private Integer numThreadsToLoadSegmentsIntoPageCacheOnBootstrap = null;
 
   @JsonProperty
   private File infoDir = null;
@@ -99,11 +104,20 @@ public class SegmentLoaderConfig
     return numBootstrapThreads == null ? numLoadingThreads : numBootstrapThreads;
   }
 
+  public int getNumThreadsToLoadSegmentsIntoPageCacheOnDownload()
+  {
+    return numThreadsToLoadSegmentsIntoPageCacheOnDownload;
+  }
+
+  public int getNumThreadsToLoadSegmentsIntoPageCacheOnBootstrap()
+  {
+    return numThreadsToLoadSegmentsIntoPageCacheOnBootstrap == null ?
+           numThreadsToLoadSegmentsIntoPageCacheOnDownload :
+           numThreadsToLoadSegmentsIntoPageCacheOnBootstrap;
+  }
+
   public File getInfoDir()
   {
-    if (infoDir == null) {
-      infoDir = new File(locations.get(0).getPath(), "info_dir");
-    }
     return infoDir;
   }
 
@@ -129,18 +143,8 @@ public class SegmentLoaderConfig
     return retVal;
   }
 
-  @VisibleForTesting
-  public SegmentLoaderConfig withInfoDir(File infoDir)
-  {
-    SegmentLoaderConfig retVal = new SegmentLoaderConfig();
-    retVal.locations = this.locations;
-    retVal.deleteOnRemove = this.deleteOnRemove;
-    retVal.infoDir = infoDir;
-    return retVal;
-  }
-
   /**
-   * Convert StorageLocationConfig objects to StorageLocation objects
+   * Convert a list of {@link StorageLocationConfig} objects to {@link StorageLocation} objects.
    * <p>
    * Note: {@link #getLocations} is called instead of variable access because some testcases overrides this method
    */

@@ -41,7 +41,6 @@ import java.util.function.Function;
 
 public abstract class AbstractTestQueryHelper<QueryResultType extends AbstractQueryWithResults>
 {
-
   public static final Logger LOG = new Logger(TestQueryHelper.class);
 
   protected final AbstractQueryResourceTestClient queryClient;
@@ -54,7 +53,7 @@ public abstract class AbstractTestQueryHelper<QueryResultType extends AbstractQu
   @Inject
   AbstractTestQueryHelper(
       ObjectMapper jsonMapper,
-      AbstractQueryResourceTestClient queryClient,
+      AbstractQueryResourceTestClient<?> queryClient,
       IntegrationTestingConfig config
   )
   {
@@ -70,7 +69,7 @@ public abstract class AbstractTestQueryHelper<QueryResultType extends AbstractQu
 
   AbstractTestQueryHelper(
       ObjectMapper jsonMapper,
-      AbstractQueryResourceTestClient queryClient,
+      AbstractQueryResourceTestClient<?> queryClient,
       String broker,
       String brokerTLS,
       String router,
@@ -103,9 +102,13 @@ public abstract class AbstractTestQueryHelper<QueryResultType extends AbstractQu
   public void testQueriesFromString(String str) throws Exception
   {
     testQueriesFromString(getQueryURL(broker), str);
-    testQueriesFromString(getQueryURL(brokerTLS), str);
+    if (!broker.equals(brokerTLS)) {
+      testQueriesFromString(getQueryURL(brokerTLS), str);
+    }
     testQueriesFromString(getQueryURL(router), str);
-    testQueriesFromString(getQueryURL(routerTLS), str);
+    if (!router.equals(routerTLS)) {
+      testQueriesFromString(getQueryURL(routerTLS), str);
+    }
   }
 
   public void testQueriesFromFile(String url, String filePath) throws Exception
@@ -114,9 +117,7 @@ public abstract class AbstractTestQueryHelper<QueryResultType extends AbstractQu
     List<QueryResultType> queries =
         jsonMapper.readValue(
             TestQueryHelper.class.getResourceAsStream(filePath),
-            new TypeReference<List<QueryResultType>>()
-            {
-            }
+            new TypeReference<>() {}
         );
 
     testQueries(url, queries);
@@ -124,47 +125,48 @@ public abstract class AbstractTestQueryHelper<QueryResultType extends AbstractQu
 
   public void testQueriesFromString(String url, String str) throws Exception
   {
-    LOG.info("Starting query tests using\n%s", str);
     List<QueryResultType> queries =
         jsonMapper.readValue(
             str,
-            new TypeReference<List<QueryResultType>>()
-            {
-            }
+            new TypeReference<>() {}
         );
     testQueries(url, queries);
   }
 
   private void testQueries(String url, List<QueryResultType> queries) throws Exception
   {
-    LOG.info("Running queries, url [%s]", url);
+    LOG.info("Testing [%d] queries from url[%s]", queries.size(), url);
 
-    boolean failed = false;
+    int queryIndex = 0;
     for (QueryResultType queryWithResult : queries) {
-      LOG.info("Running Query %s", queryWithResult.getQuery());
-      List<Map<String, Object>> result = queryClient.query(url, queryWithResult.getQuery());
-      if (!QueryResultVerifier.compareResults(result, queryWithResult.getExpectedResults(),
-                                              queryWithResult.getFieldsToTest()
-      )) {
+      List<Map<String, Object>> result =
+          queryClient.query(url, queryWithResult.getQuery(), queryWithResult.getDescription());
+      QueryResultVerifier.ResultVerificationObject resultsComparison = QueryResultVerifier.compareResults(
+          result,
+          queryWithResult.getExpectedResults(),
+          queryWithResult.getFieldsToTest()
+      );
+      if (!resultsComparison.isSuccess()) {
         LOG.error(
             "Failed while executing query %s \n expectedResults: %s \n actualResults : %s",
             queryWithResult.getQuery(),
             jsonMapper.writeValueAsString(queryWithResult.getExpectedResults()),
             jsonMapper.writeValueAsString(result)
         );
-        failed = true;
+        throw new ISE(
+            "Results mismatch while executing the query %s.\n"
+            + "Mismatch error: %s\n",
+            queryWithResult.getQuery(),
+            resultsComparison.getErrorMessage()
+        );
       } else {
-        LOG.info("Results Verified for Query %s", queryWithResult.getQuery());
+        LOG.info("Results Verified for Query[%d: %s]", queryIndex++, queryWithResult.getDescription());
       }
-    }
-
-    if (failed) {
-      throw new ISE("one or more queries failed");
     }
   }
 
   @SuppressWarnings("unchecked")
-  public int countRows(String dataSource, Interval interval, Function<String, AggregatorFactory> countAggregator)
+  public long countRows(String dataSource, Interval interval, Function<String, AggregatorFactory> countAggregator)
   {
     TimeseriesQuery query = Druids.newTimeseriesQueryBuilder()
                                   .dataSource(dataSource)
@@ -173,13 +175,14 @@ public abstract class AbstractTestQueryHelper<QueryResultType extends AbstractQu
                                   .intervals(Collections.singletonList(interval))
                                   .build();
 
-    List<Map<String, Object>> results = queryClient.query(getQueryURL(broker), query);
+    List<Map<String, Object>> results = queryClient.query(getQueryURL(broker), query, "Get row count");
     if (results.isEmpty()) {
       return 0;
     } else {
       Map<String, Object> map = (Map<String, Object>) results.get(0).get("result");
 
-      return (Integer) map.get("rows");
+      Integer rowCount = (Integer) map.get("rows");
+      return rowCount == null ? 0 : rowCount;
     }
   }
 }

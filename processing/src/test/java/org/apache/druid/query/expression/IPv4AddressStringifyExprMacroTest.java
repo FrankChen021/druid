@@ -19,9 +19,9 @@
 
 package org.apache.druid.query.expression;
 
-import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprEval;
+import org.apache.druid.math.expr.InputBindings;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -32,7 +32,6 @@ public class IPv4AddressStringifyExprMacroTest extends MacroTestBase
 {
   private static final Expr VALID = ExprEval.of(3232235521L).toExpr();
   private static final String EXPECTED = "192.168.0.1";
-  private static final String NULL = NullHandling.replaceWithDefault() ? "0.0.0.0" : null;
 
   public IPv4AddressStringifyExprMacroTest()
   {
@@ -42,7 +41,7 @@ public class IPv4AddressStringifyExprMacroTest extends MacroTestBase
   @Test
   public void testTooFewArgs()
   {
-    expectException(IllegalArgumentException.class, "must have 1 argument");
+    expectException(IllegalArgumentException.class, "requires 1 argument");
 
     apply(Collections.emptyList());
   }
@@ -50,7 +49,7 @@ public class IPv4AddressStringifyExprMacroTest extends MacroTestBase
   @Test
   public void testTooManyArgs()
   {
-    expectException(IllegalArgumentException.class, "must have 1 argument");
+    expectException(IllegalArgumentException.class, "requires 1 argument");
 
     apply(Arrays.asList(VALID, VALID));
   }
@@ -59,7 +58,7 @@ public class IPv4AddressStringifyExprMacroTest extends MacroTestBase
   public void testNullLongArg()
   {
     Expr nullNumeric = ExprEval.ofLong(null).toExpr();
-    Assert.assertEquals(NULL, eval(nullNumeric));
+    Assert.assertNull(eval(nullNumeric));
   }
 
   @Test
@@ -107,7 +106,7 @@ public class IPv4AddressStringifyExprMacroTest extends MacroTestBase
   public void testNullStringArg()
   {
     Expr nullString = ExprEval.of(null).toExpr();
-    Assert.assertNull(NULL, eval(nullString));
+    Assert.assertNull(eval(nullString));
   }
 
   @Test
@@ -147,7 +146,7 @@ public class IPv4AddressStringifyExprMacroTest extends MacroTestBase
   private Object eval(Expr arg)
   {
     Expr expr = apply(Collections.singletonList(arg));
-    ExprEval eval = expr.eval(ExprUtils.nilBindings());
+    ExprEval eval = expr.eval(InputBindings.nilBindings());
     return eval.value();
   }
 }

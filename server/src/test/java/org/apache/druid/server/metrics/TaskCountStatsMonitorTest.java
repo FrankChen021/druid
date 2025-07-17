@@ -21,6 +21,10 @@ package org.apache.druid.server.metrics;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.java.util.metrics.StubServiceEmitter;
+import org.apache.druid.server.coordinator.stats.CoordinatorRunStats;
+import org.apache.druid.server.coordinator.stats.CoordinatorStat;
+import org.apache.druid.server.coordinator.stats.Dimension;
+import org.apache.druid.server.coordinator.stats.RowKey;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -30,6 +34,12 @@ import java.util.Map;
 public class TaskCountStatsMonitorTest
 {
   private TaskCountStatsProvider statsProvider;
+  private static final RowKey TASK_METRIC_KEY1 = RowKey.with(Dimension.DATASOURCE, "d1")
+                                                       .with(Dimension.TASK_TYPE, "index")
+                                                       .build();
+  private static final RowKey TASK_METRIC_KEY2 = RowKey.with(Dimension.DATASOURCE, "d1")
+                                                       .with(Dimension.TASK_TYPE, "kill")
+                                                       .build();
 
   @Before
   public void setUp()
@@ -37,33 +47,42 @@ public class TaskCountStatsMonitorTest
     statsProvider = new TaskCountStatsProvider()
     {
       @Override
-      public Map<String, Long> getSuccessfulTaskCount()
+      public Map<RowKey, Long> getSuccessfulTaskCount()
       {
-        return ImmutableMap.of("d1", 1L);
+        return ImmutableMap.of(TASK_METRIC_KEY1, 1L);
       }
 
       @Override
-      public Map<String, Long> getFailedTaskCount()
+      public Map<RowKey, Long> getFailedTaskCount()
       {
-        return ImmutableMap.of("d1", 1L);
+        return ImmutableMap.of(TASK_METRIC_KEY1, 1L, TASK_METRIC_KEY2, 1L);
       }
 
       @Override
-      public Map<String, Long> getRunningTaskCount()
+      public Map<RowKey, Long> getRunningTaskCount()
       {
-        return ImmutableMap.of("d1", 1L);
+        return ImmutableMap.of(TASK_METRIC_KEY1, 1L);
       }
 
       @Override
-      public Map<String, Long> getPendingTaskCount()
+      public Map<RowKey, Long> getPendingTaskCount()
       {
-        return ImmutableMap.of("d1", 1L);
+        return ImmutableMap.of(TASK_METRIC_KEY1, 2L);
       }
 
       @Override
-      public Map<String, Long> getWaitingTaskCount()
+      public Map<RowKey, Long> getWaitingTaskCount()
       {
-        return ImmutableMap.of("d1", 1L);
+        return ImmutableMap.of(TASK_METRIC_KEY1, 2L, TASK_METRIC_KEY2, 1L);
+      }
+
+      @Override
+      public CoordinatorRunStats getStats()
+      {
+        final CoordinatorRunStats stats = new CoordinatorRunStats();
+        stats.add(Stat.INFO_1, 10);
+        stats.addToSegmentStat(Stat.DEBUG_1, "hot", "wiki", 20);
+        return stats;
       }
     };
   }
@@ -74,16 +93,24 @@ public class TaskCountStatsMonitorTest
     final TaskCountStatsMonitor monitor = new TaskCountStatsMonitor(statsProvider);
     final StubServiceEmitter emitter = new StubServiceEmitter("service", "host");
     monitor.doMonitor(emitter);
-    Assert.assertEquals(5, emitter.getEvents().size());
-    Assert.assertEquals("task/success/count", emitter.getEvents().get(0).toMap().get("metric"));
-    Assert.assertEquals(1L, emitter.getEvents().get(0).toMap().get("value"));
-    Assert.assertEquals("task/failed/count", emitter.getEvents().get(1).toMap().get("metric"));
-    Assert.assertEquals(1L, emitter.getEvents().get(1).toMap().get("value"));
-    Assert.assertEquals("task/running/count", emitter.getEvents().get(2).toMap().get("metric"));
-    Assert.assertEquals(1L, emitter.getEvents().get(2).toMap().get("value"));
-    Assert.assertEquals("task/pending/count", emitter.getEvents().get(3).toMap().get("metric"));
-    Assert.assertEquals(1L, emitter.getEvents().get(3).toMap().get("value"));
-    Assert.assertEquals("task/waiting/count", emitter.getEvents().get(4).toMap().get("metric"));
-    Assert.assertEquals(1L, emitter.getEvents().get(4).toMap().get("value"));
+
+    Assert.assertEquals(9, emitter.getNumEmittedEvents());
+
+    emitter.verifyValue("task/success/count", Map.of("dataSource", "d1", "taskType", "index"), 1L);
+    emitter.verifyValue("task/failed/count", Map.of("dataSource", "d1", "taskType", "index"), 1L);
+    emitter.verifyValue("task/failed/count", Map.of("dataSource", "d1", "taskType", "kill"), 1L);
+    emitter.verifyValue("task/running/count", Map.of("dataSource", "d1", "taskType", "index"), 1L);
+    emitter.verifyValue("task/pending/count", Map.of("dataSource", "d1", "taskType", "index"), 2L);
+    emitter.verifyValue("task/waiting/count", Map.of("dataSource", "d1", "taskType", "index"), 2L);
+    emitter.verifyValue("task/waiting/count", Map.of("dataSource", "d1", "taskType", "kill"), 1L);
+
+    emitter.verifyValue(Stat.INFO_1.getMetricName(), 10L);
+    emitter.verifyValue(Stat.DEBUG_1.getMetricName(), Map.of("tier", "hot", "dataSource", "wiki"), 20L);
+  }
+
+  private static class Stat
+  {
+    static final CoordinatorStat INFO_1 = CoordinatorStat.toLogAndEmit("i1", "info/1", CoordinatorStat.Level.INFO);
+    static final CoordinatorStat DEBUG_1 = CoordinatorStat.toDebugAndEmit("d1", "debug/1");
   }
 }

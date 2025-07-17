@@ -19,7 +19,6 @@
 
 package org.apache.druid.segment.loading;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.io.Files;
 import org.apache.druid.java.util.common.FileUtils;
@@ -43,6 +42,7 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 
@@ -116,49 +116,46 @@ public class LocalDataSegmentPuller implements URIDataPuller
 
   private static final Logger log = new Logger(LocalDataSegmentPuller.class);
 
-  @VisibleForTesting
-  public void getSegmentFiles(DataSegment segment, File dir) throws SegmentLoadingException
-  {
-    getSegmentFiles(getFile(segment), dir);
-  }
-
   public FileUtils.FileCopyResult getSegmentFiles(final File sourceFile, final File dir) throws SegmentLoadingException
   {
     if (sourceFile.isDirectory()) {
-      if (sourceFile.equals(dir)) {
-        log.info("Asked to load [%s] into itself, done!", dir);
-        return new FileUtils.FileCopyResult(sourceFile);
-      }
-
-      final File[] files = sourceFile.listFiles();
-      if (files == null) {
-        throw new SegmentLoadingException("No files found in [%s]", sourceFile.getAbsolutePath());
-      }
-      final FileUtils.FileCopyResult result = new FileUtils.FileCopyResult(sourceFile);
-      for (final File oldFile : files) {
-        if (oldFile.isDirectory()) {
-          log.info("[%s] is a child directory, skipping", oldFile.getAbsolutePath());
-          continue;
+      try {
+        final File[] files = sourceFile.listFiles();
+        if (files == null) {
+          throw new SegmentLoadingException("No files found in [%s]", sourceFile.getAbsolutePath());
         }
 
-        result.addFiles(
-            FileUtils.retryCopy(
-                Files.asByteSource(oldFile),
-                new File(dir, oldFile.getName()),
-                shouldRetryPredicate(),
-                DEFAULT_RETRY_COUNT
-            ).getFiles()
+        if (sourceFile.equals(dir)) {
+          log.info("Asked to load [%s] into itself, done!", dir);
+          return new FileUtils.FileCopyResult(Arrays.asList(files));
+        }
+
+        final FileUtils.FileCopyResult result = new FileUtils.FileCopyResult();
+        boolean link = true;
+        for (final File oldFile : files) {
+          if (oldFile.isDirectory()) {
+            log.info("[%s] is a child directory, skipping", oldFile.getAbsolutePath());
+            continue;
+          }
+
+          final File newFile = new File(dir, oldFile.getName());
+          final FileUtils.LinkOrCopyResult linkOrCopyResult = FileUtils.linkOrCopy(oldFile, newFile);
+          link = link && linkOrCopyResult == FileUtils.LinkOrCopyResult.LINK;
+          result.addFile(newFile);
+        }
+        log.info(
+            "%s %d bytes from [%s] to [%s]",
+            link ? "Linked" : "Copied",
+            result.size(),
+            sourceFile.getAbsolutePath(),
+            dir.getAbsolutePath()
         );
+        return result;
       }
-      log.info(
-          "Copied %d bytes from [%s] to [%s]",
-          result.size(),
-          sourceFile.getAbsolutePath(),
-          dir.getAbsolutePath()
-      );
-      return result;
-    }
-    if (CompressionUtils.isZip(sourceFile.getName())) {
+      catch (IOException e) {
+        throw new SegmentLoadingException(e, "Unable to load from local directory [%s]", sourceFile.getAbsolutePath());
+      }
+    } else if (CompressionUtils.isZip(sourceFile.getName())) {
       try {
         final FileUtils.FileCopyResult result = CompressionUtils.unzip(
             Files.asByteSource(sourceFile),
@@ -177,8 +174,7 @@ public class LocalDataSegmentPuller implements URIDataPuller
       catch (IOException e) {
         throw new SegmentLoadingException(e, "Unable to unzip file [%s]", sourceFile.getAbsolutePath());
       }
-    }
-    if (CompressionUtils.isGz(sourceFile.getName())) {
+    } else if (CompressionUtils.isGz(sourceFile.getName())) {
       final File outFile = new File(dir, CompressionUtils.getGzBaseName(sourceFile.getName()));
       final FileUtils.FileCopyResult result = CompressionUtils.gunzip(
           Files.asByteSource(sourceFile),
@@ -192,8 +188,9 @@ public class LocalDataSegmentPuller implements URIDataPuller
           outFile.getAbsolutePath()
       );
       return result;
+    } else {
+      throw new SegmentLoadingException("Do not know how to handle source [%s]", sourceFile.getAbsolutePath());
     }
-    throw new SegmentLoadingException("Do not know how to handle source [%s]", sourceFile.getAbsolutePath());
   }
 
 
@@ -223,7 +220,7 @@ public class LocalDataSegmentPuller implements URIDataPuller
     // not found, there's only so much that retries would do (unless the file was temporarily absent for some reason).
     // Since this is not a commonly used puller in production, and in general is more useful in testing/debugging,
     // I do not have a good sense of what kind of Exceptions people would expect to encounter in the wild
-    return new Predicate<Throwable>()
+    return new Predicate<>()
     {
       @Override
       public boolean apply(Throwable input)

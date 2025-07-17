@@ -21,12 +21,14 @@ package org.apache.druid.query.aggregation.variance.sql;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.rel.core.AggregateCall;
-import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlAggFunction;
-import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.SqlFunctionCategory;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.type.OperandTypes;
+import org.apache.calcite.sql.type.ReturnTypes;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.aggregation.AggregatorFactory;
@@ -35,45 +37,56 @@ import org.apache.druid.query.aggregation.variance.StandardDeviationPostAggregat
 import org.apache.druid.query.aggregation.variance.VarianceAggregatorFactory;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.dimension.DimensionSpec;
-import org.apache.druid.segment.VirtualColumn;
-import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.column.ValueType;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.sql.calcite.aggregation.Aggregation;
 import org.apache.druid.sql.calcite.aggregation.Aggregations;
 import org.apache.druid.sql.calcite.aggregation.SqlAggregator;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
-import org.apache.druid.sql.calcite.expression.Expressions;
+import org.apache.druid.sql.calcite.expression.OperatorConversions;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.sql.calcite.rel.InputAccessor;
 import org.apache.druid.sql.calcite.rel.VirtualColumnRegistry;
+import org.apache.druid.sql.calcite.table.RowSignatures;
 
 import javax.annotation.Nullable;
 import java.util.List;
 
 public abstract class BaseVarianceSqlAggregator implements SqlAggregator
 {
+  private static final String VARIANCE_NAME = "VARIANCE";
+  private static final String STDDEV_NAME = "STDDEV";
+
+  private static final SqlAggFunction VARIANCE_SQL_AGG_FUNC_INSTANCE =
+      buildSqlVarianceAggFunction(VARIANCE_NAME);
+  private static final SqlAggFunction VARIANCE_POP_SQL_AGG_FUNC_INSTANCE =
+      buildSqlVarianceAggFunction(SqlKind.VAR_POP.name());
+  private static final SqlAggFunction VARIANCE_SAMP_SQL_AGG_FUNC_INSTANCE =
+      buildSqlVarianceAggFunction(SqlKind.VAR_SAMP.name());
+  private static final SqlAggFunction STDDEV_SQL_AGG_FUNC_INSTANCE =
+      buildSqlVarianceAggFunction(STDDEV_NAME);
+  private static final SqlAggFunction STDDEV_POP_SQL_AGG_FUNC_INSTANCE =
+      buildSqlVarianceAggFunction(SqlKind.STDDEV_POP.name());
+  private static final SqlAggFunction STDDEV_SAMP_SQL_AGG_FUNC_INSTANCE =
+      buildSqlVarianceAggFunction(SqlKind.STDDEV_SAMP.name());
+
   @Nullable
   @Override
   public Aggregation toDruidAggregation(
       PlannerContext plannerContext,
-      RowSignature rowSignature,
       VirtualColumnRegistry virtualColumnRegistry,
-      RexBuilder rexBuilder,
       String name,
       AggregateCall aggregateCall,
-      Project project,
+      InputAccessor inputAccessor,
       List<Aggregation> existingAggregations,
       boolean finalizeAggregations
   )
   {
-    final RexNode inputOperand = Expressions.fromFieldAccess(
-        rowSignature,
-        project,
-        aggregateCall.getArgList().get(0)
-    );
+    final RexNode inputOperand = inputAccessor.getField(aggregateCall.getArgList().get(0));
+
     final DruidExpression input = Aggregations.toDruidExpressionForNumericAggregator(
         plannerContext,
-        rowSignature,
+        inputAccessor.getInputRowSignature(),
         inputOperand
     );
     if (input == null) {
@@ -82,10 +95,17 @@ public abstract class BaseVarianceSqlAggregator implements SqlAggregator
 
     final AggregatorFactory aggregatorFactory;
     final RelDataType dataType = inputOperand.getType();
-    final ValueType inputType = Calcites.getValueTypeForRelDataType(dataType);
+    final ColumnType inputType = Calcites.getColumnTypeForRelDataType(dataType);
     final DimensionSpec dimensionSpec;
-    final String aggName = StringUtils.format("%s:agg", name);
     final SqlAggFunction func = calciteFunction();
+    boolean needsPostAggregator = false;
+    String aggName = name;
+    if (func.getName().equals(STDDEV_NAME)
+        || func.getName().equals(SqlKind.STDDEV_POP.name())
+        || func.getName().equals(SqlKind.STDDEV_SAMP.name())) {
+      needsPostAggregator = true;
+      aggName = StringUtils.format("%s:agg", name);
+    }
     final String estimator;
     final String inputTypeName;
     PostAggregator postAggregator = null;
@@ -93,23 +113,24 @@ public abstract class BaseVarianceSqlAggregator implements SqlAggregator
     if (input.isSimpleExtraction()) {
       dimensionSpec = input.getSimpleExtraction().toDimensionSpec(null, inputType);
     } else {
-      VirtualColumn virtualColumn =
-          virtualColumnRegistry.getOrCreateVirtualColumnForExpression(plannerContext, input, dataType);
-      dimensionSpec = new DefaultDimensionSpec(virtualColumn.getOutputName(), null, inputType);
+      String virtualColumnName =
+          virtualColumnRegistry.getOrCreateVirtualColumnForExpression(input, dataType);
+      dimensionSpec = new DefaultDimensionSpec(virtualColumnName, null, inputType);
     }
 
-    switch (inputType) {
-      case LONG:
-      case DOUBLE:
-      case FLOAT:
-        inputTypeName = StringUtils.toLowerCase(inputType.name());
-        break;
-      default:
-        throw new IAE("VarianceSqlAggregator[%s] has invalid inputType[%s]", func, inputType);
+    if (inputType == null) {
+      throw new IAE("VarianceSqlAggregator[%s] has invalid inputType", func);
     }
 
+    if (inputType.isNumeric()) {
+      inputTypeName = StringUtils.toLowerCase(inputType.getType().name());
+    } else if (inputType.equals(VarianceAggregatorFactory.TYPE)) {
+      inputTypeName = VarianceAggregatorFactory.VARIANCE_TYPE_NAME;
+    } else {
+      throw new IAE("VarianceSqlAggregator[%s] has invalid inputType[%s]", func, inputType.asTypeString());
+    }
 
-    if (func == SqlStdOperatorTable.VAR_POP || func == SqlStdOperatorTable.STDDEV_POP) {
+    if (func.getName().equals(SqlKind.VAR_POP.name()) || func.getName().equals(SqlKind.STDDEV_POP.name())) {
       estimator = "population";
     } else {
       estimator = "sample";
@@ -122,9 +143,7 @@ public abstract class BaseVarianceSqlAggregator implements SqlAggregator
         inputTypeName
     );
 
-    if (func == SqlStdOperatorTable.STDDEV_POP 
-        || func == SqlStdOperatorTable.STDDEV_SAMP
-        || func == SqlStdOperatorTable.STDDEV) {
+    if (needsPostAggregator) {
       postAggregator = new StandardDeviationPostAggregator(
           name,
           aggregatorFactory.getName(),
@@ -137,21 +156,41 @@ public abstract class BaseVarianceSqlAggregator implements SqlAggregator
     );
   }
 
+  /**
+   * Creates a {@link SqlAggFunction}
+   *
+   * It accepts variance aggregator objects in addition to numeric inputs.
+   */
+  private static SqlAggFunction buildSqlVarianceAggFunction(String name)
+  {
+    return OperatorConversions
+        .aggregatorBuilder(name)
+        .returnTypeInference(ReturnTypes.explicit(SqlTypeName.DOUBLE))
+        .operandTypeChecker(
+            OperandTypes.or(
+                OperandTypes.NUMERIC,
+                RowSignatures.complexTypeChecker(VarianceAggregatorFactory.TYPE)
+            )
+        )
+        .functionCategory(SqlFunctionCategory.NUMERIC)
+        .build();
+  }
+
   public static class VarPopSqlAggregator extends BaseVarianceSqlAggregator
   {
     @Override
     public SqlAggFunction calciteFunction()
     {
-      return SqlStdOperatorTable.VAR_POP;
+      return VARIANCE_POP_SQL_AGG_FUNC_INSTANCE;
     }
   }
-  
+
   public static class VarSampSqlAggregator extends BaseVarianceSqlAggregator
   {
     @Override
     public SqlAggFunction calciteFunction()
     {
-      return SqlStdOperatorTable.VAR_SAMP;
+      return VARIANCE_SAMP_SQL_AGG_FUNC_INSTANCE;
     }
   }
 
@@ -160,7 +199,7 @@ public abstract class BaseVarianceSqlAggregator implements SqlAggregator
     @Override
     public SqlAggFunction calciteFunction()
     {
-      return SqlStdOperatorTable.VARIANCE;
+      return VARIANCE_SQL_AGG_FUNC_INSTANCE;
     }
   }
 
@@ -169,7 +208,7 @@ public abstract class BaseVarianceSqlAggregator implements SqlAggregator
     @Override
     public SqlAggFunction calciteFunction()
     {
-      return SqlStdOperatorTable.STDDEV_POP;
+      return STDDEV_POP_SQL_AGG_FUNC_INSTANCE;
     }
   }
 
@@ -178,7 +217,7 @@ public abstract class BaseVarianceSqlAggregator implements SqlAggregator
     @Override
     public SqlAggFunction calciteFunction()
     {
-      return SqlStdOperatorTable.STDDEV_SAMP;
+      return STDDEV_SAMP_SQL_AGG_FUNC_INSTANCE;
     }
   }
 
@@ -187,7 +226,7 @@ public abstract class BaseVarianceSqlAggregator implements SqlAggregator
     @Override
     public SqlAggFunction calciteFunction()
     {
-      return SqlStdOperatorTable.STDDEV;
+      return STDDEV_SQL_AGG_FUNC_INSTANCE;
     }
   }
 }

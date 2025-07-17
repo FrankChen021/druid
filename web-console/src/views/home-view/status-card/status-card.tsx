@@ -30,19 +30,17 @@ interface StatusSummary {
   extensionCount: number;
 }
 
-export interface StatusCardProps {}
-
-export const StatusCard = React.memo(function StatusCard(_props: StatusCardProps) {
+export const StatusCard = React.memo(function StatusCard() {
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [statusSummaryState] = useQueryManager<null, StatusSummary>({
-    processQuery: async () => {
-      const statusResp = await Api.instance.get('/status');
+    initQuery: null,
+    processQuery: async (_, cancelToken) => {
+      const statusResp = await Api.instance.get('/status', { cancelToken });
       return {
         version: statusResp.data.version,
         extensionCount: statusResp.data.modules.length,
       };
     },
-    initQuery: null,
   });
 
   const statusSummary = statusSummaryState.data;
@@ -64,6 +62,9 @@ export const StatusCard = React.memo(function StatusCard(_props: StatusCardProps
             <p>{`${pluralIfNeeded(statusSummary.extensionCount, 'extension')} loaded`}</p>
           </>
         )}
+        <p data-tooltip="This version of Druid only supports the SQL compliant querying mode.">
+          SQL compliant NULL mode (built-in)
+        </p>
       </HomeViewCard>
       {showStatusDialog && (
         <StatusDialog

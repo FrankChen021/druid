@@ -26,7 +26,6 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.servlet.GuiceFilter;
 import org.apache.druid.guice.annotations.Json;
-import org.apache.druid.server.coordinator.DruidCoordinatorConfig;
 import org.apache.druid.server.http.OverlordProxyServlet;
 import org.apache.druid.server.http.RedirectFilter;
 import org.apache.druid.server.initialization.ServerConfig;
@@ -36,6 +35,7 @@ import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationUtils;
 import org.apache.druid.server.security.Authenticator;
 import org.apache.druid.server.security.AuthenticatorMapper;
+import org.eclipse.jetty.rewrite.handler.RewriteHandler;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.HandlerList;
@@ -51,21 +51,19 @@ import java.util.Properties;
  */
 class CoordinatorJettyServerInitializer implements JettyServerInitializer
 {
-  private static List<String> UNSECURED_PATHS = ImmutableList.of(
+  private static final List<String> UNSECURED_PATHS = ImmutableList.of(
       "/coordinator/false",
       "/overlord/false",
       "/status/health",
       "/druid/coordinator/v1/isLeader"
   );
 
-  private final DruidCoordinatorConfig config;
   private final boolean beOverlord;
   private final ServerConfig serverConfig;
 
   @Inject
-  CoordinatorJettyServerInitializer(DruidCoordinatorConfig config, Properties properties, ServerConfig serverConfig)
+  CoordinatorJettyServerInitializer(Properties properties, ServerConfig serverConfig)
   {
-    this.config = config;
     this.beOverlord = CliCoordinator.isOverlord(properties);
     this.serverConfig = serverConfig;
   }
@@ -84,6 +82,7 @@ class CoordinatorJettyServerInitializer implements JettyServerInitializer
     final ObjectMapper jsonMapper = injector.getInstance(Key.get(ObjectMapper.class, Json.class));
     final AuthenticatorMapper authenticatorMapper = injector.getInstance(AuthenticatorMapper.class);
 
+    JettyServerInitUtils.addQosFilters(root, injector);
     AuthenticationUtils.addSecuritySanityCheckFilter(root, jsonMapper);
 
     // perform no-op authorization/authentication for these resources
@@ -111,32 +110,36 @@ class CoordinatorJettyServerInitializer implements JettyServerInitializer
     );
 
     // add some paths not to be redirected to leader.
+    final FilterHolder guiceFilterHolder = JettyServerInitUtils.getGuiceFilterHolder(injector);
     root.addFilter(GuiceFilter.class, "/status/*", null);
-    root.addFilter(GuiceFilter.class, "/druid-internal/*", null);
+    root.addFilter(guiceFilterHolder, "/druid-internal/*", null);
 
     // redirect anything other than status to the current lead
     root.addFilter(new FilterHolder(injector.getInstance(RedirectFilter.class)), "/*", null);
 
     // The coordinator really needs a standarized api path
     // Can't use '/*' here because of Guice and Jetty static content conflicts
-    root.addFilter(GuiceFilter.class, "/info/*", null);
-    root.addFilter(GuiceFilter.class, "/druid/coordinator/*", null);
+    root.addFilter(guiceFilterHolder, "/info/*", null);
+    root.addFilter(guiceFilterHolder, "/druid/coordinator/*", null);
     if (beOverlord) {
-      root.addFilter(GuiceFilter.class, "/druid/indexer/*", null);
+      root.addFilter(guiceFilterHolder, "/druid/indexer/*", null);
     }
-    root.addFilter(GuiceFilter.class, "/druid-ext/*", null);
+    root.addFilter(guiceFilterHolder, "/druid-ext/*", null);
 
     // this will be removed in the next major release
-    root.addFilter(GuiceFilter.class, "/coordinator/*", null);
+    root.addFilter(guiceFilterHolder, "/coordinator/*", null);
 
     if (!beOverlord) {
       root.addServlet(new ServletHolder(injector.getInstance(OverlordProxyServlet.class)), "/druid/indexer/*");
     }
 
+    RewriteHandler rewriteHandler = WebConsoleJettyServerInitializer.createWebConsoleRewriteHandler();
+    JettyServerInitUtils.maybeAddHSTSPatternRule(serverConfig, rewriteHandler);
+
     HandlerList handlerList = new HandlerList();
     handlerList.setHandlers(
         new Handler[]{
-            WebConsoleJettyServerInitializer.createWebConsoleRewriteHandler(),
+            rewriteHandler,
             JettyServerInitUtils.getJettyRequestLogHandler(),
             JettyServerInitUtils.wrapWithDefaultGzipHandler(
                 root,

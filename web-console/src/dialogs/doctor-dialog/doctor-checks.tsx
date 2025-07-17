@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+import type { CompactionConfigs } from '../../druid-models';
 import { Api } from '../../singletons';
 import { deepGet, pluralIfNeeded, queryDruidSql } from '../../utils';
 import { postToSampler } from '../../utils/sampler';
@@ -29,6 +30,11 @@ export interface CheckControls {
 export interface DoctorCheck {
   name: string;
   check: (controls: CheckControls) => Promise<void>;
+}
+
+interface HistoricalFill {
+  historical: string;
+  fill: number;
 }
 
 const RUNTIME_PROPERTIES_ALL_NODES_MUST_AGREE_ON: string[] = [
@@ -90,13 +96,15 @@ export const DOCTOR_CHECKS: DoctorCheck[] = [
         );
       }
 
-      // Check that the underlying Java is Java 8 the only officially supported Java version at the moment.
+      // Check for Java 8u92+, 11, or 17
       if (
         properties['java.specification.version'] &&
-        properties['java.specification.version'] !== '1.8'
+        properties['java.specification.version'] !== '1.8' &&
+        properties['java.specification.version'] !== '11' &&
+        properties['java.specification.version'] !== '17'
       ) {
         controls.addSuggestion(
-          `It looks like are running Java ${properties['java.runtime.version']}. Druid only officially supports Java 1.8.x`,
+          `It looks like are running Java ${properties['java.runtime.version']}. Druid officially supports Java 8u92+, 11, or 17`,
         );
       }
 
@@ -290,61 +298,45 @@ export const DOCTOR_CHECKS: DoctorCheck[] = [
     },
   },
   {
-    name: 'Verify that there are historical services',
-    check: async controls => {
-      // Make sure that there are broker and historical services reported from sys.servers
-      let sqlResult: any[];
-      try {
-        sqlResult = await queryDruidSql({
-          query: `SELECT
-  COUNT(*) AS "historicals"
-FROM sys.servers
-WHERE "server_type" = 'historical'`,
-        });
-      } catch (e) {
-        controls.addIssue(`Could not run a sys.servers query. Got: ${e.message}`);
-        return;
-      }
-
-      if (sqlResult.length === 1 && sqlResult[0]['historicals'] === 0) {
-        controls.addIssue(`There do not appear to be any historical services.`);
-      }
-    },
-  },
-  {
-    name: 'Verify that the historicals are not overfilled',
+    name: 'Verify that there are historicals and they are not too full',
     check: async controls => {
       // Make sure that no services are reported that are over 95% capacity
-      let sqlResult: any[];
+      let historicalFills: HistoricalFill[];
       try {
-        sqlResult = await queryDruidSql({
+        historicalFills = await queryDruidSql({
           query: `SELECT
-  "server" AS "service",
-  "curr_size" * 1.0 / "max_size" AS "fill"
+  "server" AS "historical",
+  "curr_size" * 100.0 / "max_size" AS "fill"
 FROM sys.servers
-WHERE "server_type" = 'historical' AND "curr_size" * 1.0 / "max_size" > 0.9
-ORDER BY "server" DESC`,
+WHERE "server_type" = 'historical'
+ORDER BY "fill" DESC`,
         });
+        // Note: for some reason adding ` AND "curr_size" * 100.0 / "max_size" > 90` to the filter does not work as of this writing Apr 8, 2024
       } catch (e) {
         controls.addIssue(`Could not run a sys.servers query. Got: ${e.message}`);
         return;
       }
 
-      function formatPercent(service: any): string {
-        return (service['fill'] * 100).toFixed(2);
+      if (!historicalFills.length) {
+        controls.addIssue(`There do not appear to be any historical services.`);
+        return;
       }
 
-      for (const service of sqlResult) {
-        if (service['fill'] > 0.95) {
+      function formatFill(historicalFill: HistoricalFill): string {
+        return historicalFill.fill.toFixed(2);
+      }
+
+      for (const historicalFill of historicalFills) {
+        if (historicalFill.fill > 95) {
           controls.addIssue(
-            `Historical "${service['service']}" appears to be over 95% full (is ${formatPercent(
-              service,
+            `Historical "${historicalFill.historical}" appears to be over 95% full (is ${formatFill(
+              historicalFill,
             )}%). Increase capacity.`,
           );
-        } else {
+        } else if (historicalFill.fill > 90) {
           controls.addSuggestion(
-            `Historical "${service['service']}" appears to be over 90% full (is ${formatPercent(
-              service,
+            `Historical "${historicalFill.historical}" appears to be over 90% full (is ${formatFill(
+              historicalFill,
             )}%)`,
           );
         }
@@ -372,7 +364,7 @@ FROM (
   WHERE is_published = 1 AND "start" < '${dayAgo}'
   GROUP BY 1, 2, 3
   HAVING "num_segments" > 1 AND "total_size" > 1 AND "avg_segment_size_in_time_chunk" < 100000000
-) 
+)
 GROUP BY 1
 ORDER BY "num_bad_time_chunks"`,
         });
@@ -382,10 +374,11 @@ ORDER BY "num_bad_time_chunks"`,
 
       if (sqlResult.length) {
         // Grab the auto-compaction definitions and ignore dataSources that already have auto-compaction
-        let compactionResult: any;
+        let compactionResult: CompactionConfigs;
         try {
-          compactionResult = (await Api.instance.get('/druid/coordinator/v1/config/compaction'))
-            .data;
+          compactionResult = (
+            await Api.instance.get('/druid/indexer/v1/compaction/config/datasources')
+          ).data;
         } catch (e) {
           controls.addIssue(`Could not get compaction config. Something is wrong.`);
           return;

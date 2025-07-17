@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.spec;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import org.apache.druid.java.util.common.guava.Accumulator;
 import org.apache.druid.java.util.common.guava.Sequence;
@@ -45,6 +46,9 @@ public class SpecificSegmentQueryRunner<T> implements QueryRunner<T>
   private final QueryRunner<T> base;
   private final SpecificSegmentSpec specificSpec;
 
+  @VisibleForTesting
+  static final String CTX_SET_THREAD_NAME = "setProcessingThreadNames";
+
   public SpecificSegmentQueryRunner(
       QueryRunner<T> base,
       SpecificSegmentSpec specificSpec
@@ -64,20 +68,28 @@ public class SpecificSegmentQueryRunner<T> implements QueryRunner<T>
         )
     );
 
+    final boolean setName = input.getQuery().context().getBoolean(CTX_SET_THREAD_NAME, true);
+
     final Query<T> query = queryPlus.getQuery();
 
-    final Thread currThread = Thread.currentThread();
-    final String currThreadName = currThread.getName();
-    final String newName = query.getType() + "_" + query.getDataSource() + "_" + query.getIntervals();
+    final Thread currThread = setName ? Thread.currentThread() : null;
+    final String currThreadName = setName ? currThread.getName() : null;
+    final String newName = setName ? "processing_" + query.getId() : null;
 
-    final Sequence<T> baseSequence = doNamed(
-        currThread,
-        currThreadName,
-        newName,
-        () -> base.run(queryPlus, responseContext)
-    );
+    final Sequence<T> baseSequence;
 
-    Sequence<T> segmentMissingCatchingSequence = new Sequence<T>()
+    if (setName) {
+      baseSequence = doNamed(
+          currThread,
+          currThreadName,
+          newName,
+          () -> base.run(queryPlus, responseContext)
+      );
+    } else {
+      baseSequence = base.run(queryPlus, responseContext);
+    }
+
+    Sequence<T> segmentMissingCatchingSequence = new Sequence<>()
     {
       @Override
       public <OutType> OutType accumulate(final OutType initValue, final Accumulator<OutType, T> accumulator)
@@ -108,7 +120,7 @@ public class SpecificSegmentQueryRunner<T> implements QueryRunner<T>
 
       private <OutType> Yielder<OutType> makeYielder(final Yielder<OutType> yielder)
       {
-        return new Yielder<OutType>()
+        return new Yielder<>()
         {
           @Override
           public OutType get()
@@ -149,7 +161,11 @@ public class SpecificSegmentQueryRunner<T> implements QueryRunner<T>
           @Override
           public <RetType> RetType wrap(Supplier<RetType> sequenceProcessing)
           {
-            return doNamed(currThread, currThreadName, newName, sequenceProcessing);
+            if (setName) {
+              return doNamed(currThread, currThreadName, newName, sequenceProcessing);
+            } else {
+              return sequenceProcessing.get();
+            }
           }
         }
     );
@@ -157,8 +173,7 @@ public class SpecificSegmentQueryRunner<T> implements QueryRunner<T>
 
   private void appendMissingSegment(ResponseContext responseContext)
   {
-    responseContext.add(
-        ResponseContext.Key.MISSING_SEGMENTS,
+    responseContext.addMissingSegments(
         Collections.singletonList(specificSpec.getDescriptor())
     );
   }

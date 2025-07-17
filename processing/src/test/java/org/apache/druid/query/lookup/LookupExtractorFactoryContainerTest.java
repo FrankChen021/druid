@@ -105,13 +105,29 @@ public class LookupExtractorFactoryContainerTest
     }
 
     @Override
+    public void awaitInitialization()
+    {
+    }
+
+    @Override
+    public boolean isInitialized()
+    {
+      return true;
+    }
+
+    @Override
     public LookupExtractor get()
     {
       return null;
     }
 
     @Override
-    @SuppressWarnings("EqualsHashCode")
+    public int hashCode()
+    {
+      return 0;
+    }
+
+    @Override
     public boolean equals(Object other)
     {
       return other instanceof TestLookupExtractorFactory;

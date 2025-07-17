@@ -328,7 +328,6 @@ public class DruidRelsTest
     EasyMock.expect(mockPartialQuery.getWhereFilter()).andReturn(whereFilter).anyTimes();
 
     final RelOptTable mockRelOptTable = EasyMock.mock(RelOptTable.class);
-    EasyMock.expect(mockRelOptTable.unwrap(DruidTable.class)).andReturn(druidTable).anyTimes();
 
     final T mockRel = EasyMock.mock(clazz);
     EasyMock.expect(mockRel.getPartialDruidQuery()).andReturn(mockPartialQuery).anyTimes();

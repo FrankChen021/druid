@@ -30,6 +30,7 @@ import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.expression.OperatorConversions;
 import org.apache.druid.sql.calcite.expression.SqlOperatorConversion;
+import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 
 import javax.annotation.Nullable;
@@ -40,7 +41,7 @@ public class TimeCeilOperatorConversion implements SqlOperatorConversion
   private static final SqlFunction SQL_FUNCTION = OperatorConversions
       .operatorBuilder("TIME_CEIL")
       .operandTypes(SqlTypeFamily.TIMESTAMP, SqlTypeFamily.CHARACTER, SqlTypeFamily.TIMESTAMP, SqlTypeFamily.CHARACTER)
-      .requiredOperands(2)
+      .requiredOperandCount(2)
       .returnTypeCascadeNullable(SqlTypeName.TIMESTAMP)
       .functionCategory(SqlFunctionCategory.TIMEDATE)
       .build();
@@ -70,6 +71,6 @@ public class TimeCeilOperatorConversion implements SqlOperatorConversion
       return null;
     }
 
-    return DruidExpression.fromFunctionCall("timestamp_ceil", functionArgs);
+    return DruidExpression.ofFunctionCall(Calcites.getColumnTypeForRelDataType(rexNode.getType()), "timestamp_ceil", functionArgs);
   }
 }

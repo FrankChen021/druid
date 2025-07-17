@@ -21,18 +21,21 @@ package org.apache.druid.sql.calcite.expression;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.calcite.rex.RexNode;
+import org.apache.druid.math.expr.ExpressionValidationException;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.sql.calcite.expression.builtin.IPv4AddressStringifyOperatorConversion;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.druid.sql.calcite.util.CalciteTestBase;
+import org.junit.Assert;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-public class IPv4AddressStringifyExpressionTest extends ExpressionTestBase
+public class IPv4AddressStringifyExpressionTest extends CalciteTestBase
 {
   private static final long VALID = 3232235521L;
   private static final String EXPECTED = "192.168.0.1";
@@ -40,13 +43,13 @@ public class IPv4AddressStringifyExpressionTest extends ExpressionTestBase
   private static final String NULL = null;
 
   private static final String VAR = "f";
-  private static final RowSignature ROW_SIGNATURE = RowSignature.builder().add(VAR, ValueType.FLOAT).build();
+  private static final RowSignature ROW_SIGNATURE = RowSignature.builder().add(VAR, ColumnType.FLOAT).build();
   private static final Map<String, Object> BINDINGS = ImmutableMap.of(VAR, 3.14);
 
   private IPv4AddressStringifyOperatorConversion target;
   private ExpressionTestHelper testHelper;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     target = new IPv4AddressStringifyOperatorConversion();
@@ -56,28 +59,32 @@ public class IPv4AddressStringifyExpressionTest extends ExpressionTestBase
   @Test
   public void testTooFewArgs()
   {
-    expectException(IllegalArgumentException.class, "must have 1 argument");
-
-    testExpression(
-        Collections.emptyList(),
-        buildExpectedExpression(),
-        IGNORE_EXPECTED_RESULT
+    Throwable t = Assert.assertThrows(
+        ExpressionValidationException.class,
+        () -> testExpression(
+            Collections.emptyList(),
+            buildExpectedExpression(),
+            IGNORE_EXPECTED_RESULT
+        )
     );
+    Assert.assertEquals("Function[ipv4_stringify] requires 1 argument", t.getMessage());
   }
 
   @Test
   public void testTooManyArgs()
   {
-    expectException(IllegalArgumentException.class, "must have 1 argument");
-
-    testExpression(
-        Arrays.asList(
-            testHelper.makeLiteral(VALID),
-            testHelper.makeLiteral(VALID)
-        ),
-        buildExpectedExpression(VALID, VALID),
-        IGNORE_EXPECTED_RESULT
+    Throwable t = Assert.assertThrows(
+        ExpressionValidationException.class,
+        () -> testExpression(
+            Arrays.asList(
+                testHelper.makeLiteral(VALID),
+                testHelper.makeLiteral(VALID)
+            ),
+            buildExpectedExpression(VALID, VALID),
+            IGNORE_EXPECTED_RESULT
+        )
     );
+    Assert.assertEquals("Function[ipv4_stringify] requires 1 argument", t.getMessage());
   }
 
   @Test
@@ -224,7 +231,7 @@ public class IPv4AddressStringifyExpressionTest extends ExpressionTestBase
       final Object expectedResult
   )
   {
-    testHelper.testExpression(target.calciteOperator(), exprs, expectedExpression, expectedResult);
+    testHelper.testExpressionString(target.calciteOperator(), exprs, expectedExpression, expectedResult);
   }
 
   private DruidExpression buildExpectedExpression(Object... args)

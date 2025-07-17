@@ -27,8 +27,10 @@ import org.apache.druid.segment.DimensionSelector;
 import org.apache.druid.segment.data.IndexedInts;
 
 import javax.annotation.Nullable;
-
+import java.nio.ByteBuffer;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * This aggregator builds sketches from raw data.
@@ -45,6 +47,18 @@ public class ArrayOfDoublesSketchBuildAggregator implements Aggregator
   @Nullable
   private ArrayOfDoublesUpdatableSketch sketch;
 
+  private final int nominalEntries;
+  private final boolean canLookupUtf8;
+  private final boolean canCacheById;
+  private final LinkedHashMap<Integer, Object> stringCache = new LinkedHashMap<>()
+  {
+    @Override
+    protected boolean removeEldestEntry(Map.Entry eldest)
+    {
+      return size() >= 10;
+    }
+  };
+
   public ArrayOfDoublesSketchBuildAggregator(
       final DimensionSelector keySelector,
       final List<BaseDoubleColumnValueSelector> valueSelectors,
@@ -53,9 +67,9 @@ public class ArrayOfDoublesSketchBuildAggregator implements Aggregator
   {
     this.keySelector = keySelector;
     this.valueSelectors = valueSelectors.toArray(new BaseDoubleColumnValueSelector[0]);
-    values = new double[valueSelectors.size()];
-    sketch = new ArrayOfDoublesUpdatableSketchBuilder().setNominalEntries(nominalEntries)
-        .setNumberOfValues(valueSelectors.size()).build();
+    this.nominalEntries = nominalEntries;
+    this.canCacheById = this.keySelector.nameLookupPossibleInAdvance();
+    this.canLookupUtf8 = this.keySelector.supportsLookupNameUtf8();
   }
 
   /**
@@ -66,6 +80,10 @@ public class ArrayOfDoublesSketchBuildAggregator implements Aggregator
   @Override
   public void aggregate()
   {
+    if (values == null) {
+      values = new double[valueSelectors.length];
+    }
+
     final IndexedInts keys = keySelector.getRow();
     for (int i = 0; i < valueSelectors.length; i++) {
       if (valueSelectors[i].isNull()) {
@@ -75,9 +93,37 @@ public class ArrayOfDoublesSketchBuildAggregator implements Aggregator
       }
     }
     synchronized (this) {
-      for (int i = 0, keysSize = keys.size(); i < keysSize; i++) {
-        final String key = keySelector.lookupName(keys.get(i));
-        sketch.update(key, values);
+      if (canLookupUtf8) {
+        for (int i = 0, keysSize = keys.size(); i < keysSize; i++) {
+          final ByteBuffer key;
+          if (canCacheById) {
+            key = (ByteBuffer) stringCache.computeIfAbsent(keys.get(i), keySelector::lookupNameUtf8);
+          } else {
+            key = keySelector.lookupNameUtf8(keys.get(i));
+          }
+
+          if (key != null) {
+            byte[] bytes = new byte[key.remaining()];
+            key.mark();
+            key.get(bytes);
+            key.reset();
+
+            initializeSketchIfNeeded();
+            sketch.update(bytes, values);
+          }
+        }
+      } else {
+        for (int i = 0, keysSize = keys.size(); i < keysSize; i++) {
+          final String key;
+          if (canCacheById) {
+            key = (String) stringCache.computeIfAbsent(keys.get(i), keySelector::lookupName);
+          } else {
+            key = keySelector.lookupName(keys.get(i));
+          }
+
+          initializeSketchIfNeeded();
+          sketch.update(key, values);
+        }
       }
     }
   }
@@ -93,6 +139,7 @@ public class ArrayOfDoublesSketchBuildAggregator implements Aggregator
   @Override
   public synchronized Object get()
   {
+    initializeSketchIfNeeded();
     return sketch.compact();
   }
 
@@ -115,4 +162,14 @@ public class ArrayOfDoublesSketchBuildAggregator implements Aggregator
     values = null;
   }
 
+  /**
+   * Initialize {@link #sketch} if it is null.
+   */
+  private void initializeSketchIfNeeded()
+  {
+    if (sketch == null) {
+      sketch = new ArrayOfDoublesUpdatableSketchBuilder().setNominalEntries(nominalEntries)
+                                                         .setNumberOfValues(valueSelectors.length).build();
+    }
+  }
 }

@@ -38,6 +38,7 @@ import org.apache.druid.data.input.impl.InputRowParser;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.annotations.Self;
+import org.apache.druid.indexer.granularity.GranularitySpec;
 import org.apache.druid.indexer.partitions.DimensionBasedPartitionsSpec;
 import org.apache.druid.indexer.path.PathSpec;
 import org.apache.druid.initialization.Initialization;
@@ -51,7 +52,6 @@ import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.IndexMerger;
 import org.apache.druid.segment.IndexMergerV9;
 import org.apache.druid.segment.IndexSpec;
-import org.apache.druid.segment.indexing.granularity.GranularitySpec;
 import org.apache.druid.segment.loading.DataSegmentPusher;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.timeline.DataSegment;
@@ -90,7 +90,7 @@ public class HadoopDruidIndexerConfig
   static final Joiner TAB_JOINER = Joiner.on("\t");
   public static final ObjectMapper JSON_MAPPER;
   public static final IndexIO INDEX_IO;
-  static final IndexMerger INDEX_MERGER_V9;
+  static final IndexMerger INDEX_MERGER_V9; // storeEmptyColumns is off for this indexMerger
   static final HadoopKerberosConfig HADOOP_KERBEROS_CONFIG;
   static final DataSegmentPusher DATA_SEGMENT_PUSHER;
   private static final String DEFAULT_WORKING_PATH = "/tmp/druid-indexing";
@@ -488,7 +488,7 @@ public class HadoopDruidIndexerConfig
                     return FunctionalIterable
                         .create(specs)
                         .transform(
-                            new Function<HadoopyShardSpec, Bucket>()
+                            new Function<>()
                             {
                               int i = 0;
 

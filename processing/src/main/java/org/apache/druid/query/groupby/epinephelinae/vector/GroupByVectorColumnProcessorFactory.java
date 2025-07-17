@@ -49,7 +49,7 @@ public class GroupByVectorColumnProcessorFactory implements VectorColumnProcesso
   )
   {
     Preconditions.checkArgument(
-        ValueType.STRING == capabilities.getType(),
+        capabilities.is(ValueType.STRING),
         "groupBy dimension processors must be STRING typed"
     );
     return new SingleValueStringGroupByVectorColumnSelector(selector);
@@ -62,7 +62,7 @@ public class GroupByVectorColumnProcessorFactory implements VectorColumnProcesso
   )
   {
     Preconditions.checkArgument(
-        ValueType.STRING == capabilities.getType(),
+        capabilities.is(ValueType.STRING),
         "groupBy dimension processors must be STRING typed"
     );
     throw new UnsupportedOperationException(
@@ -107,12 +107,25 @@ public class GroupByVectorColumnProcessorFactory implements VectorColumnProcesso
   }
 
   @Override
+  public GroupByVectorColumnSelector makeArrayProcessor(ColumnCapabilities capabilities, VectorObjectSelector selector)
+  {
+    throw new UnsupportedOperationException(
+        "Vectorized groupBys on ARRAY columns are not yet implemented"
+    );
+  }
+
+  @Override
   public GroupByVectorColumnSelector makeObjectProcessor(
       final ColumnCapabilities capabilities,
       final VectorObjectSelector selector
   )
   {
-    if (ValueType.STRING.equals(capabilities.getType())) {
+    if (capabilities.is(ValueType.STRING)) {
+      if (capabilities.hasMultipleValues().isTrue()) {
+        throw new UnsupportedOperationException(
+            "Vectorized groupBys on multi-value dictionary-encoded dimensions are not yet implemented"
+        );
+      }
       return new DictionaryBuildingSingleValueStringGroupByVectorColumnSelector(selector);
     }
     return NilGroupByVectorColumnSelector.INSTANCE;
@@ -135,7 +148,7 @@ public class GroupByVectorColumnProcessorFactory implements VectorColumnProcesso
   public boolean useDictionaryEncodedSelector(ColumnCapabilities capabilities)
   {
     Preconditions.checkArgument(capabilities != null, "Capabilities must not be null");
-    Preconditions.checkArgument(capabilities.getType() == ValueType.STRING, "Must only be called on a STRING column");
+    Preconditions.checkArgument(capabilities.is(ValueType.STRING), "Must only be called on a STRING column");
     return capabilities.isDictionaryEncoded().isTrue();
   }
 }

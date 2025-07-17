@@ -27,7 +27,6 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.math.expr.Parser;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.dimension.DimensionSpec;
@@ -63,6 +62,11 @@ public class Grouping
   private final DimFilter havingFilter;
   private final RowSignature outputRowSignature;
 
+  // Denotes whether the original Grouping had more dimensions which were dropped while applying projection to optimize
+  // the grouping. Used for returning result which is consistent with most SQL implementations, by correspondingly
+  // setting/unsetting the SKIP_EMPTY_BUCKETS flag, if the GroupBy query can be reduced to a timeseries query.
+  private final boolean groupingDimensionsDropped;
+
   private Grouping(
       final List<DimensionExpression> dimensions,
       final Subtotals subtotals,
@@ -71,11 +75,24 @@ public class Grouping
       final RowSignature outputRowSignature
   )
   {
+    this(dimensions, subtotals, aggregations, havingFilter, outputRowSignature, false);
+  }
+
+  private Grouping(
+      final List<DimensionExpression> dimensions,
+      final Subtotals subtotals,
+      final List<Aggregation> aggregations,
+      @Nullable final DimFilter havingFilter,
+      final RowSignature outputRowSignature,
+      final boolean groupingDimensionsDropped
+  )
+  {
     this.dimensions = ImmutableList.copyOf(dimensions);
     this.subtotals = Preconditions.checkNotNull(subtotals, "subtotals");
     this.aggregations = ImmutableList.copyOf(aggregations);
     this.havingFilter = havingFilter;
     this.outputRowSignature = Preconditions.checkNotNull(outputRowSignature, "outputRowSignature");
+    this.groupingDimensionsDropped = groupingDimensionsDropped;
 
     // Verify no collisions between dimensions, aggregations, post-aggregations.
     final Set<String> seen = new HashSet<>();
@@ -101,6 +118,27 @@ public class Grouping
         throw new ISE("Missing field in rowOrder: %s", field);
       }
     }
+  }
+
+  // This method is private since groupingDimensionsDropped should only be deviated from default in
+  // applyProject
+  private static Grouping create(
+      final List<DimensionExpression> dimensions,
+      final Subtotals subtotals,
+      final List<Aggregation> aggregations,
+      @Nullable final DimFilter havingFilter,
+      final RowSignature outputRowSignature,
+      final boolean groupingDimensionsDropped
+  )
+  {
+    return new Grouping(
+        dimensions,
+        subtotals,
+        aggregations,
+        havingFilter,
+        outputRowSignature,
+        groupingDimensionsDropped
+    );
   }
 
   public static Grouping create(
@@ -160,6 +198,11 @@ public class Grouping
     return outputRowSignature;
   }
 
+  public boolean hasGroupingDimensionsDropped()
+  {
+    return groupingDimensionsDropped;
+  }
+
   /**
    * Applies a post-grouping projection.
    *
@@ -185,13 +228,15 @@ public class Grouping
     // Remove literal dimensions that did not appear in the projection. This is useful for queries
     // like "SELECT COUNT(*) FROM tbl GROUP BY 'dummy'" which some tools can generate, and for which we don't
     // actually want to include a dimension 'dummy'.
-    final ImmutableBitSet aggregateProjectBits = RelOptUtil.InputFinder.bits(project.getChildExps(), null);
+    final ImmutableBitSet aggregateProjectBits = RelOptUtil.InputFinder.bits(project.getProjects(), null);
     final int[] newDimIndexes = new int[dimensions.size()];
+    boolean droppedDimensions = false;
 
     for (int i = 0; i < dimensions.size(); i++) {
       final DimensionExpression dimension = dimensions.get(i);
-      if (Parser.parse(dimension.getDruidExpression().getExpression(), plannerContext.getExprMacroTable())
-                .isLiteral() && !aggregateProjectBits.get(i)) {
+      if (plannerContext.parseExpression(dimension.getDruidExpression().getExpression()).isLiteral()
+          && !aggregateProjectBits.get(i)) {
+        droppedDimensions = true;
         newDimIndexes[i] = -1;
       } else {
         newDimIndexes[i] = newDimensions.size();
@@ -225,7 +270,8 @@ public class Grouping
         newSubtotals,
         newAggregations,
         havingFilter,
-        postAggregationProjection.getOutputRowSignature()
+        postAggregationProjection.getOutputRowSignature(),
+        droppedDimensions
     );
   }
 
@@ -243,12 +289,20 @@ public class Grouping
            subtotals.equals(grouping.subtotals) &&
            aggregations.equals(grouping.aggregations) &&
            Objects.equals(havingFilter, grouping.havingFilter) &&
-           outputRowSignature.equals(grouping.outputRowSignature);
+           outputRowSignature.equals(grouping.outputRowSignature) &&
+           groupingDimensionsDropped == grouping.groupingDimensionsDropped;
   }
 
   @Override
   public int hashCode()
   {
-    return Objects.hash(dimensions, subtotals, aggregations, havingFilter, outputRowSignature);
+    return Objects.hash(
+        dimensions,
+        subtotals,
+        aggregations,
+        havingFilter,
+        outputRowSignature,
+        groupingDimensionsDropped
+    );
   }
 }

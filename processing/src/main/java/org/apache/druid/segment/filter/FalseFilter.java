@@ -19,17 +19,17 @@
 
 package org.apache.druid.segment.filter;
 
-import org.apache.druid.query.BitmapResultFactory;
-import org.apache.druid.query.filter.BitmapIndexSelector;
+import org.apache.druid.query.filter.ColumnIndexSelector;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.ValueMatcher;
-import org.apache.druid.query.filter.vector.BooleanVectorValueMatcher;
 import org.apache.druid.query.filter.vector.VectorValueMatcher;
 import org.apache.druid.segment.ColumnInspector;
-import org.apache.druid.segment.ColumnSelector;
 import org.apache.druid.segment.ColumnSelectorFactory;
+import org.apache.druid.segment.index.AllFalseBitmapColumnIndex;
+import org.apache.druid.segment.index.BitmapColumnIndex;
 import org.apache.druid.segment.vector.VectorColumnSelectorFactory;
 
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -47,46 +47,23 @@ public class FalseFilter implements Filter
   {
   }
 
+  @Nullable
   @Override
-  public <T> T getBitmapResult(BitmapIndexSelector selector, BitmapResultFactory<T> bitmapResultFactory)
+  public BitmapColumnIndex getBitmapColumnIndex(ColumnIndexSelector selector)
   {
-    return bitmapResultFactory.wrapAllFalse(Filters.allFalse(selector));
-  }
-
-  @Override
-  public double estimateSelectivity(BitmapIndexSelector indexSelector)
-  {
-    return 0;
+    return new AllFalseBitmapColumnIndex(selector.getBitmapFactory());
   }
 
   @Override
   public ValueMatcher makeMatcher(ColumnSelectorFactory factory)
   {
-    return FalseValueMatcher.instance();
+    return ConstantMatcherType.ALL_FALSE.asValueMatcher();
   }
 
   @Override
   public VectorValueMatcher makeVectorMatcher(VectorColumnSelectorFactory factory)
   {
-    return BooleanVectorValueMatcher.of(factory.getReadableVectorInspector(), false);
-  }
-
-  @Override
-  public boolean supportsBitmapIndex(BitmapIndexSelector selector)
-  {
-    return true;
-  }
-
-  @Override
-  public boolean shouldUseBitmapIndex(BitmapIndexSelector selector)
-  {
-    return true;
-  }
-
-  @Override
-  public boolean supportsSelectivityEstimation(ColumnSelector columnSelector, BitmapIndexSelector indexSelector)
-  {
-    return true;
+    return ConstantMatcherType.ALL_FALSE.asVectorMatcher(factory.getReadableVectorInspector());
   }
 
   @Override

@@ -1,0 +1,106 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.druid.indexing.common;
+
+import com.fasterxml.jackson.annotation.JacksonInject;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.data.input.impl.JsonInputFormat;
+import org.apache.druid.data.input.impl.LocalInputSource;
+import org.apache.druid.indexer.TaskStatus;
+import org.apache.druid.indexer.partitions.DynamicPartitionsSpec;
+import org.apache.druid.indexing.common.actions.TaskAction;
+import org.apache.druid.indexing.common.task.IndexTask;
+import org.apache.druid.indexing.common.task.TaskResource;
+import org.apache.druid.indexing.common.task.TuningConfigBuilder;
+import org.apache.druid.indexing.overlord.SegmentPublishResult;
+import org.apache.druid.segment.IndexSpec;
+import org.apache.druid.segment.SegmentSchemaMapping;
+import org.apache.druid.segment.indexing.DataSchema;
+import org.apache.druid.timeline.DataSegment;
+
+import java.io.File;
+import java.util.Set;
+
+/**
+ */
+@JsonTypeName("test_index")
+public class TestIndexTask extends IndexTask
+{
+  private final TaskStatus status;
+
+  @JsonCreator
+  public TestIndexTask(
+      @JsonProperty("id") String id,
+      @JsonProperty("resource") TaskResource taskResource,
+      @JsonProperty("dataSource") String dataSource,
+      @JsonProperty("taskStatus") TaskStatus status,
+      @JacksonInject ObjectMapper mapper
+  )
+  {
+    super(
+        id,
+        taskResource,
+        new IndexIngestionSpec(
+            DataSchema.builder().withDataSource(dataSource).withObjectMapper(mapper).build(),
+            new IndexTask.IndexIOConfig(
+                new LocalInputSource(new File("lol"), "rofl"),
+                new JsonInputFormat(null, null, null, null, null),
+                false,
+                false
+            ),
+            TuningConfigBuilder.forIndexTask()
+                               .withMaxRowsInMemory(10)
+                               .withIndexSpec(IndexSpec.DEFAULT)
+                               .withPartitionsSpec(new DynamicPartitionsSpec(10000, null))
+                               .withForceGuaranteedRollup(false)
+                               .withMaxPendingPersists(3)
+                               .build()
+        ),
+        null
+    );
+    this.status = status;
+  }
+
+  @Override
+  @JsonProperty
+  public String getType()
+  {
+    return "test_realtime";
+  }
+
+  @Override
+  public TaskStatus runTask(TaskToolbox toolbox)
+  {
+    return status;
+  }
+
+  public TaskAction<SegmentPublishResult> buildPublishActionForTest(
+      Set<DataSegment> segmentsToBeOverwritten,
+      Set<DataSegment> segmentsToPublish,
+      SegmentSchemaMapping segmentSchemaMapping,
+      TaskLockType lockType
+  )
+  {
+    return buildPublishAction(segmentsToBeOverwritten, segmentsToPublish, segmentSchemaMapping, lockType);
+  }
+}

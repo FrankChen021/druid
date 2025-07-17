@@ -20,69 +20,67 @@
 package org.apache.druid.emitter.statsd;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.timgroup.statsd.Event;
 import com.timgroup.statsd.StatsDClient;
-import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.emitter.service.AlertBuilder;
 import org.apache.druid.java.util.emitter.service.AlertEvent;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
-import org.easymock.Capture;
-import org.easymock.EasyMock;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
 
 public class StatsDEmitterTest
 {
   @Test
   public void testConvertRange()
   {
-    StatsDClient client = EasyMock.createMock(StatsDClient.class);
+    StatsDClient client = mock(StatsDClient.class);
     StatsDEmitter emitter = new StatsDEmitter(
-        new StatsDEmitterConfig("localhost", 8888, null, null, null, null, null, null, null, null, null),
+        new StatsDEmitterConfig("localhost", 8888, null, null, null, null, null, null, null, null, null, null, null, null, null),
         new ObjectMapper(),
         client
     );
-    client.gauge("broker.query.cache.total.hitRate", 54);
-    EasyMock.replay(client);
     emitter.emit(new ServiceMetricEvent.Builder()
                      .setDimension("dataSource", "data-source")
-                     .build(DateTimes.nowUtc(), "query/cache/total/hitRate", 0.54)
+                     .setMetric("query/cache/total/hitRate", 0.54)
                      .build("broker", "brokerHost1")
     );
-    EasyMock.verify(client);
+    verify(client).gauge("broker.query.cache.total.hitRate", 54);
   }
 
   @Test
   public void testConvertRangeWithDogstatsd()
   {
-    StatsDClient client = EasyMock.createMock(StatsDClient.class);
+    StatsDClient client = mock(StatsDClient.class);
     StatsDEmitter emitter = new StatsDEmitter(
-        new StatsDEmitterConfig("localhost", 8888, null, null, null, null, null, true, null, null, null),
+        new StatsDEmitterConfig("localhost", 8888, null, null, null, null, null, true, null, null, null, null, null, null, null),
         new ObjectMapper(),
         client
     );
-    client.gauge("broker.query.cache.total.hitRate", 0.54);
-    EasyMock.replay(client);
     emitter.emit(new ServiceMetricEvent.Builder()
                      .setDimension("dataSource", "data-source")
-                     .build(DateTimes.nowUtc(), "query/cache/total/hitRate", 0.54)
+                     .setMetric("query/cache/total/hitRate", 0.54)
                      .build("broker", "brokerHost1")
     );
-    EasyMock.verify(client);
+    verify(client).gauge("broker.query.cache.total.hitRate", 0.54);
   }
 
   @Test
   public void testNoConvertRange()
   {
-    StatsDClient client = EasyMock.createMock(StatsDClient.class);
+    StatsDClient client = mock(StatsDClient.class);
     StatsDEmitter emitter = new StatsDEmitter(
-        new StatsDEmitterConfig("localhost", 8888, null, null, null, null, null, null, null, null, null),
+        new StatsDEmitterConfig("localhost", 8888, null, null, null, null, null, null, null, null, null, null, null, null, null),
         new ObjectMapper(),
         client
     );
-    client.time("broker.query.time.data-source.groupBy", 10);
-    EasyMock.replay(client);
     emitter.emit(new ServiceMetricEvent.Builder()
                      .setDimension("dataSource", "data-source")
                      .setDimension("type", "groupBy")
@@ -94,23 +92,21 @@ public class StatsDEmitterTest
                      .setDimension("remoteAddress", "194.0.90.2")
                      .setDimension("id", "ID")
                      .setDimension("context", "{context}")
-                     .build(DateTimes.nowUtc(), "query/time", 10)
+                     .setMetric("query/time", 10)
                      .build("broker", "brokerHost1")
     );
-    EasyMock.verify(client);
+    verify(client).time("broker.query.time.data-source.groupBy", 10);
   }
 
   @Test
   public void testConfigOptions()
   {
-    StatsDClient client = EasyMock.createMock(StatsDClient.class);
+    StatsDClient client = mock(StatsDClient.class);
     StatsDEmitter emitter = new StatsDEmitter(
-        new StatsDEmitterConfig("localhost", 8888, null, "#", true, null, null, null, null, null, null),
+        new StatsDEmitterConfig("localhost", 8888, null, "#", true, null, null, null, null, null, null, null, null, null, null),
         new ObjectMapper(),
         client
     );
-    client.time("brokerHost1#broker#query#time#data-source#groupBy", 10);
-    EasyMock.replay(client);
     emitter.emit(new ServiceMetricEvent.Builder()
                      .setDimension("dataSource", "data-source")
                      .setDimension("type", "groupBy")
@@ -122,25 +118,21 @@ public class StatsDEmitterTest
                      .setDimension("remoteAddress", "194.0.90.2")
                      .setDimension("id", "ID")
                      .setDimension("context", "{context}")
-                     .build(DateTimes.nowUtc(), "query/time", 10)
+                     .setMetric("query/time", 10)
                      .build("broker", "brokerHost1")
     );
-    EasyMock.verify(client);
+    verify(client).time("brokerHost1#broker#query#time#data-source#groupBy", 10);
   }
 
   @Test
   public void testDogstatsdEnabled()
   {
-    StatsDClient client = EasyMock.createMock(StatsDClient.class);
+    StatsDClient client = mock(StatsDClient.class);
     StatsDEmitter emitter = new StatsDEmitter(
-        new StatsDEmitterConfig("localhost", 8888, null, "#", true, null, null, true, null, null, null),
+        new StatsDEmitterConfig("localhost", 8888, null, "#", true, null, null, true, null, null, null, null, null, null, null),
         new ObjectMapper(),
         client
     );
-    client.time("broker#query#time", 10,
-                "dataSource:data-source", "type:groupBy", "hostname:brokerHost1"
-    );
-    EasyMock.replay(client);
     emitter.emit(new ServiceMetricEvent.Builder()
                      .setDimension("dataSource", "data-source")
                      .setDimension("type", "groupBy")
@@ -152,59 +144,55 @@ public class StatsDEmitterTest
                      .setDimension("remoteAddress", "194.0.90.2")
                      .setDimension("id", "ID")
                      .setDimension("context", "{context}")
-                     .build(DateTimes.nowUtc(), "query/time", 10)
+                     .setMetric("query/time", 10)
                      .build("broker", "brokerHost1")
     );
-    EasyMock.verify(client);
+    verify(client).time("broker#query#time", 10,
+                        "dataSource:data-source", "type:groupBy", "hostname:brokerHost1");
   }
 
   @Test
   public void testBlankHolderOptions()
   {
-    StatsDClient client = EasyMock.createMock(StatsDClient.class);
+    StatsDClient client = mock(StatsDClient.class);
     StatsDEmitter emitter = new StatsDEmitter(
-        new StatsDEmitterConfig("localhost", 8888, null, null, true, null, null, null, null, null, null),
+        new StatsDEmitterConfig("localhost", 8888, null, null, true, null, null, null, null, null, null, null, null, null, null),
         new ObjectMapper(),
         client
     );
-    client.count("brokerHost1.broker.jvm.gc.count.G1-GC", 1);
-    EasyMock.replay(client);
     emitter.emit(new ServiceMetricEvent.Builder()
                      .setDimension("gcName", "G1 GC")
-                     .build(DateTimes.nowUtc(), "jvm/gc/count", 1)
+                     .setMetric("jvm/gc/count", 1)
                      .build("broker", "brokerHost1")
     );
-    EasyMock.verify(client);
+    verify(client).count("brokerHost1.broker.jvm.gc.count.G1-GC", 1);
   }
 
   @Test
   public void testServiceAsTagOption()
   {
-    StatsDClient client = EasyMock.createMock(StatsDClient.class);
+    StatsDClient client = mock(StatsDClient.class);
     StatsDEmitter emitter = new StatsDEmitter(
-            new StatsDEmitterConfig("localhost", 8888, null, null, true, null, null, true, null, true, null),
+            new StatsDEmitterConfig("localhost", 8888, null, null, true, null, null, true, null, true, null, null, null, null, null),
             new ObjectMapper(),
             client
     );
-    client.time("druid.query.time", 10,
-            "druid_service:druid/broker", "dataSource:data-source", "type:groupBy", "hostname:brokerHost1"
-    );
-    EasyMock.replay(client);
     emitter.emit(new ServiceMetricEvent.Builder()
             .setDimension("dataSource", "data-source")
             .setDimension("type", "groupBy")
-            .build(DateTimes.nowUtc(), "query/time", 10)
+            .setMetric("query/time", 10)
             .build("druid/broker", "brokerHost1")
     );
-    EasyMock.verify(client);
+    verify(client).time("druid.query.time", 10,
+                        "druid_service:druid/broker", "dataSource:data-source", "type:groupBy", "hostname:brokerHost1");
   }
 
   @Test
   public void testAlertEvent()
   {
-    StatsDClient client = EasyMock.createMock(StatsDClient.class);
+    StatsDClient client = mock(StatsDClient.class);
     StatsDEmitter emitter = new StatsDEmitter(
-        new StatsDEmitterConfig("localhost", 8888, null, null, true, null, null, true, null, true, true),
+        new StatsDEmitterConfig("localhost", 8888, null, null, true, null, null, true, null, true, true, null, null, null, null),
         new ObjectMapper(),
         client
     );
@@ -216,25 +204,51 @@ public class StatsDEmitterTest
         .withText("{\"exception\":\"NPE\"}")
         .build();
 
-    Capture<Event> eventCapture = EasyMock.newCapture();
-    client.recordEvent(
-        EasyMock.capture(eventCapture),
-        EasyMock.eq("feed:alerts"), EasyMock.eq("druid_service:druid/broker"),
-        EasyMock.eq("severity:anomaly"), EasyMock.eq("hostname:brokerHost1")
-    );
-    EasyMock.replay(client);
     emitter.emit(AlertBuilder.create("something bad happened [%s]", "exception")
                              .severity(AlertEvent.Severity.ANOMALY)
                              .addData(ImmutableMap.of("exception", "NPE"))
                              .build("druid/broker", "brokerHost1")
     );
-    EasyMock.verify(client);
-    Event actualEvent = eventCapture.getValue();
+
+    final ArgumentCaptor<Event> eventArgumentCaptor = ArgumentCaptor.forClass(Event.class);
+    verify(client).recordEvent(
+        eventArgumentCaptor.capture(),
+        eq("feed:alerts"), eq("druid_service:druid/broker"),
+        eq("severity:anomaly"), eq("hostname:brokerHost1")
+    );
+
+    Event actualEvent = eventArgumentCaptor.getValue();
     Assert.assertTrue(actualEvent.getMillisSinceEpoch() > 0);
     Assert.assertEquals(expectedEvent.getPriority(), actualEvent.getPriority());
     Assert.assertEquals(expectedEvent.getAlertType(), actualEvent.getAlertType());
     Assert.assertEquals(expectedEvent.getTitle(), actualEvent.getTitle());
     Assert.assertEquals(expectedEvent.getText(), actualEvent.getText());
+  }
+
+  @Test
+  public void testInitialization()
+  {
+    final StatsDEmitterConfig config = new StatsDEmitterConfig(
+        "localhost",
+        8888,
+        "druid",
+        "-",
+        true,
+        null,
+        null,
+        true,
+        ImmutableList.of("tag1", "value1"),
+        true,
+        true,
+        5100,
+        512,
+        1,
+        1
+
+    );
+    try (StatsDEmitter emitter = StatsDEmitter.of(config, new ObjectMapper())) {
+
+    }
   }
 
   @Test

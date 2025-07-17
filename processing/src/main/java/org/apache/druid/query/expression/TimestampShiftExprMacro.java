@@ -20,11 +20,14 @@
 package org.apache.druid.query.expression;
 
 import org.apache.druid.java.util.common.DateTimes;
-import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.math.expr.ExprMacroTable;
-import org.apache.druid.math.expr.ExprType;
+import org.apache.druid.math.expr.ExpressionType;
+import org.apache.druid.math.expr.InputBindings;
+import org.apache.druid.math.expr.vector.CastToTypeVectorProcessor;
+import org.apache.druid.math.expr.vector.ExprVectorProcessor;
+import org.apache.druid.math.expr.vector.LongUnivariateLongFunctionVectorProcessor;
 import org.joda.time.Chronology;
 import org.joda.time.Period;
 import org.joda.time.chrono.ISOChronology;
@@ -32,7 +35,6 @@ import org.joda.time.chrono.ISOChronology;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class TimestampShiftExprMacro implements ExprMacroTable.ExprMacro
 {
@@ -47,16 +49,14 @@ public class TimestampShiftExprMacro implements ExprMacroTable.ExprMacro
   @Override
   public Expr apply(final List<Expr> args)
   {
-    if (args.size() < 3 || args.size() > 4) {
-      throw new IAE("Function[%s] must have 3 to 4 arguments", name());
-    }
+    validationHelperCheckArgumentRange(args, 3, 4);
 
     if (args.stream().skip(1).allMatch(Expr::isLiteral)) {
-      return new TimestampShiftExpr(args);
+      return new TimestampShiftExpr(this, args);
     } else {
       // Use dynamic impl if any args are non-literal. Don't bother optimizing for the case where period is
       // literal but step isn't.
-      return new TimestampShiftDynamicExpr(args);
+      return new TimestampShiftDynamicExpr(this, args);
     }
   }
 
@@ -87,12 +87,12 @@ public class TimestampShiftExprMacro implements ExprMacroTable.ExprMacro
     private final Period period;
     private final int step;
 
-    TimestampShiftExpr(final List<Expr> args)
+    TimestampShiftExpr(final TimestampShiftExprMacro macro, final List<Expr> args)
     {
-      super(FN_NAME, args);
-      period = getPeriod(args, ExprUtils.nilBindings());
-      chronology = getTimeZone(args, ExprUtils.nilBindings());
-      step = getStep(args, ExprUtils.nilBindings());
+      super(macro, args);
+      period = getPeriod(args, InputBindings.nilBindings());
+      chronology = getTimeZone(args, InputBindings.nilBindings());
+      step = getStep(args, InputBindings.nilBindings());
     }
 
     @Nonnull
@@ -107,25 +107,35 @@ public class TimestampShiftExprMacro implements ExprMacroTable.ExprMacro
     }
 
     @Override
-    public Expr visit(Shuttle shuttle)
+    public boolean canVectorize(InputBindingInspector inspector)
     {
-      List<Expr> newArgs = args.stream().map(x -> x.visit(shuttle)).collect(Collectors.toList());
-      return shuttle.visit(new TimestampShiftExpr(newArgs));
+      return args.get(0).canVectorize(inspector);
+    }
+
+    @Override
+    public <T> ExprVectorProcessor<T> asVectorProcessor(VectorInputBindingInspector inspector)
+    {
+      final ExprVectorProcessor<?> processor = new LongUnivariateLongFunctionVectorProcessor(
+          CastToTypeVectorProcessor.cast(args.get(0).asVectorProcessor(inspector), ExpressionType.LONG),
+          input -> chronology.add(period, input, step)
+      );
+
+      return (ExprVectorProcessor<T>) processor;
     }
 
     @Nullable
     @Override
-    public ExprType getOutputType(InputBindingInspector inspector)
+    public ExpressionType getOutputType(InputBindingInspector inspector)
     {
-      return ExprType.LONG;
+      return ExpressionType.LONG;
     }
   }
 
   private static class TimestampShiftDynamicExpr extends ExprMacroTable.BaseScalarMacroFunctionExpr
   {
-    TimestampShiftDynamicExpr(final List<Expr> args)
+    TimestampShiftDynamicExpr(final TimestampShiftExprMacro macro, final List<Expr> args)
     {
-      super(FN_NAME, args);
+      super(macro, args);
     }
 
     @Nonnull
@@ -142,18 +152,12 @@ public class TimestampShiftExprMacro implements ExprMacroTable.ExprMacro
       return ExprEval.of(chronology.add(period, timestamp.asLong(), step));
     }
 
-    @Override
-    public Expr visit(Shuttle shuttle)
-    {
-      List<Expr> newArgs = args.stream().map(x -> x.visit(shuttle)).collect(Collectors.toList());
-      return shuttle.visit(new TimestampShiftDynamicExpr(newArgs));
-    }
-
     @Nullable
     @Override
-    public ExprType getOutputType(InputBindingInspector inspector)
+    public ExpressionType getOutputType(InputBindingInspector inspector)
     {
-      return ExprType.LONG;
+      return ExpressionType.LONG;
     }
+
   }
 }

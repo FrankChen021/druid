@@ -22,19 +22,24 @@ package org.apache.druid.sql.http;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.io.SerializedString;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.druid.java.util.common.jackson.JacksonUtils;
+import org.apache.druid.segment.column.RowSignature;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.List;
 
 public class ObjectLinesWriter implements ResultFormat.Writer
 {
-  private final OutputStream outputStream;
+  private final SerializerProvider serializers;
   private final JsonGenerator jsonGenerator;
+  private final OutputStream outputStream;
 
   public ObjectLinesWriter(final OutputStream outputStream, final ObjectMapper jsonMapper) throws IOException
   {
+    this.serializers = jsonMapper.getSerializerProviderInstance();
     this.outputStream = outputStream;
     this.jsonGenerator = jsonMapper.writer().getFactory().createGenerator(outputStream);
     jsonGenerator.setRootValueSeparator(new SerializedString("\n"));
@@ -57,15 +62,22 @@ public class ObjectLinesWriter implements ResultFormat.Writer
   }
 
   @Override
-  public void writeHeader(final List<String> columnNames) throws IOException
+  public void writeHeader(
+      final RelDataType rowType,
+      final boolean includeTypes,
+      final boolean includeSqlTypes
+  ) throws IOException
   {
-    jsonGenerator.writeStartObject();
+    ObjectWriter.writeHeader(jsonGenerator, rowType, includeTypes, includeSqlTypes);
+  }
 
-    for (String columnName : columnNames) {
-      jsonGenerator.writeNullField(columnName);
-    }
-
-    jsonGenerator.writeEndObject();
+  @Override
+  public void writeHeaderFromRowSignature(
+      final RowSignature rowSignature,
+      final boolean includeTypes
+  ) throws IOException
+  {
+    ObjectWriter.writeHeader(jsonGenerator, rowSignature, includeTypes);
   }
 
   @Override
@@ -78,7 +90,7 @@ public class ObjectLinesWriter implements ResultFormat.Writer
   public void writeRowField(final String name, @Nullable final Object value) throws IOException
   {
     jsonGenerator.writeFieldName(name);
-    jsonGenerator.writeObject(value);
+    JacksonUtils.writeObjectUsingSerializerProvider(jsonGenerator, serializers, value);
   }
 
   @Override
