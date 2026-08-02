@@ -148,6 +148,45 @@ public interface OverlordClient
       @Nullable Integer maxCompletedTasks
   );
 
+  default ListenableFuture<CloseableIterator<TaskStatusPlus>> taskStatuses(
+      @Nullable String state,
+      @Nullable String dataSource,
+      @Nullable Integer maxCompletedTasks,
+      @Nullable String type,
+      @Nullable String taskId
+  )
+  {
+    return taskStatuses(state, dataSource, maxCompletedTasks, type, taskId, null);
+  }
+
+  /**
+   * Return {@link TaskStatusPlus} for all tasks matching a set of optional search parameters.
+   *
+   * <p>This overload adds filters supported by newer Overlords while retaining the original methods for
+   * compatibility with older client implementations. Older implementations may ignore the additional filters;
+   * callers must therefore retain any corresponding residual filters.</p>
+   *
+   * @param state             task state: may be "pending", "waiting", "running", or "complete"
+   * @param dataSource        datasource
+   * @param maxCompletedTasks maximum number of completed tasks to return
+   * @param type              task type
+   * @param taskId            task ID
+   * @param groupId           task group ID
+   *
+   * @return list of tasks that match the search parameters
+   */
+  default ListenableFuture<CloseableIterator<TaskStatusPlus>> taskStatuses(
+      @Nullable String state,
+      @Nullable String dataSource,
+      @Nullable Integer maxCompletedTasks,
+      @Nullable String type,
+      @Nullable String taskId,
+      @Nullable String groupId
+  )
+  {
+    return taskStatuses(state, dataSource, maxCompletedTasks);
+  }
+
   /**
    * Return {@link TaskStatus} for a set of task IDs.
    *

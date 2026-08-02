@@ -575,6 +575,31 @@ public class OverlordResource
     return getTasks("complete", null, null, maxTaskStatuses, null, req);
   }
 
+  public Response getTasks(
+      final String state,
+      final String dataSource,
+      final String createdTimeInterval,
+      final Integer maxCompletedTasks,
+      final String type,
+      final HttpServletRequest req
+  )
+  {
+    return getTasks(state, dataSource, createdTimeInterval, maxCompletedTasks, type, null, null, req);
+  }
+
+  public Response getTasks(
+      final String state,
+      final String dataSource,
+      final String createdTimeInterval,
+      final Integer maxCompletedTasks,
+      final String type,
+      final String taskId,
+      final HttpServletRequest req
+  )
+  {
+    return getTasks(state, dataSource, createdTimeInterval, maxCompletedTasks, type, taskId, null, req);
+  }
+
   @GET
   @Path("/tasks")
   @Produces(MediaType.APPLICATION_JSON)
@@ -584,6 +609,8 @@ public class OverlordResource
       @QueryParam("createdTimeInterval") final String createdTimeInterval,
       @QueryParam("max") final Integer maxCompletedTasks,
       @QueryParam("type") final String type,
+      @QueryParam("taskId") final String taskId,
+      @QueryParam("groupId") final String groupId,
       @Context final HttpServletRequest req
   )
   {
@@ -632,7 +659,9 @@ public class OverlordResource
                   dataSource,
                   createdTimeInterval,
                   maxCompletedTasks,
-                  type
+                  type,
+                  taskId,
+                  groupId
               ),
               dataSource,
               req

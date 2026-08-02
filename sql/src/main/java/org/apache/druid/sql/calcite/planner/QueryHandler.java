@@ -40,12 +40,15 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelVisitor;
+import org.apache.calcite.rel.core.Filter;
+import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.Sort;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalSort;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ProjectableFilterableTable;
 import org.apache.calcite.schema.ScannableTable;
@@ -77,6 +80,7 @@ import org.apache.druid.sql.calcite.rel.logical.DruidLogicalConvention;
 import org.apache.druid.sql.calcite.rel.logical.DruidLogicalNode;
 import org.apache.druid.sql.calcite.run.EngineFeature;
 import org.apache.druid.sql.calcite.run.QueryMaker;
+import org.apache.druid.sql.calcite.schema.NamedSystemSchema;
 import org.apache.druid.sql.calcite.table.DruidTable;
 import org.apache.druid.sql.hook.DruidHook;
 import org.apache.druid.utils.Throwables;
@@ -331,7 +335,8 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
       final BindableRel theRel = bindableRel;
       final DataContext dataContext = plannerContext.createDataContext(
           planner.getTypeFactory(),
-          plannerContext.getParameters()
+          plannerContext.getParameters(),
+          getSystemTasksMaxRows(rootQueryRel.rel)
       );
       final Supplier<QueryResponse<Object[]>> resultsSupplier = () -> {
         final Enumerable<?> enumerable = theRel.bind(dataContext);
@@ -370,6 +375,58 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
       };
       return new PlannerResult(resultsSupplier, rootQueryRel.validatedRowType);
     }
+  }
+
+  /**
+   * Returns the number of rows needed from a simple, unordered {@code sys.tasks} scan with a literal LIMIT/OFFSET.
+   * The table scan performs additional checks before using this as an Overlord completed-task cap.
+   */
+  @Nullable
+  static Integer getSystemTasksMaxRows(final RelNode root)
+  {
+    RelNode current = root;
+    while (current instanceof Project) {
+      current = ((Project) current).getInput();
+    }
+
+    if (!(current instanceof Sort)) {
+      return null;
+    }
+
+    final Sort sort = (Sort) current;
+    if (!sort.getCollation().getFieldCollations().isEmpty() || !(sort.fetch instanceof RexLiteral)) {
+      return null;
+    }
+
+    if (sort.offset != null && !(sort.offset instanceof RexLiteral)) {
+      return null;
+    }
+
+    final long fetch = RexLiteral.intValue(sort.fetch);
+    final long offset = sort.offset == null ? 0 : RexLiteral.intValue(sort.offset);
+    final long maxRows = fetch + offset;
+    if (fetch < 0 || offset < 0 || maxRows > Integer.MAX_VALUE) {
+      return null;
+    }
+
+    current = sort.getInput();
+    while (current instanceof Project || current instanceof Filter) {
+      current = current.getInput(0);
+    }
+
+    if (!(current instanceof TableScan)) {
+      return null;
+    }
+
+    final List<String> qualifiedName = ((TableScan) current).getTable().getQualifiedName();
+    final int nameSize = qualifiedName.size();
+    if (nameSize < 2
+        || !NamedSystemSchema.NAME.equals(qualifiedName.get(nameSize - 2))
+        || !"tasks".equals(qualifiedName.get(nameSize - 1))) {
+      return null;
+    }
+
+    return (int) maxRows;
   }
 
   /**

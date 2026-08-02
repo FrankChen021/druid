@@ -19,9 +19,14 @@
 
 package org.apache.druid.indexing.overlord;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.indexer.RunnerTaskState;
 import org.apache.druid.indexer.TaskInfo;
+import org.apache.druid.indexer.TaskLocation;
+import org.apache.druid.indexer.TaskState;
 import org.apache.druid.indexer.TaskStatus;
+import org.apache.druid.indexer.TaskStatusPlus;
 import org.apache.druid.indexing.common.config.TaskStorageConfig;
 import org.apache.druid.indexing.common.task.NoopTask;
 import org.apache.druid.java.util.common.DateTimes;
@@ -32,6 +37,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class HeapMemoryTaskStorageTest
 {
@@ -93,5 +100,61 @@ public class HeapMemoryTaskStorageTest
 
     Assert.assertEquals(1, taskInfosComplete.size());
     Assert.assertEquals(task1.getId(), taskInfosComplete.get(0).getTask().getId());
+  }
+
+  @Test
+  public void testFilteredStatusFallbackAppliesFilterBeforeCompletedLimit()
+  {
+    final TaskStatusPlus otherTask = createTaskStatusPlus("other", "other-group");
+    final TaskStatusPlus targetTask = createTaskStatusPlus("target", "target-group");
+    final HeapMemoryTaskStorage fallbackStorage = new HeapMemoryTaskStorage(
+        new TaskStorageConfig(Period.days(1))
+    )
+    {
+      @Override
+      public List<TaskStatusPlus> getTaskStatusPlusList(
+          Map<TaskLookup.TaskLookupType, TaskLookup> taskLookups,
+          String datasource
+      )
+      {
+        final Integer maxTasks = ((TaskLookup.CompleteTaskLookup) taskLookups.get(
+            TaskLookup.TaskLookupType.COMPLETE
+        )).getMaxTaskStatuses();
+        return ImmutableList.of(otherTask, targetTask)
+                            .stream()
+                            .limit(maxTasks == null ? Long.MAX_VALUE : maxTasks)
+                            .collect(Collectors.toList());
+      }
+    };
+
+    final List<TaskStatusPlus> statuses = fallbackStorage.getTaskStatusPlusList(
+        ImmutableMap.of(
+            TaskLookup.TaskLookupType.COMPLETE,
+            new TaskLookup.CompleteTaskLookup(1, DateTimes.of("1970"))
+        ),
+        null,
+        null,
+        null,
+        "target-group"
+    );
+
+    Assert.assertEquals(ImmutableList.of(targetTask), statuses);
+  }
+
+  private TaskStatusPlus createTaskStatusPlus(String id, String groupId)
+  {
+    return new TaskStatusPlus(
+        id,
+        groupId,
+        "type",
+        DateTimes.nowUtc(),
+        DateTimes.EPOCH,
+        TaskState.SUCCESS,
+        RunnerTaskState.NONE,
+        1L,
+        TaskLocation.unknown(),
+        "datasource",
+        null
+    );
   }
 }

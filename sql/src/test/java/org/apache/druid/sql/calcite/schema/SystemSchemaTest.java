@@ -59,6 +59,9 @@ import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscovery;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.indexer.RunnerTaskState;
+import org.apache.druid.indexer.TaskLocation;
+import org.apache.druid.indexer.TaskState;
 import org.apache.druid.indexer.TaskStatusPlus;
 import org.apache.druid.indexer.granularity.GranularitySpec;
 import org.apache.druid.indexer.partitions.DynamicPartitionsSpec;
@@ -108,6 +111,7 @@ import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
+import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.apache.druid.sql.calcite.schema.SystemSchema.QueriesTable;
 import org.apache.druid.sql.calcite.schema.SystemSchema.SegmentsTable;
@@ -688,6 +692,68 @@ public class SystemSchemaTest extends CalciteTestBase
             SqlStdOperatorTable.AND,
             rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, sizeRef, foo),
             rexBuilder.makeCall(SqlStdOperatorTable.GREATER_THAN, sizeRef, foo)))));
+  }
+
+  @Test
+  public void testTasksTableFilters()
+  {
+    final RexBuilder rexBuilder = new RexBuilder(new JavaTypeFactoryImpl());
+    final RexLiteral taskId = (RexLiteral) rexBuilder.makeLiteral("task-1");
+    final RexLiteral groupId = (RexLiteral) rexBuilder.makeLiteral("group-1");
+    final RexLiteral dataSource = (RexLiteral) rexBuilder.makeLiteral("wikipedia");
+    final RexLiteral type = (RexLiteral) rexBuilder.makeLiteral("index");
+    final RexLiteral failed = (RexLiteral) rexBuilder.makeLiteral("FAILED");
+    final RexLiteral running = (RexLiteral) rexBuilder.makeLiteral("RUNNING");
+    final RexNode taskIdRef = rexBuilder.makeInputRef(
+        taskId.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("task_id")
+    );
+    final RexNode dataSourceRef = rexBuilder.makeInputRef(
+        dataSource.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("datasource")
+    );
+    final RexNode groupIdRef = rexBuilder.makeInputRef(
+        groupId.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("group_id")
+    );
+    final RexNode typeRef = rexBuilder.makeInputRef(
+        type.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("type")
+    );
+    final RexNode statusRef = rexBuilder.makeInputRef(
+        failed.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("status")
+    );
+    final RexNode runnerStatusRef = rexBuilder.makeInputRef(
+        running.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("runner_status")
+    );
+
+    final List<RexNode> filters = ImmutableList.of(
+        rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, dataSourceRef, dataSource),
+        rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, statusRef, failed)
+    );
+    Assert.assertEquals("task-1", SystemSchema.TasksTable.getTaskIdFilter(ImmutableList.of(
+        rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, taskIdRef, taskId)
+    )));
+    Assert.assertEquals("group-1", SystemSchema.TasksTable.getGroupIdFilter(ImmutableList.of(
+        rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, groupIdRef, groupId)
+    )));
+    Assert.assertEquals("index", SystemSchema.TasksTable.getTaskTypeFilter(ImmutableList.of(
+        rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, typeRef, type)
+    )));
+    Assert.assertEquals("wikipedia", SystemSchema.TasksTable.getDataSourceFilter(filters));
+    Assert.assertEquals("complete", SystemSchema.TasksTable.getTaskStateFilter(filters));
+
+    Assert.assertEquals(
+        "running",
+        SystemSchema.TasksTable.getTaskStateFilter(ImmutableList.of(
+            rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, runnerStatusRef, running)
+        ))
+    );
+    Assert.assertNull(SystemSchema.TasksTable.getTaskStateFilter(ImmutableList.of(
+        rexBuilder.makeCall(SqlStdOperatorTable.GREATER_THAN, statusRef, failed)
+    )));
   }
 
   @Test
@@ -1475,6 +1541,149 @@ public class SystemSchemaTest extends CalciteTestBase
 
     // Verify value types.
     verifyTypes(rows, SystemSchema.TASKS_SIGNATURE);
+  }
+
+  @Test
+  public void testTasksTablePushesFiltersToOverlord()
+  {
+    final SystemSchema.TasksTable tasksTable = new SystemSchema.TasksTable(overlordClient, authMapper);
+    final RexBuilder rexBuilder = new RexBuilder(new JavaTypeFactoryImpl());
+    final RexLiteral taskId = (RexLiteral) rexBuilder.makeLiteral("task-1");
+    final RexLiteral groupId = (RexLiteral) rexBuilder.makeLiteral("group-1");
+    final RexLiteral dataSource = (RexLiteral) rexBuilder.makeLiteral("wikipedia");
+    final RexLiteral type = (RexLiteral) rexBuilder.makeLiteral("index");
+    final RexLiteral failed = (RexLiteral) rexBuilder.makeLiteral("FAILED");
+    final RexNode taskIdRef = rexBuilder.makeInputRef(
+        taskId.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("task_id")
+    );
+    final RexNode dataSourceRef = rexBuilder.makeInputRef(
+        dataSource.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("datasource")
+    );
+    final RexNode groupIdRef = rexBuilder.makeInputRef(
+        groupId.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("group_id")
+    );
+    final RexNode typeRef = rexBuilder.makeInputRef(
+        type.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("type")
+    );
+    final RexNode statusRef = rexBuilder.makeInputRef(
+        failed.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("status")
+    );
+
+    EasyMock.expect(overlordClient.taskStatuses("complete", "wikipedia", null, "index", "task-1", "group-1"))
+            .andReturn(
+        Futures.immediateFuture(CloseableIterators.withEmptyBaggage(Collections.<TaskStatusPlus>emptyList().iterator()))
+    );
+    EasyMock.replay(overlordClient);
+
+    final List<Object[]> rows = tasksTable.scan(
+        createDataContext(Users.SUPER),
+        ImmutableList.of(
+            rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, dataSourceRef, dataSource),
+            rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, groupIdRef, groupId),
+            rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, statusRef, failed),
+            rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, typeRef, type),
+            rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, taskIdRef, taskId)
+        ),
+        new int[]{0, 3}
+    ).toList();
+
+    Assert.assertTrue(rows.isEmpty());
+    EasyMock.verify(overlordClient);
+  }
+
+  @Test
+  public void testTasksTablePushesLimitToOverlord()
+  {
+    final SystemSchema.TasksTable tasksTable = new SystemSchema.TasksTable(overlordClient, authMapper);
+    final TaskStatusPlus task1 = createTaskStatusPlus("task-1", "group", "index", "wikipedia");
+    final TaskStatusPlus task2 = createTaskStatusPlus("task-2", "group", "index", "wikipedia");
+
+    EasyMock.expect(overlordClient.taskStatuses(null, null, 2)).andReturn(
+        Futures.immediateFuture(
+            CloseableIterators.withEmptyBaggage(ImmutableList.of(task1, task2).iterator())
+        )
+    );
+    EasyMock.replay(overlordClient);
+
+    final List<Object[]> rows = tasksTable.scan(
+        createDataContext(Users.SUPER, 2),
+        ImmutableList.of(),
+        new int[]{0}
+    ).toList();
+
+    Assert.assertEquals(2, rows.size());
+    Assert.assertEquals("task-1", rows.get(0)[0]);
+    Assert.assertEquals("task-2", rows.get(1)[0]);
+    EasyMock.verify(overlordClient);
+  }
+
+  @Test
+  public void testTasksTableLimitRetriesWhenOverlordDoesNotApplyFilter()
+  {
+    final SystemSchema.TasksTable tasksTable = new SystemSchema.TasksTable(overlordClient, authMapper);
+    final TaskStatusPlus otherTask = createTaskStatusPlus("other", "group", "other-type", "wikipedia");
+    final TaskStatusPlus targetTask = createTaskStatusPlus("target", "group", "target-type", "wikipedia");
+    final RexBuilder rexBuilder = new RexBuilder(new JavaTypeFactoryImpl());
+    final RexLiteral targetType = (RexLiteral) rexBuilder.makeLiteral("target-type");
+    final RexNode typeRef = rexBuilder.makeInputRef(
+        targetType.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("type")
+    );
+
+    EasyMock.expect(overlordClient.taskStatuses(null, null, 1, "target-type", null, null)).andReturn(
+        Futures.immediateFuture(
+            CloseableIterators.withEmptyBaggage(ImmutableList.of(otherTask).iterator())
+        )
+    );
+    EasyMock.expect(overlordClient.taskStatuses(null, null, 2, "target-type", null, null)).andReturn(
+        Futures.immediateFuture(
+            CloseableIterators.withEmptyBaggage(ImmutableList.of(otherTask, targetTask).iterator())
+        )
+    );
+    EasyMock.replay(overlordClient);
+
+    final List<Object[]> rows = tasksTable.scan(
+        createDataContext(Users.SUPER, 1),
+        ImmutableList.of(rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, typeRef, targetType)),
+        new int[]{0}
+    ).toList();
+
+    Assert.assertEquals(1, rows.size());
+    Assert.assertEquals("target", rows.get(0)[0]);
+    EasyMock.verify(overlordClient);
+  }
+
+  @Test
+  public void testTasksTableDoesNotPushLimitWithResidualFilter()
+  {
+    final SystemSchema.TasksTable tasksTable = new SystemSchema.TasksTable(overlordClient, authMapper);
+    final RexBuilder rexBuilder = new RexBuilder(new JavaTypeFactoryImpl());
+    final RexLiteral failed = (RexLiteral) rexBuilder.makeLiteral("FAILED");
+    final RexNode statusRef = rexBuilder.makeInputRef(
+        failed.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("status")
+    );
+
+    EasyMock.expect(overlordClient.taskStatuses("complete", null, null)).andReturn(
+        Futures.immediateFuture(
+            CloseableIterators.withEmptyBaggage(Collections.<TaskStatusPlus>emptyList().iterator())
+        )
+    );
+    EasyMock.replay(overlordClient);
+
+    final List<Object[]> rows = tasksTable.scan(
+        createDataContext(Users.SUPER, 1),
+        ImmutableList.of(rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, statusRef, failed)),
+        new int[]{0}
+    ).toList();
+
+    Assert.assertTrue(rows.isEmpty());
+    EasyMock.verify(overlordClient);
   }
 
   @Test
@@ -2402,6 +2611,11 @@ public class SystemSchemaTest extends CalciteTestBase
    */
   private DataContext createDataContext(String username)
   {
+    return createDataContext(username, null);
+  }
+
+  private DataContext createDataContext(String username, Integer maxRows)
+  {
     return new DataContext()
     {
       @Override
@@ -2425,11 +2639,31 @@ public class SystemSchemaTest extends CalciteTestBase
       @Override
       public Object get(String authorizerName)
       {
+        if (PlannerContext.DATA_CTX_SYS_TASKS_MAX_ROWS.equals(authorizerName)) {
+          return maxRows;
+        }
         return CalciteTests.TEST_SUPERUSER_NAME.equals(username)
                ? CalciteTests.SUPER_USER_AUTH_RESULT
                : new AuthenticationResult(username, authorizerName, null, null);
       }
     };
+  }
+
+  private TaskStatusPlus createTaskStatusPlus(String id, String groupId, String type, String dataSource)
+  {
+    return new TaskStatusPlus(
+        id,
+        groupId,
+        type,
+        DateTimes.nowUtc(),
+        DateTimes.EPOCH,
+        TaskState.SUCCESS,
+        RunnerTaskState.NONE,
+        1L,
+        TaskLocation.unknown(),
+        dataSource,
+        null
+    );
   }
 
   private AuthorizerMapper createAuthMapper()

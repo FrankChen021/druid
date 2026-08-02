@@ -47,6 +47,38 @@ public class CalciteSysQueryTest extends BaseCalciteQueryTest
         .run();
   }
 
+  @Test
+  public void testTasksFilters()
+  {
+    msqIncompatible();
+
+    testBuilder()
+        .sql(
+            "select task_id, group_id, type, datasource, duration "
+            + "from sys.tasks "
+            + "where task_id = 'id1' and group_id = 'testGroupId' and type = 'testType'"
+        )
+        .expectedResults(ImmutableList.of(
+            new Object[]{"id1", "testGroupId", "testType", "foo", 10L},
+            new Object[]{"id1", "testGroupId", "testType", "foo", 1L}
+        ))
+        .run();
+  }
+
+  @Test
+  public void testTasksLimit()
+  {
+    msqIncompatible();
+
+    testBuilder()
+        .sql("select task_id, duration from sys.tasks limit 2")
+        .expectedResults(ImmutableList.of(
+            new Object[]{"id1", 10L},
+            new Object[]{"id1", 1L}
+        ))
+        .run();
+  }
+
   @NotYetSupported(Modes.EXPRESSION_NOT_GROUPED)
   @Test
   public void testTasksSumOver()

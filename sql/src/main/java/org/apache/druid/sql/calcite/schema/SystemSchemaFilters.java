@@ -26,6 +26,7 @@ import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.NlsString;
 import org.apache.calcite.util.Sarg;
 
@@ -87,6 +88,49 @@ final class SystemSchemaFilters
       }
     }
     return result;
+  }
+
+  /**
+   * Returns whether every supplied filter is a conjunction of exact string equalities on one of the supplied columns.
+   * This is stricter than {@link #extractColumnValues(List, int)} and is used when a row limit can only be pushed if
+   * no predicate remains for Calcite to evaluate against rows omitted by that limit.
+   */
+  static boolean areExactEqualitiesOnColumns(final List<RexNode> filters, final int... columnIndices)
+  {
+    for (final RexNode filter : filters) {
+      if (!isExactEqualityOnColumns(filter, columnIndices)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean isExactEqualityOnColumns(final RexNode node, final int... columnIndices)
+  {
+    if (!(node instanceof RexCall)) {
+      return false;
+    }
+
+    final RexCall call = (RexCall) node;
+    if (call.getKind() == SqlKind.AND) {
+      for (final RexNode operand : call.getOperands()) {
+        if (!isExactEqualityOnColumns(operand, columnIndices)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    if (call.getKind() != SqlKind.EQUALS) {
+      return false;
+    }
+
+    for (final int columnIndex : columnIndices) {
+      if (equalsColumn(call, columnIndex) != null) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

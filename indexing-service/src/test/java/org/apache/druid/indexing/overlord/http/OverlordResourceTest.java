@@ -683,7 +683,7 @@ public class OverlordResourceTest
   }
 
   @Test
-  public void testGetTasksFilterByTaskTypeRequiresDatasourceRead()
+  public void testGetTasksFilterByTaskFieldsRequiresDatasourceRead()
   {
     // Setup mocks for a user who has read access to "wikipedia"
     // and no access to "buzzfeed"
@@ -698,13 +698,16 @@ public class OverlordResourceTest
                 TaskLookupType.ACTIVE,
                 ActiveTaskLookup.getInstance()
             ),
-            null
+            null,
+            "id_1",
+            "to-return",
+            "group-id"
         )
     ).andStubReturn(
         ImmutableList.of(
             createTaskStatusPlus("id_5", TaskState.SUCCESS, Datasources.WIKIPEDIA),
             createTaskStatusPlus("id_6", TaskState.SUCCESS, Datasources.BUZZFEED),
-            createTaskStatusPlus("id_1", TaskState.RUNNING, Datasources.WIKIPEDIA, "to-return"),
+            createTaskStatusPlus("id_1", TaskState.RUNNING, Datasources.WIKIPEDIA, "to-return", "group-id"),
             createTaskStatusPlus("id_4", TaskState.RUNNING, Datasources.BUZZFEED)
         )
     );
@@ -722,7 +725,7 @@ public class OverlordResourceTest
 
     // Verify that only the tasks of read access datasource are returned
     List<TaskStatusPlus> responseObjects = (List<TaskStatusPlus>) overlordResource
-        .getTasks(null, null, null, null, "to-return", req)
+        .getTasks(null, null, null, null, "to-return", "id_1", "group-id", req)
         .getEntity();
     Assert.assertEquals(1, responseObjects.size());
     for (TaskStatusPlus taskStatus : responseObjects) {
@@ -1514,9 +1517,20 @@ public class OverlordResourceTest
 
   private TaskStatusPlus createTaskStatusPlus(String taskId, TaskState taskState, String datasource, String taskType)
   {
+    return createTaskStatusPlus(taskId, taskState, datasource, taskType, null);
+  }
+
+  private TaskStatusPlus createTaskStatusPlus(
+      String taskId,
+      TaskState taskState,
+      String datasource,
+      String taskType,
+      String groupId
+  )
+  {
     return new TaskStatusPlus(
         taskId,
-        null,
+        groupId,
         taskType,
         DateTime.now(ISOChronology.getInstanceUTC()),
         DateTimes.EPOCH,

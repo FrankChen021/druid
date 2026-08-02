@@ -335,6 +335,29 @@ public abstract class SQLMetadataStorageActionHandler
       @Nullable String dataSource
   )
   {
+    return getTaskStatusList(taskLookups, dataSource, null, null, null);
+  }
+
+  @Override
+  public List<TaskIdStatus> getTaskStatusList(
+      Map<TaskLookupType, TaskLookup> taskLookups,
+      @Nullable String dataSource,
+      @Nullable String taskId,
+      @Nullable String type
+  )
+  {
+    return getTaskStatusList(taskLookups, dataSource, taskId, type, null);
+  }
+
+  @Override
+  public List<TaskIdStatus> getTaskStatusList(
+      Map<TaskLookupType, TaskLookup> taskLookups,
+      @Nullable String dataSource,
+      @Nullable String taskId,
+      @Nullable String type,
+      @Nullable String groupId
+  )
+  {
     boolean fetchPayload = true;
     if (taskMigrationCompleteFuture != null && taskMigrationCompleteFuture.isDone()) {
       try {
@@ -344,7 +367,7 @@ public abstract class SQLMetadataStorageActionHandler
         log.info(e, "Exception getting task migration future");
       }
     }
-    return getTaskStatusList(taskLookups, dataSource, fetchPayload);
+    return getTaskStatusList(taskLookups, dataSource, taskId, type, groupId, fetchPayload);
   }
 
   @VisibleForTesting
@@ -354,38 +377,160 @@ public abstract class SQLMetadataStorageActionHandler
       boolean fetchPayload
   )
   {
-    ResultSetMapper<TaskIdStatus> resultSetMapper =
+    return getTaskStatusList(taskLookups, dataSource, null, null, null, fetchPayload);
+  }
+
+  @VisibleForTesting
+  List<TaskIdStatus> getTaskStatusList(
+      Map<TaskLookupType, TaskLookup> taskLookups,
+      @Nullable String dataSource,
+      @Nullable String taskId,
+      @Nullable String type,
+      boolean fetchPayload
+  )
+  {
+    return getTaskStatusList(taskLookups, dataSource, taskId, type, null, fetchPayload);
+  }
+
+  @VisibleForTesting
+  List<TaskIdStatus> getTaskStatusList(
+      Map<TaskLookupType, TaskLookup> taskLookups,
+      @Nullable String dataSource,
+      @Nullable String taskId,
+      @Nullable String type,
+      @Nullable String groupId,
+      boolean fetchPayload
+  )
+  {
+    final ResultSetMapper<TaskIdStatus> resultSetMapper =
         fetchPayload ? taskStatusMapperFromPayload : taskStatusMapper;
-    return getConnector().retryTransaction(
+    // During migration, type and group ID are authoritative in the payload rather than in the new columns. Keep the
+    // SQL query compatible with both schemas and apply those predicates to the mapped row below in that case.
+    final String sqlType = fetchPayload ? null : type;
+    final String sqlGroupId = fetchPayload ? null : groupId;
+    // Keep the Java equality check ahead of the effective limit even after migration. Metadata-store string comparison
+    // may use a broader collation than String.equals, so a case variant must not consume the completed-task limit.
+    final boolean requiresExactLimit = taskId != null || type != null || groupId != null;
+    final List<TaskIdStatus> taskMetadataInfos = getConnector().retryTransaction(
         (handle, status) -> {
-          final List<TaskIdStatus> taskMetadataInfos = new ArrayList<>();
+          final List<TaskIdStatus> taskMetadataInfosInTransaction = new ArrayList<>();
           for (Entry<TaskLookupType, TaskLookup> entry : taskLookups.entrySet()) {
-            final Query<Map<String, Object>> query;
             switch (entry.getKey()) {
               case ACTIVE:
-                query = fetchPayload
-                        ? createActiveTaskStreamingQuery(handle, dataSource)
-                        : createActiveTaskSummaryStreamingQuery(handle, dataSource);
-                taskMetadataInfos.addAll(query.map(resultSetMapper).list());
+                final Query<Map<String, Object>> activeQuery = fetchPayload
+                                                               ? createActiveTaskStreamingQuery(
+                                                                   handle,
+                                                                   dataSource,
+                                                                   taskId,
+                                                                   sqlType,
+                                                                   sqlGroupId
+                                                               )
+                                                               : createActiveTaskSummaryStreamingQuery(
+                                                                   handle,
+                                                                   dataSource,
+                                                                   taskId,
+                                                                   sqlType,
+                                                                   sqlGroupId
+                                                               );
+                taskMetadataInfosInTransaction.addAll(activeQuery.map(resultSetMapper).list());
                 break;
               case COMPLETE:
-                CompleteTaskLookup completeTaskLookup = (CompleteTaskLookup) entry.getValue();
-                DateTime priorTo = completeTaskLookup.getTasksCreatedPriorTo();
-                Integer limit = completeTaskLookup.getMaxTaskStatuses();
-                query = fetchPayload
-                        ? createCompletedTaskStreamingQuery(handle, priorTo, limit, dataSource)
-                        : createCompletedTaskSummaryStreamingQuery(handle, priorTo, limit, dataSource);
-                taskMetadataInfos.addAll(query.map(resultSetMapper).list());
+                final CompleteTaskLookup completeTaskLookup = (CompleteTaskLookup) entry.getValue();
+                taskMetadataInfosInTransaction.addAll(
+                    getCompleteTaskStatusList(
+                        handle,
+                        completeTaskLookup,
+                        dataSource,
+                        taskId,
+                        type,
+                        groupId,
+                        sqlType,
+                        sqlGroupId,
+                        fetchPayload,
+                        requiresExactLimit,
+                        resultSetMapper
+                    )
+                );
                 break;
               default:
                 throw new IAE("Unknown TaskLookupType: [%s]", entry.getKey());
             }
           }
-          return taskMetadataInfos;
+          return taskMetadataInfosInTransaction;
         },
         SQLMetadataConnector.QUIET_RETRIES,
         SQLMetadataConnector.DEFAULT_MAX_TRIES
     );
+    return filterTaskStatuses(taskMetadataInfos, taskId, type, groupId);
+  }
+
+  private List<TaskIdStatus> getCompleteTaskStatusList(
+      final Handle handle,
+      final CompleteTaskLookup completeTaskLookup,
+      @Nullable final String dataSource,
+      @Nullable final String taskId,
+      @Nullable final String type,
+      @Nullable final String groupId,
+      @Nullable final String sqlType,
+      @Nullable final String sqlGroupId,
+      final boolean fetchPayload,
+      final boolean requiresExactLimit,
+      final ResultSetMapper<TaskIdStatus> resultSetMapper
+  )
+  {
+    final DateTime priorTo = completeTaskLookup.getTasksCreatedPriorTo();
+    final Integer limit = completeTaskLookup.getMaxTaskStatuses();
+    int sqlLimit = limit == null ? Integer.MAX_VALUE : limit;
+
+    while (true) {
+      final Integer queryLimit = limit == null ? null : sqlLimit;
+      final Query<Map<String, Object>> query = fetchPayload
+                                               ? createCompletedTaskStreamingQuery(
+                                                   handle,
+                                                   priorTo,
+                                                   queryLimit,
+                                                   dataSource,
+                                                   taskId,
+                                                   sqlType,
+                                                   sqlGroupId
+                                               )
+                                               : createCompletedTaskSummaryStreamingQuery(
+                                                   handle,
+                                                   priorTo,
+                                                   queryLimit,
+                                                   dataSource,
+                                                   taskId,
+                                                   sqlType,
+                                                   sqlGroupId
+                                               );
+      final List<TaskIdStatus> rawTaskStatuses = query.map(resultSetMapper).list();
+      if (!requiresExactLimit || limit == null) {
+        return rawTaskStatuses;
+      }
+
+      final List<TaskIdStatus> exactTaskStatuses = filterTaskStatuses(rawTaskStatuses, taskId, type, groupId);
+      if (exactTaskStatuses.size() >= limit) {
+        return new ArrayList<>(exactTaskStatuses.subList(0, limit));
+      }
+      if (rawTaskStatuses.size() != sqlLimit || sqlLimit == Integer.MAX_VALUE) {
+        return exactTaskStatuses;
+      }
+      sqlLimit = sqlLimit > Integer.MAX_VALUE / 2 ? Integer.MAX_VALUE : sqlLimit * 2;
+    }
+  }
+
+  private static List<TaskIdStatus> filterTaskStatuses(
+      final List<TaskIdStatus> taskStatuses,
+      @Nullable final String taskId,
+      @Nullable final String type,
+      @Nullable final String groupId
+  )
+  {
+    return taskStatuses.stream()
+                       .filter(status -> taskId == null || taskId.equals(status.getTaskIdentifier().getId()))
+                       .filter(status -> type == null || type.equals(status.getTaskIdentifier().getType()))
+                       .filter(status -> groupId == null || groupId.equals(status.getTaskIdentifier().getGroupId()))
+                       .collect(Collectors.toList());
   }
 
   /**
@@ -427,6 +572,27 @@ public abstract class SQLMetadataStorageActionHandler
       @Nullable String dataSource
   )
   {
+    return createCompletedTaskSummaryStreamingQuery(
+        handle,
+        timestamp,
+        maxNumStatuses,
+        dataSource,
+        null,
+        null,
+        null
+    );
+  }
+
+  private Query<Map<String, Object>> createCompletedTaskSummaryStreamingQuery(
+      Handle handle,
+      DateTime timestamp,
+      @Nullable Integer maxNumStatuses,
+      @Nullable String dataSource,
+      @Nullable String taskId,
+      @Nullable String type,
+      @Nullable String groupId
+  )
+  {
     String sql = StringUtils.format(
         "SELECT "
         + "  id, "
@@ -438,7 +604,7 @@ public abstract class SQLMetadataStorageActionHandler
         + "FROM "
         + "  %s "
         + "WHERE "
-        + getWhereClauseForInactiveStatusesSinceQuery(dataSource)
+        + getWhereClauseForInactiveStatusesSinceQuery(dataSource, taskId, type, groupId)
         + "ORDER BY created_date DESC",
         getEntryTable()
     );
@@ -455,6 +621,15 @@ public abstract class SQLMetadataStorageActionHandler
     }
     if (dataSource != null) {
       query = query.bind("ds", dataSource);
+    }
+    if (taskId != null) {
+      query = query.bind("taskId", taskId);
+    }
+    if (type != null) {
+      query = query.bind("type", type);
+    }
+    if (groupId != null) {
+      query = query.bind("groupId", groupId);
     }
     return query;
   }
@@ -475,6 +650,27 @@ public abstract class SQLMetadataStorageActionHandler
       @Nullable String dataSource
   )
   {
+    return createCompletedTaskStreamingQuery(
+        handle,
+        timestamp,
+        maxNumStatuses,
+        dataSource,
+        null,
+        null,
+        null
+    );
+  }
+
+  private Query<Map<String, Object>> createCompletedTaskStreamingQuery(
+      Handle handle,
+      DateTime timestamp,
+      @Nullable Integer maxNumStatuses,
+      @Nullable String dataSource,
+      @Nullable String taskId,
+      @Nullable String type,
+      @Nullable String groupId
+  )
+  {
     String sql = StringUtils.format(
         "SELECT "
         + "  id, "
@@ -485,7 +681,7 @@ public abstract class SQLMetadataStorageActionHandler
         + "FROM "
         + "  %s "
         + "WHERE "
-        + getWhereClauseForInactiveStatusesSinceQuery(dataSource)
+        + getWhereClauseForInactiveStatusesSinceQuery(dataSource, taskId, type, groupId)
         + "ORDER BY created_date DESC",
         getEntryTable()
     );
@@ -503,6 +699,15 @@ public abstract class SQLMetadataStorageActionHandler
     if (dataSource != null) {
       query = query.bind("ds", dataSource);
     }
+    if (taskId != null) {
+      query = query.bind("taskId", taskId);
+    }
+    if (type != null) {
+      query = query.bind("type", type);
+    }
+    if (groupId != null) {
+      query = query.bind("groupId", groupId);
+    }
     return query;
   }
 
@@ -510,9 +715,28 @@ public abstract class SQLMetadataStorageActionHandler
 
   private String getWhereClauseForInactiveStatusesSinceQuery(@Nullable String datasource)
   {
+    return getWhereClauseForInactiveStatusesSinceQuery(datasource, null, null, null);
+  }
+
+  private String getWhereClauseForInactiveStatusesSinceQuery(
+      @Nullable String datasource,
+      @Nullable String taskId,
+      @Nullable String type,
+      @Nullable String groupId
+  )
+  {
     String sql = StringUtils.format("active = FALSE AND created_date >= :start ");
     if (datasource != null) {
       sql += " AND datasource = :ds ";
+    }
+    if (taskId != null) {
+      sql += " AND id = :taskId ";
+    }
+    if (type != null) {
+      sql += " AND type = :type ";
+    }
+    if (groupId != null) {
+      sql += " AND group_id = :groupId ";
     }
     return sql;
   }
@@ -526,7 +750,21 @@ public abstract class SQLMetadataStorageActionHandler
    * @param dataSource datasource to which the tasks belong. null if we don't want to filter
    * @return Query object for TaskStatusPlus for active tasks of interest
    */
-  private Query<Map<String, Object>> createActiveTaskSummaryStreamingQuery(Handle handle, @Nullable String dataSource)
+  private Query<Map<String, Object>> createActiveTaskSummaryStreamingQuery(
+      Handle handle,
+      @Nullable String dataSource
+  )
+  {
+    return createActiveTaskSummaryStreamingQuery(handle, dataSource, null, null, null);
+  }
+
+  private Query<Map<String, Object>> createActiveTaskSummaryStreamingQuery(
+      Handle handle,
+      @Nullable String dataSource,
+      @Nullable String taskId,
+      @Nullable String type,
+      @Nullable String groupId
+  )
   {
     String sql = StringUtils.format(
         "SELECT "
@@ -539,7 +777,7 @@ public abstract class SQLMetadataStorageActionHandler
         + "FROM "
         + "  %s "
         + "WHERE "
-        + getWhereClauseForActiveStatusesQuery(dataSource)
+        + getWhereClauseForActiveStatusesQuery(dataSource, taskId, type, groupId)
         + "ORDER BY created_date",
         entryTable
     );
@@ -548,6 +786,15 @@ public abstract class SQLMetadataStorageActionHandler
                                              .setFetchSize(connector.getStreamingFetchSize());
     if (dataSource != null) {
       query = query.bind("ds", dataSource);
+    }
+    if (taskId != null) {
+      query = query.bind("taskId", taskId);
+    }
+    if (type != null) {
+      query = query.bind("type", type);
+    }
+    if (groupId != null) {
+      query = query.bind("groupId", groupId);
     }
     return query;
   }
@@ -561,7 +808,21 @@ public abstract class SQLMetadataStorageActionHandler
    * @param dataSource datasource to which the tasks belong. null if we don't want to filter
    * @return Query object for active TaskInfos of interest
    */
-  private Query<Map<String, Object>> createActiveTaskStreamingQuery(Handle handle, @Nullable String dataSource)
+  private Query<Map<String, Object>> createActiveTaskStreamingQuery(
+      Handle handle,
+      @Nullable String dataSource
+  )
+  {
+    return createActiveTaskStreamingQuery(handle, dataSource, null, null, null);
+  }
+
+  private Query<Map<String, Object>> createActiveTaskStreamingQuery(
+      Handle handle,
+      @Nullable String dataSource,
+      @Nullable String taskId,
+      @Nullable String type,
+      @Nullable String groupId
+  )
   {
     String sql = StringUtils.format(
         "SELECT "
@@ -573,7 +834,7 @@ public abstract class SQLMetadataStorageActionHandler
         + "FROM "
         + "  %s "
         + "WHERE "
-        + getWhereClauseForActiveStatusesQuery(dataSource)
+        + getWhereClauseForActiveStatusesQuery(dataSource, taskId, type, groupId)
         + "ORDER BY created_date",
         entryTable
     );
@@ -583,14 +844,42 @@ public abstract class SQLMetadataStorageActionHandler
     if (dataSource != null) {
       query = query.bind("ds", dataSource);
     }
+    if (taskId != null) {
+      query = query.bind("taskId", taskId);
+    }
+    if (type != null) {
+      query = query.bind("type", type);
+    }
+    if (groupId != null) {
+      query = query.bind("groupId", groupId);
+    }
     return query;
   }
 
-  private String getWhereClauseForActiveStatusesQuery(String dataSource)
+  private String getWhereClauseForActiveStatusesQuery(@Nullable String dataSource)
+  {
+    return getWhereClauseForActiveStatusesQuery(dataSource, null, null, null);
+  }
+
+  private String getWhereClauseForActiveStatusesQuery(
+      @Nullable String dataSource,
+      @Nullable String taskId,
+      @Nullable String type,
+      @Nullable String groupId
+  )
   {
     String sql = StringUtils.format("active = TRUE ");
     if (dataSource != null) {
       sql += " AND datasource = :ds ";
+    }
+    if (taskId != null) {
+      sql += " AND id = :taskId ";
+    }
+    if (type != null) {
+      sql += " AND type = :type ";
+    }
+    if (groupId != null) {
+      sql += " AND group_id = :groupId ";
     }
     return sql;
   }

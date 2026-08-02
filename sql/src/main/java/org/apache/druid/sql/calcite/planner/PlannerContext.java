@@ -132,6 +132,7 @@ public class PlannerContext
 
   // DataContext keys
   public static final String DATA_CTX_AUTHENTICATION_RESULT = "authenticationResult";
+  public static final String DATA_CTX_SYS_TASKS_MAX_ROWS = "sysTasksMaxRows";
 
   private final PlannerToolbox plannerToolbox;
   private final ExpressionParser expressionParser;
@@ -475,6 +476,15 @@ public class PlannerContext
 
   public DataContext createDataContext(final JavaTypeFactory typeFactory, List<TypedValue> parameters)
   {
+    return createDataContext(typeFactory, parameters, null);
+  }
+
+  public DataContext createDataContext(
+      final JavaTypeFactory typeFactory,
+      final List<TypedValue> parameters,
+      @Nullable final Integer sysTasksMaxRows
+  )
+  {
     class DruidDataContext implements DataContext
     {
       private final Map<String, Object> base_context = ImmutableMap.of(
@@ -499,6 +509,9 @@ public class PlannerContext
         }
         if (authenticationResult != null) {
           builder.put(DATA_CTX_AUTHENTICATION_RESULT, authenticationResult);
+        }
+        if (sysTasksMaxRows != null) {
+          builder.put(DATA_CTX_SYS_TASKS_MAX_ROWS, sysTasksMaxRows);
         }
         context = builder.build();
       }

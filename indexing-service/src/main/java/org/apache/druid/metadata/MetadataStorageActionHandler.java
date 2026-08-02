@@ -31,9 +31,12 @@ import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Handles metadata storage of {@link Task}, {@link TaskLock} and {@link TaskStatus} objects.
@@ -128,6 +131,69 @@ public interface MetadataStorageActionHandler
       Map<TaskLookupType, TaskLookup> taskLookups,
       @Nullable String datasource
   );
+
+  default List<TaskIdStatus> getTaskStatusList(
+      Map<TaskLookupType, TaskLookup> taskLookups,
+      @Nullable String datasource,
+      @Nullable String taskId,
+      @Nullable String type
+  )
+  {
+    return getTaskStatusList(taskLookups, datasource, taskId, type, null);
+  }
+
+  /**
+   * Returns task statuses matching the supplied task ID, type, and group ID filters.
+   *
+   * <p>The default implementation preserves compatibility with metadata handlers that do not have a native query
+   * path for these filters. SQL-backed handlers should override this method to push the filters into SQL.</p>
+   */
+  default List<TaskIdStatus> getTaskStatusList(
+      Map<TaskLookupType, TaskLookup> taskLookups,
+      @Nullable String datasource,
+      @Nullable String taskId,
+      @Nullable String type,
+      @Nullable String groupId
+  )
+  {
+    final TaskLookup completeTaskLookup = taskLookups.get(TaskLookupType.COMPLETE);
+    final Integer maxCompletedTasks = completeTaskLookup == null
+                                      ? null
+                                      : ((TaskLookup.CompleteTaskLookup) completeTaskLookup).getMaxTaskStatuses();
+    final Map<TaskLookupType, TaskLookup> unboundedTaskLookups;
+    if (maxCompletedTasks == null) {
+      unboundedTaskLookups = taskLookups;
+    } else {
+      final TaskLookup.CompleteTaskLookup completeLookup = (TaskLookup.CompleteTaskLookup) completeTaskLookup;
+      unboundedTaskLookups = new LinkedHashMap<>(taskLookups);
+      unboundedTaskLookups.put(
+          TaskLookupType.COMPLETE,
+          new TaskLookup.CompleteTaskLookup(
+              null,
+              completeLookup.hasTaskCreatedTimeFilter() ? completeLookup.getTasksCreatedPriorTo() : null
+          )
+      );
+    }
+
+    final List<TaskIdStatus> filteredStatuses = getTaskStatusList(unboundedTaskLookups, datasource).stream()
+        .filter(status -> taskId == null || taskId.equals(status.getTaskIdentifier().getId()))
+        .filter(status -> type == null || type.equals(status.getTaskIdentifier().getType()))
+        .filter(status -> groupId == null || groupId.equals(status.getTaskIdentifier().getGroupId()))
+        .collect(Collectors.toList());
+
+    if (maxCompletedTasks == null) {
+      return filteredStatuses;
+    }
+
+    final List<TaskIdStatus> limitedStatuses = new ArrayList<>();
+    int completedTasks = 0;
+    for (final TaskIdStatus status : filteredStatuses) {
+      if (!status.getStatus().isComplete() || completedTasks++ < maxCompletedTasks) {
+        limitedStatuses.add(status);
+      }
+    }
+    return limitedStatuses;
+  }
 
   default List<TaskInfo> getTaskInfos(
       TaskLookup taskLookup,

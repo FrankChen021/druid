@@ -57,6 +57,7 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.annotations.EscalatedClient;
 import org.apache.druid.indexer.TaskStatusPlus;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorStatus;
+import org.apache.druid.java.util.common.CloseableIterators;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.jackson.JacksonUtils;
@@ -222,6 +223,11 @@ public class SystemSchema extends AbstractSchema
       .add("tls_port", ColumnType.LONG)
       .add("error_msg", ColumnType.STRING)
       .build();
+
+  /**
+   * List of [0..n) where n is the size of {@link #TASKS_SIGNATURE}.
+   */
+  private static final int[] TASKS_PROJECT_ALL = IntStream.range(0, TASKS_SIGNATURE.size()).toArray();
 
   static final RowSignature SUPERVISOR_SIGNATURE = RowSignature
       .builder()
@@ -891,8 +897,15 @@ public class SystemSchema extends AbstractSchema
   /**
    * This table contains row per task.
    */
-  static class TasksTable extends AbstractTable implements ScannableTable
+  static class TasksTable extends AbstractTable implements ProjectableFilterableTable
   {
+    private static final int TASK_ID_COLUMN = TASKS_SIGNATURE.indexOf("task_id");
+    private static final int GROUP_ID_COLUMN = TASKS_SIGNATURE.indexOf("group_id");
+    private static final int DATASOURCE_COLUMN = TASKS_SIGNATURE.indexOf("datasource");
+    private static final int TYPE_COLUMN = TASKS_SIGNATURE.indexOf("type");
+    private static final int STATUS_COLUMN = TASKS_SIGNATURE.indexOf("status");
+    private static final int RUNNER_STATUS_COLUMN = TASKS_SIGNATURE.indexOf("runner_status");
+
     private final OverlordClient overlordClient;
     private final AuthorizerMapper authorizerMapper;
 
@@ -918,78 +931,332 @@ public class SystemSchema extends AbstractSchema
     }
 
     @Override
-    public Enumerable<Object[]> scan(DataContext root)
+    public Enumerable<Object[]> scan(
+        final DataContext root,
+        final List<RexNode> filters,
+        @Nullable final int[] projects
+    )
     {
-      class TasksEnumerable extends DefaultEnumerable<Object[]>
-      {
-        private final CloseableIterator<TaskStatusPlus> it;
+      // Push exact task predicates to Overlord. The filter remains in the list so Calcite still applies it
+      // after the task rows are assembled and authorized.
+      final String dataSource = getDataSourceFilter(filters);
+      final String taskId = getTaskIdFilter(filters);
+      final String groupId = getGroupIdFilter(filters);
+      final String type = getTaskTypeFilter(filters);
 
-        public TasksEnumerable(CloseableIterator<TaskStatusPlus> tasks)
-        {
-          this.it = getAuthorizedTasks(tasks, root);
-        }
+      // A completed status or an exact runner status maps to a safe, broader task lookup. The logical filter remains
+      // a residual filter because TaskStatusPlus is assembled from metadata-store and task-runner state.
+      final String state = getTaskStateFilter(filters);
+      final Integer maxRows = getMaxRows(root, filters);
+      final CloseableIterator<TaskStatusPlus> tasks;
+      final boolean tasksAreAuthorized;
+      if (maxRows == null) {
+        tasks = fetchTaskStatuses(state, dataSource, null, type, taskId, groupId);
+        tasksAreAuthorized = false;
+      } else {
+        tasks = fetchAuthorizedTaskStatusesWithLimit(
+            root,
+            maxRows,
+            state,
+            dataSource,
+            type,
+            taskId,
+            groupId
+        );
+        tasksAreAuthorized = true;
+      }
+      return new TasksEnumerable(tasks, root, projects, tasksAreAuthorized);
+    }
 
-        @Override
-        public Iterator<Object[]> iterator()
-        {
-          throw new UnsupportedOperationException("Do not use iterator(), it cannot be closed.");
-        }
+    /**
+     * Convenience overload used by tests and callers that want the complete logical row.
+     */
+    public Enumerable<Object[]> scan(final DataContext root)
+    {
+      return scan(root, Collections.emptyList(), null);
+    }
 
-        @Override
-        public Enumerator<Object[]> enumerator()
-        {
-          return new Enumerator<>()
-          {
-            @Override
-            public Object[] current()
-            {
-              final TaskStatusPlus task = it.next();
+    @Nullable
+    static String getDataSourceFilter(final List<RexNode> filters)
+    {
+      return getSingleFilterValue(filters, DATASOURCE_COLUMN);
+    }
 
-              return new Object[]{
-                  task.getId(),
-                  task.getGroupId(),
-                  task.getType(),
-                  task.getDataSource(),
-                  toStringOrNull(task.getCreatedTime()),
-                  toStringOrNull(task.getQueueInsertionTime()),
-                  toStringOrNull(task.getStatusCode()),
-                  toStringOrNull(task.getRunnerStatusCode()),
-                  task.getDuration() == null ? 0L : task.getDuration(),
-                  task.getLocation().getLocation(),
-                  task.getLocation().getHost(),
-                  (long) task.getLocation().getPort(),
-                  (long) task.getLocation().getTlsPort(),
-                  task.getErrorMsg()
-              };
-            }
+    @Nullable
+    static String getTaskIdFilter(final List<RexNode> filters)
+    {
+      return getSingleFilterValue(filters, TASK_ID_COLUMN);
+    }
 
-            @Override
-            public boolean moveNext()
-            {
-              return it.hasNext();
-            }
+    @Nullable
+    static String getGroupIdFilter(final List<RexNode> filters)
+    {
+      return getSingleFilterValue(filters, GROUP_ID_COLUMN);
+    }
 
-            @Override
-            public void reset()
-            {
+    @Nullable
+    static String getTaskTypeFilter(final List<RexNode> filters)
+    {
+      return getSingleFilterValue(filters, TYPE_COLUMN);
+    }
 
-            }
+    /**
+     * Returns an Overlord task lookup state that is a safe superset of the rows matching the SQL predicates.
+     * Returns null when no exact state lookup can be derived.
+     */
+    @Nullable
+    static String getTaskStateFilter(final List<RexNode> filters)
+    {
+      final Set<String> statuses = SystemSchemaFilters.extractColumnValues(filters, STATUS_COLUMN);
+      if (statuses != null && !statuses.isEmpty() && statuses.stream().allMatch(TasksTable::isCompleteStatus)) {
+        return "complete";
+      }
 
-            @Override
-            public void close()
-            {
-              try {
-                it.close();
-              }
-              catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            }
-          };
+      final Set<String> runnerStatuses = SystemSchemaFilters.extractColumnValues(filters, RUNNER_STATUS_COLUMN);
+      if (runnerStatuses != null && runnerStatuses.size() == 1) {
+        final String runnerStatus = StringUtils.toUpperCase(runnerStatuses.iterator().next());
+        switch (runnerStatus) {
+          case "WAITING":
+            return "waiting";
+          case "PENDING":
+            return "pending";
+          case "RUNNING":
+            return "running";
+          case "NONE":
+            return "complete";
+          default:
+            return null;
         }
       }
 
-      return new TasksEnumerable(FutureUtils.getUnchecked(overlordClient.taskStatuses(null, null, null), true));
+      return null;
+    }
+
+    private static boolean isCompleteStatus(final String status)
+    {
+      final String normalizedStatus = StringUtils.toUpperCase(status);
+      return "SUCCESS".equals(normalizedStatus) || "FAILED".equals(normalizedStatus);
+    }
+
+    @Nullable
+    private static Integer getMaxRows(final DataContext root, final List<RexNode> filters)
+    {
+      final Object maxRows = root.get(PlannerContext.DATA_CTX_SYS_TASKS_MAX_ROWS);
+      if (!(maxRows instanceof Integer)
+          || !SystemSchemaFilters.areExactEqualitiesOnColumns(
+              filters,
+              TASK_ID_COLUMN,
+              GROUP_ID_COLUMN,
+              DATASOURCE_COLUMN,
+              TYPE_COLUMN
+          )) {
+        return null;
+      }
+      return (Integer) maxRows;
+    }
+
+    private CloseableIterator<TaskStatusPlus> fetchTaskStatuses(
+        @Nullable final String state,
+        @Nullable final String dataSource,
+        @Nullable final Integer maxCompletedTasks,
+        @Nullable final String type,
+        @Nullable final String taskId,
+        @Nullable final String groupId
+    )
+    {
+      return taskId == null && type == null && groupId == null
+             ? FutureUtils.getUnchecked(
+                 overlordClient.taskStatuses(state, dataSource, maxCompletedTasks),
+                 true
+             )
+             : FutureUtils.getUnchecked(
+                 overlordClient.taskStatuses(state, dataSource, maxCompletedTasks, type, taskId, groupId),
+                 true
+             );
+    }
+
+    /**
+     * Requests increasingly large completed-task prefixes until there are enough authorized matching rows or the
+     * Overlord response is exhaustive. Retrying preserves correctness when an older Overlord ignores newer filters,
+     * and when rows removed by datasource authorization would otherwise consume the pushed limit.
+     */
+    private CloseableIterator<TaskStatusPlus> fetchAuthorizedTaskStatusesWithLimit(
+        final DataContext root,
+        final int maxRows,
+        @Nullable final String state,
+        @Nullable final String dataSource,
+        @Nullable final String type,
+        @Nullable final String taskId,
+        @Nullable final String groupId
+    )
+    {
+      if (maxRows == 0) {
+        return CloseableIterators.withEmptyBaggage(Collections.emptyIterator());
+      }
+
+      int maxCompletedTasks = maxRows;
+      while (true) {
+        final List<TaskStatusPlus> rawTasks = new ArrayList<>();
+        int completedTaskCount = 0;
+        try (CloseableIterator<TaskStatusPlus> tasks = fetchTaskStatuses(
+            state,
+            dataSource,
+            maxCompletedTasks,
+            type,
+            taskId,
+            groupId
+        )) {
+          while (tasks.hasNext()) {
+            final TaskStatusPlus task = tasks.next();
+            rawTasks.add(task);
+            if (task.getStatusCode().isComplete()) {
+              completedTaskCount++;
+            }
+          }
+        }
+        catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+
+        final List<TaskStatusPlus> matchingTasks = rawTasks.stream()
+                                                           .filter(task -> dataSource == null || dataSource.equals(
+                                                               task.getDataSource()
+                                                           ))
+                                                           .filter(task -> taskId == null || taskId.equals(task.getId()))
+                                                           .filter(task -> type == null || type.equals(task.getType()))
+                                                           .filter(task -> groupId == null || groupId.equals(
+                                                               task.getGroupId()
+                                                           ))
+                                                           .collect(Collectors.toList());
+        final List<TaskStatusPlus> authorizedTasks = new ArrayList<>();
+        try (CloseableIterator<TaskStatusPlus> tasks = getAuthorizedTasks(
+            CloseableIterators.withEmptyBaggage(matchingTasks.iterator()),
+            root
+        )) {
+          while (tasks.hasNext()) {
+            authorizedTasks.add(tasks.next());
+          }
+        }
+        catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+
+        if (authorizedTasks.size() >= maxRows) {
+          return CloseableIterators.withEmptyBaggage(
+              new ArrayList<>(authorizedTasks.subList(0, maxRows)).iterator()
+          );
+        }
+
+        if (completedTaskCount != maxCompletedTasks || maxCompletedTasks == Integer.MAX_VALUE) {
+          return CloseableIterators.withEmptyBaggage(authorizedTasks.iterator());
+        }
+
+        maxCompletedTasks = maxCompletedTasks > Integer.MAX_VALUE / 2
+                            ? Integer.MAX_VALUE
+                            : maxCompletedTasks * 2;
+      }
+    }
+
+    @Nullable
+    private static String getSingleFilterValue(final List<RexNode> filters, final int columnIndex)
+    {
+      final Set<String> values = SystemSchemaFilters.extractColumnValues(filters, columnIndex);
+      return values != null && values.size() == 1 ? values.iterator().next() : null;
+    }
+
+    private static Object[] projectTasksRow(final Object[] row, @Nullable final int[] projects)
+    {
+      final int[] nonNullProjects = projects == null ? TASKS_PROJECT_ALL : projects;
+      final Object[] projectedRow = new Object[nonNullProjects.length];
+      for (int i = 0; i < nonNullProjects.length; i++) {
+        projectedRow[i] = row[nonNullProjects[i]];
+      }
+      return projectedRow;
+    }
+
+    private class TasksEnumerable extends DefaultEnumerable<Object[]>
+    {
+      private final CloseableIterator<TaskStatusPlus> it;
+      @Nullable
+      private final int[] projects;
+      @Nullable
+      private Object[] current;
+
+      public TasksEnumerable(
+          CloseableIterator<TaskStatusPlus> tasks,
+          DataContext root,
+          @Nullable int[] projects,
+          boolean tasksAreAuthorized
+      )
+      {
+        this.it = tasksAreAuthorized ? tasks : getAuthorizedTasks(tasks, root);
+        this.projects = projects;
+      }
+
+      @Override
+      public Iterator<Object[]> iterator()
+      {
+        throw new UnsupportedOperationException("Do not use iterator(), it cannot be closed.");
+      }
+
+      @Override
+      public Enumerator<Object[]> enumerator()
+      {
+        return new Enumerator<>()
+        {
+          @Override
+          public Object[] current()
+          {
+            return current;
+          }
+
+          @Override
+          public boolean moveNext()
+          {
+            if (!it.hasNext()) {
+              current = null;
+              return false;
+            }
+
+            final TaskStatusPlus task = it.next();
+            final Object[] row = new Object[]{
+                task.getId(),
+                task.getGroupId(),
+                task.getType(),
+                task.getDataSource(),
+                toStringOrNull(task.getCreatedTime()),
+                toStringOrNull(task.getQueueInsertionTime()),
+                toStringOrNull(task.getStatusCode()),
+                toStringOrNull(task.getRunnerStatusCode()),
+                task.getDuration() == null ? 0L : task.getDuration(),
+                task.getLocation().getLocation(),
+                task.getLocation().getHost(),
+                (long) task.getLocation().getPort(),
+                (long) task.getLocation().getTlsPort(),
+                task.getErrorMsg()
+            };
+            current = projectTasksRow(row, projects);
+            return true;
+          }
+
+          @Override
+          public void reset()
+          {
+
+          }
+
+          @Override
+          public void close()
+          {
+            try {
+              it.close();
+            }
+            catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+          }
+        };
+      }
     }
 
     private CloseableIterator<TaskStatusPlus> getAuthorizedTasks(
@@ -1014,7 +1281,6 @@ public class SystemSchema extends AbstractSchema
 
       return wrap(authorizedTasks.iterator(), it);
     }
-
   }
 
   /**

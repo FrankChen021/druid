@@ -271,4 +271,39 @@ public class SystemSchemaFiltersTest
     Assert.assertEquals(ImmutableMap.of(COL_A, ImmutableSet.of("foo")), result);
     Assert.assertFalse(result.containsKey(COL_B));
   }
+
+  @Test
+  public void testAreExactEqualitiesOnColumns()
+  {
+    Assert.assertTrue(SystemSchemaFilters.areExactEqualitiesOnColumns(
+        ImmutableList.of(rexBuilder.makeCall(
+            SqlStdOperatorTable.AND,
+            rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, aRef, foo),
+            rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, bar, bRef)
+        )),
+        COL_A,
+        COL_B
+    ));
+    Assert.assertTrue(SystemSchemaFilters.areExactEqualitiesOnColumns(ImmutableList.of(), COL_A, COL_B));
+  }
+
+  @Test
+  public void testAreExactEqualitiesOnColumnsRejectsResidualPredicates()
+  {
+    Assert.assertFalse(SystemSchemaFilters.areExactEqualitiesOnColumns(
+        ImmutableList.of(rexBuilder.makeIn(aRef, ImmutableList.of(foo, bar))),
+        COL_A,
+        COL_B
+    ));
+    Assert.assertFalse(SystemSchemaFilters.areExactEqualitiesOnColumns(
+        ImmutableList.of(rexBuilder.makeCall(SqlStdOperatorTable.GREATER_THAN, aRef, foo)),
+        COL_A,
+        COL_B
+    ));
+    Assert.assertFalse(SystemSchemaFilters.areExactEqualitiesOnColumns(
+        ImmutableList.of(rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, otherRef, foo)),
+        COL_A,
+        COL_B
+    ));
+  }
 }

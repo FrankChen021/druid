@@ -140,6 +140,31 @@ public class OverlordClientImpl implements OverlordClient
       @Nullable Integer maxCompletedTasks
   )
   {
+    return taskStatuses(state, dataSource, maxCompletedTasks, null, null, null);
+  }
+
+  @Override
+  public ListenableFuture<CloseableIterator<TaskStatusPlus>> taskStatuses(
+      @Nullable String state,
+      @Nullable String dataSource,
+      @Nullable Integer maxCompletedTasks,
+      @Nullable String type,
+      @Nullable String taskId
+  )
+  {
+    return taskStatuses(state, dataSource, maxCompletedTasks, type, taskId, null);
+  }
+
+  @Override
+  public ListenableFuture<CloseableIterator<TaskStatusPlus>> taskStatuses(
+      @Nullable String state,
+      @Nullable String dataSource,
+      @Nullable Integer maxCompletedTasks,
+      @Nullable String type,
+      @Nullable String taskId,
+      @Nullable String groupId
+  )
+  {
     final StringBuilder pathBuilder = new StringBuilder("/druid/indexer/v1/tasks");
     int params = 0;
 
@@ -155,6 +180,21 @@ public class OverlordClientImpl implements OverlordClient
 
     if (maxCompletedTasks != null) {
       pathBuilder.append(params == 0 ? '?' : '&').append("max=").append(maxCompletedTasks);
+      params++;
+    }
+
+    if (type != null) {
+      pathBuilder.append(params == 0 ? '?' : '&').append("type=").append(StringUtils.urlEncode(type));
+      params++;
+    }
+
+    if (taskId != null) {
+      pathBuilder.append(params == 0 ? '?' : '&').append("taskId=").append(StringUtils.urlEncode(taskId));
+      params++;
+    }
+
+    if (groupId != null) {
+      pathBuilder.append(params == 0 ? '?' : '&').append("groupId=").append(StringUtils.urlEncode(groupId));
     }
 
     return FutureUtils.transform(

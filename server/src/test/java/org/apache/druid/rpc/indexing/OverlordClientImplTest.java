@@ -210,6 +210,44 @@ public class OverlordClientImplTest
   }
 
   @Test
+  public void test_taskStatuses_withTypeAndTaskId() throws Exception
+  {
+    serviceClient.expectAndRespond(
+        new RequestBuilder(
+            HttpMethod.GET,
+            "/druid/indexer/v1/tasks?state=RUNNING&datasource=foo&max=0&type=index&taskId=task%3F"
+        ),
+        HttpResponseStatus.OK,
+        ImmutableMap.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON),
+        jsonMapper.writeValueAsBytes(STATUSES)
+    );
+
+    Assert.assertEquals(
+        STATUSES,
+        ImmutableList.copyOf(overlordClient.taskStatuses("RUNNING", "foo", 0, "index", "task?").get())
+    );
+  }
+
+  @Test
+  public void test_taskStatuses_withGroupId() throws Exception
+  {
+    serviceClient.expectAndRespond(
+        new RequestBuilder(
+            HttpMethod.GET,
+            "/druid/indexer/v1/tasks?state=RUNNING&datasource=foo&max=0&type=index&taskId=task%3F&groupId=group%3F"
+        ),
+        HttpResponseStatus.OK,
+        ImmutableMap.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON),
+        jsonMapper.writeValueAsBytes(STATUSES)
+    );
+
+    Assert.assertEquals(
+        STATUSES,
+        ImmutableList.copyOf(overlordClient.taskStatuses("RUNNING", "foo", 0, "index", "task?", "group?").get())
+    );
+  }
+
+  @Test
   public void test_taskStatuses_null_null_zero() throws Exception
   {
     serviceClient.expectAndRespond(

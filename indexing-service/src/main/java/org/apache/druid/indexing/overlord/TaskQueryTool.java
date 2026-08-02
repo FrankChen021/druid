@@ -196,6 +196,39 @@ public class TaskQueryTool
       @Nullable String type
   )
   {
+    return getTaskStatusPlusList(state, dataSource, createdTimeInterval, maxCompletedTasks, type, null, null);
+  }
+
+  public List<TaskStatusPlus> getTaskStatusPlusList(
+      TaskStateLookup state,
+      @Nullable String dataSource,
+      @Nullable String createdTimeInterval,
+      @Nullable Integer maxCompletedTasks,
+      @Nullable String type,
+      @Nullable String taskId
+  )
+  {
+    return getTaskStatusPlusList(
+        state,
+        dataSource,
+        createdTimeInterval,
+        maxCompletedTasks,
+        type,
+        taskId,
+        null
+    );
+  }
+
+  public List<TaskStatusPlus> getTaskStatusPlusList(
+      TaskStateLookup state,
+      @Nullable String dataSource,
+      @Nullable String createdTimeInterval,
+      @Nullable Integer maxCompletedTasks,
+      @Nullable String type,
+      @Nullable String taskId,
+      @Nullable String groupId
+  )
+  {
     Optional<TaskRunner> taskRunnerOptional = taskMaster.getTaskRunner();
     if (!taskRunnerOptional.isPresent()) {
       return Collections.emptyList();
@@ -221,13 +254,16 @@ public class TaskQueryTool
         dataSource,
         createdTimeDuration,
         maxCompletedTasks,
-        type
+        type,
+        taskId,
+        groupId
     );
     final Map<String, ? extends TaskRunnerWorkItem> runnerWorkItems = getTaskRunnerWorkItems(
         taskRunner,
         state,
         dataSource,
-        type
+        type,
+        taskId
     );
 
     if (state == TaskStateLookup.PENDING || state == TaskStateLookup.RUNNING) {
@@ -287,7 +323,9 @@ public class TaskQueryTool
       @Nullable String dataSource,
       Duration createdTimeDuration,
       @Nullable Integer maxCompletedTasks,
-      @Nullable String type
+      @Nullable String type,
+      @Nullable String taskId,
+      @Nullable String groupId
   )
   {
     final Map<TaskLookupType, TaskLookup> taskLookups;
@@ -318,22 +356,27 @@ public class TaskQueryTool
         throw new IAE("Unknown state: [%s]", state);
     }
 
-    final Stream<TaskStatusPlus> taskStatusPlusStream
-        = storage.getTaskStatusPlusList(taskLookups, dataSource).stream();
-    if (type != null) {
-      return taskStatusPlusStream.filter(
-          statusPlus -> type.equals(statusPlus == null ? null : statusPlus.getType())
-      );
-    } else {
-      return taskStatusPlusStream;
-    }
+    final Stream<TaskStatusPlus> taskStatusPlusStream = taskId == null && type == null && groupId == null
+                                                         ? storage.getTaskStatusPlusList(taskLookups, dataSource).stream()
+                                                         : storage.getTaskStatusPlusList(
+                                                             taskLookups,
+                                                             dataSource,
+                                                             taskId,
+                                                             type,
+                                                             groupId
+                                                         ).stream();
+    return taskStatusPlusStream
+        .filter(statusPlus -> taskId == null || taskId.equals(statusPlus.getId()))
+        .filter(statusPlus -> type == null || type.equals(statusPlus.getType()))
+        .filter(statusPlus -> groupId == null || groupId.equals(statusPlus.getGroupId()));
   }
 
   private Map<String, ? extends TaskRunnerWorkItem> getTaskRunnerWorkItems(
       TaskRunner taskRunner,
       TaskStateLookup state,
       @Nullable String dataSource,
-      @Nullable String type
+      @Nullable String type,
+      @Nullable String taskId
   )
   {
     Stream<? extends TaskRunnerWorkItem> runnerWorkItemsStream;
@@ -360,6 +403,9 @@ public class TaskQueryTool
     }
     if (type != null) {
       runnerWorkItemsStream = runnerWorkItemsStream.filter(item -> type.equals(item.getTaskType()));
+    }
+    if (taskId != null) {
+      runnerWorkItemsStream = runnerWorkItemsStream.filter(item -> taskId.equals(item.getTaskId()));
     }
     return runnerWorkItemsStream
         .collect(Collectors.toMap(TaskRunnerWorkItem::getTaskId, item -> item));

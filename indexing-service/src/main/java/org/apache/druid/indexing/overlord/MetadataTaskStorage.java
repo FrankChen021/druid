@@ -217,6 +217,17 @@ public class MetadataTaskStorage implements TaskStorage
   @Override
   public List<TaskStatusPlus> getTaskStatusPlusList(
       Map<TaskLookupType, TaskLookup> taskLookups,
+      @Nullable String datasource,
+      @Nullable String taskId,
+      @Nullable String type
+  )
+  {
+    return getTaskStatusPlusList(taskLookups, datasource, taskId, type, null);
+  }
+
+  @Override
+  public List<TaskStatusPlus> getTaskStatusPlusList(
+      Map<TaskLookupType, TaskLookup> taskLookups,
       @Nullable String datasource
   )
   {
@@ -229,6 +240,32 @@ public class MetadataTaskStorage implements TaskStorage
     return handler.getTaskStatusList(processedTaskLookups, datasource)
                   .stream()
                   .map(TaskStatusPlus::fromTaskIdentifierInfo)
+                  .collect(Collectors.toList());
+  }
+
+  @Override
+  public List<TaskStatusPlus> getTaskStatusPlusList(
+      Map<TaskLookupType, TaskLookup> taskLookups,
+      @Nullable String datasource,
+      @Nullable String taskId,
+      @Nullable String type,
+      @Nullable String groupId
+  )
+  {
+    final Map<TaskLookupType, TaskLookup> processedTaskLookups =
+        TaskStorageUtils.processTaskLookups(
+            taskLookups,
+            DateTimes.nowUtc().minus(config.getRecentlyFinishedThreshold())
+        );
+
+    return handler.getTaskStatusList(processedTaskLookups, datasource, taskId, type, groupId)
+                  .stream()
+                  .map(TaskStatusPlus::fromTaskIdentifierInfo)
+                  // Keep this residual check for the migration period, when the SQL handler may read type/group ID
+                  // from the payload while the type/group ID columns are not populated yet.
+                  .filter(status -> taskId == null || taskId.equals(status.getId()))
+                  .filter(status -> type == null || type.equals(status.getType()))
+                  .filter(status -> groupId == null || groupId.equals(status.getGroupId()))
                   .collect(Collectors.toList());
   }
 

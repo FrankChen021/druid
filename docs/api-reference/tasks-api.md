@@ -50,8 +50,10 @@ The endpoint supports a set of optional query parameters to filter results.
 |`state`|String|Filter list of tasks by task state, valid options are `running`, `complete`, `waiting`, and `pending`.|
 | `datasource`|String| Return tasks filtered by Druid datasource.|
 | `createdTimeInterval`|String (ISO-8601)| Return tasks created within the specified interval. Use `_` as the delimiter for the interval string. Do not use `/`. For example, `2023-06-27_2023-06-28`.|
-| `max`|Integer|Maximum number of `complete` tasks to return. Only applies when `state` is set to `complete`.|
+| `max`|Integer|Maximum number of completed tasks to return. Does not limit active tasks.|
 | `type`|String|Filter tasks by task type. See [task documentation](../ingestion/tasks.md) for more details.|
+| `taskId`|String|Filter tasks by task ID.|
+| `groupId`|String|Filter tasks by task group ID.|
 
 #### Responses
 

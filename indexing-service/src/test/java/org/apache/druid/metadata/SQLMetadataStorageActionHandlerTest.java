@@ -446,6 +446,109 @@ public class SQLMetadataStorageActionHandlerTest
     verifyTaskInfoToMetadataInfo(activeAltered, taskMetadataInfos, false);
   }
 
+  @Test
+  public void testGetTaskStatusListWithFilters()
+  {
+    final TaskInfo activeTarget = new TaskInfo(
+        DateTimes.nowUtc(),
+        TaskStatus.running("active-target"),
+        new NoopTask("active-target", "group", "datasource", 1L, 0L, null)
+    );
+    final TaskInfo activeOther = new TaskInfo(
+        DateTimes.nowUtc(),
+        TaskStatus.running("active-other"),
+        new NoopTask("active-other", "group", "datasource", 1L, 0L, null)
+    );
+    final TaskInfo completeTarget = new TaskInfo(
+        DateTimes.nowUtc().minus(Duration.standardHours(1)),
+        TaskStatus.success("complete-target"),
+        new NoopTask("complete-target", "group", "datasource", 1L, 0L, null)
+    );
+    final TaskInfo completeOther = new TaskInfo(
+        DateTimes.nowUtc(),
+        TaskStatus.success("complete-other"),
+        new NoopTask("complete-other", "other-group", "datasource", 1L, 0L, null)
+    );
+    insertTaskInfo(activeTarget, true);
+    insertTaskInfo(activeOther, true);
+    insertTaskInfo(completeTarget, true);
+    insertTaskInfo(completeOther, true);
+
+    final Map<TaskLookup.TaskLookupType, TaskLookup> taskLookups = new HashMap<>();
+    taskLookups.put(TaskLookup.TaskLookupType.ACTIVE, ActiveTaskLookup.getInstance());
+    taskLookups.put(
+        TaskLookup.TaskLookupType.COMPLETE,
+        CompleteTaskLookup.of(null, Duration.millis(86400000))
+    );
+
+    final List<TaskIdStatus> taskMetadataInfos = handler.getTaskStatusList(
+        taskLookups,
+        null,
+        "complete-target",
+        NoopTask.TYPE,
+        false
+    );
+    Assert.assertEquals(1, taskMetadataInfos.size());
+    Assert.assertEquals("complete-target", taskMetadataInfos.get(0).getTaskIdentifier().getId());
+
+    final List<TaskIdStatus> sqlGroupFilteredTaskMetadataInfos = handler.getTaskStatusList(
+        taskLookups,
+        null,
+        null,
+        null,
+        "group",
+        false
+    );
+    Assert.assertEquals(3, sqlGroupFilteredTaskMetadataInfos.size());
+    Assert.assertTrue(
+        sqlGroupFilteredTaskMetadataInfos.stream()
+                                         .allMatch(status -> "group".equals(
+                                             status.getTaskIdentifier().getGroupId()
+                                         ))
+    );
+
+    Assert.assertTrue(
+        handler.getTaskStatusList(taskLookups, null, null, "not-a-noop-task-type", false).isEmpty()
+    );
+
+    final List<TaskIdStatus> payloadFilteredTaskMetadataInfos = handler.getTaskStatusList(
+        taskLookups,
+        null,
+        "active-target",
+        NoopTask.TYPE
+    );
+    Assert.assertEquals(1, payloadFilteredTaskMetadataInfos.size());
+    Assert.assertEquals("active-target", payloadFilteredTaskMetadataInfos.get(0).getTaskIdentifier().getId());
+
+    final List<TaskIdStatus> payloadFilteredBeforeLimit = handler.getTaskStatusList(
+        ImmutableMap.of(
+            TaskLookup.TaskLookupType.COMPLETE,
+            CompleteTaskLookup.of(1, Duration.millis(86400000))
+        ),
+        null,
+        null,
+        null,
+        "group",
+        true
+    );
+    Assert.assertEquals(1, payloadFilteredBeforeLimit.size());
+    Assert.assertEquals("complete-target", payloadFilteredBeforeLimit.get(0).getTaskIdentifier().getId());
+
+    final List<TaskIdStatus> columnFilteredBeforeLimit = handler.getTaskStatusList(
+        ImmutableMap.of(
+            TaskLookup.TaskLookupType.COMPLETE,
+            CompleteTaskLookup.of(1, Duration.millis(86400000))
+        ),
+        null,
+        null,
+        null,
+        "group",
+        false
+    );
+    Assert.assertEquals(1, columnFilteredBeforeLimit.size());
+    Assert.assertEquals("complete-target", columnFilteredBeforeLimit.get(0).getTaskIdentifier().getId());
+  }
+
   private Integer getUnmigratedTaskCount()
   {
     return handler.getConnector().retryWithHandle(
