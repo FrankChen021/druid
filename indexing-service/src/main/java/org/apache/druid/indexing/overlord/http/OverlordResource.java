@@ -584,7 +584,7 @@ public class OverlordResource
       final HttpServletRequest req
   )
   {
-    return getTasks(state, dataSource, createdTimeInterval, maxCompletedTasks, type, null, null, req);
+    return getTasksWithFilters(state, dataSource, createdTimeInterval, maxCompletedTasks, type, null, null, req);
   }
 
   public Response getTasks(
@@ -597,9 +597,10 @@ public class OverlordResource
       final HttpServletRequest req
   )
   {
-    return getTasks(state, dataSource, createdTimeInterval, maxCompletedTasks, type, taskId, null, req);
+    return getTasksWithFilters(state, dataSource, createdTimeInterval, maxCompletedTasks, type, taskId, null, req);
   }
 
+  @Deprecated
   @GET
   @Path("/tasks")
   @Produces(MediaType.APPLICATION_JSON)
@@ -612,6 +613,29 @@ public class OverlordResource
       @QueryParam("taskId") final String taskId,
       @QueryParam("groupId") final String groupId,
       @Context final HttpServletRequest req
+  )
+  {
+    return getTasksWithFilters(
+        state,
+        dataSource,
+        createdTimeInterval,
+        maxCompletedTasks,
+        type,
+        taskId,
+        groupId,
+        req
+    );
+  }
+
+  public Response getTasksWithFilters(
+      final String state,
+      final String dataSource,
+      final String createdTimeInterval,
+      final Integer maxCompletedTasks,
+      final String type,
+      final String taskId,
+      final String groupId,
+      final HttpServletRequest req
   )
   {
     //check for valid state

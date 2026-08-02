@@ -57,7 +57,7 @@ public class OverlordTaskResourceV2
       @Context final HttpServletRequest req
   )
   {
-    return overlordResource.getTasks(
+    return overlordResource.getTasksWithFilters(
         state,
         dataSource,
         createdTimeInterval,

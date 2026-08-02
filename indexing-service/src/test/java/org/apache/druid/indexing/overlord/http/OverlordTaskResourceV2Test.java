@@ -36,7 +36,7 @@ public class OverlordTaskResourceV2Test
     final Response expectedResponse = Response.ok().build();
 
     EasyMock.expect(
-        overlordResource.getTasks(
+        overlordResource.getTasksWithFilters(
             "complete",
             "wikipedia",
             "P1D",

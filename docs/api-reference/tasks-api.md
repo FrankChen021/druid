@@ -39,15 +39,17 @@ Retrieves an array of all tasks in the Druid cluster. Each task object includes 
 
 #### URL
 
-`GET` `/druid/indexer/v1/tasks`
-
-For clients that require filters to be applied before the completed-task limit, use:
-
 `GET` `/druid/indexer/v2/tasks`
 
-The v2 endpoint has the same query parameters and response format as v1. It guarantees that the `datasource`, `type`,
-`taskId`, and `groupId` filters are applied before `max`. The v1 endpoint remains available for compatibility with
-older clients.
+The v2 endpoint guarantees that the `datasource`, `type`, `taskId`, and `groupId` filters are applied before `max`.
+
+The following v1 endpoint is deprecated because it does not guarantee that filters are applied before the
+completed-task limit:
+
+`GET` `/druid/indexer/v1/tasks` (deprecated)
+
+The deprecated v1 endpoint has the same query parameters and response format. It remains available for rolling updates
+and compatibility with older clients.
 
 #### Query parameters
 
@@ -110,7 +112,7 @@ The following example shows how to retrieve a list of tasks filtered with the fo
 
 
 ```shell
-curl "http://ROUTER_IP:ROUTER_PORT/druid/indexer/v1/tasks/?state=complete&datasource=wikipedia_api&createdTimeInterval=2015-09-12_2015-09-13&max=10&type=query_worker"
+curl "http://ROUTER_IP:ROUTER_PORT/druid/indexer/v2/tasks/?state=complete&datasource=wikipedia_api&createdTimeInterval=2015-09-12_2015-09-13&max=10&type=query_worker"
 ```
 
 </TabItem>
@@ -118,7 +120,7 @@ curl "http://ROUTER_IP:ROUTER_PORT/druid/indexer/v1/tasks/?state=complete&dataso
 
 
 ```HTTP
-GET /druid/indexer/v1/tasks/?state=complete&datasource=wikipedia_api&createdTimeInterval=2015-09-12_2015-09-13&max=10&type=query_worker HTTP/1.1
+GET /druid/indexer/v2/tasks/?state=complete&datasource=wikipedia_api&createdTimeInterval=2015-09-12_2015-09-13&max=10&type=query_worker HTTP/1.1
 Host: http://ROUTER_IP:ROUTER_PORT
 ```
 
@@ -193,7 +195,7 @@ Host: http://ROUTER_IP:ROUTER_PORT
 
 ### Get an array of complete tasks
 
-Retrieves an array of completed tasks in the Druid cluster. This is functionally equivalent to `/druid/indexer/v1/tasks?state=complete`. For definitions of the response properties, see the [Tasks table](../querying/sql-metadata-tables.md#tasks-table).
+Retrieves an array of completed tasks in the Druid cluster. This is functionally equivalent to `/druid/indexer/v2/tasks?state=complete`. For definitions of the response properties, see the [Tasks table](../querying/sql-metadata-tables.md#tasks-table).
 
 #### URL
 
@@ -307,7 +309,7 @@ Host: http://ROUTER_IP:ROUTER_PORT
 
 ### Get an array of running tasks
 
-Retrieves an array of running task objects in the Druid cluster. It is functionally equivalent to `/druid/indexer/v1/tasks?state=running`. For definitions of the response properties, see the [Tasks table](../querying/sql-metadata-tables.md#tasks-table).
+Retrieves an array of running task objects in the Druid cluster. It is functionally equivalent to `/druid/indexer/v2/tasks?state=running`. For definitions of the response properties, see the [Tasks table](../querying/sql-metadata-tables.md#tasks-table).
 
 #### URL
 
@@ -396,7 +398,7 @@ Host: http://ROUTER_IP:ROUTER_PORT
 
 ### Get an array of waiting tasks
 
-Retrieves an array of waiting tasks in the Druid cluster. It is functionally equivalent to `/druid/indexer/v1/tasks?state=waiting`. For definitions of the response properties, see the [Tasks table](../querying/sql-metadata-tables.md#tasks-table).
+Retrieves an array of waiting tasks in the Druid cluster. It is functionally equivalent to `/druid/indexer/v2/tasks?state=waiting`. For definitions of the response properties, see the [Tasks table](../querying/sql-metadata-tables.md#tasks-table).
 
 #### URL
 
@@ -520,7 +522,7 @@ Host: http://ROUTER_IP:ROUTER_PORT
 
 ### Get an array of pending tasks
 
-Retrieves an array of pending tasks in the Druid cluster. It is functionally equivalent to `/druid/indexer/v1/tasks?state=pending`. For definitions of the response properties, see the [Tasks table](../querying/sql-metadata-tables.md#tasks-table).
+Retrieves an array of pending tasks in the Druid cluster. This is functionally equivalent to `/druid/indexer/v2/tasks?state=pending`. For definitions of the response properties, see the [Tasks table](../querying/sql-metadata-tables.md#tasks-table).
 
 #### URL
 
