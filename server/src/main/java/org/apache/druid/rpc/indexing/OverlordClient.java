@@ -162,9 +162,10 @@ public interface OverlordClient
   /**
    * Return {@link TaskStatusPlus} for all tasks matching a set of optional search parameters.
    *
-   * <p>This overload adds filters supported by newer Overlords while retaining the original methods for
-   * compatibility with older client implementations. Older implementations may ignore the additional filters;
-   * callers must therefore retain any corresponding residual filters.</p>
+   * <p>This overload uses the v2 task-list endpoint, where filters are applied before the completed-task limit.
+   * The production client falls back to an unbounded v1 request when an older Overlord returns 404. Older custom
+   * implementations may ignore the additional filters; callers must therefore retain corresponding residual
+   * filters.</p>
    *
    * @param state             task state: may be "pending", "waiting", "running", or "complete"
    * @param dataSource        datasource

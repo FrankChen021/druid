@@ -215,7 +215,7 @@ public class OverlordClientImplTest
     serviceClient.expectAndRespond(
         new RequestBuilder(
             HttpMethod.GET,
-            "/druid/indexer/v1/tasks?state=RUNNING&datasource=foo&max=0&type=index&taskId=task%3F"
+            "/druid/indexer/v2/tasks?state=RUNNING&datasource=foo&max=0&type=index&taskId=task%3F"
         ),
         HttpResponseStatus.OK,
         ImmutableMap.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON),
@@ -234,7 +234,7 @@ public class OverlordClientImplTest
     serviceClient.expectAndRespond(
         new RequestBuilder(
             HttpMethod.GET,
-            "/druid/indexer/v1/tasks?state=RUNNING&datasource=foo&max=0&type=index&taskId=task%3F&groupId=group%3F"
+            "/druid/indexer/v2/tasks?state=RUNNING&datasource=foo&max=0&type=index&taskId=task%3F&groupId=group%3F"
         ),
         HttpResponseStatus.OK,
         ImmutableMap.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON),
@@ -244,6 +244,67 @@ public class OverlordClientImplTest
     Assert.assertEquals(
         STATUSES,
         ImmutableList.copyOf(overlordClient.taskStatuses("RUNNING", "foo", 0, "index", "task?", "group?").get())
+    );
+  }
+
+  @Test
+  public void test_taskStatuses_v2NotFoundFallsBackToUnboundedV1() throws Exception
+  {
+    serviceClient.expectAndThrow(
+        new RequestBuilder(
+            HttpMethod.GET,
+            "/druid/indexer/v2/tasks?state=RUNNING&datasource=foo&max=25&type=index&taskId=task%3F&groupId=group%3F"
+        ),
+        new HttpResponseException(
+            new StringFullResponseHolder(
+                new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND),
+                StandardCharsets.UTF_8
+            )
+        )
+    );
+    serviceClient.expectAndRespond(
+        new RequestBuilder(
+            HttpMethod.GET,
+            "/druid/indexer/v1/tasks?state=RUNNING&datasource=foo"
+        ),
+        HttpResponseStatus.OK,
+        ImmutableMap.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON),
+        jsonMapper.writeValueAsBytes(STATUSES)
+    );
+
+    Assert.assertEquals(
+        STATUSES,
+        ImmutableList.copyOf(
+            overlordClient.taskStatuses("RUNNING", "foo", 25, "index", "task?", "group?").get()
+        )
+    );
+  }
+
+  @Test
+  public void test_taskStatuses_v2ServerErrorDoesNotFallBack()
+  {
+    serviceClient.expectAndThrow(
+        new RequestBuilder(
+            HttpMethod.GET,
+            "/druid/indexer/v2/tasks?max=25&type=index"
+        ),
+        new HttpResponseException(
+            new StringFullResponseHolder(
+                new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR),
+                StandardCharsets.UTF_8
+            )
+        )
+    );
+
+    final ExecutionException e = Assert.assertThrows(
+        ExecutionException.class,
+        () -> overlordClient.taskStatuses(null, null, 25, "index", null, null).get()
+    );
+
+    MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(HttpResponseException.class));
+    Assert.assertEquals(
+        HttpResponseStatus.INTERNAL_SERVER_ERROR,
+        ((HttpResponseException) e.getCause()).getResponse().getStatus()
     );
   }
 

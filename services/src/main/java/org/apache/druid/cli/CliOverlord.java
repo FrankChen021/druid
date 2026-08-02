@@ -104,6 +104,7 @@ import org.apache.druid.indexing.overlord.http.OverlordCompactionResource;
 import org.apache.druid.indexing.overlord.http.OverlordDataSourcesResource;
 import org.apache.druid.indexing.overlord.http.OverlordRedirectInfo;
 import org.apache.druid.indexing.overlord.http.OverlordResource;
+import org.apache.druid.indexing.overlord.http.OverlordTaskResourceV2;
 import org.apache.druid.indexing.overlord.sampler.SamplerModule;
 import org.apache.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorManager;
@@ -477,6 +478,7 @@ public class CliOverlord extends ServerRunnable
           private void configureOverlordWebResources(Binder binder)
           {
             Jerseys.addResource(binder, OverlordResource.class);
+            Jerseys.addResource(binder, OverlordTaskResourceV2.class);
             Jerseys.addResource(binder, SupervisorResource.class);
             Jerseys.addResource(binder, HttpRemoteTaskRunnerResource.class);
             Jerseys.addResource(binder, OverlordCompactionResource.class);

@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.druid.client.JsonParserIterator;
 import org.apache.druid.client.indexing.IndexingTotalWorkerCapacityInfo;
 import org.apache.druid.client.indexing.IndexingWorkerInfo;
@@ -42,6 +43,7 @@ import org.apache.druid.java.util.http.client.response.BytesFullResponseHandler;
 import org.apache.druid.java.util.http.client.response.InputStreamResponseHandler;
 import org.apache.druid.java.util.http.client.response.StringFullResponseHandler;
 import org.apache.druid.metadata.LockFilterPolicy;
+import org.apache.druid.rpc.HttpResponseException;
 import org.apache.druid.rpc.IgnoreHttpResponseHandler;
 import org.apache.druid.rpc.RequestBuilder;
 import org.apache.druid.rpc.ServiceClient;
@@ -51,6 +53,7 @@ import org.apache.druid.server.coordinator.ClusterCompactionConfig;
 import org.apache.druid.server.http.SegmentsToUpdateFilter;
 import org.apache.druid.timeline.SegmentId;
 import org.jboss.netty.handler.codec.http.HttpMethod;
+import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
@@ -140,7 +143,15 @@ public class OverlordClientImpl implements OverlordClient
       @Nullable Integer maxCompletedTasks
   )
   {
-    return taskStatuses(state, dataSource, maxCompletedTasks, null, null, null);
+    return taskStatuses(
+        "/druid/indexer/v1/tasks",
+        state,
+        dataSource,
+        maxCompletedTasks,
+        null,
+        null,
+        null
+    );
   }
 
   @Override
@@ -165,7 +176,40 @@ public class OverlordClientImpl implements OverlordClient
       @Nullable String groupId
   )
   {
-    final StringBuilder pathBuilder = new StringBuilder("/druid/indexer/v1/tasks");
+    return Futures.catchingAsync(
+        taskStatuses(
+            "/druid/indexer/v2/tasks",
+            state,
+            dataSource,
+            maxCompletedTasks,
+            type,
+            taskId,
+            groupId
+        ),
+        HttpResponseException.class,
+        e -> {
+          if (e.getResponse().getStatus().equals(HttpResponseStatus.NOT_FOUND)) {
+            // Older Overlords do not have the v2 endpoint. Do not send type or max to v1 because older v1 Overlords
+            // apply their completed-task limit before their type filter. The Broker retains residual filters and limit.
+            return taskStatuses(state, dataSource, null);
+          }
+          return Futures.immediateFailedFuture(e);
+        },
+        MoreExecutors.directExecutor()
+    );
+  }
+
+  private ListenableFuture<CloseableIterator<TaskStatusPlus>> taskStatuses(
+      final String basePath,
+      @Nullable final String state,
+      @Nullable final String dataSource,
+      @Nullable final Integer maxCompletedTasks,
+      @Nullable final String type,
+      @Nullable final String taskId,
+      @Nullable final String groupId
+  )
+  {
+    final StringBuilder pathBuilder = new StringBuilder(basePath);
     int params = 0;
 
     if (state != null) {

@@ -41,6 +41,14 @@ Retrieves an array of all tasks in the Druid cluster. Each task object includes 
 
 `GET` `/druid/indexer/v1/tasks`
 
+For clients that require filters to be applied before the completed-task limit, use:
+
+`GET` `/druid/indexer/v2/tasks`
+
+The v2 endpoint has the same query parameters and response format as v1. It guarantees that the `datasource`, `type`,
+`taskId`, and `groupId` filters are applied before `max`. The v1 endpoint remains available for compatibility with
+older clients.
+
 #### Query parameters
 
 The endpoint supports a set of optional query parameters to filter results.
