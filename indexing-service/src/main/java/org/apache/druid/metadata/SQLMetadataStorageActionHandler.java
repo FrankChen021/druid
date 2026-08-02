@@ -404,13 +404,11 @@ public abstract class SQLMetadataStorageActionHandler
   {
     final ResultSetMapper<TaskIdStatus> resultSetMapper =
         fetchPayload ? taskStatusMapperFromPayload : taskStatusMapper;
+    final ExactTaskStatusFilter exactFilter = new ExactTaskStatusFilter(dataSource, taskId, type, groupId);
     // During migration, type and group ID are authoritative in the payload rather than in the new columns. Keep the
     // SQL query compatible with both schemas and apply those predicates to the mapped row below in that case.
-    final String sqlType = fetchPayload ? null : type;
-    final String sqlGroupId = fetchPayload ? null : groupId;
-    // Keep the Java equality check ahead of the effective limit even after migration. Metadata-store string comparison
-    // may use a broader collation than String.equals, so a case variant must not consume the completed-task limit.
-    final boolean requiresExactLimit = taskId != null || type != null || groupId != null;
+    final String sqlType = fetchPayload ? null : exactFilter.type;
+    final String sqlGroupId = fetchPayload ? null : exactFilter.groupId;
     final List<TaskIdStatus> taskMetadataInfos = getConnector().retryTransaction(
         (handle, status) -> {
           final List<TaskIdStatus> taskMetadataInfosInTransaction = new ArrayList<>();
@@ -420,15 +418,15 @@ public abstract class SQLMetadataStorageActionHandler
                 final Query<Map<String, Object>> activeQuery = fetchPayload
                                                                ? createActiveTaskStreamingQuery(
                                                                    handle,
-                                                                   dataSource,
-                                                                   taskId,
+                                                                   exactFilter.dataSource,
+                                                                   exactFilter.taskId,
                                                                    sqlType,
                                                                    sqlGroupId
                                                                )
                                                                : createActiveTaskSummaryStreamingQuery(
                                                                    handle,
-                                                                   dataSource,
-                                                                   taskId,
+                                                                   exactFilter.dataSource,
+                                                                   exactFilter.taskId,
                                                                    sqlType,
                                                                    sqlGroupId
                                                                );
@@ -440,14 +438,10 @@ public abstract class SQLMetadataStorageActionHandler
                     getCompleteTaskStatusList(
                         handle,
                         completeTaskLookup,
-                        dataSource,
-                        taskId,
-                        type,
-                        groupId,
+                        exactFilter,
                         sqlType,
                         sqlGroupId,
                         fetchPayload,
-                        requiresExactLimit,
                         resultSetMapper
                     )
                 );
@@ -461,20 +455,16 @@ public abstract class SQLMetadataStorageActionHandler
         SQLMetadataConnector.QUIET_RETRIES,
         SQLMetadataConnector.DEFAULT_MAX_TRIES
     );
-    return filterTaskStatuses(taskMetadataInfos, taskId, type, groupId);
+    return exactFilter.apply(taskMetadataInfos);
   }
 
   private List<TaskIdStatus> getCompleteTaskStatusList(
       final Handle handle,
       final CompleteTaskLookup completeTaskLookup,
-      @Nullable final String dataSource,
-      @Nullable final String taskId,
-      @Nullable final String type,
-      @Nullable final String groupId,
+      final ExactTaskStatusFilter exactFilter,
       @Nullable final String sqlType,
       @Nullable final String sqlGroupId,
       final boolean fetchPayload,
-      final boolean requiresExactLimit,
       final ResultSetMapper<TaskIdStatus> resultSetMapper
   )
   {
@@ -489,8 +479,8 @@ public abstract class SQLMetadataStorageActionHandler
                                                    handle,
                                                    priorTo,
                                                    queryLimit,
-                                                   dataSource,
-                                                   taskId,
+                                                   exactFilter.dataSource,
+                                                   exactFilter.taskId,
                                                    sqlType,
                                                    sqlGroupId
                                                )
@@ -498,17 +488,17 @@ public abstract class SQLMetadataStorageActionHandler
                                                    handle,
                                                    priorTo,
                                                    queryLimit,
-                                                   dataSource,
-                                                   taskId,
+                                                   exactFilter.dataSource,
+                                                   exactFilter.taskId,
                                                    sqlType,
                                                    sqlGroupId
                                                );
       final List<TaskIdStatus> rawTaskStatuses = query.map(resultSetMapper).list();
-      if (!requiresExactLimit || limit == null) {
+      if (!exactFilter.hasFilters() || limit == null) {
         return rawTaskStatuses;
       }
 
-      final List<TaskIdStatus> exactTaskStatuses = filterTaskStatuses(rawTaskStatuses, taskId, type, groupId);
+      final List<TaskIdStatus> exactTaskStatuses = exactFilter.apply(rawTaskStatuses);
       if (exactTaskStatuses.size() >= limit) {
         return new ArrayList<>(exactTaskStatuses.subList(0, limit));
       }
@@ -519,18 +509,48 @@ public abstract class SQLMetadataStorageActionHandler
     }
   }
 
-  private static List<TaskIdStatus> filterTaskStatuses(
-      final List<TaskIdStatus> taskStatuses,
-      @Nullable final String taskId,
-      @Nullable final String type,
-      @Nullable final String groupId
-  )
+  /**
+   * Applies Java's exact string semantics to every task field pushed to metadata SQL. Metadata-store collations may be
+   * broader, so this single filter also determines whether a completed-task limit must be expanded adaptively.
+   */
+  private static final class ExactTaskStatusFilter
   {
-    return taskStatuses.stream()
-                       .filter(status -> taskId == null || taskId.equals(status.getTaskIdentifier().getId()))
-                       .filter(status -> type == null || type.equals(status.getTaskIdentifier().getType()))
-                       .filter(status -> groupId == null || groupId.equals(status.getTaskIdentifier().getGroupId()))
-                       .collect(Collectors.toList());
+    @Nullable
+    private final String dataSource;
+    @Nullable
+    private final String taskId;
+    @Nullable
+    private final String type;
+    @Nullable
+    private final String groupId;
+
+    private ExactTaskStatusFilter(
+        @Nullable final String dataSource,
+        @Nullable final String taskId,
+        @Nullable final String type,
+        @Nullable final String groupId
+    )
+    {
+      this.dataSource = dataSource;
+      this.taskId = taskId;
+      this.type = type;
+      this.groupId = groupId;
+    }
+
+    private boolean hasFilters()
+    {
+      return dataSource != null || taskId != null || type != null || groupId != null;
+    }
+
+    private List<TaskIdStatus> apply(final List<TaskIdStatus> taskStatuses)
+    {
+      return taskStatuses.stream()
+                         .filter(status -> dataSource == null || dataSource.equals(status.getDataSource()))
+                         .filter(status -> taskId == null || taskId.equals(status.getTaskIdentifier().getId()))
+                         .filter(status -> type == null || type.equals(status.getTaskIdentifier().getType()))
+                         .filter(status -> groupId == null || groupId.equals(status.getTaskIdentifier().getGroupId()))
+                         .collect(Collectors.toList());
+    }
   }
 
   /**

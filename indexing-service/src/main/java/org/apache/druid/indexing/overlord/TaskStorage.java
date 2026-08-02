@@ -210,6 +210,7 @@ public interface TaskStorage
     }
 
     final List<TaskStatusPlus> filteredStatuses = getTaskStatusPlusList(unboundedTaskLookups, datasource).stream()
+        .filter(status -> datasource == null || datasource.equals(status.getDataSource()))
         .filter(status -> taskId == null || taskId.equals(status.getId()))
         .filter(status -> type == null || type.equals(status.getType()))
         .filter(status -> groupId == null || groupId.equals(status.getGroupId()))

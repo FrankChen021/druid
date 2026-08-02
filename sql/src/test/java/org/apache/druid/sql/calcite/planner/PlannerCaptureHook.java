@@ -31,6 +31,7 @@ public class PlannerCaptureHook implements PlannerHook
   public static final String NEED_CAPTURE_HOOK = "need_capture_hook";
 
   private RelRoot relRoot;
+  private BindableRel bindableRel;
   private SqlInsert insertNode;
   private SqlNode sqlNode;
 
@@ -61,7 +62,7 @@ public class PlannerCaptureHook implements PlannerHook
   @Override
   public void captureBindableRel(BindableRel bindableRel)
   {
-    // Not used at present. Add a field to capture this if you need it.
+    this.bindableRel = bindableRel;
   }
 
   @Override
@@ -79,6 +80,11 @@ public class PlannerCaptureHook implements PlannerHook
   public RelRoot relRoot()
   {
     return relRoot;
+  }
+
+  public BindableRel bindableRel()
+  {
+    return bindableRel;
   }
 
   public SqlInsert insertNode()

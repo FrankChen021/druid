@@ -366,6 +366,7 @@ public class TaskQueryTool
                                                              groupId
                                                          ).stream();
     return taskStatusPlusStream
+        .filter(statusPlus -> dataSource == null || dataSource.equals(statusPlus.getDataSource()))
         .filter(statusPlus -> taskId == null || taskId.equals(statusPlus.getId()))
         .filter(statusPlus -> type == null || type.equals(statusPlus.getType()))
         .filter(statusPlus -> groupId == null || groupId.equals(statusPlus.getGroupId()));

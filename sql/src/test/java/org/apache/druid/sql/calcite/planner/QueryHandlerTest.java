@@ -20,10 +20,18 @@
 package org.apache.druid.sql.calcite.planner;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.calcite.interpreter.Bindables;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Project;
+import org.apache.calcite.rel.core.Sort;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
 import org.apache.druid.sql.calcite.QueryTestRunner.QueryResults;
 import org.junit.Assert;
 import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
 
 public class QueryHandlerTest extends BaseCalciteQueryTest
 {
@@ -38,7 +46,7 @@ public class QueryHandlerTest extends BaseCalciteQueryTest
         .results();
 
     Assert.assertNull(queryResults.exception);
-    Assert.assertEquals(3, (int) QueryHandler.getSystemTasksMaxRows(queryResults.capture.relRoot().rel));
+    Assert.assertEquals(3, (int) QueryHandler.getSystemTasksMaxRows(queryResults.capture.bindableRel()));
   }
 
   @Test
@@ -52,6 +60,86 @@ public class QueryHandlerTest extends BaseCalciteQueryTest
         .results();
 
     Assert.assertNull(queryResults.exception);
-    Assert.assertNull(QueryHandler.getSystemTasksMaxRows(queryResults.capture.relRoot().rel));
+    Assert.assertNull(QueryHandler.getSystemTasksMaxRows(queryResults.capture.bindableRel()));
+  }
+
+  @Test
+  public void testGetSystemTasksMaxRowsWithExactScanFilter()
+  {
+    msqIncompatible();
+
+    final QueryResults queryResults = testBuilder()
+        .sql("SELECT task_id FROM sys.tasks WHERE type = 'testType' LIMIT 2")
+        .queryContext(ImmutableMap.of(PlannerCaptureHook.NEED_CAPTURE_HOOK, true))
+        .results();
+
+    Assert.assertNull(queryResults.exception);
+    Assert.assertEquals(2, (int) QueryHandler.getSystemTasksMaxRows(queryResults.capture.bindableRel()));
+  }
+
+  @Test
+  public void testGetSystemTasksMaxRowsRejectsResidualFilter()
+  {
+    msqIncompatible();
+
+    final QueryResults queryResults = testBuilder()
+        .sql("SELECT task_id FROM sys.tasks LIMIT 2")
+        .queryContext(ImmutableMap.of(PlannerCaptureHook.NEED_CAPTURE_HOOK, true))
+        .results();
+
+    Assert.assertNull(queryResults.exception);
+    final Sort sort = getSort(queryResults.capture.bindableRel());
+    final RexBuilder rexBuilder = sort.getCluster().getRexBuilder();
+    final RelNode input = sort.getInput();
+    final RelNode residualFilter = Bindables.BindableFilter.create(
+        input,
+        rexBuilder.makeCall(
+            SqlStdOperatorTable.EQUALS,
+            rexBuilder.makeInputRef(input, 0),
+            rexBuilder.makeLiteral("task_id_1")
+        )
+    );
+    final Sort sortWithResidualFilter = sort.copy(
+        sort.getTraitSet(),
+        residualFilter,
+        sort.getCollation(),
+        sort.offset,
+        sort.fetch
+    );
+
+    Assert.assertNull(QueryHandler.getSystemTasksMaxRows(sortWithResidualFilter));
+  }
+
+  @Test
+  public void testGetSystemTasksMaxRowsRejectsLimitAboveIntegerMax()
+  {
+    msqIncompatible();
+
+    final QueryResults queryResults = testBuilder()
+        .sql("SELECT task_id FROM sys.tasks LIMIT 2")
+        .queryContext(ImmutableMap.of(PlannerCaptureHook.NEED_CAPTURE_HOOK, true))
+        .results();
+
+    Assert.assertNull(queryResults.exception);
+    final Sort sort = getSort(queryResults.capture.bindableRel());
+    final Sort sortWithLargeLimit = sort.copy(
+        sort.getTraitSet(),
+        sort.getInput(),
+        sort.getCollation(),
+        sort.offset,
+        sort.getCluster().getRexBuilder().makeExactLiteral(BigDecimal.valueOf(Integer.MAX_VALUE).add(BigDecimal.ONE))
+    );
+
+    Assert.assertNull(QueryHandler.getSystemTasksMaxRows(sortWithLargeLimit));
+  }
+
+  private static Sort getSort(final RelNode root)
+  {
+    RelNode current = root;
+    while (current instanceof Project) {
+      current = ((Project) current).getInput();
+    }
+    Assert.assertTrue(current instanceof Sort);
+    return (Sort) current;
   }
 }

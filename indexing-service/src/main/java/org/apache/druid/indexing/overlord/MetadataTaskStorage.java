@@ -263,6 +263,7 @@ public class MetadataTaskStorage implements TaskStorage
                   .map(TaskStatusPlus::fromTaskIdentifierInfo)
                   // Keep this residual check for the migration period, when the SQL handler may read type/group ID
                   // from the payload while the type/group ID columns are not populated yet.
+                  .filter(status -> datasource == null || datasource.equals(status.getDataSource()))
                   .filter(status -> taskId == null || taskId.equals(status.getId()))
                   .filter(status -> type == null || type.equals(status.getType()))
                   .filter(status -> groupId == null || groupId.equals(status.getGroupId()))

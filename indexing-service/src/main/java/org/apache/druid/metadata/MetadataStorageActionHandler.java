@@ -176,6 +176,7 @@ public interface MetadataStorageActionHandler
     }
 
     final List<TaskIdStatus> filteredStatuses = getTaskStatusList(unboundedTaskLookups, datasource).stream()
+        .filter(status -> datasource == null || datasource.equals(status.getDataSource()))
         .filter(status -> taskId == null || taskId.equals(status.getTaskIdentifier().getId()))
         .filter(status -> type == null || type.equals(status.getTaskIdentifier().getType()))
         .filter(status -> groupId == null || groupId.equals(status.getTaskIdentifier().getGroupId()))

@@ -103,10 +103,10 @@ public class HeapMemoryTaskStorageTest
   }
 
   @Test
-  public void testFilteredStatusFallbackAppliesFilterBeforeCompletedLimit()
+  public void testFilteredStatusFallbackAppliesExactFiltersBeforeCompletedLimit()
   {
-    final TaskStatusPlus otherTask = createTaskStatusPlus("other", "other-group");
-    final TaskStatusPlus targetTask = createTaskStatusPlus("target", "target-group");
+    final TaskStatusPlus otherTask = createTaskStatusPlus("other", "target-group", "DATASOURCE");
+    final TaskStatusPlus targetTask = createTaskStatusPlus("target", "target-group", "datasource");
     final HeapMemoryTaskStorage fallbackStorage = new HeapMemoryTaskStorage(
         new TaskStorageConfig(Period.days(1))
     )
@@ -132,7 +132,7 @@ public class HeapMemoryTaskStorageTest
             TaskLookup.TaskLookupType.COMPLETE,
             new TaskLookup.CompleteTaskLookup(1, DateTimes.of("1970"))
         ),
-        null,
+        "datasource",
         null,
         null,
         "target-group"
@@ -141,7 +141,7 @@ public class HeapMemoryTaskStorageTest
     Assert.assertEquals(ImmutableList.of(targetTask), statuses);
   }
 
-  private TaskStatusPlus createTaskStatusPlus(String id, String groupId)
+  private TaskStatusPlus createTaskStatusPlus(String id, String groupId, String dataSource)
   {
     return new TaskStatusPlus(
         id,
@@ -153,7 +153,7 @@ public class HeapMemoryTaskStorageTest
         RunnerTaskState.NONE,
         1L,
         TaskLocation.unknown(),
-        "datasource",
+        dataSource,
         null
     );
   }

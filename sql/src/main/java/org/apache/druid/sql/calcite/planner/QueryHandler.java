@@ -40,7 +40,6 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelVisitor;
-import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.Sort;
 import org.apache.calcite.rel.core.TableScan;
@@ -86,6 +85,7 @@ import org.apache.druid.sql.hook.DruidHook;
 import org.apache.druid.utils.Throwables;
 
 import javax.annotation.Nullable;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -336,7 +336,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
       final DataContext dataContext = plannerContext.createDataContext(
           planner.getTypeFactory(),
           plannerContext.getParameters(),
-          getSystemTasksMaxRows(rootQueryRel.rel)
+          getSystemTasksMaxRows(theRel)
       );
       final Supplier<QueryResponse<Object[]>> resultsSupplier = () -> {
         final Enumerable<?> enumerable = theRel.bind(dataContext);
@@ -402,16 +402,17 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
       return null;
     }
 
-    final long fetch = RexLiteral.intValue(sort.fetch);
-    final long offset = sort.offset == null ? 0 : RexLiteral.intValue(sort.offset);
-    final long maxRows = fetch + offset;
-    if (fetch < 0 || offset < 0 || maxRows > Integer.MAX_VALUE) {
+    final BigDecimal fetch = ((RexLiteral) sort.fetch).getValueAs(BigDecimal.class);
+    final BigDecimal offset = sort.offset == null
+                              ? BigDecimal.ZERO
+                              : ((RexLiteral) sort.offset).getValueAs(BigDecimal.class);
+    if (fetch.signum() < 0 || offset.signum() < 0) {
       return null;
     }
 
     current = sort.getInput();
-    while (current instanceof Project || current instanceof Filter) {
-      current = current.getInput(0);
+    while (current instanceof Project) {
+      current = ((Project) current).getInput();
     }
 
     if (!(current instanceof TableScan)) {
@@ -426,7 +427,12 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
       return null;
     }
 
-    return (int) maxRows;
+    try {
+      return Math.addExact(fetch.intValueExact(), offset.intValueExact());
+    }
+    catch (ArithmeticException e) {
+      return null;
+    }
   }
 
   /**
