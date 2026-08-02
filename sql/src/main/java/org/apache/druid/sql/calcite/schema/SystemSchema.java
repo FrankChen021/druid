@@ -1022,8 +1022,6 @@ public class SystemSchema extends AbstractSchema
             return "pending";
           case "RUNNING":
             return "running";
-          case "NONE":
-            return "complete";
           default:
             return null;
         }
@@ -1064,15 +1062,10 @@ public class SystemSchema extends AbstractSchema
         @Nullable final String groupId
     )
     {
-      return taskId == null && type == null && groupId == null
-             ? FutureUtils.getUnchecked(
-                 overlordClient.taskStatuses(state, dataSource, maxCompletedTasks),
-                 true
-             )
-             : FutureUtils.getUnchecked(
-                 overlordClient.taskStatuses(state, dataSource, maxCompletedTasks, type, taskId, groupId),
-                 true
-             );
+      return FutureUtils.getUnchecked(
+          overlordClient.taskStatuses(state, dataSource, maxCompletedTasks, type, taskId, groupId),
+          true
+      );
     }
 
     /**

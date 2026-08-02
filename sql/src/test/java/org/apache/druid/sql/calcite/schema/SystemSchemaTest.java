@@ -704,6 +704,7 @@ public class SystemSchemaTest extends CalciteTestBase
     final RexLiteral type = (RexLiteral) rexBuilder.makeLiteral("index");
     final RexLiteral failed = (RexLiteral) rexBuilder.makeLiteral("FAILED");
     final RexLiteral running = (RexLiteral) rexBuilder.makeLiteral("RUNNING");
+    final RexLiteral none = (RexLiteral) rexBuilder.makeLiteral("NONE");
     final RexNode taskIdRef = rexBuilder.makeInputRef(
         taskId.getType(),
         SystemSchema.TASKS_SIGNATURE.indexOf("task_id")
@@ -751,6 +752,9 @@ public class SystemSchemaTest extends CalciteTestBase
             rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, runnerStatusRef, running)
         ))
     );
+    Assert.assertNull(SystemSchema.TasksTable.getTaskStateFilter(ImmutableList.of(
+        rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, runnerStatusRef, none)
+    )));
     Assert.assertNull(SystemSchema.TasksTable.getTaskStateFilter(ImmutableList.of(
         rexBuilder.makeCall(SqlStdOperatorTable.GREATER_THAN, statusRef, failed)
     )));
@@ -1495,7 +1499,7 @@ public class SystemSchemaTest extends CalciteTestBase
                   + "\t\"errorMsg\": null\n"
                   + "}]";
 
-    EasyMock.expect(overlordClient.taskStatuses(null, null, null)).andReturn(
+    EasyMock.expect(overlordClient.taskStatuses(null, null, null, null, null, null)).andReturn(
         Futures.immediateFuture(
             CloseableIterators.withEmptyBaggage(
                 MAPPER.readValue(json, new TypeReference<List<TaskStatusPlus>>() {}).iterator()
@@ -1603,7 +1607,7 @@ public class SystemSchemaTest extends CalciteTestBase
     final TaskStatusPlus task1 = createTaskStatusPlus("task-1", "group", "index", "wikipedia");
     final TaskStatusPlus task2 = createTaskStatusPlus("task-2", "group", "index", "wikipedia");
 
-    EasyMock.expect(overlordClient.taskStatuses(null, null, 2)).andReturn(
+    EasyMock.expect(overlordClient.taskStatuses(null, null, 2, null, null, null)).andReturn(
         Futures.immediateFuture(
             CloseableIterators.withEmptyBaggage(ImmutableList.of(task1, task2).iterator())
         )
@@ -1619,6 +1623,46 @@ public class SystemSchemaTest extends CalciteTestBase
     Assert.assertEquals(2, rows.size());
     Assert.assertEquals("task-1", rows.get(0)[0]);
     Assert.assertEquals("task-2", rows.get(1)[0]);
+    EasyMock.verify(overlordClient);
+  }
+
+  @Test
+  public void testTasksTableDoesNotPushRunnerStatusNoneAsComplete()
+  {
+    final SystemSchema.TasksTable tasksTable = new SystemSchema.TasksTable(overlordClient, authMapper);
+    final TaskStatusPlus activeTask = new TaskStatusPlus(
+        "active-task",
+        "group",
+        "index",
+        DateTimes.nowUtc(),
+        DateTimes.EPOCH,
+        TaskState.RUNNING,
+        RunnerTaskState.NONE,
+        null,
+        TaskLocation.unknown(),
+        "wikipedia",
+        null
+    );
+    final RexBuilder rexBuilder = new RexBuilder(new JavaTypeFactoryImpl());
+    final RexLiteral none = (RexLiteral) rexBuilder.makeLiteral("NONE");
+    final RexNode runnerStatusRef = rexBuilder.makeInputRef(
+        none.getType(),
+        SystemSchema.TASKS_SIGNATURE.indexOf("runner_status")
+    );
+
+    EasyMock.expect(overlordClient.taskStatuses(null, null, null, null, null, null)).andReturn(
+        Futures.immediateFuture(CloseableIterators.withEmptyBaggage(ImmutableList.of(activeTask).iterator()))
+    );
+    EasyMock.replay(overlordClient);
+
+    final List<Object[]> rows = tasksTable.scan(
+        createDataContext(Users.SUPER),
+        ImmutableList.of(rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, runnerStatusRef, none)),
+        new int[]{0}
+    ).toList();
+
+    Assert.assertEquals(1, rows.size());
+    Assert.assertEquals("active-task", rows.get(0)[0]);
     EasyMock.verify(overlordClient);
   }
 
@@ -1669,7 +1713,7 @@ public class SystemSchemaTest extends CalciteTestBase
         SystemSchema.TASKS_SIGNATURE.indexOf("status")
     );
 
-    EasyMock.expect(overlordClient.taskStatuses("complete", null, null)).andReturn(
+    EasyMock.expect(overlordClient.taskStatuses("complete", null, null, null, null, null)).andReturn(
         Futures.immediateFuture(
             CloseableIterators.withEmptyBaggage(Collections.<TaskStatusPlus>emptyList().iterator())
         )
@@ -1725,7 +1769,7 @@ public class SystemSchemaTest extends CalciteTestBase
                   + "\t\"errorMsg\": null\n"
                   + "}]";
 
-    EasyMock.expect(overlordClient.taskStatuses(null, null, null)).andAnswer(
+    EasyMock.expect(overlordClient.taskStatuses(null, null, null, null, null, null)).andAnswer(
         () -> Futures.immediateFuture(
             CloseableIterators.withEmptyBaggage(
                 MAPPER.readValue(json, new TypeReference<List<TaskStatusPlus>>() {}).iterator()

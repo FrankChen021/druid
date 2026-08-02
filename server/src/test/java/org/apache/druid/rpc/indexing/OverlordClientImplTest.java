@@ -229,6 +229,25 @@ public class OverlordClientImplTest
   }
 
   @Test
+  public void test_taskStatuses_v2WithNoFilters() throws Exception
+  {
+    serviceClient.expectAndRespond(
+        new RequestBuilder(
+            HttpMethod.GET,
+            "/druid/indexer/v2/tasks"
+        ),
+        HttpResponseStatus.OK,
+        ImmutableMap.of(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON),
+        jsonMapper.writeValueAsBytes(STATUSES)
+    );
+
+    Assert.assertEquals(
+        STATUSES,
+        ImmutableList.copyOf(overlordClient.taskStatuses(null, null, null, null, null, null).get())
+    );
+  }
+
+  @Test
   public void test_taskStatuses_withGroupId() throws Exception
   {
     serviceClient.expectAndRespond(
