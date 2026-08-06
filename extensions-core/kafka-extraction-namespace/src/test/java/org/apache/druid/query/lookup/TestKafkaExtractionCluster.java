@@ -39,7 +39,6 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,7 +57,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -204,10 +202,7 @@ public class TestKafkaExtractionCluster
         TOPIC_NAME,
         properties
     );
-    assertThat(
-        assertThrows(KafkaException.class, factory::getConsumer),
-        CoreMatchers.instanceOf(KafkaException.class)
-    );
+    assertThrows(KafkaException.class, factory::getConsumer);
 
     properties.remove("sasl.oauthbearer.token.endpoint.url");
     properties.put("sasl.oauthbearer.jwks.endpoint.url", "http://localhost:8080/jwks");
@@ -216,10 +211,7 @@ public class TestKafkaExtractionCluster
         TOPIC_NAME,
         properties
     );
-    assertThat(
-        assertThrows(KafkaException.class, factory::getConsumer),
-        CoreMatchers.instanceOf(KafkaException.class)
-    );
+    assertThrows(KafkaException.class, factory::getConsumer);
   }
 
   @Test
