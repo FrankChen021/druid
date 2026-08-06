@@ -20,8 +20,8 @@
 package org.apache.druid.common.utils;
 
 import org.apache.druid.java.util.common.ISE;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.number.OrderingComparison;
+import org.apache.druid.testing.matchers.MatcherAssert;
+import org.apache.druid.testing.matchers.OrderingComparison;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

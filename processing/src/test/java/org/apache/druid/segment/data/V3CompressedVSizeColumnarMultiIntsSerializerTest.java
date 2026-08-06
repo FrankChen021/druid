@@ -34,18 +34,18 @@ import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMedium;
 import org.apache.druid.segment.writeout.SegmentWriteOutMedium;
 import org.apache.druid.segment.writeout.TmpFileSegmentWriteOutMediumFactory;
 import org.apache.druid.segment.writeout.WriteOutBytes;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.TempDirExtension;
+import org.apache.druid.testing.ThrowableExpectation;
+import org.apache.druid.testing.matchers.MatcherAssert;
+import org.apache.druid.testing.matchers.Matchers;
 import org.apache.druid.utils.CloseableUtils;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.io.IOException;
@@ -58,7 +58,9 @@ import java.util.Random;
 import java.util.Set;
 import java.util.stream.IntStream;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+
+@MethodSource("compressionStrategiesAndByteOrders")
 public class V3CompressedVSizeColumnarMultiIntsSerializerTest
 {
   private static final String TEST_COLUMN_NAME = "test";
@@ -74,11 +76,11 @@ public class V3CompressedVSizeColumnarMultiIntsSerializerTest
   private final Random rand = new Random(0);
   private List<int[]> vals;
 
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ThrowableExpectation expectedException = ThrowableExpectation.none();
 
   public V3CompressedVSizeColumnarMultiIntsSerializerTest(
       CompressionStrategy compressionStrategy,
@@ -89,7 +91,6 @@ public class V3CompressedVSizeColumnarMultiIntsSerializerTest
     this.byteOrder = byteOrder;
   }
 
-  @Parameterized.Parameters(name = "{index}: compression={0}, byteOrder={1}")
   public static Iterable<Object[]> compressionStrategiesAndByteOrders()
   {
     Set<List<Object>> combinations = Sets.cartesianProduct(
@@ -103,7 +104,7 @@ public class V3CompressedVSizeColumnarMultiIntsSerializerTest
     );
   }
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     vals = null;
@@ -209,13 +210,13 @@ public class V3CompressedVSizeColumnarMultiIntsSerializerTest
       );
 
       try (final ColumnarMultiInts column = columnSupplier.get()) {
-        Assert.assertEquals(numRows, column.size());
+        JupiterAssertions.assertEquals(numRows, column.size());
       }
     }
   }
 
   // this test takes ~30 minutes to run
-  @Ignore
+  @Disabled
   @Test
   public void testTooManyValues() throws Exception
   {
@@ -304,7 +305,7 @@ public class V3CompressedVSizeColumnarMultiIntsSerializerTest
       writer.writeTo(writeOutBytes, smoosher);
       smoosher.close();
 
-      Assert.assertEquals(writtenLength, supplierFromIterable.getSerializedSize());
+      JupiterAssertions.assertEquals(writtenLength, supplierFromIterable.getSerializedSize());
 
       // read from ByteBuffer and check values
       V3CompressedVSizeColumnarMultiIntsSupplier supplierFromByteBuffer = V3CompressedVSizeColumnarMultiIntsSupplier.fromByteBuffer(
@@ -314,12 +315,12 @@ public class V3CompressedVSizeColumnarMultiIntsSerializerTest
       );
 
       try (final ColumnarMultiInts columnarMultiInts = supplierFromByteBuffer.get()) {
-        Assert.assertEquals(columnarMultiInts.size(), vals.size());
+        JupiterAssertions.assertEquals(columnarMultiInts.size(), vals.size());
         for (int i = 0; i < vals.size(); ++i) {
           IndexedInts subVals = columnarMultiInts.get(i);
-          Assert.assertEquals(subVals.size(), vals.get(i).length);
+          JupiterAssertions.assertEquals(subVals.size(), vals.get(i).length);
           for (int j = 0, size = subVals.size(); j < size; ++j) {
-            Assert.assertEquals(subVals.get(j), vals.get(i)[j]);
+            JupiterAssertions.assertEquals(subVals.get(j), vals.get(i)[j]);
           }
         }
       }
@@ -386,12 +387,12 @@ public class V3CompressedVSizeColumnarMultiIntsSerializerTest
       V3CompressedVSizeColumnarMultiIntsSupplier supplierFromByteBuffer =
           V3CompressedVSizeColumnarMultiIntsSupplier.fromByteBuffer(mapper.mapFile("test"), byteOrder, null);
       ColumnarMultiInts columnarMultiInts = supplierFromByteBuffer.get();
-      Assert.assertEquals(columnarMultiInts.size(), vals.size());
+      JupiterAssertions.assertEquals(columnarMultiInts.size(), vals.size());
       for (int i = 0; i < vals.size(); ++i) {
         IndexedInts subVals = columnarMultiInts.get(i);
-        Assert.assertEquals(subVals.size(), vals.get(i).length);
+        JupiterAssertions.assertEquals(subVals.size(), vals.get(i).length);
         for (int j = 0, size = subVals.size(); j < size; ++j) {
-          Assert.assertEquals(subVals.get(j), vals.get(i)[j]);
+          JupiterAssertions.assertEquals(subVals.get(j), vals.get(i)[j]);
         }
       }
       CloseableUtils.closeAll(columnarMultiInts, mapper);
@@ -466,14 +467,14 @@ public class V3CompressedVSizeColumnarMultiIntsSerializerTest
       V3CompressedVSizeColumnarMultiIntsSupplier supplierFromByteBuffer =
           V3CompressedVSizeColumnarMultiIntsSupplier.fromByteBuffer(mapper.mapFile("test"), byteOrder, mapper);
       ColumnarMultiInts columnarMultiInts = supplierFromByteBuffer.get();
-      Assert.assertEquals(columnarMultiInts.size(), numRows);
+      JupiterAssertions.assertEquals(columnarMultiInts.size(), numRows);
       Random verifier = new Random(0);
       for (int i = 0; i < numRows; ++i) {
         IndexedInts subVals = columnarMultiInts.get(i);
         int[] expected = generateRow(verifier, maxValue, maxValuesPerRow);
-        Assert.assertEquals(subVals.size(), expected.length);
+        JupiterAssertions.assertEquals(subVals.size(), expected.length);
         for (int j = 0, size = subVals.size(); j < size; ++j) {
-          Assert.assertEquals(subVals.get(j), expected[j]);
+          JupiterAssertions.assertEquals(subVals.get(j), expected[j]);
         }
       }
       CloseableUtils.closeAll(columnarMultiInts, mapper);

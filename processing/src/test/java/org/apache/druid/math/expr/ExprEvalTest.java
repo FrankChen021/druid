@@ -30,11 +30,11 @@ import org.apache.druid.segment.column.TypeStrategies;
 import org.apache.druid.segment.column.TypeStrategiesTest;
 import org.apache.druid.segment.column.Types;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.ThrowableExpectation;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -45,12 +45,12 @@ public class ExprEvalTest extends InitializedNullHandlingTest
 {
   private static int MAX_SIZE_BYTES = 1 << 13;
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ThrowableExpectation expectedException = ThrowableExpectation.none();
 
   ByteBuffer buffer = ByteBuffer.allocate(1 << 16);
 
-  @BeforeClass
+  @BeforeAll
   public static void setup()
   {
     TypeStrategies.registerComplex(
@@ -227,52 +227,52 @@ public class ExprEvalTest extends InitializedNullHandlingTest
   @Test
   public void test_coerceListToArray()
   {
-    Assert.assertNull(ExprEval.coerceListToArray(null, false));
+    JupiterAssertions.assertNull(ExprEval.coerceListToArray(null, false));
 
     NonnullPair<ExpressionType, Object[]> coerced = ExprEval.coerceListToArray(ImmutableList.of(), false);
-    Assert.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(new Object[0], coerced.rhs);
+    JupiterAssertions.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(new Object[0], coerced.rhs);
 
     coerced = ExprEval.coerceListToArray(null, true);
-    Assert.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(new Object[]{null}, coerced.rhs);
+    JupiterAssertions.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(new Object[]{null}, coerced.rhs);
 
     coerced = ExprEval.coerceListToArray(ImmutableList.of(), true);
-    Assert.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(new Object[]{null}, coerced.rhs);
+    JupiterAssertions.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(new Object[]{null}, coerced.rhs);
 
     List<Long> longList = ImmutableList.of(1L, 2L, 3L);
     coerced = ExprEval.coerceListToArray(longList, false);
-    Assert.assertEquals(ExpressionType.LONG_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(new Object[]{1L, 2L, 3L}, coerced.rhs);
+    JupiterAssertions.assertEquals(ExpressionType.LONG_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(new Object[]{1L, 2L, 3L}, coerced.rhs);
 
     List<Integer> intList = ImmutableList.of(1, 2, 3);
     ExprEval.coerceListToArray(intList, false);
-    Assert.assertEquals(ExpressionType.LONG_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(new Object[]{1L, 2L, 3L}, coerced.rhs);
+    JupiterAssertions.assertEquals(ExpressionType.LONG_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(new Object[]{1L, 2L, 3L}, coerced.rhs);
 
     List<Float> floatList = ImmutableList.of(1.0f, 2.0f, 3.0f);
     coerced = ExprEval.coerceListToArray(floatList, false);
-    Assert.assertEquals(ExpressionType.DOUBLE_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(new Object[]{1.0, 2.0, 3.0}, coerced.rhs);
+    JupiterAssertions.assertEquals(ExpressionType.DOUBLE_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(new Object[]{1.0, 2.0, 3.0}, coerced.rhs);
 
     List<Double> doubleList = ImmutableList.of(1.0, 2.0, 3.0);
     coerced = ExprEval.coerceListToArray(doubleList, false);
-    Assert.assertEquals(ExpressionType.DOUBLE_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(new Object[]{1.0, 2.0, 3.0}, coerced.rhs);
+    JupiterAssertions.assertEquals(ExpressionType.DOUBLE_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(new Object[]{1.0, 2.0, 3.0}, coerced.rhs);
 
     List<String> stringList = ImmutableList.of("a", "b", "c");
     coerced = ExprEval.coerceListToArray(stringList, false);
-    Assert.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(new Object[]{"a", "b", "c"}, coerced.rhs);
+    JupiterAssertions.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(new Object[]{"a", "b", "c"}, coerced.rhs);
 
     List<String> withNulls = new ArrayList<>();
     withNulls.add("a");
     withNulls.add(null);
     withNulls.add("c");
     coerced = ExprEval.coerceListToArray(withNulls, false);
-    Assert.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(new Object[]{"a", null, "c"}, coerced.rhs);
+    JupiterAssertions.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(new Object[]{"a", null, "c"}, coerced.rhs);
 
     List<Long> withNumberNulls = new ArrayList<>();
     withNumberNulls.add(1L);
@@ -280,45 +280,45 @@ public class ExprEvalTest extends InitializedNullHandlingTest
     withNumberNulls.add(3L);
 
     coerced = ExprEval.coerceListToArray(withNumberNulls, false);
-    Assert.assertEquals(ExpressionType.LONG_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(new Object[]{1L, null, 3L}, coerced.rhs);
+    JupiterAssertions.assertEquals(ExpressionType.LONG_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(new Object[]{1L, null, 3L}, coerced.rhs);
 
     List<Object> withStringMix = ImmutableList.of(1L, "b", 3L);
     coerced = ExprEval.coerceListToArray(withStringMix, false);
-    Assert.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(
         new Object[]{"1", "b", "3"},
         coerced.rhs
     );
 
     List<Number> withIntsAndLongs = ImmutableList.of(1, 2L, 3);
     coerced = ExprEval.coerceListToArray(withIntsAndLongs, false);
-    Assert.assertEquals(ExpressionType.LONG_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertEquals(ExpressionType.LONG_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(
         new Object[]{1L, 2L, 3L},
         coerced.rhs
     );
 
     List<Number> withFloatsAndLongs = ImmutableList.of(1, 2L, 3.0f);
     coerced = ExprEval.coerceListToArray(withFloatsAndLongs, false);
-    Assert.assertEquals(ExpressionType.DOUBLE_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertEquals(ExpressionType.DOUBLE_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(
         new Object[]{1.0, 2.0, 3.0},
         coerced.rhs
     );
 
     List<Number> withDoublesAndLongs = ImmutableList.of(1, 2L, 3.0);
     coerced = ExprEval.coerceListToArray(withDoublesAndLongs, false);
-    Assert.assertEquals(ExpressionType.DOUBLE_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertEquals(ExpressionType.DOUBLE_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(
         new Object[]{1.0, 2.0, 3.0},
         coerced.rhs
     );
 
     List<Number> withFloatsAndDoubles = ImmutableList.of(1L, 2.0f, 3.0);
     coerced = ExprEval.coerceListToArray(withFloatsAndDoubles, false);
-    Assert.assertEquals(ExpressionType.DOUBLE_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertEquals(ExpressionType.DOUBLE_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(
         new Object[]{1.0, 2.0, 3.0},
         coerced.rhs
     );
@@ -328,8 +328,8 @@ public class ExprEvalTest extends InitializedNullHandlingTest
     withAllNulls.add(null);
     withAllNulls.add(null);
     coerced = ExprEval.coerceListToArray(withAllNulls, false);
-    Assert.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertEquals(ExpressionType.STRING_ARRAY, coerced.lhs);
+    JupiterAssertions.assertArrayEquals(
         new Object[]{null, null, null},
         coerced.rhs
     );
@@ -342,11 +342,11 @@ public class ExprEvalTest extends InitializedNullHandlingTest
         nested1
     );
     coerced = ExprEval.coerceListToArray(mixedObject, false);
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExpressionTypeFactory.getInstance().ofArray(ExpressionType.NESTED_DATA),
         coerced.lhs
     );
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertArrayEquals(
         new Object[]{
             "a",
             1L,
@@ -363,11 +363,11 @@ public class ExprEvalTest extends InitializedNullHandlingTest
         3.0
     );
     coerced = ExprEval.coerceListToArray(mixedObject2, false);
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExpressionTypeFactory.getInstance().ofArray(ExpressionType.NESTED_DATA),
         coerced.lhs
     );
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertArrayEquals(
         new Object[]{
             nested1,
             "a",
@@ -382,8 +382,8 @@ public class ExprEvalTest extends InitializedNullHandlingTest
         ImmutableList.of("d", "e", "f")
     );
     coerced = ExprEval.coerceListToArray(nestedLists, false);
-    Assert.assertEquals(ExpressionTypeFactory.getInstance().ofArray(ExpressionType.STRING_ARRAY), coerced.lhs);
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertEquals(ExpressionTypeFactory.getInstance().ofArray(ExpressionType.STRING_ARRAY), coerced.lhs);
+    JupiterAssertions.assertArrayEquals(
         new Object[]{new Object[]{"a", "b", "c"}, new Object[]{"d", "e", "f"}},
         coerced.rhs
     );
@@ -392,8 +392,8 @@ public class ExprEvalTest extends InitializedNullHandlingTest
     Map<String, Object> nested2 = ImmutableMap.of("x", 4L, "y", 5L);
     List<Map<String, Object>> listUnknownComplex = ImmutableList.of(nested1, nested2);
     coerced = ExprEval.coerceListToArray(listUnknownComplex, false);
-    Assert.assertEquals(ExpressionTypeFactory.getInstance().ofArray(ExpressionType.NESTED_DATA), coerced.lhs);
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertEquals(ExpressionTypeFactory.getInstance().ofArray(ExpressionType.NESTED_DATA), coerced.lhs);
+    JupiterAssertions.assertArrayEquals(
         new Object[]{nested1, nested2},
         coerced.rhs
     );
@@ -407,13 +407,13 @@ public class ExprEvalTest extends InitializedNullHandlingTest
         ImmutableList.of(nested3, nested4)
     );
     coerced = ExprEval.coerceListToArray(nestedListsComplex, false);
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExpressionTypeFactory.getInstance().ofArray(
             ExpressionTypeFactory.getInstance().ofArray(ExpressionType.NESTED_DATA)
         ),
         coerced.lhs
     );
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertArrayEquals(
         new Object[]{
             new Object[]{nested1, nested2},
             new Object[]{nested3, nested4}
@@ -428,11 +428,11 @@ public class ExprEvalTest extends InitializedNullHandlingTest
         ImmutableList.of("a", 2L, 3.0)
     );
     coerced = ExprEval.coerceListToArray(mixed, false);
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExpressionTypeFactory.getInstance().ofArray(ExpressionType.STRING_ARRAY),
         coerced.lhs
     );
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertArrayEquals(
         new Object[]{
             new Object[]{"a", "b", "c"},
             new Object[]{"1", "2", "3"},
@@ -449,13 +449,13 @@ public class ExprEvalTest extends InitializedNullHandlingTest
         ImmutableList.of("a", 2L, 3.0, nested1)
     );
     coerced = ExprEval.coerceListToArray(mixedNested, false);
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExpressionTypeFactory.getInstance().ofArray(
             ExpressionTypeFactory.getInstance().ofArray(ExpressionType.NESTED_DATA)
         ),
         coerced.lhs
     );
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertArrayEquals(
         new Object[]{
             new Object[]{"a", "b", "c"},
             new Object[]{1L, 2L, 3L},
@@ -475,13 +475,13 @@ public class ExprEvalTest extends InitializedNullHandlingTest
         ImmutableList.of(nested1, nested2, nested3)
     );
     coerced = ExprEval.coerceListToArray(mixedNested2, false);
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExpressionTypeFactory.getInstance().ofArray(
             ExpressionTypeFactory.getInstance().ofArray(ExpressionType.NESTED_DATA)
         ),
         coerced.lhs
     );
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertArrayEquals(
         new Object[]{
             new Object[]{"a"},
             new Object[]{1L},
@@ -507,11 +507,11 @@ public class ExprEvalTest extends InitializedNullHandlingTest
     );
     coerced = ExprEval.coerceListToArray(mixedNested3, false);
     // this one is only ARRAY<COMPLEX<json>> instead of ARRAY<ARRAY<COMPLEX<json>> because of a COMPLEX<json> element..
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExpressionTypeFactory.getInstance().ofArray(ExpressionType.NESTED_DATA),
         coerced.lhs
     );
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertArrayEquals(
         new Object[]{
             "a",
             1L,
@@ -531,11 +531,11 @@ public class ExprEvalTest extends InitializedNullHandlingTest
         ImmutableList.of(3.0, 4.0, 5.0, new SerializablePair<>("hello", 1234L)),
         ImmutableList.of("a", 2L, 3.0, nested1)
     );
-    Throwable t = Assert.assertThrows(
+    Throwable t = JupiterAssertions.assertThrows(
         Types.IncompatibleTypeException.class,
         () -> ExprEval.coerceListToArray(mixedUnknown, false)
     );
-    Assert.assertEquals("Cannot implicitly cast [DOUBLE] to [COMPLEX]", t.getMessage());
+    JupiterAssertions.assertEquals("Cannot implicitly cast [DOUBLE] to [COMPLEX]", t.getMessage());
   }
 
   @Test
@@ -544,59 +544,59 @@ public class ExprEvalTest extends InitializedNullHandlingTest
     ExprEval<?> eval = ExprEval.ofString("hello");
 
     ExprEval<?> cast = eval.castTo(ExpressionType.DOUBLE);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.LONG);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.STRING_ARRAY);
-    Assert.assertArrayEquals(new Object[]{"hello"}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{"hello"}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.LONG_ARRAY);
-    Assert.assertArrayEquals(new Object[]{null}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{null}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.DOUBLE_ARRAY);
-    Assert.assertArrayEquals(new Object[]{null}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{null}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.NESTED_DATA);
-    Assert.assertEquals("hello", cast.value());
+    JupiterAssertions.assertEquals("hello", cast.value());
 
     cast = eval.castTo(ExpressionTypeFactory.getInstance().ofArray(ExpressionType.NESTED_DATA));
-    Assert.assertArrayEquals(new Object[]{"hello"}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{"hello"}, (Object[]) cast.value());
 
     eval = ExprEval.ofString("1234.3");
 
     cast = eval.castTo(ExpressionType.DOUBLE);
-    Assert.assertEquals(1234.3, cast.value());
+    JupiterAssertions.assertEquals(1234.3, cast.value());
 
     cast = eval.castTo(ExpressionType.LONG);
-    Assert.assertEquals(1234L, cast.value());
+    JupiterAssertions.assertEquals(1234L, cast.value());
 
     cast = eval.castTo(ExpressionType.DOUBLE_ARRAY);
-    Assert.assertArrayEquals(new Object[]{1234.3}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{1234.3}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.LONG_ARRAY);
-    Assert.assertArrayEquals(new Object[]{1234L}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{1234L}, (Object[]) cast.value());
 
     eval = ExprEval.ofType(ExpressionType.STRING, null);
 
     cast = eval.castTo(ExpressionType.DOUBLE);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.LONG);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.STRING_ARRAY);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.LONG_ARRAY);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.DOUBLE_ARRAY);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.NESTED_DATA);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
   }
 
   @Test
@@ -605,42 +605,42 @@ public class ExprEvalTest extends InitializedNullHandlingTest
     ExprEval<?> eval = ExprEval.of(123.4);
 
     ExprEval<?> cast = eval.castTo(ExpressionType.STRING);
-    Assert.assertEquals("123.4", cast.value());
+    JupiterAssertions.assertEquals("123.4", cast.value());
 
     cast = eval.castTo(ExpressionType.LONG);
-    Assert.assertEquals(123L, cast.value());
+    JupiterAssertions.assertEquals(123L, cast.value());
 
     cast = eval.castTo(ExpressionType.STRING_ARRAY);
-    Assert.assertArrayEquals(new Object[]{"123.4"}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{"123.4"}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.LONG_ARRAY);
-    Assert.assertArrayEquals(new Object[]{123L}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{123L}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.DOUBLE_ARRAY);
-    Assert.assertArrayEquals(new Object[]{123.4}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{123.4}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.NESTED_DATA);
-    Assert.assertEquals(123.4, cast.value());
+    JupiterAssertions.assertEquals(123.4, cast.value());
 
     eval = ExprEval.ofType(ExpressionType.DOUBLE, null);
 
     cast = eval.castTo(ExpressionType.STRING);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.LONG);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.STRING_ARRAY);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.LONG_ARRAY);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.DOUBLE_ARRAY);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.NESTED_DATA);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
   }
 
   @Test
@@ -649,42 +649,42 @@ public class ExprEvalTest extends InitializedNullHandlingTest
     ExprEval<?> eval = ExprEval.of(1234L);
 
     ExprEval<?> cast = eval.castTo(ExpressionType.STRING);
-    Assert.assertEquals("1234", cast.value());
+    JupiterAssertions.assertEquals("1234", cast.value());
 
     cast = eval.castTo(ExpressionType.DOUBLE);
-    Assert.assertEquals(1234.0, cast.value());
+    JupiterAssertions.assertEquals(1234.0, cast.value());
 
     cast = eval.castTo(ExpressionType.STRING_ARRAY);
-    Assert.assertArrayEquals(new Object[]{"1234"}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{"1234"}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.LONG_ARRAY);
-    Assert.assertArrayEquals(new Object[]{1234L}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{1234L}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.DOUBLE_ARRAY);
-    Assert.assertArrayEquals(new Object[]{1234.0}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{1234.0}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.NESTED_DATA);
-    Assert.assertEquals(1234L, cast.value());
+    JupiterAssertions.assertEquals(1234L, cast.value());
 
     eval = ExprEval.ofType(ExpressionType.LONG, null);
 
     cast = eval.castTo(ExpressionType.STRING);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.LONG);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.STRING_ARRAY);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.LONG_ARRAY);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.DOUBLE_ARRAY);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.NESTED_DATA);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
   }
 
   @Test
@@ -693,54 +693,54 @@ public class ExprEvalTest extends InitializedNullHandlingTest
     ExprEval<?> eval = ExprEval.ofStringArray(new String[]{"1", "2", "foo", null, "3.3"});
 
     ExprEval<?> cast = eval.castTo(ExpressionType.LONG_ARRAY);
-    Assert.assertArrayEquals(new Object[]{1L, 2L, null, null, 3L}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{1L, 2L, null, null, 3L}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.DOUBLE_ARRAY);
-    Assert.assertArrayEquals(new Object[]{1.0, 2.0, null, null, 3.3}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{1.0, 2.0, null, null, 3.3}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.NESTED_DATA);
-    Assert.assertArrayEquals(new Object[]{"1", "2", "foo", null, "3.3"}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{"1", "2", "foo", null, "3.3"}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionTypeFactory.getInstance().ofArray(ExpressionType.NESTED_DATA));
-    Assert.assertArrayEquals(new Object[]{"1", "2", "foo", null, "3.3"}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{"1", "2", "foo", null, "3.3"}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.LONG);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.DOUBLE);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     cast = eval.castTo(ExpressionType.STRING);
-    Assert.assertNull(cast.value());
+    JupiterAssertions.assertNull(cast.value());
 
     eval = ExprEval.ofType(ExpressionType.LONG_ARRAY, new Object[]{1234L});
 
     cast = eval.castTo(ExpressionType.DOUBLE_ARRAY);
-    Assert.assertArrayEquals(new Object[]{1234.0}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{1234.0}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.STRING_ARRAY);
-    Assert.assertArrayEquals(new Object[]{"1234"}, (Object[]) cast.value());
+    JupiterAssertions.assertArrayEquals(new Object[]{"1234"}, (Object[]) cast.value());
 
     cast = eval.castTo(ExpressionType.STRING);
-    Assert.assertEquals("1234", cast.value());
+    JupiterAssertions.assertEquals("1234", cast.value());
 
     cast = eval.castTo(ExpressionType.DOUBLE);
-    Assert.assertEquals(1234.0, cast.value());
+    JupiterAssertions.assertEquals(1234.0, cast.value());
 
     cast = eval.castTo(ExpressionType.LONG);
-    Assert.assertEquals(1234L, cast.value());
+    JupiterAssertions.assertEquals(1234L, cast.value());
   }
 
   @Test
   public void testCastNestedData()
   {
     ExprEval<?> eval = ExprEval.ofType(ExpressionType.NESTED_DATA, ImmutableMap.of("x", 1234L, "y", 12.34));
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableMap.of("x", 1234L, "y", 12.34),
         eval.castTo(ExpressionType.NESTED_DATA).value()
     );
-    Throwable t = Assert.assertThrows(IAE.class, () -> eval.castTo(ExpressionType.LONG));
-    Assert.assertEquals("Invalid type, cannot cast [COMPLEX<json>] to [LONG]", t.getMessage());
+    Throwable t = JupiterAssertions.assertThrows(IAE.class, () -> eval.castTo(ExpressionType.LONG));
+    JupiterAssertions.assertEquals("Invalid type, cannot cast [COMPLEX<json>] to [LONG]", t.getMessage());
   }
 
   @Test
@@ -749,8 +749,8 @@ public class ExprEvalTest extends InitializedNullHandlingTest
     // empty arrays will materialize from JSON into an empty list, which coerce list to array will make into Object[]
     // make sure we can handle it
     ExprEval someEmptyArray = ExprEval.bestEffortOf(new ArrayList<>());
-    Assert.assertTrue(someEmptyArray.isArray());
-    Assert.assertEquals(0, someEmptyArray.asArray().length);
+    JupiterAssertions.assertTrue(someEmptyArray.isArray());
+    JupiterAssertions.assertEquals(0, someEmptyArray.asArray().length);
   }
 
   private void assertExpr(int position, Object expected)
@@ -767,25 +767,25 @@ public class ExprEvalTest extends InitializedNullHandlingTest
   {
     ExprEval.serialize(buffer, position, expected.type(), expected, maxSizeBytes);
     if (expected.type().isArray()) {
-      Assert.assertArrayEquals(
+      JupiterAssertions.assertArrayEquals(
           "deserialized value with buffer references allowed",
           expected.asArray(),
           ExprEval.deserialize(buffer, position, MAX_SIZE_BYTES, expected.type(), true).asArray()
       );
 
-      Assert.assertArrayEquals(
+      JupiterAssertions.assertArrayEquals(
           "deserialized value with buffer references not allowed",
           expected.asArray(),
           ExprEval.deserialize(buffer, position, MAX_SIZE_BYTES, expected.type(), false).asArray()
       );
     } else {
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           "deserialized value with buffer references allowed",
           expected.value(),
           ExprEval.deserialize(buffer, position, MAX_SIZE_BYTES, expected.type(), true).value()
       );
 
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           "deserialized value with buffer references not allowed",
           expected.value(),
           ExprEval.deserialize(buffer, position, MAX_SIZE_BYTES, expected.type(), false).value()

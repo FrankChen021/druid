@@ -43,10 +43,10 @@ import org.apache.druid.query.topn.TopNResultValue;
 import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.segment.writeout.SegmentWriteOutMediumFactory;
+import org.apache.druid.testing.JupiterAssertions;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.DataSegment.PruneSpecsHolder;
 import org.apache.druid.timeline.partition.ShardSpec;
-import org.junit.Assert;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -240,7 +240,7 @@ public class TestHelper
     }
 
     if (resultsIter.hasNext()) {
-      Assert.fail(
+      JupiterAssertions.fail(
           StringUtils.format(
               "%s: Expected resultsIter to be exhausted, next element was %s",
               failMsg,
@@ -250,7 +250,7 @@ public class TestHelper
     }
 
     if (resultsIter2.hasNext()) {
-      Assert.fail(
+      JupiterAssertions.fail(
           StringUtils.format(
               "%s: Expected resultsIter2 to be exhausted, next element was %s",
               failMsg,
@@ -260,7 +260,7 @@ public class TestHelper
     }
 
     if (expectedResultsIter.hasNext()) {
-      Assert.fail(
+      JupiterAssertions.fail(
           StringUtils.format(
               "%s: Expected expectedResultsIter to be exhausted, next element was %s",
               failMsg,
@@ -293,25 +293,25 @@ public class TestHelper
         assertRow(failMsg, (ResultRow) expectedNext, (ResultRow) next);
         assertRow(failMsg2, (ResultRow) expectedNext, (ResultRow) next2);
       } else {
-        Assert.assertEquals(failMsg, expectedNext, next);
-        Assert.assertEquals(failMsg2, expectedNext, next2);
+        JupiterAssertions.assertEquals(failMsg, expectedNext, next);
+        JupiterAssertions.assertEquals(failMsg2, expectedNext, next2);
       }
     }
 
     if (resultsIter.hasNext()) {
-      Assert.fail(
+      JupiterAssertions.fail(
           StringUtils.format("%s: Expected resultsIter to be exhausted, next element was %s", msg, resultsIter.next())
       );
     }
 
     if (resultsIter2.hasNext()) {
-      Assert.fail(
+      JupiterAssertions.fail(
           StringUtils.format("%s: Expected resultsIter2 to be exhausted, next element was %s", msg, resultsIter.next())
       );
     }
 
     if (expectedResultsIter.hasNext()) {
-      Assert.fail(
+      JupiterAssertions.fail(
           StringUtils.format(
               "%s: Expected expectedResultsIter to be exhausted, next element was %s",
               msg,
@@ -323,14 +323,14 @@ public class TestHelper
 
   private static void assertResult(String msg, Result<?> expected, Result actual)
   {
-    Assert.assertEquals(msg, expected, actual);
+    JupiterAssertions.assertEquals(msg, expected, actual);
   }
 
   private static void assertTimeseriesResultValue(String msg, Result expected, Result actual)
   {
     // Custom equals check to get fuzzy comparison of numerics, useful because different groupBy strategies don't
     // always generate exactly the same results (different merge ordering / float vs double)
-    Assert.assertEquals(StringUtils.format("%s: timestamp", msg), expected.getTimestamp(), actual.getTimestamp());
+    JupiterAssertions.assertEquals(StringUtils.format("%s: timestamp", msg), expected.getTimestamp(), actual.getTimestamp());
 
     TimeseriesResultValue expectedVal = (TimeseriesResultValue) expected.getValue();
     TimeseriesResultValue actualVal = (TimeseriesResultValue) actual.getValue();
@@ -365,7 +365,7 @@ public class TestHelper
                                             dimensionAndMetricValueExtractor.getBaseObject()
                                         ))
                                         .collect(Collectors.toList());
-    Assert.assertEquals("Size of list must match", listExpectedRows.size(), listActualRows.size());
+    JupiterAssertions.assertEquals("Size of list must match", listExpectedRows.size(), listActualRows.size());
 
     IntStream.range(0, listExpectedRows.size()).forEach(value -> assertRow(
         StringUtils.format("%s, on value number [%s]", msg, value),
@@ -378,7 +378,7 @@ public class TestHelper
   {
     // Custom equals check to get fuzzy comparison of numerics, useful because different groupBy strategies don't
     // always generate exactly the same results (different merge ordering / float vs double)
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         StringUtils.format("%s: timestamp", msg),
         expected.getTimestamp(),
         actual.getTimestamp()
@@ -390,7 +390,7 @@ public class TestHelper
     for (final String key : expectedMap.keySet()) {
       final Object expectedValue = expectedMap.get(key);
       if (!actualMap.containsKey(key)) {
-        Assert.fail(
+        JupiterAssertions.fail(
             StringUtils.format("%s: Expected key [%s] to exist, but it did not [%s]", msg, key, actualMap.keySet())
         );
       }
@@ -398,18 +398,18 @@ public class TestHelper
       final Object actualValue = actualMap.get(key);
 
       if ((expectedValue != null && actualValue == null) || (expectedValue == null && actualValue != null)) {
-        Assert.assertEquals(StringUtils.format("%s: key[%s]", msg, key), expectedValue, actualValue);
+        JupiterAssertions.assertEquals(StringUtils.format("%s: key[%s]", msg, key), expectedValue, actualValue);
       } else if (expectedValue != null && expectedValue.getClass().isArray()) {
-        Assert.assertArrayEquals((Object[]) expectedValue, (Object[]) actualValue);
+        JupiterAssertions.assertArrayEquals((Object[]) expectedValue, (Object[]) actualValue);
       } else if (expectedValue instanceof Float || expectedValue instanceof Double) {
-        Assert.assertEquals(
+        JupiterAssertions.assertEquals(
             StringUtils.format("%s: key[%s]", msg, key),
             ((Number) expectedValue).doubleValue(),
             ((Number) actualValue).doubleValue(),
             Math.abs(((Number) expectedValue).doubleValue() * 1e-6)
         );
       } else {
-        Assert.assertEquals(
+        JupiterAssertions.assertEquals(
             StringUtils.format("%s: key[%s]", msg, key),
             expectedValue,
             actualValue
@@ -418,12 +418,12 @@ public class TestHelper
     }
     // Given that we iterated through all of the keys in one, checking that the key exists in the other, then if they
     // have the same size, they must have the same keyset.
-    Assert.assertEquals(expectedMap.size(), actualMap.size());
+    JupiterAssertions.assertEquals(expectedMap.size(), actualMap.size());
   }
 
   public static void assertRow(String msg, ResultRow expected, ResultRow actual)
   {
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         StringUtils.format("%s: row length", msg),
         expected.length(),
         actual.length()
@@ -438,13 +438,13 @@ public class TestHelper
       if (expectedValue != null && expectedValue.getClass().isArray()) {
         // spilled results will materialize into lists, coerce them back to arrays if we expected arrays
         if (actualValue instanceof List) {
-          Assert.assertEquals(
+          JupiterAssertions.assertEquals(
               message,
               (Object[]) expectedValue,
               (Object[]) ExprEval.coerceListToArray((List) actualValue, true).rhs
           );
         } else {
-          Assert.assertArrayEquals(
+          JupiterAssertions.assertArrayEquals(
               message,
               (Object[]) expectedValue,
               (Object[]) actualValue
@@ -452,16 +452,16 @@ public class TestHelper
         }
       } else if (expectedValue instanceof Float || expectedValue instanceof Double) {
         if (actualValue == null) {
-          Assert.fail(message + ": failed because expected numeric value is actually null");
+          JupiterAssertions.fail(message + ": failed because expected numeric value is actually null");
         }
-        Assert.assertEquals(
+        JupiterAssertions.assertEquals(
             message,
             ((Number) expectedValue).doubleValue(),
             ((Number) actualValue).doubleValue(),
             Math.abs(((Number) expectedValue).doubleValue() * 1e-6)
         );
       } else {
-        Assert.assertEquals(
+        JupiterAssertions.assertEquals(
             message,
             expectedValue,
             actualValue
@@ -509,7 +509,7 @@ public class TestHelper
     try {
       String serialized = objectMapper.writeValueAsString(object);
       Object deserialized = objectMapper.readValue(serialized, object.getClass());
-      Assert.assertEquals(serialized, objectMapper.writeValueAsString(deserialized));
+      JupiterAssertions.assertEquals(serialized, objectMapper.writeValueAsString(deserialized));
     }
     catch (IOException e) {
       throw new UncheckedIOException(e);

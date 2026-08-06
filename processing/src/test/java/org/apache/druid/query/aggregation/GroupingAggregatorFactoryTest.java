@@ -20,20 +20,21 @@
 package org.apache.druid.query.aggregation;
 
 import com.google.common.collect.Sets;
-import junitparams.converters.Nullable;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.aggregation.constant.LongConstantAggregator;
 import org.apache.druid.query.aggregation.constant.LongConstantBufferAggregator;
 import org.apache.druid.query.aggregation.constant.LongConstantVectorAggregator;
 import org.apache.druid.segment.ColumnSelectorFactory;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.ThrowableExpectation;
 import org.easymock.EasyMock;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -53,7 +54,7 @@ public class GroupingAggregatorFactoryTest
   {
     private ColumnSelectorFactory metricFactory;
 
-    @Before
+    @BeforeEach
     public void setup()
     {
       metricFactory = EasyMock.mock(ColumnSelectorFactory.class);
@@ -64,8 +65,8 @@ public class GroupingAggregatorFactoryTest
     {
       GroupingAggregatorFactory factory = makeFactory(new String[]{"a", "b"}, new String[]{"a"});
       Aggregator aggregator = factory.factorize(metricFactory);
-      Assert.assertEquals(LongConstantAggregator.class, aggregator.getClass());
-      Assert.assertEquals(1, aggregator.getLong());
+      JupiterAssertions.assertEquals(LongConstantAggregator.class, aggregator.getClass());
+      JupiterAssertions.assertEquals(1, aggregator.getLong());
     }
 
     @Test
@@ -73,18 +74,18 @@ public class GroupingAggregatorFactoryTest
     {
       GroupingAggregatorFactory factory = makeFactory(new String[]{"a", "b"}, new String[]{"a"});
       BufferAggregator aggregator = factory.factorizeBuffered(metricFactory);
-      Assert.assertEquals(LongConstantBufferAggregator.class, aggregator.getClass());
-      Assert.assertEquals(1, aggregator.getLong(null, 0));
+      JupiterAssertions.assertEquals(LongConstantBufferAggregator.class, aggregator.getClass());
+      JupiterAssertions.assertEquals(1, aggregator.getLong(null, 0));
     }
 
     @Test
     public void testNewVectorAggregator()
     {
       GroupingAggregatorFactory factory = makeFactory(new String[]{"a", "b"}, new String[]{"a"});
-      Assert.assertTrue(factory.canVectorize(metricFactory));
+      JupiterAssertions.assertTrue(factory.canVectorize(metricFactory));
       VectorAggregator aggregator = factory.factorizeVector(null);
-      Assert.assertEquals(LongConstantVectorAggregator.class, aggregator.getClass());
-      Assert.assertEquals(1L, aggregator.get(null, 0));
+      JupiterAssertions.assertEquals(LongConstantVectorAggregator.class, aggregator.getClass());
+      JupiterAssertions.assertEquals(1L, aggregator.get(null, 0));
     }
 
     @Test
@@ -92,17 +93,17 @@ public class GroupingAggregatorFactoryTest
     {
       GroupingAggregatorFactory factory = makeFactory(new String[]{"a", "b"}, new String[]{"a"});
       Aggregator aggregator = factory.factorize(metricFactory);
-      Assert.assertEquals(1, aggregator.getLong());
+      JupiterAssertions.assertEquals(1, aggregator.getLong());
       factory = factory.withKeyDimensions(Sets.newHashSet("b"));
       aggregator = factory.factorize(metricFactory);
-      Assert.assertEquals(2, aggregator.getLong());
+      JupiterAssertions.assertEquals(2, aggregator.getLong());
     }
   }
 
   public static class GroupingDimensionsTest
   {
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
+    @RegisterExtension
+    public ThrowableExpectation exception = ThrowableExpectation.none();
 
     @Test
     public void testFactory_nullGroupingDimensions()
@@ -141,7 +142,9 @@ public class GroupingAggregatorFactoryTest
     }
   }
 
-  @RunWith(Parameterized.class)
+  @ParameterizedClass
+
+  @MethodSource("arguments")
   public static class ValueTests
   {
     private final GroupingAggregatorFactory factory;
@@ -153,7 +156,6 @@ public class GroupingAggregatorFactoryTest
       this.value = value;
     }
 
-    @Parameterized.Parameters
     public static Collection arguments()
     {
       String[] maxGroupingList = new String[Long.SIZE - 1];
@@ -175,7 +177,7 @@ public class GroupingAggregatorFactoryTest
     @Test
     public void testValue()
     {
-      Assert.assertEquals(value, factory.factorize(null).getLong());
+      JupiterAssertions.assertEquals(value, factory.factorize(null).getLong());
     }
   }
 }

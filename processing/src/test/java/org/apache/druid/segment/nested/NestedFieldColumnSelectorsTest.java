@@ -51,12 +51,12 @@ import org.apache.druid.segment.vector.VectorObjectSelector;
 import org.apache.druid.segment.vector.VectorValueSelector;
 import org.apache.druid.segment.virtual.NestedFieldVirtualColumn;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.TempDirExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.IOException;
@@ -78,14 +78,14 @@ public class NestedFieldColumnSelectorsTest extends InitializedNullHandlingTest
   @TempDir
   public File tempFolderDir;
 
-  private TemporaryFolder tempFolder;
+  private TempDirExtension tempFolder;
   private AggregationTestHelper helper;
   private Closer closer;
 
   @BeforeEach
   public void setup() throws IOException
   {
-    tempFolder = new TemporaryFolder(tempFolderDir);
+    tempFolder = new TempDirExtension(tempFolderDir);
     tempFolder.create();
     BuiltInTypesModule.registerHandlersAndSerde();
     List<? extends Module> mods = BuiltInTypesModule.getJacksonModulesList();

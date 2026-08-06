@@ -49,10 +49,11 @@ import org.apache.druid.segment.DimensionSelectorUtils;
 import org.apache.druid.segment.IdLookup;
 import org.apache.druid.segment.data.IndexedInts;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.JupiterAssertions;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
+
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.HashMap;
@@ -389,8 +390,8 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
     for (int i = 0; i < VALUES1.size(); ++i) {
       aggregate(selectorList, agg);
     }
-    Assert.assertEquals(9.0, (Double) rowAggregatorFactory.finalizeComputation(agg.get()), 0.05);
-    Assert.assertEquals(9L, rowAggregatorFactoryRounded.finalizeComputation(agg.get()));
+    JupiterAssertions.assertEquals(9.0, (Double) rowAggregatorFactory.finalizeComputation(agg.get()), 0.05);
+    JupiterAssertions.assertEquals(9L, rowAggregatorFactoryRounded.finalizeComputation(agg.get()));
   }
 
   @Test
@@ -404,12 +405,12 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
     for (int i = 0; i < VALUES1.size(); ++i) {
       aggregate(selectorList, agg);
     }
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         6.0,
         (Double) valueAggregatorFactory.finalizeComputation(agg.get()),
         0.05
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         6L,
         rowAggregatorFactoryRounded.finalizeComputation(agg.get())
     );
@@ -434,8 +435,8 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
     for (int i = 0; i < VALUES1.size(); ++i) {
       bufferAggregate(selectorList, agg, buf, pos);
     }
-    Assert.assertEquals(9.0, (Double) rowAggregatorFactory.finalizeComputation(agg.get(buf, pos)), 0.05);
-    Assert.assertEquals(9L, rowAggregatorFactoryRounded.finalizeComputation(agg.get(buf, pos)));
+    JupiterAssertions.assertEquals(9.0, (Double) rowAggregatorFactory.finalizeComputation(agg.get(buf, pos)), 0.05);
+    JupiterAssertions.assertEquals(9L, rowAggregatorFactoryRounded.finalizeComputation(agg.get(buf, pos)));
   }
 
   @Test
@@ -456,12 +457,12 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
     for (int i = 0; i < VALUES1.size(); ++i) {
       bufferAggregate(selectorList, agg, buf, pos);
     }
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         6.0,
         (Double) valueAggregatorFactory.finalizeComputation(agg.get(buf, pos)),
         0.05
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         6L,
         rowAggregatorFactoryRounded.finalizeComputation(agg.get(buf, pos))
     );
@@ -497,10 +498,10 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
       aggregate(selector2, agg2);
     }
 
-    Assert.assertEquals(4.0, (Double) rowAggregatorFactory.finalizeComputation(agg1.get()), 0.05);
-    Assert.assertEquals(8.0, (Double) rowAggregatorFactory.finalizeComputation(agg2.get()), 0.05);
+    JupiterAssertions.assertEquals(4.0, (Double) rowAggregatorFactory.finalizeComputation(agg1.get()), 0.05);
+    JupiterAssertions.assertEquals(8.0, (Double) rowAggregatorFactory.finalizeComputation(agg2.get()), 0.05);
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         9.0,
         (Double) rowAggregatorFactory.finalizeComputation(
             rowAggregatorFactory.combine(
@@ -542,17 +543,17 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
     for (int i = 0; i < VALUES2.size(); ++i) {
       aggregate(selector2, agg2);
     }
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         3.0,
         (Double) valueAggregatorFactory.finalizeComputation(agg1.get()),
         0.05
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         6.0,
         (Double) valueAggregatorFactory.finalizeComputation(agg2.get()),
         0.05
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         6.0,
         (Double) rowAggregatorFactory.finalizeComputation(
             rowAggregatorFactory.combine(
@@ -574,7 +575,7 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
     for (int i = 0; i < VALUES1.size(); ++i) {
       aggregate(selectorListWithExtraction, agg);
     }
-    Assert.assertEquals(9.0, (Double) rowAggregatorFactory.finalizeComputation(agg.get()), 0.05);
+    JupiterAssertions.assertEquals(9.0, (Double) rowAggregatorFactory.finalizeComputation(agg.get()), 0.05);
 
     CardinalityAggregator agg2 = new CardinalityAggregator(
         dimInfoListConstantVal,
@@ -583,7 +584,7 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
     for (int i = 0; i < VALUES1.size(); ++i) {
       aggregate(selectorListConstantVal, agg2);
     }
-    Assert.assertEquals(3.0, (Double) rowAggregatorFactory.finalizeComputation(agg2.get()), 0.05);
+    JupiterAssertions.assertEquals(3.0, (Double) rowAggregatorFactory.finalizeComputation(agg2.get()), 0.05);
   }
 
   @Test
@@ -596,7 +597,7 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
     for (int i = 0; i < VALUES1.size(); ++i) {
       aggregate(selectorListWithExtraction, agg);
     }
-    Assert.assertEquals(7.0, (Double) valueAggregatorFactory.finalizeComputation(agg.get()), 0.05);
+    JupiterAssertions.assertEquals(7.0, (Double) valueAggregatorFactory.finalizeComputation(agg.get()), 0.05);
 
     CardinalityAggregator agg2 = new CardinalityAggregator(
         dimInfoListConstantVal,
@@ -605,7 +606,7 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
     for (int i = 0; i < VALUES1.size(); ++i) {
       aggregate(selectorListConstantVal, agg2);
     }
-    Assert.assertEquals(1.0, (Double) valueAggregatorFactory.finalizeComputation(agg2.get()), 0.05);
+    JupiterAssertions.assertEquals(1.0, (Double) valueAggregatorFactory.finalizeComputation(agg2.get()), 0.05);
   }
 
   @Test
@@ -623,7 +624,7 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
         true
     );
     ObjectMapper objectMapper = new DefaultObjectMapper();
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         factory,
         objectMapper.readValue(objectMapper.writeValueAsString(factory), AggregatorFactory.class)
     );
@@ -635,7 +636,7 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
                             + "\"byRow\":true,"
                             + "\"round\":true"
                             + "}";
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         factory,
         objectMapper.readValue(fieldNamesOnly, AggregatorFactory.class)
     );
@@ -650,7 +651,7 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
         true
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         factory2,
         objectMapper.readValue(objectMapper.writeValueAsString(factory2), AggregatorFactory.class)
     );
@@ -667,8 +668,8 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
     for (int i = 0; i < VALUES1.size(); ++i) {
       aggregate(selectorList, agg);
     }
-    Assert.assertEquals(9.0, (Double) rowAggregatorFactory.finalizeComputation(agg.get()), 0.05);
-    Assert.assertEquals(9L, rowAggregatorFactoryRounded.finalizeComputation(agg.get()));
+    JupiterAssertions.assertEquals(9.0, (Double) rowAggregatorFactory.finalizeComputation(agg.get()), 0.05);
+    JupiterAssertions.assertEquals(9L, rowAggregatorFactoryRounded.finalizeComputation(agg.get()));
   }
 
   @Test
@@ -682,12 +683,12 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
     for (int i = 0; i < VALUES1.size(); ++i) {
       aggregate(selectorList, agg);
     }
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         6.0,
         (Double) valueAggregatorFactory.finalizeComputation(agg.get()),
         0.05
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         6L,
         rowAggregatorFactoryRounded.finalizeComputation(agg.get())
     );
@@ -723,17 +724,17 @@ public class CardinalityAggregatorTest extends InitializedNullHandlingTest
     for (int i = 0; i < VALUES2.size(); ++i) {
       aggregate(selector2, agg2);
     }
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         3.0,
         (Double) valueAggregatorFactory.finalizeComputation(agg1.get()),
         0.05
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         6.0,
         (Double) valueAggregatorFactory.finalizeComputation(agg2.get()),
         0.05
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         6.0,
         (Double) rowAggregatorFactory.finalizeComputation(
             rowAggregatorFactory.combine(

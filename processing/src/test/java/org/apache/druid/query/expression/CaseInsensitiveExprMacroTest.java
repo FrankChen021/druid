@@ -22,8 +22,8 @@ package org.apache.druid.query.expression;
 import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.math.expr.ExpressionType;
 import org.apache.druid.math.expr.InputBindings;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.JupiterAssertions;
+import org.junit.jupiter.api.Test;
 
 public class CaseInsensitiveExprMacroTest extends MacroTestBase
 {
@@ -53,7 +53,7 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
         "icontains_string(a, 'OBA')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foobar")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -66,7 +66,7 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
         "icontains_string(a, 'oba')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "FOOBAR")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -79,7 +79,7 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
         "icontains_string(a, 'bar')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(false).value(),
         result.value()
     );
@@ -94,7 +94,7 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
         "icontains_string(a, null)",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -107,7 +107,7 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
         "icontains_string(a, '')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -122,7 +122,7 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
         "icontains_string(a, null)",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -135,7 +135,7 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
         "icontains_string(a, '')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -150,7 +150,7 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
         "icontains_string(a, null)",
         InputBindings.nilBindings()
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -160,6 +160,6 @@ public class CaseInsensitiveExprMacroTest extends MacroTestBase
   public void testEmptyStringSearchOnNull()
   {
     ExprEval<?> result = eval("icontains_string(a, '')", InputBindings.nilBindings());
-    Assert.assertNull(result.value());
+    JupiterAssertions.assertNull(result.value());
   }
 }

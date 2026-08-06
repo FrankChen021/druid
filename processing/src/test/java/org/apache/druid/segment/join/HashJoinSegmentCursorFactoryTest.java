@@ -46,8 +46,8 @@ import org.apache.druid.segment.filter.SelectorFilter;
 import org.apache.druid.segment.join.filter.JoinFilterPreAnalysis;
 import org.apache.druid.segment.join.lookup.LookupJoinable;
 import org.apache.druid.segment.join.table.IndexedTableJoinable;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.JupiterAssertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
@@ -57,7 +57,7 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
   @Test
   public void test_getInterval_factToCountry()
   {
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Intervals.of("2015-09-12/2015-09-12T05:21:00.060Z"),
         makeFactToCountrySegment().getDataInterval()
     );
@@ -66,7 +66,7 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
   @Test
   public void test_getRowSignature_factToCountry()
   {
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of(
             "__time",
             "channel",
@@ -93,11 +93,11 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
   {
     final ColumnCapabilities capabilities = makeFactToCountrySegment().as(CursorFactory.class).getColumnCapabilities("countryIsoCode");
 
-    Assert.assertEquals(ValueType.STRING, capabilities.getType());
-    Assert.assertTrue(capabilities.hasBitmapIndexes());
-    Assert.assertTrue(capabilities.isDictionaryEncoded().isTrue());
-    Assert.assertTrue(capabilities.areDictionaryValuesSorted().isTrue());
-    Assert.assertTrue(capabilities.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertEquals(ValueType.STRING, capabilities.getType());
+    JupiterAssertions.assertTrue(capabilities.hasBitmapIndexes());
+    JupiterAssertions.assertTrue(capabilities.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertTrue(capabilities.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertTrue(capabilities.areDictionaryValuesUnique().isTrue());
   }
 
   @Test
@@ -107,11 +107,11 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
         FACT_TO_COUNTRY_ON_ISO_CODE_PREFIX + "countryIsoCode"
     );
 
-    Assert.assertEquals(ValueType.STRING, capabilities.getType());
-    Assert.assertFalse(capabilities.hasBitmapIndexes());
-    Assert.assertFalse(capabilities.areDictionaryValuesUnique().isTrue());
-    Assert.assertFalse(capabilities.areDictionaryValuesSorted().isTrue());
-    Assert.assertTrue(capabilities.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertEquals(ValueType.STRING, capabilities.getType());
+    JupiterAssertions.assertFalse(capabilities.hasBitmapIndexes());
+    JupiterAssertions.assertFalse(capabilities.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertFalse(capabilities.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertTrue(capabilities.isDictionaryEncoded().isTrue());
   }
 
   @Test
@@ -120,7 +120,7 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
     final ColumnCapabilities capabilities = makeFactToCountrySegment().as(CursorFactory.class)
         .getColumnCapabilities("nonexistent");
 
-    Assert.assertNull(capabilities);
+    JupiterAssertions.assertNull(capabilities);
   }
 
   @Test
@@ -129,13 +129,13 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
     final ColumnCapabilities capabilities = makeFactToCountrySegment().as(CursorFactory.class)
         .getColumnCapabilities(FACT_TO_COUNTRY_ON_ISO_CODE_PREFIX + "nonexistent");
 
-    Assert.assertNull(capabilities);
+    JupiterAssertions.assertNull(capabilities);
   }
 
   @Test
   public void test_getColumnCapabilities_complexTypeName_factToCountryFactColumn()
   {
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "hyperUnique",
         makeFactToCountrySegment().as(CursorFactory.class).getColumnCapabilities("channel_uniques").getComplexTypeName()
     );
@@ -144,7 +144,7 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
   @Test
   public void test_getColumnCapabilities_typeString_factToCountryFactColumn()
   {
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "COMPLEX<hyperUnique>",
         makeFactToCountrySegment().as(CursorFactory.class).getColumnCapabilities("channel_uniques").asTypeString()
     );
@@ -153,7 +153,7 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
   @Test
   public void test_getColumnCapabilities_typeString_factToCountryJoinColumn()
   {
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "STRING",
         makeFactToCountrySegment().as(CursorFactory.class)
                                   .getColumnCapabilities(FACT_TO_COUNTRY_ON_ISO_CODE_PREFIX + "countryName")
@@ -236,7 +236,7 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
     ).makeCursorHolder(CursorBuildSpec.FULL_SCAN)) {
       expectedRows = countRows(syncHolder);
     }
-    Assert.assertTrue(expectedRows > 0);
+    JupiterAssertions.assertTrue(expectedRows > 0);
 
     // async path: the left/base holder loads on demand (mimics a partial base segment); build-side joinable is resident
     final DeferredCursorFactory base = new DeferredCursorFactory(factSegment.as(CursorFactory.class));
@@ -247,11 +247,11 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
         joinFilterPreAnalysis
     ).makeCursorHolderAsync(CursorBuildSpec.FULL_SCAN);
     try {
-      Assert.assertFalse("join holder must wait for the base to complete", asyncHolder.isReady());
+      JupiterAssertions.assertFalse("join holder must wait for the base to complete", asyncHolder.isReady());
       base.complete();
-      Assert.assertTrue("join holder becomes ready once the base completes", asyncHolder.isReady());
+      JupiterAssertions.assertTrue("join holder becomes ready once the base completes", asyncHolder.isReady());
       try (CursorHolder holder = asyncHolder.release()) {
-        Assert.assertEquals(expectedRows, countRows(holder));
+        JupiterAssertions.assertEquals(expectedRows, countRows(holder));
       }
     }
     finally {
@@ -274,9 +274,9 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
         joinFilterPreAnalysis
     ).makeCursorHolderAsync(CursorBuildSpec.FULL_SCAN);
 
-    Assert.assertFalse(asyncHolder.isReady());
+    JupiterAssertions.assertFalse(asyncHolder.isReady());
     asyncHolder.close();
-    Assert.assertTrue("closing the join holder before it's ready cancels the base load", base.canceled.get());
+    JupiterAssertions.assertTrue("closing the join holder before it's ready cancels the base load", base.canceled.get());
   }
 
   private static int countRows(CursorHolder holder)
@@ -2011,10 +2011,10 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
   @Test
   public void test_hasBuiltInFiltersForSingleJoinableClauseWithVariousJoinTypes()
   {
-    Assert.assertFalse(makeFactToCountrySegment(JoinType.INNER).as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
-    Assert.assertTrue(makeFactToCountrySegment(JoinType.LEFT).as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
-    Assert.assertFalse(makeFactToCountrySegment(JoinType.RIGHT).as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
-    Assert.assertTrue(makeFactToCountrySegment(JoinType.FULL).as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
+    JupiterAssertions.assertFalse(makeFactToCountrySegment(JoinType.INNER).as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
+    JupiterAssertions.assertTrue(makeFactToCountrySegment(JoinType.LEFT).as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
+    JupiterAssertions.assertFalse(makeFactToCountrySegment(JoinType.RIGHT).as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
+    JupiterAssertions.assertTrue(makeFactToCountrySegment(JoinType.FULL).as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
     // cross join
     HashJoinSegment segment = new HashJoinSegment(
         ReferenceCountedSegmentProvider.unmanaged(factSegment).orElseThrow(),
@@ -2035,7 +2035,7 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
         () -> {}
     );
     TopNOptimizationInspector inspector = segment.as(TopNOptimizationInspector.class);
-    Assert.assertTrue(inspector.areAllDictionaryIdsPresent());
+    JupiterAssertions.assertTrue(inspector.areAllDictionaryIdsPresent());
   }
 
   @Test
@@ -2049,7 +2049,7 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
         () -> {}
     );
     final TopNOptimizationInspector inspector = segment.as(TopNOptimizationInspector.class);
-    Assert.assertFalse(inspector.areAllDictionaryIdsPresent());
+    JupiterAssertions.assertFalse(inspector.areAllDictionaryIdsPresent());
   }
 
   @Test
@@ -2065,7 +2065,7 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
         null,
         () -> {}
     );
-    Assert.assertFalse(segment.as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
+    JupiterAssertions.assertFalse(segment.as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
 
     final HashJoinSegment segment2 = new HashJoinSegment(
         ReferenceCountedSegmentProvider.unmanaged(factSegment).orElseThrow(),
@@ -2078,7 +2078,7 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
         null,
         () -> {}
     );
-    Assert.assertFalse(segment2.as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
+    JupiterAssertions.assertFalse(segment2.as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
 
     final HashJoinSegment segment3 = new HashJoinSegment(
         ReferenceCountedSegmentProvider.unmanaged(factSegment).orElseThrow(),
@@ -2090,7 +2090,7 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
         null,
         () -> {}
     );
-    Assert.assertTrue(segment3.as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
+    JupiterAssertions.assertTrue(segment3.as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
 
     final HashJoinSegment segment4 = new HashJoinSegment(
         ReferenceCountedSegmentProvider.unmanaged(factSegment).orElseThrow(),
@@ -2111,6 +2111,6 @@ public class HashJoinSegmentCursorFactoryTest extends BaseHashJoinSegmentCursorF
         null,
         () -> {}
     );
-    Assert.assertTrue(segment4.as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
+    JupiterAssertions.assertTrue(segment4.as(TopNOptimizationInspector.class).areAllDictionaryIdsPresent());
   }
 }

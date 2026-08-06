@@ -39,9 +39,9 @@ import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.join.JoinConditionAnalysis;
 import org.apache.druid.segment.join.JoinMatcher;
 import org.apache.druid.segment.join.Joinable;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.druid.testing.JupiterAssertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -105,7 +105,7 @@ public class IndexedTableJoinableTest
 
   private IndexedTableJoinable target;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     target = new IndexedTableJoinable(indexedTable);
@@ -114,54 +114,54 @@ public class IndexedTableJoinableTest
   @Test
   public void getAvailableColumns()
   {
-    Assert.assertEquals(ImmutableList.of(KEY_COLUMN, VALUE_COLUMN, ALL_SAME_COLUMN), target.getAvailableColumns());
+    JupiterAssertions.assertEquals(ImmutableList.of(KEY_COLUMN, VALUE_COLUMN, ALL_SAME_COLUMN), target.getAvailableColumns());
   }
 
   @Test
   public void getCardinalityForStringColumn()
   {
-    Assert.assertEquals(indexedTable.numRows() + 1, target.getCardinality("str"));
+    JupiterAssertions.assertEquals(indexedTable.numRows() + 1, target.getCardinality("str"));
   }
 
   @Test
   public void getCardinalityForLongColumn()
   {
-    Assert.assertEquals(indexedTable.numRows() + 1, target.getCardinality("long"));
+    JupiterAssertions.assertEquals(indexedTable.numRows() + 1, target.getCardinality("long"));
   }
 
   @Test
   public void getCardinalityForNonexistentColumn()
   {
-    Assert.assertEquals(1, target.getCardinality("nonexistent"));
+    JupiterAssertions.assertEquals(1, target.getCardinality("nonexistent"));
   }
 
   @Test
   public void getColumnCapabilitiesForStringColumn()
   {
     final ColumnCapabilities capabilities = target.getColumnCapabilities("str");
-    Assert.assertEquals(ValueType.STRING, capabilities.getType());
-    Assert.assertTrue(capabilities.isDictionaryEncoded().isTrue());
-    Assert.assertFalse(capabilities.hasBitmapIndexes());
-    Assert.assertFalse(capabilities.hasMultipleValues().isMaybeTrue());
-    Assert.assertFalse(capabilities.hasSpatialIndexes());
+    JupiterAssertions.assertEquals(ValueType.STRING, capabilities.getType());
+    JupiterAssertions.assertTrue(capabilities.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertFalse(capabilities.hasBitmapIndexes());
+    JupiterAssertions.assertFalse(capabilities.hasMultipleValues().isMaybeTrue());
+    JupiterAssertions.assertFalse(capabilities.hasSpatialIndexes());
   }
 
   @Test
   public void getColumnCapabilitiesForLongColumn()
   {
     final ColumnCapabilities capabilities = target.getColumnCapabilities("long");
-    Assert.assertEquals(ValueType.LONG, capabilities.getType());
-    Assert.assertFalse(capabilities.isDictionaryEncoded().isTrue());
-    Assert.assertFalse(capabilities.hasBitmapIndexes());
-    Assert.assertFalse(capabilities.hasMultipleValues().isMaybeTrue());
-    Assert.assertFalse(capabilities.hasSpatialIndexes());
+    JupiterAssertions.assertEquals(ValueType.LONG, capabilities.getType());
+    JupiterAssertions.assertFalse(capabilities.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertFalse(capabilities.hasBitmapIndexes());
+    JupiterAssertions.assertFalse(capabilities.hasMultipleValues().isMaybeTrue());
+    JupiterAssertions.assertFalse(capabilities.hasSpatialIndexes());
   }
 
   @Test
   public void getColumnCapabilitiesForNonexistentColumnShouldReturnNull()
   {
     final ColumnCapabilities capabilities = target.getColumnCapabilities("nonexistent");
-    Assert.assertNull(capabilities);
+    JupiterAssertions.assertNull(capabilities);
   }
 
   @Test
@@ -183,20 +183,20 @@ public class IndexedTableJoinableTest
                                                   .makeDimensionSelector(DefaultDimensionSpec.of("str"));
 
     // getValueCardinality
-    Assert.assertEquals(5, selector.getValueCardinality());
+    JupiterAssertions.assertEquals(5, selector.getValueCardinality());
 
     // nameLookupPossibleInAdvance
-    Assert.assertTrue(selector.nameLookupPossibleInAdvance());
+    JupiterAssertions.assertTrue(selector.nameLookupPossibleInAdvance());
 
     // lookupName
-    Assert.assertEquals("foo", selector.lookupName(0));
-    Assert.assertEquals("bar", selector.lookupName(1));
-    Assert.assertEquals("baz", selector.lookupName(2));
-    Assert.assertNull(selector.lookupName(3));
-    Assert.assertNull(selector.lookupName(4));
+    JupiterAssertions.assertEquals("foo", selector.lookupName(0));
+    JupiterAssertions.assertEquals("bar", selector.lookupName(1));
+    JupiterAssertions.assertEquals("baz", selector.lookupName(2));
+    JupiterAssertions.assertNull(selector.lookupName(3));
+    JupiterAssertions.assertNull(selector.lookupName(4));
 
     // lookupId
-    Assert.assertNull(selector.idLookup());
+    JupiterAssertions.assertNull(selector.idLookup());
   }
 
   @Test
@@ -211,7 +211,7 @@ public class IndexedTableJoinableTest
             false
         );
 
-    Assert.assertEquals(Optional.empty(), correlatedValues);
+    JupiterAssertions.assertEquals(Optional.empty(), correlatedValues);
   }
 
   @Test
@@ -226,7 +226,7 @@ public class IndexedTableJoinableTest
             false
         );
 
-    Assert.assertEquals(Optional.empty(), correlatedValues);
+    JupiterAssertions.assertEquals(Optional.empty(), correlatedValues);
   }
 
   @Test
@@ -239,7 +239,7 @@ public class IndexedTableJoinableTest
         MAX_CORRELATION_SET_SIZE,
         false
     );
-    Assert.assertEquals(Optional.of(ImmutableSet.of(SEARCH_KEY_VALUE)), correlatedValues);
+    JupiterAssertions.assertEquals(Optional.of(ImmutableSet.of(SEARCH_KEY_VALUE)), correlatedValues);
   }
 
   @Test
@@ -252,7 +252,7 @@ public class IndexedTableJoinableTest
         0,
         false
     );
-    Assert.assertEquals(Optional.empty(), correlatedValues);
+    JupiterAssertions.assertEquals(Optional.empty(), correlatedValues);
   }
 
   @Test
@@ -265,7 +265,7 @@ public class IndexedTableJoinableTest
         MAX_CORRELATION_SET_SIZE,
         false
     );
-    Assert.assertEquals(Optional.of(ImmutableSet.of(SEARCH_VALUE_VALUE)), correlatedValues);
+    JupiterAssertions.assertEquals(Optional.of(ImmutableSet.of(SEARCH_VALUE_VALUE)), correlatedValues);
   }
 
   @Test
@@ -278,7 +278,7 @@ public class IndexedTableJoinableTest
         MAX_CORRELATION_SET_SIZE,
         false
     );
-    Assert.assertEquals(Optional.of(Collections.singleton(null)), correlatedValues);
+    JupiterAssertions.assertEquals(Optional.of(Collections.singleton(null)), correlatedValues);
   }
 
   @Test
@@ -291,7 +291,7 @@ public class IndexedTableJoinableTest
         MAX_CORRELATION_SET_SIZE,
         false
     );
-    Assert.assertEquals(Optional.empty(), correlatedValues);
+    JupiterAssertions.assertEquals(Optional.empty(), correlatedValues);
     correlatedValues = target.getCorrelatedColumnValues(
         VALUE_COLUMN,
         SEARCH_VALUE_VALUE,
@@ -299,7 +299,7 @@ public class IndexedTableJoinableTest
         10,
         false
     );
-    Assert.assertEquals(Optional.empty(), correlatedValues);
+    JupiterAssertions.assertEquals(Optional.empty(), correlatedValues);
   }
 
   @Test
@@ -312,7 +312,7 @@ public class IndexedTableJoinableTest
         MAX_CORRELATION_SET_SIZE,
         true
     );
-    Assert.assertEquals(Optional.of(ImmutableSet.of(SEARCH_VALUE_VALUE)), correlatedValues);
+    JupiterAssertions.assertEquals(Optional.of(ImmutableSet.of(SEARCH_VALUE_VALUE)), correlatedValues);
   }
 
   @Test
@@ -325,7 +325,7 @@ public class IndexedTableJoinableTest
         10,
         true
     );
-    Assert.assertEquals(Optional.of(ImmutableSet.of(SEARCH_KEY_VALUE)), correlatedValues);
+    JupiterAssertions.assertEquals(Optional.of(ImmutableSet.of(SEARCH_KEY_VALUE)), correlatedValues);
   }
 
   @Test
@@ -338,7 +338,7 @@ public class IndexedTableJoinableTest
         0,
         true
     );
-    Assert.assertEquals(Optional.empty(), correlatedValues);
+    JupiterAssertions.assertEquals(Optional.empty(), correlatedValues);
   }
 
   @Test
@@ -351,7 +351,7 @@ public class IndexedTableJoinableTest
         10,
         true
     );
-    Assert.assertEquals(Optional.of(ImmutableSet.of()), correlatedValues);
+    JupiterAssertions.assertEquals(Optional.of(ImmutableSet.of()), correlatedValues);
   }
 
   @Test
@@ -360,7 +360,7 @@ public class IndexedTableJoinableTest
     final Joinable.ColumnValuesWithUniqueFlag values =
         target.getMatchableColumnValues(VALUE_COLUMN, false, Integer.MAX_VALUE);
 
-    Assert.assertEquals(ImmutableSet.of("1", "2", "3"), values.getColumnValues());
+    JupiterAssertions.assertEquals(ImmutableSet.of("1", "2", "3"), values.getColumnValues());
   }
 
   @Test
@@ -369,7 +369,7 @@ public class IndexedTableJoinableTest
     final Joinable.ColumnValuesWithUniqueFlag values =
         target.getMatchableColumnValues("nonexistent", false, Integer.MAX_VALUE);
 
-    Assert.assertEquals(ImmutableSet.of(), values.getColumnValues());
+    JupiterAssertions.assertEquals(ImmutableSet.of(), values.getColumnValues());
   }
 
   @Test
@@ -378,12 +378,12 @@ public class IndexedTableJoinableTest
     final Joinable.ColumnValuesWithUniqueFlag values =
         target.getMatchableColumnValues(KEY_COLUMN, false, Integer.MAX_VALUE);
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableSet.of("foo", "bar", "baz"),
         values.getColumnValues()
     );
 
-    Assert.assertTrue(values.isAllUnique());
+    JupiterAssertions.assertTrue(values.isAllUnique());
   }
 
   @Test
@@ -392,12 +392,12 @@ public class IndexedTableJoinableTest
     final Joinable.ColumnValuesWithUniqueFlag values =
         target.getMatchableColumnValues(KEY_COLUMN, true, Integer.MAX_VALUE);
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         InDimFilter.ValuesSet.copyOf(Arrays.asList(null, "foo", "bar", "baz")),
         values.getColumnValues()
     );
 
-    Assert.assertTrue(values.isAllUnique());
+    JupiterAssertions.assertTrue(values.isAllUnique());
   }
 
   @Test
@@ -406,11 +406,11 @@ public class IndexedTableJoinableTest
     final Joinable.ColumnValuesWithUniqueFlag values =
         target.getMatchableColumnValues(ALL_SAME_COLUMN, false, Integer.MAX_VALUE);
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableSet.of("1"),
         values.getColumnValues()
     );
-    Assert.assertFalse(values.isAllUnique());
+    JupiterAssertions.assertFalse(values.isAllUnique());
   }
 
   @Test
@@ -419,6 +419,6 @@ public class IndexedTableJoinableTest
     final Joinable.ColumnValuesWithUniqueFlag values =
         target.getMatchableColumnValues(KEY_COLUMN, false, 1);
 
-    Assert.assertEquals(ImmutableSet.of(), values.getColumnValues());
+    JupiterAssertions.assertEquals(ImmutableSet.of(), values.getColumnValues());
   }
 }

@@ -49,16 +49,17 @@ import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.JupiterAssertions;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.utils.CloseableUtils;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -74,10 +75,10 @@ public class CursorHolderPreaggTest extends InitializedNullHandlingTest
   private CursorFactory cursorFactory;
   private Segment segment;
 
-  @Rule
+  @RegisterExtension
   public final CloserRule closer = new CloserRule(false);
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     bufferPool = closer.closeLater(
@@ -224,11 +225,11 @@ public class CursorHolderPreaggTest extends InitializedNullHandlingTest
     );
 
     List<Result<TopNResultValue>> rows = results.toList();
-    Assert.assertEquals(1, rows.size());
+    JupiterAssertions.assertEquals(1, rows.size());
     // the cnt column is treated as pre-aggregated, so the values of the rows are summed
-    Assert.assertEquals(2, rows.get(0).getValue().getValue().size());
-    Assert.assertEquals(11L, rows.get(0).getValue().getValue().get(0).getLongMetric("cnt").longValue());
-    Assert.assertEquals(7L, rows.get(0).getValue().getValue().get(1).getLongMetric("cnt").longValue());
+    JupiterAssertions.assertEquals(2, rows.get(0).getValue().getValue().size());
+    JupiterAssertions.assertEquals(11L, rows.get(0).getValue().getValue().get(0).getLongMetric("cnt").longValue());
+    JupiterAssertions.assertEquals(7L, rows.get(0).getValue().getValue().get(1).getLongMetric("cnt").longValue());
   }
 
   @Test
@@ -251,10 +252,10 @@ public class CursorHolderPreaggTest extends InitializedNullHandlingTest
         null
     );
     List<ResultRow> rows = results.toList();
-    Assert.assertEquals(2, rows.size());
+    JupiterAssertions.assertEquals(2, rows.size());
     // the cnt column is treated as pre-aggregated, so the values of the rows are summed
-    Assert.assertArrayEquals(new Object[]{"a", "aa", 11L}, rows.get(0).getArray());
-    Assert.assertArrayEquals(new Object[]{"b", "bb", 7L}, rows.get(1).getArray());
+    JupiterAssertions.assertArrayEquals(new Object[]{"a", "aa", 11L}, rows.get(0).getArray());
+    JupiterAssertions.assertArrayEquals(new Object[]{"b", "bb", 7L}, rows.get(1).getArray());
   }
 
   @Test
@@ -273,8 +274,8 @@ public class CursorHolderPreaggTest extends InitializedNullHandlingTest
         null
     );
     List<Result<TimeseriesResultValue>> rows = results.toList();
-    Assert.assertEquals(1, rows.size());
+    JupiterAssertions.assertEquals(1, rows.size());
     // the cnt column is treated as pre-aggregated, so the values of the rows are summed
-    Assert.assertEquals(18L, (long) rows.get(0).getValue().getLongMetric("cnt"));
+    JupiterAssertions.assertEquals(18L, (long) rows.get(0).getValue().getLongMetric("cnt"));
   }
 }

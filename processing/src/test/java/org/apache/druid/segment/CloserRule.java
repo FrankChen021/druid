@@ -21,14 +21,15 @@ package org.apache.druid.segment;
 
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.common.logger.Logger;
-import org.junit.rules.TestRule;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.InvocationInterceptor;
+import org.junit.jupiter.api.extension.ReflectiveInvocationContext;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.lang.reflect.Method;
 
-public class CloserRule implements TestRule
+public class CloserRule implements InvocationInterceptor
 {
   private final boolean throwException;
 
@@ -41,24 +42,26 @@ public class CloserRule implements TestRule
   private final Closer closer = Closer.create();
 
   @Override
-  public Statement apply(final Statement base, Description description)
+  public void interceptTestMethod(
+      final Invocation<Void> invocation,
+      final ReflectiveInvocationContext<Method> invocationContext,
+      final ExtensionContext extensionContext
+  ) throws Throwable
   {
-    return new Statement()
-    {
-      @Override
-      public void evaluate() throws Throwable
-      {
-        try {
-          base.evaluate();
-        }
-        catch (Throwable e) {
-          throw closer.rethrow(e);
-        }
-        finally {
-          closer.close();
-        }
-      }
-    };
+    run(invocation::proceed);
+  }
+
+  void run(final ThrowingRunnable runnable) throws Throwable
+  {
+    try {
+      runnable.run();
+    }
+    catch (Throwable e) {
+      throw closer.rethrow(e);
+    }
+    finally {
+      closer.close();
+    }
   }
 
   public <T extends Closeable> T closeLater(final T closeable)
@@ -81,5 +84,10 @@ public class CloserRule implements TestRule
       }
     });
     return closeable;
+  }
+
+  interface ThrowingRunnable
+  {
+    void run() throws Throwable;
   }
 }

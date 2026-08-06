@@ -38,19 +38,20 @@ import org.apache.druid.segment.WrappedSegment;
 import org.apache.druid.segment.join.filter.JoinFilterPreAnalysis;
 import org.apache.druid.segment.join.table.IndexedTableJoinable;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.TempDirExtension;
+import org.apache.druid.testing.ThrowableExpectation;
+import org.apache.druid.testing.matchers.CoreMatchers;
+import org.apache.druid.testing.matchers.MatcherAssert;
 import org.apache.druid.timeline.SegmentId;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
@@ -58,11 +59,11 @@ import java.util.Optional;
 
 public class HashJoinSegmentTest extends InitializedNullHandlingTest
 {
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ThrowableExpectation expectedException = ThrowableExpectation.none();
 
   private QueryableIndexSegment baseSegment;
   private ReferenceCountedSegmentProvider baseSegmentRef;
@@ -79,7 +80,7 @@ public class HashJoinSegmentTest extends InitializedNullHandlingTest
   private boolean j0Closed;
   private boolean j1Closed;
 
-  @Before
+  @BeforeEach
   public void setUp() throws IOException
   {
     allReferencesAcquireCount = 0;
@@ -166,7 +167,7 @@ public class HashJoinSegmentTest extends InitializedNullHandlingTest
                       );
   }
 
-  @After
+  @AfterEach
   public void teardown() throws IOException
   {
     closer.close();
@@ -214,7 +215,7 @@ public class HashJoinSegmentTest extends InitializedNullHandlingTest
   public void test_constructor_noClauses()
   {
     final List<JoinableClause> empty = ImmutableList.of();
-    Throwable t = Assert.assertThrows(
+    Throwable t = JupiterAssertions.assertThrows(
         IllegalArgumentException.class,
         () -> new HashJoinSegment(
             referencedSegment.acquireReference().orElseThrow(),
@@ -224,26 +225,26 @@ public class HashJoinSegmentTest extends InitializedNullHandlingTest
             () -> allReferencesCloseCount--
         )
     );
-    Assert.assertEquals("'clauses' and 'baseFilter' are both empty, no need to create HashJoinSegment", t.getMessage());
-    Assert.assertEquals(0, allReferencesAcquireCount);
+    JupiterAssertions.assertEquals("'clauses' and 'baseFilter' are both empty, no need to create HashJoinSegment", t.getMessage());
+    JupiterAssertions.assertEquals(0, allReferencesAcquireCount);
   }
 
   @Test
   public void test_getId()
   {
-    Assert.assertEquals(baseSegment.getId(), makeJoinSegment().getId());
+    JupiterAssertions.assertEquals(baseSegment.getId(), makeJoinSegment().getId());
   }
 
   @Test
   public void test_getDataInterval()
   {
-    Assert.assertEquals(baseSegment.getDataInterval(), makeJoinSegment().getDataInterval());
+    JupiterAssertions.assertEquals(baseSegment.getDataInterval(), makeJoinSegment().getDataInterval());
   }
 
   @Test
   public void test_asQueryableIndex()
   {
-    Assert.assertNull(makeJoinSegment().as(QueryableIndex.class));
+    JupiterAssertions.assertNull(makeJoinSegment().as(QueryableIndex.class));
   }
 
   @Test
@@ -258,76 +259,76 @@ public class HashJoinSegmentTest extends InitializedNullHandlingTest
   @Test
   public void testJoinableClausesAreClosedWhenReferencesUsed() throws IOException
   {
-    Assert.assertFalse(baseSegmentRef.isClosed());
+    JupiterAssertions.assertFalse(baseSegmentRef.isClosed());
 
     Optional<Segment> maybeCloseable = makeJoinSegment(joinableClauses, null, null);
-    Assert.assertTrue(maybeCloseable.isPresent());
+    JupiterAssertions.assertTrue(maybeCloseable.isPresent());
 
-    Assert.assertEquals(1, referencedSegmentAcquireCount);
-    Assert.assertEquals(2, indexedTableJoinableReferenceAcquireCount);
-    Assert.assertEquals(1, allReferencesAcquireCount);
-    Assert.assertEquals(0, referencedSegmentClosedCount);
-    Assert.assertEquals(0, indexedTableJoinableReferenceCloseCount);
-    Assert.assertEquals(0, allReferencesCloseCount);
+    JupiterAssertions.assertEquals(1, referencedSegmentAcquireCount);
+    JupiterAssertions.assertEquals(2, indexedTableJoinableReferenceAcquireCount);
+    JupiterAssertions.assertEquals(1, allReferencesAcquireCount);
+    JupiterAssertions.assertEquals(0, referencedSegmentClosedCount);
+    JupiterAssertions.assertEquals(0, indexedTableJoinableReferenceCloseCount);
+    JupiterAssertions.assertEquals(0, allReferencesCloseCount);
 
     Closeable closer = maybeCloseable.get();
     closer.close();
 
-    Assert.assertFalse(baseSegmentRef.isClosed());
-    Assert.assertEquals(1, referencedSegmentClosedCount);
-    Assert.assertEquals(2, indexedTableJoinableReferenceCloseCount);
-    Assert.assertEquals(1, allReferencesCloseCount);
+    JupiterAssertions.assertFalse(baseSegmentRef.isClosed());
+    JupiterAssertions.assertEquals(1, referencedSegmentClosedCount);
+    JupiterAssertions.assertEquals(2, indexedTableJoinableReferenceCloseCount);
+    JupiterAssertions.assertEquals(1, allReferencesCloseCount);
 
   }
 
   @Test
   public void testJoinableClausesClosedIfSegmentIsAlreadyClosed()
   {
-    Assert.assertFalse(baseSegmentRef.isClosed());
+    JupiterAssertions.assertFalse(baseSegmentRef.isClosed());
 
     baseSegmentRef.close();
-    Assert.assertTrue(baseSegmentRef.isClosed());
+    JupiterAssertions.assertTrue(baseSegmentRef.isClosed());
 
     Optional<Segment> maybeCloseable = makeJoinSegment(joinableClauses, null, null);
-    Assert.assertFalse(maybeCloseable.isPresent());
-    Assert.assertEquals(0, referencedSegmentAcquireCount);
-    Assert.assertEquals(0, indexedTableJoinableReferenceAcquireCount);
-    Assert.assertEquals(0, allReferencesAcquireCount);
-    Assert.assertEquals(0, referencedSegmentClosedCount);
-    Assert.assertEquals(0, indexedTableJoinableReferenceCloseCount);
-    Assert.assertEquals(0, allReferencesCloseCount);
+    JupiterAssertions.assertFalse(maybeCloseable.isPresent());
+    JupiterAssertions.assertEquals(0, referencedSegmentAcquireCount);
+    JupiterAssertions.assertEquals(0, indexedTableJoinableReferenceAcquireCount);
+    JupiterAssertions.assertEquals(0, allReferencesAcquireCount);
+    JupiterAssertions.assertEquals(0, referencedSegmentClosedCount);
+    JupiterAssertions.assertEquals(0, indexedTableJoinableReferenceCloseCount);
+    JupiterAssertions.assertEquals(0, allReferencesCloseCount);
   }
 
   @Test
   public void testJoinableClausesClosedIfJoinableZeroIsAlreadyClosed()
   {
-    Assert.assertFalse(baseSegmentRef.isClosed());
+    JupiterAssertions.assertFalse(baseSegmentRef.isClosed());
     j0Closed = true;
 
     Optional<Segment> maybeCloseable = makeJoinSegment(joinableClauses, null, null);
-    Assert.assertFalse(maybeCloseable.isPresent());
-    Assert.assertEquals(1, referencedSegmentAcquireCount);
-    Assert.assertEquals(0, indexedTableJoinableReferenceAcquireCount);
-    Assert.assertEquals(0, allReferencesAcquireCount);
-    Assert.assertEquals(1, referencedSegmentClosedCount);
-    Assert.assertEquals(0, indexedTableJoinableReferenceCloseCount);
-    Assert.assertEquals(0, allReferencesCloseCount);
+    JupiterAssertions.assertFalse(maybeCloseable.isPresent());
+    JupiterAssertions.assertEquals(1, referencedSegmentAcquireCount);
+    JupiterAssertions.assertEquals(0, indexedTableJoinableReferenceAcquireCount);
+    JupiterAssertions.assertEquals(0, allReferencesAcquireCount);
+    JupiterAssertions.assertEquals(1, referencedSegmentClosedCount);
+    JupiterAssertions.assertEquals(0, indexedTableJoinableReferenceCloseCount);
+    JupiterAssertions.assertEquals(0, allReferencesCloseCount);
   }
 
   @Test
   public void testJoinableClausesClosedIfJoinableOneIsAlreadyClosed()
   {
-    Assert.assertFalse(baseSegmentRef.isClosed());
+    JupiterAssertions.assertFalse(baseSegmentRef.isClosed());
     j1Closed = true;
 
     Optional<Segment> maybeCloseable = makeJoinSegment(joinableClauses, null, null);
-    Assert.assertFalse(maybeCloseable.isPresent());
-    Assert.assertEquals(1, referencedSegmentAcquireCount);
-    Assert.assertEquals(1, indexedTableJoinableReferenceAcquireCount);
-    Assert.assertEquals(0, allReferencesAcquireCount);
-    Assert.assertEquals(1, referencedSegmentClosedCount);
-    Assert.assertEquals(1, indexedTableJoinableReferenceCloseCount);
-    Assert.assertEquals(0, allReferencesCloseCount);
+    JupiterAssertions.assertFalse(maybeCloseable.isPresent());
+    JupiterAssertions.assertEquals(1, referencedSegmentAcquireCount);
+    JupiterAssertions.assertEquals(1, indexedTableJoinableReferenceAcquireCount);
+    JupiterAssertions.assertEquals(0, allReferencesAcquireCount);
+    JupiterAssertions.assertEquals(1, referencedSegmentClosedCount);
+    JupiterAssertions.assertEquals(1, indexedTableJoinableReferenceCloseCount);
+    JupiterAssertions.assertEquals(0, allReferencesCloseCount);
   }
 
 
@@ -335,16 +336,16 @@ public class HashJoinSegmentTest extends InitializedNullHandlingTest
   public void testGetMinTime()
   {
     final TimeBoundaryInspector timeBoundaryInspector = makeJoinSegment().as(TimeBoundaryInspector.class);
-    Assert.assertNotNull("non-null inspector", timeBoundaryInspector);
-    Assert.assertEquals("minTime", DateTimes.of("2015-09-12T00:46:58.771Z"), timeBoundaryInspector.getMinTime());
-    Assert.assertEquals("maxTime", DateTimes.of("2015-09-12T05:21:00.059Z"), timeBoundaryInspector.getMaxTime());
-    Assert.assertFalse("exact", timeBoundaryInspector.isMinMaxExact());
+    JupiterAssertions.assertNotNull("non-null inspector", timeBoundaryInspector);
+    JupiterAssertions.assertEquals("minTime", DateTimes.of("2015-09-12T00:46:58.771Z"), timeBoundaryInspector.getMinTime());
+    JupiterAssertions.assertEquals("maxTime", DateTimes.of("2015-09-12T05:21:00.059Z"), timeBoundaryInspector.getMaxTime());
+    JupiterAssertions.assertFalse("exact", timeBoundaryInspector.isMinMaxExact());
   }
 
   @Test
   public void testGetMaxIngestedEventTime()
   {
     final MaxIngestedEventTimeInspector inspector = makeJoinSegment().as(MaxIngestedEventTimeInspector.class);
-    Assert.assertNull(inspector);
+    JupiterAssertions.assertNull(inspector);
   }
 }

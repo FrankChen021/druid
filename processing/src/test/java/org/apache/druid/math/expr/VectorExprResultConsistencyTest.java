@@ -40,11 +40,11 @@ import org.apache.druid.query.lookup.LookupExtractorFactoryContainer;
 import org.apache.druid.query.lookup.LookupExtractorFactoryContainerProvider;
 import org.apache.druid.query.lookup.TestMapLookupExtractorFactory;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
+import org.apache.druid.testing.JupiterAssertions;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -412,10 +412,10 @@ public class VectorExprResultConsistencyTest extends InitializedNullHandlingTest
     // make sure eval of else is lazy, else this would be divide by zero error
     testExpression("if(l1 % 2 == 0, -1, l2 / (l1 % 2))", types);
     // cannot vectorize mixed types
-    Assertions.assertFalse(
+    JupiterAssertions.assertFalse(
         Parser.parse("if(s1, l1, d2)", MACRO_TABLE).canVectorize(InputBindings.inspectorFromTypeMap(types))
     );
-    Assertions.assertFalse(
+    JupiterAssertions.assertFalse(
         Parser.parse("if(s1, d1, s2)", MACRO_TABLE).canVectorize(InputBindings.inspectorFromTypeMap(types))
     );
   }
@@ -430,11 +430,11 @@ public class VectorExprResultConsistencyTest extends InitializedNullHandlingTest
     testExpression("case_searched(boolString1, d1, boolString2, d2, d1)", types);
     testExpression("case_searched(boolString1, d1, boolString2, d2, boolString3, d3, d1)", types);
     testExpression("case_searched(l1 % 2 == 0, -1, l1 % 2 == 1, l2 / (l1 % 2))", types);
-    Assertions.assertFalse(
+    JupiterAssertions.assertFalse(
         Parser.parse("case_searched(boolString1, d1, boolString2, d2, l1)", MACRO_TABLE)
               .canVectorize(InputBindings.inspectorFromTypeMap(types))
     );
-    Assertions.assertFalse(
+    JupiterAssertions.assertFalse(
         Parser.parse("case_searched(boolString1, d1, boolString2, l1, d1)", MACRO_TABLE)
               .canVectorize(InputBindings.inspectorFromTypeMap(types))
     );
@@ -448,7 +448,7 @@ public class VectorExprResultConsistencyTest extends InitializedNullHandlingTest
     testExpression("case_simple(s1, s2, l1, s1, l2)", types);
     testExpression("case_simple(s1, s2, d1, s1, d2, d1)", types);
     testExpression("case_simple(s1, l1, d1, d1, d2, d1)", types);
-    Assertions.assertFalse(
+    JupiterAssertions.assertFalse(
         Parser.parse("case_simple(s1, d1, s1, l1, d1)", MACRO_TABLE)
               .canVectorize(InputBindings.inspectorFromTypeMap(types))
     );
@@ -468,7 +468,7 @@ public class VectorExprResultConsistencyTest extends InitializedNullHandlingTest
     );
     testFunctions(types, templates, functions);
     // cannot vectorize mixed arg types
-    Assertions.assertFalse(
+    JupiterAssertions.assertFalse(
         Parser.parse("coalesce(s1, d1, s1, l1, d1)", MACRO_TABLE)
               .canVectorize(InputBindings.inspectorFromTypeMap(types))
     );
@@ -799,13 +799,13 @@ public class VectorExprResultConsistencyTest extends InitializedNullHandlingTest
       NonnullPair<Expr.ObjectBinding[], Expr.VectorInputBinding> bindings
   )
   {
-    Assert.assertTrue(StringUtils.format("Cannot vectorize[%s]", expr), expr.canVectorize(bindings.rhs));
+    JupiterAssertions.assertTrue(StringUtils.format("Cannot vectorize[%s]", expr), expr.canVectorize(bindings.rhs));
 
     final ExpressionType outputType = expr.getOutputType(bindings.rhs);
     final Either<String, Object[]> vectorEval = evalVector(expr, bindings.rhs, outputType);
     final Either<String, Object[]> nonVectorEval = evalNonVector(expr, bindings.lhs, outputType);
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         StringUtils.format("Errors do not match for expr[%s], bindings[%s]", exprString, bindings.lhs),
         nonVectorEval.isError() ? nonVectorEval.error() : "",
         vectorEval.isError() ? vectorEval.error() : ""
@@ -821,13 +821,13 @@ public class VectorExprResultConsistencyTest extends InitializedNullHandlingTest
             bindings.lhs[i]
         );
         if (outputType != null && outputType.isArray()) {
-          Assert.assertArrayEquals(
+          JupiterAssertions.assertArrayEquals(
               message,
               (Object[]) nonVectorEval.valueOrThrow()[i],
               (Object[]) vectorEval.valueOrThrow()[i]
           );
         } else {
-          Assert.assertEquals(
+          JupiterAssertions.assertEquals(
               message,
               nonVectorEval.valueOrThrow()[i],
               vectorEval.valueOrThrow()[i]
@@ -996,7 +996,7 @@ public class VectorExprResultConsistencyTest extends InitializedNullHandlingTest
     final Object[] vectorVals = vectorEval.getObjectVector();
     // if outputType is known, verify the expr returns the correct type
     if (outputType != null) {
-      Assert.assertEquals("vector eval type", outputType, vectorEval.getType());
+      JupiterAssertions.assertEquals("vector eval type", outputType, vectorEval.getType());
     }
 
     return Either.value(vectorVals);
@@ -1024,7 +1024,7 @@ public class VectorExprResultConsistencyTest extends InitializedNullHandlingTest
       }
       // if outputType is known, verify the expr returns the correct type
       if (outputType != null && eval.value() != null) {
-        Assert.assertEquals("nonvector eval type", eval.type(), outputType);
+        JupiterAssertions.assertEquals("nonvector eval type", eval.type(), outputType);
       }
       exprValues[i] = eval.value();
     }

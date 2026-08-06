@@ -19,9 +19,9 @@
 
 package org.apache.druid.matchers;
 
-import org.hamcrest.Description;
-import org.hamcrest.DiagnosingMatcher;
-import org.hamcrest.Matcher;
+import org.apache.druid.testing.matchers.Description;
+import org.apache.druid.testing.matchers.DiagnosingMatcher;
+import org.apache.druid.testing.matchers.Matcher;
 
 import java.util.function.Function;
 
