@@ -178,12 +178,6 @@
             <artifactId>easymock</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- BaseCalciteQueryTest exposes Hamcrest Matcher types in its inherited test API. -->
-        <dependency>
-            <groupId>org.hamcrest</groupId>
-            <artifactId>hamcrest</artifactId>
-            <scope>test</scope>
-        </dependency>
         <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-test</artifactId>
