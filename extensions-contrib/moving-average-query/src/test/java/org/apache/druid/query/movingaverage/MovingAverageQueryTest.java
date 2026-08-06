@@ -78,14 +78,10 @@ import org.apache.druid.server.metrics.SubqueryCountStatsProvider;
 import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.apache.druid.timeline.TimelineLookup;
 import org.apache.druid.utils.JvmUtils;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.core.IsInstanceOf;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -102,20 +98,18 @@ import java.util.concurrent.ForkJoinPool;
 /**
  * Base class for implementing MovingAverageQuery tests
  */
-@RunWith(Parameterized.class)
 public class MovingAverageQueryTest extends InitializedNullHandlingTest
 {
-  private final ObjectMapper jsonMapper;
-  private final QueryRunnerFactoryConglomerate conglomerate;
-  private final RetryQueryRunnerConfig retryConfig;
-  private final ServerConfig serverConfig;
+  private ObjectMapper jsonMapper;
+  private QueryRunnerFactoryConglomerate conglomerate;
+  private RetryQueryRunnerConfig retryConfig;
+  private ServerConfig serverConfig;
 
   private final List<ResultRow> groupByResults = new ArrayList<>();
   private final List<Result<TimeseriesResultValue>> timeseriesResults = new ArrayList<>();
 
-  private final TestConfig config;
+  private TestConfig config;
 
-  @Parameters(name = "{0}")
   public static Iterable<String[]> data() throws IOException
   {
     List<String[]> tests = new ArrayList<>();
@@ -134,7 +128,7 @@ public class MovingAverageQueryTest extends InitializedNullHandlingTest
     return tests;
   }
 
-  public MovingAverageQueryTest(String yamlFile) throws IOException
+  public void initMovingAverageQueryTest(String yamlFile) throws IOException
   {
 
     List<Module> modules = getRequiredModules();
@@ -305,16 +299,18 @@ public class MovingAverageQueryTest extends InitializedNullHandlingTest
   /**
    * Validate that the specified query behaves correctly.
    */
+  @MethodSource("data")
   @SuppressWarnings({"unchecked", "rawtypes"})
-  @Test
-  public void testQuery() throws IOException
+  @ParameterizedTest(name = "{0}")
+  public void testQuery(String yamlFile) throws IOException
   {
+    initMovingAverageQueryTest(yamlFile);
     Query<?> query = jsonMapper.readValue(getQueryString(), Query.class);
-    MatcherAssert.assertThat(query, IsInstanceOf.instanceOf(getExpectedQueryType()));
+    Assertions.assertInstanceOf(getExpectedQueryType(), query);
 
     List<MapBasedRow> expectedResults = jsonMapper.readValue(getExpectedResultString(), getExpectedResultType());
-    Assert.assertNotNull(expectedResults);
-    MatcherAssert.assertThat(expectedResults, IsInstanceOf.instanceOf(List.class));
+    Assertions.assertNotNull(expectedResults);
+    Assertions.assertInstanceOf(List.class, expectedResults);
 
     DruidHttpClientConfig httpClientConfig = new DruidHttpClientConfig()
     {
@@ -402,6 +398,6 @@ public class MovingAverageQueryTest extends InitializedNullHandlingTest
     expectedResults = consistentTypeCasting(expectedResults);
     actualResults = consistentTypeCasting(actualResults);
 
-    Assert.assertEquals(expectedResults, actualResults);
+    Assertions.assertEquals(expectedResults, actualResults);
   }
 }

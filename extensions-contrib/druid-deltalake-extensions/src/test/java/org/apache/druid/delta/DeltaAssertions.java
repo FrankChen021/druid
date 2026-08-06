@@ -17,26 +17,22 @@
  * under the License.
  */
 
-package org.apache.druid.spectator.histogram;
+package org.apache.druid.delta;
 
-import org.easymock.EasyMock;
+import org.apache.druid.error.DruidException;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
 
-public class SpectatorHistogramIndexBasedComplexColumnTest
+public class DeltaAssertions
 {
-  @Test
-  public void testComplexColumn()
+  private DeltaAssertions()
   {
-    final SpectatorHistogramIndexed mockIndexed = EasyMock.createMock(SpectatorHistogramIndexed.class);
-    EasyMock.replay(mockIndexed);
+  }
 
-    final String typeName = "type";
-    final SpectatorHistogramIndexBasedComplexColumn column =
-        new SpectatorHistogramIndexBasedComplexColumn("type", mockIndexed);
-    Assertions.assertEquals(typeName, column.getTypeName());
-    Assertions.assertEquals(-1, column.getLength());
-
-    EasyMock.verify(mockIndexed);
+  public static void assertInvalidInput(final DruidException exception, final String expectedMessage)
+  {
+    Assertions.assertAll(
+        () -> Assertions.assertEquals(DruidException.Category.INVALID_INPUT, exception.getCategory()),
+        () -> Assertions.assertEquals(expectedMessage, exception.getMessage())
+    );
   }
 }

@@ -41,16 +41,16 @@ import org.apache.druid.server.security.AuthenticatorMapper;
 import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.SqlTestFramework;
-import org.junit.Assert;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Simple test that runs the gRPC server, on top of a test SQL stack.
@@ -220,7 +220,7 @@ public class BasicAuthTest extends BaseCalciteQueryTest
       assertEquals(QueryStatus.OK, response.getStatus());
     }
     try (TestClient client = new TestClient(TestClient.DEFAULT_HOST, "regular", "pwd")) {
-      StatusRuntimeException e = Assert.assertThrows(StatusRuntimeException.class, () -> client.getQueryClient().submitQuery(request));
+      StatusRuntimeException e = Assertions.assertThrows(StatusRuntimeException.class, () -> client.getQueryClient().submitQuery(request));
       assertEquals(Status.PERMISSION_DENIED, e.getStatus());
     }
   }

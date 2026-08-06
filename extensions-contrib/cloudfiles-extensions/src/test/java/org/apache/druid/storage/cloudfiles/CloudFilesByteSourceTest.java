@@ -20,8 +20,8 @@
 package org.apache.druid.storage.cloudfiles;
 
 import org.jclouds.io.Payload;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,7 +49,7 @@ public class CloudFilesByteSourceTest
     payload.close();
 
     CloudFilesByteSource byteSource = new CloudFilesByteSource(objectApi, path);
-    Assert.assertEquals(stream, byteSource.openStream());
+    Assertions.assertEquals(stream, byteSource.openStream());
     byteSource.closeStream();
 
     verify(objectApi).get(path, 0);
@@ -57,7 +57,7 @@ public class CloudFilesByteSourceTest
     verify(payload).openStream();
   }
 
-  @Test()
+  @Test
   public void openStreamWithRecoverableErrorTest() throws IOException
   {
     final String path = "path";
@@ -78,10 +78,10 @@ public class CloudFilesByteSourceTest
       byteSource.openStream();
     }
     catch (Exception e) {
-      Assert.assertEquals("Recoverable exception", e.getMessage());
+      Assertions.assertEquals("Recoverable exception", e.getMessage());
     }
 
-    Assert.assertEquals(stream, byteSource.openStream());
+    Assertions.assertEquals(stream, byteSource.openStream());
     byteSource.closeStream();
 
     verify(objectApi).get(path, 0);
