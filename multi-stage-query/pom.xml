@@ -314,6 +314,12 @@
       <dependency>
         <groupId>com.google.inject.extensions</groupId>
         <artifactId>guice-testlib</artifactId>
+        <exclusions>
+          <exclusion>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
     </dependencies>
 
