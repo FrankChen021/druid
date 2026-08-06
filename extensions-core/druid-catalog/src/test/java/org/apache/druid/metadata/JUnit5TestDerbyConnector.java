@@ -19,12 +19,12 @@
 
 package org.apache.druid.metadata;
 
-import org.apache.druid.metadata.TestDerbyConnector.DerbyConnectorRule;
+import org.apache.druid.metadata.TestDerbyConnector.DerbyConnectorFixture;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-public class JUnit5TestDerbyConnector extends DerbyConnectorRule implements BeforeEachCallback, AfterEachCallback
+public class JUnit5TestDerbyConnector extends DerbyConnectorFixture implements BeforeEachCallback, AfterEachCallback
 {
   @Override
   public void beforeEach(ExtensionContext context)

@@ -49,8 +49,6 @@ import org.easymock.EasyMock;
 import org.easymock.EasyMockExtension;
 import org.easymock.EasyMockSupport;
 import org.easymock.Mock;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http.HttpVersion;
@@ -486,13 +484,10 @@ public class KubernetesTaskRunnerTest extends EasyMockSupport
   {
     Map<String, Long> slotCount = runner.getTotalTaskSlotCount();
 
-    MatcherAssert.assertThat(slotCount, Matchers.allOf(
-        Matchers.aMapWithSize(1),
-        Matchers.hasEntry(
-            Matchers.equalTo(KubernetesTaskRunner.WORKER_CATEGORY),
-            Matchers.equalTo(1L)
-        )
-    ));
+    Assertions.assertEquals(
+        Map.of(KubernetesTaskRunner.WORKER_CATEGORY, 1L),
+        slotCount
+    );
   }
 
   @Test

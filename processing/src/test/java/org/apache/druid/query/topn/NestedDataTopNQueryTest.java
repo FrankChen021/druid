@@ -74,7 +74,7 @@ public class NestedDataTopNQueryTest extends InitializedNullHandlingTest
     BuiltInTypesModule.registerHandlersAndSerde();
     this.helper = AggregationTestHelper.createTopNQueryAggregationTestHelper(
         BuiltInTypesModule.getJacksonModulesList(),
-        tempFolder.getRoot()
+        tempFolder
     );
     this.segmentsGenerator = segmentGenerator;
     this.closer = Closer.create();

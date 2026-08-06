@@ -39,7 +39,7 @@ import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
-import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
+import org.apache.druid.query.groupby.GroupByQueryRunnerTestHelper;
 import org.apache.druid.query.groupby.ResultRow;
 import org.apache.druid.query.timeseries.TimeseriesResultValue;
 import org.apache.druid.testing.InitializedNullHandlingTest;
@@ -83,7 +83,7 @@ public class DoublesSketchAggregatorTest extends InitializedNullHandlingTest
   public static Collection<?> constructorFeeder()
   {
     final List<Object[]> constructors = new ArrayList<>();
-    for (GroupByQueryConfig config : GroupByQueryRunnerTest.testConfigs()) {
+    for (GroupByQueryConfig config : GroupByQueryRunnerTestHelper.testConfigs()) {
       for (String vectorize : new String[]{"false", "true", "force"}) {
         constructors.add(new Object[]{config, vectorize});
       }

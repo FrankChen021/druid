@@ -132,7 +132,7 @@ public class MultiValuedDimensionTest extends InitializedNullHandlingTest
     helper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
         ImmutableList.of(),
         config,
-        (File) null
+        null
     );
     this.config = config;
     this.segmentWriteOutMediumFactory = segmentWriteOutMediumFactory;

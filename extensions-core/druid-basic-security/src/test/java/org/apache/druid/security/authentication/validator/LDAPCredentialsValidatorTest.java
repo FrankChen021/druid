@@ -26,7 +26,6 @@ import org.apache.druid.security.basic.BasicAuthUtils;
 import org.apache.druid.security.basic.authentication.validator.LDAPCredentialsValidator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 import javax.naming.Context;
@@ -111,9 +110,9 @@ public class LDAPCredentialsValidatorTest
 
       Mockito.when(
           context.search(
-              ArgumentMatchers.eq(LDAP_CONFIG.getBaseDn()),
-              ArgumentMatchers.eq(StringUtils.format(LDAP_CONFIG.getUserSearch(), encodedUsername)),
-              ArgumentMatchers.any(SearchControls.class))
+              Mockito.eq(LDAP_CONFIG.getBaseDn()),
+              Mockito.eq(StringUtils.format(LDAP_CONFIG.getUserSearch(), encodedUsername)),
+              Mockito.any(SearchControls.class))
       ).thenReturn(new NamingEnumeration<>()
       {
         @Override

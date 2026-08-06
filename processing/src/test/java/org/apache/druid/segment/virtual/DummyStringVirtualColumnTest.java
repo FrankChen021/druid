@@ -46,7 +46,6 @@ import org.apache.druid.timeline.SegmentId;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -80,14 +79,14 @@ public class DummyStringVirtualColumnTest extends InitializedNullHandlingTest
     mixedSegments = Lists.newArrayList(incrementalIndexSegment, queryableIndexSegment);
 
     topNTestHelper = AggregationTestHelper.createTopNQueryAggregationTestHelper(
-      Collections.emptyList(),
-      (File) null
+        Collections.emptyList(),
+        null
     );
 
     groupByTestHelper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
         Collections.emptyList(),
         new GroupByQueryConfig(),
-        (File) null
+        null
     );
   }
 

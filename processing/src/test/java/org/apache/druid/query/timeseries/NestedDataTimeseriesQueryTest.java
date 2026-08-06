@@ -100,7 +100,7 @@ public class NestedDataTimeseriesQueryTest extends InitializedNullHandlingTest
   {
     this.helper = AggregationTestHelper.createTimeseriesQueryAggregationTestHelper(
         BuiltInTypesModule.getJacksonModulesList(),
-        tempFolder.getRoot()
+        tempFolder
     );
     this.segmentsGenerator = segmentsGenerator;
     this.segmentsName = segmentsGenerator.toString();

@@ -68,9 +68,9 @@ import org.apache.druid.sql.guice.SqlBindings;
 import org.apache.druid.sql.http.SqlParameter;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
-import org.junit.Assert;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -233,7 +233,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
       granularityString = queryJsonMapper.writeValueAsString(granularity);
     }
     catch (JsonProcessingException e) {
-      Assert.fail(e.getMessage());
+      Assertions.fail(e.getMessage());
     }
     return ImmutableMap.of(DruidSqlInsert.SQL_INSERT_SEGMENT_GRANULARITY, granularityString);
   }
@@ -341,7 +341,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
       return expectValidationError(
           CoreMatchers.allOf(
               CoreMatchers.instanceOf(clazz),
-              ThrowableMessageMatcher.hasMessage(CoreMatchers.equalTo(message))
+              Matchers.hasProperty("message", CoreMatchers.equalTo(message))
           )
       );
     }
@@ -397,7 +397,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
         throw new ISE("Test must not have expectedQuery");
       }
 
-      final Throwable e = Assert.assertThrows(
+      final Throwable e = Assertions.assertThrows(
           Throwable.class,
           () -> {
             getSqlStatementFactory(plannerConfig, authConfig).directStatement(sqlQuery()).execute();

@@ -91,7 +91,7 @@ public class NestedFieldColumnSelectorsTest extends InitializedNullHandlingTest
     List<? extends Module> mods = BuiltInTypesModule.getJacksonModulesList();
     this.helper = AggregationTestHelper.createScanQueryAggregationTestHelper(
         mods,
-        tempFolder.getRoot()
+        tempFolder
     );
     this.closer = Closer.create();
   }

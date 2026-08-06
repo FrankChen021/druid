@@ -115,7 +115,7 @@ public class TimestampGroupByAggregationTest
     helper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
         new TimestampMinMaxModule().getJacksonModules(),
         config,
-        temporaryFolder.getRoot()
+        temporaryFolder
     );
 
     selector = new TestObjectColumnSelector<>(values);

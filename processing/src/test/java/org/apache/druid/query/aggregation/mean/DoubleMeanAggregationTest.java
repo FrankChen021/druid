@@ -86,12 +86,12 @@ public class DoubleMeanAggregationTest
     groupByQueryTestHelper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
         Collections.emptyList(),
         new GroupByQueryConfig(),
-        tempFolder.getRoot()
+        tempFolder
     );
 
     timeseriesQueryTestHelper = AggregationTestHelper.createTimeseriesQueryAggregationTestHelper(
         Collections.emptyList(),
-        tempFolder.getRoot()
+        tempFolder
     );
 
     segments = ImmutableList.of(

@@ -211,7 +211,7 @@ public class FinalizingFieldAccessPostAggregatorTest extends InitializedNullHand
         final AggregationTestHelper helper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
             Collections.singletonList(new AggregatorsModule()),
             GroupByQueryRunnerTest.testConfigs().get(0),
-            tempFoler.getRoot()
+            tempFoler
         )
     ) {
 

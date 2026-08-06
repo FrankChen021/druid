@@ -29,7 +29,6 @@ import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByQueryRunnerFactory;
-import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
 import org.apache.druid.query.groupby.GroupByQueryRunnerTestHelper;
 import org.apache.druid.query.groupby.ResultRow;
 import org.apache.druid.query.groupby.TestGroupByBuffers;
@@ -92,7 +91,11 @@ public class ApproximateHistogramGroupByQueryTest extends InitializedNullHandlin
     );
 
     for (GroupByQueryConfig config : configs) {
-      final GroupByQueryRunnerFactory factory = GroupByQueryRunnerTest.makeQueryRunnerFactory(config, BUFFER_POOLS);
+      final GroupByQueryRunnerFactory factory = GroupByQueryRunnerTestHelper.makeQueryRunnerFactory(
+          TestHelper.makeSmileMapper(),
+          config,
+          BUFFER_POOLS
+      );
       for (QueryRunner<ResultRow> runner : QueryRunnerTestHelper.makeQueryRunnersToMerge(factory, false)) {
         final String testName = StringUtils.format(
             "config=%s, runner=%s",

@@ -36,19 +36,15 @@ import org.apache.druid.data.input.SomeAvroDatum;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.parsers.ParseException;
 import org.apache.druid.utils.DynamicConfigProviderUtils;
-import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
-
-import static org.hamcrest.MatcherAssert.assertThat;
 
 public class SchemaRegistryBasedAvroBytesDecoderTest
 {
@@ -115,7 +111,7 @@ public class SchemaRegistryBasedAvroBytesDecoderTest
   public void testParse() throws Exception
   {
     // Given
-    Mockito.when(registry.getSchemaById(ArgumentMatchers.eq(1234)))
+    Mockito.when(registry.getSchemaById(Mockito.eq(1234)))
            .thenReturn(new AvroSchema(SomeAvroDatum.getClassSchema()));
     GenericRecord someAvroDatum = AvroStreamInputFormatTest.buildSomeAvroDatum();
     Schema schema = SomeAvroDatum.getClassSchema();
@@ -142,9 +138,8 @@ public class SchemaRegistryBasedAvroBytesDecoderTest
         ParseException.class,
         () -> new SchemaRegistryBasedAvroBytesDecoder(registry).parse(bb)
     );
-    assertThat(
-        e.getMessage(),
-        CoreMatchers.containsString("Failed to decode avro message, not enough bytes to decode (2)")
+    Assertions.assertTrue(
+        e.getMessage().contains("Failed to decode avro message, not enough bytes to decode (2)")
     );
   }
 
@@ -152,7 +147,7 @@ public class SchemaRegistryBasedAvroBytesDecoderTest
   public void testParseCorruptedPartial() throws Exception
   {
     // Given
-    Mockito.when(registry.getSchemaById(ArgumentMatchers.eq(1234)))
+    Mockito.when(registry.getSchemaById(Mockito.eq(1234)))
            .thenReturn(new AvroSchema(SomeAvroDatum.getClassSchema()));
     GenericRecord someAvroDatum = AvroStreamInputFormatTest.buildSomeAvroDatum();
     Schema schema = SomeAvroDatum.getClassSchema();
@@ -165,15 +160,15 @@ public class SchemaRegistryBasedAvroBytesDecoderTest
         ParseException.class,
         () -> new SchemaRegistryBasedAvroBytesDecoder(registry).parse(bb)
     );
-    assertThat(e.getCause(), CoreMatchers.instanceOf(IOException.class));
-    assertThat(e.getMessage(), CoreMatchers.containsString("Failed to decode Avro message for schema id[1234]"));
+    Assertions.assertInstanceOf(IOException.class, e.getCause());
+    Assertions.assertTrue(e.getMessage().contains("Failed to decode Avro message for schema id[1234]"));
   }
 
   @Test
   public void testParseWrongSchemaType() throws Exception
   {
     // Given
-    Mockito.when(registry.getSchemaById(ArgumentMatchers.eq(1234))).thenReturn(Mockito.mock(ParsedSchema.class));
+    Mockito.when(registry.getSchemaById(Mockito.eq(1234))).thenReturn(Mockito.mock(ParsedSchema.class));
     ByteBuffer bb = ByteBuffer.allocate(5).put((byte) 0).putInt(1234);
     bb.rewind();
 
@@ -182,14 +177,14 @@ public class SchemaRegistryBasedAvroBytesDecoderTest
         ParseException.class,
         () -> new SchemaRegistryBasedAvroBytesDecoder(registry).parse(bb)
     );
-    assertThat(e.getMessage(), CoreMatchers.containsString("No Avro schema id[1234] in registry"));
+    Assertions.assertTrue(e.getMessage().contains("No Avro schema id[1234] in registry"));
   }
 
   @Test
   public void testParseWrongId() throws Exception
   {
     // Given
-    Mockito.when(registry.getSchemaById(ArgumentMatchers.anyInt())).thenThrow(new IOException("no pasaran"));
+    Mockito.when(registry.getSchemaById(Mockito.anyInt())).thenThrow(new IOException("no pasaran"));
     ByteBuffer bb = ByteBuffer.allocate(5).put((byte) 0).putInt(1234);
     bb.rewind();
 
@@ -198,8 +193,8 @@ public class SchemaRegistryBasedAvroBytesDecoderTest
         ParseException.class,
         () -> new SchemaRegistryBasedAvroBytesDecoder(registry).parse(bb)
     );
-    assertThat(e.getCause(), CoreMatchers.instanceOf(IOException.class));
-    assertThat(e.getCause().getMessage(), CoreMatchers.containsString("no pasaran"));
+    Assertions.assertInstanceOf(IOException.class, e.getCause());
+    Assertions.assertTrue(e.getCause().getMessage().contains("no pasaran"));
   }
 
   private byte[] getAvroDatum(Schema schema, GenericRecord someAvroDatum) throws IOException
@@ -264,7 +259,7 @@ public class SchemaRegistryBasedAvroBytesDecoderTest
   public void testParseWhenUnauthenticatedException() throws IOException, RestClientException
   {
     // Given
-    Mockito.when(registry.getSchemaById(ArgumentMatchers.eq(1234)))
+    Mockito.when(registry.getSchemaById(Mockito.eq(1234)))
            .thenThrow(new RestClientException("unauthenticated", 401, 401));
     GenericRecord someAvroDatum = AvroStreamInputFormatTest.buildSomeAvroDatum();
     Schema schema = SomeAvroDatum.getClassSchema();
@@ -277,11 +272,10 @@ public class SchemaRegistryBasedAvroBytesDecoderTest
         ParseException.class,
         () -> new SchemaRegistryBasedAvroBytesDecoder(registry).parse(bb)
     );
-    assertThat(e.getCause(), CoreMatchers.instanceOf(RestClientException.class));
-    assertThat(e.getCause().getMessage(), CoreMatchers.containsString("unauthenticated"));
-    assertThat(
-        e.getMessage(),
-        CoreMatchers.containsString(
+    Assertions.assertInstanceOf(RestClientException.class, e.getCause());
+    Assertions.assertTrue(e.getCause().getMessage().contains("unauthenticated"));
+    Assertions.assertTrue(
+        e.getMessage().contains(
             "Failed to authenticate to schema registry for Avro schema id[1234]. Please check your credentials"
         )
     );
@@ -291,7 +285,7 @@ public class SchemaRegistryBasedAvroBytesDecoderTest
   public void testParseWhenResourceNotFoundException() throws IOException, RestClientException
   {
     // Given
-    Mockito.when(registry.getSchemaById(ArgumentMatchers.eq(1234)))
+    Mockito.when(registry.getSchemaById(Mockito.eq(1234)))
            .thenThrow(new RestClientException("resource doesn't exist", 404, 404));
     GenericRecord someAvroDatum = AvroStreamInputFormatTest.buildSomeAvroDatum();
     Schema schema = SomeAvroDatum.getClassSchema();
@@ -304,11 +298,10 @@ public class SchemaRegistryBasedAvroBytesDecoderTest
         ParseException.class,
         () -> new SchemaRegistryBasedAvroBytesDecoder(registry).parse(bb)
     );
-    assertThat(e.getCause(), CoreMatchers.instanceOf(RestClientException.class));
-    assertThat(e.getCause().getMessage(), CoreMatchers.containsString("resource doesn't exist"));
-    assertThat(
-        e.getMessage(),
-        CoreMatchers.containsString(
+    Assertions.assertInstanceOf(RestClientException.class, e.getCause());
+    Assertions.assertTrue(e.getCause().getMessage().contains("resource doesn't exist"));
+    Assertions.assertTrue(
+        e.getMessage().contains(
             "Failed to fetch Avro schema id[1234] from registry."
             + " Error code[404] and message[resource doesn't exist; error code: 404]."
         )

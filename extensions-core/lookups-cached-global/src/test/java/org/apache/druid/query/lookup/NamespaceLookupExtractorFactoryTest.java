@@ -47,7 +47,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.ArgumentMatchers;
 
 import javax.ws.rs.core.Response;
 
@@ -57,11 +56,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.atMostOnce;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -241,7 +240,7 @@ public class NamespaceLookupExtractorFactoryTest
     final ExtractionNamespace extractionNamespace = () -> 0;
     expectScheduleAndWaitOnce(extractionNamespace);
     when(entry.getCacheState()).thenReturn(versionedCache);
-    when(versionedCache.asLookupExtractor(ArgumentMatchers.eq(false), ArgumentMatchers.any()))
+    when(versionedCache.asLookupExtractor(eq(false), any()))
         .thenReturn(new MapLookupExtractor(new HashMap<>(), false));
     when(versionedCache.getVersion()).thenReturn("0");
 
@@ -258,7 +257,7 @@ public class NamespaceLookupExtractorFactoryTest
     verify(entry).getCacheState();
     verify(entry).close();
     verify(versionedCache).getVersion();
-    verify(versionedCache, atLeastOnce()).asLookupExtractor(ArgumentMatchers.eq(false), ArgumentMatchers.any());
+    verify(versionedCache, atLeastOnce()).asLookupExtractor(eq(false), any());
     verifyNoMoreInteractions(scheduler, entry, versionedCache);
   }
 

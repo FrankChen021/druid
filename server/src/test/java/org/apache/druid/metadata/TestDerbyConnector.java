@@ -29,7 +29,7 @@ import org.apache.druid.segment.metadata.CentralizedDatasourceSchemaConfig;
 import org.apache.druid.segment.realtime.appenderator.SegmentIdWithShardSpec;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -117,10 +117,10 @@ public class TestDerbyConnector extends DerbyConnector
     catch (UnableToObtainConnectionException e) {
       SQLException cause = (SQLException) e.getCause();
       // error code "08006" indicates proper shutdown
-      Assert.assertEquals(
-          StringUtils.format("Derby not shutdown: [%s]", cause.toString()),
+      Assertions.assertEquals(
           "08006",
-          cause.getSQLState()
+          cause.getSQLState(),
+          StringUtils.format("Derby not shutdown: [%s]", cause.toString())
       );
     }
   }
@@ -140,19 +140,19 @@ public class TestDerbyConnector extends DerbyConnector
     this.getDBI().open().close();
   }
 
-  public static class DerbyConnectorRule extends ExternalResource
+  public static class DerbyConnectorFixture
   {
     private TestDerbyConnector connector;
     private final MetadataStorageTablesConfig tablesConfig;
     private final MetadataStorageConnectorConfig connectorConfig;
     private final CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig;
 
-    public DerbyConnectorRule()
+    public DerbyConnectorFixture()
     {
       this("druidTest" + dbSafeUUID());
     }
 
-    public DerbyConnectorRule(CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig)
+    public DerbyConnectorFixture(CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig)
     {
       this(
           MetadataStorageTablesConfig.fromBase("druidTest" + dbSafeUUID()),
@@ -160,7 +160,7 @@ public class TestDerbyConnector extends DerbyConnector
       );
     }
 
-    private DerbyConnectorRule(
+    private DerbyConnectorFixture(
         final String defaultBase
     )
     {
@@ -170,7 +170,7 @@ public class TestDerbyConnector extends DerbyConnector
       );
     }
 
-    public DerbyConnectorRule(
+    public DerbyConnectorFixture(
         MetadataStorageTablesConfig tablesConfig,
         CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig
     )
@@ -187,7 +187,6 @@ public class TestDerbyConnector extends DerbyConnector
       this.centralizedDatasourceSchemaConfig = centralizedDatasourceSchemaConfig;
     }
 
-    @Override
     public void before()
     {
       connector = new TestDerbyConnector(
@@ -198,7 +197,6 @@ public class TestDerbyConnector extends DerbyConnector
       connector.createDatabase(); // create db
     }
 
-    @Override
     public void after()
     {
       connector.tearDown();
@@ -230,16 +228,76 @@ public class TestDerbyConnector extends DerbyConnector
     }
   }
 
+  public static class DerbyConnectorRule extends ExternalResource
+  {
+    private final DerbyConnectorFixture fixture;
+
+    public DerbyConnectorRule()
+    {
+      this.fixture = new DerbyConnectorFixture();
+    }
+
+    public DerbyConnectorRule(CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig)
+    {
+      this.fixture = new DerbyConnectorFixture(centralizedDatasourceSchemaConfig);
+    }
+
+    public DerbyConnectorRule(
+        MetadataStorageTablesConfig tablesConfig,
+        CentralizedDatasourceSchemaConfig centralizedDatasourceSchemaConfig
+    )
+    {
+      this.fixture = new DerbyConnectorFixture(tablesConfig, centralizedDatasourceSchemaConfig);
+    }
+
+    @Override
+    public void before()
+    {
+      fixture.before();
+    }
+
+    @Override
+    public void after()
+    {
+      fixture.after();
+    }
+
+    public TestDerbyConnector getConnector()
+    {
+      return fixture.getConnector();
+    }
+
+    public MetadataStorageConnectorConfig getMetadataConnectorConfig()
+    {
+      return fixture.getMetadataConnectorConfig();
+    }
+
+    public Supplier<MetadataStorageTablesConfig> metadataTablesConfigSupplier()
+    {
+      return fixture.metadataTablesConfigSupplier();
+    }
+
+    public SegmentsTable segments()
+    {
+      return fixture.segments();
+    }
+
+    public PendingSegmentsTable pendingSegments()
+    {
+      return fixture.pendingSegments();
+    }
+  }
+
   /**
    * Wrapper class for interacting with the pending segments table.
    */
   public static class PendingSegmentsTable
   {
-    private final DerbyConnectorRule rule;
+    private final DerbyConnectorFixture fixture;
 
-    private PendingSegmentsTable(DerbyConnectorRule rule)
+    private PendingSegmentsTable(DerbyConnectorFixture fixture)
     {
-      this.rule = rule;
+      this.fixture = fixture;
     }
 
     public int insert(
@@ -248,13 +306,13 @@ public class TestDerbyConnector extends DerbyConnector
         ObjectMapper objectMapper
     )
     {
-      final TestDerbyConnector connector = rule.getConnector();
+      final TestDerbyConnector connector = fixture.getConnector();
       final String sql = StringUtils.format(
           "INSERT INTO %1$s (id, dataSource, created_date, start, %2$send%2$s, sequence_name, sequence_prev_id, "
           + "sequence_name_prev_id_sha1, payload, task_allocator_id, upgraded_from_segment_id) "
           + "VALUES (:id, :dataSource, :created_date, :start, :end, :sequence_name, :sequence_prev_id, "
           + ":sequence_name_prev_id_sha1, :payload, :task_allocator_id, :upgraded_from_segment_id)",
-          rule.metadataTablesConfigSupplier().get().getPendingSegmentsTable(),
+          fixture.metadataTablesConfigSupplier().get().getPendingSegmentsTable(),
           connector.getQuoteString()
       );
 
@@ -298,11 +356,11 @@ public class TestDerbyConnector extends DerbyConnector
    */
   public static class SegmentsTable
   {
-    private final DerbyConnectorRule rule;
+    private final DerbyConnectorFixture fixture;
 
-    private SegmentsTable(DerbyConnectorRule rule)
+    private SegmentsTable(DerbyConnectorFixture fixture)
     {
-      this.rule = rule;
+      this.fixture = fixture;
     }
 
     /**
@@ -314,7 +372,7 @@ public class TestDerbyConnector extends DerbyConnector
      */
     public int update(String sqlFormat, Object... args)
     {
-      return this.rule.getConnector().retryWithHandle(
+      return this.fixture.getConnector().retryWithHandle(
           handle -> handle.update(
               StringUtils.format(sqlFormat, getTableName()),
               args
@@ -333,14 +391,14 @@ public class TestDerbyConnector extends DerbyConnector
 
     public String getTableName()
     {
-      return this.rule.metadataTablesConfigSupplier()
+      return this.fixture.metadataTablesConfigSupplier()
                       .get()
                       .getSegmentsTable()
                       .toUpperCase(Locale.ENGLISH);
     }
   }
 
-  public static class DerbyConnectorRule5 extends DerbyConnectorRule implements BeforeAllCallback, AfterAllCallback
+  public static class DerbyConnectorRule5 extends DerbyConnectorFixture implements BeforeAllCallback, AfterAllCallback
   {
 
     @Override

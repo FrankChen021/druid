@@ -74,7 +74,7 @@ public abstract class CompressedBigDecimalAggregatorGroupByTestBase
     CompressedBigDecimalModule module = new CompressedBigDecimalModule();
     CompressedBigDecimalModule.registerSerde();
     helper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
-        module.getJacksonModules(), config, tempFolder.getRoot());
+        module.getJacksonModules(), config, tempFolder);
   }
 
 

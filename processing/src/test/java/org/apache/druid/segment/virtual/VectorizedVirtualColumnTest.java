@@ -102,11 +102,11 @@ public class VectorizedVirtualColumnTest
     groupByTestHelper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
         Collections.emptyList(),
         new GroupByQueryConfig(),
-        tmpFolder.getRoot()
+        tmpFolder
     );
     timeseriesTestHelper = AggregationTestHelper.createTimeseriesQueryAggregationTestHelper(
         Collections.emptyList(),
-        tmpFolder.getRoot()
+        tmpFolder
     );
     QueryableIndexSegment queryableIndexSegment = new QueryableIndexSegment(
         TestIndex.getMMappedTestIndex(),

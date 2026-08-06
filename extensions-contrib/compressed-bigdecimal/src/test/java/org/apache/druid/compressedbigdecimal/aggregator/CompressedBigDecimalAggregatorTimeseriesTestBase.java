@@ -104,7 +104,7 @@ public abstract class CompressedBigDecimalAggregatorTimeseriesTestBase extends I
     CompressedBigDecimalModule module = new CompressedBigDecimalModule();
     CompressedBigDecimalModule.registerSerde();
     helper = AggregationTestHelper.createTimeseriesQueryAggregationTestHelper(
-        module.getJacksonModules(), tempFolder.getRoot());
+        module.getJacksonModules(), tempFolder);
   }
 
   /**

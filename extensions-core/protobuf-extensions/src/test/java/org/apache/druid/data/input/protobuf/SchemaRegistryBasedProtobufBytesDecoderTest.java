@@ -35,7 +35,6 @@ import org.joda.time.DateTime;
 import org.joda.time.chrono.ISOChronology;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 import java.io.IOException;
@@ -63,7 +62,7 @@ public class SchemaRegistryBasedProtobufBytesDecoderTest
   @Test
   public void testParse() throws Exception
   {
-    Mockito.when(registry.getSchemaById(ArgumentMatchers.eq(1234))).thenReturn(parseProtobufSchema());
+    Mockito.when(registry.getSchemaById(Mockito.eq(1234))).thenReturn(parseProtobufSchema());
     ProtoTestEventWrapper.ProtoTestEvent event = getTestEvent();
     byte[] bytes = event.toByteArray();
     ByteBuffer bb = ByteBuffer.allocate(bytes.length + 6).put((byte) 0).putInt(1234).put((byte) 0).put(bytes);
@@ -77,7 +76,7 @@ public class SchemaRegistryBasedProtobufBytesDecoderTest
   @Test
   public void testParseCorrupted() throws Exception
   {
-    Mockito.when(registry.getSchemaById(ArgumentMatchers.eq(1234))).thenReturn(parseProtobufSchema());
+    Mockito.when(registry.getSchemaById(Mockito.eq(1234))).thenReturn(parseProtobufSchema());
     byte[] bytes = getTestEvent().toByteArray();
     ByteBuffer bb = ByteBuffer.allocate(bytes.length + 6).put((byte) 0).putInt(1234).put((bytes), 5, 10);
     bb.rewind();
@@ -89,7 +88,7 @@ public class SchemaRegistryBasedProtobufBytesDecoderTest
   public void testParseWrongId() throws Exception
   {
     // Given
-    Mockito.when(registry.getSchemaById(ArgumentMatchers.anyInt())).thenThrow(new IOException("no pasaran"));
+    Mockito.when(registry.getSchemaById(Mockito.anyInt())).thenThrow(new IOException("no pasaran"));
     byte[] bytes = getTestEvent().toByteArray();
     ByteBuffer bb = ByteBuffer.allocate(bytes.length + 6).put((byte) 0).putInt(1234).put((byte) 0).put(bytes);
     bb.rewind();

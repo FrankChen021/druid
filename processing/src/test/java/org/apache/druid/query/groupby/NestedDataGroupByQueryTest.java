@@ -90,7 +90,7 @@ public class NestedDataGroupByQueryTest extends InitializedNullHandlingTest
     this.helper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
         BuiltInTypesModule.getJacksonModulesList(),
         config,
-        tempFolder.getRoot()
+        tempFolder
     );
     this.segmentsGenerator = segmentGenerator;
     this.segmentsName = segmentGenerator.toString();

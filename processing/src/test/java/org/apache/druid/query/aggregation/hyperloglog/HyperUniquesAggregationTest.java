@@ -76,7 +76,7 @@ public class HyperUniquesAggregationTest
         final AggregationTestHelper helper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
             Collections.singletonList(new AggregatorsModule()),
             config,
-            tempFolder.getRoot()
+            tempFolder
         )
     ) {
 
@@ -126,7 +126,7 @@ public class HyperUniquesAggregationTest
         final AggregationTestHelper helper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
             Collections.singletonList(new AggregatorsModule()),
             config,
-            tempFolder.getRoot()
+            tempFolder
         )
     ) {
 
