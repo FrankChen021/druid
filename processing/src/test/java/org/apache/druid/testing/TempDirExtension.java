@@ -19,7 +19,7 @@
 
 package org.apache.druid.testing;
 
-import org.apache.commons.io.FileUtils;
+import org.apache.druid.java.util.common.FileUtils;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -28,7 +28,6 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 
 public class TempDirExtension implements BeforeAllCallback, BeforeEachCallback, AfterAllCallback, AfterEachCallback
 {
@@ -74,8 +73,8 @@ public class TempDirExtension implements BeforeAllCallback, BeforeEachCallback, 
     if (root == null) {
       final File parent = parentDirectory == null ? null : parentDirectory;
       root = parent == null
-             ? Files.createTempDirectory("junit").toFile()
-             : Files.createTempDirectory(parent.toPath(), "junit").toFile();
+             ? FileUtils.createTempDir("junit")
+             : FileUtils.createTempDirInLocation(parent.toPath(), "junit");
     }
   }
 
@@ -88,7 +87,7 @@ public class TempDirExtension implements BeforeAllCallback, BeforeEachCallback, 
   public File newFolder() throws IOException
   {
     ensureCreated();
-    return Files.createTempDirectory(root.toPath(), "junit").toFile();
+    return FileUtils.createTempDirInLocation(root.toPath(), "junit");
   }
 
   public File newFolder(final String... folderNames) throws IOException
@@ -98,9 +97,7 @@ public class TempDirExtension implements BeforeAllCallback, BeforeEachCallback, 
     for (final String folderName : folderNames) {
       folder = new File(folder, folderName);
     }
-    if (!folder.mkdirs() && !folder.isDirectory()) {
-      throw new IOException("Unable to create temporary folder " + folder);
-    }
+    FileUtils.mkdirp(folder);
     return folder;
   }
 

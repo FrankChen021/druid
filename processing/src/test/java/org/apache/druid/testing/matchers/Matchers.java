@@ -91,6 +91,20 @@ public class Matchers
     );
   }
 
+  public static <K, V> Matcher<Map<? extends K, ? extends V>> hasEntry(
+      final Matcher<? super K> keyMatcher,
+      final Matcher<? super V> valueMatcher
+  )
+  {
+    return described(
+        actual -> actual instanceof Map
+                  && ((Map<?, ?>) actual).entrySet().stream().anyMatch(
+                      entry -> keyMatcher.matches(entry.getKey()) && valueMatcher.matches(entry.getValue())
+                  ),
+        "map containing an entry matching " + keyMatcher.describe() + "=" + valueMatcher.describe()
+    );
+  }
+
   public static <K> Matcher<Map<? extends K, ?>> hasKey(final K key)
   {
     return described(actual -> actual instanceof Map && ((Map<?, ?>) actual).containsKey(key), "map containing key " + key);
