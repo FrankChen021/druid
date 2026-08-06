@@ -50,8 +50,8 @@ import org.apache.druid.sql.calcite.table.RowSignatures;
 import org.apache.druid.sql.calcite.util.QueryLogHook;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Assertions;
+import org.junit.Assert;
+import org.junit.internal.matchers.ThrowableMessageMatcher;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -442,32 +442,32 @@ public class QueryTestRunner
           .map(q -> BaseCalciteQueryTest.recursivelyClearContext(q, queryJsonMapper))
           .collect(Collectors.toList());
 
-      Assertions.assertEquals(
+      Assert.assertEquals(
+          StringUtils.format("query count: %s", builder.sql),
           expectedQueries.size(),
-          recordedQueries.size(),
-          StringUtils.format("query count: %s", builder.sql)
+          recordedQueries.size()
       );
       for (int i = 0; i < expectedQueries.size(); i++) {
         Query<?> expectedQuery = expectedQueries.get(i);
         Query<?> actualQuery = recordedQueries.get(i);
-        Assertions.assertEquals(
+        Assert.assertEquals(
+            StringUtils.format("query #%d: %s", i + 1, builder.sql),
             expectedQuery,
-            actualQuery,
-            StringUtils.format("query #%d: %s", i + 1, builder.sql)
+            actualQuery
         );
 
         try {
           // go through some JSON serde and back, round tripping both queries and comparing them to each other, because
-          // Assertions.assertEquals(recordedQueries.get(i), stringAndBack) is a failure due to a sorted map being present
+          // Assert.assertEquals(recordedQueries.get(i), stringAndBack) is a failure due to a sorted map being present
           // in the recorded queries, but it is a regular map after deserialization
           final String recordedString = queryJsonMapper.writeValueAsString(actualQuery);
           final Query<?> stringAndBack = queryJsonMapper.readValue(recordedString, Query.class);
           final String expectedString = queryJsonMapper.writeValueAsString(expectedQuery);
           final Query<?> expectedStringAndBack = queryJsonMapper.readValue(expectedString, Query.class);
-          Assertions.assertEquals(expectedStringAndBack, stringAndBack);
+          Assert.assertEquals(expectedStringAndBack, stringAndBack);
         }
         catch (JsonProcessingException e) {
-          Assertions.fail(e.getMessage());
+          Assert.fail(e.getMessage());
         }
       }
     }
@@ -489,7 +489,7 @@ public class QueryTestRunner
     public void verify()
     {
       QueryTestBuilder builder = prepareStep.builder();
-      Assertions.assertEquals(
+      Assert.assertEquals(
           ImmutableSet.copyOf(builder.expectedResources),
           prepareStep.resourceActions()
       );
@@ -512,7 +512,7 @@ public class QueryTestRunner
     public void verify()
     {
       QueryTestBuilder builder = prepareStep.builder();
-      Assertions.assertEquals(
+      Assert.assertEquals(
           builder.expectedSqlSchema,
           SqlSchema.of(prepareStep.sqlSignature)
       );
@@ -537,7 +537,7 @@ public class QueryTestRunner
     {
       QueryTestBuilder builder = execStep.builder();
       for (QueryResults queryResults : execStep.results()) {
-        Assertions.assertEquals(
+        Assert.assertEquals(
             builder.expectedSqlSchema,
             SqlSchema.of(queryResults.sqlSignature)
         );
@@ -566,7 +566,7 @@ public class QueryTestRunner
     {
       String expectedPlan = execStep.builder().expectedLogicalPlan;
       String actualPlan = visualizePlan(queryResults.capture);
-      Assertions.assertEquals(expectedPlan, actualPlan);
+      Assert.assertEquals(expectedPlan, actualPlan);
     }
 
     private String visualizePlan(PlannerCaptureHook hook)
@@ -634,7 +634,7 @@ public class QueryTestRunner
         // Delayed exception checking to let other verify steps run before running vectorized checks
         if (builder.queryCannotVectorize && "force".equals(queryResults.vectorizeOption)) {
           if (queryResults.exception == null) {
-            Assertions.fail(
+            Assert.fail(
                 "Expected vectorized execution to fail, but it did not. "
                 + "Please remove cannotVectorize() from this test case."
             );
@@ -644,7 +644,9 @@ public class QueryTestRunner
               queryResults.exception,
               CoreMatchers.allOf(
                   CoreMatchers.instanceOf(RuntimeException.class),
-                  Matchers.hasProperty("message", CoreMatchers.containsString("Cannot vectorize!"))
+                  ThrowableMessageMatcher.hasMessage(
+                      CoreMatchers.containsString("Cannot vectorize!")
+                  )
               )
           );
         } else if (queryResults.exception != null) {
