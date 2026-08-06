@@ -30,18 +30,19 @@ import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.rpc.indexing.NoopOverlordClient;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.segment.loading.StorageLocationConfig;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.BucketNumberedShardSpec;
 import org.apache.druid.timeline.partition.BuildingShardSpec;
 import org.apache.druid.timeline.partition.ShardSpec;
 import org.apache.druid.timeline.partition.ShardSpecLookup;
 import org.joda.time.Interval;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.io.IOException;
@@ -69,13 +70,13 @@ public class LocalIntermediaryDataManagerConcurrencyTest
   private static final int CALLS_PER_THREAD = 200;
   private static final String SUPERVISOR_TASK_ID = "supervisorTaskId";
 
-  @Rule
-  public TemporaryFolder tempDir = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension tempDir = new TempDirExtension();
 
   private LocalIntermediaryDataManager intermediaryDataManager;
   private File sharedSegmentDir;
 
-  @Before
+  @BeforeEach
   public void setUp() throws IOException
   {
     final WorkerConfig workerConfig = new WorkerConfig();
@@ -95,13 +96,14 @@ public class LocalIntermediaryDataManagerConcurrencyTest
     FileUtils.writeByteArrayToFile(new File(sharedSegmentDir, "version.bin"), Ints.toByteArray(9));
   }
 
-  @After
+  @AfterEach
   public void tearDown()
   {
     intermediaryDataManager.stop();
   }
 
-  @Test(timeout = 90_000)
+  @Test
+  @Timeout(value = 90_000, unit = TimeUnit.MILLISECONDS)
   public void testConcurrentAddSegmentSharedSupervisorIsThreadSafe() throws Exception
   {
     final Interval interval = Intervals.of("2018/2019");
@@ -130,7 +132,7 @@ public class LocalIntermediaryDataManagerConcurrencyTest
       f.get(60, TimeUnit.SECONDS);
     }
     executor.shutdown();
-    Assert.assertTrue(executor.awaitTermination(10, TimeUnit.SECONDS));
+    JUnit5Assertions.assertTrue(executor.awaitTermination(10, TimeUnit.SECONDS));
   }
 
   private DataSegment newSegment(Interval interval, int bucketId)

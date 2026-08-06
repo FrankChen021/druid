@@ -39,12 +39,14 @@ import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.segment.indexing.DataSchema;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.joda.time.Interval;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -62,13 +64,13 @@ public class ParallelIndexSupervisorTaskKillTest extends AbstractParallelIndexSu
     super(0.0, 0.0);
   }
 
-  @After
+  @AfterEach
   public void teardown()
   {
-    temporaryFolder.delete();
   }
 
-  @Test(timeout = 5000L)
+  @Test
+  @Timeout(value = 5000L, unit = TimeUnit.MILLISECONDS)
   public void testStopGracefully() throws Exception
   {
     final ParallelIndexSupervisorTask task = newTask(
@@ -87,14 +89,15 @@ public class ParallelIndexSupervisorTaskKillTest extends AbstractParallelIndexSu
     }
     task.stopGracefully(null);
 
-    Exception e = Assert.assertThrows(
+    Exception e = JUnit5Assertions.assertThrows(
         RuntimeException.class,
         () -> getIndexingServiceClient().waitToFinish(task, 3000L, TimeUnit.MILLISECONDS)
     );
-    Assert.assertTrue(e.getCause() instanceof ExecutionException);
+    JUnit5Assertions.assertTrue(e.getCause() instanceof ExecutionException);
   }
 
-  @Test(timeout = 5000L)
+  @Test
+  @Timeout(value = 5000L, unit = TimeUnit.MILLISECONDS)
   public void testSubTaskFail() throws Exception
   {
     final ParallelIndexSupervisorTask task = newTask(
@@ -113,27 +116,26 @@ public class ParallelIndexSupervisorTaskKillTest extends AbstractParallelIndexSu
     final TaskToolbox toolbox = createTaskToolbox(task, actionClient);
 
     prepareTaskForLocking(task);
-    Assert.assertTrue(task.isReady(actionClient));
+    JUnit5Assertions.assertTrue(task.isReady(actionClient));
 
     final TaskStatus taskStatus = task.run(toolbox);
-    Assert.assertEquals("Failed in phase[segment generation]. See task logs for details.",
-                        taskStatus.getErrorMsg());
-    Assert.assertEquals(TaskState.FAILED, taskStatus.getStatusCode());
+    JUnit5Assertions.assertEquals(taskStatus.getErrorMsg(), "Failed in phase[segment generation]. See task logs for details.");
+    JUnit5Assertions.assertEquals(TaskState.FAILED, taskStatus.getStatusCode());
 
     final SinglePhaseParallelIndexTaskRunner runner = (SinglePhaseParallelIndexTaskRunner) task.getCurrentRunner();
-    Assert.assertTrue(runner.getRunningTaskIds().isEmpty());
+    JUnit5Assertions.assertTrue(runner.getRunningTaskIds().isEmpty());
     final List<SubTaskSpec<SinglePhaseSubTask>> completeSubTaskSpecs = runner.getCompleteSubTaskSpecs();
-    Assert.assertEquals(1, completeSubTaskSpecs.size());
+    JUnit5Assertions.assertEquals(1, completeSubTaskSpecs.size());
     final TaskHistory<SinglePhaseSubTask> history = runner.getCompleteSubTaskSpecAttemptHistory(
         completeSubTaskSpecs.get(0).getId()
     );
-    Assert.assertNotNull(history);
-    Assert.assertEquals(3, history.getAttemptHistory().size());
+    JUnit5Assertions.assertNotNull(history);
+    JUnit5Assertions.assertEquals(3, history.getAttemptHistory().size());
     for (TaskStatusPlus status : history.getAttemptHistory()) {
-      Assert.assertEquals(TaskState.FAILED, status.getStatusCode());
+      JUnit5Assertions.assertEquals(TaskState.FAILED, status.getStatusCode());
     }
 
-    Assert.assertEquals(3, runner.getTaskMonitor().getNumCanceledTasks());
+    JUnit5Assertions.assertEquals(3, runner.getTaskMonitor().getNumCanceledTasks());
   }
 
   private ParallelIndexSupervisorTask newTask(

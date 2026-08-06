@@ -51,14 +51,16 @@ import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.log.StartupLoggingConfig;
 import org.apache.druid.tasklogs.NoopTaskLogs;
+import org.apache.druid.testing.junit5.ExpectedToThrow;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.assertj.core.util.Lists;
 import org.joda.time.Period;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -72,14 +74,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.Assert.assertEquals;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertEquals;
 
 public class ForkingTaskRunnerTest
 {
 
   private static final ObjectMapper OBJECT_MAPPER = new DefaultObjectMapper();
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
   @Test
   public void testGetJavaCommandPrefersRunJavaScriptWhenPresent() throws IOException
@@ -87,29 +89,23 @@ public class ForkingTaskRunnerTest
     final File workingDir = temporaryFolder.newFolder();
     final File binDir = new File(workingDir, "bin");
     FileUtils.mkdirp(binDir);
-    Assert.assertTrue(new File(binDir, "run-java").createNewFile());
+    JUnit5Assertions.assertTrue(new File(binDir, "run-java").createNewFile());
 
     // No configured command (null) and the run-java script is present -> use it.
-    Assert.assertEquals(
-        "bin/run-java",
-        ForkingTaskRunner.getJavaCommand(null, workingDir)
-    );
+    JUnit5Assertions.assertEquals(ForkingTaskRunner.getJavaCommand(null, workingDir), "bin/run-java");
   }
 
   @Test
   public void testGetJavaCommandFallsBackToJavaWhenScriptAbsent() throws IOException
   {
     final File workingDir = temporaryFolder.newFolder();
-    Assert.assertEquals(
-        "java",
-        ForkingTaskRunner.getJavaCommand(null, workingDir)
-    );
+    JUnit5Assertions.assertEquals(ForkingTaskRunner.getJavaCommand(null, workingDir), "java");
   }
 
   @Test
   public void testConfigHasNoDefaultJavaCommand()
   {
-    Assert.assertNull(new ForkingTaskRunnerConfig().getJavaCommand());
+    JUnit5Assertions.assertNull(new ForkingTaskRunnerConfig().getJavaCommand());
   }
 
   @Test
@@ -118,23 +114,22 @@ public class ForkingTaskRunnerTest
     final File workingDir = temporaryFolder.newFolder();
     final File binDir = new File(workingDir, "bin");
     FileUtils.mkdirp(binDir);
-    Assert.assertTrue(new File(binDir, "run-java").createNewFile());
+    JUnit5Assertions.assertTrue(new File(binDir, "run-java").createNewFile());
 
     // An explicit, non-default javaCommand must be used verbatim even when the run-java script is present.
-    Assert.assertEquals(
-        "/opt/jdk/bin/java",
-        ForkingTaskRunner.getJavaCommand("/opt/jdk/bin/java", workingDir)
-    );
+    JUnit5Assertions.assertEquals(ForkingTaskRunner.getJavaCommand("/opt/jdk/bin/java", workingDir), "/opt/jdk/bin/java");
   }
 
   // This tests the test to make sure the test fails when it should.
-  @Test(expected = AssertionError.class)
+  @Test
+  @ExpectedToThrow(AssertionError.class)
   public void testPatternMatcherFailureForJavaOptions()
   {
     checkValues(new String[]{"not quoted has space"});
   }
 
-  @Test(expected = AssertionError.class)
+  @Test
+  @ExpectedToThrow(AssertionError.class)
   public void testPatternMatcherFailureForSpaceOnlyJavaOptions()
   {
     checkValues(new String[]{" "});
@@ -189,7 +184,7 @@ public class ForkingTaskRunnerTest
   @Test
   public void testEmpty()
   {
-    Assert.assertTrue(ImmutableList.copyOf(new QuotableWhiteSpaceSplitter("")).isEmpty());
+    JUnit5Assertions.assertTrue(ImmutableList.copyOf(new QuotableWhiteSpaceSplitter("")).isEmpty());
   }
 
   @Test
@@ -207,7 +202,7 @@ public class ForkingTaskRunnerTest
   @Test
   public void testOmitEmpty()
   {
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         ImmutableList.copyOf(
             new QuotableWhiteSpaceSplitter(" \t     \t\t\t\t \n\n \f\f \n\f\r\t")
         ).isEmpty()
@@ -280,11 +275,11 @@ public class ForkingTaskRunnerTest
       @Override
       int waitForTaskProcessToComplete(Task task, ProcessHolder processHolder, File logFile, File reportsFile)
       {
-        Assert.assertEquals(1L, (long) this.getWorkerUsedTaskSlotCount());
-        Assert.assertEquals(workerConfig.getCapacity(), (long) this.getWorkerTotalTaskSlotCount());
-        Assert.assertEquals(workerConfig.getCapacity() - 1, (long) this.getWorkerIdleTaskSlotCount());
-        Assert.assertEquals(workerConfig.getCategory(), this.getWorkerCategory());
-        Assert.assertEquals(workerConfig.getVersion(), this.getWorkerVersion());
+        JUnit5Assertions.assertEquals(1L, (long) this.getWorkerUsedTaskSlotCount());
+        JUnit5Assertions.assertEquals(workerConfig.getCapacity(), (long) this.getWorkerTotalTaskSlotCount());
+        JUnit5Assertions.assertEquals(workerConfig.getCapacity() - 1, (long) this.getWorkerIdleTaskSlotCount());
+        JUnit5Assertions.assertEquals(workerConfig.getCategory(), this.getWorkerCategory());
+        JUnit5Assertions.assertEquals(workerConfig.getVersion(), this.getWorkerVersion());
         // Emulate task process failure
         return 1;
       }
@@ -297,8 +292,8 @@ public class ForkingTaskRunnerTest
         "Task execution process exited unsuccessfully with code[1]. See middleManager logs for more details.",
         status.getErrorMsg()
     );
-    Assert.assertEquals(1L, (long) forkingTaskRunner.getWorkerFailedTaskCount());
-    Assert.assertEquals(0L, (long) forkingTaskRunner.getWorkerSuccessfulTaskCount());
+    JUnit5Assertions.assertEquals(1L, (long) forkingTaskRunner.getWorkerFailedTaskCount());
+    JUnit5Assertions.assertEquals(0L, (long) forkingTaskRunner.getWorkerSuccessfulTaskCount());
   }
 
   @Test
@@ -342,11 +337,11 @@ public class ForkingTaskRunnerTest
       @Override
       int waitForTaskProcessToComplete(Task task, ProcessHolder processHolder, File logFile, File reportsFile)
       {
-        Assert.assertEquals(1L, (long) this.getWorkerUsedTaskSlotCount());
-        Assert.assertEquals(workerConfig.getCapacity(), (long) this.getWorkerTotalTaskSlotCount());
-        Assert.assertEquals(workerConfig.getCapacity() - 1, (long) this.getWorkerIdleTaskSlotCount());
-        Assert.assertEquals(workerConfig.getCategory(), this.getWorkerCategory());
-        Assert.assertEquals(workerConfig.getVersion(), this.getWorkerVersion());
+        JUnit5Assertions.assertEquals(1L, (long) this.getWorkerUsedTaskSlotCount());
+        JUnit5Assertions.assertEquals(workerConfig.getCapacity(), (long) this.getWorkerTotalTaskSlotCount());
+        JUnit5Assertions.assertEquals(workerConfig.getCapacity() - 1, (long) this.getWorkerIdleTaskSlotCount());
+        JUnit5Assertions.assertEquals(workerConfig.getCategory(), this.getWorkerCategory());
+        JUnit5Assertions.assertEquals(workerConfig.getVersion(), this.getWorkerVersion());
         return 0;
       }
     };
@@ -354,9 +349,9 @@ public class ForkingTaskRunnerTest
     forkingTaskRunner.setNumProcessorsPerTask();
     final TaskStatus status = forkingTaskRunner.run(task).get();
     assertEquals(TaskState.SUCCESS, status.getStatusCode());
-    Assert.assertNull(status.getErrorMsg());
-    Assert.assertEquals(0L, (long) forkingTaskRunner.getWorkerFailedTaskCount());
-    Assert.assertEquals(1L, (long) forkingTaskRunner.getWorkerSuccessfulTaskCount());
+    JUnit5Assertions.assertNull(status.getErrorMsg());
+    JUnit5Assertions.assertEquals(0L, (long) forkingTaskRunner.getWorkerFailedTaskCount());
+    JUnit5Assertions.assertEquals(1L, (long) forkingTaskRunner.getWorkerSuccessfulTaskCount());
   }
 
   @Test
@@ -439,13 +434,13 @@ public class ForkingTaskRunnerTest
     final File taskDir = temporaryFolder.newFile();
     final File attemptDir = new File(taskDir, "attempt");
 
-    final ISE exception = Assert.assertThrows(
+    final ISE exception = JUnit5Assertions.assertThrows(
         ISE.class,
         () -> ForkingTaskRunner.getNextAttemptID(taskDir)
     );
 
-    Assert.assertEquals("Error creating directory[" + attemptDir + "]", exception.getMessage());
-    Assert.assertTrue(exception.getCause() instanceof IOException);
+    JUnit5Assertions.assertEquals(exception.getMessage(), "Error creating directory[" + attemptDir + "]");
+    JUnit5Assertions.assertTrue(exception.getCause() instanceof IOException);
   }
 
   @Test
@@ -455,15 +450,15 @@ public class ForkingTaskRunnerTest
     final File attemptDir = new File(taskDir, "attempt");
     FileUtils.mkdirp(attemptDir);
     final File attempt = new File(attemptDir, "1");
-    Assert.assertTrue(attempt.createNewFile());
+    JUnit5Assertions.assertTrue(attempt.createNewFile());
 
-    final ISE exception = Assert.assertThrows(
+    final ISE exception = JUnit5Assertions.assertThrows(
         ISE.class,
         () -> ForkingTaskRunner.getNextAttemptID(taskDir)
     );
 
-    Assert.assertEquals("Error creating directory[" + attempt + "]", exception.getMessage());
-    Assert.assertTrue(exception.getCause() instanceof IOException);
+    JUnit5Assertions.assertEquals(exception.getMessage(), "Error creating directory[" + attempt + "]");
+    JUnit5Assertions.assertTrue(exception.getCause() instanceof IOException);
   }
 
   @Test
@@ -521,8 +516,8 @@ public class ForkingTaskRunnerTest
 
     forkingTaskRunner.setNumProcessorsPerTask();
     forkingTaskRunner.run(task).get();
-    Assert.assertTrue(xmxJavaOptsArrayIndex.get() > xmxJavaOptsIndex.get());
-    Assert.assertTrue(xmxJavaOptsIndex.get() >= 0);
+    JUnit5Assertions.assertTrue(xmxJavaOptsArrayIndex.get() > xmxJavaOptsIndex.get());
+    JUnit5Assertions.assertTrue(xmxJavaOptsIndex.get() >= 0);
   }
 
   @Test
@@ -566,24 +561,24 @@ public class ForkingTaskRunnerTest
       @Override
       int waitForTaskProcessToComplete(Task task, ProcessHolder processHolder, File logFile, File reportsFile)
       {
-        Assert.assertEquals(1L, (long) this.getWorkerUsedTaskSlotCount());
-        Assert.assertEquals(workerConfig.getCapacity(), (long) this.getWorkerTotalTaskSlotCount());
-        Assert.assertEquals(workerConfig.getCapacity() - 1, (long) this.getWorkerIdleTaskSlotCount());
-        Assert.assertEquals(workerConfig.getCategory(), this.getWorkerCategory());
-        Assert.assertEquals(workerConfig.getVersion(), this.getWorkerVersion());
+        JUnit5Assertions.assertEquals(1L, (long) this.getWorkerUsedTaskSlotCount());
+        JUnit5Assertions.assertEquals(workerConfig.getCapacity(), (long) this.getWorkerTotalTaskSlotCount());
+        JUnit5Assertions.assertEquals(workerConfig.getCapacity() - 1, (long) this.getWorkerIdleTaskSlotCount());
+        JUnit5Assertions.assertEquals(workerConfig.getCategory(), this.getWorkerCategory());
+        JUnit5Assertions.assertEquals(workerConfig.getVersion(), this.getWorkerVersion());
         return 1;
       }
     };
 
     forkingTaskRunner.setNumProcessorsPerTask();
-    ExecutionException e = Assert.assertThrows(ExecutionException.class, () -> forkingTaskRunner.run(task).get());
-    Assert.assertTrue(e.getMessage().endsWith(ForkingTaskRunnerConfig.JAVA_OPTS_ARRAY_PROPERTY
+    ExecutionException e = JUnit5Assertions.assertThrows(ExecutionException.class, () -> forkingTaskRunner.run(task).get());
+    JUnit5Assertions.assertTrue(e.getMessage().endsWith(ForkingTaskRunnerConfig.JAVA_OPTS_ARRAY_PROPERTY
                                               + " in context of task: "
                                               + task.getId()
                                               + " must be an array of strings.")
     );
-    Assert.assertEquals(0L, (long) forkingTaskRunner.getWorkerFailedTaskCount());
-    Assert.assertEquals(0L, (long) forkingTaskRunner.getWorkerSuccessfulTaskCount());
+    JUnit5Assertions.assertEquals(0L, (long) forkingTaskRunner.getWorkerFailedTaskCount());
+    JUnit5Assertions.assertEquals(0L, (long) forkingTaskRunner.getWorkerSuccessfulTaskCount());
   }
 
   @Test
@@ -622,7 +617,7 @@ public class ForkingTaskRunnerTest
     forkingTaskRunner.setNumProcessorsPerTask();
     Task task = NoopTask.create();
     forkingTaskRunner.run(task);
-    Assert.assertTrue(forkingTaskRunner.restore().isEmpty());
+    JUnit5Assertions.assertTrue(forkingTaskRunner.restore().isEmpty());
   }
 
   @Test
@@ -747,9 +742,9 @@ public class ForkingTaskRunnerTest
 
     forkingTaskRunner.setNumProcessorsPerTask();
     final TaskStatus status = forkingTaskRunner.run(task).get();
-    Assert.assertNotNull(observedCommandRef);
+    JUnit5Assertions.assertNotNull(observedCommandRef);
     final List<String> observedCommand = observedCommandRef.get();
-    Assert.assertTrue(observedCommand.contains("-Ddruid.server.priority=2"));
+    JUnit5Assertions.assertTrue(observedCommand.contains("-Ddruid.server.priority=2"));
     assertEquals(TaskState.SUCCESS, status.getStatusCode());
   }
 

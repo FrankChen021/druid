@@ -35,8 +35,8 @@ import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -71,10 +71,10 @@ public class CsvInputSourceSamplerTest extends InitializedNullHandlingTest
         null
     );
 
-    Assert.assertEquals(4, response.getNumRowsRead());
-    Assert.assertEquals(4, response.getNumRowsIndexed());
-    Assert.assertEquals(4, response.getData().size());
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(4, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(4, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(4, response.getData().size());
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new StringDimensionSchema("FirstName"),
             new StringDimensionSchema("LastName"),
@@ -83,7 +83,7 @@ public class CsvInputSourceSamplerTest extends InitializedNullHandlingTest
         ),
         response.getLogicalDimensions()
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         RowSignature.builder()
                     .add("__time", ColumnType.LONG)
                     .add("FirstName", ColumnType.STRING)
@@ -96,7 +96,7 @@ public class CsvInputSourceSamplerTest extends InitializedNullHandlingTest
 
     List<SamplerResponseRow> data = response.getData();
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         new SamplerResponseRow(
             new SamplerTestUtils.MapAllowingNullValuesBuilder<String, Object>()
                 .put("Number", null)
@@ -116,7 +116,7 @@ public class CsvInputSourceSamplerTest extends InitializedNullHandlingTest
         ),
         data.get(0)
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         new SamplerResponseRow(
             new SamplerTestUtils.MapAllowingNullValuesBuilder<String, Object>()
                 .put("Number", null)
@@ -136,7 +136,7 @@ public class CsvInputSourceSamplerTest extends InitializedNullHandlingTest
         ),
         data.get(1)
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         new SamplerResponseRow(
             new SamplerTestUtils.MapAllowingNullValuesBuilder<String, Object>()
                 .put("Number", null)
@@ -156,7 +156,7 @@ public class CsvInputSourceSamplerTest extends InitializedNullHandlingTest
         ),
         data.get(2)
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         new SamplerResponseRow(
             new SamplerTestUtils.MapAllowingNullValuesBuilder<String, Object>()
                 .put("Number", null)

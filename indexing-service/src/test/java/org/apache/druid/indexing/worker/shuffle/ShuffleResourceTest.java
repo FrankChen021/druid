@@ -34,20 +34,21 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.rpc.indexing.NoopOverlordClient;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.segment.loading.StorageLocationConfig;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.BucketNumberedShardSpec;
 import org.easymock.EasyMock;
 import org.joda.time.Interval;
 import org.joda.time.Period;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mockito;
 
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -60,14 +61,14 @@ public class ShuffleResourceTest
 {
   private static final String DATASOURCE = "datasource";
 
-  @Rule
-  public TemporaryFolder tempDir = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension tempDir = new TempDirExtension();
 
   private LocalIntermediaryDataManager intermediaryDataManager;
   private ShuffleMetrics shuffleMetrics;
   private ShuffleResource shuffleResource;
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException
   {
     final WorkerConfig workerConfig = new WorkerConfig()
@@ -121,10 +122,10 @@ public class ShuffleResourceTest
         "2020-01-02",
         0
     );
-    Assert.assertEquals(Status.NOT_FOUND.getStatusCode(), response.getStatus());
-    Assert.assertNotNull(response.getEntity());
+    JUnit5Assertions.assertEquals(Status.NOT_FOUND.getStatusCode(), response.getStatus());
+    JUnit5Assertions.assertNotNull(response.getEntity());
     final String errorMessage = (String) response.getEntity();
-    Assert.assertTrue(errorMessage.contains("Can't find the partition for supervisorTask"));
+    JUnit5Assertions.assertTrue(errorMessage.contains("Can't find the partition for supervisorTask"));
   }
 
   @Test
@@ -145,16 +146,16 @@ public class ShuffleResourceTest
         segment.getId().getPartitionNum()
     );
     final Map<String, PerDatasourceShuffleMetrics> snapshot = shuffleMetrics.snapshotAndReset();
-    Assert.assertEquals(Status.OK.getStatusCode(), response.getStatus());
-    Assert.assertEquals(1, snapshot.get(supervisorTaskId).getShuffleRequests());
-    Assert.assertEquals(254, snapshot.get(supervisorTaskId).getShuffleBytes());
+    JUnit5Assertions.assertEquals(Status.OK.getStatusCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(1, snapshot.get(supervisorTaskId).getShuffleRequests());
+    JUnit5Assertions.assertEquals(254, snapshot.get(supervisorTaskId).getShuffleBytes());
   }
 
   @Test
   public void testDeleteUnknownPartitionReturnOk()
   {
     final Response response = shuffleResource.deletePartitions("unknownSupervisorTask");
-    Assert.assertEquals(Status.OK.getStatusCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(Status.OK.getStatusCode(), response.getStatus());
   }
 
   @Test
@@ -168,7 +169,7 @@ public class ShuffleResourceTest
     intermediaryDataManager.addSegment(supervisorTaskId, subtaskId, segment, segmentDir);
 
     final Response response = shuffleResource.deletePartitions(supervisorTaskId);
-    Assert.assertEquals(Status.OK.getStatusCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(Status.OK.getStatusCode(), response.getStatus());
   }
 
   @Test
@@ -181,7 +182,7 @@ public class ShuffleResourceTest
     final ShuffleResource shuffleResource = new ShuffleResource(exceptionThrowingManager, Optional.of(shuffleMetrics));
 
     final Response response = shuffleResource.deletePartitions("supervisorTask");
-    Assert.assertEquals(Status.INTERNAL_SERVER_ERROR.getStatusCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(Status.INTERNAL_SERVER_ERROR.getStatusCode(), response.getStatus());
   }
 
   private static DataSegment newSegment(Interval interval)

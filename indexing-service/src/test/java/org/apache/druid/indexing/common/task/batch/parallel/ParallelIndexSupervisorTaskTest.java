@@ -49,25 +49,22 @@ import org.apache.druid.segment.data.RoaringBitmapSerdeFactory;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.segment.loading.DataSegmentKiller;
 import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMediumFactory;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.JUnit5Matchers;
 import org.apache.druid.timeline.partition.BuildingHashBasedNumberedShardSpec;
 import org.apache.druid.timeline.partition.DimensionRangeBucketShardSpec;
 import org.apache.druid.timeline.partition.HashPartitionFunction;
 import org.easymock.EasyMock;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.joda.time.Duration;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -87,14 +84,14 @@ import static org.easymock.EasyMock.mock;
 
 public class ParallelIndexSupervisorTaskTest
 {
-  @RunWith(Parameterized.class)
+  @ParameterizedClass
+  @MethodSource("data")
   public static class CreateMergeIoConfigsTest
   {
     private static final int TOTAL_NUM_MERGE_TASKS = 10;
     private static final Function<List<PartitionLocation>, PartialSegmentMergeIOConfig>
         CREATE_PARTIAL_SEGMENT_MERGE_IO_CONFIG = PartialSegmentMergeIOConfig::new;
 
-    @Parameterized.Parameters(name = "count = {0}, partitionLocationType = {1}")
     public static Iterable<? extends Object[]> data()
     {
       // different scenarios for last (index = 10 - 1 = 9) partition:
@@ -136,10 +133,10 @@ public class ParallelIndexSupervisorTaskTest
       int maxPartitionSize = sortedPartitionSizes.get(sortedPartitionSizes.size() - 1);
       int partitionSizeRange = maxPartitionSize - minPartitionSize;
 
-      MatcherAssert.assertThat(
+      JUnit5Assertions.assertMatches(
           "partition sizes = " + actualPartitionSizes,
           partitionSizeRange,
-          Matchers.is(Matchers.both(Matchers.greaterThanOrEqualTo(0)).and(Matchers.lessThanOrEqualTo(1)))
+          JUnit5Matchers.is(JUnit5Matchers.both(JUnit5Matchers.greaterThanOrEqualTo(0)).and(JUnit5Matchers.lessThanOrEqualTo(1)))
       );
     }
 
@@ -216,14 +213,14 @@ public class ParallelIndexSupervisorTaskTest
                                                          .sorted()
                                                          .collect(Collectors.toList());
 
-      Assert.assertEquals(expectedIds, actualIds);
+      JUnit5Assertions.assertEquals(expectedIds, actualIds);
     }
   }
 
   public static class ConstructorTest
   {
-    @Rule
-    public ExpectedException expectedException = ExpectedException.none();
+    @RegisterExtension
+    public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
     @Test
     public void testFailToConstructWhenBothAppendToExistingAndForceGuaranteedRollupAreSet()
@@ -289,7 +286,7 @@ public class ParallelIndexSupervisorTaskTest
     public void testIsParallelModeFalse_nullTuningConfig()
     {
       InputSource inputSource = mock(InputSource.class);
-      Assert.assertFalse(ParallelIndexSupervisorTask.isParallelMode(inputSource, null));
+      JUnit5Assertions.assertFalse(ParallelIndexSupervisorTask.isParallelMode(inputSource, null));
     }
 
     @Test
@@ -304,9 +301,9 @@ public class ParallelIndexSupervisorTaskTest
       expect(tuningConfig.getMaxNumConcurrentSubTasks()).andReturn(0).andReturn(1).andReturn(2);
       EasyMock.replay(inputSource, tuningConfig);
 
-      Assert.assertFalse(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
-      Assert.assertTrue(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
-      Assert.assertTrue(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
+      JUnit5Assertions.assertFalse(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
+      JUnit5Assertions.assertTrue(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
+      JUnit5Assertions.assertTrue(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
     }
 
     @Test
@@ -321,9 +318,9 @@ public class ParallelIndexSupervisorTaskTest
       expect(tuningConfig.getMaxNumConcurrentSubTasks()).andReturn(1).andReturn(2).andReturn(3);
       EasyMock.replay(inputSource, tuningConfig);
 
-      Assert.assertFalse(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
-      Assert.assertTrue(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
-      Assert.assertTrue(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
+      JUnit5Assertions.assertFalse(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
+      JUnit5Assertions.assertTrue(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
+      JUnit5Assertions.assertTrue(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
     }
 
     @Test
@@ -338,7 +335,7 @@ public class ParallelIndexSupervisorTaskTest
       expect(tuningConfig.getMaxNumConcurrentSubTasks()).andReturn(3);
       EasyMock.replay(inputSource, tuningConfig);
 
-      Assert.assertFalse(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
+      JUnit5Assertions.assertFalse(ParallelIndexSupervisorTask.isParallelMode(inputSource, tuningConfig));
     }
 
     @Test
@@ -367,7 +364,7 @@ public class ParallelIndexSupervisorTaskTest
 
       Map<ParallelIndexSupervisorTask.Partition, List<PartitionLocation>> partitionToLocations
           = ParallelIndexSupervisorTask.getPartitionToLocations(taskIdToReport);
-      Assert.assertEquals(6, partitionToLocations.size());
+      JUnit5Assertions.assertEquals(6, partitionToLocations.size());
 
       // Verify that partitionIds are packed and in the same order as bucketIds
       verifyPartitionIdAndLocations(day1, 0, partitionToLocations,
@@ -395,7 +392,7 @@ public class ParallelIndexSupervisorTaskTest
       expect(client.taskReportAsMap(taskId)).andReturn(Futures.immediateFuture(report));
       EasyMock.replay(client);
 
-      Assert.assertEquals(report, ParallelIndexSupervisorTask.getTaskReport(client, taskId));
+      JUnit5Assertions.assertEquals(report, ParallelIndexSupervisorTask.getTaskReport(client, taskId));
       EasyMock.verify(client);
     }
 
@@ -417,7 +414,7 @@ public class ParallelIndexSupervisorTaskTest
       );
       EasyMock.replay(client);
 
-      Assert.assertNull(ParallelIndexSupervisorTask.getTaskReport(client, taskId));
+      JUnit5Assertions.assertNull(ParallelIndexSupervisorTask.getTaskReport(client, taskId));
       EasyMock.verify(client, response);
     }
 
@@ -439,15 +436,15 @@ public class ParallelIndexSupervisorTaskTest
       );
       EasyMock.replay(client);
 
-      final ExecutionException e = Assert.assertThrows(
+      final ExecutionException e = JUnit5Assertions.assertThrows(
           ExecutionException.class,
           () -> ParallelIndexSupervisorTask.getTaskReport(client, taskId)
       );
 
-      MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(HttpResponseException.class));
-      MatcherAssert.assertThat(
+      JUnit5Assertions.assertMatches(e.getCause(), JUnit5Matchers.instanceOf(HttpResponseException.class));
+      JUnit5Assertions.assertMatches(
           e.getCause(),
-          ThrowableMessageMatcher.hasMessage(CoreMatchers.containsString("Server error [403 Forbidden]"))
+          JUnit5Matchers.hasMessage(JUnit5Matchers.containsString("Server error [403 Forbidden]"))
       );
 
       EasyMock.verify(client, response);
@@ -717,19 +714,19 @@ public class ParallelIndexSupervisorTaskTest
       final ParallelIndexSupervisorTask.Partition partition
           = new ParallelIndexSupervisorTask.Partition(interval, bucketId);
       List<PartitionLocation> locations = partitionToLocations.get(partition);
-      Assert.assertEquals(expectedTaskIds.length, locations.size());
+      JUnit5Assertions.assertEquals(expectedTaskIds.length, locations.size());
 
       final Set<String> observedTaskIds = new HashSet<>();
       for (PartitionLocation location : locations) {
-        Assert.assertEquals(bucketId, location.getBucketId());
-        Assert.assertEquals(interval, location.getInterval());
-        Assert.assertEquals(expectedPartitionId, location.getShardSpec().getPartitionNum());
+        JUnit5Assertions.assertEquals(bucketId, location.getBucketId());
+        JUnit5Assertions.assertEquals(interval, location.getInterval());
+        JUnit5Assertions.assertEquals(expectedPartitionId, location.getShardSpec().getPartitionNum());
 
         observedTaskIds.add(location.getSubTaskId());
       }
 
       // Verify the taskIds of the locations
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           new HashSet<>(Arrays.asList(expectedTaskIds)),
           observedTaskIds
       );

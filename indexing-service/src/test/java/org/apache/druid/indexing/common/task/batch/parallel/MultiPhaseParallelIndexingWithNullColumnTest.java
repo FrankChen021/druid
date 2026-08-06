@@ -55,14 +55,15 @@ import org.apache.druid.java.util.common.parsers.JSONPathFieldSpec;
 import org.apache.druid.java.util.common.parsers.JSONPathFieldType;
 import org.apache.druid.java.util.common.parsers.JSONPathSpec;
 import org.apache.druid.segment.indexing.DataSchema;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -75,7 +76,8 @@ import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+@MethodSource("constructorFeeder")
 public class MultiPhaseParallelIndexingWithNullColumnTest extends AbstractMultiPhaseParallelIndexingTest
 {
   private static final TimestampSpec TIMESTAMP_SPEC = new TimestampSpec("ts", "auto", null);
@@ -85,7 +87,6 @@ public class MultiPhaseParallelIndexingWithNullColumnTest extends AbstractMultiP
   private static final InputFormat JSON_FORMAT = new JsonInputFormat(null, null, null, null, null);
   private static final List<Interval> INTERVAL_TO_INDEX = Collections.singletonList(Intervals.of("2022-01/P1M"));
 
-  @Parameterized.Parameters
   public static Iterable<Object[]> constructorFeeder()
   {
     return ImmutableList.of(
@@ -155,14 +156,14 @@ public class MultiPhaseParallelIndexingWithNullColumnTest extends AbstractMultiP
         null
     );
 
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
 
     Set<DataSegment> segments = getIndexingServiceClient().getSegmentAndSchemas(task).getSegments();
-    Assert.assertFalse(segments.isEmpty());
+    JUnit5Assertions.assertFalse(segments.isEmpty());
     for (DataSegment segment : segments) {
-      Assert.assertEquals(dimensionSchemas.size(), segment.getDimensions().size());
+      JUnit5Assertions.assertEquals(dimensionSchemas.size(), segment.getDimensions().size());
       for (int i = 0; i < dimensionSchemas.size(); i++) {
-        Assert.assertEquals(dimensionSchemas.get(i).getName(), segment.getDimensions().get(i));
+        JUnit5Assertions.assertEquals(dimensionSchemas.get(i).getName(), segment.getDimensions().get(i));
       }
     }
   }
@@ -214,18 +215,18 @@ public class MultiPhaseParallelIndexingWithNullColumnTest extends AbstractMultiP
         null
     );
 
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
 
     Set<DataSegment> segments = getIndexingServiceClient().getSegmentAndSchemas(task).getSegments();
-    Assert.assertFalse(segments.isEmpty());
+    JUnit5Assertions.assertFalse(segments.isEmpty());
     final List<String> expectedExplicitDimensions = ImmutableList.of("ts", "unknownDim", "dim1");
     final Set<String> expectedImplicitDimensions = ImmutableSet.of("dim2", "dim3");
     for (DataSegment segment : segments) {
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           expectedExplicitDimensions,
           segment.getDimensions().subList(0, expectedExplicitDimensions.size())
       );
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           expectedImplicitDimensions,
           new HashSet<>(segment.getDimensions().subList(expectedExplicitDimensions.size(), segment.getDimensions().size()))
       );
@@ -283,18 +284,18 @@ public class MultiPhaseParallelIndexingWithNullColumnTest extends AbstractMultiP
         null
     );
 
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
 
     Set<DataSegment> segments = getIndexingServiceClient().getSegmentAndSchemas(task).getSegments();
-    Assert.assertFalse(segments.isEmpty());
+    JUnit5Assertions.assertFalse(segments.isEmpty());
     final List<String> expectedExplicitDimensions = ImmutableList.of("dim1", "k");
     final Set<String> expectedImplicitDimensions = ImmutableSet.of("dim2", "dim3");
     for (DataSegment segment : segments) {
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           expectedExplicitDimensions,
           segment.getDimensions().subList(0, expectedExplicitDimensions.size())
       );
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           expectedImplicitDimensions,
           new HashSet<>(segment.getDimensions().subList(expectedExplicitDimensions.size(), segment.getDimensions().size()))
       );
@@ -343,17 +344,17 @@ public class MultiPhaseParallelIndexingWithNullColumnTest extends AbstractMultiP
     );
 
     task.addToContext(Tasks.STORE_EMPTY_COLUMNS_KEY, false);
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
 
     Set<DataSegment> segments = getIndexingServiceClient().getSegmentAndSchemas(task).getSegments();
-    Assert.assertFalse(segments.isEmpty());
+    JUnit5Assertions.assertFalse(segments.isEmpty());
     final List<DimensionSchema> expectedDimensions = DimensionsSpec.getDefaultSchemas(
         Collections.singletonList("ts")
     );
     for (DataSegment segment : segments) {
-      Assert.assertEquals(expectedDimensions.size(), segment.getDimensions().size());
+      JUnit5Assertions.assertEquals(expectedDimensions.size(), segment.getDimensions().size());
       for (int i = 0; i < expectedDimensions.size(); i++) {
-        Assert.assertEquals(expectedDimensions.get(i).getName(), segment.getDimensions().get(i));
+        JUnit5Assertions.assertEquals(expectedDimensions.get(i).getName(), segment.getDimensions().get(i));
       }
     }
   }

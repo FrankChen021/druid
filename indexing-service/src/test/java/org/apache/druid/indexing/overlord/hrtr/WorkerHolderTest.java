@@ -32,9 +32,9 @@ import org.apache.druid.indexing.worker.config.WorkerConfig;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.server.coordination.ChangeRequestHttpSyncer;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.EasyMock;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -90,8 +90,8 @@ public class WorkerHolderTest
 
     ChangeRequestHttpSyncer.Listener<WorkerHistoryItem> syncListener = workerHolder.createSyncListener();
 
-    Assert.assertFalse(workerHolder.isEnabled());
-    Assert.assertFalse(workerHolder.isInitialized());
+    JUnit5Assertions.assertFalse(workerHolder.isEnabled());
+    JUnit5Assertions.assertFalse(workerHolder.isInitialized());
 
     syncListener.fullSync(
         ImmutableList.of(
@@ -114,23 +114,23 @@ public class WorkerHolderTest
         )
     );
 
-    Assert.assertTrue(workerHolder.isEnabled());
+    JUnit5Assertions.assertTrue(workerHolder.isEnabled());
 
-    Assert.assertEquals(4, updates.size());
+    JUnit5Assertions.assertEquals(4, updates.size());
 
-    Assert.assertEquals(task1.getId(), updates.get(0).getTaskId());
-    Assert.assertTrue(updates.get(0).getTaskStatus().isSuccess());
+    JUnit5Assertions.assertEquals(task1.getId(), updates.get(0).getTaskId());
+    JUnit5Assertions.assertTrue(updates.get(0).getTaskStatus().isSuccess());
 
-    Assert.assertEquals(task2.getId(), updates.get(1).getTaskId());
-    Assert.assertTrue(updates.get(1).getTaskStatus().isRunnable());
+    JUnit5Assertions.assertEquals(task2.getId(), updates.get(1).getTaskId());
+    JUnit5Assertions.assertTrue(updates.get(1).getTaskStatus().isRunnable());
 
-    Assert.assertEquals(task3.getId(), updates.get(2).getTaskId());
-    Assert.assertTrue(updates.get(2).getTaskStatus().isRunnable());
+    JUnit5Assertions.assertEquals(task3.getId(), updates.get(2).getTaskId());
+    JUnit5Assertions.assertTrue(updates.get(2).getTaskStatus().isRunnable());
 
-    Assert.assertEquals(task0.getId(), updates.get(3).getTaskId());
-    Assert.assertTrue(updates.get(3).getTaskStatus().isFailure());
-    Assert.assertNotNull(updates.get(3).getTaskStatus().getErrorMsg());
-    Assert.assertTrue(
+    JUnit5Assertions.assertEquals(task0.getId(), updates.get(3).getTaskId());
+    JUnit5Assertions.assertTrue(updates.get(3).getTaskStatus().isFailure());
+    JUnit5Assertions.assertNotNull(updates.get(3).getTaskStatus().getErrorMsg());
+    JUnit5Assertions.assertTrue(
         updates.get(3).getTaskStatus().getErrorMsg().startsWith(
             "This task disappeared on the worker where it was assigned"
         )
@@ -153,20 +153,20 @@ public class WorkerHolderTest
         )
     );
 
-    Assert.assertTrue(workerHolder.isEnabled());
-    Assert.assertEquals(2, updates.size());
+    JUnit5Assertions.assertTrue(workerHolder.isEnabled());
+    JUnit5Assertions.assertEquals(2, updates.size());
 
-    Assert.assertEquals(task2.getId(), updates.get(0).getTaskId());
-    Assert.assertTrue(updates.get(0).getTaskStatus().isFailure());
-    Assert.assertNotNull(updates.get(0).getTaskStatus().getErrorMsg());
-    Assert.assertTrue(
+    JUnit5Assertions.assertEquals(task2.getId(), updates.get(0).getTaskId());
+    JUnit5Assertions.assertTrue(updates.get(0).getTaskStatus().isFailure());
+    JUnit5Assertions.assertNotNull(updates.get(0).getTaskStatus().getErrorMsg());
+    JUnit5Assertions.assertTrue(
         updates.get(0).getTaskStatus().getErrorMsg().startsWith(
             "This task disappeared on the worker where it was assigned"
         )
     );
 
-    Assert.assertEquals(task3.getId(), updates.get(1).getTaskId());
-    Assert.assertTrue(updates.get(1).getTaskStatus().isRunnable());
+    JUnit5Assertions.assertEquals(task3.getId(), updates.get(1).getTaskId());
+    JUnit5Assertions.assertTrue(updates.get(1).getTaskStatus().isRunnable());
 
     updates.clear();
 
@@ -191,18 +191,18 @@ public class WorkerHolderTest
         )
     );
 
-    Assert.assertFalse(workerHolder.isEnabled());
+    JUnit5Assertions.assertFalse(workerHolder.isEnabled());
 
-    Assert.assertEquals(3, updates.size());
+    JUnit5Assertions.assertEquals(3, updates.size());
 
-    Assert.assertEquals(task1.getId(), updates.get(0).getTaskId());
-    Assert.assertTrue(updates.get(0).getTaskStatus().isSuccess());
+    JUnit5Assertions.assertEquals(task1.getId(), updates.get(0).getTaskId());
+    JUnit5Assertions.assertTrue(updates.get(0).getTaskStatus().isSuccess());
 
-    Assert.assertEquals(task2.getId(), updates.get(1).getTaskId());
-    Assert.assertTrue(updates.get(1).getTaskStatus().isRunnable());
+    JUnit5Assertions.assertEquals(task2.getId(), updates.get(1).getTaskId());
+    JUnit5Assertions.assertTrue(updates.get(1).getTaskStatus().isRunnable());
 
-    Assert.assertEquals(task3.getId(), updates.get(2).getTaskId());
-    Assert.assertTrue(updates.get(2).getTaskStatus().isRunnable());
+    JUnit5Assertions.assertEquals(task3.getId(), updates.get(2).getTaskId());
+    JUnit5Assertions.assertTrue(updates.get(2).getTaskStatus().isRunnable());
 
     updates.clear();
   }

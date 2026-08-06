@@ -27,9 +27,9 @@ import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.partition.NumberedPartialShardSpec;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Map;
@@ -66,14 +66,14 @@ public class SegmentAllocateActionSerdeTest
         TaskAction.class
     );
 
-    Assert.assertEquals(target.getDataSource(), fromJson.getDataSource());
-    Assert.assertEquals(target.getTimestamp(), fromJson.getTimestamp());
-    Assert.assertEquals(target.getQueryGranularity(), fromJson.getQueryGranularity());
-    Assert.assertEquals(target.getPreferredSegmentGranularity(), fromJson.getPreferredSegmentGranularity());
-    Assert.assertEquals(target.getSequenceName(), fromJson.getSequenceName());
-    Assert.assertEquals(target.getPreviousSegmentId(), fromJson.getPreviousSegmentId());
-    Assert.assertEquals(target.isSkipSegmentLineageCheck(), fromJson.isSkipSegmentLineageCheck());
-    Assert.assertEquals(TaskLockType.EXCLUSIVE, target.getTaskLockType());
+    JUnit5Assertions.assertEquals(target.getDataSource(), fromJson.getDataSource());
+    JUnit5Assertions.assertEquals(target.getTimestamp(), fromJson.getTimestamp());
+    JUnit5Assertions.assertEquals(target.getQueryGranularity(), fromJson.getQueryGranularity());
+    JUnit5Assertions.assertEquals(target.getPreferredSegmentGranularity(), fromJson.getPreferredSegmentGranularity());
+    JUnit5Assertions.assertEquals(target.getSequenceName(), fromJson.getSequenceName());
+    JUnit5Assertions.assertEquals(target.getPreviousSegmentId(), fromJson.getPreviousSegmentId());
+    JUnit5Assertions.assertEquals(target.isSkipSegmentLineageCheck(), fromJson.isSkipSegmentLineageCheck());
+    JUnit5Assertions.assertEquals(TaskLockType.EXCLUSIVE, target.getTaskLockType());
   }
 
   @Test
@@ -84,23 +84,23 @@ public class SegmentAllocateActionSerdeTest
         Map.class
     );
 
-    Assert.assertEquals(11, fromJson.size());
-    Assert.assertEquals(SegmentAllocateAction.TYPE, fromJson.get("type"));
-    Assert.assertEquals(target.getDataSource(), fromJson.get("dataSource"));
-    Assert.assertEquals(target.getTimestamp(), DateTimes.of((String) fromJson.get("timestamp")));
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(11, fromJson.size());
+    JUnit5Assertions.assertEquals(SegmentAllocateAction.TYPE, fromJson.get("type"));
+    JUnit5Assertions.assertEquals(target.getDataSource(), fromJson.get("dataSource"));
+    JUnit5Assertions.assertEquals(target.getTimestamp(), DateTimes.of((String) fromJson.get("timestamp")));
+    JUnit5Assertions.assertEquals(
         target.getQueryGranularity(),
         Granularity.fromString((String) fromJson.get("queryGranularity"))
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         target.getPreferredSegmentGranularity(),
         Granularity.fromString((String) fromJson.get("preferredSegmentGranularity"))
     );
-    Assert.assertEquals(target.getSequenceName(), fromJson.get("sequenceName"));
-    Assert.assertEquals(target.getPreviousSegmentId(), fromJson.get("previousSegmentId"));
-    Assert.assertEquals(target.isSkipSegmentLineageCheck(), fromJson.get("skipSegmentLineageCheck"));
-    Assert.assertEquals(ImmutableMap.of("type", "numbered"), fromJson.get("shardSpecFactory"));
-    Assert.assertEquals(target.getLockGranularity(), LockGranularity.valueOf((String) fromJson.get("lockGranularity")));
-    Assert.assertEquals(target.getTaskLockType(), TaskLockType.valueOf((String) fromJson.get("taskLockType")));
+    JUnit5Assertions.assertEquals(target.getSequenceName(), fromJson.get("sequenceName"));
+    JUnit5Assertions.assertEquals(target.getPreviousSegmentId(), fromJson.get("previousSegmentId"));
+    JUnit5Assertions.assertEquals(target.isSkipSegmentLineageCheck(), fromJson.get("skipSegmentLineageCheck"));
+    JUnit5Assertions.assertEquals(ImmutableMap.of("type", "numbered"), fromJson.get("shardSpecFactory"));
+    JUnit5Assertions.assertEquals(target.getLockGranularity(), LockGranularity.valueOf((String) fromJson.get("lockGranularity")));
+    JUnit5Assertions.assertEquals(target.getTaskLockType(), TaskLockType.valueOf((String) fromJson.get("taskLockType")));
   }
 }

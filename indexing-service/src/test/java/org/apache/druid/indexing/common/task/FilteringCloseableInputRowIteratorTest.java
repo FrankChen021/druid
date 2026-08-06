@@ -32,10 +32,11 @@ import org.apache.druid.segment.incremental.InputRowFilterResult;
 import org.apache.druid.segment.incremental.ParseExceptionHandler;
 import org.apache.druid.segment.incremental.RowIngestionMeters;
 import org.apache.druid.segment.incremental.SimpleRowIngestionMeters;
+import org.apache.druid.testing.junit5.ExpectedToThrow;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.joda.time.DateTime;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
@@ -62,7 +63,7 @@ public class FilteringCloseableInputRowIteratorTest
   private RowIngestionMeters rowIngestionMeters;
   private ParseExceptionHandler parseExceptionHandler;
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     rowIngestionMeters = new SimpleRowIngestionMeters();
@@ -86,11 +87,11 @@ public class FilteringCloseableInputRowIteratorTest
     );
     final List<InputRow> filteredRows = new ArrayList<>();
     rowIterator.forEachRemaining(filteredRows::add);
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ROWS.stream().filter(filter).collect(Collectors.toList()),
         filteredRows
     );
-    Assert.assertEquals(2, rowIngestionMeters.getThrownAway());
+    JUnit5Assertions.assertEquals(2, rowIngestionMeters.getThrownAway());
   }
 
   @Test
@@ -134,8 +135,8 @@ public class FilteringCloseableInputRowIteratorTest
 
     final List<InputRow> filteredRows = new ArrayList<>();
     rowIterator.forEachRemaining(filteredRows::add);
-    Assert.assertEquals(ROWS, filteredRows);
-    Assert.assertEquals(ROWS.size(), rowIngestionMeters.getUnparseable());
+    JUnit5Assertions.assertEquals(ROWS, filteredRows);
+    JUnit5Assertions.assertEquals(ROWS.size(), rowIngestionMeters.getUnparseable());
   }
 
   @Test
@@ -177,8 +178,8 @@ public class FilteringCloseableInputRowIteratorTest
         ROWS.get(2),
         ROWS.get(4)
     );
-    Assert.assertEquals(expectedRows, filteredRows);
-    Assert.assertEquals(ROWS.size() - expectedRows.size(), rowIngestionMeters.getUnparseable());
+    JUnit5Assertions.assertEquals(expectedRows, filteredRows);
+    JUnit5Assertions.assertEquals(ROWS.size() - expectedRows.size(), rowIngestionMeters.getUnparseable());
   }
 
   @Test
@@ -223,11 +224,12 @@ public class FilteringCloseableInputRowIteratorTest
 
     final List<InputRow> filteredRows = new ArrayList<>();
     rowIterator.forEachRemaining(filteredRows::add);
-    Assert.assertEquals(ROWS, filteredRows);
-    Assert.assertEquals(ROWS.size(), rowIngestionMeters.getUnparseable());
+    JUnit5Assertions.assertEquals(ROWS, filteredRows);
+    JUnit5Assertions.assertEquals(ROWS.size(), rowIngestionMeters.getUnparseable());
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
+  @ExpectedToThrow(RuntimeException.class)
   public void testNonParseExceptionInDelegateHasNext()
   {
     // This iterator throws ParseException every other call to hasNext().
@@ -270,7 +272,7 @@ public class FilteringCloseableInputRowIteratorTest
     while (rowIterator.hasNext()) {
       rowIterator.next();
     }
-    Assert.fail("you never should have come here");
+    JUnit5Assertions.fail("you never should have come here");
   }
 
   @Test
@@ -288,7 +290,7 @@ public class FilteringCloseableInputRowIteratorTest
         parseExceptionHandler
     );
     rowIterator.close();
-    Assert.assertTrue(closed.isTrue());
+    JUnit5Assertions.assertTrue(closed.isTrue());
   }
 
   @Test
@@ -342,13 +344,13 @@ public class FilteringCloseableInputRowIteratorTest
     ArgumentCaptor<Exception> exceptionArgumentCaptor = ArgumentCaptor.forClass(Exception.class);
     Mockito.verify(parseExceptionHandler, Mockito.times(6)).logParseExceptionHelper(exceptionArgumentCaptor.capture());
     Exception parseException = exceptionArgumentCaptor.getValue();
-    Assert.assertTrue(parseException.getMessage().contains("Parse exception at"));
-    Assert.assertNotNull(parseException.getCause());
-    Assert.assertTrue(parseException.getCause().getMessage().contains("this is the root cause of the exception!"));
-    Assert.assertEquals(IllegalArgumentException.class, parseException.getCause().getClass());
+    JUnit5Assertions.assertTrue(parseException.getMessage().contains("Parse exception at"));
+    JUnit5Assertions.assertNotNull(parseException.getCause());
+    JUnit5Assertions.assertTrue(parseException.getCause().getMessage().contains("this is the root cause of the exception!"));
+    JUnit5Assertions.assertEquals(IllegalArgumentException.class, parseException.getCause().getClass());
 
-    Assert.assertEquals(ROWS, filteredRows);
-    Assert.assertEquals(ROWS.size(), rowIngestionMeters.getUnparseable());
+    JUnit5Assertions.assertEquals(ROWS, filteredRows);
+    JUnit5Assertions.assertEquals(ROWS.size(), rowIngestionMeters.getUnparseable());
   }
 
 
@@ -378,19 +380,19 @@ public class FilteringCloseableInputRowIteratorTest
     rowIterator.forEachRemaining(filteredRows::add);
 
     // Only rows with dim1=10 should pass
-    Assert.assertEquals(4, filteredRows.size());
+    JUnit5Assertions.assertEquals(4, filteredRows.size());
     for (InputRow row : filteredRows) {
-      Assert.assertEquals(10, row.getRaw("dim1"));
+      JUnit5Assertions.assertEquals(10, row.getRaw("dim1"));
     }
 
     // Check total thrown away
-    Assert.assertEquals(2, rowIngestionMeters.getThrownAway());
+    JUnit5Assertions.assertEquals(2, rowIngestionMeters.getThrownAway());
 
     // Check per-reason counts
     Map<String, Long> byReason = rowIngestionMeters.getThrownAwayByReason();
-    Assert.assertEquals(2, byReason.size());
-    Assert.assertEquals(Long.valueOf(1), byReason.get(InputRowFilterResult.BEFORE_MIN_MESSAGE_TIME.getReason())); // dim1=20
-    Assert.assertEquals(Long.valueOf(1), byReason.get(InputRowFilterResult.CUSTOM_FILTER.getReason())); // dim1=30
+    JUnit5Assertions.assertEquals(2, byReason.size());
+    JUnit5Assertions.assertEquals(Long.valueOf(1), byReason.get(InputRowFilterResult.BEFORE_MIN_MESSAGE_TIME.getReason())); // dim1=20
+    JUnit5Assertions.assertEquals(Long.valueOf(1), byReason.get(InputRowFilterResult.CUSTOM_FILTER.getReason())); // dim1=30
   }
 
   @Test
@@ -410,13 +412,13 @@ public class FilteringCloseableInputRowIteratorTest
     final List<InputRow> filteredRows = new ArrayList<>();
     rowIterator.forEachRemaining(filteredRows::add);
 
-    Assert.assertEquals(4, filteredRows.size());
-    Assert.assertEquals(2, rowIngestionMeters.getThrownAway());
+    JUnit5Assertions.assertEquals(4, filteredRows.size());
+    JUnit5Assertions.assertEquals(2, rowIngestionMeters.getThrownAway());
 
     // All thrown away should have FILTERED reason when using fromPredicate
     Map<String, Long> byReason = rowIngestionMeters.getThrownAwayByReason();
-    Assert.assertEquals(1, byReason.size());
-    Assert.assertEquals(Long.valueOf(2), byReason.get(InputRowFilterResult.CUSTOM_FILTER.getReason()));
+    JUnit5Assertions.assertEquals(1, byReason.size());
+    JUnit5Assertions.assertEquals(Long.valueOf(2), byReason.get(InputRowFilterResult.CUSTOM_FILTER.getReason()));
   }
 
   @Test
@@ -441,12 +443,12 @@ public class FilteringCloseableInputRowIteratorTest
     final List<InputRow> filteredRows = new ArrayList<>();
     rowIterator.forEachRemaining(filteredRows::add);
 
-    Assert.assertEquals(4, filteredRows.size());
-    Assert.assertEquals(2, rowIngestionMeters.getThrownAway());
+    JUnit5Assertions.assertEquals(4, filteredRows.size());
+    JUnit5Assertions.assertEquals(2, rowIngestionMeters.getThrownAway());
 
     // All rejected rows should have FILTERED reason (from second filter)
     Map<String, Long> byReason = rowIngestionMeters.getThrownAwayByReason();
-    Assert.assertEquals(Long.valueOf(2), byReason.get(InputRowFilterResult.CUSTOM_FILTER.getReason()));
+    JUnit5Assertions.assertEquals(Long.valueOf(2), byReason.get(InputRowFilterResult.CUSTOM_FILTER.getReason()));
   }
 
   private static InputRow newRow(DateTime timestamp, Object dim1Val, Object dim2Val)

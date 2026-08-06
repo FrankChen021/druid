@@ -30,11 +30,11 @@ import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.segment.IndexSpec;
 import org.apache.druid.segment.data.CompressionStrategy;
 import org.apache.druid.segment.indexing.TuningConfig;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -43,10 +43,10 @@ public class ParallelIndexTuningConfigTest
 {
   private final ObjectMapper mapper = new DefaultObjectMapper();
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     mapper.registerSubtypes(new NamedType(ParallelIndexTuningConfig.class, "index_parallel"));
@@ -145,7 +145,7 @@ public class ParallelIndexTuningConfigTest
     final byte[] json = mapper.writeValueAsBytes(tuningConfig);
     final ParallelIndexTuningConfig fromJson =
         (ParallelIndexTuningConfig) mapper.readValue(json, TuningConfig.class);
-    Assert.assertEquals(fromJson, tuningConfig);
+    JUnit5Assertions.assertEquals(fromJson, tuningConfig);
   }
 
   @Test

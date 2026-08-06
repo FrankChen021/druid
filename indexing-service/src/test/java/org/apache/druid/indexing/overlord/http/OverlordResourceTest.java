@@ -73,6 +73,8 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
@@ -81,17 +83,16 @@ import org.joda.time.Duration;
 import org.joda.time.Interval;
 import org.joda.time.Period;
 import org.joda.time.chrono.ISOChronology;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -117,10 +118,10 @@ public class OverlordResourceTest
   private WorkerTaskRunnerQueryAdapter workerTaskRunnerQueryAdapter;
   private AuditManager auditManager;
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     taskRunner = EasyMock.createMock(TaskRunner.class);
@@ -193,7 +194,7 @@ public class OverlordResourceTest
     );
   }
 
-  @After
+  @AfterEach
   public void tearDown()
   {
     EasyMock.verify(
@@ -233,8 +234,8 @@ public class OverlordResourceTest
     replayAll();
 
     final Response response = overlordResource.getLeader();
-    Assert.assertEquals("boz", response.getEntity());
-    Assert.assertEquals(200, response.getStatus());
+    JUnit5Assertions.assertEquals(response.getEntity(), "boz");
+    JUnit5Assertions.assertEquals(200, response.getStatus());
   }
 
   @Test
@@ -246,13 +247,13 @@ public class OverlordResourceTest
 
     // true
     final Response response1 = overlordResource.isLeader();
-    Assert.assertEquals(ImmutableMap.of("leader", true), response1.getEntity());
-    Assert.assertEquals(200, response1.getStatus());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("leader", true), response1.getEntity());
+    JUnit5Assertions.assertEquals(200, response1.getStatus());
 
     // false
     final Response response2 = overlordResource.isLeader();
-    Assert.assertEquals(ImmutableMap.of("leader", false), response2.getEntity());
-    Assert.assertEquals(404, response2.getStatus());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("leader", false), response2.getEntity());
+    JUnit5Assertions.assertEquals(404, response2.getStatus());
   }
 
   @Test
@@ -284,8 +285,8 @@ public class OverlordResourceTest
 
     List<TaskStatusPlus> responseObjects = (List<TaskStatusPlus>) overlordResource.getWaitingTasks(req)
                                                                                   .getEntity();
-    Assert.assertEquals(1, responseObjects.size());
-    Assert.assertEquals("id_2", responseObjects.get(0).getId());
+    JUnit5Assertions.assertEquals(1, responseObjects.size());
+    JUnit5Assertions.assertEquals(responseObjects.get(0).getId(), "id_2");
   }
 
   @Test
@@ -309,9 +310,9 @@ public class OverlordResourceTest
     List<TaskStatusPlus> responseObjects = (List) overlordResource
         .getCompleteTasks(null, req).getEntity();
 
-    Assert.assertEquals(2, responseObjects.size());
-    Assert.assertEquals(tasksIds.get(1), responseObjects.get(0).getId());
-    Assert.assertEquals(tasksIds.get(2), responseObjects.get(1).getId());
+    JUnit5Assertions.assertEquals(2, responseObjects.size());
+    JUnit5Assertions.assertEquals(tasksIds.get(1), responseObjects.get(0).getId());
+    JUnit5Assertions.assertEquals(tasksIds.get(2), responseObjects.get(1).getId());
   }
 
   @Test
@@ -344,8 +345,8 @@ public class OverlordResourceTest
     List<TaskStatusPlus> responseObjects = (List) overlordResource.getRunningTasks(null, req)
                                                                   .getEntity();
 
-    Assert.assertEquals(1, responseObjects.size());
-    Assert.assertEquals(tasksIds.get(1), responseObjects.get(0).getId());
+    JUnit5Assertions.assertEquals(1, responseObjects.size());
+    JUnit5Assertions.assertEquals(tasksIds.get(1), responseObjects.get(0).getId());
   }
 
   @Test
@@ -364,8 +365,8 @@ public class OverlordResourceTest
     replayAll();
 
     final List<TaskStatusPlus> activeTasks = taskQueryTool.getAllActiveTasks();
-    Assert.assertEquals(2, activeTasks.size());
-    Assert.assertTrue(activeTasks.stream().allMatch(status -> status.getStatusCode().equals(TaskState.RUNNING)));
+    JUnit5Assertions.assertEquals(2, activeTasks.size());
+    JUnit5Assertions.assertTrue(activeTasks.stream().allMatch(status -> status.getStatusCode().equals(TaskState.RUNNING)));
   }
 
   @Test
@@ -405,7 +406,7 @@ public class OverlordResourceTest
     List<TaskStatusPlus> responseObjects = (List<TaskStatusPlus>) overlordResource
         .getTasks(null, null, null, null, null, req)
         .getEntity();
-    Assert.assertEquals(4, responseObjects.size());
+    JUnit5Assertions.assertEquals(4, responseObjects.size());
   }
 
   @Test
@@ -445,9 +446,9 @@ public class OverlordResourceTest
     List<TaskStatusPlus> responseObjects = (List<TaskStatusPlus>) overlordResource
         .getTasks(null, "allow", null, null, null, req)
         .getEntity();
-    Assert.assertEquals(7, responseObjects.size());
-    Assert.assertEquals("id_5", responseObjects.get(0).getId());
-    Assert.assertEquals("DataSource Check", "allow", responseObjects.get(0).getDataSource());
+    JUnit5Assertions.assertEquals(7, responseObjects.size());
+    JUnit5Assertions.assertEquals(responseObjects.get(0).getId(), "id_5");
+    JUnit5Assertions.assertEquals("allow", responseObjects.get(0).getDataSource(), "DataSource Check");
   }
 
   @Test
@@ -490,8 +491,8 @@ public class OverlordResourceTest
             null,
             req
         ).getEntity();
-    Assert.assertEquals(1, responseObjects.size());
-    Assert.assertEquals("id_2", responseObjects.get(0).getId());
+    JUnit5Assertions.assertEquals(1, responseObjects.size());
+    JUnit5Assertions.assertEquals(responseObjects.get(0).getId(), "id_2");
   }
 
   @Test
@@ -531,9 +532,9 @@ public class OverlordResourceTest
         .getTasks("running", "allow", null, null, null, req)
         .getEntity();
 
-    Assert.assertEquals(2, responseObjects.size());
-    Assert.assertEquals(tasksIds.get(0), responseObjects.get(0).getId());
-    Assert.assertEquals("DataSource Check", "allow", responseObjects.get(0).getDataSource());
+    JUnit5Assertions.assertEquals(2, responseObjects.size());
+    JUnit5Assertions.assertEquals(tasksIds.get(0), responseObjects.get(0).getId());
+    JUnit5Assertions.assertEquals("allow", responseObjects.get(0).getDataSource(), "DataSource Check");
   }
 
   @Test
@@ -573,9 +574,9 @@ public class OverlordResourceTest
         .getTasks("pending", null, null, null, null, req)
         .getEntity();
 
-    Assert.assertEquals(1, responseObjects.size());
-    Assert.assertEquals(tasksIds.get(1), responseObjects.get(0).getId());
-    Assert.assertEquals("DataSource Check", "allow", responseObjects.get(0).getDataSource());
+    JUnit5Assertions.assertEquals(1, responseObjects.size());
+    JUnit5Assertions.assertEquals(tasksIds.get(1), responseObjects.get(0).getId());
+    JUnit5Assertions.assertEquals("allow", responseObjects.get(0).getDataSource(), "DataSource Check");
   }
 
   @Test
@@ -599,9 +600,9 @@ public class OverlordResourceTest
     List<TaskStatusPlus> responseObjects = (List<TaskStatusPlus>) overlordResource
         .getTasks("complete", null, null, null, null, req)
         .getEntity();
-    Assert.assertEquals(2, responseObjects.size());
-    Assert.assertEquals("id_1", responseObjects.get(0).getId());
-    Assert.assertTrue("DataSource Check", "allow".equals(responseObjects.get(0).getDataSource()));
+    JUnit5Assertions.assertEquals(2, responseObjects.size());
+    JUnit5Assertions.assertEquals(responseObjects.get(0).getId(), "id_1");
+    JUnit5Assertions.assertTrue("allow".equals(responseObjects.get(0).getDataSource()), "DataSource Check");
   }
 
   @Test
@@ -628,9 +629,9 @@ public class OverlordResourceTest
     List<TaskStatusPlus> responseObjects = (List<TaskStatusPlus>) overlordResource
         .getTasks("complete", null, interval, null, null, req)
         .getEntity();
-    Assert.assertEquals(2, responseObjects.size());
-    Assert.assertEquals("id_2", responseObjects.get(0).getId());
-    Assert.assertEquals("DataSource Check", "allow", responseObjects.get(0).getDataSource());
+    JUnit5Assertions.assertEquals(2, responseObjects.size());
+    JUnit5Assertions.assertEquals(responseObjects.get(0).getId(), "id_2");
+    JUnit5Assertions.assertEquals("allow", responseObjects.get(0).getDataSource(), "DataSource Check");
   }
 
   @Test
@@ -676,9 +677,9 @@ public class OverlordResourceTest
     List<TaskStatusPlus> responseObjects = (List<TaskStatusPlus>) overlordResource
         .getTasks(null, null, null, null, null, req)
         .getEntity();
-    Assert.assertEquals(2, responseObjects.size());
+    JUnit5Assertions.assertEquals(2, responseObjects.size());
     for (TaskStatusPlus taskStatus : responseObjects) {
-      Assert.assertEquals(Datasources.WIKIPEDIA, taskStatus.getDataSource());
+      JUnit5Assertions.assertEquals(Datasources.WIKIPEDIA, taskStatus.getDataSource());
     }
   }
 
@@ -724,9 +725,9 @@ public class OverlordResourceTest
     List<TaskStatusPlus> responseObjects = (List<TaskStatusPlus>) overlordResource
         .getTasks(null, null, null, null, "to-return", req)
         .getEntity();
-    Assert.assertEquals(1, responseObjects.size());
+    JUnit5Assertions.assertEquals(1, responseObjects.size());
     for (TaskStatusPlus taskStatus : responseObjects) {
-      Assert.assertEquals("to-return", taskStatus.getType());
+      JUnit5Assertions.assertEquals(taskStatus.getType(), "to-return");
     }
   }
 
@@ -740,7 +741,7 @@ public class OverlordResourceTest
     replayAll();
 
     // Verify that only the tasks of read access datasource are returned
-    Assert.assertThrows(
+    JUnit5Assertions.assertThrows(
         WebApplicationException.class,
         () -> overlordResource.getTasks(null, Datasources.BUZZFEED, null, null, null, req)
     );
@@ -770,9 +771,9 @@ public class OverlordResourceTest
     List<TaskStatusPlus> responseObjects = (List<TaskStatusPlus>) overlordResource
         .getTasks("complete", null, null, null, null, req)
         .getEntity();
-    Assert.assertEquals(2, responseObjects.size());
-    Assert.assertEquals("id_1", responseObjects.get(0).getId());
-    Assert.assertEquals("DataSource Check", "allow", responseObjects.get(0).getDataSource());
+    JUnit5Assertions.assertEquals(2, responseObjects.size());
+    JUnit5Assertions.assertEquals(responseObjects.get(0).getId(), "id_1");
+    JUnit5Assertions.assertEquals("allow", responseObjects.get(0).getDataSource(), "DataSource Check");
   }
 
   @Test
@@ -783,10 +784,7 @@ public class OverlordResourceTest
     Object responseObject = overlordResource
         .getTasks("blah", "ds_test", null, null, null, req)
         .getEntity();
-    Assert.assertEquals(
-        "Invalid task state[blah]. Must be one of [pending, waiting, running, complete].",
-        responseObject.toString()
-    );
+    JUnit5Assertions.assertEquals(responseObject.toString(), "Invalid task state[blah]. Must be one of [pending, waiting, running, complete].");
   }
 
   @Test
@@ -831,12 +829,12 @@ public class OverlordResourceTest
     Task task = new KillUnusedSegmentsTask("kill_all", "allow", Intervals.ETERNITY, null, null, 10, null, null);
     overlordResource.taskPost(task, req);
 
-    Assert.assertTrue(auditEntryCapture.hasCaptured());
+    JUnit5Assertions.assertTrue(auditEntryCapture.hasCaptured());
     AuditEntry auditEntry = auditEntryCapture.getValue();
-    Assert.assertEquals(username, auditEntry.getAuditInfo().getAuthor());
-    Assert.assertEquals("killing segments", auditEntry.getAuditInfo().getComment());
-    Assert.assertEquals("druid", auditEntry.getAuditInfo().getIdentity());
-    Assert.assertEquals("127.0.0.1", auditEntry.getAuditInfo().getIp());
+    JUnit5Assertions.assertEquals(username, auditEntry.getAuditInfo().getAuthor());
+    JUnit5Assertions.assertEquals(auditEntry.getAuditInfo().getComment(), "killing segments");
+    JUnit5Assertions.assertEquals(auditEntry.getAuditInfo().getIdentity(), "druid");
+    JUnit5Assertions.assertEquals(auditEntry.getAuditInfo().getIp(), "127.0.0.1");
   }
 
   @Test
@@ -873,8 +871,8 @@ public class OverlordResourceTest
 
     Response response = overlordResource
         .killPendingSegments("allow", new Interval(DateTimes.MIN, DateTimes.nowUtc()).toString(), req);
-    Assert.assertEquals(200, response.getStatus());
-    Assert.assertEquals(ImmutableMap.of("numDeleted", 2), response.getEntity());
+    JUnit5Assertions.assertEquals(200, response.getStatus());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("numDeleted", 2), response.getEntity());
   }
 
   @Test
@@ -899,8 +897,8 @@ public class OverlordResourceTest
     Response response = overlordResource
         .killPendingSegments("allow", new Interval(DateTimes.MIN, DateTimes.nowUtc()).toString(), req);
 
-    Assert.assertEquals(400, response.getStatus());
-    Assert.assertEquals(ImmutableMap.of("error", exceptionMsg), response.getEntity());
+    JUnit5Assertions.assertEquals(400, response.getStatus());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("error", exceptionMsg), response.getEntity());
   }
 
   @Test
@@ -925,8 +923,8 @@ public class OverlordResourceTest
     Response response = overlordResource
         .killPendingSegments("allow", new Interval(DateTimes.MIN, DateTimes.nowUtc()).toString(), req);
 
-    Assert.assertEquals(500, response.getStatus());
-    Assert.assertEquals(ImmutableMap.of("error", exceptionMsg), response.getEntity());
+    JUnit5Assertions.assertEquals(500, response.getStatus());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("error", exceptionMsg), response.getEntity());
   }
 
   @Test
@@ -951,8 +949,8 @@ public class OverlordResourceTest
     Response response = overlordResource
         .killPendingSegments("allow", new Interval(DateTimes.MIN, DateTimes.nowUtc()).toString(), req);
 
-    Assert.assertEquals(500, response.getStatus());
-    Assert.assertEquals(ImmutableMap.of("error", exceptionMsg), response.getEntity());
+    JUnit5Assertions.assertEquals(500, response.getStatus());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("error", exceptionMsg), response.getEntity());
   }
 
   @Test
@@ -967,8 +965,8 @@ public class OverlordResourceTest
     Response response = overlordResource
         .killPendingSegments("allow", new Interval(DateTimes.MIN, DateTimes.nowUtc()).toString(), req);
 
-    Assert.assertEquals(503, response.getStatus());
-    Assert.assertEquals(ImmutableMap.of("error", "overlord is not the leader or not initialized yet"), response.getEntity());
+    JUnit5Assertions.assertEquals(503, response.getStatus());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("error", "overlord is not the leader or not initialized yet"), response.getEntity());
   }
 
   @Test
@@ -994,14 +992,14 @@ public class OverlordResourceTest
         TestHelper.makeJsonMapper().writeValueAsString(response1.getEntity()),
         TaskPayloadResponse.class
     );
-    Assert.assertEquals(new TaskPayloadResponse("mytask", task), taskPayloadResponse1);
+    JUnit5Assertions.assertEquals(new TaskPayloadResponse("mytask", task), taskPayloadResponse1);
 
     final Response response2 = overlordResource.getTaskPayload("othertask");
     final TaskPayloadResponse taskPayloadResponse2 = TestHelper.makeJsonMapper().readValue(
         TestHelper.makeJsonMapper().writeValueAsString(response2.getEntity()),
         TaskPayloadResponse.class
     );
-    Assert.assertEquals(new TaskPayloadResponse("othertask", null), taskPayloadResponse2);
+    JUnit5Assertions.assertEquals(new TaskPayloadResponse("othertask", null), taskPayloadResponse2);
   }
 
   @Test
@@ -1043,8 +1041,8 @@ public class OverlordResourceTest
         TaskStatusResponse.class
     );
     TaskStatusPlus tsp = taskStatusResponse1.getStatus();
-    Assert.assertEquals(tsp.getStatusCode(), tsp.getStatus());
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(tsp.getStatusCode(), tsp.getStatus());
+    JUnit5Assertions.assertEquals(
         new TaskStatusResponse(
             taskId,
             new TaskStatusPlus(
@@ -1069,7 +1067,7 @@ public class OverlordResourceTest
         TestHelper.makeJsonMapper().writeValueAsString(response2.getEntity()),
         TaskStatusResponse.class
     );
-    Assert.assertEquals(new TaskStatusResponse("othertask", null), taskStatusResponse2);
+    JUnit5Assertions.assertEquals(new TaskStatusResponse("othertask", null), taskStatusResponse2);
   }
 
   @Test
@@ -1091,7 +1089,7 @@ public class OverlordResourceTest
     replayAll();
 
     final Response response = overlordResource.getDatasourceLockedIntervals(lockFilterPolicies);
-    Assert.assertEquals(200, response.getStatus());
+    JUnit5Assertions.assertEquals(200, response.getStatus());
 
     final ObjectMapper jsonMapper = TestHelper.makeJsonMapper();
     Map<String, List<Interval>> observedIntervals = jsonMapper.readValue(
@@ -1099,7 +1097,7 @@ public class OverlordResourceTest
         new TypeReference<>() {}
     );
 
-    Assert.assertEquals(expectedIntervals, observedIntervals);
+    JUnit5Assertions.assertEquals(expectedIntervals, observedIntervals);
   }
 
   @Test
@@ -1108,10 +1106,10 @@ public class OverlordResourceTest
     replayAll();
 
     Response response = overlordResource.getDatasourceLockedIntervals(null);
-    Assert.assertEquals(400, response.getStatus());
+    JUnit5Assertions.assertEquals(400, response.getStatus());
 
     response = overlordResource.getDatasourceLockedIntervals(Collections.emptyList());
-    Assert.assertEquals(400, response.getStatus());
+    JUnit5Assertions.assertEquals(400, response.getStatus());
   }
 
   @Test
@@ -1147,7 +1145,7 @@ public class OverlordResourceTest
     replayAll();
 
     final Response response = overlordResource.getActiveLocks(lockFilterPolicies);
-    Assert.assertEquals(200, response.getStatus());
+    JUnit5Assertions.assertEquals(200, response.getStatus());
 
     final ObjectMapper jsonMapper = TestHelper.makeJsonMapper();
     Map<String, List<TaskLock>> observedLocks = jsonMapper.readValue(
@@ -1157,7 +1155,7 @@ public class OverlordResourceTest
         }
     ).getDatasourceToLocks();
 
-    Assert.assertEquals(expectedLocks, observedLocks);
+    JUnit5Assertions.assertEquals(expectedLocks, observedLocks);
   }
 
   @Test
@@ -1166,10 +1164,10 @@ public class OverlordResourceTest
     replayAll();
 
     Response response = overlordResource.getActiveLocks(null);
-    Assert.assertEquals(400, response.getStatus());
+    JUnit5Assertions.assertEquals(400, response.getStatus());
 
     response = overlordResource.getActiveLocks(Collections.emptyList());
-    Assert.assertEquals(400, response.getStatus());
+    JUnit5Assertions.assertEquals(400, response.getStatus());
   }
 
   @Test
@@ -1191,7 +1189,7 @@ public class OverlordResourceTest
     final Map<String, Integer> response = (Map<String, Integer>) overlordResource
         .doShutdown("id_1")
         .getEntity();
-    Assert.assertEquals("id_1", response.get("task"));
+    JUnit5Assertions.assertEquals(response.get("task"), "id_1");
   }
 
   @Test
@@ -1229,7 +1227,7 @@ public class OverlordResourceTest
     final Map<String, String> response = (Map<String, String>) overlordResource
         .shutdownTasksForDataSource("datasource")
         .getEntity();
-    Assert.assertEquals("datasource", response.get("dataSource"));
+    JUnit5Assertions.assertEquals(response.get("dataSource"), "datasource");
   }
 
   @Test
@@ -1243,7 +1241,7 @@ public class OverlordResourceTest
     replayAll();
 
     final Response response = overlordResource.shutdownTasksForDataSource("notExisting");
-    Assert.assertEquals(Status.NOT_FOUND.getStatusCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(Status.NOT_FOUND.getStatusCode(), response.getStatus());
   }
 
   @Test
@@ -1258,8 +1256,8 @@ public class OverlordResourceTest
 
     final Response response = overlordResource.enableWorker(host);
 
-    Assert.assertEquals(HttpResponseStatus.OK.getCode(), response.getStatus());
-    Assert.assertEquals(ImmutableMap.of(host, "enabled"), response.getEntity());
+    JUnit5Assertions.assertEquals(HttpResponseStatus.OK.getCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(ImmutableMap.of(host, "enabled"), response.getEntity());
   }
 
   @Test
@@ -1274,8 +1272,8 @@ public class OverlordResourceTest
 
     final Response response = overlordResource.disableWorker(host);
 
-    Assert.assertEquals(HttpResponseStatus.OK.getCode(), response.getStatus());
-    Assert.assertEquals(ImmutableMap.of(host, "disabled"), response.getEntity());
+    JUnit5Assertions.assertEquals(HttpResponseStatus.OK.getCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(ImmutableMap.of(host, "disabled"), response.getEntity());
   }
 
   @Test
@@ -1290,8 +1288,8 @@ public class OverlordResourceTest
 
     final Response response = overlordResource.enableWorker(host);
 
-    Assert.assertEquals(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode(), response.getStatus());
-    Assert.assertEquals(ImmutableMap.of("error", "Worker API returns error!"), response.getEntity());
+    JUnit5Assertions.assertEquals(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("error", "Worker API returns error!"), response.getEntity());
   }
 
   @Test
@@ -1306,8 +1304,8 @@ public class OverlordResourceTest
 
     final Response response = overlordResource.disableWorker(host);
 
-    Assert.assertEquals(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode(), response.getStatus());
-    Assert.assertEquals(ImmutableMap.of("error", "Worker API returns error!"), response.getEntity());
+    JUnit5Assertions.assertEquals(HttpResponseStatus.INTERNAL_SERVER_ERROR.getCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("error", "Worker API returns error!"), response.getEntity());
   }
 
   @Test
@@ -1316,7 +1314,7 @@ public class OverlordResourceTest
     EasyMock.expect(overlord.isLeader()).andReturn(false);
     replayAll();
     final Response response = overlordResource.getTotalWorkerCapacity();
-    Assert.assertEquals(HttpResponseStatus.SERVICE_UNAVAILABLE.getCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(HttpResponseStatus.SERVICE_UNAVAILABLE.getCode(), response.getStatus());
   }
 
   @Test
@@ -1334,10 +1332,10 @@ public class OverlordResourceTest
     replayAll();
 
     final Response response = overlordResource.getTotalWorkerCapacity();
-    Assert.assertEquals(HttpResponseStatus.OK.getCode(), response.getStatus());
-    Assert.assertEquals(-1, ((TotalWorkerCapacityResponse) response.getEntity()).getCurrentClusterCapacity());
-    Assert.assertEquals(-1, ((TotalWorkerCapacityResponse) response.getEntity()).getUsedClusterCapacity());
-    Assert.assertEquals(-1, ((TotalWorkerCapacityResponse) response.getEntity()).getMaximumCapacityWithAutoScale());
+    JUnit5Assertions.assertEquals(HttpResponseStatus.OK.getCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(-1, ((TotalWorkerCapacityResponse) response.getEntity()).getCurrentClusterCapacity());
+    JUnit5Assertions.assertEquals(-1, ((TotalWorkerCapacityResponse) response.getEntity()).getUsedClusterCapacity());
+    JUnit5Assertions.assertEquals(-1, ((TotalWorkerCapacityResponse) response.getEntity()).getMaximumCapacityWithAutoScale());
   }
 
   @Test
@@ -1357,10 +1355,10 @@ public class OverlordResourceTest
     replayAll();
 
     final Response response = overlordResource.getTotalWorkerCapacity();
-    Assert.assertEquals(HttpResponseStatus.OK.getCode(), response.getStatus());
-    Assert.assertEquals(expectedWorkerCapacity, ((TotalWorkerCapacityResponse) response.getEntity()).getCurrentClusterCapacity());
-    Assert.assertEquals(expectedWorkerCapacity, ((TotalWorkerCapacityResponse) response.getEntity()).getUsedClusterCapacity());
-    Assert.assertEquals(expectedWorkerCapacityWithAutoscale, ((TotalWorkerCapacityResponse) response.getEntity()).getMaximumCapacityWithAutoScale());
+    JUnit5Assertions.assertEquals(HttpResponseStatus.OK.getCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(expectedWorkerCapacity, ((TotalWorkerCapacityResponse) response.getEntity()).getCurrentClusterCapacity());
+    JUnit5Assertions.assertEquals(expectedWorkerCapacity, ((TotalWorkerCapacityResponse) response.getEntity()).getUsedClusterCapacity());
+    JUnit5Assertions.assertEquals(expectedWorkerCapacityWithAutoscale, ((TotalWorkerCapacityResponse) response.getEntity()).getMaximumCapacityWithAutoScale());
   }
 
   @Test
@@ -1388,7 +1386,7 @@ public class OverlordResourceTest
         new ResourceAction(new Resource(inputSourceType, ResourceType.EXTERNAL), Action.READ)
     );
     Set<ResourceAction> resourceActions = overlordResource.getNeededResourceActionsForTask(task);
-    Assert.assertEquals(expectedResourceActions, resourceActions);
+    JUnit5Assertions.assertEquals(expectedResourceActions, resourceActions);
   }
 
   @Test
@@ -1407,12 +1405,12 @@ public class OverlordResourceTest
     EasyMock.replay(task);
     replayAll();
 
-    final UOE e = Assert.assertThrows(
+    final UOE e = JUnit5Assertions.assertThrows(
         UOE.class,
         () -> overlordResource.getNeededResourceActionsForTask(task)
     );
 
-    Assert.assertEquals(expectedException, e);
+    JUnit5Assertions.assertEquals(expectedException, e);
   }
 
   @Test
@@ -1438,7 +1436,7 @@ public class OverlordResourceTest
         new ResourceAction(new Resource(dataSource, ResourceType.DATASOURCE), Action.WRITE)
     );
     Set<ResourceAction> resourceActions = overlordResource.getNeededResourceActionsForTask(task);
-    Assert.assertEquals(expectedResourceActions, resourceActions);
+    JUnit5Assertions.assertEquals(expectedResourceActions, resourceActions);
   }
 
   @Test
@@ -1452,7 +1450,7 @@ public class OverlordResourceTest
 
     final Object response = overlordResource.getMultipleTaskStatuses(ImmutableSet.of("task"))
                                             .getEntity();
-    Assert.assertEquals(ImmutableMap.of("task", TaskStatus.running("task")), response);
+    JUnit5Assertions.assertEquals(ImmutableMap.of("task", TaskStatus.running("task")), response);
   }
 
   @Test
@@ -1465,7 +1463,7 @@ public class OverlordResourceTest
 
     final Object response = overlordResource.getMultipleTaskStatuses(ImmutableSet.of("task"))
                                             .getEntity();
-    Assert.assertEquals(ImmutableMap.of("task", TaskStatus.running("task")), response);
+    JUnit5Assertions.assertEquals(ImmutableMap.of("task", TaskStatus.running("task")), response);
   }
 
   @Test
@@ -1475,8 +1473,8 @@ public class OverlordResourceTest
     OverlordResource overlordResource =
         new OverlordResource(null, null, null, null, null, null, null, null, null, null);
     final Response response = overlordResource.getTaskSegments("taskId");
-    Assert.assertEquals(404, response.getStatus());
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(404, response.getStatus());
+    JUnit5Assertions.assertEquals(
         Collections.singletonMap(
             "error",
             "Segment IDs committed by a task action are not persisted anymore."

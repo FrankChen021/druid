@@ -31,17 +31,17 @@ import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.http.client.response.HttpResponseHandler;
 import org.apache.druid.java.util.http.client.response.StatusResponseHolder;
+import org.apache.druid.testing.junit5.ExpectedToThrow;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.net.URL;
-
 
 public class WorkerTaskRunnerQueryAdpaterTest
 {
@@ -50,7 +50,7 @@ public class WorkerTaskRunnerQueryAdpaterTest
   private WorkerTaskRunner workerTaskRunner;
   private TaskMaster taskMaster;
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     httpClient = EasyMock.createNiceMock(HttpClient.class);
@@ -87,7 +87,7 @@ public class WorkerTaskRunnerQueryAdpaterTest
     ).once();
   }
 
-  @After
+  @AfterEach
   public void tearDown()
   {
     EasyMock.verify(workerTaskRunner, taskMaster, httpClient);
@@ -104,8 +104,8 @@ public class WorkerTaskRunnerQueryAdpaterTest
 
     workerTaskRunnerQueryAdapter.disableWorker("worker-host1");
 
-    Assert.assertEquals(HttpMethod.POST, capturedRequest.getValue().getMethod());
-    Assert.assertEquals(workerUrl, capturedRequest.getValue().getUrl());
+    JUnit5Assertions.assertEquals(HttpMethod.POST, capturedRequest.getValue().getMethod());
+    JUnit5Assertions.assertEquals(workerUrl, capturedRequest.getValue().getUrl());
   }
 
   @Test
@@ -118,16 +118,17 @@ public class WorkerTaskRunnerQueryAdpaterTest
 
     try {
       workerTaskRunnerQueryAdapter.disableWorker("worker-host1");
-      Assert.fail("Should raise RE exception!");
+      JUnit5Assertions.fail("Should raise RE exception!");
     }
     catch (RE re) {
     }
 
-    Assert.assertEquals(HttpMethod.POST, capturedRequest.getValue().getMethod());
-    Assert.assertEquals(workerUrl, capturedRequest.getValue().getUrl());
+    JUnit5Assertions.assertEquals(HttpMethod.POST, capturedRequest.getValue().getMethod());
+    JUnit5Assertions.assertEquals(workerUrl, capturedRequest.getValue().getUrl());
   }
 
-  @Test(expected = RE.class)
+  @Test
+  @ExpectedToThrow(RE.class)
   public void testDisableWorkerWhenWorkerNotExists()
   {
     EasyMock.replay(workerTaskRunner, taskMaster, httpClient);
@@ -146,8 +147,8 @@ public class WorkerTaskRunnerQueryAdpaterTest
 
     workerTaskRunnerQueryAdapter.enableWorker("worker-host2");
 
-    Assert.assertEquals(HttpMethod.POST, capturedRequest.getValue().getMethod());
-    Assert.assertEquals(workerUrl, capturedRequest.getValue().getUrl());
+    JUnit5Assertions.assertEquals(HttpMethod.POST, capturedRequest.getValue().getMethod());
+    JUnit5Assertions.assertEquals(workerUrl, capturedRequest.getValue().getUrl());
   }
 
   @Test
@@ -160,16 +161,17 @@ public class WorkerTaskRunnerQueryAdpaterTest
 
     try {
       workerTaskRunnerQueryAdapter.enableWorker("worker-host2");
-      Assert.fail("Should raise RE exception!");
+      JUnit5Assertions.fail("Should raise RE exception!");
     }
     catch (RE re) {
     }
 
-    Assert.assertEquals(HttpMethod.POST, capturedRequest.getValue().getMethod());
-    Assert.assertEquals(workerUrl, capturedRequest.getValue().getUrl());
+    JUnit5Assertions.assertEquals(HttpMethod.POST, capturedRequest.getValue().getMethod());
+    JUnit5Assertions.assertEquals(workerUrl, capturedRequest.getValue().getUrl());
   }
 
-  @Test(expected = RE.class)
+  @Test
+  @ExpectedToThrow(RE.class)
   public void testEnableWorkerWhenWorkerNotExists()
   {
     EasyMock.replay(workerTaskRunner, taskMaster, httpClient);

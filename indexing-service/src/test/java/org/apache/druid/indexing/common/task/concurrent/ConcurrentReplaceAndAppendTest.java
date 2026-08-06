@@ -64,18 +64,18 @@ import org.apache.druid.segment.realtime.appenderator.SegmentIdWithShardSpec;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
 import org.apache.druid.tasklogs.NoopTaskLogs;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.partition.NumberedShardSpec;
-import org.hamcrest.MatcherAssert;
 import org.joda.time.Interval;
 import org.joda.time.Period;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -125,7 +125,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
   private final AtomicInteger groupId = new AtomicInteger(0);
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     final TaskConfig taskConfig = new TaskConfigBuilder().build();
@@ -164,7 +164,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     replaceTask = createAndStartTask();
   }
 
-  @After
+  @AfterEach
   public void tearDown()
   {
     for (ActionsTestTask task : runningTasks) {
@@ -183,7 +183,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(segmentV10.getVersion(), pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(segmentV10.getVersion(), pendingSegment.getVersion());
 
     final DataSegment segmentV11 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV11);
@@ -199,7 +199,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final DataSegment segmentV01 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV01);
@@ -225,7 +225,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final DataSegment segmentV10 = createSegment(FIRST_OF_JAN_23, v1);
     replaceTask.commitReplaceSegments(segmentV10);
@@ -249,7 +249,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final String v1 = replaceTask.acquireReplaceLockOn(FIRST_OF_JAN_23).getVersion();
 
@@ -275,7 +275,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final String v1 = replaceTask.acquireReplaceLockOn(FIRST_OF_JAN_23).getVersion();
 
@@ -302,7 +302,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final DataSegment segmentV01 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV01);
@@ -333,8 +333,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     // Verify that the allocated segment takes the version and interval of previous replace
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(JAN_23, pendingSegment.getInterval());
-    Assert.assertEquals(v1, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(JAN_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(v1, pendingSegment.getVersion());
 
     final DataSegment segmentV11 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV11);
@@ -350,8 +350,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final DataSegment segmentV01 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV01);
@@ -379,8 +379,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final DataSegment segmentV10 = createSegment(JAN_23, v1);
     replaceTask.commitReplaceSegments(segmentV10);
@@ -406,8 +406,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final String v1 = replaceTask.acquireReplaceLockOn(JAN_23).getVersion();
 
@@ -435,8 +435,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final String v1 = replaceTask.acquireReplaceLockOn(JAN_23).getVersion();
 
@@ -464,8 +464,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final DataSegment segmentV01 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV01);
@@ -495,13 +495,13 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     // Verify that an APPEND lock cannot be acquired on month
     TaskLock appendLock = appendTask.acquireAppendLockOn(JAN_23);
-    Assert.assertNull(appendLock);
+    JUnit5Assertions.assertNull(appendLock);
 
     // Verify that new segment gets allocated with DAY granularity even though preferred was MONTH
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(JAN_23.getStart(), Granularities.MONTH);
-    Assert.assertEquals(v1, pendingSegment.getVersion());
-    Assert.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(v1, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
 
     final DataSegment segmentV11 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV11);
@@ -517,13 +517,13 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     // Verify that an APPEND lock cannot be acquired on month
     TaskLock appendLock = appendTask.acquireAppendLockOn(JAN_23);
-    Assert.assertNull(appendLock);
+    JUnit5Assertions.assertNull(appendLock);
 
     // Verify that the segment is allocated for DAY granularity
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(JAN_23.getStart(), Granularities.MONTH);
-    Assert.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final DataSegment segmentV01 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV01);
@@ -551,13 +551,13 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     // Verify that an APPEND lock cannot be acquired on month
     TaskLock appendLock = appendTask.acquireAppendLockOn(JAN_23);
-    Assert.assertNull(appendLock);
+    JUnit5Assertions.assertNull(appendLock);
 
     // Verify that the segment is allocated for DAY granularity instead of MONTH
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(JAN_23.getStart(), Granularities.MONTH);
-    Assert.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(FIRST_OF_JAN_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final DataSegment segmentV10 = createSegment(FIRST_OF_JAN_23, v1);
     replaceTask.commitReplaceSegments(segmentV10);
@@ -583,18 +583,18 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(JAN_23.getStart(), Granularities.MONTH);
-    Assert.assertEquals(JAN_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(JAN_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     // Verify that replace lock cannot be acquired on MONTH
     TaskLock replaceLock = replaceTask.acquireReplaceLockOn(FIRST_OF_JAN_23);
-    Assert.assertNull(replaceLock);
+    JUnit5Assertions.assertNull(replaceLock);
 
     // Verify that segment cannot be committed since there is no lock
     final DataSegment segmentV10 = createSegment(FIRST_OF_JAN_23, SEGMENT_V0);
-    final ISE exception = Assert.assertThrows(ISE.class, () -> replaceTask.commitReplaceSegments(segmentV10));
+    final ISE exception = JUnit5Assertions.assertThrows(ISE.class, () -> replaceTask.commitReplaceSegments(segmentV10));
     final Throwable throwable = Throwables.getRootCause(exception);
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         StringUtils.format(
             "Segment IDs[[%s]] are not covered by locks[[]] for task[%s]",
             segmentV10.getId(), replaceTask.getId()
@@ -612,14 +612,14 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   public void testLockReplaceQuarterAllocateAppendYear()
   {
     final TaskLock replaceLock = replaceTask.acquireReplaceLockOn(YEAR_23);
-    Assert.assertNotNull(replaceLock);
+    JUnit5Assertions.assertNotNull(replaceLock);
 
     final DataSegment segmentV1Q1 = createSegment(JAN_FEB_MAR_23, replaceLock.getVersion());
     final DataSegment segmentV1Q2 = createSegment(APR_MAY_JUN_23, replaceLock.getVersion());
     final DataSegment segmentV1Q3 = createSegment(JUL_AUG_SEP_23, replaceLock.getVersion());
     final DataSegment segmentV1Q4 = createSegment(OCT_NOV_DEC_23, replaceLock.getVersion());
 
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         replaceTask.commitReplaceSegments(segmentV1Q1, segmentV1Q2, segmentV1Q3, segmentV1Q4)
                    .isSuccess()
     );
@@ -628,8 +628,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(YEAR_23.getStart(), Granularities.YEAR);
-    Assert.assertEquals(JAN_FEB_MAR_23, pendingSegment.getInterval());
-    Assert.assertEquals(replaceLock.getVersion(), pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(JAN_FEB_MAR_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(replaceLock.getVersion(), pendingSegment.getVersion());
 
     final DataSegment appendedSegment = asSegment(pendingSegment);
     appendTask.commitAppendSegments(appendedSegment);
@@ -642,12 +642,12 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   public void testLockAllocateAppendYearReplaceQuarter()
   {
     final TaskLock replaceLock = replaceTask.acquireReplaceLockOn(YEAR_23);
-    Assert.assertNotNull(replaceLock);
+    JUnit5Assertions.assertNotNull(replaceLock);
 
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(YEAR_23.getStart(), Granularities.YEAR);
-    Assert.assertEquals(YEAR_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(YEAR_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final DataSegment segmentV01 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV01);
@@ -660,7 +660,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     final DataSegment segmentV1Q3 = createSegment(JUL_AUG_SEP_23, replaceLock.getVersion());
     final DataSegment segmentV1Q4 = createSegment(OCT_NOV_DEC_23, replaceLock.getVersion());
 
-    Assert.assertFalse(
+    JUnit5Assertions.assertFalse(
         replaceTask.commitReplaceSegments(segmentV1Q1, segmentV1Q2, segmentV1Q3, segmentV1Q4)
                    .isSuccess()
     );
@@ -673,19 +673,19 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   public void testLockAllocateReplaceQuarterAppendYear()
   {
     final TaskLock replaceLock = replaceTask.acquireReplaceLockOn(YEAR_23);
-    Assert.assertNotNull(replaceLock);
+    JUnit5Assertions.assertNotNull(replaceLock);
 
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(YEAR_23.getStart(), Granularities.YEAR);
-    Assert.assertEquals(YEAR_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(YEAR_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final DataSegment segmentV1Q1 = createSegment(JAN_FEB_MAR_23, replaceLock.getVersion());
     final DataSegment segmentV1Q2 = createSegment(APR_MAY_JUN_23, replaceLock.getVersion());
     final DataSegment segmentV1Q3 = createSegment(JUL_AUG_SEP_23, replaceLock.getVersion());
     final DataSegment segmentV1Q4 = createSegment(OCT_NOV_DEC_23, replaceLock.getVersion());
 
-    Assert.assertFalse(
+    JUnit5Assertions.assertFalse(
         replaceTask.commitReplaceSegments(segmentV1Q1, segmentV1Q2, segmentV1Q3, segmentV1Q4)
                    .isSuccess()
     );
@@ -702,18 +702,18 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(YEAR_23.getStart(), Granularities.YEAR);
-    Assert.assertEquals(YEAR_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(YEAR_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final TaskLock replaceLock = replaceTask.acquireReplaceLockOn(YEAR_23);
-    Assert.assertNotNull(replaceLock);
+    JUnit5Assertions.assertNotNull(replaceLock);
 
     final DataSegment segmentV1Q1 = createSegment(JAN_FEB_MAR_23, replaceLock.getVersion());
     final DataSegment segmentV1Q2 = createSegment(APR_MAY_JUN_23, replaceLock.getVersion());
     final DataSegment segmentV1Q3 = createSegment(JUL_AUG_SEP_23, replaceLock.getVersion());
     final DataSegment segmentV1Q4 = createSegment(OCT_NOV_DEC_23, replaceLock.getVersion());
 
-    Assert.assertFalse(
+    JUnit5Assertions.assertFalse(
         replaceTask.commitReplaceSegments(segmentV1Q1, segmentV1Q2, segmentV1Q3, segmentV1Q4)
                    .isSuccess()
     );
@@ -730,11 +730,11 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(YEAR_23.getStart(), Granularities.YEAR);
-    Assert.assertEquals(YEAR_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(YEAR_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final TaskLock replaceLock = replaceTask.acquireReplaceLockOn(YEAR_23);
-    Assert.assertNotNull(replaceLock);
+    JUnit5Assertions.assertNotNull(replaceLock);
 
     final DataSegment segmentV01 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV01);
@@ -747,7 +747,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     final DataSegment segmentV1Q3 = createSegment(JUL_AUG_SEP_23, replaceLock.getVersion());
     final DataSegment segmentV1Q4 = createSegment(OCT_NOV_DEC_23, replaceLock.getVersion());
 
-    Assert.assertFalse(
+    JUnit5Assertions.assertFalse(
         replaceTask.commitReplaceSegments(segmentV1Q1, segmentV1Q2, segmentV1Q3, segmentV1Q4)
                    .isSuccess()
     );
@@ -761,8 +761,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(YEAR_23.getStart(), Granularities.YEAR);
-    Assert.assertEquals(YEAR_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(YEAR_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final DataSegment segmentV01 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV01);
@@ -771,14 +771,14 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     verifyIntervalHasVisibleSegments(YEAR_23, segmentV01);
 
     final TaskLock replaceLock = replaceTask.acquireReplaceLockOn(YEAR_23);
-    Assert.assertNotNull(replaceLock);
+    JUnit5Assertions.assertNotNull(replaceLock);
 
     final DataSegment segmentV1Q1 = createSegment(JAN_FEB_MAR_23, replaceLock.getVersion());
     final DataSegment segmentV1Q2 = createSegment(APR_MAY_JUN_23, replaceLock.getVersion());
     final DataSegment segmentV1Q3 = createSegment(JUL_AUG_SEP_23, replaceLock.getVersion());
     final DataSegment segmentV1Q4 = createSegment(OCT_NOV_DEC_23, replaceLock.getVersion());
 
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         replaceTask.commitReplaceSegments(segmentV1Q1, segmentV1Q2, segmentV1Q3, segmentV1Q4)
                    .isSuccess()
     );
@@ -792,8 +792,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(JAN_23.getStart(), Granularities.MONTH);
-    Assert.assertEquals(JAN_23, pendingSegment.getInterval());
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(JAN_23, pendingSegment.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
 
     final DataSegment segmentV01 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV01);
@@ -803,7 +803,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     // Verify that replace lock cannot be acquired on DAY as MONTH is already locked
     final TaskLock replaceLock = replaceTask.acquireReplaceLockOn(FIRST_OF_JAN_23);
-    Assert.assertNull(replaceLock);
+    JUnit5Assertions.assertNull(replaceLock);
   }
 
   @Test
@@ -823,8 +823,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     final ActionsTestTask appendTask1 = createAndStartTask();
     final SegmentIdWithShardSpec pendingSegmentV11
         = appendTask1.allocateSegmentForTimestamp(YEAR_23.getStart(), Granularities.YEAR);
-    Assert.assertEquals(v1, pendingSegmentV11.getVersion());
-    Assert.assertEquals(YEAR_23, pendingSegmentV11.getInterval());
+    JUnit5Assertions.assertEquals(v1, pendingSegmentV11.getVersion());
+    JUnit5Assertions.assertEquals(YEAR_23, pendingSegmentV11.getInterval());
 
     // Commit replace segment for v2
     final ActionsTestTask replaceTask2 = createAndStartTask();
@@ -843,7 +843,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     final DataSegment segmentV11 = asSegment(pendingSegmentV11);
     final DataSegment segmentV21 = DataSegment.builder(segmentV11).version(v2).build();
     Set<DataSegment> appendedSegments = appendTask1.commitAppendSegments(segmentV11).getSegments();
-    Assert.assertEquals(Sets.newHashSet(segmentV21, segmentV11), appendedSegments);
+    JUnit5Assertions.assertEquals(Sets.newHashSet(segmentV21, segmentV11), appendedSegments);
 
     appendTask1.finishRunAndGetStatus();
     verifyIntervalHasUsedSegments(
@@ -877,13 +877,13 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     appendTask.acquireAppendLockOn(FIRST_OF_JAN_23);
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(segmentV10.getVersion(), pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(segmentV10.getVersion(), pendingSegment.getVersion());
 
     final ActionsTestTask appendTask2 = createAndStartTask();
     appendTask2.acquireAppendLockOn(FIRST_OF_JAN_23);
     final SegmentIdWithShardSpec pendingSegment2
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(segmentV10.getVersion(), pendingSegment2.getVersion());
+    JUnit5Assertions.assertEquals(segmentV10.getVersion(), pendingSegment2.getVersion());
 
     final DataSegment segmentV11 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV11);
@@ -902,16 +902,16 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     appendTask.acquireAppendLockOn(FIRST_OF_JAN_23);
     final SegmentIdWithShardSpec pendingSegment01
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(SEGMENT_V0, pendingSegment01.getVersion());
-    Assert.assertEquals(FIRST_OF_JAN_23, pendingSegment01.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment01.getVersion());
+    JUnit5Assertions.assertEquals(FIRST_OF_JAN_23, pendingSegment01.getInterval());
 
     // Allocate segment for Oct-Dec
     final ActionsTestTask appendTask2 = createAndStartTask();
     appendTask2.acquireAppendLockOn(OCT_NOV_DEC_23);
     final SegmentIdWithShardSpec pendingSegment02
         = appendTask2.allocateSegmentForTimestamp(OCT_NOV_DEC_23.getStart(), Granularities.QUARTER);
-    Assert.assertEquals(SEGMENT_V0, pendingSegment02.getVersion());
-    Assert.assertEquals(OCT_NOV_DEC_23, pendingSegment02.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment02.getVersion());
+    JUnit5Assertions.assertEquals(OCT_NOV_DEC_23, pendingSegment02.getInterval());
 
     // Append segment for Oct-Dec
     final DataSegment segmentV02 = asSegment(pendingSegment02);
@@ -927,8 +927,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
         = appendTask3.allocateSegmentForTimestamp(DEC_23.getStart(), Granularities.MONTH);
 
     // Verify that segment gets allocated for quarter instead of month
-    Assert.assertEquals(SEGMENT_V0, pendingSegment03.getVersion());
-    Assert.assertEquals(OCT_NOV_DEC_23, pendingSegment03.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment03.getVersion());
+    JUnit5Assertions.assertEquals(OCT_NOV_DEC_23, pendingSegment03.getInterval());
 
     // Acquire replace lock on whole year
     final String v1 = replaceTask.acquireReplaceLockOn(YEAR_23).getVersion();
@@ -975,15 +975,15 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegmentV01
         = appendTask.allocateSegmentForTimestamp(JAN_23.getStart(), Granularities.MONTH);
-    Assert.assertEquals(SEGMENT_V0, pendingSegmentV01.getVersion());
-    Assert.assertEquals(JAN_23, pendingSegmentV01.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegmentV01.getVersion());
+    JUnit5Assertions.assertEquals(JAN_23, pendingSegmentV01.getInterval());
 
     final String v1 = replaceTask.acquireReplaceLockOn(JAN_23).getVersion();
     final DataSegment segmentV10 = createSegment(JAN_23, v1);
     final SegmentPublishResult replacePublishResult = replaceTask.commitReplaceSegments(segmentV10);
 
     final List<PendingSegmentRecord> upgradedPendingSegments = replacePublishResult.getUpgradedPendingSegments();
-    Assert.assertNotNull(upgradedPendingSegments);
+    JUnit5Assertions.assertNotNull(upgradedPendingSegments);
     final SegmentIdWithShardSpec pendingSegmentV11 = upgradedPendingSegments.getFirst().getId();
 
     verifyIntervalHasUsedSegments(JAN_23, segmentV10);
@@ -992,10 +992,10 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     // New pending segment is allocated at v1
     final SegmentIdWithShardSpec pendingSegmentV12
         = appendTask.allocateSegmentForTimestamp(JAN_23.getStart(), Granularities.MONTH);
-    Assert.assertNotEquals(pendingSegmentV01.asSegmentId(), pendingSegmentV12.asSegmentId());
-    Assert.assertNotEquals(pendingSegmentV11.asSegmentId(), pendingSegmentV12.asSegmentId());
-    Assert.assertEquals(v1, pendingSegmentV12.getVersion());
-    Assert.assertEquals(JAN_23, pendingSegmentV12.getInterval());
+    JUnit5Assertions.assertNotEquals(pendingSegmentV01.asSegmentId(), pendingSegmentV12.asSegmentId());
+    JUnit5Assertions.assertNotEquals(pendingSegmentV11.asSegmentId(), pendingSegmentV12.asSegmentId());
+    JUnit5Assertions.assertEquals(v1, pendingSegmentV12.getVersion());
+    JUnit5Assertions.assertEquals(JAN_23, pendingSegmentV12.getInterval());
 
     // Verify that no new segment has been allocated at v0
     verifyIntervalHasPendingSegments(
@@ -1013,9 +1013,9 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     final SegmentIdWithShardSpec pendingSegmentV23
         = appendTask.allocateSegmentForTimestamp(JAN_23.getStart(), Granularities.MONTH);
-    Assert.assertNotEquals(pendingSegmentV01.asSegmentId(), pendingSegmentV23.asSegmentId());
-    Assert.assertEquals(v2, pendingSegmentV23.getVersion());
-    Assert.assertEquals(JAN_23, pendingSegmentV23.getInterval());
+    JUnit5Assertions.assertNotEquals(pendingSegmentV01.asSegmentId(), pendingSegmentV23.asSegmentId());
+    JUnit5Assertions.assertEquals(v2, pendingSegmentV23.getVersion());
+    JUnit5Assertions.assertEquals(JAN_23, pendingSegmentV23.getInterval());
 
     // Commit the append segments
     final DataSegment segmentV01 = asSegment(pendingSegmentV01);
@@ -1024,26 +1024,26 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     Set<DataSegment> appendedSegments
         = appendTask.commitAppendSegments(segmentV01, segmentV12, segmentV23).getSegments();
-    Assert.assertEquals(3 + 3, appendedSegments.size());
+    JUnit5Assertions.assertEquals(3 + 3, appendedSegments.size());
 
     // Verify that the original append segments have been committed
-    Assert.assertTrue(appendedSegments.remove(segmentV01));
-    Assert.assertTrue(appendedSegments.remove(segmentV12));
-    Assert.assertTrue(appendedSegments.remove(segmentV23));
+    JUnit5Assertions.assertTrue(appendedSegments.remove(segmentV01));
+    JUnit5Assertions.assertTrue(appendedSegments.remove(segmentV12));
+    JUnit5Assertions.assertTrue(appendedSegments.remove(segmentV23));
 
     // Verify that segmentV01 has been upgraded to both v1 and v2
     final DataSegment segmentV11 = findSegmentWith(v1, segmentV01.getLoadSpec(), appendedSegments);
-    Assert.assertNotNull(segmentV11);
+    JUnit5Assertions.assertNotNull(segmentV11);
     final DataSegment segmentV21 = findSegmentWith(v2, segmentV01.getLoadSpec(), appendedSegments);
-    Assert.assertNotNull(segmentV21);
+    JUnit5Assertions.assertNotNull(segmentV21);
 
     // Verify that segmentV12 has been upgraded to v2
     final DataSegment segmentV22 = findSegmentWith(v2, segmentV12.getLoadSpec(), appendedSegments);
-    Assert.assertNotNull(segmentV22);
+    JUnit5Assertions.assertNotNull(segmentV22);
 
     // Verify that segmentV23 is not downgraded to v1
     final DataSegment segmentV13 = findSegmentWith(v1, segmentV23.getLoadSpec(), appendedSegments);
-    Assert.assertNull(segmentV13);
+    JUnit5Assertions.assertNull(segmentV13);
 
     verifyIntervalHasUsedSegments(
         YEAR_23,
@@ -1059,16 +1059,16 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
   {
     final SegmentIdWithShardSpec pendingSegmentV01
         = appendTask.allocateSegmentForTimestamp(JAN_23.getStart(), Granularities.MONTH);
-    Assert.assertEquals(SEGMENT_V0, pendingSegmentV01.getVersion());
-    Assert.assertEquals(JAN_23, pendingSegmentV01.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegmentV01.getVersion());
+    JUnit5Assertions.assertEquals(JAN_23, pendingSegmentV01.getInterval());
     final DataSegment segment1 = asSegment(pendingSegmentV01);
     appendTask.commitAppendSegments(segment1);
 
     final SegmentIdWithShardSpec pendingSegmentV02
         = appendTask.allocateSegmentForTimestamp(JAN_23.getStart(), Granularities.MONTH);
-    Assert.assertNotEquals(pendingSegmentV01.asSegmentId(), pendingSegmentV02.asSegmentId());
-    Assert.assertEquals(SEGMENT_V0, pendingSegmentV02.getVersion());
-    Assert.assertEquals(JAN_23, pendingSegmentV02.getInterval());
+    JUnit5Assertions.assertNotEquals(pendingSegmentV01.asSegmentId(), pendingSegmentV02.asSegmentId());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegmentV02.getVersion());
+    JUnit5Assertions.assertEquals(JAN_23, pendingSegmentV02.getInterval());
 
     verifyInputSegments(replaceTask, JAN_23, segment1);
 
@@ -1084,10 +1084,10 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     final SegmentIdWithShardSpec pendingSegmentV03
         = appendTask.allocateSegmentForTimestamp(JAN_23.getStart(), Granularities.MONTH);
-    Assert.assertNotEquals(pendingSegmentV01.asSegmentId(), pendingSegmentV03.asSegmentId());
-    Assert.assertNotEquals(pendingSegmentV02.asSegmentId(), pendingSegmentV03.asSegmentId());
-    Assert.assertEquals(SEGMENT_V0, pendingSegmentV03.getVersion());
-    Assert.assertEquals(JAN_23, pendingSegmentV03.getInterval());
+    JUnit5Assertions.assertNotEquals(pendingSegmentV01.asSegmentId(), pendingSegmentV03.asSegmentId());
+    JUnit5Assertions.assertNotEquals(pendingSegmentV02.asSegmentId(), pendingSegmentV03.asSegmentId());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegmentV03.getVersion());
+    JUnit5Assertions.assertEquals(JAN_23, pendingSegmentV03.getInterval());
     final DataSegment segment3 = asSegment(pendingSegmentV03);
     appendTask.commitAppendSegments(segment3);
     appendTask.releaseLock(JAN_23);
@@ -1116,23 +1116,23 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     final SegmentIdWithShardSpec pendingSegmentV1
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(segmentV10.getVersion(), pendingSegmentV1.getVersion());
+    JUnit5Assertions.assertEquals(segmentV10.getVersion(), pendingSegmentV1.getVersion());
 
     final DataSegment segmentV00 = asSegment(pendingSegmentV0);
     final DataSegment segmentV11 = asSegment(pendingSegmentV1);
     Set<DataSegment> appendSegments = appendTask.commitAppendSegments(segmentV00, segmentV11)
                                                 .getSegments();
 
-    Assert.assertEquals(3, appendSegments.size());
+    JUnit5Assertions.assertEquals(3, appendSegments.size());
     // Segment V11 is committed
-    Assert.assertTrue(appendSegments.remove(segmentV11));
+    JUnit5Assertions.assertTrue(appendSegments.remove(segmentV11));
     // Segment V00 is also committed
-    Assert.assertTrue(appendSegments.remove(segmentV00));
+    JUnit5Assertions.assertTrue(appendSegments.remove(segmentV00));
     // Segment V00 is upgraded to v1 with MONTH granularlity at the time of commit as V12
     final DataSegment segmentV12 = Iterables.getOnlyElement(appendSegments);
-    Assert.assertEquals(v1, segmentV12.getVersion());
-    Assert.assertEquals(JAN_23, segmentV12.getInterval());
-    Assert.assertEquals(segmentV00.getLoadSpec(), segmentV12.getLoadSpec());
+    JUnit5Assertions.assertEquals(v1, segmentV12.getVersion());
+    JUnit5Assertions.assertEquals(JAN_23, segmentV12.getInterval());
+    JUnit5Assertions.assertEquals(segmentV00.getLoadSpec(), segmentV12.getLoadSpec());
 
     verifyIntervalHasUsedSegments(JAN_23, segmentV00, segmentV10, segmentV11, segmentV12);
     verifyIntervalHasVisibleSegments(JAN_23, segmentV10, segmentV11, segmentV12);
@@ -1144,8 +1144,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     // Allocate and commit an APPEND segment
     final SegmentIdWithShardSpec pendingSegment
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
-    Assert.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
-    Assert.assertEquals(0, pendingSegment.getShardSpec().getPartitionNum());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegment.getVersion());
+    JUnit5Assertions.assertEquals(0, pendingSegment.getShardSpec().getPartitionNum());
 
     final DataSegment segmentV01 = asSegment(pendingSegment);
     appendTask.commitAppendSegments(segmentV01);
@@ -1162,12 +1162,12 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
         = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
 
     // Verify that the new segment gets a different version
-    Assert.assertEquals(SEGMENT_V0 + "S", pendingSegment2.getVersion());
-    Assert.assertEquals(0, pendingSegment2.getShardSpec().getPartitionNum());
+    JUnit5Assertions.assertEquals(SEGMENT_V0 + "S", pendingSegment2.getVersion());
+    JUnit5Assertions.assertEquals(0, pendingSegment2.getShardSpec().getPartitionNum());
 
     final DataSegment segmentV02 = asSegment(pendingSegment2);
     appendTask.commitAppendSegments(segmentV02);
-    Assert.assertNotEquals(segmentV01, segmentV02);
+    JUnit5Assertions.assertNotEquals(segmentV01, segmentV02);
 
     verifyIntervalHasUsedSegments(FIRST_OF_JAN_23, segmentV02);
     verifyIntervalHasVisibleSegments(FIRST_OF_JAN_23, segmentV02);
@@ -1186,15 +1186,15 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
       final SegmentIdWithShardSpec pendingSegment
           = appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY);
 
-      Assert.assertEquals(expectedVersion, pendingSegment.getVersion());
-      Assert.assertEquals(expectedParitionNum, pendingSegment.getShardSpec().getPartitionNum());
+      JUnit5Assertions.assertEquals(expectedVersion, pendingSegment.getVersion());
+      JUnit5Assertions.assertEquals(expectedParitionNum, pendingSegment.getShardSpec().getPartitionNum());
 
       // Commit the segment and verify its version and partition number
       final DataSegment segment = asSegment(pendingSegment);
       appendTask.commitAppendSegments(segment);
 
-      Assert.assertEquals(expectedVersion, segment.getVersion());
-      Assert.assertEquals(expectedParitionNum, segment.getShardSpec().getPartitionNum());
+      JUnit5Assertions.assertEquals(expectedVersion, segment.getVersion());
+      JUnit5Assertions.assertEquals(expectedParitionNum, segment.getShardSpec().getPartitionNum());
 
       verifyIntervalHasUsedSegments(FIRST_OF_JAN_23, segment);
       verifyIntervalHasVisibleSegments(FIRST_OF_JAN_23, segment);
@@ -1205,8 +1205,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     }
 
     // Verify that the next attempt fails
-    MatcherAssert.assertThat(
-        Assert.assertThrows(
+    JUnit5Assertions.assertMatches(
+        JUnit5Assertions.assertThrows(
             ISE.class,
             () -> appendTask.allocateSegmentForTimestamp(FIRST_OF_JAN_23.getStart(), Granularities.DAY)
         ),
@@ -1227,8 +1227,8 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
     // Allocate a segment on an empty interval
     final SegmentIdWithShardSpec pendingSegmentV01
         = appendTask.allocateSegmentForTimestamp(JAN_23.getStart(), Granularities.MONTH);
-    Assert.assertEquals(SEGMENT_V0, pendingSegmentV01.getVersion());
-    Assert.assertEquals(JAN_23, pendingSegmentV01.getInterval());
+    JUnit5Assertions.assertEquals(SEGMENT_V0, pendingSegmentV01.getVersion());
+    JUnit5Assertions.assertEquals(JAN_23, pendingSegmentV01.getInterval());
 
     // Replace the segments in the interval
     final String v1 = replaceTask.acquireReplaceLockOn(JAN_23).getVersion();
@@ -1237,14 +1237,14 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
 
     // Verify that pendingSegmentV01 has been upgraded to version v1
     final List<PendingSegmentRecord> upgradedPendingSegments = replacePublishResult.getUpgradedPendingSegments();
-    Assert.assertNotNull(upgradedPendingSegments);
-    Assert.assertEquals(1, upgradedPendingSegments.size());
+    JUnit5Assertions.assertNotNull(upgradedPendingSegments);
+    JUnit5Assertions.assertEquals(1, upgradedPendingSegments.size());
     PendingSegmentRecord upgradedPendingSegment = upgradedPendingSegments.getFirst();
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         pendingSegmentV01.asSegmentId().toString(),
         upgradedPendingSegment.getUpgradedFromSegmentId()
     );
-    Assert.assertEquals(v1, upgradedPendingSegment.getId().getVersion());
+    JUnit5Assertions.assertEquals(v1, upgradedPendingSegment.getId().getVersion());
 
     verifyIntervalHasPendingSegments(
         JAN_23,
@@ -1282,7 +1282,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
         .stream()
         .map(PendingSegmentRecord::getId)
         .collect(Collectors.toSet());
-    Assert.assertEquals(expected, observed);
+    JUnit5Assertions.assertEquals(expected, observed);
   }
 
   private void verifyIntervalHasUsedSegments(Interval interval, DataSegment... expectedSegments)
@@ -1305,7 +1305,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
               visibility
           )
       );
-      Assert.assertEquals(Sets.newHashSet(expectedSegments), Sets.newHashSet(allUsedSegments));
+      JUnit5Assertions.assertEquals(Sets.newHashSet(expectedSegments), Sets.newHashSet(allUsedSegments));
     }
     catch (IOException e) {
       throw new ISE(e, "Error while fetching used segments in interval[%s]", interval);
@@ -1322,7 +1322,7 @@ public class ConcurrentReplaceAndAppendTest extends IngestionTestBase
               Collections.singletonList(interval)
           )
       );
-      Assert.assertEquals(Sets.newHashSet(expectedSegments), Sets.newHashSet(allUsedSegments));
+      JUnit5Assertions.assertEquals(Sets.newHashSet(expectedSegments), Sets.newHashSet(allUsedSegments));
     }
     catch (IOException e) {
       throw new ISE(e, "Error while fetching segments to replace in interval[%s]", interval);

@@ -35,9 +35,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertEquals;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertThrows;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertTrue;
 
 public class MarkSegmentToUpgradeActionTest
 {

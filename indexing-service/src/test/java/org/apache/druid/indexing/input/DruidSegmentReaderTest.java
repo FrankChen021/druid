@@ -62,14 +62,14 @@ import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.loading.NoopSegmentCacheManager;
 import org.apache.druid.segment.writeout.OnHeapMemorySegmentWriteOutMediumFactory;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.TombstoneShardSpec;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.io.IOException;
@@ -80,12 +80,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertThrows;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertThrows;
 
 public class DruidSegmentReaderTest extends InitializedNullHandlingTest
 {
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
   private File segmentDirectory;
   private long segmentSize;
@@ -96,7 +96,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
 
   private InputStats inputStats;
 
-  @Before
+  @BeforeEach
   public void setUp() throws IOException
   {
     // Write a segment with two rows in it, with columns: s (string), d (double), cnt (long), met_s (complex).
@@ -151,7 +151,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         temporaryFolder.newFolder()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new MapBasedInputRow(
                 DateTimes.of("2000"),
@@ -178,7 +178,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         ),
         readRows(reader)
     );
-    Assert.assertEquals(segmentSize, inputStats.getProcessedBytes());
+    JUnit5Assertions.assertEquals(segmentSize, inputStats.getProcessedBytes());
   }
 
   @Test
@@ -247,8 +247,8 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         temporaryFolder.newFolder()
     );
 
-    Assert.assertEquals(Arrays.asList(rows.get(2), rows.get(1)), readRows(reader));
-    Assert.assertEquals(segmentSize, inputStats.getProcessedBytes());
+    JUnit5Assertions.assertEquals(Arrays.asList(rows.get(2), rows.get(1)), readRows(reader));
+    JUnit5Assertions.assertEquals(segmentSize, inputStats.getProcessedBytes());
   }
 
   @Test
@@ -258,8 +258,8 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         makeTombstoneInputEntity(Intervals.of("2000/P1D"))
     );
 
-    Assert.assertFalse(reader.intermediateRowIterator().hasNext());
-    Assert.assertTrue(readRows(reader).isEmpty());
+    JUnit5Assertions.assertFalse(reader.intermediateRowIterator().hasNext());
+    JUnit5Assertions.assertTrue(readRows(reader).isEmpty());
   }
 
   @Test
@@ -276,10 +276,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
             )
         )
     );
-    Assert.assertEquals(
-        "DruidSegmentInputEntity must be created from a tombstone.",
-        exception.getMessage()
-    );
+    JUnit5Assertions.assertEquals(exception.getMessage(), "DruidSegmentInputEntity must be created from a tombstone.");
   }
 
   @Test
@@ -300,7 +297,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         temporaryFolder.newFolder()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new MapBasedInputRow(
                 DateTimes.of("2000"),
@@ -327,7 +324,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         ),
         readRows(reader)
     );
-    Assert.assertEquals(segmentSize, inputStats.getProcessedBytes());
+    JUnit5Assertions.assertEquals(segmentSize, inputStats.getProcessedBytes());
   }
 
   @Test
@@ -343,7 +340,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         temporaryFolder.newFolder()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new MapBasedInputRow(
                 DateTimes.of("2000"),
@@ -370,7 +367,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         ),
         readRows(reader)
     );
-    Assert.assertEquals(segmentSize, inputStats.getProcessedBytes());
+    JUnit5Assertions.assertEquals(segmentSize, inputStats.getProcessedBytes());
   }
 
   @Test
@@ -391,7 +388,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         temporaryFolder.newFolder()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new MapBasedInputRow(
                 DateTimes.of("2000"),
@@ -414,7 +411,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         ),
         readRows(reader)
     );
-    Assert.assertEquals(segmentSize, inputStats.getProcessedBytes());
+    JUnit5Assertions.assertEquals(segmentSize, inputStats.getProcessedBytes());
   }
 
   @Test
@@ -435,7 +432,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         temporaryFolder.newFolder()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new MapBasedInputRow(
                 DateTimes.of("1971"),
@@ -456,7 +453,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         ),
         readRows(reader)
     );
-    Assert.assertEquals(segmentSize, inputStats.getProcessedBytes());
+    JUnit5Assertions.assertEquals(segmentSize, inputStats.getProcessedBytes());
   }
 
   @Test
@@ -477,7 +474,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         temporaryFolder.newFolder()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new MapBasedInputRow(
                 DateTimes.of("2000"),
@@ -493,7 +490,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         ),
         readRows(reader)
     );
-    Assert.assertEquals(segmentSize, inputStats.getProcessedBytes());
+    JUnit5Assertions.assertEquals(segmentSize, inputStats.getProcessedBytes());
   }
 
   @Test
@@ -514,7 +511,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         temporaryFolder.newFolder()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new MapBasedInputRow(
                 DateTimes.of("1970-01-01T00:00:01.000Z"),
@@ -541,7 +538,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         ),
         readRows(reader)
     );
-    Assert.assertEquals(segmentSize, inputStats.getProcessedBytes());
+    JUnit5Assertions.assertEquals(segmentSize, inputStats.getProcessedBytes());
   }
 
   @Test
@@ -562,7 +559,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         temporaryFolder.newFolder()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new MapBasedInputRow(
                 DateTimes.of("31969-04-01T00:00:00.000Z"),
@@ -589,7 +586,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         ),
         readRows(reader)
     );
-    Assert.assertEquals(segmentSize, inputStats.getProcessedBytes());
+    JUnit5Assertions.assertEquals(segmentSize, inputStats.getProcessedBytes());
   }
 
   @Test
@@ -610,7 +607,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         temporaryFolder.newFolder()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new MapBasedInputRow(
                 DateTimes.of("1971"),
@@ -637,7 +634,7 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         ),
         readRows(reader)
     );
-    Assert.assertEquals(segmentSize, inputStats.getProcessedBytes());
+    JUnit5Assertions.assertEquals(segmentSize, inputStats.getProcessedBytes());
   }
 
   @Test
@@ -681,8 +678,8 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
         iterator.next();
       }
     }
-    Assert.assertTrue("File is not closed", isFileClosed.booleanValue());
-    Assert.assertTrue("Sequence is not closed", isSequenceClosed.booleanValue());
+    JUnit5Assertions.assertTrue(isFileClosed.booleanValue(), "File is not closed");
+    JUnit5Assertions.assertTrue(isSequenceClosed.booleanValue(), "Sequence is not closed");
   }
 
   @Test
@@ -778,22 +775,22 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
 
     List<InputRow> readRows = readRows(reader);
 
-    Assert.assertEquals(ImmutableList.of("strCol", "dblCol", "arrayCol"), readRows.get(0).getDimensions());
-    Assert.assertEquals(DateTimes.of("2000T").getMillis(), readRows.get(0).getTimestampFromEpoch());
-    Assert.assertEquals("foo", readRows.get(0).getRaw("strCol"));
-    Assert.assertEquals(1.23, readRows.get(0).getRaw("dblCol"));
-    Assert.assertArrayEquals(new Object[]{"a", "b", "c"}, (Object[]) readRows.get(0).getRaw("arrayCol"));
-    Assert.assertEquals(1L, readRows.get(0).getRaw("cnt"));
-    Assert.assertEquals(makeHLLC("foo"), readRows.get(0).getRaw("met_s"));
+    JUnit5Assertions.assertEquals(ImmutableList.of("strCol", "dblCol", "arrayCol"), readRows.get(0).getDimensions());
+    JUnit5Assertions.assertEquals(DateTimes.of("2000T").getMillis(), readRows.get(0).getTimestampFromEpoch());
+    JUnit5Assertions.assertEquals(readRows.get(0).getRaw("strCol"), "foo");
+    JUnit5Assertions.assertEquals(1.23, readRows.get(0).getRaw("dblCol"));
+    JUnit5Assertions.assertArrayEquals(new Object[]{"a", "b", "c"}, (Object[]) readRows.get(0).getRaw("arrayCol"));
+    JUnit5Assertions.assertEquals(1L, readRows.get(0).getRaw("cnt"));
+    JUnit5Assertions.assertEquals(makeHLLC("foo"), readRows.get(0).getRaw("met_s"));
 
-    Assert.assertEquals(DateTimes.of("2000T1").getMillis(), readRows.get(1).getTimestampFromEpoch());
-    Assert.assertEquals("bar", readRows.get(1).getRaw("strCol"));
-    Assert.assertEquals(4.56, readRows.get(1).getRaw("dblCol"));
-    Assert.assertArrayEquals(new Object[]{"x", "y", "z"}, (Object[]) readRows.get(1).getRaw("arrayCol"));
-    Assert.assertEquals(1L, readRows.get(1).getRaw("cnt"));
-    Assert.assertEquals(makeHLLC("bar"), readRows.get(1).getRaw("met_s"));
+    JUnit5Assertions.assertEquals(DateTimes.of("2000T1").getMillis(), readRows.get(1).getTimestampFromEpoch());
+    JUnit5Assertions.assertEquals(readRows.get(1).getRaw("strCol"), "bar");
+    JUnit5Assertions.assertEquals(4.56, readRows.get(1).getRaw("dblCol"));
+    JUnit5Assertions.assertArrayEquals(new Object[]{"x", "y", "z"}, (Object[]) readRows.get(1).getRaw("arrayCol"));
+    JUnit5Assertions.assertEquals(1L, readRows.get(1).getRaw("cnt"));
+    JUnit5Assertions.assertEquals(makeHLLC("bar"), readRows.get(1).getRaw("met_s"));
 
-    Assert.assertEquals(segmentSize, inputStats.getProcessedBytes());
+    JUnit5Assertions.assertEquals(segmentSize, inputStats.getProcessedBytes());
 
   }
 
@@ -890,22 +887,22 @@ public class DruidSegmentReaderTest extends InitializedNullHandlingTest
 
     List<InputRow> readRows = readRows(reader);
 
-    Assert.assertEquals(ImmutableList.of("strCol", "dblCol", "arrayCol"), readRows.get(0).getDimensions());
-    Assert.assertEquals(DateTimes.of("2000T").getMillis(), readRows.get(0).getTimestampFromEpoch());
-    Assert.assertEquals("foo", readRows.get(0).getRaw("strCol"));
-    Assert.assertEquals(1.23, readRows.get(0).getRaw("dblCol"));
-    Assert.assertArrayEquals(new Object[]{"a", "b", "c"}, (Object[]) readRows.get(0).getRaw("arrayCol"));
-    Assert.assertEquals(1L, readRows.get(0).getRaw("cnt"));
-    Assert.assertEquals(makeHLLC("foo"), readRows.get(0).getRaw("met_s"));
+    JUnit5Assertions.assertEquals(ImmutableList.of("strCol", "dblCol", "arrayCol"), readRows.get(0).getDimensions());
+    JUnit5Assertions.assertEquals(DateTimes.of("2000T").getMillis(), readRows.get(0).getTimestampFromEpoch());
+    JUnit5Assertions.assertEquals(readRows.get(0).getRaw("strCol"), "foo");
+    JUnit5Assertions.assertEquals(1.23, readRows.get(0).getRaw("dblCol"));
+    JUnit5Assertions.assertArrayEquals(new Object[]{"a", "b", "c"}, (Object[]) readRows.get(0).getRaw("arrayCol"));
+    JUnit5Assertions.assertEquals(1L, readRows.get(0).getRaw("cnt"));
+    JUnit5Assertions.assertEquals(makeHLLC("foo"), readRows.get(0).getRaw("met_s"));
 
-    Assert.assertEquals(DateTimes.of("2000T1").getMillis(), readRows.get(1).getTimestampFromEpoch());
-    Assert.assertEquals("bar", readRows.get(1).getRaw("strCol"));
-    Assert.assertEquals(4.56, readRows.get(1).getRaw("dblCol"));
-    Assert.assertArrayEquals(new Object[]{"1", "2", "3"}, (Object[]) readRows.get(1).getRaw("arrayCol"));
-    Assert.assertEquals(1L, readRows.get(1).getRaw("cnt"));
-    Assert.assertEquals(makeHLLC("bar"), readRows.get(1).getRaw("met_s"));
+    JUnit5Assertions.assertEquals(DateTimes.of("2000T1").getMillis(), readRows.get(1).getTimestampFromEpoch());
+    JUnit5Assertions.assertEquals(readRows.get(1).getRaw("strCol"), "bar");
+    JUnit5Assertions.assertEquals(4.56, readRows.get(1).getRaw("dblCol"));
+    JUnit5Assertions.assertArrayEquals(new Object[]{"1", "2", "3"}, (Object[]) readRows.get(1).getRaw("arrayCol"));
+    JUnit5Assertions.assertEquals(1L, readRows.get(1).getRaw("cnt"));
+    JUnit5Assertions.assertEquals(makeHLLC("bar"), readRows.get(1).getRaw("met_s"));
 
-    Assert.assertEquals(segmentSize, inputStats.getProcessedBytes());
+    JUnit5Assertions.assertEquals(segmentSize, inputStats.getProcessedBytes());
   }
 
   private InputEntity makeInputEntity(final Interval interval)

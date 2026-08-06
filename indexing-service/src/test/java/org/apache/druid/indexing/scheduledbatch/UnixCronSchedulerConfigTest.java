@@ -24,15 +24,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.hamcrest.MatcherAssert;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Duration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertEquals;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertTrue;
 
 public class UnixCronSchedulerConfigTest
 {
@@ -109,8 +108,8 @@ public class UnixCronSchedulerConfigTest
   @Test
   public void testInvalidUnixCronExpression()
   {
-    MatcherAssert.assertThat(
-        Assert.assertThrows(
+    JUnit5Assertions.assertMatches(
+        JUnit5Assertions.assertThrows(
             DruidException.class,
             () -> new UnixCronSchedulerConfig("0 15 10 * * ? *")
         ),

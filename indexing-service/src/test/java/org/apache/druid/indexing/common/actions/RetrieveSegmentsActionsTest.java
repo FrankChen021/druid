@@ -25,13 +25,13 @@ import org.apache.druid.indexing.common.task.NoopTask;
 import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.NoneShardSpec;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -42,14 +42,14 @@ public class RetrieveSegmentsActionsTest
   private static final String UNUSED_V0 = "v0";
   private static final String UNUSED_V1 = "v1";
 
-  @Rule
+  @RegisterExtension
   public TaskActionTestKit actionTestKit = new TaskActionTestKit();
 
   private static Task task;
   private static Set<DataSegment> expectedUnusedSegments;
   private static Set<DataSegment> expectedUsedSegments;
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     task = NoopTask.create();
@@ -102,7 +102,7 @@ public class RetrieveSegmentsActionsTest
     final RetrieveUsedSegmentsAction action =
         new RetrieveUsedSegmentsAction(task.getDataSource(), ImmutableList.of(INTERVAL));
     final Set<DataSegment> observedUsedSegments = new HashSet<>(action.perform(task, actionTestKit.getTaskActionToolbox()));
-    Assert.assertEquals(expectedUsedSegments, observedUsedSegments);
+    JUnit5Assertions.assertEquals(expectedUsedSegments, observedUsedSegments);
   }
 
   @Test
@@ -116,7 +116,7 @@ public class RetrieveSegmentsActionsTest
         null
     );
     final Set<DataSegment> observedUnusedSegments = new HashSet<>(action.perform(task, actionTestKit.getTaskActionToolbox()));
-    Assert.assertEquals(expectedUnusedSegments, observedUnusedSegments);
+    JUnit5Assertions.assertEquals(expectedUnusedSegments, observedUnusedSegments);
   }
 
   @Test
@@ -130,7 +130,7 @@ public class RetrieveSegmentsActionsTest
         null
     );
     final Set<DataSegment> observedUnusedSegments = new HashSet<>(action.perform(task, actionTestKit.getTaskActionToolbox()));
-    Assert.assertEquals(ImmutableSet.of(), observedUnusedSegments);
+    JUnit5Assertions.assertEquals(ImmutableSet.of(), observedUnusedSegments);
   }
 
   @Test
@@ -138,7 +138,7 @@ public class RetrieveSegmentsActionsTest
   {
     final RetrieveUnusedSegmentsAction action = new RetrieveUnusedSegmentsAction(task.getDataSource(), INTERVAL, null, null, DateTimes.MIN);
     final Set<DataSegment> observedUnusedSegments = new HashSet<>(action.perform(task, actionTestKit.getTaskActionToolbox()));
-    Assert.assertEquals(ImmutableSet.of(), observedUnusedSegments);
+    JUnit5Assertions.assertEquals(ImmutableSet.of(), observedUnusedSegments);
   }
 
   @Test
@@ -146,6 +146,6 @@ public class RetrieveSegmentsActionsTest
   {
     final RetrieveUnusedSegmentsAction action = new RetrieveUnusedSegmentsAction(task.getDataSource(), INTERVAL, null, null, DateTimes.nowUtc());
     final Set<DataSegment> observedUnusedSegments = new HashSet<>(action.perform(task, actionTestKit.getTaskActionToolbox()));
-    Assert.assertEquals(expectedUnusedSegments, observedUnusedSegments);
+    JUnit5Assertions.assertEquals(expectedUnusedSegments, observedUnusedSegments);
   }
 }

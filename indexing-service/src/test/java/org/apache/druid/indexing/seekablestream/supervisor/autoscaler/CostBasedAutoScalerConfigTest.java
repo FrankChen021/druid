@@ -21,9 +21,10 @@ package org.apache.druid.indexing.seekablestream.supervisor.autoscaler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.testing.junit5.ExpectedToThrow;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.joda.time.Duration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.druid.indexing.seekablestream.supervisor.autoscaler.CostBasedAutoScalerConfig.DEFAULT_IDLE_WEIGHT;
 import static org.apache.druid.indexing.seekablestream.supervisor.autoscaler.CostBasedAutoScalerConfig.DEFAULT_LAG_WEIGHT;
@@ -64,30 +65,30 @@ public class CostBasedAutoScalerConfigTest
 
     final CostBasedAutoScalerConfig config = mapper.readValue(json, CostBasedAutoScalerConfig.class);
 
-    Assert.assertTrue(config.getEnableTaskAutoScaler());
-    Assert.assertEquals(100, config.getTaskCountMax());
-    Assert.assertEquals(5, config.getTaskCountMin());
-    Assert.assertEquals(Integer.valueOf(10), config.getTaskCountStart());
-    Assert.assertEquals(Double.valueOf(0.8), config.getStopTaskCountRatio());
-    Assert.assertEquals(60000L, config.getScaleActionPeriodMillis());
-    Assert.assertEquals(0.6, config.getLagWeight(), 0.001);
-    Assert.assertEquals(0.4, config.getIdleWeight(), 0.001);
-    Assert.assertEquals(0.3, config.getOptimalTaskIdleRatio(), 0.001);
-    Assert.assertEquals(Duration.standardMinutes(5), config.getMinScaleUpDelay());
-    Assert.assertEquals(Duration.standardMinutes(10), config.getMinScaleDownDelay());
-    Assert.assertTrue(config.isScaleDownOnTaskRolloverOnly());
-    Assert.assertFalse(config.isUsePollIdleRatio());
-    Assert.assertFalse(config.isUseTaskCountBoundariesOnScaleUp());
-    Assert.assertTrue(config.isUseTaskCountBoundariesOnScaleDown());
-    Assert.assertEquals(Long.valueOf(500000), config.getCriticalLagThreshold());
-    Assert.assertEquals(10, config.getMinCostDropPercentForScaling());
-    Assert.assertEquals(8.0, config.getHighLagCostFactor(), 0.001);
+    JUnit5Assertions.assertTrue(config.getEnableTaskAutoScaler());
+    JUnit5Assertions.assertEquals(100, config.getTaskCountMax());
+    JUnit5Assertions.assertEquals(5, config.getTaskCountMin());
+    JUnit5Assertions.assertEquals(Integer.valueOf(10), config.getTaskCountStart());
+    JUnit5Assertions.assertEquals(Double.valueOf(0.8), config.getStopTaskCountRatio());
+    JUnit5Assertions.assertEquals(60000L, config.getScaleActionPeriodMillis());
+    JUnit5Assertions.assertEquals(0.6, config.getLagWeight(), 0.001);
+    JUnit5Assertions.assertEquals(0.4, config.getIdleWeight(), 0.001);
+    JUnit5Assertions.assertEquals(0.3, config.getOptimalTaskIdleRatio(), 0.001);
+    JUnit5Assertions.assertEquals(Duration.standardMinutes(5), config.getMinScaleUpDelay());
+    JUnit5Assertions.assertEquals(Duration.standardMinutes(10), config.getMinScaleDownDelay());
+    JUnit5Assertions.assertTrue(config.isScaleDownOnTaskRolloverOnly());
+    JUnit5Assertions.assertFalse(config.isUsePollIdleRatio());
+    JUnit5Assertions.assertFalse(config.isUseTaskCountBoundariesOnScaleUp());
+    JUnit5Assertions.assertTrue(config.isUseTaskCountBoundariesOnScaleDown());
+    JUnit5Assertions.assertEquals(Long.valueOf(500000), config.getCriticalLagThreshold());
+    JUnit5Assertions.assertEquals(10, config.getMinCostDropPercentForScaling());
+    JUnit5Assertions.assertEquals(8.0, config.getHighLagCostFactor(), 0.001);
 
     // Test serialization back to JSON
     final String serialized = mapper.writeValueAsString(config);
     final CostBasedAutoScalerConfig deserialized = mapper.readValue(serialized, CostBasedAutoScalerConfig.class);
 
-    Assert.assertEquals(config, deserialized);
+    JUnit5Assertions.assertEquals(config, deserialized);
   }
 
   @Test
@@ -102,27 +103,27 @@ public class CostBasedAutoScalerConfigTest
 
     final CostBasedAutoScalerConfig config = mapper.readValue(json, CostBasedAutoScalerConfig.class);
 
-    Assert.assertTrue(config.getEnableTaskAutoScaler());
-    Assert.assertEquals(50, config.getTaskCountMax());
-    Assert.assertEquals(2, config.getTaskCountMin());
+    JUnit5Assertions.assertTrue(config.getEnableTaskAutoScaler());
+    JUnit5Assertions.assertEquals(50, config.getTaskCountMax());
+    JUnit5Assertions.assertEquals(2, config.getTaskCountMin());
 
     // Check defaults
-    Assert.assertEquals(DEFAULT_SCALE_ACTION_PERIOD.getMillis(), config.getScaleActionPeriodMillis());
-    Assert.assertEquals(DEFAULT_LAG_WEIGHT, config.getLagWeight(), 0.001);
-    Assert.assertEquals(DEFAULT_IDLE_WEIGHT, config.getIdleWeight(), 0.001);
-    Assert.assertEquals(OPTIMAL_TASK_IDLE_RATIO, config.getOptimalTaskIdleRatio(), 0.001);
+    JUnit5Assertions.assertEquals(DEFAULT_SCALE_ACTION_PERIOD.getMillis(), config.getScaleActionPeriodMillis());
+    JUnit5Assertions.assertEquals(DEFAULT_LAG_WEIGHT, config.getLagWeight(), 0.001);
+    JUnit5Assertions.assertEquals(DEFAULT_IDLE_WEIGHT, config.getIdleWeight(), 0.001);
+    JUnit5Assertions.assertEquals(OPTIMAL_TASK_IDLE_RATIO, config.getOptimalTaskIdleRatio(), 0.001);
     // minScaleUpDelay and minScaleDownDelay each have their own independent default
-    Assert.assertEquals(DEFAULT_MIN_SCALE_UP_DELAY, config.getMinScaleUpDelay());
-    Assert.assertEquals(DEFAULT_MIN_SCALE_DOWN_DELAY, config.getMinScaleDownDelay());
-    Assert.assertFalse(config.isScaleDownOnTaskRolloverOnly());
-    Assert.assertTrue(config.isUsePollIdleRatio());
-    Assert.assertFalse(config.isUseTaskCountBoundariesOnScaleUp());
-    Assert.assertTrue(config.isUseTaskCountBoundariesOnScaleDown());
-    Assert.assertNull(config.getTaskCountStart());
-    Assert.assertNull(config.getStopTaskCountRatio());
-    Assert.assertNull(config.getCriticalLagThreshold());
-    Assert.assertEquals(0, config.getMinCostDropPercentForScaling());
-    Assert.assertEquals(DEFAULT_HIGH_LAG_COST_FACTOR, config.getHighLagCostFactor(), 0.001);
+    JUnit5Assertions.assertEquals(DEFAULT_MIN_SCALE_UP_DELAY, config.getMinScaleUpDelay());
+    JUnit5Assertions.assertEquals(DEFAULT_MIN_SCALE_DOWN_DELAY, config.getMinScaleDownDelay());
+    JUnit5Assertions.assertFalse(config.isScaleDownOnTaskRolloverOnly());
+    JUnit5Assertions.assertTrue(config.isUsePollIdleRatio());
+    JUnit5Assertions.assertFalse(config.isUseTaskCountBoundariesOnScaleUp());
+    JUnit5Assertions.assertTrue(config.isUseTaskCountBoundariesOnScaleDown());
+    JUnit5Assertions.assertNull(config.getTaskCountStart());
+    JUnit5Assertions.assertNull(config.getStopTaskCountRatio());
+    JUnit5Assertions.assertNull(config.getCriticalLagThreshold());
+    JUnit5Assertions.assertEquals(0, config.getMinCostDropPercentForScaling());
+    JUnit5Assertions.assertEquals(DEFAULT_HIGH_LAG_COST_FACTOR, config.getHighLagCostFactor(), 0.001);
   }
 
   @Test
@@ -135,13 +136,14 @@ public class CostBasedAutoScalerConfigTest
 
     CostBasedAutoScalerConfig config = mapper.readValue(json, CostBasedAutoScalerConfig.class);
 
-    Assert.assertFalse(config.getEnableTaskAutoScaler());
+    JUnit5Assertions.assertFalse(config.getEnableTaskAutoScaler());
     // When disabled, taskCountMax and taskCountMin default to 0
-    Assert.assertEquals(0, config.getTaskCountMax());
-    Assert.assertEquals(0, config.getTaskCountMin());
+    JUnit5Assertions.assertEquals(0, config.getTaskCountMax());
+    JUnit5Assertions.assertEquals(0, config.getTaskCountMin());
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
+  @ExpectedToThrow(RuntimeException.class)
   public void testValidation_MissingTaskCountMax()
   {
     CostBasedAutoScalerConfig.builder()
@@ -150,7 +152,8 @@ public class CostBasedAutoScalerConfigTest
                              .build();
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
+  @ExpectedToThrow(RuntimeException.class)
   public void testValidation_MissingTaskCountMin()
   {
     CostBasedAutoScalerConfig.builder()
@@ -159,7 +162,8 @@ public class CostBasedAutoScalerConfigTest
                              .build();
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
+  @ExpectedToThrow(RuntimeException.class)
   public void testValidation_MaxLessThanMin()
   {
     CostBasedAutoScalerConfig.builder()
@@ -169,7 +173,8 @@ public class CostBasedAutoScalerConfigTest
                              .build();
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
+  @ExpectedToThrow(RuntimeException.class)
   public void testValidation_TaskCountStartOutOfRange()
   {
     CostBasedAutoScalerConfig.builder()
@@ -180,7 +185,8 @@ public class CostBasedAutoScalerConfigTest
                              .build();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
+  @ExpectedToThrow(IllegalArgumentException.class)
   public void testValidation_InvalidStopTaskCountRatio()
   {
     CostBasedAutoScalerConfig.builder()
@@ -191,7 +197,8 @@ public class CostBasedAutoScalerConfigTest
                              .build();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
+  @ExpectedToThrow(IllegalArgumentException.class)
   public void testValidationZeroOptimalTaskIdleRatio()
   {
     CostBasedAutoScalerConfig.builder()
@@ -202,7 +209,8 @@ public class CostBasedAutoScalerConfigTest
                              .build();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
+  @ExpectedToThrow(IllegalArgumentException.class)
   public void testValidationOneOptimalTaskIdleRatio()
   {
     CostBasedAutoScalerConfig.builder()
@@ -236,26 +244,27 @@ public class CostBasedAutoScalerConfigTest
                                                                       .highLagCostFactor(8.0)
                                                                       .build();
 
-    Assert.assertTrue(config.getEnableTaskAutoScaler());
-    Assert.assertEquals(100, config.getTaskCountMax());
-    Assert.assertEquals(5, config.getTaskCountMin());
-    Assert.assertEquals(Integer.valueOf(10), config.getTaskCountStart());
-    Assert.assertEquals(Double.valueOf(0.8), config.getStopTaskCountRatio());
-    Assert.assertEquals(60000L, config.getScaleActionPeriodMillis());
-    Assert.assertEquals(0.6, config.getLagWeight(), 0.001);
-    Assert.assertEquals(0.4, config.getIdleWeight(), 0.001);
-    Assert.assertEquals(0.3, config.getOptimalTaskIdleRatio(), 0.001);
-    Assert.assertTrue(config.isUseTaskCountBoundariesOnScaleUp());
-    Assert.assertTrue(config.isUseTaskCountBoundariesOnScaleDown());
-    Assert.assertEquals(Duration.standardMinutes(5), config.getMinScaleUpDelay());
-    Assert.assertEquals(Duration.standardMinutes(10), config.getMinScaleDownDelay());
-    Assert.assertTrue(config.isScaleDownOnTaskRolloverOnly());
-    Assert.assertFalse(config.isUsePollIdleRatio());
-    Assert.assertEquals(Long.valueOf(500000), config.getCriticalLagThreshold());
-    Assert.assertEquals(8.0, config.getHighLagCostFactor(), 0.001);
+    JUnit5Assertions.assertTrue(config.getEnableTaskAutoScaler());
+    JUnit5Assertions.assertEquals(100, config.getTaskCountMax());
+    JUnit5Assertions.assertEquals(5, config.getTaskCountMin());
+    JUnit5Assertions.assertEquals(Integer.valueOf(10), config.getTaskCountStart());
+    JUnit5Assertions.assertEquals(Double.valueOf(0.8), config.getStopTaskCountRatio());
+    JUnit5Assertions.assertEquals(60000L, config.getScaleActionPeriodMillis());
+    JUnit5Assertions.assertEquals(0.6, config.getLagWeight(), 0.001);
+    JUnit5Assertions.assertEquals(0.4, config.getIdleWeight(), 0.001);
+    JUnit5Assertions.assertEquals(0.3, config.getOptimalTaskIdleRatio(), 0.001);
+    JUnit5Assertions.assertTrue(config.isUseTaskCountBoundariesOnScaleUp());
+    JUnit5Assertions.assertTrue(config.isUseTaskCountBoundariesOnScaleDown());
+    JUnit5Assertions.assertEquals(Duration.standardMinutes(5), config.getMinScaleUpDelay());
+    JUnit5Assertions.assertEquals(Duration.standardMinutes(10), config.getMinScaleDownDelay());
+    JUnit5Assertions.assertTrue(config.isScaleDownOnTaskRolloverOnly());
+    JUnit5Assertions.assertFalse(config.isUsePollIdleRatio());
+    JUnit5Assertions.assertEquals(Long.valueOf(500000), config.getCriticalLagThreshold());
+    JUnit5Assertions.assertEquals(8.0, config.getHighLagCostFactor(), 0.001);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
+  @ExpectedToThrow(IllegalArgumentException.class)
   public void testValidation_NegativeCriticalLagAmplificationMultiplier()
   {
     CostBasedAutoScalerConfig.builder()
@@ -266,7 +275,8 @@ public class CostBasedAutoScalerConfigTest
                              .build();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
+  @ExpectedToThrow(IllegalArgumentException.class)
   public void testValidation_ZeroCriticalLagThreshold()
   {
     CostBasedAutoScalerConfig.builder()
@@ -277,7 +287,8 @@ public class CostBasedAutoScalerConfigTest
                              .build();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
+  @ExpectedToThrow(IllegalArgumentException.class)
   public void testValidation_NegativeMinCostDropPercentForScaling()
   {
     CostBasedAutoScalerConfig.builder()
@@ -288,7 +299,8 @@ public class CostBasedAutoScalerConfigTest
                              .build();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
+  @ExpectedToThrow(IllegalArgumentException.class)
   public void testValidation_MinCostDropPercentForScalingAbove100()
   {
     CostBasedAutoScalerConfig.builder()
@@ -307,8 +319,8 @@ public class CostBasedAutoScalerConfigTest
                                                                   .taskCountMax(10)
                                                                   .taskCountMin(1)
                                                                   .build();
-    Assert.assertEquals(DEFAULT_MIN_SCALE_UP_DELAY, defaults.getMinScaleUpDelay());
-    Assert.assertEquals(DEFAULT_MIN_SCALE_DOWN_DELAY, defaults.getMinScaleDownDelay());
+    JUnit5Assertions.assertEquals(DEFAULT_MIN_SCALE_UP_DELAY, defaults.getMinScaleUpDelay());
+    JUnit5Assertions.assertEquals(DEFAULT_MIN_SCALE_DOWN_DELAY, defaults.getMinScaleDownDelay());
 
     // Only minScaleUpDelay set: up uses explicit value, down uses its default
     CostBasedAutoScalerConfig upOnly = CostBasedAutoScalerConfig.builder()
@@ -316,8 +328,8 @@ public class CostBasedAutoScalerConfigTest
                                                                 .taskCountMin(1)
                                                                 .minScaleUpDelay(Duration.standardMinutes(5))
                                                                 .build();
-    Assert.assertEquals(Duration.standardMinutes(5), upOnly.getMinScaleUpDelay());
-    Assert.assertEquals(DEFAULT_MIN_SCALE_DOWN_DELAY, upOnly.getMinScaleDownDelay());
+    JUnit5Assertions.assertEquals(Duration.standardMinutes(5), upOnly.getMinScaleUpDelay());
+    JUnit5Assertions.assertEquals(DEFAULT_MIN_SCALE_DOWN_DELAY, upOnly.getMinScaleDownDelay());
 
     // Only minScaleDownDelay set: down uses explicit value, up uses its own default (does not fall back to down)
     CostBasedAutoScalerConfig downOnly = CostBasedAutoScalerConfig.builder()
@@ -325,8 +337,8 @@ public class CostBasedAutoScalerConfigTest
                                                                   .taskCountMin(1)
                                                                   .minScaleDownDelay(Duration.standardMinutes(20))
                                                                   .build();
-    Assert.assertEquals(DEFAULT_MIN_SCALE_UP_DELAY, downOnly.getMinScaleUpDelay());
-    Assert.assertEquals(Duration.standardMinutes(20), downOnly.getMinScaleDownDelay());
+    JUnit5Assertions.assertEquals(DEFAULT_MIN_SCALE_UP_DELAY, downOnly.getMinScaleUpDelay());
+    JUnit5Assertions.assertEquals(Duration.standardMinutes(20), downOnly.getMinScaleDownDelay());
 
     // Both set: serde roundtrip preserves values
     CostBasedAutoScalerConfig bothSet = CostBasedAutoScalerConfig.builder()
@@ -335,13 +347,13 @@ public class CostBasedAutoScalerConfigTest
                                                                  .minScaleUpDelay(Duration.standardMinutes(5))
                                                                  .minScaleDownDelay(Duration.standardMinutes(20))
                                                                  .build();
-    Assert.assertEquals(Duration.standardMinutes(5), bothSet.getMinScaleUpDelay());
-    Assert.assertEquals(Duration.standardMinutes(20), bothSet.getMinScaleDownDelay());
+    JUnit5Assertions.assertEquals(Duration.standardMinutes(5), bothSet.getMinScaleUpDelay());
+    JUnit5Assertions.assertEquals(Duration.standardMinutes(20), bothSet.getMinScaleDownDelay());
     CostBasedAutoScalerConfig roundTripped = mapper.readValue(
         mapper.writeValueAsString(bothSet),
         CostBasedAutoScalerConfig.class
     );
-    Assert.assertEquals(bothSet, roundTripped);
+    JUnit5Assertions.assertEquals(bothSet, roundTripped);
   }
 
   @Test
@@ -358,9 +370,9 @@ public class CostBasedAutoScalerConfigTest
           "{\"autoScalerStrategy\":\"costBased\",\"enableTaskAutoScaler\":true,\"taskCountMax\":10,\"taskCountMin\":1}",
           CostBasedAutoScalerConfig.class
       );
-      Assert.assertEquals(defaultMinTriggerMillis, config.getMinTriggerScaleActionFrequencyMillis());
-      Assert.assertEquals(defaultUp, config.getMinScaleUpDelay());
-      Assert.assertEquals(defaultDown, config.getMinScaleDownDelay());
+      JUnit5Assertions.assertEquals(defaultMinTriggerMillis, config.getMinTriggerScaleActionFrequencyMillis());
+      JUnit5Assertions.assertEquals(defaultUp, config.getMinScaleUpDelay());
+      JUnit5Assertions.assertEquals(defaultDown, config.getMinScaleDownDelay());
       assertRoundTrips(config);
     }
 
@@ -372,8 +384,8 @@ public class CostBasedAutoScalerConfigTest
           + "\"minTriggerScaleActionFrequencyMillis\":900000}",
           CostBasedAutoScalerConfig.class
       );
-      Assert.assertEquals(defaultUp, config.getMinScaleUpDelay());
-      Assert.assertEquals(defaultDown, config.getMinScaleDownDelay());
+      JUnit5Assertions.assertEquals(defaultUp, config.getMinScaleUpDelay());
+      JUnit5Assertions.assertEquals(defaultDown, config.getMinScaleDownDelay());
       assertRoundTrips(config);
     }
 
@@ -384,9 +396,9 @@ public class CostBasedAutoScalerConfigTest
           + "\"minScaleUpDelay\":\"PT2M\",\"minScaleDownDelay\":\"PT15M\"}",
           CostBasedAutoScalerConfig.class
       );
-      Assert.assertEquals(defaultMinTriggerMillis, config.getMinTriggerScaleActionFrequencyMillis());
-      Assert.assertEquals(Duration.standardMinutes(2), config.getMinScaleUpDelay());
-      Assert.assertEquals(Duration.standardMinutes(15), config.getMinScaleDownDelay());
+      JUnit5Assertions.assertEquals(defaultMinTriggerMillis, config.getMinTriggerScaleActionFrequencyMillis());
+      JUnit5Assertions.assertEquals(Duration.standardMinutes(2), config.getMinScaleUpDelay());
+      JUnit5Assertions.assertEquals(Duration.standardMinutes(15), config.getMinScaleDownDelay());
       assertRoundTrips(config);
     }
 
@@ -399,8 +411,8 @@ public class CostBasedAutoScalerConfigTest
           + "\"minScaleUpDelay\":\"PT2M\",\"minScaleDownDelay\":\"PT15M\"}",
           CostBasedAutoScalerConfig.class
       );
-      Assert.assertEquals(Duration.standardMinutes(2), config.getMinScaleUpDelay());
-      Assert.assertEquals(Duration.standardMinutes(15), config.getMinScaleDownDelay());
+      JUnit5Assertions.assertEquals(Duration.standardMinutes(2), config.getMinScaleUpDelay());
+      JUnit5Assertions.assertEquals(Duration.standardMinutes(15), config.getMinScaleDownDelay());
       assertRoundTrips(config);
     }
 
@@ -413,8 +425,8 @@ public class CostBasedAutoScalerConfigTest
           + "\"minScaleUpDelay\":\"PT2M\"}",
           CostBasedAutoScalerConfig.class
       );
-      Assert.assertEquals(Duration.standardMinutes(2), config.getMinScaleUpDelay());
-      Assert.assertEquals(defaultDown, config.getMinScaleDownDelay());
+      JUnit5Assertions.assertEquals(Duration.standardMinutes(2), config.getMinScaleUpDelay());
+      JUnit5Assertions.assertEquals(defaultDown, config.getMinScaleDownDelay());
       assertRoundTrips(config);
     }
 
@@ -426,8 +438,8 @@ public class CostBasedAutoScalerConfigTest
           + "\"minScaleDownDelay\":\"PT15M\"}",
           CostBasedAutoScalerConfig.class
       );
-      Assert.assertEquals(defaultUp, config.getMinScaleUpDelay());
-      Assert.assertEquals(Duration.standardMinutes(15), config.getMinScaleDownDelay());
+      JUnit5Assertions.assertEquals(defaultUp, config.getMinScaleUpDelay());
+      JUnit5Assertions.assertEquals(Duration.standardMinutes(15), config.getMinScaleDownDelay());
       assertRoundTrips(config);
     }
   }
@@ -438,6 +450,6 @@ public class CostBasedAutoScalerConfigTest
         mapper.writeValueAsString(config),
         CostBasedAutoScalerConfig.class
     );
-    Assert.assertEquals(config, roundTripped);
+    JUnit5Assertions.assertEquals(config, roundTripped);
   }
 }

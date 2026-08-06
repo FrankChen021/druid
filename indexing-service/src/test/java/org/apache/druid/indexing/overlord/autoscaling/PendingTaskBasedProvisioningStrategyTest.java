@@ -43,13 +43,13 @@ import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.emitter.service.ServiceEventBuilder;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -74,7 +74,7 @@ public class PendingTaskBasedProvisioningStrategyTest
   private static final String MIN_VERSION = "2014-01-00T00:01:00Z";
   private static final String INVALID_VERSION = "0";
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     autoScaler = EasyMock.createMock(AutoScaler.class);
@@ -135,7 +135,7 @@ public class PendingTaskBasedProvisioningStrategyTest
         }
     );
     int expectedWorkerCapacity = strategy.getExpectedWorkerCapacity(ImmutableList.of());
-    Assert.assertEquals(capacityHint, expectedWorkerCapacity);
+    JUnit5Assertions.assertEquals(capacityHint, expectedWorkerCapacity);
   }
 
   @Test
@@ -163,7 +163,7 @@ public class PendingTaskBasedProvisioningStrategyTest
         }
     );
     int expectedWorkerCapacity = strategy.getExpectedWorkerCapacity(ImmutableList.of());
-    Assert.assertEquals(1, expectedWorkerCapacity);
+    JUnit5Assertions.assertEquals(1, expectedWorkerCapacity);
   }
 
   @Test
@@ -179,7 +179,7 @@ public class PendingTaskBasedProvisioningStrategyTest
         )
     );
     int expectedWorkerCapacity = strategy.getExpectedWorkerCapacity(workerInfoCollection);
-    Assert.assertEquals(workerCapacity, expectedWorkerCapacity);
+    JUnit5Assertions.assertEquals(workerCapacity, expectedWorkerCapacity);
   }
 
   @Test
@@ -203,7 +203,7 @@ public class PendingTaskBasedProvisioningStrategyTest
     );
     int expectedWorkerCapacity = strategy.getExpectedWorkerCapacity(workerInfoCollection);
     // Use capacity of the first worker in the list
-    Assert.assertEquals(workerOneCapacity, expectedWorkerCapacity);
+    JUnit5Assertions.assertEquals(workerOneCapacity, expectedWorkerCapacity);
   }
 
   @Test
@@ -227,8 +227,8 @@ public class PendingTaskBasedProvisioningStrategyTest
         "test",
         mockLogger
     );
-    Assert.assertNull(defaultWorkerBehaviorConfig);
-    Assert.assertEquals(PendingTaskBasedWorkerProvisioningStrategy.ERROR_MESSAGE_MIN_WORKER_ZERO_HINT_UNSET, capturedArgument.getValue());
+    JUnit5Assertions.assertNull(defaultWorkerBehaviorConfig);
+    JUnit5Assertions.assertEquals(PendingTaskBasedWorkerProvisioningStrategy.ERROR_MESSAGE_MIN_WORKER_ZERO_HINT_UNSET, capturedArgument.getValue());
   }
 
   @Test
@@ -253,10 +253,10 @@ public class PendingTaskBasedProvisioningStrategyTest
     EasyMock.replay(runner, autoScaler);
     Provisioner provisioner = strategy.makeProvisioner(runner);
     boolean provisionedSomething = provisioner.doProvision();
-    Assert.assertTrue(provisionedSomething);
-    Assert.assertTrue(provisioner.getStats().toList().size() == 3);
+    JUnit5Assertions.assertTrue(provisionedSomething);
+    JUnit5Assertions.assertTrue(provisioner.getStats().toList().size() == 3);
     for (ScalingStats.ScalingEvent event : provisioner.getStats().toList()) {
-      Assert.assertTrue(
+      JUnit5Assertions.assertTrue(
           event.getEvent() == ScalingStats.EVENT.PROVISION
       );
     }
@@ -304,10 +304,10 @@ public class PendingTaskBasedProvisioningStrategyTest
     EasyMock.replay(runner, autoScaler);
     Provisioner provisioner = strategy.makeProvisioner(runner);
     boolean provisionedSomething = provisioner.doProvision();
-    Assert.assertTrue(provisionedSomething);
-    Assert.assertTrue(provisioner.getStats().toList().size() == 3);
+    JUnit5Assertions.assertTrue(provisionedSomething);
+    JUnit5Assertions.assertTrue(provisioner.getStats().toList().size() == 3);
     for (ScalingStats.ScalingEvent event : provisioner.getStats().toList()) {
-      Assert.assertTrue(
+      JUnit5Assertions.assertTrue(
           event.getEvent() == ScalingStats.EVENT.PROVISION
       );
     }
@@ -353,8 +353,8 @@ public class PendingTaskBasedProvisioningStrategyTest
     EasyMock.replay(runner, autoScaler);
     Provisioner provisioner = strategy.makeProvisioner(runner);
     boolean provisionedSomething = provisioner.doProvision();
-    Assert.assertFalse(provisionedSomething);
-    Assert.assertEquals(0, provisioner.getStats().toList().size());
+    JUnit5Assertions.assertFalse(provisionedSomething);
+    JUnit5Assertions.assertEquals(0, provisioner.getStats().toList().size());
   }
 
   @Test
@@ -382,10 +382,10 @@ public class PendingTaskBasedProvisioningStrategyTest
     EasyMock.replay(runner, autoScaler);
     Provisioner provisioner = strategy.makeProvisioner(runner);
     boolean provisionedSomething = provisioner.doProvision();
-    Assert.assertTrue(provisionedSomething);
-    Assert.assertTrue(provisioner.getStats().toList().size() == 2);
+    JUnit5Assertions.assertTrue(provisionedSomething);
+    JUnit5Assertions.assertTrue(provisioner.getStats().toList().size() == 2);
     for (ScalingStats.ScalingEvent event : provisioner.getStats().toList()) {
-      Assert.assertTrue(
+      JUnit5Assertions.assertTrue(
           event.getEvent() == ScalingStats.EVENT.PROVISION
       );
     }
@@ -417,10 +417,10 @@ public class PendingTaskBasedProvisioningStrategyTest
     EasyMock.replay(runner, autoScaler);
     Provisioner provisioner = strategy.makeProvisioner(runner);
     boolean provisionedSomething = provisioner.doProvision();
-    Assert.assertTrue(provisionedSomething);
-    Assert.assertTrue(provisioner.getStats().toList().size() == 2);
+    JUnit5Assertions.assertTrue(provisionedSomething);
+    JUnit5Assertions.assertTrue(provisioner.getStats().toList().size() == 2);
     for (ScalingStats.ScalingEvent event : provisioner.getStats().toList()) {
-      Assert.assertTrue(
+      JUnit5Assertions.assertTrue(
           event.getEvent() == ScalingStats.EVENT.PROVISION
       );
     }
@@ -455,21 +455,21 @@ public class PendingTaskBasedProvisioningStrategyTest
     Provisioner provisioner = strategy.makeProvisioner(runner);
     boolean provisionedSomething = provisioner.doProvision();
 
-    Assert.assertTrue(provisionedSomething);
-    Assert.assertTrue(provisioner.getStats().toList().size() == 1);
+    JUnit5Assertions.assertTrue(provisionedSomething);
+    JUnit5Assertions.assertTrue(provisioner.getStats().toList().size() == 1);
     DateTime createdTime = provisioner.getStats().toList().get(0).getTimestamp();
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
     );
 
     provisionedSomething = provisioner.doProvision();
 
-    Assert.assertFalse(provisionedSomething);
-    Assert.assertTrue(
+    JUnit5Assertions.assertFalse(provisionedSomething);
+    JUnit5Assertions.assertTrue(
         provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
     );
     DateTime anotherCreatedTime = provisioner.getStats().toList().get(0).getTimestamp();
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         createdTime.equals(anotherCreatedTime)
     );
 
@@ -531,20 +531,20 @@ public class PendingTaskBasedProvisioningStrategyTest
 
     // Expect to use capacity from current worker (which is 1)
     // and since there are two pending tasks, we will need two more workers
-    Assert.assertTrue(provisionedSomething);
-    Assert.assertEquals(2, provisioner.getStats().toList().size());
+    JUnit5Assertions.assertTrue(provisionedSomething);
+    JUnit5Assertions.assertEquals(2, provisioner.getStats().toList().size());
     DateTime createdTime = provisioner.getStats().toList().get(0).getTimestamp();
-    Assert.assertEquals(ScalingStats.EVENT.PROVISION, provisioner.getStats().toList().get(0).getEvent());
-    Assert.assertEquals(ScalingStats.EVENT.PROVISION, provisioner.getStats().toList().get(1).getEvent());
+    JUnit5Assertions.assertEquals(ScalingStats.EVENT.PROVISION, provisioner.getStats().toList().get(0).getEvent());
+    JUnit5Assertions.assertEquals(ScalingStats.EVENT.PROVISION, provisioner.getStats().toList().get(1).getEvent());
 
     provisionedSomething = provisioner.doProvision();
 
-    Assert.assertFalse(provisionedSomething);
-    Assert.assertTrue(
+    JUnit5Assertions.assertFalse(provisionedSomething);
+    JUnit5Assertions.assertTrue(
         provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
     );
     DateTime anotherCreatedTime = provisioner.getStats().toList().get(0).getTimestamp();
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         createdTime.equals(anotherCreatedTime)
     );
 
@@ -604,19 +604,19 @@ public class PendingTaskBasedProvisioningStrategyTest
 
     // Expect to use capacity from workerCapacityHint config (which is 30)
     // and since there are two pending tasks, we will need one more worker
-    Assert.assertTrue(provisionedSomething);
-    Assert.assertEquals(1, provisioner.getStats().toList().size());
+    JUnit5Assertions.assertTrue(provisionedSomething);
+    JUnit5Assertions.assertEquals(1, provisioner.getStats().toList().size());
     DateTime createdTime = provisioner.getStats().toList().get(0).getTimestamp();
-    Assert.assertEquals(ScalingStats.EVENT.PROVISION, provisioner.getStats().toList().get(0).getEvent());
+    JUnit5Assertions.assertEquals(ScalingStats.EVENT.PROVISION, provisioner.getStats().toList().get(0).getEvent());
 
     provisionedSomething = provisioner.doProvision();
 
-    Assert.assertFalse(provisionedSomething);
-    Assert.assertTrue(
+    JUnit5Assertions.assertFalse(provisionedSomething);
+    JUnit5Assertions.assertTrue(
         provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
     );
     DateTime anotherCreatedTime = provisioner.getStats().toList().get(0).getTimestamp();
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         createdTime.equals(anotherCreatedTime)
     );
 
@@ -662,10 +662,10 @@ public class PendingTaskBasedProvisioningStrategyTest
     Provisioner provisioner = strategy.makeProvisioner(runner);
     boolean provisionedSomething = provisioner.doProvision();
 
-    Assert.assertTrue(provisionedSomething);
-    Assert.assertTrue(provisioner.getStats().toList().size() == 1);
+    JUnit5Assertions.assertTrue(provisionedSomething);
+    JUnit5Assertions.assertTrue(provisioner.getStats().toList().size() == 1);
     DateTime createdTime = provisioner.getStats().toList().get(0).getTimestamp();
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
     );
 
@@ -673,12 +673,12 @@ public class PendingTaskBasedProvisioningStrategyTest
 
     provisionedSomething = provisioner.doProvision();
 
-    Assert.assertFalse(provisionedSomething);
-    Assert.assertTrue(
+    JUnit5Assertions.assertFalse(provisionedSomething);
+    JUnit5Assertions.assertTrue(
         provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
     );
     DateTime anotherCreatedTime = provisioner.getStats().toList().get(0).getTimestamp();
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         createdTime.equals(anotherCreatedTime)
     );
 
@@ -723,9 +723,9 @@ public class PendingTaskBasedProvisioningStrategyTest
     Provisioner provisioner = strategy.makeProvisioner(runner);
     boolean terminatedSomething = provisioner.doTerminate();
 
-    Assert.assertTrue(terminatedSomething);
-    Assert.assertTrue(provisioner.getStats().toList().size() == 1);
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(terminatedSomething);
+    JUnit5Assertions.assertTrue(provisioner.getStats().toList().size() == 1);
+    JUnit5Assertions.assertTrue(
         provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.TERMINATE
     );
 
@@ -759,17 +759,17 @@ public class PendingTaskBasedProvisioningStrategyTest
     Provisioner provisioner = strategy.makeProvisioner(runner);
     boolean terminatedSomething = provisioner.doTerminate();
 
-    Assert.assertTrue(terminatedSomething);
-    Assert.assertTrue(provisioner.getStats().toList().size() == 1);
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(terminatedSomething);
+    JUnit5Assertions.assertTrue(provisioner.getStats().toList().size() == 1);
+    JUnit5Assertions.assertTrue(
         provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.TERMINATE
     );
 
     terminatedSomething = provisioner.doTerminate();
 
-    Assert.assertFalse(terminatedSomething);
-    Assert.assertTrue(provisioner.getStats().toList().size() == 1);
-    Assert.assertTrue(
+    JUnit5Assertions.assertFalse(terminatedSomething);
+    JUnit5Assertions.assertTrue(provisioner.getStats().toList().size() == 1);
+    JUnit5Assertions.assertTrue(
         provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.TERMINATE
     );
 
@@ -808,7 +808,7 @@ public class PendingTaskBasedProvisioningStrategyTest
     Provisioner provisioner = strategy.makeProvisioner(runner);
     boolean terminatedSomething = provisioner.doTerminate();
 
-    Assert.assertFalse(terminatedSomething);
+    JUnit5Assertions.assertFalse(terminatedSomething);
     EasyMock.verify(autoScaler);
 
     EasyMock.reset(autoScaler);
@@ -820,7 +820,7 @@ public class PendingTaskBasedProvisioningStrategyTest
 
     boolean provisionedSomething = provisioner.doProvision();
 
-    Assert.assertFalse(provisionedSomething);
+    JUnit5Assertions.assertFalse(provisionedSomething);
     EasyMock.verify(autoScaler);
     EasyMock.verify(runner);
   }
@@ -852,7 +852,7 @@ public class PendingTaskBasedProvisioningStrategyTest
 
     Provisioner provisioner = strategy.makeProvisioner(runner);
     boolean terminatedSomething = provisioner.doTerminate();
-    Assert.assertFalse(terminatedSomething);
+    JUnit5Assertions.assertFalse(terminatedSomething);
     EasyMock.verify(autoScaler);
 
     // Don't provision anything
@@ -863,7 +863,7 @@ public class PendingTaskBasedProvisioningStrategyTest
             .andReturn(Collections.singletonList("ip"));
     EasyMock.replay(autoScaler);
     boolean provisionedSomething = provisioner.doProvision();
-    Assert.assertFalse(provisionedSomething);
+    JUnit5Assertions.assertFalse(provisionedSomething);
     EasyMock.verify(autoScaler);
 
     EasyMock.reset(autoScaler);
@@ -881,7 +881,7 @@ public class PendingTaskBasedProvisioningStrategyTest
     );
     EasyMock.replay(autoScaler);
     provisionedSomething = provisioner.doProvision();
-    Assert.assertTrue(provisionedSomething);
+    JUnit5Assertions.assertTrue(provisionedSomething);
     EasyMock.verify(autoScaler);
     EasyMock.verify(runner);
   }
@@ -910,8 +910,8 @@ public class PendingTaskBasedProvisioningStrategyTest
 
     boolean provisionedSomething = provisioner.doProvision();
 
-    Assert.assertFalse(terminatedSomething);
-    Assert.assertFalse(provisionedSomething);
+    JUnit5Assertions.assertFalse(terminatedSomething);
+    JUnit5Assertions.assertFalse(provisionedSomething);
 
     EasyMock.verify(autoScaler);
     EasyMock.verify(runner);

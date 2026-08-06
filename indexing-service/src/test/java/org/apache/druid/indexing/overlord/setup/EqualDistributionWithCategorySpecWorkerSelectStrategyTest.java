@@ -34,11 +34,12 @@ import org.apache.druid.indexing.worker.Worker;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.granularity.AllGranularity;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import javax.annotation.Nullable;
+
 import java.util.Collections;
 import java.util.HashSet;
 
@@ -80,7 +81,7 @@ public class EqualDistributionWithCategorySpecWorkerSelectStrategyTest
   public void testFindWorkerForTaskWithNullWorkerTierSpec()
   {
     ImmutableWorkerInfo worker = selectWorker(null);
-    Assert.assertEquals("localhost3", worker.getWorker().getHost());
+    JUnit5Assertions.assertEquals(worker.getWorker().getHost(), "localhost3");
   }
 
   @Test
@@ -100,7 +101,7 @@ public class EqualDistributionWithCategorySpecWorkerSelectStrategyTest
     );
 
     ImmutableWorkerInfo worker1 = selectWorker(workerCategorySpec1);
-    Assert.assertEquals("localhost3", worker1.getWorker().getHost());
+    JUnit5Assertions.assertEquals(worker1.getWorker().getHost(), "localhost3");
 
     // test defaultTier == null and tierAffinity is not empty
     final WorkerCategorySpec workerCategorySpec2 = new WorkerCategorySpec(
@@ -116,7 +117,7 @@ public class EqualDistributionWithCategorySpecWorkerSelectStrategyTest
     );
 
     ImmutableWorkerInfo worker2 = selectWorker(workerCategorySpec2);
-    Assert.assertEquals("localhost3", worker2.getWorker().getHost());
+    JUnit5Assertions.assertEquals(worker2.getWorker().getHost(), "localhost3");
 
     // test defaultTier != null and tierAffinity is empty
     final WorkerCategorySpec workerCategorySpec3 = new WorkerCategorySpec(
@@ -132,7 +133,7 @@ public class EqualDistributionWithCategorySpecWorkerSelectStrategyTest
     );
 
     ImmutableWorkerInfo worker3 = selectWorker(workerCategorySpec3);
-    Assert.assertEquals("localhost3", worker3.getWorker().getHost());
+    JUnit5Assertions.assertEquals(worker3.getWorker().getHost(), "localhost3");
   }
 
   @Test
@@ -151,7 +152,7 @@ public class EqualDistributionWithCategorySpecWorkerSelectStrategyTest
     );
 
     ImmutableWorkerInfo worker = selectWorker(workerCategorySpec);
-    Assert.assertEquals("localhost3", worker.getWorker().getHost());
+    JUnit5Assertions.assertEquals(worker.getWorker().getHost(), "localhost3");
   }
 
   @Test
@@ -170,7 +171,7 @@ public class EqualDistributionWithCategorySpecWorkerSelectStrategyTest
     );
 
     ImmutableWorkerInfo worker = selectWorker(workerCategorySpec);
-    Assert.assertEquals("localhost3", worker.getWorker().getHost());
+    JUnit5Assertions.assertEquals(worker.getWorker().getHost(), "localhost3");
   }
 
   @Test
@@ -189,7 +190,7 @@ public class EqualDistributionWithCategorySpecWorkerSelectStrategyTest
     );
 
     ImmutableWorkerInfo worker = selectWorker(workerCategorySpec);
-    Assert.assertNull(worker);
+    JUnit5Assertions.assertNull(worker);
   }
 
   @Test
@@ -216,9 +217,9 @@ public class EqualDistributionWithCategorySpecWorkerSelectStrategyTest
         WORKERS_FOR_TIER_TESTS,
         taskWithSupervisor
     );
-    Assert.assertNotNull(worker);
-    Assert.assertEquals("c2", worker.getWorker().getCategory());
-    Assert.assertEquals("localhost3", worker.getWorker().getHost());
+    JUnit5Assertions.assertNotNull(worker);
+    JUnit5Assertions.assertEquals(worker.getWorker().getCategory(), "c2");
+    JUnit5Assertions.assertEquals(worker.getWorker().getHost(), "localhost3");
   }
 
   @Test
@@ -245,9 +246,9 @@ public class EqualDistributionWithCategorySpecWorkerSelectStrategyTest
         WORKERS_FOR_TIER_TESTS,
         taskWithSupervisor
     );
-    Assert.assertNotNull(worker);
-    Assert.assertEquals("c1", worker.getWorker().getCategory());
-    Assert.assertEquals("localhost1", worker.getWorker().getHost());
+    JUnit5Assertions.assertNotNull(worker);
+    JUnit5Assertions.assertEquals(worker.getWorker().getCategory(), "c1");
+    JUnit5Assertions.assertEquals(worker.getWorker().getHost(), "localhost1");
   }
 
   @Test
@@ -275,9 +276,9 @@ public class EqualDistributionWithCategorySpecWorkerSelectStrategyTest
         WORKERS_FOR_TIER_TESTS,
         taskWithSupervisor
     );
-    Assert.assertNotNull(worker);
-    Assert.assertEquals("c2", worker.getWorker().getCategory());
-    Assert.assertEquals("localhost3", worker.getWorker().getHost());
+    JUnit5Assertions.assertNotNull(worker);
+    JUnit5Assertions.assertEquals(worker.getWorker().getCategory(), "c2");
+    JUnit5Assertions.assertEquals(worker.getWorker().getHost(), "localhost3");
   }
 
   private ImmutableWorkerInfo selectWorker(WorkerCategorySpec workerCategorySpec)

@@ -56,23 +56,24 @@ import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.Partitions;
 import org.apache.druid.timeline.SegmentTimeline;
 import org.apache.druid.timeline.partition.NumberedOverwriteShardSpec;
 import org.apache.druid.timeline.partition.NumberedShardSpec;
 import org.joda.time.Interval;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
@@ -88,13 +89,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+@MethodSource("constructorFeeder")
 public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSupervisorTaskTest
 {
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
-  @Parameterized.Parameters(name = "{0}, useInputFormatApi={1}, useSegmentCache={2}, useConcurrentLocks={3}")
   public static Iterable<Object[]> constructorFeeder()
   {
     return ImmutableList.of(
@@ -126,7 +127,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     this.useConcurrentLocks = useConcurrentLocks;
   }
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException
   {
     inputDir = temporaryFolder.newFolder("data");
@@ -157,10 +158,9 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     getObjectMapper().registerSubtypes(SettableSplittableLocalInputSource.class);
   }
 
-  @After
+  @AfterEach
   public void teardown()
   {
-    temporaryFolder.delete();
   }
 
   @Test
@@ -170,7 +170,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     final TaskActionClient actionClient = createActionClient(task);
     final TaskToolbox toolbox = createTaskToolbox(task, actionClient);
     prepareTaskForLocking(task);
-    Assert.assertTrue(task.isReady(actionClient));
+    JUnit5Assertions.assertTrue(task.isReady(actionClient));
 
     final SinglePhaseParallelIndexTaskRunner runner = task.createSinglePhaseTaskRunner(toolbox);
     final Iterator<SubTaskSpec<SinglePhaseSubTask>> subTaskSpecIterator = runner.subTaskSpecIterator();
@@ -189,8 +189,8 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
       );
       final TaskActionClient subTaskActionClient = createActionClient(subTask);
       prepareTaskForLocking(subTask);
-      Assert.assertTrue(subTask.isReady(subTaskActionClient));
-      Assert.assertEquals(
+      JUnit5Assertions.assertTrue(subTask.isReady(subTaskActionClient));
+      JUnit5Assertions.assertEquals(
           Collections.singleton(
               new ResourceAction(new Resource(
                   LocalInputSource.TYPE_KEY,
@@ -211,7 +211,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     // The task could run differently between when appendToExisting is false and true even when this is an initial write
     final ParallelIndexSupervisorTask task = newTask(interval, segmentGranularity, appendToExisting, true);
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
     assertShardSpec(
         task,
         interval == null ? LockGranularity.TIME_CHUNK : lockGranularity,
@@ -230,7 +230,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
   {
     final ParallelIndexSupervisorTask task = newTask(interval, segmentGranularity, false, true);
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
     assertShardSpecAfterOverwrite(task, actualLockGranularity);
     TaskContainer taskContainer = getIndexingServiceClient().getTaskContainer(task.getId());
     return (ParallelIndexSupervisorTask) taskContainer.getTask();
@@ -263,7 +263,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
         inputInterval == null
         ? getStorageCoordinator().retrieveAllUsedSegments("dataSource", Segments.ONLY_VISIBLE)
         : getStorageCoordinator().retrieveUsedSegmentsForInterval("dataSource", inputInterval, Segments.ONLY_VISIBLE);
-    Assert.assertFalse(newSegments.isEmpty());
+    JUnit5Assertions.assertFalse(newSegments.isEmpty());
     allSegments.addAll(newSegments);
     final SegmentTimeline timeline = SegmentTimeline.forSegments(allSegments);
 
@@ -272,7 +272,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
         timelineInterval,
         Partitions.ONLY_COMPLETE
     );
-    Assert.assertEquals(new HashSet<>(newSegments), visibles);
+    JUnit5Assertions.assertEquals(new HashSet<>(newSegments), visibles);
   }
 
   private void assertShardSpec(
@@ -290,9 +290,9 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
       final Map<Interval, List<DataSegment>> intervalToSegments = SegmentUtils.groupSegmentsByInterval(segments);
       for (List<DataSegment> segmentsPerInterval : intervalToSegments.values()) {
         for (DataSegment segment : segmentsPerInterval) {
-          Assert.assertSame(NumberedShardSpec.class, segment.getShardSpec().getClass());
+          JUnit5Assertions.assertSame(NumberedShardSpec.class, segment.getShardSpec().getClass());
           final NumberedShardSpec shardSpec = (NumberedShardSpec) segment.getShardSpec();
-          Assert.assertEquals(segmentsPerInterval.size(), shardSpec.getNumCorePartitions());
+          JUnit5Assertions.assertEquals(segmentsPerInterval.size(), shardSpec.getNumCorePartitions());
         }
       }
     } else {
@@ -301,14 +301,14 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
           originalSegmentsIfAppend
       );
       for (DataSegment segment : segments) {
-        Assert.assertSame(NumberedShardSpec.class, segment.getShardSpec().getClass());
+        JUnit5Assertions.assertSame(NumberedShardSpec.class, segment.getShardSpec().getClass());
         final NumberedShardSpec shardSpec = (NumberedShardSpec) segment.getShardSpec();
         final List<DataSegment> originalSegmentsInInterval = intervalToOriginalSegments.get(segment.getInterval());
         final int expectedNumCorePartitions =
             originalSegmentsInInterval == null || originalSegmentsInInterval.isEmpty()
             ? 0
             : originalSegmentsInInterval.get(0).getShardSpec().getNumCorePartitions();
-        Assert.assertEquals(expectedNumCorePartitions, shardSpec.getNumCorePartitions());
+        JUnit5Assertions.assertEquals(expectedNumCorePartitions, shardSpec.getNumCorePartitions());
       }
     }
   }
@@ -323,17 +323,17 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
       // Check the core partition set in the shardSpec
       for (List<DataSegment> segmentsPerInterval : intervalToSegments.values()) {
         for (DataSegment segment : segmentsPerInterval) {
-          Assert.assertSame(NumberedShardSpec.class, segment.getShardSpec().getClass());
+          JUnit5Assertions.assertSame(NumberedShardSpec.class, segment.getShardSpec().getClass());
           final NumberedShardSpec shardSpec = (NumberedShardSpec) segment.getShardSpec();
-          Assert.assertEquals(segmentsPerInterval.size(), shardSpec.getNumCorePartitions());
+          JUnit5Assertions.assertEquals(segmentsPerInterval.size(), shardSpec.getNumCorePartitions());
         }
       }
     } else {
       for (List<DataSegment> segmentsPerInterval : intervalToSegments.values()) {
         for (DataSegment segment : segmentsPerInterval) {
-          Assert.assertSame(NumberedOverwriteShardSpec.class, segment.getShardSpec().getClass());
+          JUnit5Assertions.assertSame(NumberedOverwriteShardSpec.class, segment.getShardSpec().getClass());
           final NumberedOverwriteShardSpec shardSpec = (NumberedOverwriteShardSpec) segment.getShardSpec();
-          Assert.assertEquals(segmentsPerInterval.size(), shardSpec.getAtomicUpdateGroupSize());
+          JUnit5Assertions.assertEquals(segmentsPerInterval.size(), shardSpec.getAtomicUpdateGroupSize());
         }
       }
     }
@@ -376,18 +376,18 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     IngestionStatsAndErrors statsAndErrors = ((IngestionStatsAndErrorsTaskReport)
         reportMap.get("ingestionStatsAndErrors")).getPayload();
     Map<String, Object> rowStats = statsAndErrors.getRowStats();
-    Assert.assertTrue(rowStats.containsKey("totals"));
+    JUnit5Assertions.assertTrue(rowStats.containsKey("totals"));
 
     getIndexingServiceClient().allowTasksToFinish();
 
     TaskStatus taskStatus = getIndexingServiceClient().waitToFinish(task, 2, TimeUnit.MINUTES);
-    Assert.assertEquals(TaskState.SUCCESS, taskStatus.getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, taskStatus.getStatusCode());
   }
 
   @Test
   public void testRunInParallelIngestNullColumn()
   {
-    Assume.assumeTrue(useInputFormatApi);
+    Assumptions.assumeTrue(useInputFormatApi);
     // Ingest all data.
     final List<DimensionSchema> dimensionSchemas = DimensionsSpec.getDefaultSchemas(
         Arrays.asList("ts", "unknownDim", "dim")
@@ -422,14 +422,14 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     );
 
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
 
     DataSegmentsWithSchemas dataSegmentsWithSchemas = getIndexingServiceClient().getSegmentAndSchemas(task);
     verifySchema(dataSegmentsWithSchemas);
     Set<DataSegment> segments = dataSegmentsWithSchemas.getSegments();
     for (DataSegment segment : segments) {
       for (int i = 0; i < dimensionSchemas.size(); i++) {
-        Assert.assertEquals(dimensionSchemas.get(i).getName(), segment.getDimensions().get(i));
+        JUnit5Assertions.assertEquals(dimensionSchemas.get(i).getName(), segment.getDimensions().get(i));
       }
     }
   }
@@ -437,7 +437,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
   @Test
   public void testRunInParallelIngestNullColumn_storeEmptyColumnsOff_shouldNotStoreEmptyColumns()
   {
-    Assume.assumeTrue(useInputFormatApi);
+    Assumptions.assumeTrue(useInputFormatApi);
     // Ingest all data.
     final List<DimensionSchema> dimensionSchemas = DimensionsSpec.getDefaultSchemas(
         Arrays.asList("ts", "unknownDim", "dim")
@@ -473,13 +473,13 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
 
     task.addToContext(Tasks.STORE_EMPTY_COLUMNS_KEY, false);
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
 
     DataSegmentsWithSchemas dataSegmentsWithSchemas = getIndexingServiceClient().getSegmentAndSchemas(task);
     verifySchema(dataSegmentsWithSchemas);
     Set<DataSegment> segments = dataSegmentsWithSchemas.getSegments();
     for (DataSegment segment : segments) {
-      Assert.assertFalse(segment.getDimensions().contains("unknownDim"));
+      JUnit5Assertions.assertFalse(segment.getDimensions().contains("unknownDim"));
     }
   }
 
@@ -524,7 +524,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     testRunAndOverwrite(null, Granularities.MONTH);
   }
 
-  @Test()
+  @Test
   public void testRunInParallelWithDifferentSegmentGranularity()
   {
     // Ingest all data.
@@ -538,7 +538,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     final boolean appendToExisting = false;
     final ParallelIndexSupervisorTask task = newTask(interval, false);
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
     assertShardSpec(task, lockGranularity, appendToExisting, Collections.emptyList());
 
     TaskContainer taskContainer = getIndexingServiceClient().getTaskContainer(task.getId());
@@ -588,7 +588,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
   {
     final ParallelIndexSupervisorTask task = newTask(Intervals.of("2020-12/P1M"), true);
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
   }
 
   @Test
@@ -607,8 +607,8 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
         VALID_INPUT_SOURCE_FILTER
     );
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
-    Assert.assertNull("Runner must be null if the task was in the sequential mode", task.getCurrentRunner());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertNull(task.getCurrentRunner(), "Runner must be null if the task was in the sequential mode");
     assertShardSpec(task, lockGranularity, appendToExisting, Collections.emptyList());
   }
 
@@ -623,10 +623,10 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     runTestTask(interval, Granularities.DAY, true, oldSegments);
     final Collection<DataSegment> newSegments =
         getStorageCoordinator().retrieveUsedSegmentsForInterval("dataSource", interval, Segments.ONLY_VISIBLE);
-    Assert.assertTrue(newSegments.containsAll(oldSegments));
+    JUnit5Assertions.assertTrue(newSegments.containsAll(oldSegments));
     final SegmentTimeline timeline = SegmentTimeline.forSegments(newSegments);
     final Set<DataSegment> visibles = timeline.findNonOvershadowedObjectsInInterval(interval, Partitions.ONLY_COMPLETE);
-    Assert.assertEquals(new HashSet<>(newSegments), visibles);
+    JUnit5Assertions.assertEquals(new HashSet<>(newSegments), visibles);
   }
 
   @Test
@@ -642,8 +642,8 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     getIndexingServiceClient().runTask(task.getId(), task);
     getIndexingServiceClient().runTask(task2.getId(), task2);
 
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().waitToFinish(task, 1, TimeUnit.DAYS).getStatusCode());
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().waitToFinish(task2, 1, TimeUnit.DAYS).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().waitToFinish(task, 1, TimeUnit.DAYS).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().waitToFinish(task2, 1, TimeUnit.DAYS).getStatusCode());
   }
 
   @Test
@@ -661,7 +661,7 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     );
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
     // Task state should still be SUCCESS even if no input split to process
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
   }
 
   @Test
@@ -680,10 +680,10 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
     );
     final Collection<DataSegment> afterAppendSegments =
         getStorageCoordinator().retrieveUsedSegmentsForInterval("dataSource", interval, Segments.ONLY_VISIBLE);
-    Assert.assertTrue(afterAppendSegments.containsAll(beforeAppendSegments));
+    JUnit5Assertions.assertTrue(afterAppendSegments.containsAll(beforeAppendSegments));
     final SegmentTimeline timeline = SegmentTimeline.forSegments(afterAppendSegments);
     final Set<DataSegment> visibles = timeline.findNonOvershadowedObjectsInInterval(interval, Partitions.ONLY_COMPLETE);
-    Assert.assertEquals(new HashSet<>(afterAppendSegments), visibles);
+    JUnit5Assertions.assertEquals(new HashSet<>(afterAppendSegments), visibles);
   }
 
   @Test
@@ -711,8 +711,8 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
       );
       getIndexingServiceClient().runAndWait(task);
     } else {
-      Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
-      Assert.assertNull("Runner must be null if the task was in the sequential mode", task.getCurrentRunner());
+      JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+      JUnit5Assertions.assertNull(task.getCurrentRunner(), "Runner must be null if the task was in the sequential mode");
       assertShardSpec(task, lockGranularity, appendToExisting, Collections.emptyList());
     }
   }
@@ -743,8 +743,8 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
       );
       getIndexingServiceClient().runAndWait(task);
     } else {
-      Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
-      Assert.assertNull("Runner must be null if the task was in the sequential mode", task.getCurrentRunner());
+      JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+      JUnit5Assertions.assertNull(task.getCurrentRunner(), "Runner must be null if the task was in the sequential mode");
       assertShardSpec(task, lockGranularity, appendToExisting, Collections.emptyList());
     }
   }
@@ -824,14 +824,14 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
         null
     );
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
 
     DataSegmentsWithSchemas dataSegmentsWithSchemas = getIndexingServiceClient().getSegmentAndSchemas(task);
     verifySchema(dataSegmentsWithSchemas);
     Set<DataSegment> segments = dataSegmentsWithSchemas.getSegments();
 
     for (DataSegment segment : segments) {
-      Assert.assertEquals(ImmutableList.of("ts", "explicitDim", "implicitDim"), segment.getDimensions());
+      JUnit5Assertions.assertEquals(ImmutableList.of("ts", "explicitDim", "implicitDim"), segment.getDimensions());
     }
   }
 
@@ -910,13 +910,13 @@ public class SinglePhaseParallelIndexingTest extends AbstractParallelIndexSuperv
         null
     );
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
-    Assert.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, getIndexingServiceClient().runAndWait(task).getStatusCode());
 
     DataSegmentsWithSchemas dataSegmentsWithSchemas = getIndexingServiceClient().getSegmentAndSchemas(task);
     verifySchema(dataSegmentsWithSchemas);
     Set<DataSegment> segments = dataSegmentsWithSchemas.getSegments();
     for (DataSegment segment : segments) {
-      Assert.assertEquals(ImmutableList.of("ts", "explicitDim", "implicitDim"), segment.getDimensions());
+      JUnit5Assertions.assertEquals(ImmutableList.of("ts", "explicitDim", "implicitDim"), segment.getDimensions());
     }
   }
 

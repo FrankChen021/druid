@@ -21,8 +21,8 @@ package org.apache.druid.indexing.common.actions;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 
@@ -34,6 +34,6 @@ public class LocalTaskActionClientTest
   public void testGetActionType()
   {
     final TaskAction<?> action = SegmentTransactionalInsertAction.appendAction(Collections.emptySet(), null, null, null, null, null);
-    Assert.assertEquals("segmentTransactionalInsert", LocalTaskActionClient.getActionType(objectMapper, action));
+    JUnit5Assertions.assertEquals(LocalTaskActionClient.getActionType(objectMapper, action), "segmentTransactionalInsert");
   }
 }

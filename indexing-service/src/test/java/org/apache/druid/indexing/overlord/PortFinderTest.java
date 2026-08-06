@@ -20,20 +20,19 @@
 package org.apache.druid.indexing.overlord;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.EasyMock;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-
 
 public class PortFinderTest
 {
   private final List<PortFinder> finders = new ArrayList<>();
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     // use startPort and endPort to generate usable ports.
@@ -60,11 +59,11 @@ public class PortFinderTest
       EasyMock.replay(finder);
 
       final int port1 = finder.findUnusedPort();
-      Assert.assertEquals(1200, port1);
+      JUnit5Assertions.assertEquals(1200, port1);
       finder.markPortUnused(port1);
 
       final int port2 = finder.findUnusedPort();
-      Assert.assertEquals(1201, port2);
+      JUnit5Assertions.assertEquals(1201, port2);
       finder.markPortUnused(port2);
 
       EasyMock.verify(finder);

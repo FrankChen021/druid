@@ -23,10 +23,10 @@ import org.apache.druid.indexing.overlord.supervisor.SupervisorSpec;
 import org.apache.druid.indexing.seekablestream.supervisor.SeekableStreamSupervisor;
 import org.apache.druid.indexing.seekablestream.supervisor.SeekableStreamSupervisorIOConfig;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.joda.time.Duration;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.List;
@@ -51,7 +51,7 @@ public class CostBasedAutoScalerMockTest
   private SeekableStreamSupervisorIOConfig mockIoConfig;
   private CostBasedAutoScalerConfig config;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     mockSpec = Mockito.mock(SupervisorSpec.class);
@@ -85,11 +85,7 @@ public class CostBasedAutoScalerMockTest
     doReturn(scaleUpOptimal).when(autoScaler).computeOptimalTaskCount(any());
     setupMocksForMetricsCollection(autoScaler, currentTaskCount, 5000.0, 0.1);
 
-    Assert.assertEquals(
-        "Should return optimal count when it's greater than current (scale-up)",
-        scaleUpOptimal,
-        autoScaler.computeTaskCountForScaleAction()
-    );
+    JUnit5Assertions.assertEquals(scaleUpOptimal, autoScaler.computeTaskCountForScaleAction(), "Should return optimal count when it's greater than current (scale-up)");
   }
 
   @Test
@@ -107,7 +103,7 @@ public class CostBasedAutoScalerMockTest
 
     int result = autoScaler.computeTaskCountForScaleAction();
 
-    Assert.assertEquals("Scaler should return its optimal count even when it equals current", optimalCount, result);
+    JUnit5Assertions.assertEquals(optimalCount, result, "Scaler should return its optimal count even when it equals current");
   }
 
   @Test
@@ -125,11 +121,7 @@ public class CostBasedAutoScalerMockTest
 
     int result = autoScaler.computeTaskCountForScaleAction();
 
-    Assert.assertEquals(
-        "Should return -1 when computeOptimalTaskCount returns -1 (e.g., due to invalid metrics)",
-        -1,
-        result
-    );
+    JUnit5Assertions.assertEquals(-1, result, "Should return -1 when computeOptimalTaskCount returns -1 (e.g., due to invalid metrics)");
   }
 
   @Test
@@ -146,11 +138,7 @@ public class CostBasedAutoScalerMockTest
 
     int result = autoScaler.computeTaskCountForScaleAction();
 
-    Assert.assertEquals(
-        "Should return -1 when computeOptimalTaskCount returns -1 (e.g., due to null lag stats)",
-        -1,
-        result
-    );
+    JUnit5Assertions.assertEquals(-1, result, "Should return -1 when computeOptimalTaskCount returns -1 (e.g., due to null lag stats)");
   }
 
   @Test
@@ -166,11 +154,7 @@ public class CostBasedAutoScalerMockTest
 
     int result = autoScaler.computeTaskCountForScaleAction();
 
-    Assert.assertEquals(
-        "Should allow scale-up from the minimum task count",
-        expectedOptimalCount,
-        result
-    );
+    JUnit5Assertions.assertEquals(expectedOptimalCount, result, "Should allow scale-up from the minimum task count");
   }
 
   @Test
@@ -193,11 +177,7 @@ public class CostBasedAutoScalerMockTest
 
     final int result = autoScaler.computeTaskCountForScaleAction();
 
-    Assert.assertEquals(
-        "Scaler should return unclamped optimal; clamping is a supervisor concern",
-        belowMinOptimal,
-        result
-    );
+    JUnit5Assertions.assertEquals(belowMinOptimal, result, "Scaler should return unclamped optimal; clamping is a supervisor concern");
   }
 
   @Test
@@ -220,11 +200,7 @@ public class CostBasedAutoScalerMockTest
 
     final int result = autoScaler.computeTaskCountForScaleAction();
 
-    Assert.assertEquals(
-        "Scaler should return unclamped optimal; clamping is a supervisor concern",
-        aboveMaxOptimal,
-        result
-    );
+    JUnit5Assertions.assertEquals(aboveMaxOptimal, result, "Scaler should return unclamped optimal; clamping is a supervisor concern");
   }
 
   @Test
@@ -240,11 +216,7 @@ public class CostBasedAutoScalerMockTest
 
     int result = autoScaler.computeTaskCountForScaleAction();
 
-    Assert.assertEquals(
-        "Should allow scale-up to maximum task count",
-        expectedOptimalCount,
-        result
-    );
+    JUnit5Assertions.assertEquals(expectedOptimalCount, result, "Should allow scale-up to maximum task count");
   }
 
   @Test
@@ -260,11 +232,7 @@ public class CostBasedAutoScalerMockTest
 
     int result = autoScaler.computeTaskCountForScaleAction();
 
-    Assert.assertEquals(
-        "Should allow scale-up by exactly one task",
-        expectedOptimalCount,
-        result
-    );
+    JUnit5Assertions.assertEquals(expectedOptimalCount, result, "Should allow scale-up by exactly one task");
   }
 
   @Test
@@ -280,11 +248,7 @@ public class CostBasedAutoScalerMockTest
 
     int result = autoScaler.computeTaskCountForScaleAction();
 
-    Assert.assertEquals(
-        "Should allow scale-down by one task when cooldown has elapsed",
-        optimalCount,
-        result
-    );
+    JUnit5Assertions.assertEquals(optimalCount, result, "Should allow scale-down by one task when cooldown has elapsed");
   }
 
   @Test
@@ -314,11 +278,7 @@ public class CostBasedAutoScalerMockTest
     doReturn(optimalCount).when(autoScaler).computeOptimalTaskCount(any());
     setupMocksForMetricsCollection(autoScaler, currentTaskCount, 10.0, 0.9);
 
-    Assert.assertEquals(
-        "Should return current count (no-op signal) when scaleDownDuringTaskRolloverOnly suppresses the scale-down",
-        currentTaskCount,
-        autoScaler.computeTaskCountForScaleAction()
-    );
+    JUnit5Assertions.assertEquals(currentTaskCount, autoScaler.computeTaskCountForScaleAction(), "Should return current count (no-op signal) when scaleDownDuringTaskRolloverOnly suppresses the scale-down");
   }
 
   @Test
@@ -348,11 +308,7 @@ public class CostBasedAutoScalerMockTest
     autoScaler.computeTaskCountForScaleAction(); // This populates lastKnownMetrics
 
     doReturn(optimalCount).when(autoScaler).computeOptimalTaskCount(any());
-    Assert.assertEquals(
-        "Should scale-down during rollover when scaleDownDuringTaskRolloverOnly is true",
-        optimalCount,
-        autoScaler.computeTaskCountForRollover()
-    );
+    JUnit5Assertions.assertEquals(optimalCount, autoScaler.computeTaskCountForRollover(), "Should scale-down during rollover when scaleDownDuringTaskRolloverOnly is true");
   }
 
   // Skip-reason emissions ("Already at max/min task count") moved to SeekableStreamSupervisor —

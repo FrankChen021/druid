@@ -21,7 +21,7 @@ package org.apache.druid.indexing.common.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.junit.jupiter.api.Assertions;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.junit.jupiter.api.Test;
 
 class TaskConfigTest
@@ -32,7 +32,7 @@ class TaskConfigTest
   void testVirtualStoragePartialDownloadsEnabledDefaultsToTrue() throws Exception
   {
     final TaskConfig config = jsonMapper.readValue("{}", TaskConfig.class);
-    Assertions.assertTrue(config.isVirtualStoragePartialDownloadsEnabled());
+    JUnit5Assertions.assertTrue(config.isVirtualStoragePartialDownloadsEnabled());
   }
 
   @Test
@@ -40,6 +40,6 @@ class TaskConfigTest
   {
     final TaskConfig config =
         jsonMapper.readValue("{\"virtualStoragePartialDownloadsEnabled\": false}", TaskConfig.class);
-    Assertions.assertFalse(config.isVirtualStoragePartialDownloadsEnabled());
+    JUnit5Assertions.assertFalse(config.isVirtualStoragePartialDownloadsEnabled());
   }
 }

@@ -26,15 +26,15 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.response.InputStreamResponseHandler;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.utils.CompressionUtils;
 import org.easymock.EasyMock;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -59,15 +59,15 @@ public class HttpShuffleClientTest
   private static final int PORT = 1080;
   private static final int PARTITION_ID = 0;
 
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
   private File segmentFile;
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException
   {
     File temp = temporaryFolder.newFile();
@@ -90,7 +90,7 @@ public class HttpShuffleClientTest
         SUPERVISOR_TASK_ID,
         new TestPartitionLocation()
     );
-    Assert.assertEquals(fetchedFile.getParentFile(), localDir);
+    JUnit5Assertions.assertEquals(fetchedFile.getParentFile(), localDir);
   }
 
   @Test
@@ -115,7 +115,7 @@ public class HttpShuffleClientTest
         SUPERVISOR_TASK_ID,
         new TestPartitionLocation()
     );
-    Assert.assertEquals(fetchedFile.getParentFile(), localDir);
+    JUnit5Assertions.assertEquals(fetchedFile.getParentFile(), localDir);
   }
 
   @Test
@@ -142,7 +142,7 @@ public class HttpShuffleClientTest
       }
 
       for (int i = 0; i < futures.size(); i++) {
-        Assert.assertEquals(futures.get(i).get().getParentFile(), localDirs.get(i));
+        JUnit5Assertions.assertEquals(futures.get(i).get().getParentFile(), localDirs.get(i));
       }
     }
     finally {
@@ -174,7 +174,7 @@ public class HttpShuffleClientTest
       }
 
       for (int i = 0; i < futures.size(); i++) {
-        Assert.assertEquals(futures.get(i).get().getParentFile(), localDirs.get(i));
+        JUnit5Assertions.assertEquals(futures.get(i).get().getParentFile(), localDirs.get(i));
       }
     }
     finally {

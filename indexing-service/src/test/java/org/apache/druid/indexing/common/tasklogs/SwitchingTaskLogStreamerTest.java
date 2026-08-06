@@ -25,8 +25,8 @@ import org.apache.druid.java.util.common.IOE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.tasklogs.NoopTaskLogs;
 import org.apache.druid.tasklogs.TaskLogStreamer;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -69,12 +69,12 @@ public class SwitchingTaskLogStreamerTest
             emptyStreamer
         )
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         getLogString(1, TASK_ID, 1),
         StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskLog(TASK_ID, 1).get()))
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         getReportString(1, TASK_ID),
         StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskReports(TASK_ID).get()))
     );
@@ -91,12 +91,12 @@ public class SwitchingTaskLogStreamerTest
             emptyStreamer
         )
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         getLogString(2, TASK_ID, 1),
         StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskLog(TASK_ID, 1).get()))
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         getReportString(2, TASK_ID),
         StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskReports(TASK_ID).get()))
     );
@@ -112,12 +112,12 @@ public class SwitchingTaskLogStreamerTest
             emptyStreamer
         )
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         getLogString(2, TASK_ID, 1),
         StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskLog(TASK_ID, 1).get()))
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         getReportString(2, TASK_ID),
         StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskReports(TASK_ID).get()))
     );
@@ -134,13 +134,11 @@ public class SwitchingTaskLogStreamerTest
             streamer2
         )
     );
-    Assert.assertThrows("expected log exception", IOException.class, () ->
-        StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskLog(TASK_ID, 1).get()))
-    );
+    JUnit5Assertions.assertThrows(IOException.class, () ->
+        StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskLog(TASK_ID, 1).get())), "expected log exception");
 
-    Assert.assertThrows("expected report exception", IOException.class, () ->
-        StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskReports(TASK_ID).get()))
-    );
+    JUnit5Assertions.assertThrows(IOException.class, () ->
+        StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskReports(TASK_ID).get())), "expected report exception");
   }
 
   @Test
@@ -152,13 +150,11 @@ public class SwitchingTaskLogStreamerTest
             emptyStreamer
         )
     );
-    Assert.assertThrows("expected log exception", IOException.class, () ->
-        StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskLog(TASK_ID, 1).get()))
-    );
+    JUnit5Assertions.assertThrows(IOException.class, () ->
+        StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskLog(TASK_ID, 1).get())), "expected log exception");
 
-    Assert.assertThrows("expected report exception", IOException.class, () ->
-        StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskReports(TASK_ID).get()))
-    );
+    JUnit5Assertions.assertThrows(IOException.class, () ->
+        StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskReports(TASK_ID).get())), "expected report exception");
 
   }
 
@@ -171,13 +167,11 @@ public class SwitchingTaskLogStreamerTest
             ioExceptionStreamer
         )
     );
-    Assert.assertThrows("expected log exception", IOException.class, () ->
-        StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskLog(TASK_ID, 1).get()))
-    );
+    JUnit5Assertions.assertThrows(IOException.class, () ->
+        StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskLog(TASK_ID, 1).get())), "expected log exception");
 
-    Assert.assertThrows("expected report exception", IOException.class, () ->
-        StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskReports(TASK_ID).get()))
-    );
+    JUnit5Assertions.assertThrows(IOException.class, () ->
+        StringUtils.fromUtf8(ByteStreams.toByteArray(switchingTaskLogStreamer.streamTaskReports(TASK_ID).get())), "expected report exception");
   }
 
   @Test
@@ -189,8 +183,8 @@ public class SwitchingTaskLogStreamerTest
             emptyStreamer
         )
     );
-    Assert.assertFalse(switchingTaskLogStreamer.streamTaskLog(TASK_ID, 1).isPresent());
-    Assert.assertFalse(switchingTaskLogStreamer.streamTaskReports(TASK_ID).isPresent());
+    JUnit5Assertions.assertFalse(switchingTaskLogStreamer.streamTaskLog(TASK_ID, 1).isPresent());
+    JUnit5Assertions.assertFalse(switchingTaskLogStreamer.streamTaskReports(TASK_ID).isPresent());
   }
 
   private static String getLogString(int id, String taskid, long offset)

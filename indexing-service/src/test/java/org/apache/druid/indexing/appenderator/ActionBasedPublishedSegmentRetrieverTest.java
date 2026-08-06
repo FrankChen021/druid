@@ -30,12 +30,12 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.segment.TestDataSource;
 import org.apache.druid.server.coordinator.CreateDataSegments;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.easymock.EasyMock;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -49,7 +49,7 @@ public class ActionBasedPublishedSegmentRetrieverTest
   private TaskActionClient taskActionClient;
   private ActionBasedPublishedSegmentRetriever segmentRetriever;
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     taskActionClient = EasyMock.createMock(TaskActionClient.class);
@@ -78,7 +78,7 @@ public class ActionBasedPublishedSegmentRetrieverTest
     final Set<SegmentId> searchSegmentIds = segments.stream()
                                                     .map(DataSegment::getId)
                                                     .collect(Collectors.toSet());
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         new HashSet<>(segments),
         segmentRetriever.findPublishedSegments(searchSegmentIds)
     );
@@ -114,7 +114,7 @@ public class ActionBasedPublishedSegmentRetrieverTest
     final Set<SegmentId> searchSegmentIds = segments.stream()
                                                     .map(DataSegment::getId)
                                                     .collect(Collectors.toSet());
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         new HashSet<>(segments),
         segmentRetriever.findPublishedSegments(searchSegmentIds)
     );
@@ -125,7 +125,7 @@ public class ActionBasedPublishedSegmentRetrieverTest
   @Test
   public void testSegmentsForMultipleDatasourcesThrowsException()
   {
-    DruidException exception = Assert.assertThrows(
+    DruidException exception = JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> segmentRetriever.findPublishedSegments(
             ImmutableSet.of(
@@ -134,9 +134,6 @@ public class ActionBasedPublishedSegmentRetrieverTest
             )
         )
     );
-    Assert.assertEquals(
-        "Published segment IDs to find cannot belong to multiple datasources[wiki, koala].",
-        exception.getMessage()
-    );
+    JUnit5Assertions.assertEquals(exception.getMessage(), "Published segment IDs to find cannot belong to multiple datasources[wiki, koala].");
   }
 }

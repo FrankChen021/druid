@@ -35,6 +35,7 @@ import org.apache.druid.java.util.common.concurrent.ScheduledExecutors;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.metrics.StubServiceEmitter;
 import org.apache.druid.metadata.IndexerSQLMetadataStorageCoordinator;
+import org.apache.druid.metadata.JUnit5TestDerbyConnector;
 import org.apache.druid.metadata.MetadataStorageConnectorConfig;
 import org.apache.druid.metadata.MetadataStorageTablesConfig;
 import org.apache.druid.metadata.SQLMetadataSupervisorManager;
@@ -52,14 +53,16 @@ import org.apache.druid.server.coordinator.simulate.BlockingExecutorService;
 import org.apache.druid.server.coordinator.simulate.TestDruidLeaderSelector;
 import org.apache.druid.server.coordinator.simulate.WrappingScheduledExecutorService;
 import org.joda.time.Period;
-import org.junit.rules.ExternalResource;
+import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
-public class TaskActionTestKit extends ExternalResource
+public class TaskActionTestKit implements BeforeEachCallback, AfterEachCallback
 {
   private final MetadataStorageTablesConfig metadataStorageTablesConfig = MetadataStorageTablesConfig.fromBase("druid");
 
@@ -191,7 +194,6 @@ public class TaskActionTestKit extends ExternalResource
     taskActionDelegate.put(actionType, function);
   }
 
-  @Override
   public void before()
   {
     Preconditions.checkState(configFinalized.compareAndSet(false, true));
@@ -330,10 +332,9 @@ public class TaskActionTestKit extends ExternalResource
     };
   }
 
-  @Override
   public void after()
   {
-    testDerbyConnector.tearDown();
+    JUnit5TestDerbyConnector.tearDown(testDerbyConnector);
     taskStorage = null;
     taskLockbox = null;
     testDerbyConnector = null;
@@ -343,5 +344,17 @@ public class TaskActionTestKit extends ExternalResource
     segmentMetadataCache.stop();
     supervisorManager.stop();
     useSegmentMetadataCache = false;
+  }
+
+  @Override
+  public void beforeEach(final ExtensionContext context)
+  {
+    before();
+  }
+
+  @Override
+  public void afterEach(final ExtensionContext context)
+  {
+    after();
   }
 }

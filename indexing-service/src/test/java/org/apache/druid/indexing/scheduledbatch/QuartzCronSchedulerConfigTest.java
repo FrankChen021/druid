@@ -24,17 +24,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.JUnit5Matchers;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Duration;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertEquals;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertNull;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertTrue;
 
 public class QuartzCronSchedulerConfigTest
 {
@@ -107,13 +106,13 @@ public class QuartzCronSchedulerConfigTest
   @Test
   public void testInvalidCronExpression()
   {
-    MatcherAssert.assertThat(
-        Assert.assertThrows(
+    JUnit5Assertions.assertMatches(
+        JUnit5Assertions.assertThrows(
             DruidException.class,
             () -> new QuartzCronSchedulerConfig("0 15 10 * *")
         ),
         // Expected parts order varies due to non-deterministic Set iteration.
-        Matchers.anyOf(
+        JUnit5Matchers.anyOf(
             DruidExceptionMatcher.invalidInput().expectMessageIs(
                 "Quartz schedule[0 15 10 * *] is invalid: [Cron expression contains 5 parts but we expect one of [6, 7]]"
             ),
@@ -127,8 +126,8 @@ public class QuartzCronSchedulerConfigTest
   @Test
   public void testMacroExpressionsNotSupported()
   {
-    MatcherAssert.assertThat(
-        Assert.assertThrows(
+    JUnit5Assertions.assertMatches(
+        JUnit5Assertions.assertThrows(
             DruidException.class,
             () -> new QuartzCronSchedulerConfig("@daily")
         ),

@@ -32,11 +32,11 @@ import org.apache.druid.segment.data.CompressionStrategy;
 import org.apache.druid.segment.data.RoaringBitmapSerdeFactory;
 import org.apache.druid.segment.indexing.TuningConfig;
 import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMediumFactory;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.IOException;
 
@@ -44,10 +44,10 @@ public class IndexTaskSerdeTest
 {
   private static final ObjectMapper MAPPER = new DefaultObjectMapper();
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
-  @BeforeClass
+  @BeforeAll
   public static void setup()
   {
     MAPPER.registerSubtypes(new NamedType(IndexTuningConfig.class, "index"));
@@ -155,6 +155,6 @@ public class IndexTaskSerdeTest
   {
     final byte[] json = MAPPER.writeValueAsBytes(tuningConfig);
     final IndexTuningConfig fromJson = (IndexTuningConfig) MAPPER.readValue(json, TuningConfig.class);
-    Assert.assertEquals(tuningConfig, fromJson);
+    JUnit5Assertions.assertEquals(tuningConfig, fromJson);
   }
 }

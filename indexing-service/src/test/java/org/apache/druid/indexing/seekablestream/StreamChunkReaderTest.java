@@ -45,17 +45,18 @@ import org.apache.druid.segment.incremental.ParseExceptionHandler;
 import org.apache.druid.segment.incremental.RowIngestionMeters;
 import org.apache.druid.segment.incremental.SimpleRowIngestionMeters;
 import org.apache.druid.segment.transform.TransformSpec;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -63,14 +64,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class StreamChunkReaderTest
 {
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
   private final RowIngestionMeters rowIngestionMeters = new SimpleRowIngestionMeters();
   private final ParseExceptionHandler parseExceptionHandler = new ParseExceptionHandler(
@@ -102,7 +103,7 @@ public class StreamChunkReaderTest
   @Test
   public void testWithNullParserAndNullInputformatFailToCreateParser()
   {
-    Throwable t = Assert.assertThrows(
+    Throwable t = JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> new StreamChunkReader<>(
             null,
@@ -114,7 +115,7 @@ public class StreamChunkReaderTest
             parseExceptionHandler
         )
     );
-    Assert.assertEquals("inputFormat must not be null", t.getMessage());
+    JUnit5Assertions.assertEquals(t.getMessage(), "inputFormat must not be null");
   }
 
 
@@ -135,9 +136,9 @@ public class StreamChunkReaderTest
         parseExceptionHandler
     );
     List<InputRow> parsedRows = chunkParser.parse(ImmutableList.of(), false);
-    Assert.assertEquals(0, parsedRows.size());
-    Assert.assertEquals(0, rowIngestionMeters.getUnparseable());
-    Assert.assertEquals(1, rowIngestionMeters.getThrownAway());
+    JUnit5Assertions.assertEquals(0, parsedRows.size());
+    JUnit5Assertions.assertEquals(0, rowIngestionMeters.getUnparseable());
+    JUnit5Assertions.assertEquals(1, rowIngestionMeters.getThrownAway());
   }
 
   @Test
@@ -157,9 +158,9 @@ public class StreamChunkReaderTest
         parseExceptionHandler
     );
     List<InputRow> parsedRows = chunkParser.parse(ImmutableList.of(), true);
-    Assert.assertEquals(0, parsedRows.size());
-    Assert.assertEquals(0, rowIngestionMeters.getUnparseable());
-    Assert.assertEquals(0, rowIngestionMeters.getThrownAway());
+    JUnit5Assertions.assertEquals(0, parsedRows.size());
+    JUnit5Assertions.assertEquals(0, rowIngestionMeters.getUnparseable());
+    JUnit5Assertions.assertEquals(0, rowIngestionMeters.getThrownAway());
   }
 
   @Test
@@ -202,13 +203,13 @@ public class StreamChunkReaderTest
         false
     );
 
-    Assert.assertEquals(1, parsedRows.size());
-    Assert.assertEquals("title1", Iterables.getOnlyElement(parsedRows.get(0).getDimension("column_b")));
-    Assert.assertEquals(1, rowIngestionMeters.getThrownAway());
+    JUnit5Assertions.assertEquals(1, parsedRows.size());
+    JUnit5Assertions.assertEquals(Iterables.getOnlyElement(parsedRows.get(0).getDimension("column_b")), "title1");
+    JUnit5Assertions.assertEquals(1, rowIngestionMeters.getThrownAway());
 
     final Map<String, Long> thrownAwayByReason = rowIngestionMeters.getThrownAwayByReason();
-    Assert.assertEquals(Long.valueOf(1), thrownAwayByReason.get(InputRowFilterResult.CUSTOM_FILTER.getReason()));
-    Assert.assertFalse(thrownAwayByReason.containsKey(InputRowFilterResult.NULL_OR_EMPTY_RECORD.getReason()));
+    JUnit5Assertions.assertEquals(Long.valueOf(1), thrownAwayByReason.get(InputRowFilterResult.CUSTOM_FILTER.getReason()));
+    JUnit5Assertions.assertFalse(thrownAwayByReason.containsKey(InputRowFilterResult.NULL_OR_EMPTY_RECORD.getReason()));
   }
 
   @Test
@@ -271,16 +272,16 @@ public class StreamChunkReaderTest
         false
     );
 
-    Assert.assertEquals(1, parsedRows.size());
-    Assert.assertEquals("title1", Iterables.getOnlyElement(parsedRows.get(0).getDimension("column_b")));
-    Assert.assertEquals(4, rowIngestionMeters.getThrownAway());
+    JUnit5Assertions.assertEquals(1, parsedRows.size());
+    JUnit5Assertions.assertEquals(Iterables.getOnlyElement(parsedRows.get(0).getDimension("column_b")), "title1");
+    JUnit5Assertions.assertEquals(4, rowIngestionMeters.getThrownAway());
 
     final Map<String, Long> thrownAwayByReason = rowIngestionMeters.getThrownAwayByReason();
-    Assert.assertEquals(Long.valueOf(1), thrownAwayByReason.get(InputRowFilterResult.NULL_OR_EMPTY_RECORD.getReason()));
-    Assert.assertEquals(Long.valueOf(1), thrownAwayByReason.get(InputRowFilterResult.BEFORE_MIN_MESSAGE_TIME.getReason()));
-    Assert.assertEquals(Long.valueOf(1), thrownAwayByReason.get(InputRowFilterResult.AFTER_MAX_MESSAGE_TIME.getReason()));
-    Assert.assertEquals(Long.valueOf(1), thrownAwayByReason.get(InputRowFilterResult.CUSTOM_FILTER.getReason()));
-    Assert.assertFalse(thrownAwayByReason.containsKey(InputRowFilterResult.UNKNOWN.getReason()));
+    JUnit5Assertions.assertEquals(Long.valueOf(1), thrownAwayByReason.get(InputRowFilterResult.NULL_OR_EMPTY_RECORD.getReason()));
+    JUnit5Assertions.assertEquals(Long.valueOf(1), thrownAwayByReason.get(InputRowFilterResult.BEFORE_MIN_MESSAGE_TIME.getReason()));
+    JUnit5Assertions.assertEquals(Long.valueOf(1), thrownAwayByReason.get(InputRowFilterResult.AFTER_MAX_MESSAGE_TIME.getReason()));
+    JUnit5Assertions.assertEquals(Long.valueOf(1), thrownAwayByReason.get(InputRowFilterResult.CUSTOM_FILTER.getReason()));
+    JUnit5Assertions.assertFalse(thrownAwayByReason.containsKey(InputRowFilterResult.UNKNOWN.getReason()));
   }
 
   @Test
@@ -306,8 +307,8 @@ public class StreamChunkReaderTest
             new ByteEntity(json.getBytes(StringUtils.UTF8_STRING))), false
     );
     // no exception and no parsed rows
-    Assert.assertEquals(0, parsedRows.size());
-    Assert.assertEquals(maxAllowedParseExceptions, rowIngestionMeters.getUnparseable());
+    JUnit5Assertions.assertEquals(0, parsedRows.size());
+    JUnit5Assertions.assertEquals(maxAllowedParseExceptions, rowIngestionMeters.getUnparseable());
   }
 
   @Test
@@ -329,12 +330,8 @@ public class StreamChunkReaderTest
         new ByteEntity(json.getBytes(StringUtils.UTF8_STRING)),
         new ByteEntity(json.getBytes(StringUtils.UTF8_STRING))
     );
-    Assert.assertThrows(
-        "Max parse exceptions[0] exceeded",
-        RE.class,
-        () -> chunkParser.parse(byteEntities, false)
-    );
-    Assert.assertEquals(1, rowIngestionMeters.getUnparseable()); // should barf on the first unparseable row
+    JUnit5Assertions.assertThrows(RE.class, () -> chunkParser.parse(byteEntities, false), "Max parse exceptions[0] exceeded");
+    JUnit5Assertions.assertEquals(1, rowIngestionMeters.getUnparseable()); // should barf on the first unparseable row
   }
 
   @Test
@@ -365,14 +362,14 @@ public class StreamChunkReaderTest
 
     List<InputRow> parsedRows = chunkParser.parse(byteEntities, false);
     // no exception since we've unlimited threhold for parse exceptions
-    Assert.assertEquals(0, parsedRows.size());
-    Assert.assertEquals(byteEntities.size(), rowIngestionMeters.getUnparseable());
+    JUnit5Assertions.assertEquals(0, parsedRows.size());
+    JUnit5Assertions.assertEquals(byteEntities.size(), rowIngestionMeters.getUnparseable());
   }
 
   @Test
   public void testWithNullParserAndNullByteEntityReaderFailToInstantiate()
   {
-    Throwable t = Assert.assertThrows(
+    Throwable t = JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> new StreamChunkReader<>(
             null,
@@ -381,19 +378,19 @@ public class StreamChunkReaderTest
             parseExceptionHandler
         )
     );
-    Assert.assertEquals("byteEntityReader must not be null", t.getMessage());
+    JUnit5Assertions.assertEquals(t.getMessage(), "byteEntityReader must not be null");
   }
 
   private void parseAndAssertResult(StreamChunkReader<ByteEntity> chunkParser) throws IOException
   {
     final String json = "{\"timestamp\": \"2020-01-01\", \"dim\": \"val\", \"met\": \"val2\"}";
     List<InputRow> parsedRows = chunkParser.parse(Collections.singletonList(new ByteEntity(json.getBytes(StringUtils.UTF8_STRING))), false);
-    Assert.assertEquals(1, parsedRows.size());
+    JUnit5Assertions.assertEquals(1, parsedRows.size());
     InputRow row = parsedRows.get(0);
-    Assert.assertEquals(DateTimes.of("2020-01-01"), row.getTimestamp());
-    Assert.assertEquals("val", Iterables.getOnlyElement(row.getDimension("dim")));
-    Assert.assertEquals("val2", Iterables.getOnlyElement(row.getDimension("met")));
-    Assert.assertEquals(0, rowIngestionMeters.getUnparseable());
+    JUnit5Assertions.assertEquals(DateTimes.of("2020-01-01"), row.getTimestamp());
+    JUnit5Assertions.assertEquals(Iterables.getOnlyElement(row.getDimension("dim")), "val");
+    JUnit5Assertions.assertEquals(Iterables.getOnlyElement(row.getDimension("met")), "val2");
+    JUnit5Assertions.assertEquals(0, rowIngestionMeters.getUnparseable());
   }
 
   private static class TrackingJsonInputFormat extends JsonInputFormat

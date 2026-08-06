@@ -24,27 +24,28 @@ import org.apache.druid.indexer.partitions.DynamicPartitionsSpec;
 import org.apache.druid.indexing.overlord.config.IndexingStateCleanupConfig;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.DateTimes;
+import org.apache.druid.metadata.JUnit5TestDerbyConnector;
 import org.apache.druid.metadata.MetadataStorageTablesConfig;
 import org.apache.druid.metadata.TestDerbyConnector;
 import org.apache.druid.segment.IndexSpec;
 import org.apache.druid.segment.metadata.IndexingStateStorage;
 import org.apache.druid.segment.metadata.SqlIndexingStateStorage;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.CompactionState;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class KillUnreferencedIndexingStateTest
 {
-  @Rule
-  public final TestDerbyConnector.DerbyConnectorRule derbyConnectorRule =
-      new TestDerbyConnector.DerbyConnectorRule();
+  @RegisterExtension
+  public final JUnit5TestDerbyConnector derbyConnectorRule =
+      new JUnit5TestDerbyConnector();
 
   private final ObjectMapper jsonMapper = new DefaultObjectMapper();
 
@@ -52,7 +53,7 @@ public class KillUnreferencedIndexingStateTest
   private MetadataStorageTablesConfig tablesConfig;
   private SqlIndexingStateStorage compactionStateStorage;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     derbyConnector = derbyConnectorRule.getConnector();
@@ -93,19 +94,19 @@ public class KillUnreferencedIndexingStateTest
     compactionStateStorage.upsertIndexingState("test-ds", fingerprint, state, DateTimes.nowUtc());
     compactionStateStorage.markIndexingStatesAsActive(List.of(fingerprint));
 
-    Assert.assertEquals(Boolean.TRUE, getCompactionStateUsedStatus(fingerprint));
+    JUnit5Assertions.assertEquals(Boolean.TRUE, getCompactionStateUsedStatus(fingerprint));
 
     // Run 1: Should mark as unused (no segments reference it)
     duty.run();
-    Assert.assertEquals(Boolean.FALSE, getCompactionStateUsedStatus(fingerprint));
+    JUnit5Assertions.assertEquals(Boolean.FALSE, getCompactionStateUsedStatus(fingerprint));
 
     // Run 2: Still unused, but within retention period - should not delete
     duty.run();
-    Assert.assertNotNull(getCompactionStateUsedStatus(fingerprint));
+    JUnit5Assertions.assertNotNull(getCompactionStateUsedStatus(fingerprint));
 
     // Run 3: Past retention period - should delete
     duty.run();
-    Assert.assertNull(getCompactionStateUsedStatus(fingerprint));
+    JUnit5Assertions.assertNull(getCompactionStateUsedStatus(fingerprint));
   }
 
   @Test
@@ -135,9 +136,9 @@ public class KillUnreferencedIndexingStateTest
     compactionStateStorage.upsertIndexingState("test-ds", fingerprint, state, DateTimes.nowUtc());
     compactionStateStorage.markIndexingStatesAsActive(List.of(fingerprint));
 
-    Assert.assertEquals(Boolean.TRUE, getCompactionStateUsedStatus(fingerprint));
+    JUnit5Assertions.assertEquals(Boolean.TRUE, getCompactionStateUsedStatus(fingerprint));
     duty.run();
-    Assert.assertEquals(Boolean.FALSE, getCompactionStateUsedStatus(fingerprint));
+    JUnit5Assertions.assertEquals(Boolean.FALSE, getCompactionStateUsedStatus(fingerprint));
 
     // Now insert a used segment that references this fingerprint
     derbyConnector.retryWithHandle(handle -> {
@@ -165,7 +166,7 @@ public class KillUnreferencedIndexingStateTest
 
     // Confirm that the state is "repaired" now that it is referenced
     duty.run();
-    Assert.assertEquals(Boolean.TRUE, getCompactionStateUsedStatus(fingerprint));
+    JUnit5Assertions.assertEquals(Boolean.TRUE, getCompactionStateUsedStatus(fingerprint));
   }
 
   @Test
@@ -190,7 +191,7 @@ public class KillUnreferencedIndexingStateTest
     duty.run();
 
     // Should still be used (not marked as unused since cleanup is disabled)
-    Assert.assertEquals(Boolean.TRUE, getCompactionStateUsedStatus(fingerprint));
+    JUnit5Assertions.assertEquals(Boolean.TRUE, getCompactionStateUsedStatus(fingerprint));
   }
 
   @Test
@@ -217,13 +218,13 @@ public class KillUnreferencedIndexingStateTest
     CompactionState state = createTestCompactionState();
     compactionStateStorage.upsertIndexingState("test-ds", fingerprint, state, DateTimes.nowUtc());
 
-    Assert.assertEquals(Boolean.TRUE, compactionStateStorage.isIndexingStatePending(fingerprint));
+    JUnit5Assertions.assertEquals(Boolean.TRUE, compactionStateStorage.isIndexingStatePending(fingerprint));
 
     duty.run();
-    Assert.assertNotNull(compactionStateStorage.isIndexingStatePending(fingerprint));
+    JUnit5Assertions.assertNotNull(compactionStateStorage.isIndexingStatePending(fingerprint));
 
     duty.run();
-    Assert.assertNull(compactionStateStorage.isIndexingStatePending(fingerprint));
+    JUnit5Assertions.assertNull(compactionStateStorage.isIndexingStatePending(fingerprint));
   }
 
   /**
@@ -257,16 +258,16 @@ public class KillUnreferencedIndexingStateTest
     compactionStateStorage.upsertIndexingState("test-ds", nonPendingFingerprint, state, DateTimes.nowUtc());
     compactionStateStorage.markIndexingStatesAsActive(List.of(nonPendingFingerprint));
 
-    Assert.assertEquals(Boolean.TRUE, compactionStateStorage.isIndexingStatePending(pendingFingerprint));
-    Assert.assertNotNull(getCompactionStateUsedStatus(nonPendingFingerprint));
+    JUnit5Assertions.assertEquals(Boolean.TRUE, compactionStateStorage.isIndexingStatePending(pendingFingerprint));
+    JUnit5Assertions.assertNotNull(getCompactionStateUsedStatus(nonPendingFingerprint));
 
     duty.run();
-    Assert.assertNotNull(compactionStateStorage.isIndexingStatePending(pendingFingerprint));
-    Assert.assertNull(getCompactionStateUsedStatus(nonPendingFingerprint));
+    JUnit5Assertions.assertNotNull(compactionStateStorage.isIndexingStatePending(pendingFingerprint));
+    JUnit5Assertions.assertNull(getCompactionStateUsedStatus(nonPendingFingerprint));
 
     duty.run();
-    Assert.assertNull(getCompactionStateUsedStatus(nonPendingFingerprint));
-    Assert.assertNull(compactionStateStorage.isIndexingStatePending(pendingFingerprint));
+    JUnit5Assertions.assertNull(getCompactionStateUsedStatus(nonPendingFingerprint));
+    JUnit5Assertions.assertNull(compactionStateStorage.isIndexingStatePending(pendingFingerprint));
   }
 
   @Test
@@ -291,7 +292,7 @@ public class KillUnreferencedIndexingStateTest
     CompactionState state = createTestCompactionState();
 
     compactionStateStorage.upsertIndexingState("test-ds", fingerprint, state, DateTimes.nowUtc());
-    Assert.assertEquals(Boolean.TRUE, compactionStateStorage.isIndexingStatePending(fingerprint));
+    JUnit5Assertions.assertEquals(Boolean.TRUE, compactionStateStorage.isIndexingStatePending(fingerprint));
 
     // Now insert a used segment that references this fingerprint
     derbyConnector.retryWithHandle(handle -> {
@@ -318,10 +319,10 @@ public class KillUnreferencedIndexingStateTest
     });
 
     compactionStateStorage.markIndexingStatesAsActive(List.of(fingerprint));
-    Assert.assertNotEquals(Boolean.TRUE, compactionStateStorage.isIndexingStatePending(fingerprint));
+    JUnit5Assertions.assertNotEquals(Boolean.TRUE, compactionStateStorage.isIndexingStatePending(fingerprint));
 
     duty.run();
-    Assert.assertNotNull(compactionStateStorage.isIndexingStatePending(fingerprint));
+    JUnit5Assertions.assertNotNull(compactionStateStorage.isIndexingStatePending(fingerprint));
   }
 
   private Boolean getCompactionStateUsedStatus(String fingerprint)

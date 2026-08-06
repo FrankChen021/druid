@@ -48,16 +48,17 @@ import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
 import org.easymock.EasyMock;
 import org.joda.time.Period;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -80,10 +81,10 @@ public class SeekableStreamIndexTaskRunnerAuthTest
    */
   private TestSeekableStreamIndexTaskRunner taskRunner;
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     // Create an AuthorizerMapper that only allows access to a Datasource resource

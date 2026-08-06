@@ -57,11 +57,12 @@ import org.apache.druid.segment.loading.AcquireMode;
 import org.apache.druid.segment.loading.SegmentCacheManager;
 import org.apache.druid.segment.loading.SegmentLoadingException;
 import org.apache.druid.segment.loading.TombstoneLoadSpec;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.joda.time.Interval;
-import org.junit.Assert;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
@@ -156,7 +157,7 @@ abstract class AbstractMultiPhaseParallelIndexingTest extends AbstractParallelIn
   {
     task.addToContext(Tasks.FORCE_TIME_CHUNK_LOCK_KEY, lockGranularity == LockGranularity.TIME_CHUNK);
     TaskStatus taskStatus = getIndexingServiceClient().runAndWait(task);
-    Assert.assertEquals("Actual task status: " + taskStatus, expectedTaskStatus, taskStatus.getStatusCode());
+    JUnit5Assertions.assertEquals(expectedTaskStatus, taskStatus.getStatusCode(), "Actual task status: " + taskStatus);
   }
 
   DataSegmentsWithSchemas runTask(Task task, TaskState expectedTaskStatus)

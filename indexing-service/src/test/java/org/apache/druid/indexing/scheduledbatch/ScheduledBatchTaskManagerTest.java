@@ -41,17 +41,17 @@ import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertEquals;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertFalse;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertNotNull;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertNull;
 
 public class ScheduledBatchTaskManagerTest
 {
@@ -89,7 +89,7 @@ public class ScheduledBatchTaskManagerTest
 
   private ScheduledBatchTaskManager scheduler;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     brokerClient = Mockito.mock(BrokerClient.class);

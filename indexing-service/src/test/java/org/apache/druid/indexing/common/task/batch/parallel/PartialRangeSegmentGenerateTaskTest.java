@@ -37,18 +37,18 @@ import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.partition.PartitionBoundaries;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.Collections;
 
 public class PartialRangeSegmentGenerateTaskTest extends AbstractParallelIndexSupervisorTaskTest
 {
-  @Rule
-  public ExpectedException exception = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension exception = ExpectedFailureExtension.none();
 
   public PartialRangeSegmentGenerateTaskTest()
   {
@@ -113,7 +113,7 @@ public class PartialRangeSegmentGenerateTaskTest extends AbstractParallelIndexSu
   public void hasCorrectInputSourceResources()
   {
     PartialRangeSegmentGenerateTask task = new PartialRangeSegmentGenerateTaskBuilder().build();
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         Collections.singleton(
             new ResourceAction(new Resource(
                 InlineInputSource.TYPE_KEY,
@@ -127,7 +127,7 @@ public class PartialRangeSegmentGenerateTaskTest extends AbstractParallelIndexSu
   public void hasCorrectPrefixForAutomaticId()
   {
     PartialRangeSegmentGenerateTask task = new PartialRangeSegmentGenerateTaskBuilder().build();
-    Assert.assertTrue(task.getId().startsWith(PartialRangeSegmentGenerateTask.TYPE));
+    JUnit5Assertions.assertTrue(task.getId().startsWith(PartialRangeSegmentGenerateTask.TYPE));
   }
 
   private static class PartialRangeSegmentGenerateTaskBuilder

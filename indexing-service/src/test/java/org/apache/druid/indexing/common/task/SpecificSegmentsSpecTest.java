@@ -20,10 +20,10 @@
 package org.apache.druid.indexing.common.task;
 
 import org.apache.druid.java.util.common.Intervals;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
@@ -46,7 +46,7 @@ public class SpecificSegmentsSpecTest
         .collect(Collectors.toList());
     Collections.shuffle(segments, ThreadLocalRandom.current());
     final SpecificSegmentsSpec spec = SpecificSegmentsSpec.fromSegments(segments);
-    Assert.assertEquals(expectedSegmentIds, spec.getSegments());
+    JUnit5Assertions.assertEquals(expectedSegmentIds, spec.getSegments());
   }
 
   private static DataSegment newSegment(Interval interval)

@@ -29,8 +29,8 @@ import org.apache.druid.indexing.worker.Worker;
 import org.apache.druid.indexing.worker.config.WorkerConfig;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.segment.TestHelper;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -82,7 +82,7 @@ public class EqualDistributionWithAffinityWorkerSelectStrategyTest
             ),
             noopTask
     );
-    Assert.assertEquals("localhost1", worker.getWorker().getHost());
+    JUnit5Assertions.assertEquals(worker.getWorker().getHost(), "localhost1");
   }
 
   @Test
@@ -113,7 +113,7 @@ public class EqualDistributionWithAffinityWorkerSelectStrategyTest
             ),
             NoopTask.create()
     );
-    Assert.assertEquals("lhost", worker.getWorker().getHost());
+    JUnit5Assertions.assertEquals(worker.getWorker().getHost(), "lhost");
   }
 
   @Test
@@ -137,7 +137,7 @@ public class EqualDistributionWithAffinityWorkerSelectStrategyTest
             ),
             NoopTask.create()
     );
-    Assert.assertNull(worker);
+    JUnit5Assertions.assertNull(worker);
   }
 
   @Test
@@ -152,7 +152,7 @@ public class EqualDistributionWithAffinityWorkerSelectStrategyTest
         objectMapper.writeValueAsBytes(strategy),
         WorkerSelectStrategy.class
     );
-    Assert.assertEquals(strategy, strategy2);
+    JUnit5Assertions.assertEquals(strategy, strategy2);
   }
 
   @Test
@@ -191,7 +191,7 @@ public class EqualDistributionWithAffinityWorkerSelectStrategyTest
         ),
         noopTask
     );
-    Assert.assertNotNull(worker);
+    JUnit5Assertions.assertNotNull(worker);
 
     ImmutableWorkerInfo worker1 = strategy.findWorkerForTask(
         new HttpRemoteTaskRunnerConfig(),
@@ -218,7 +218,7 @@ public class EqualDistributionWithAffinityWorkerSelectStrategyTest
         noopTask
     );
 
-    Assert.assertNull(worker1);
+    JUnit5Assertions.assertNull(worker1);
 
   }
 
@@ -258,7 +258,7 @@ public class EqualDistributionWithAffinityWorkerSelectStrategyTest
         ),
         noopTask
     );
-    Assert.assertNotNull(worker);
+    JUnit5Assertions.assertNotNull(worker);
 
     ImmutableWorkerInfo worker1 = strategy.findWorkerForTask(
         new HttpRemoteTaskRunnerConfig(),
@@ -285,7 +285,7 @@ public class EqualDistributionWithAffinityWorkerSelectStrategyTest
         noopTask
     );
 
-    Assert.assertNull(worker1);
+    JUnit5Assertions.assertNull(worker1);
 
   }
 }

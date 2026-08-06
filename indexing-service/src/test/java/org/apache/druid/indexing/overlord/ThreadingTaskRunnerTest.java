@@ -37,9 +37,9 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.tasklogs.NoopTaskLogs;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -54,7 +54,7 @@ public class ThreadingTaskRunnerTest
 
   private ThreadingTaskRunner runner;
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     final TaskConfig taskConfig = ForkingTaskRunnerTest.makeDefaultTaskConfigBuilder().build();
@@ -85,11 +85,8 @@ public class ThreadingTaskRunnerTest
     });
 
     TaskStatus status = statusFuture.get();
-    Assert.assertEquals(TaskState.FAILED, status.getStatusCode());
-    Assert.assertEquals(
-        "Failed with exception [Task failure test]. See indexer logs for details.",
-        status.getErrorMsg()
-    );
+    JUnit5Assertions.assertEquals(TaskState.FAILED, status.getStatusCode());
+    JUnit5Assertions.assertEquals(status.getErrorMsg(), "Failed with exception [Task failure test]. See indexer logs for details.");
   }
 
   @Test
@@ -117,11 +114,11 @@ public class ThreadingTaskRunnerTest
 
     // Stream and verify the contents of the task logs
     final Optional<InputStream> logStream = runner.streamTaskLog(indexerTask.getId(), 0);
-    Assert.assertTrue(logStream.isPresent());
+    JUnit5Assertions.assertTrue(logStream.isPresent());
 
     try (final InputStream in = logStream.get()) {
       final String fullTaskLogs = IOUtils.toString(in, StandardCharsets.UTF_8);
-      Assert.assertTrue(
+      JUnit5Assertions.assertTrue(
           fullTaskLogs.contains(
               StringUtils.format("Running test task[%s]", indexerTask.getId())
           )
@@ -130,13 +127,13 @@ public class ThreadingTaskRunnerTest
 
     // Finish the task and verify status
     finishTask.countDown();
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         TaskStatus.success(indexerTask.getId()),
         statusFuture.get()
     );
 
     // Verify that task logs cannot be streamed anymore as task has finished
-    Assert.assertFalse(
+    JUnit5Assertions.assertFalse(
         runner.streamTaskLog(indexerTask.getId(), 0).isPresent()
     );
   }

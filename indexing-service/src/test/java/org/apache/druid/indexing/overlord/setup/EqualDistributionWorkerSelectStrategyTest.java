@@ -27,8 +27,8 @@ import org.apache.druid.indexing.overlord.config.HttpRemoteTaskRunnerConfig;
 import org.apache.druid.indexing.worker.Worker;
 import org.apache.druid.indexing.worker.config.WorkerConfig;
 import org.apache.druid.java.util.common.DateTimes;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
 
@@ -91,7 +91,7 @@ public class EqualDistributionWorkerSelectStrategyTest
         ),
         NoopTask.forDatasource("foo")
     );
-    Assert.assertEquals("lhost", worker.getWorker().getHost());
+    JUnit5Assertions.assertEquals(worker.getWorker().getHost(), "lhost");
   }
 
   @Test
@@ -119,7 +119,7 @@ public class EqualDistributionWorkerSelectStrategyTest
         ),
         NoopTask.forDatasource("foo")
     );
-    Assert.assertEquals("localhost", worker.getWorker().getHost());
+    JUnit5Assertions.assertEquals(worker.getWorker().getHost(), "localhost");
   }
 
   @Test
@@ -147,7 +147,7 @@ public class EqualDistributionWorkerSelectStrategyTest
         ),
         NoopTask.forDatasource("foo")
     );
-    Assert.assertEquals("enableHost", worker.getWorker().getHost());
+    JUnit5Assertions.assertEquals(worker.getWorker().getHost(), "enableHost");
   }
 
   @Test
@@ -175,7 +175,7 @@ public class EqualDistributionWorkerSelectStrategyTest
         ),
         NoopTask.forDatasource("foo")
     );
-    Assert.assertEquals("enableHost", worker.getWorker().getHost());
+    JUnit5Assertions.assertEquals(worker.getWorker().getHost(), "enableHost");
   }
 
   @Test
@@ -197,7 +197,7 @@ public class EqualDistributionWorkerSelectStrategyTest
         WORKERS_FOR_AFFINITY_TESTS,
         createDummyTask("foo")
     );
-    Assert.assertEquals("localhost1", workerFoo.getWorker().getHost());
+    JUnit5Assertions.assertEquals(workerFoo.getWorker().getHost(), "localhost1");
 
     // With weak affinity, bar (which has no affinity workers available) can use a non-affinity worker.
     ImmutableWorkerInfo workerBar = strategy.findWorkerForTask(
@@ -205,14 +205,14 @@ public class EqualDistributionWorkerSelectStrategyTest
         WORKERS_FOR_AFFINITY_TESTS,
         createDummyTask("bar")
     );
-    Assert.assertEquals("localhost0", workerBar.getWorker().getHost());
+    JUnit5Assertions.assertEquals(workerBar.getWorker().getHost(), "localhost0");
 
     ImmutableWorkerInfo workerBaz = strategy.findWorkerForTask(
         new HttpRemoteTaskRunnerConfig(),
         WORKERS_FOR_AFFINITY_TESTS,
         createDummyTask("baz")
     );
-    Assert.assertEquals("localhost0", workerBaz.getWorker().getHost());
+    JUnit5Assertions.assertEquals(workerBaz.getWorker().getHost(), "localhost0");
   }
 
   @Test
@@ -234,7 +234,7 @@ public class EqualDistributionWorkerSelectStrategyTest
         WORKERS_FOR_AFFINITY_TESTS,
         createDummyTask("foo")
     );
-    Assert.assertEquals("localhost1", workerFoo.getWorker().getHost());
+    JUnit5Assertions.assertEquals(workerFoo.getWorker().getHost(), "localhost1");
 
     // With strong affinity, no workers can be found for bar.
     ImmutableWorkerInfo workerBar = strategy.findWorkerForTask(
@@ -242,14 +242,14 @@ public class EqualDistributionWorkerSelectStrategyTest
         WORKERS_FOR_AFFINITY_TESTS,
         createDummyTask("bar")
     );
-    Assert.assertNull(workerBar);
+    JUnit5Assertions.assertNull(workerBar);
 
     ImmutableWorkerInfo workerBaz = strategy.findWorkerForTask(
         new HttpRemoteTaskRunnerConfig(),
         WORKERS_FOR_AFFINITY_TESTS,
         createDummyTask("baz")
     );
-    Assert.assertEquals("localhost0", workerBaz.getWorker().getHost());
+    JUnit5Assertions.assertEquals(workerBaz.getWorker().getHost(), "localhost0");
   }
 
   private static NoopTask createDummyTask(final String dataSource)

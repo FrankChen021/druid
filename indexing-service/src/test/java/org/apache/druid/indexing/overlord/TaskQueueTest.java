@@ -87,13 +87,15 @@ import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.coordinator.stats.CoordinatorRunStats;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.easymock.EasyMock;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
@@ -102,6 +104,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TaskQueueTest extends IngestionTestBase
@@ -143,7 +146,8 @@ public class TaskQueueTest extends IngestionTestBase
     taskQueue.setActive(true);
   }
 
-  @Test(timeout = 30_000)
+  @Test
+  @Timeout(value = 30_000, unit = TimeUnit.MILLISECONDS)
   public void testManageQueuedTasksReleaseLockWhenTaskIsNotReady() throws Exception
   {
     // task1 emulates a case when there is a task that was issued before task2 and acquired locks conflicting
@@ -151,13 +155,13 @@ public class TaskQueueTest extends IngestionTestBase
     final TestTask task1 = new TestTask("t1", Intervals.of("2021-01/P1M"));
     // Manually get locks for task1. task2 cannot be ready because of task1.
     prepareTaskForLocking(task1);
-    Assert.assertTrue(task1.isReady(actionClientFactory.create(task1)));
+    JUnit5Assertions.assertTrue(task1.isReady(actionClientFactory.create(task1)));
 
     final TestTask task2 = new TestTask("t2", Intervals.of("2021-01-31/P1M"));
     taskQueue.add(task2);
     taskQueue.manageQueuedTasks();
-    Assert.assertFalse(task2.isDone());
-    Assert.assertTrue(getLockbox().findLocksForTask(task2).isEmpty());
+    JUnit5Assertions.assertFalse(task2.isDone());
+    JUnit5Assertions.assertTrue(getLockbox().findLocksForTask(task2).isEmpty());
 
     // task3 can run because task2 is still blocked by task1.
     final TestTask task3 = new TestTask("t3", Intervals.of("2021-02-01/P1M"));
@@ -167,9 +171,9 @@ public class TaskQueueTest extends IngestionTestBase
     // Wait for task3 to exit.
     waitForTaskToExit(task3);
 
-    Assert.assertFalse(task2.isDone());
-    Assert.assertTrue(task3.isDone());
-    Assert.assertTrue(getLockbox().findLocksForTask(task2).isEmpty());
+    JUnit5Assertions.assertFalse(task2.isDone());
+    JUnit5Assertions.assertTrue(task3.isDone());
+    JUnit5Assertions.assertTrue(getLockbox().findLocksForTask(task2).isEmpty());
 
     // Shut down task1 and release its locks.
     shutdownTask(task1);
@@ -177,7 +181,7 @@ public class TaskQueueTest extends IngestionTestBase
     // Now task2 should run.
     taskQueue.manageQueuedTasks();
     waitForTaskToExit(task2);
-    Assert.assertTrue(task2.isDone());
+    JUnit5Assertions.assertTrue(task2.isDone());
 
     // Sleep to allow all metrics to be emitted
     Thread.sleep(100);
@@ -187,8 +191,8 @@ public class TaskQueueTest extends IngestionTestBase
     verifyFailedTaskCount(taskQueue, 0);
 
     final CoordinatorRunStats stats = taskQueue.getQueueStats();
-    Assert.assertEquals(2, stats.get(Stats.TaskQueue.HANDLED_STATUS_UPDATES));
-    Assert.assertEquals(0, stats.get(Stats.TaskQueue.STATUS_UPDATES_IN_QUEUE));
+    JUnit5Assertions.assertEquals(2, stats.get(Stats.TaskQueue.HANDLED_STATUS_UPDATES));
+    JUnit5Assertions.assertEquals(0, stats.get(Stats.TaskQueue.STATUS_UPDATES_IN_QUEUE));
   }
 
   @Test
@@ -205,12 +209,12 @@ public class TaskQueueTest extends IngestionTestBase
     taskQueue.manageQueuedTasks();
 
     // Verify task was NOT started (it should still be incomplete)
-    Assert.assertFalse(task.isDone());
+    JUnit5Assertions.assertFalse(task.isDone());
 
     // Verify task is still in queue
     final Optional<TaskInfo> taskInfo = taskQueue.getActiveTaskInfo(task.getId());
-    Assert.assertTrue(taskInfo.isPresent());
-    Assert.assertEquals(TaskState.RUNNING, taskInfo.get().getStatus().getStatusCode());
+    JUnit5Assertions.assertTrue(taskInfo.isPresent());
+    JUnit5Assertions.assertEquals(TaskState.RUNNING, taskInfo.get().getStatus().getStatusCode());
 
     // Verify no metrics were emitted since no tasks were processed
     serviceEmitter.verifyNotEmitted("task/waiting/time");
@@ -231,18 +235,18 @@ public class TaskQueueTest extends IngestionTestBase
         new TimeChunkLockRequest(TaskLockType.EXCLUSIVE, task, task.interval, null)
     );
     final List<TaskLock> locksForTask = getLockbox().findLocksForTask(task);
-    Assert.assertEquals(1, locksForTask.size());
-    Assert.assertEquals(task.interval, locksForTask.get(0).getInterval());
+    JUnit5Assertions.assertEquals(1, locksForTask.size());
+    JUnit5Assertions.assertEquals(task.interval, locksForTask.get(0).getInterval());
 
     // Verify that locks are removed on calling shutdown
     taskQueue.shutdown(task.getId(), "Shutdown Task test");
-    Assert.assertTrue(getLockbox().findLocksForTask(task).isEmpty());
+    JUnit5Assertions.assertTrue(getLockbox().findLocksForTask(task).isEmpty());
 
     Optional<TaskStatus> statusOptional = getTaskStorage().getStatus(task.getId());
-    Assert.assertTrue(statusOptional.isPresent());
-    Assert.assertEquals(TaskState.FAILED, statusOptional.get().getStatusCode());
-    Assert.assertNotNull(statusOptional.get().getErrorMsg());
-    Assert.assertEquals("Shutdown Task test", statusOptional.get().getErrorMsg());
+    JUnit5Assertions.assertTrue(statusOptional.isPresent());
+    JUnit5Assertions.assertEquals(TaskState.FAILED, statusOptional.get().getStatusCode());
+    JUnit5Assertions.assertNotNull(statusOptional.get().getErrorMsg());
+    JUnit5Assertions.assertEquals(statusOptional.get().getErrorMsg(), "Shutdown Task test");
   }
 
   @Test
@@ -254,7 +258,7 @@ public class TaskQueueTest extends IngestionTestBase
     }
 
     // Verify that adding another task throws an exception
-    Assert.assertThrows(
+    JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> taskQueue.add(new TestTask("tx", Intervals.of("2021-01/P1M")))
     );
@@ -302,7 +306,7 @@ public class TaskQueueTest extends IngestionTestBase
     char[] contextLarge = new char[100 * 1024 * 1024];
     Arrays.fill(contextLarge, 'a');
 
-    Assert.assertThrows(
+    JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> maxPayloadTaskQueue.add(
             new TestTask(
@@ -334,9 +338,9 @@ public class TaskQueueTest extends IngestionTestBase
     taskQueue.add(task);
 
     final List<Task> tasks = taskQueue.getTasks();
-    Assert.assertEquals(1, tasks.size());
+    JUnit5Assertions.assertEquals(1, tasks.size());
     final Task queuedTask = tasks.get(0);
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         queuedTask.getContextValue(SinglePhaseParallelIndexTaskRunner.CTX_USE_LINEAGE_BASED_SEGMENT_ALLOCATION_KEY)
     );
   }
@@ -351,9 +355,9 @@ public class TaskQueueTest extends IngestionTestBase
     final Task task = new TestTask("t1", Intervals.of("2021-01-01/P1D"));
     taskQueue.add(task);
     final List<Task> tasks = taskQueue.getTasks();
-    Assert.assertEquals(1, tasks.size());
+    JUnit5Assertions.assertEquals(1, tasks.size());
     final Task queuedTask = tasks.get(0);
-    Assert.assertFalse(
+    JUnit5Assertions.assertFalse(
         queuedTask.getContextValue(SinglePhaseParallelIndexTaskRunner.CTX_USE_LINEAGE_BASED_SEGMENT_ALLOCATION_KEY)
     );
   }
@@ -371,9 +375,9 @@ public class TaskQueueTest extends IngestionTestBase
     );
     taskQueue.add(task);
     final List<Task> tasks = taskQueue.getTasks();
-    Assert.assertEquals(1, tasks.size());
+    JUnit5Assertions.assertEquals(1, tasks.size());
     final Task queuedTask = tasks.get(0);
-    Assert.assertFalse(
+    JUnit5Assertions.assertFalse(
         queuedTask.getContextValue(SinglePhaseParallelIndexTaskRunner.CTX_USE_LINEAGE_BASED_SEGMENT_ALLOCATION_KEY)
     );
   }
@@ -385,9 +389,9 @@ public class TaskQueueTest extends IngestionTestBase
     final Task task = new TestTask("t1", Intervals.of("2021-01-01/P1D"));
     taskQueue.add(task);
     final List<Task> tasks = taskQueue.getTasks();
-    Assert.assertEquals(1, tasks.size());
+    JUnit5Assertions.assertEquals(1, tasks.size());
     final Task queuedTask = tasks.get(0);
-    Assert.assertTrue(queuedTask.getContextValue(Tasks.FORCE_TIME_CHUNK_LOCK_KEY));
+    JUnit5Assertions.assertTrue(queuedTask.getContextValue(Tasks.FORCE_TIME_CHUNK_LOCK_KEY));
   }
 
   @Test
@@ -403,9 +407,9 @@ public class TaskQueueTest extends IngestionTestBase
     );
     taskQueue.add(task);
     final List<Task> tasks = taskQueue.getTasks();
-    Assert.assertEquals(1, tasks.size());
+    JUnit5Assertions.assertEquals(1, tasks.size());
     final Task queuedTask = tasks.get(0);
-    Assert.assertFalse(queuedTask.getContextValue(Tasks.FORCE_TIME_CHUNK_LOCK_KEY));
+    JUnit5Assertions.assertFalse(queuedTask.getContextValue(Tasks.FORCE_TIME_CHUNK_LOCK_KEY));
   }
 
   @Test
@@ -424,10 +428,10 @@ public class TaskQueueTest extends IngestionTestBase
     taskQueue.manageQueuedTasks();
 
     Optional<TaskStatus> statusOptional = getTaskStorage().getStatus(task.getId());
-    Assert.assertTrue(statusOptional.isPresent());
-    Assert.assertEquals(TaskState.FAILED, statusOptional.get().getStatusCode());
-    Assert.assertNotNull(statusOptional.get().getErrorMsg());
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(statusOptional.isPresent());
+    JUnit5Assertions.assertEquals(TaskState.FAILED, statusOptional.get().getStatusCode());
+    JUnit5Assertions.assertNotNull(statusOptional.get().getErrorMsg());
+    JUnit5Assertions.assertTrue(
         statusOptional.get().getErrorMsg().contains(exceptionMsg)
     );
 
@@ -436,8 +440,8 @@ public class TaskQueueTest extends IngestionTestBase
     verifyFailedTaskCount(taskQueue, 1);
 
     final CoordinatorRunStats stats = taskQueue.getQueueStats();
-    Assert.assertEquals(0, stats.get(Stats.TaskQueue.HANDLED_STATUS_UPDATES));
-    Assert.assertEquals(0, stats.get(Stats.TaskQueue.STATUS_UPDATES_IN_QUEUE));
+    JUnit5Assertions.assertEquals(0, stats.get(Stats.TaskQueue.HANDLED_STATUS_UPDATES));
+    JUnit5Assertions.assertEquals(0, stats.get(Stats.TaskQueue.STATUS_UPDATES_IN_QUEUE));
   }
 
   @Test
@@ -498,8 +502,8 @@ public class TaskQueueTest extends IngestionTestBase
     verifyFailedTaskCount(taskQueue, 1);
 
     final CoordinatorRunStats stats = taskQueue.getQueueStats();
-    Assert.assertEquals(1, stats.get(Stats.TaskQueue.HANDLED_STATUS_UPDATES));
-    Assert.assertEquals(0, stats.get(Stats.TaskQueue.STATUS_UPDATES_IN_QUEUE));
+    JUnit5Assertions.assertEquals(1, stats.get(Stats.TaskQueue.HANDLED_STATUS_UPDATES));
+    JUnit5Assertions.assertEquals(0, stats.get(Stats.TaskQueue.STATUS_UPDATES_IN_QUEUE));
   }
 
   @Test
@@ -510,17 +514,17 @@ public class TaskQueueTest extends IngestionTestBase
 
     // Active task: status should come from activeTasks map
     final Optional<TaskStatus> activeStatus = taskQueue.getTaskStatus(task.getId());
-    Assert.assertTrue(activeStatus.isPresent());
-    Assert.assertEquals(TaskState.RUNNING, activeStatus.get().getStatusCode());
-    Assert.assertEquals(task.getId(), activeStatus.get().getId());
+    JUnit5Assertions.assertTrue(activeStatus.isPresent());
+    JUnit5Assertions.assertEquals(TaskState.RUNNING, activeStatus.get().getStatusCode());
+    JUnit5Assertions.assertEquals(task.getId(), activeStatus.get().getId());
 
     // Run the task so it completes
     taskQueue.manageQueuedTasks();
     waitForTaskToExit(task);
 
     final Optional<TaskStatus> completedStatus = taskQueue.getTaskStatus(task.getId());
-    Assert.assertTrue(completedStatus.isPresent());
-    Assert.assertEquals(TaskState.SUCCESS, completedStatus.get().getStatusCode());
+    JUnit5Assertions.assertTrue(completedStatus.isPresent());
+    JUnit5Assertions.assertEquals(TaskState.SUCCESS, completedStatus.get().getStatusCode());
   }
 
   @Test
@@ -540,16 +544,16 @@ public class TaskQueueTest extends IngestionTestBase
     waitForTaskToExit(task);
 
     final Optional<TaskStatus> failedStatus = taskQueue.getTaskStatus(task.getId());
-    Assert.assertTrue(failedStatus.isPresent());
-    Assert.assertEquals(TaskState.FAILED, failedStatus.get().getStatusCode());
-    Assert.assertEquals("intentional failure", failedStatus.get().getErrorMsg());
+    JUnit5Assertions.assertTrue(failedStatus.isPresent());
+    JUnit5Assertions.assertEquals(TaskState.FAILED, failedStatus.get().getStatusCode());
+    JUnit5Assertions.assertEquals(failedStatus.get().getErrorMsg(), "intentional failure");
   }
 
   @Test
   public void testGetTaskStatus_unknownTask()
   {
     final Optional<TaskStatus> unknownStatus = taskQueue.getTaskStatus("unknownTask");
-    Assert.assertFalse(unknownStatus.isPresent());
+    JUnit5Assertions.assertFalse(unknownStatus.isPresent());
   }
 
   @Test
@@ -621,22 +625,22 @@ public class TaskQueueTest extends IngestionTestBase
         null,
         false
     );
-    Assert.assertTrue(mapper.writeValueAsString(taskWithPassword).contains(password));
+    JUnit5Assertions.assertTrue(mapper.writeValueAsString(taskWithPassword).contains(password));
 
     taskQueue.start();
     taskQueue.add(taskWithPassword);
 
     final Optional<Task> taskInStorage = taskStorage.getTask(taskWithPassword.getId());
-    Assert.assertTrue(taskInStorage.isPresent());
+    JUnit5Assertions.assertTrue(taskInStorage.isPresent());
     final String taskInStorageAsString = mapper.writeValueAsString(taskInStorage.get());
-    Assert.assertFalse(taskInStorageAsString.contains(password));
+    JUnit5Assertions.assertFalse(taskInStorageAsString.contains(password));
 
     final Optional<Task> taskInQueue = taskQueue.getActiveTask(taskWithPassword.getId());
-    Assert.assertTrue(taskInQueue.isPresent());
+    JUnit5Assertions.assertTrue(taskInQueue.isPresent());
     final String taskInQueueAsString = mapper.writeValueAsString(taskInQueue.get());
-    Assert.assertFalse(taskInQueueAsString.contains(password));
+    JUnit5Assertions.assertFalse(taskInQueueAsString.contains(password));
 
-    Assert.assertEquals(taskInStorageAsString, taskInQueueAsString);
+    JUnit5Assertions.assertEquals(taskInStorageAsString, taskInQueueAsString);
   }
 
   @Test
@@ -648,15 +652,15 @@ public class TaskQueueTest extends IngestionTestBase
     taskQueue.add(task);
 
     final Optional<TaskInfo> activeInfoOpt = taskQueue.getActiveTaskInfo(task.getId());
-    Assert.assertTrue(activeInfoOpt.isPresent());
-    Assert.assertEquals(TaskState.RUNNING, activeInfoOpt.get().getStatus().getStatusCode());
+    JUnit5Assertions.assertTrue(activeInfoOpt.isPresent());
+    JUnit5Assertions.assertEquals(TaskState.RUNNING, activeInfoOpt.get().getStatus().getStatusCode());
 
     taskQueue.shutdown(task.getId(), shutdownReason);
 
     final Optional<TaskInfo> afterShutdownInfoOpt = taskQueue.getActiveTaskInfo(task.getId());
-    Assert.assertTrue(afterShutdownInfoOpt.isPresent());
-    Assert.assertEquals(shutdownStatus, afterShutdownInfoOpt.get().getStatus());
-    Assert.assertEquals(shutdownStatus, getTaskStorage().getStatus(task.getId()).get());
+    JUnit5Assertions.assertTrue(afterShutdownInfoOpt.isPresent());
+    JUnit5Assertions.assertEquals(shutdownStatus, afterShutdownInfoOpt.get().getStatus());
+    JUnit5Assertions.assertEquals(shutdownStatus, getTaskStorage().getStatus(task.getId()).get());
   }
 
   @Test
@@ -669,12 +673,12 @@ public class TaskQueueTest extends IngestionTestBase
 
     // ensure success callback has fired
     Thread.sleep(100);
-    Assert.assertTrue(task.isDone());
+    JUnit5Assertions.assertTrue(task.isDone());
 
     final Optional<TaskInfo> activeInfoOpt = taskQueue.getActiveTaskInfo(task.getId());
-    Assert.assertTrue(activeInfoOpt.isPresent());
-    Assert.assertEquals(successStatus, activeInfoOpt.get().getStatus());
-    Assert.assertEquals(successStatus, getTaskStorage().getStatus(task.getId()).get());
+    JUnit5Assertions.assertTrue(activeInfoOpt.isPresent());
+    JUnit5Assertions.assertEquals(successStatus, activeInfoOpt.get().getStatus());
+    JUnit5Assertions.assertEquals(successStatus, getTaskStorage().getStatus(task.getId()).get());
   }
 
   @Test
@@ -696,12 +700,12 @@ public class TaskQueueTest extends IngestionTestBase
 
     // ensure failed callback has fired
     Thread.sleep(100);
-    Assert.assertTrue(task.isDone());
+    JUnit5Assertions.assertTrue(task.isDone());
 
     final Optional<TaskInfo> activeInfoOpt = taskQueue.getActiveTaskInfo(task.getId());
-    Assert.assertTrue(activeInfoOpt.isPresent());
-    Assert.assertEquals(failedStatus, activeInfoOpt.get().getStatus());
-    Assert.assertEquals(failedStatus, getTaskStorage().getStatus(task.getId()).get());
+    JUnit5Assertions.assertTrue(activeInfoOpt.isPresent());
+    JUnit5Assertions.assertEquals(failedStatus, activeInfoOpt.get().getStatus());
+    JUnit5Assertions.assertEquals(failedStatus, getTaskStorage().getStatus(task.getId()).get());
   }
 
   @Test
@@ -710,7 +714,7 @@ public class TaskQueueTest extends IngestionTestBase
     // task1 acquires a lock that will block task2
     final TestTask task1 = new TestTask("t1", Intervals.of("2021-01/P1M"));
     prepareTaskForLocking(task1);
-    Assert.assertTrue(task1.isReady(actionClientFactory.create(task1)));
+    JUnit5Assertions.assertTrue(task1.isReady(actionClientFactory.create(task1)));
 
     // task2 will not be ready because of task1's lock
     final TestTask task2 = new TestTask("t2", Intervals.of("2021-01-31/P1M"));
@@ -783,12 +787,12 @@ public class TaskQueueTest extends IngestionTestBase
     priorityQueue.manageQueuedTasks();
 
     final List<String> submitted = recordingRunner.getSubmittedTaskIds();
-    Assert.assertEquals(5, submitted.size());
-    Assert.assertEquals(highPriority2.getId(), submitted.get(0));
-    Assert.assertEquals(highPriority1.getId(), submitted.get(1));
-    Assert.assertEquals(medPriority.getId(), submitted.get(2));
-    Assert.assertEquals(lowPriority2.getId(), submitted.get(3));
-    Assert.assertEquals(lowPriority1.getId(), submitted.get(4));
+    JUnit5Assertions.assertEquals(5, submitted.size());
+    JUnit5Assertions.assertEquals(highPriority2.getId(), submitted.get(0));
+    JUnit5Assertions.assertEquals(highPriority1.getId(), submitted.get(1));
+    JUnit5Assertions.assertEquals(medPriority.getId(), submitted.get(2));
+    JUnit5Assertions.assertEquals(lowPriority2.getId(), submitted.get(3));
+    JUnit5Assertions.assertEquals(lowPriority1.getId(), submitted.get(4));
   }
 
   private HttpRemoteTaskRunner createHttpRemoteTaskRunner()
@@ -825,7 +829,7 @@ public class TaskQueueTest extends IngestionTestBase
 
   private static void verifySuccessfulTaskCount(final TaskQueue taskQueue, int successCount)
   {
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         successCount,
         taskQueue.getSuccessfulTaskCount().values().stream().mapToLong(Long::longValue).sum()
     );
@@ -833,7 +837,7 @@ public class TaskQueueTest extends IngestionTestBase
 
   private static void verifyFailedTaskCount(final TaskQueue taskQueue, int failureCount)
   {
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         failureCount,
         taskQueue.getFailedTaskCount().values().stream().mapToLong(Long::longValue).sum()
     );

@@ -43,16 +43,17 @@ import org.apache.druid.server.compaction.CompactionCandidate;
 import org.apache.druid.server.compaction.CompactionStatus;
 import org.apache.druid.server.coordinator.DataSourceCompactionConfig;
 import org.apache.druid.server.coordinator.InlineSchemaDataSourceCompactionConfig;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.CompactionState;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.easymock.EasyMock;
 import org.joda.time.DateTime;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -97,7 +98,7 @@ public class ReindexingDeletionRuleOptimizerTest
     DataSourceCompactionConfig result = optimizer.optimizeConfig(config, candidate, params);
 
     // No state for fp1, so config should be unchanged
-    Assertions.assertEquals(expectedFilter, result.getTransformSpec().getFilter());
+    JUnit5Assertions.assertEquals(expectedFilter, result.getTransformSpec().getFilter());
   }
 
   @Test
@@ -116,7 +117,7 @@ public class ReindexingDeletionRuleOptimizerTest
     DataSourceCompactionConfig result = optimizer.optimizeConfig(config, candidate, params);
 
     // All filters optimized away, transform spec should be null
-    Assertions.assertNull(result.getTransformSpec());
+    JUnit5Assertions.assertNull(result.getTransformSpec());
   }
 
   @Test
@@ -138,7 +139,7 @@ public class ReindexingDeletionRuleOptimizerTest
     DataSourceCompactionConfig result = optimizer.optimizeConfig(config, candidate, params);
 
     // All filters already applied, transform spec should be removed
-    Assertions.assertNull(result.getTransformSpec());
+    JUnit5Assertions.assertNull(result.getTransformSpec());
   }
 
   @Test
@@ -162,8 +163,8 @@ public class ReindexingDeletionRuleOptimizerTest
     // No filters were applied, so all should remain
     NotDimFilter resultFilter = (NotDimFilter) result.getTransformSpec().getFilter();
     OrDimFilter innerOr = (OrDimFilter) resultFilter.getField();
-    Assertions.assertEquals(3, innerOr.getFields().size());
-    Assertions.assertTrue(innerOr.getFields().containsAll(Arrays.asList(filterA, filterB, filterC)));
+    JUnit5Assertions.assertEquals(3, innerOr.getFields().size());
+    JUnit5Assertions.assertTrue(innerOr.getFields().containsAll(Arrays.asList(filterA, filterB, filterC)));
   }
 
   @Test
@@ -193,7 +194,7 @@ public class ReindexingDeletionRuleOptimizerTest
     Set<DimFilter> resultSet = new HashSet<>(innerOr.getFields());
     Set<DimFilter> expectedSet = new HashSet<>(Arrays.asList(filterC, filterD));
 
-    Assertions.assertEquals(expectedSet, resultSet);
+    JUnit5Assertions.assertEquals(expectedSet, resultSet);
   }
 
   @Test
@@ -227,7 +228,7 @@ public class ReindexingDeletionRuleOptimizerTest
     Set<DimFilter> resultSet = new HashSet<>(innerOr.getFields());
     Set<DimFilter> expectedSet = new HashSet<>(Arrays.asList(filterB, filterC, filterD));
 
-    Assertions.assertEquals(expectedSet, resultSet);
+    JUnit5Assertions.assertEquals(expectedSet, resultSet);
   }
 
   @Test
@@ -258,8 +259,8 @@ public class ReindexingDeletionRuleOptimizerTest
     OrDimFilter innerOr = (OrDimFilter) resultFilter.getField();
     Set<DimFilter> resultSet = new HashSet<>(innerOr.getFields());
 
-    Assertions.assertEquals(2, resultSet.size());
-    Assertions.assertTrue(resultSet.containsAll(Arrays.asList(filterB, filterC)));
+    JUnit5Assertions.assertEquals(2, resultSet.size());
+    JUnit5Assertions.assertTrue(resultSet.containsAll(Arrays.asList(filterB, filterC)));
   }
 
   @Test
@@ -280,7 +281,7 @@ public class ReindexingDeletionRuleOptimizerTest
     DataSourceCompactionConfig result = optimizer.optimizeConfig(config, candidate, params);
 
     // No state available, all filters should remain
-    Assertions.assertEquals(expectedFilter, result.getTransformSpec().getFilter());
+    JUnit5Assertions.assertEquals(expectedFilter, result.getTransformSpec().getFilter());
   }
 
   @Test
@@ -306,8 +307,8 @@ public class ReindexingDeletionRuleOptimizerTest
     // A was already applied, only B and C should remain
     NotDimFilter resultFilter = (NotDimFilter) result.getTransformSpec().getFilter();
     OrDimFilter innerOr = (OrDimFilter) resultFilter.getField();
-    Assertions.assertEquals(2, innerOr.getFields().size());
-    Assertions.assertTrue(innerOr.getFields().containsAll(Arrays.asList(filterB, filterC)));
+    JUnit5Assertions.assertEquals(2, innerOr.getFields().size());
+    JUnit5Assertions.assertTrue(innerOr.getFields().containsAll(Arrays.asList(filterB, filterC)));
   }
 
   @Test
@@ -328,7 +329,7 @@ public class ReindexingDeletionRuleOptimizerTest
     DataSourceCompactionConfig result = optimizer.optimizeConfig(config, candidate, params);
 
     // No fingerprints, all filters should remain
-    Assertions.assertEquals(expectedFilter, result.getTransformSpec().getFilter());
+    JUnit5Assertions.assertEquals(expectedFilter, result.getTransformSpec().getFilter());
   }
 
 
@@ -435,17 +436,17 @@ public class ReindexingDeletionRuleOptimizerTest
     // Subtractive approach: since no deletion rules were pruned, all VCs are preserved
     // (vc2 may be a partitioning VC or belong to unapplied deletion rules)
     VirtualColumns resultVCs = result.getTransformSpec().getVirtualColumns();
-    Assertions.assertNotNull(resultVCs);
-    Assertions.assertEquals(3, resultVCs.getVirtualColumns().length);
+    JUnit5Assertions.assertNotNull(resultVCs);
+    JUnit5Assertions.assertEquals(3, resultVCs.getVirtualColumns().length);
 
     Set<String> outputNames = new HashSet<>();
     for (org.apache.druid.segment.VirtualColumn vc : resultVCs.getVirtualColumns()) {
       outputNames.add(vc.getOutputName());
     }
 
-    Assertions.assertTrue(outputNames.contains("vc1"));
-    Assertions.assertTrue(outputNames.contains("vc2"));
-    Assertions.assertTrue(outputNames.contains("vc3"));
+    JUnit5Assertions.assertTrue(outputNames.contains("vc1"));
+    JUnit5Assertions.assertTrue(outputNames.contains("vc2"));
+    JUnit5Assertions.assertTrue(outputNames.contains("vc3"));
   }
 
   @Test
@@ -471,8 +472,8 @@ public class ReindexingDeletionRuleOptimizerTest
     // Subtractive approach: since no deletion rules were pruned, all VCs are preserved
     // (vc1 and vc2 may be partitioning VCs)
     VirtualColumns resultVCs = result.getTransformSpec().getVirtualColumns();
-    Assertions.assertNotNull(resultVCs);
-    Assertions.assertEquals(2, resultVCs.getVirtualColumns().length);
+    JUnit5Assertions.assertNotNull(resultVCs);
+    JUnit5Assertions.assertEquals(2, resultVCs.getVirtualColumns().length);
   }
 
   @Test
@@ -504,16 +505,16 @@ public class ReindexingDeletionRuleOptimizerTest
     // vc_deletion_b preserved (needed by remaining filterB)
     // vc_partition preserved (not referenced by any deletion filter)
     VirtualColumns resultVCs = result.getTransformSpec().getVirtualColumns();
-    Assertions.assertNotNull(resultVCs);
-    Assertions.assertEquals(2, resultVCs.getVirtualColumns().length);
+    JUnit5Assertions.assertNotNull(resultVCs);
+    JUnit5Assertions.assertEquals(2, resultVCs.getVirtualColumns().length);
 
     Set<String> outputNames = new HashSet<>();
     for (VirtualColumn vc : resultVCs.getVirtualColumns()) {
       outputNames.add(vc.getOutputName());
     }
-    Assertions.assertTrue(outputNames.contains("vc_partition"));
-    Assertions.assertTrue(outputNames.contains("vc_deletion_b"));
-    Assertions.assertFalse(outputNames.contains("vc_deletion_a"));
+    JUnit5Assertions.assertTrue(outputNames.contains("vc_partition"));
+    JUnit5Assertions.assertTrue(outputNames.contains("vc_deletion_b"));
+    JUnit5Assertions.assertFalse(outputNames.contains("vc_deletion_a"));
   }
 
   @Test
@@ -541,12 +542,12 @@ public class ReindexingDeletionRuleOptimizerTest
     // All deletion filters pruned → reducedFilter == null
     // vc_deletion removed, vc_partition preserved
     // Transform spec has null filter but non-null VCs containing only vc_partition
-    Assertions.assertNotNull(result.getTransformSpec());
-    Assertions.assertNull(result.getTransformSpec().getFilter());
+    JUnit5Assertions.assertNotNull(result.getTransformSpec());
+    JUnit5Assertions.assertNull(result.getTransformSpec().getFilter());
     VirtualColumns resultVCs = result.getTransformSpec().getVirtualColumns();
-    Assertions.assertNotNull(resultVCs);
-    Assertions.assertEquals(1, resultVCs.getVirtualColumns().length);
-    Assertions.assertEquals("vc_partition", resultVCs.getVirtualColumns()[0].getOutputName());
+    JUnit5Assertions.assertNotNull(resultVCs);
+    JUnit5Assertions.assertEquals(1, resultVCs.getVirtualColumns().length);
+    JUnit5Assertions.assertEquals(resultVCs.getVirtualColumns()[0].getOutputName(), "vc_partition");
   }
 
   @Test
@@ -583,9 +584,9 @@ public class ReindexingDeletionRuleOptimizerTest
     // vc_only_a removed (only needed by pruned filterA)
     // vc_shared preserved (still needed by remaining filterB)
     VirtualColumns resultVCs = result.getTransformSpec().getVirtualColumns();
-    Assertions.assertNotNull(resultVCs);
-    Assertions.assertEquals(1, resultVCs.getVirtualColumns().length);
-    Assertions.assertEquals("vc_shared", resultVCs.getVirtualColumns()[0].getOutputName());
+    JUnit5Assertions.assertNotNull(resultVCs);
+    JUnit5Assertions.assertEquals(1, resultVCs.getVirtualColumns().length);
+    JUnit5Assertions.assertEquals(resultVCs.getVirtualColumns()[0].getOutputName(), "vc_shared");
   }
 
   @Test
@@ -609,7 +610,7 @@ public class ReindexingDeletionRuleOptimizerTest
     DataSourceCompactionConfig result = optimizer.optimizeConfig(config, candidate, params);
 
     // Should return config unchanged since candidate was never compacted
-    Assertions.assertSame(config, result);
+    JUnit5Assertions.assertSame(config, result);
   }
 
   @Test
@@ -626,7 +627,7 @@ public class ReindexingDeletionRuleOptimizerTest
     DataSourceCompactionConfig result = optimizer.optimizeConfig(config, candidate, params);
 
     // Should return config unchanged
-    Assertions.assertSame(config, result);
+    JUnit5Assertions.assertSame(config, result);
   }
 
   /**

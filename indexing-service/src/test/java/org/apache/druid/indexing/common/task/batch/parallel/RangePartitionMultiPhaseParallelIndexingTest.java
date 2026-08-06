@@ -39,20 +39,20 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.guava.Comparators;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.segment.DataSegmentsWithSchemas;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.JUnit5Matchers;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.DimensionRangeShardSpec;
 import org.apache.druid.timeline.partition.NumberedShardSpec;
 import org.apache.druid.timeline.partition.SingleDimensionShardSpec;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
@@ -72,7 +72,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+@MethodSource("constructorFeeder")
 public class RangePartitionMultiPhaseParallelIndexingTest extends AbstractMultiPhaseParallelIndexingTest
 {
   private static final boolean USE_MULTIVALUE_DIM = true;
@@ -101,7 +102,6 @@ public class RangePartitionMultiPhaseParallelIndexingTest extends AbstractMultiP
       null
   );
 
-  @Parameterized.Parameters(name = "{0}, maxNumConcurrentSubTasks={1}, useMultiValueDim={2}, intervalToIndex={3}")
   public static Iterable<Object[]> constructorFeeder()
   {
     return ImmutableList.of(
@@ -134,7 +134,7 @@ public class RangePartitionMultiPhaseParallelIndexingTest extends AbstractMultiP
     this.intervalToIndex = intervalToIndex;
   }
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException
   {
     inputDir = temporaryFolder.newFolder("data");
@@ -259,10 +259,10 @@ public class RangePartitionMultiPhaseParallelIndexingTest extends AbstractMultiP
     final Set<DataSegment> publishedSegments = publishedDataSegmentsWithSchemas.getSegments();
     if (!useMultivalueDim) {
       assertRangePartitions(publishedSegments);
-      Assert.assertEquals(1, publishedDataSegmentsWithSchemas.getSegmentSchemaMapping().getSchemaFingerprintToPayloadMap().size());
-      Assert.assertEquals(publishedSegments.size(), publishedDataSegmentsWithSchemas.getSegmentSchemaMapping().getSegmentIdToMetadataMap().size());
+      JUnit5Assertions.assertEquals(1, publishedDataSegmentsWithSchemas.getSegmentSchemaMapping().getSchemaFingerprintToPayloadMap().size());
+      JUnit5Assertions.assertEquals(publishedSegments.size(), publishedDataSegmentsWithSchemas.getSegmentSchemaMapping().getSegmentIdToMetadataMap().size());
       for (DataSegment segment : publishedSegments) {
-        Assert.assertTrue(publishedDataSegmentsWithSchemas.getSegmentSchemaMapping().getSegmentIdToMetadataMap().containsKey(segment.getId().toString()));
+        JUnit5Assertions.assertTrue(publishedDataSegmentsWithSchemas.getSegmentSchemaMapping().getSegmentIdToMetadataMap().containsKey(segment.getId().toString()));
       }
     }
 
@@ -297,15 +297,15 @@ public class RangePartitionMultiPhaseParallelIndexingTest extends AbstractMultiP
     }
 
     if (!useMultivalueDim) {
-      Assert.assertEquals(11, tombstones);
-      Assert.assertEquals(10, publishedSegmentsAfterReplace.size() - tombstones);
+      JUnit5Assertions.assertEquals(11, tombstones);
+      JUnit5Assertions.assertEquals(10, publishedSegmentsAfterReplace.size() - tombstones);
       for (DataSegment segment : publishedSegmentsAfterReplace) {
         if (!segment.isTombstone()) {
-          Assert.assertTrue(publishedDataSegmentsWithSchemasAfterReplace.getSegmentSchemaMapping().getSegmentIdToMetadataMap().containsKey(segment.getId().toString()));
+          JUnit5Assertions.assertTrue(publishedDataSegmentsWithSchemasAfterReplace.getSegmentSchemaMapping().getSegmentIdToMetadataMap().containsKey(segment.getId().toString()));
         }
       }
-      Assert.assertEquals(10, publishedDataSegmentsWithSchemasAfterReplace.getSegmentSchemaMapping().getSegmentIdToMetadataMap().size());
-      Assert.assertEquals(1, publishedDataSegmentsWithSchemasAfterReplace.getSegmentSchemaMapping().getSchemaFingerprintToPayloadMap().size());
+      JUnit5Assertions.assertEquals(10, publishedDataSegmentsWithSchemasAfterReplace.getSegmentSchemaMapping().getSegmentIdToMetadataMap().size());
+      JUnit5Assertions.assertEquals(1, publishedDataSegmentsWithSchemasAfterReplace.getSegmentSchemaMapping().getSchemaFingerprintToPayloadMap().size());
     }
   }
 
@@ -371,11 +371,11 @@ public class RangePartitionMultiPhaseParallelIndexingTest extends AbstractMultiP
       for (DataSegment rangedSegment : rangedSegments) {
         final SingleDimensionShardSpec rangeShardSpec = (SingleDimensionShardSpec) rangedSegment.getShardSpec();
         for (DataSegment linearSegment : linearSegments) {
-          Assert.assertEquals(rangedSegment.getInterval(), linearSegment.getInterval());
-          Assert.assertEquals(rangedSegment.getVersion(), linearSegment.getVersion());
+          JUnit5Assertions.assertEquals(rangedSegment.getInterval(), linearSegment.getInterval());
+          JUnit5Assertions.assertEquals(rangedSegment.getVersion(), linearSegment.getVersion());
           final NumberedShardSpec numberedShardSpec = (NumberedShardSpec) linearSegment.getShardSpec();
-          Assert.assertEquals(rangeShardSpec.getNumCorePartitions(), numberedShardSpec.getNumCorePartitions());
-          Assert.assertTrue(rangeShardSpec.getPartitionNum() < numberedShardSpec.getPartitionNum());
+          JUnit5Assertions.assertEquals(rangeShardSpec.getNumCorePartitions(), numberedShardSpec.getNumCorePartitions());
+          JUnit5Assertions.assertTrue(rangeShardSpec.getPartitionNum() < numberedShardSpec.getPartitionNum());
         }
       }
     }
@@ -428,18 +428,18 @@ public class RangePartitionMultiPhaseParallelIndexingTest extends AbstractMultiP
 
   private void assertHasExpectedIntervals(Set<Interval> publishedSegmentIntervals)
   {
-    Assert.assertEquals(intervalToDims.keySet(), publishedSegmentIntervals);
+    JUnit5Assertions.assertEquals(intervalToDims.keySet(), publishedSegmentIntervals);
   }
 
   private static void assertNumPartition(Collection<DataSegment> segments)
   {
-    Assert.assertEquals(NUM_PARTITION, segments.size());
+    JUnit5Assertions.assertEquals(NUM_PARTITION, segments.size());
   }
 
   private List<StringTuple> getColumnValues(DataSegment segment, File tempDir)
   {
     List<ScanResultValue> results = querySegment(segment, DIMS, tempDir);
-    Assert.assertEquals(1, results.size());
+    JUnit5Assertions.assertEquals(1, results.size());
     List<LinkedHashMap<String, String>> rows = (List<LinkedHashMap<String, String>>) results.get(0).getEvents();
     return rows.stream()
                .map(row -> row.get(DIM1))
@@ -452,18 +452,18 @@ public class RangePartitionMultiPhaseParallelIndexingTest extends AbstractMultiP
     DimensionRangeShardSpec shardSpec = (DimensionRangeShardSpec) segment.getShardSpec();
     StringTuple start = shardSpec.getStartTuple();
     StringTuple end = shardSpec.getEndTuple();
-    Assert.assertTrue(shardSpec.toString(), start != null || end != null);
+    JUnit5Assertions.assertTrue(start != null || end != null, shardSpec.toString());
 
     for (StringTuple value : values) {
       if (start != null) {
-        MatcherAssert.assertThat(value.compareTo(start), Matchers.greaterThanOrEqualTo(0));
+        JUnit5Assertions.assertMatches(value.compareTo(start), JUnit5Matchers.greaterThanOrEqualTo(0));
       }
 
       if (end != null) {
         if (value == null) {
-          Assert.assertNull("null values should be in first partition", start);
+          JUnit5Assertions.assertNull(start, "null values should be in first partition");
         } else {
-          MatcherAssert.assertThat(value.compareTo(end), Matchers.lessThan(0));
+          JUnit5Assertions.assertMatches(value.compareTo(end), JUnit5Matchers.lessThan(0));
         }
       }
     }
@@ -478,6 +478,6 @@ public class RangePartitionMultiPhaseParallelIndexingTest extends AbstractMultiP
                                                 .sorted(Comparators.naturalNullsFirst())
                                                 .collect(Collectors.toList());
     actualValues.sort(Comparators.naturalNullsFirst());
-    Assert.assertEquals(interval.toString(), expectedValues, actualValues);
+    JUnit5Assertions.assertEquals(expectedValues, actualValues, interval.toString());
   }
 }

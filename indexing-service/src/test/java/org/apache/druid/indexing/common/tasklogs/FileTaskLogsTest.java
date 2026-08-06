@@ -31,11 +31,11 @@ import org.apache.druid.java.util.common.FileUtils;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.tasklogs.TaskLogs;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.io.IOException;
@@ -45,11 +45,11 @@ import java.util.Map;
 public class FileTaskLogsTest
 {
 
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
   @Test
   public void testSimple() throws Exception
@@ -66,7 +66,11 @@ public class FileTaskLogsTest
       for (Map.Entry<Long, String> entry : expected.entrySet()) {
         final byte[] bytes = ByteStreams.toByteArray(taskLogs.streamTaskLog("foo", entry.getKey()).get());
         final String string = StringUtils.fromUtf8(bytes);
-        Assert.assertEquals(StringUtils.format("Read with offset %,d", entry.getKey()), string, entry.getValue());
+        JUnit5Assertions.assertEquals(
+            string,
+            entry.getValue(),
+            StringUtils.format("Read with offset %,d", entry.getKey())
+        );
       }
     }
     finally {
@@ -90,7 +94,7 @@ public class FileTaskLogsTest
     final TaskLogs taskLogs = new FileTaskLogs(new FileTaskLogsConfig(logDir));
     taskLogs.pushTaskReports("foo", reportFile);
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         testReportString,
         StringUtils.fromUtf8(ByteStreams.toByteArray(taskLogs.streamTaskReports("foo").get()))
     );
@@ -112,7 +116,7 @@ public class FileTaskLogsTest
     final TaskLogs taskLogs = new FileTaskLogs(new FileTaskLogsConfig(logDir));
     taskLogs.pushTaskStatus(taskId, statusFile);
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         taskStatusString,
         StringUtils.fromUtf8(ByteStreams.toByteArray(taskLogs.streamTaskStatus(taskId).get()))
     );
@@ -147,24 +151,24 @@ public class FileTaskLogsTest
 
     Files.asCharSink(logFile, StandardCharsets.UTF_8).write("log1content");
     taskLogs.pushTaskLog("log1", logFile);
-    Assert.assertEquals("log1content", readLog(taskLogs, "log1", 0));
+    JUnit5Assertions.assertEquals(readLog(taskLogs, "log1", 0), "log1content");
 
     //File modification timestamp is only maintained to seconds resolution, so artificial delay
     //is necessary to separate 2 file creations by a timestamp that would result in only one
     //of them getting deleted
     Thread.sleep(1500);
     long time = (System.currentTimeMillis() / 1000) * 1000;
-    Assert.assertTrue(new File(logDir, "log1.log").lastModified() < time);
+    JUnit5Assertions.assertTrue(new File(logDir, "log1.log").lastModified() < time);
 
     Files.asCharSink(logFile, StandardCharsets.UTF_8).write("log2content");
     taskLogs.pushTaskLog("log2", logFile);
-    Assert.assertEquals("log2content", readLog(taskLogs, "log2", 0));
-    Assert.assertTrue(new File(logDir, "log2.log").lastModified() >= time);
+    JUnit5Assertions.assertEquals(readLog(taskLogs, "log2", 0), "log2content");
+    JUnit5Assertions.assertTrue(new File(logDir, "log2.log").lastModified() >= time);
 
     taskLogs.killOlderThan(time);
 
-    Assert.assertFalse(taskLogs.streamTaskLog("log1", 0).isPresent());
-    Assert.assertEquals("log2content", readLog(taskLogs, "log2", 0));
+    JUnit5Assertions.assertFalse(taskLogs.streamTaskLog("log1", 0).isPresent());
+    JUnit5Assertions.assertEquals(readLog(taskLogs, "log2", 0), "log2content");
 
   }
 

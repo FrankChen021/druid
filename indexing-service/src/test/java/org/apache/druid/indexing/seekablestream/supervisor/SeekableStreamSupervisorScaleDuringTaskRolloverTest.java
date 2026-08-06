@@ -24,10 +24,10 @@ import org.apache.druid.indexing.overlord.supervisor.SupervisorStateManagerConfi
 import org.apache.druid.indexing.overlord.supervisor.autoscaler.SupervisorTaskAutoScaler;
 import org.apache.druid.indexing.seekablestream.supervisor.autoscaler.CostBasedAutoScalerConfig;
 import org.apache.druid.query.DruidMetrics;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.EasyMock;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class SeekableStreamSupervisorScaleDuringTaskRolloverTest extends SeekableStreamSupervisorTestBase
 {
@@ -35,7 +35,7 @@ public class SeekableStreamSupervisorScaleDuringTaskRolloverTest extends Seekabl
 
   private SupervisorStateManagerConfig supervisorConfig;
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     supervisorConfig = new SupervisorStateManagerConfig();
@@ -62,7 +62,7 @@ public class SeekableStreamSupervisorScaleDuringTaskRolloverTest extends Seekabl
     supervisor.maybeScaleDuringTaskRollover();
 
     // Then
-    Assert.assertNull(supervisor.getIoConfig().getAutoScalerConfig());
+    JUnit5Assertions.assertNull(supervisor.getIoConfig().getAutoScalerConfig());
   }
 
   @Test
@@ -85,12 +85,8 @@ public class SeekableStreamSupervisorScaleDuringTaskRolloverTest extends Seekabl
     supervisor.maybeScaleDuringTaskRollover();
 
     // Then
-    Assert.assertNotNull(supervisor.getIoConfig().getAutoScalerConfig());
-    Assert.assertEquals(
-        "Task count should not change when rolloverTaskCount <= 0",
-        beforeTaskCount,
-        (int) supervisor.getIoConfig().getTaskCount()
-    );
+    JUnit5Assertions.assertNotNull(supervisor.getIoConfig().getAutoScalerConfig());
+    JUnit5Assertions.assertEquals(beforeTaskCount, (int) supervisor.getIoConfig().getTaskCount(), "Task count should not change when rolloverTaskCount <= 0");
   }
 
   @Test
@@ -113,12 +109,8 @@ public class SeekableStreamSupervisorScaleDuringTaskRolloverTest extends Seekabl
     supervisor.maybeScaleDuringTaskRollover();
 
     // Then
-    Assert.assertNotNull(supervisor.getIoConfig().getAutoScalerConfig());
-    Assert.assertEquals(
-        "Task count should be updated to " + targetTaskCount + " when rolloverTaskCount > 0",
-        targetTaskCount,
-        (int) supervisor.getIoConfig().getTaskCount()
-    );
+    JUnit5Assertions.assertNotNull(supervisor.getIoConfig().getAutoScalerConfig());
+    JUnit5Assertions.assertEquals(targetTaskCount, (int) supervisor.getIoConfig().getTaskCount(), "Task count should be updated to " + targetTaskCount + " when rolloverTaskCount > 0");
   }
 
   @Test
@@ -141,12 +133,8 @@ public class SeekableStreamSupervisorScaleDuringTaskRolloverTest extends Seekabl
     supervisor.maybeScaleDuringTaskRollover();
 
     // Then
-    Assert.assertNotNull(supervisor.getIoConfig().getAutoScalerConfig());
-    Assert.assertEquals(
-        "Task count should not change when rolloverTaskCount is 0",
-        beforeTaskCount,
-        (int) supervisor.getIoConfig().getTaskCount()
-    );
+    JUnit5Assertions.assertNotNull(supervisor.getIoConfig().getAutoScalerConfig());
+    JUnit5Assertions.assertEquals(beforeTaskCount, (int) supervisor.getIoConfig().getTaskCount(), "Task count should not change when rolloverTaskCount is 0");
   }
 
   // Helper methods for test setup

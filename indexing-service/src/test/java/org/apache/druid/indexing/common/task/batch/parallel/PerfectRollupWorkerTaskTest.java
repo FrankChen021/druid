@@ -28,21 +28,22 @@ import org.apache.druid.indexing.common.actions.TaskActionClient;
 import org.apache.druid.indexing.common.task.TaskResource;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.segment.indexing.DataSchema;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
 import org.easymock.EasyMock;
 import org.joda.time.Interval;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 public class PerfectRollupWorkerTaskTest
 {
-  @Rule
-  public ExpectedException exception = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension exception = ExpectedFailureExtension.none();
 
   @Test
   public void requiresForceGuaranteedRollup()

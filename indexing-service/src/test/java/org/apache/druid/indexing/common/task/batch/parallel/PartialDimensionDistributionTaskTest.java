@@ -43,18 +43,18 @@ import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
-import org.apache.druid.testing.junit.LoggerCaptureRule;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.LoggerCaptureExtension;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.timeline.partition.PartitionBoundaries;
 import org.apache.logging.log4j.core.LogEvent;
 import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -72,8 +72,8 @@ public class PartialDimensionDistributionTaskTest
 
   public static class ConstructorTest
   {
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
+    @RegisterExtension
+    public ExpectedFailureExtension exception = ExpectedFailureExtension.none();
 
     @Test
     public void requiresForceGuaranteedRollup()
@@ -114,25 +114,25 @@ public class PartialDimensionDistributionTaskTest
       PartialDimensionDistributionTask task = new PartialDimensionDistributionTaskBuilder()
           .id(ParallelIndexTestingFactory.AUTOMATIC_ID)
           .build();
-      Assert.assertTrue(task.getId().startsWith(PartialDimensionDistributionTask.TYPE));
+      JUnit5Assertions.assertTrue(task.getId().startsWith(PartialDimensionDistributionTask.TYPE));
     }
   }
 
   public static class RunTaskTest
   {
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
+    @RegisterExtension
+    public ExpectedFailureExtension exception = ExpectedFailureExtension.none();
 
-    @Rule
-    public TemporaryFolder temporaryFolder = new TemporaryFolder();
+    @RegisterExtension
+    public TempDirExtension temporaryFolder = new TempDirExtension();
 
-    @Rule
-    public LoggerCaptureRule logger = new LoggerCaptureRule(ParseExceptionHandler.class);
+    @RegisterExtension
+    public LoggerCaptureExtension logger = new LoggerCaptureExtension(ParseExceptionHandler.class);
 
     private Capture<SubTaskReport> reportCapture;
     private TaskToolbox taskToolbox;
 
-    @Before
+    @BeforeEach
     public void setup()
     {
       reportCapture = Capture.newInstance();
@@ -187,9 +187,9 @@ public class PartialDimensionDistributionTaskTest
       task.runTask(taskToolbox);
 
       List<LogEvent> logEvents = logger.getLogEvents();
-      Assert.assertEquals(1, logEvents.size());
+      JUnit5Assertions.assertEquals(1, logEvents.size());
       String logMessage = logEvents.get(0).getMessage().getFormattedMessage();
-      Assert.assertTrue(logMessage.contains("Encountered parse exception"));
+      JUnit5Assertions.assertTrue(logMessage.contains("Encountered parse exception"));
     }
 
     @Test
@@ -207,7 +207,7 @@ public class PartialDimensionDistributionTaskTest
 
       task.runTask(taskToolbox);
 
-      Assert.assertEquals(Collections.emptyList(), logger.getLogEvents());
+      JUnit5Assertions.assertEquals(Collections.emptyList(), logger.getLogEvents());
     }
 
     @Test
@@ -266,14 +266,14 @@ public class PartialDimensionDistributionTaskTest
 
       DimensionDistributionReport report = runTask(taskBuilder);
 
-      Assert.assertEquals(ParallelIndexTestingFactory.ID, report.getTaskId());
+      JUnit5Assertions.assertEquals(ParallelIndexTestingFactory.ID, report.getTaskId());
       Map<Interval, StringDistribution> intervalToDistribution = report.getIntervalToDistribution();
       StringDistribution distribution = Iterables.getOnlyElement(intervalToDistribution.values());
-      Assert.assertNotNull(distribution);
+      JUnit5Assertions.assertNotNull(distribution);
       PartitionBoundaries partitions = distribution.getEvenPartitionsByMaxSize(1);
-      Assert.assertEquals(2, partitions.size());
-      Assert.assertNull(partitions.get(0));
-      Assert.assertNull(partitions.get(1));
+      JUnit5Assertions.assertEquals(2, partitions.size());
+      JUnit5Assertions.assertNull(partitions.get(0));
+      JUnit5Assertions.assertNull(partitions.get(1));
     }
 
     @Test
@@ -298,14 +298,14 @@ public class PartialDimensionDistributionTaskTest
 
       DimensionDistributionReport report = runTask(taskBuilder);
 
-      Assert.assertEquals(ParallelIndexTestingFactory.ID, report.getTaskId());
+      JUnit5Assertions.assertEquals(ParallelIndexTestingFactory.ID, report.getTaskId());
       Map<Interval, StringDistribution> intervalToDistribution = report.getIntervalToDistribution();
       StringDistribution distribution = Iterables.getOnlyElement(intervalToDistribution.values());
-      Assert.assertNotNull(distribution);
+      JUnit5Assertions.assertNotNull(distribution);
       PartitionBoundaries partitions = distribution.getEvenPartitionsByMaxSize(1);
-      Assert.assertEquals(2, partitions.size());
-      Assert.assertNull(partitions.get(0));
-      Assert.assertNull(partitions.get(1));
+      JUnit5Assertions.assertEquals(2, partitions.size());
+      JUnit5Assertions.assertNull(partitions.get(0));
+      JUnit5Assertions.assertNull(partitions.get(1));
     }
 
     @Test
@@ -353,18 +353,18 @@ public class PartialDimensionDistributionTaskTest
 
       DimensionDistributionReport report = runTask(taskBuilder);
 
-      Assert.assertEquals(ParallelIndexTestingFactory.ID, report.getTaskId());
+      JUnit5Assertions.assertEquals(ParallelIndexTestingFactory.ID, report.getTaskId());
       Map<Interval, StringDistribution> intervalToDistribution = report.getIntervalToDistribution();
       StringDistribution distribution = Iterables.getOnlyElement(intervalToDistribution.values());
-      Assert.assertNotNull(distribution);
+      JUnit5Assertions.assertNotNull(distribution);
       PartitionBoundaries partitions = distribution.getEvenPartitionsByMaxSize(1);
-      Assert.assertEquals(minBloomFilterBits + 2, partitions.size()); // 2 = min + max
+      JUnit5Assertions.assertEquals(minBloomFilterBits + 2, partitions.size()); // 2 = min + max
 
       StringTuple minDimensionValue = StringTuple.create(dimensionValues.get(0));
-      Assert.assertEquals(minDimensionValue, ((StringSketch) distribution).getMin());
+      JUnit5Assertions.assertEquals(minDimensionValue, ((StringSketch) distribution).getMin());
 
       StringTuple maxDimensionValue = StringTuple.create(dimensionValues.get(dimensionValues.size() - 1));
-      Assert.assertEquals(maxDimensionValue, ((StringSketch) distribution).getMax());
+      JUnit5Assertions.assertEquals(maxDimensionValue, ((StringSketch) distribution).getMax());
     }
 
     @Test
@@ -375,8 +375,8 @@ public class PartialDimensionDistributionTaskTest
 
       TaskStatus taskStatus = task.runTask(taskToolbox);
 
-      Assert.assertEquals(ParallelIndexTestingFactory.ID, taskStatus.getId());
-      Assert.assertEquals(TaskState.SUCCESS, taskStatus.getStatusCode());
+      JUnit5Assertions.assertEquals(ParallelIndexTestingFactory.ID, taskStatus.getId());
+      JUnit5Assertions.assertEquals(TaskState.SUCCESS, taskStatus.getStatusCode());
     }
 
     @Test
@@ -385,7 +385,7 @@ public class PartialDimensionDistributionTaskTest
       PartialDimensionDistributionTask task = new PartialDimensionDistributionTaskBuilder()
           .build();
 
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           Collections.singleton(
               new ResourceAction(
                   new Resource(InlineInputSource.TYPE_KEY, ResourceType.EXTERNAL),

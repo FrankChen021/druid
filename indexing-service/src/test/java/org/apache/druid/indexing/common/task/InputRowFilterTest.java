@@ -25,8 +25,8 @@ import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.MapBasedInputRow;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.segment.incremental.InputRowFilterResult;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -40,7 +40,7 @@ public class InputRowFilterTest
     InputRowFilter filter = InputRowFilter.fromPredicate(row -> true);
     InputRow row = newRow(100);
 
-    Assert.assertEquals(InputRowFilterResult.ACCEPTED, filter.test(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.ACCEPTED, filter.test(row));
   }
 
   @Test
@@ -49,7 +49,7 @@ public class InputRowFilterTest
     InputRowFilter filter = InputRowFilter.fromPredicate(row -> false);
     InputRow row = newRow(100);
 
-    Assert.assertEquals(InputRowFilterResult.CUSTOM_FILTER, filter.test(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.CUSTOM_FILTER, filter.test(row));
   }
 
   @Test
@@ -60,7 +60,7 @@ public class InputRowFilterTest
     InputRowFilter combined = filter1.and(filter2);
 
     InputRow row = newRow(100);
-    Assert.assertEquals(InputRowFilterResult.ACCEPTED, combined.test(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.ACCEPTED, combined.test(row));
   }
 
   @Test
@@ -71,7 +71,7 @@ public class InputRowFilterTest
     InputRowFilter combined = filter1.and(filter2);
 
     InputRow row = newRow(100);
-    Assert.assertEquals(InputRowFilterResult.NULL_OR_EMPTY_RECORD, combined.test(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.NULL_OR_EMPTY_RECORD, combined.test(row));
   }
 
   @Test
@@ -82,7 +82,7 @@ public class InputRowFilterTest
     InputRowFilter combined = filter1.and(filter2);
 
     InputRow row = newRow(100);
-    Assert.assertEquals(InputRowFilterResult.BEFORE_MIN_MESSAGE_TIME, combined.test(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.BEFORE_MIN_MESSAGE_TIME, combined.test(row));
   }
 
   @Test
@@ -94,7 +94,7 @@ public class InputRowFilterTest
 
     InputRow row = newRow(100);
     // Should return reason from first filter
-    Assert.assertEquals(InputRowFilterResult.NULL_OR_EMPTY_RECORD, combined.test(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.NULL_OR_EMPTY_RECORD, combined.test(row));
   }
 
   @Test
@@ -107,7 +107,7 @@ public class InputRowFilterTest
     InputRowFilter combined = filter1.and(filter2).and(filter3);
 
     InputRow row = newRow(100);
-    Assert.assertEquals(InputRowFilterResult.AFTER_MAX_MESSAGE_TIME, combined.test(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.AFTER_MAX_MESSAGE_TIME, combined.test(row));
   }
 
   private static InputRow newRow(Object dim1Val)

@@ -36,9 +36,9 @@ import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.logging.log4j.util.Strings;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -70,10 +70,10 @@ public class InputSourceSamplerDiscoveryTest extends InitializedNullHandlingTest
         null
     );
 
-    Assert.assertEquals(6, response.getNumRowsRead());
-    Assert.assertEquals(5, response.getNumRowsIndexed());
-    Assert.assertEquals(6, response.getData().size());
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(6, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(5, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(6, response.getData().size());
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new StringDimensionSchema("string"),
             new LongDimensionSchema("long"),
@@ -86,7 +86,7 @@ public class InputSourceSamplerDiscoveryTest extends InitializedNullHandlingTest
         response.getLogicalDimensions()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             AutoTypeColumnSchema.of("string"),
             AutoTypeColumnSchema.of("long"),
@@ -98,7 +98,7 @@ public class InputSourceSamplerDiscoveryTest extends InitializedNullHandlingTest
         ),
         response.getPhysicalDimensions()
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         RowSignature.builder()
                     .addTimeColumn()
                     .add("string", ColumnType.STRING)
@@ -130,10 +130,10 @@ public class InputSourceSamplerDiscoveryTest extends InitializedNullHandlingTest
         null
     );
 
-    Assert.assertEquals(6, response.getNumRowsRead());
-    Assert.assertEquals(5, response.getNumRowsIndexed());
-    Assert.assertEquals(6, response.getData().size());
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(6, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(5, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(6, response.getData().size());
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new StringDimensionSchema("string"),
             new StringDimensionSchema("long"),
@@ -145,7 +145,7 @@ public class InputSourceSamplerDiscoveryTest extends InitializedNullHandlingTest
         response.getLogicalDimensions()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ImmutableList.of(
             new StringDimensionSchema("string"),
             new StringDimensionSchema("long"),
@@ -156,7 +156,7 @@ public class InputSourceSamplerDiscoveryTest extends InitializedNullHandlingTest
         ),
         response.getPhysicalDimensions()
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         RowSignature.builder()
                     .addTimeColumn()
                     .add("string", ColumnType.STRING)
@@ -195,19 +195,19 @@ public class InputSourceSamplerDiscoveryTest extends InitializedNullHandlingTest
         null
     );
 
-    Assert.assertEquals(6, response.getNumRowsRead());
-    Assert.assertEquals(5, response.getNumRowsIndexed());
-    Assert.assertEquals(6, response.getData().size());
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(6, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(5, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(6, response.getData().size());
+    JUnit5Assertions.assertEquals(
         dataSchema.getDimensionsSpec().getDimensions(),
         response.getLogicalDimensions()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         dataSchema.getDimensionsSpec().getDimensions(),
         response.getPhysicalDimensions()
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         RowSignature.builder()
                     .addTimeColumn()
                     .add("string", ColumnType.STRING)

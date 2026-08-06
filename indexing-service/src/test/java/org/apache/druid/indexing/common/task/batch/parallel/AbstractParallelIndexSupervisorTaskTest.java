@@ -102,6 +102,8 @@ import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthTestUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.utils.CompressionUtils;
@@ -109,14 +111,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
 import org.joda.time.Interval;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.rules.TemporaryFolder;
-import org.junit.rules.TestName;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -167,11 +168,8 @@ public class AbstractParallelIndexSupervisorTaskTest extends IngestionTestBase
 
   private static final Logger LOG = new Logger(AbstractParallelIndexSupervisorTaskTest.class);
 
-  @Rule
-  public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-  @Rule
-  public final TestName testName = new TestName();
+  @RegisterExtension
+  public final TempDirExtension temporaryFolder = new TempDirExtension();
 
   /**
    * Transient task failure rate emulated by the taskKiller in {@link SimpleThreadingTaskRunner}.
@@ -217,11 +215,11 @@ public class AbstractParallelIndexSupervisorTaskTest extends IngestionTestBase
     this.transientApiCallFailureRate = transientApiCallFailureRate;
   }
 
-  @Before
-  public void setUpAbstractParallelIndexSupervisorTaskTest() throws IOException
+  @BeforeEach
+  public void setUpAbstractParallelIndexSupervisorTaskTest(final TestInfo testInfo) throws IOException
   {
     localDeepStorage = temporaryFolder.newFolder("localStorage");
-    taskRunner = new SimpleThreadingTaskRunner(testName.getMethodName());
+    taskRunner = new SimpleThreadingTaskRunner(testInfo.getTestMethod().orElseThrow().getName());
     objectMapper = getObjectMapper();
     indexingServiceClient = new LocalOverlordClient(objectMapper, taskRunner);
     final TaskConfig taskConfig = new TaskConfigBuilder()
@@ -233,12 +231,11 @@ public class AbstractParallelIndexSupervisorTaskTest extends IngestionTestBase
     prepareObjectMapper(objectMapper, getIndexIO());
   }
 
-  @After
+  @AfterEach
   public void tearDownAbstractParallelIndexSupervisorTaskTest()
   {
     remoteApiExecutor.shutdownNow();
     taskRunner.shutdown();
-    temporaryFolder.delete();
   }
 
   protected ParallelIndexTuningConfig newTuningConfig(
@@ -827,22 +824,22 @@ public class AbstractParallelIndexSupervisorTaskTest extends IngestionTestBase
     final java.util.Optional<IngestionStatsAndErrorsTaskReport> actualReportOptional
         = actualReports.findReport("ingestionStatsAndErrors");
 
-    Assert.assertTrue(expectedReportOptional.isPresent());
-    Assert.assertTrue(actualReportOptional.isPresent());
+    JUnit5Assertions.assertTrue(expectedReportOptional.isPresent());
+    JUnit5Assertions.assertTrue(actualReportOptional.isPresent());
 
     final IngestionStatsAndErrorsTaskReport expectedReport = expectedReportOptional.get();
     final IngestionStatsAndErrorsTaskReport actualReport = actualReportOptional.get();
 
-    Assert.assertEquals(expectedReport.getTaskId(), actualReport.getTaskId());
-    Assert.assertEquals(expectedReport.getReportKey(), actualReport.getReportKey());
+    JUnit5Assertions.assertEquals(expectedReport.getTaskId(), actualReport.getTaskId());
+    JUnit5Assertions.assertEquals(expectedReport.getReportKey(), actualReport.getReportKey());
 
     final IngestionStatsAndErrors expectedPayload = expectedReport.getPayload();
     final IngestionStatsAndErrors actualPayload = actualReport.getPayload();
-    Assert.assertEquals(expectedPayload.getIngestionState(), actualPayload.getIngestionState());
+    JUnit5Assertions.assertEquals(expectedPayload.getIngestionState(), actualPayload.getIngestionState());
 
     Map<String, Object> expectedTotals = expectedPayload.getRowStats();
     Map<String, Object> actualTotals = actualPayload.getRowStats();
-    Assert.assertEquals(expectedTotals, actualTotals);
+    JUnit5Assertions.assertEquals(expectedTotals, actualTotals);
 
     List<ParseExceptionReport> expectedParseExceptionReports =
         (List<ParseExceptionReport>) (expectedPayload.getUnparseableEvents()).get("buildSegments");
@@ -854,13 +851,13 @@ public class AbstractParallelIndexSupervisorTaskTest extends IngestionTestBase
         .stream().map(r -> r.getDetails().get(0)).collect(Collectors.toList());
     List<String> actualMessages = actualParseExceptionReports
         .stream().map(r -> r.getDetails().get(0)).collect(Collectors.toList());
-    Assert.assertEquals(expectedMessages, actualMessages);
+    JUnit5Assertions.assertEquals(expectedMessages, actualMessages);
 
     List<String> expectedInputs = expectedParseExceptionReports
         .stream().map(ParseExceptionReport::getInput).collect(Collectors.toList());
     List<String> actualInputs = actualParseExceptionReports
         .stream().map(ParseExceptionReport::getInput).collect(Collectors.toList());
-    Assert.assertEquals(expectedInputs, actualInputs);
+    JUnit5Assertions.assertEquals(expectedInputs, actualInputs);
   }
 
   static class LocalParallelIndexTaskClientProvider implements ParallelIndexSupervisorTaskClientProvider

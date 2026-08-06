@@ -57,10 +57,10 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.concurrent.ScheduledExecutors;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.metadata.IndexerSQLMetadataStorageCoordinator;
+import org.apache.druid.metadata.JUnit5TestDerbyConnector;
 import org.apache.druid.metadata.SQLMetadataConnector;
 import org.apache.druid.metadata.SegmentsMetadataManager;
 import org.apache.druid.metadata.SegmentsMetadataManagerConfig;
-import org.apache.druid.metadata.TestDerbyConnector;
 import org.apache.druid.metadata.segment.SqlSegmentMetadataTransactionFactory;
 import org.apache.druid.metadata.segment.SqlSegmentsMetadataManagerV2;
 import org.apache.druid.metadata.segment.cache.HeapMemorySegmentMetadataCache;
@@ -86,14 +86,14 @@ import org.apache.druid.server.coordinator.simulate.TestDruidLeaderSelector;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
 import org.apache.druid.server.security.AuthTestUtils;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.utils.JvmUtils;
 import org.joda.time.Period;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.io.IOException;
@@ -109,12 +109,12 @@ import java.util.stream.Collectors;
 
 public abstract class IngestionTestBase extends InitializedNullHandlingTest
 {
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
-  @Rule
-  public final TestDerbyConnector.DerbyConnectorRule derbyConnectorRule =
-      new TestDerbyConnector.DerbyConnectorRule(CentralizedDatasourceSchemaConfig.enabled(true));
+  @RegisterExtension
+  public final JUnit5TestDerbyConnector derbyConnectorRule =
+      new JUnit5TestDerbyConnector(CentralizedDatasourceSchemaConfig.enabled(true));
 
   protected final TestUtils testUtils = new TestUtils();
   private final ObjectMapper objectMapper = testUtils.getTestObjectMapper();
@@ -144,7 +144,7 @@ public abstract class IngestionTestBase extends InitializedNullHandlingTest
   }
 
 
-  @Before
+  @BeforeEach
   public void setUpIngestionTestBase() throws IOException
   {
     EmittingLogger.registerEmitter(new NoopServiceEmitter());
@@ -196,10 +196,9 @@ public abstract class IngestionTestBase extends InitializedNullHandlingTest
     segmentMetadataCache.becomeLeader();
   }
 
-  @After
+  @AfterEach
   public void tearDownIngestionTestBase()
   {
-    temporaryFolder.delete();
     segmentMetadataCache.stopBeingLeader();
     segmentMetadataCache.stop();
   }
@@ -591,13 +590,13 @@ public abstract class IngestionTestBase extends InitializedNullHandlingTest
         continue;
       }
       nonTombstoneSegments++;
-      Assert.assertTrue(
+      JUnit5Assertions.assertTrue(
           dataSegmentsWithSchemas.getSegmentSchemaMapping()
                                  .getSegmentIdToMetadataMap()
                                  .containsKey(segment.getId().toString())
       );
     }
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         nonTombstoneSegments,
         dataSegmentsWithSchemas.getSegmentSchemaMapping().getSegmentIdToMetadataMap().size()
     );

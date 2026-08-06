@@ -21,9 +21,9 @@ package org.apache.druid.indexing.common.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.joda.time.Period;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TaskStorageConfigTest
 {
@@ -36,7 +36,7 @@ public class TaskStorageConfigTest
         "{\"recentlyFinishedThreshold\": \"PT12H\" }",
         TaskStorageConfig.class);
     
-    Assert.assertEquals(Period.parse("PT12H").toStandardDuration(), config.getRecentlyFinishedThreshold());
+    JUnit5Assertions.assertEquals(Period.parse("PT12H").toStandardDuration(), config.getRecentlyFinishedThreshold());
   }
 
   @Test
@@ -46,6 +46,6 @@ public class TaskStorageConfigTest
         "{}",
         TaskStorageConfig.class);
     
-    Assert.assertEquals(Period.parse("PT24H").toStandardDuration(), config.getRecentlyFinishedThreshold());
+    JUnit5Assertions.assertEquals(Period.parse("PT24H").toStandardDuration(), config.getRecentlyFinishedThreshold());
   }
 }

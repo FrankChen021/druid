@@ -21,10 +21,10 @@ package org.apache.druid.indexing.common.actions;
 
 import org.apache.druid.indexing.overlord.ForkingTaskRunner;
 import org.apache.druid.indexing.overlord.ForkingTaskRunnerFactory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertFalse;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 

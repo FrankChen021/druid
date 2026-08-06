@@ -22,13 +22,12 @@ package org.apache.druid.indexing.common.task.batch.parallel.iterator;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.indexer.granularity.GranularitySpec;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.JUnit5Matchers;
 import org.joda.time.DateTime;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -46,8 +45,8 @@ public class RangePartitionIndexTaskInputRowIteratorBuilderTest
       );
   private static final InputRow NO_NEXT_INPUT_ROW = null;
 
-  @Rule
-  public ExpectedException exception = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension exception = ExpectedFailureExtension.none();
 
   @Test
   public void invokesDimensionValueCountFilterLast()
@@ -131,7 +130,7 @@ public class RangePartitionIndexTaskInputRowIteratorBuilderTest
             inputRow
         );
 
-    Assert.assertEquals(Collections.emptyList(), handlerInvocationHistory);
+    JUnit5Assertions.assertEquals(Collections.emptyList(), handlerInvocationHistory);
   }
 
   @Test
@@ -193,7 +192,7 @@ public class RangePartitionIndexTaskInputRowIteratorBuilderTest
             inputRow
         );
 
-    Assert.assertEquals(Collections.emptyList(), handlerInvocationHistory);
+    JUnit5Assertions.assertEquals(Collections.emptyList(), handlerInvocationHistory);
   }
 
   private static void assertNotInHandlerInvocationHistory(
@@ -201,6 +200,6 @@ public class RangePartitionIndexTaskInputRowIteratorBuilderTest
       IndexTaskInputRowIteratorBuilderTestingFactory.HandlerTester.Handler handler
   )
   {
-    MatcherAssert.assertThat(handlerInvocationHistory, Matchers.not(Matchers.contains(handler)));
+    JUnit5Assertions.assertMatches(handlerInvocationHistory, JUnit5Matchers.not(JUnit5Matchers.contains(handler)));
   }
 }

@@ -19,9 +19,8 @@
 
 package org.apache.druid.indexing.worker.executor;
 
-import org.junit.Assert;
-import org.junit.Test;
-
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.Test;
 
 public class ExecutorLifecycleConfigTest
 {
@@ -30,6 +29,6 @@ public class ExecutorLifecycleConfigTest
   {
     ExecutorLifecycleConfig config = new ExecutorLifecycleConfig();
     config.setParentStreamDefined(false);
-    Assert.assertFalse(config.isParentStreamDefined());
+    JUnit5Assertions.assertFalse(config.isParentStreamDefined());
   }
 }

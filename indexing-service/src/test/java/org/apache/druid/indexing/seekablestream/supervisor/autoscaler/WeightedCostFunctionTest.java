@@ -20,16 +20,16 @@
 package org.apache.druid.indexing.seekablestream.supervisor.autoscaler;
 
 import org.apache.druid.error.DruidException;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class WeightedCostFunctionTest
 {
   private WeightedCostFunction costFunction;
   private CostBasedAutoScalerConfig config;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     costFunction = new WeightedCostFunction();
@@ -47,11 +47,11 @@ public class WeightedCostFunctionTest
   {
     CostMetrics validMetrics = createMetrics(100000.0, 10, 100, 0.3);
 
-    Assert.assertEquals(Double.POSITIVE_INFINITY, costFunction.computeCost(null, 10, config).totalCost(), 0.0);
-    Assert.assertEquals(Double.POSITIVE_INFINITY, costFunction.computeCost(validMetrics, 10, null).totalCost(), 0.0);
-    Assert.assertEquals(Double.POSITIVE_INFINITY, costFunction.computeCost(validMetrics, 0, config).totalCost(), 0.0);
-    Assert.assertEquals(Double.POSITIVE_INFINITY, costFunction.computeCost(validMetrics, -5, config).totalCost(), 0.0);
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(Double.POSITIVE_INFINITY, costFunction.computeCost(null, 10, config).totalCost(), 0.0);
+    JUnit5Assertions.assertEquals(Double.POSITIVE_INFINITY, costFunction.computeCost(validMetrics, 10, null).totalCost(), 0.0);
+    JUnit5Assertions.assertEquals(Double.POSITIVE_INFINITY, costFunction.computeCost(validMetrics, 0, config).totalCost(), 0.0);
+    JUnit5Assertions.assertEquals(Double.POSITIVE_INFINITY, costFunction.computeCost(validMetrics, -5, config).totalCost(), 0.0);
+    JUnit5Assertions.assertEquals(
         Double.POSITIVE_INFINITY,
         costFunction.computeCost(createMetrics(0.0, 10, 0, 0.3), 10, config).totalCost(),
         0.0
@@ -76,10 +76,7 @@ public class WeightedCostFunctionTest
 
     // Scale down uses absolute model: lag / (5 * rate) = higher recovery time
     // Current uses absolute model: lag / (10 * rate) = lower recovery time
-    Assert.assertTrue(
-        "Scale-down should have higher lag cost than current",
-        costScaleDown > costCurrent
-    );
+    JUnit5Assertions.assertTrue(costScaleDown > costCurrent, "Scale-down should have higher lag cost than current");
   }
 
   @Test
@@ -101,31 +98,16 @@ public class WeightedCostFunctionTest
     double amplification = 1.0 + WeightedCostFunction.LAG_AMPLIFICATION_MULTIPLIER * Math.log(aggregateLag / 100);
 
     double costCurrent = costFunction.computeCost(metrics, 10, lagOnlyConfig).totalCost();
-    Assert.assertEquals(
-        "Cost of current tasks",
-        aggregateLag * amplification / (10 * WeightedCostFunction.MIN_PROCESSING_RATE),
-        costCurrent,
-        0.1
-    );
+    JUnit5Assertions.assertEquals(aggregateLag * amplification / (10 * WeightedCostFunction.MIN_PROCESSING_RATE), costCurrent, 0.1, "Cost of current tasks");
 
     double costUp5 = costFunction.computeCost(metrics, 15, lagOnlyConfig).totalCost();
-    Assert.assertEquals(
-        "Cost when scaling up by 5",
-        aggregateLag * amplification / (15 * WeightedCostFunction.MIN_PROCESSING_RATE),
-        costUp5,
-        0.1
-    );
+    JUnit5Assertions.assertEquals(aggregateLag * amplification / (15 * WeightedCostFunction.MIN_PROCESSING_RATE), costUp5, 0.1, "Cost when scaling up by 5");
 
     double costUp10 = costFunction.computeCost(metrics, 20, lagOnlyConfig).totalCost();
-    Assert.assertEquals(
-        "Cost when scaling up by 10",
-        aggregateLag * amplification / (20 * WeightedCostFunction.MIN_PROCESSING_RATE),
-        costUp10,
-        0.1
-    );
+    JUnit5Assertions.assertEquals(aggregateLag * amplification / (20 * WeightedCostFunction.MIN_PROCESSING_RATE), costUp10, 0.1, "Cost when scaling up by 10");
 
     // Adding more tasks reduces lag recovery time
-    Assert.assertTrue("Adding more tasks reduces lag cost", costUp10 < costUp5);
+    JUnit5Assertions.assertTrue(costUp10 < costUp5, "Adding more tasks reduces lag cost");
   }
 
   @Test
@@ -136,10 +118,7 @@ public class WeightedCostFunctionTest
     double costCurrent = costFunction.computeCost(metrics, 10, config).totalCost();
     double costScaleUp = costFunction.computeCost(metrics, 20, config).totalCost();
 
-    Assert.assertTrue(
-        "With balanced weights, staying at current count is cheaper than scale-up",
-        costCurrent < costScaleUp
-    );
+    JUnit5Assertions.assertTrue(costCurrent < costScaleUp, "With balanced weights, staying at current count is cheaper than scale-up");
   }
 
   @Test
@@ -166,9 +145,9 @@ public class WeightedCostFunctionTest
     double costLag = costFunction.computeCost(metrics, 10, lagOnly).totalCost();
     double costIdle = costFunction.computeCost(metrics, 10, idleOnly).totalCost();
 
-    Assert.assertNotEquals("Different weights should produce different costs", costLag, costIdle, 0.0001);
-    Assert.assertTrue("Lag-only cost should be positive", costLag > 0.0);
-    Assert.assertTrue("Idle-only cost should be positive", costIdle > 0.0);
+    JUnit5Assertions.assertNotEquals(costLag, costIdle, 0.0001, "Different weights should produce different costs");
+    JUnit5Assertions.assertTrue(costLag > 0.0, "Lag-only cost should be positive");
+    JUnit5Assertions.assertTrue(costIdle > 0.0, "Idle-only cost should be positive");
   }
 
   @Test
@@ -189,21 +168,15 @@ public class WeightedCostFunctionTest
     double costScaleUp = costFunction.computeCost(metricsNoRate, currentTaskCount + 5, config).totalCost();
     double costScaleDown = costFunction.computeCost(metricsNoRate, currentTaskCount - 5, config).totalCost();
 
-    Assert.assertTrue(
-        "Cost at current should be less than cost for scale up",
-        costAtCurrent > costScaleUp
-    );
-    Assert.assertTrue(
-        "Cost at current should be less than cost for scale down",
-        costAtCurrent < costScaleDown
-    );
+    JUnit5Assertions.assertTrue(costAtCurrent > costScaleUp, "Cost at current should be less than cost for scale up");
+    JUnit5Assertions.assertTrue(costAtCurrent < costScaleDown, "Cost at current should be less than cost for scale down");
   }
 
   @Test
   public void testNegativeProcessingRate_throwsDefensiveException()
   {
     final CostMetrics metrics = createMetricsWithRate(50000.0, 1, 100, 0.5, -1);
-    Assert.assertThrows(
+    JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> costFunction.computeCost(metrics, 2, config)
     );
@@ -233,8 +206,8 @@ public class WeightedCostFunctionTest
     // Scale up → predicted idle rises above ideal → over-provisioning penalty
     double costScaleUp = costFunction.computeCost(metrics, 20, idleOnlyConfig).totalCost();
 
-    Assert.assertTrue("scale-down costs more than ideal", costScaleDown > costAtIdeal);
-    Assert.assertTrue("scale-up costs more than ideal", costScaleUp > costAtIdeal);
+    JUnit5Assertions.assertTrue(costScaleDown > costAtIdeal, "scale-down costs more than ideal");
+    JUnit5Assertions.assertTrue(costScaleUp > costAtIdeal, "scale-up costs more than ideal");
   }
 
   @Test
@@ -259,8 +232,7 @@ public class WeightedCostFunctionTest
         WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO
         + WeightedCostFunction.UNDER_PROVISIONING_PENALTY
     );
-    Assert.assertEquals("Idle cost at clamped-to-zero idle ratio should reflect full under-provisioning penalty",
-                        expectedAt2, costAt2, 0.0001);
+    JUnit5Assertions.assertEquals(expectedAt2, costAt2, 0.0001, "Idle cost at clamped-to-zero idle ratio should reflect full under-provisioning penalty");
 
     // Extreme scale-up shouldn't exceed 1.0 for idle ratio
     // 10 tasks → 100 tasks with 10% idle
@@ -268,7 +240,7 @@ public class WeightedCostFunctionTest
     // predictedIdle = 1 - 0.431 ≈ 0.569 (within bounds)
     CostMetrics lowIdle = createMetrics(0.0, 10, 100, 0.1);
     double costAt100 = costFunction.computeCost(lowIdle, 100, idleOnlyConfig).totalCost();
-    Assert.assertTrue("Cost should be finite and positive", Double.isFinite(costAt100) && costAt100 > 0);
+    JUnit5Assertions.assertTrue(Double.isFinite(costAt100) && costAt100 > 0, "Cost should be finite and positive");
   }
 
   @Test
@@ -288,18 +260,12 @@ public class WeightedCostFunctionTest
     double costCurrent = costFunction.computeCost(metrics, 10, idleOnlyConfig).totalCost();
     double costScaleDown = costFunction.computeCost(metrics, 5, idleOnlyConfig).totalCost();
 
-    Assert.assertTrue(
-        "Healthy 2x consolidation should be cheaper than staying at the current count",
-        costScaleDown < costCurrent
-    );
+    JUnit5Assertions.assertTrue(costScaleDown < costCurrent, "Healthy 2x consolidation should be cheaper than staying at the current count");
 
     // Far below the clamped-to-zero cost the linear model produced: idle is healthy, not clamped.
     double clampedToZeroCost =
         5 * (WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO + WeightedCostFunction.UNDER_PROVISIONING_PENALTY);
-    Assert.assertTrue(
-        "Predicted idle should be healthy, not clamped to zero",
-        costScaleDown < clampedToZeroCost
-    );
+    JUnit5Assertions.assertTrue(costScaleDown < clampedToZeroCost, "Predicted idle should be healthy, not clamped to zero");
   }
 
   @Test
@@ -323,9 +289,9 @@ public class WeightedCostFunctionTest
     // U-shaped cost at idle=0.5: idle > IDEAL(0.25), norm=(0.5-0.25)/0.75=1/3, penalty=1*(1/3)^2=1/9
     double expectedCostPerTask = WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO
                                  + WeightedCostFunction.OVER_PROVISIONING_PENALTY * (1.0 / 3.0) * (1.0 / 3.0);
-    Assert.assertEquals("Cost at 10 tasks with missing idle data", 10 * expectedCostPerTask, cost10, 0.0001);
-    Assert.assertEquals("Cost at 20 tasks with missing idle data", 20 * expectedCostPerTask, cost20, 0.0001);
-    Assert.assertEquals("Cost scales linearly with task count at fixed idle ratio", 2 * cost10, cost20, 0.0001);
+    JUnit5Assertions.assertEquals(10 * expectedCostPerTask, cost10, 0.0001, "Cost at 10 tasks with missing idle data");
+    JUnit5Assertions.assertEquals(20 * expectedCostPerTask, cost20, 0.0001, "Cost at 20 tasks with missing idle data");
+    JUnit5Assertions.assertEquals(2 * cost10, cost20, 0.0001, "Cost scales linearly with task count at fixed idle ratio");
   }
 
   @Test
@@ -352,7 +318,7 @@ public class WeightedCostFunctionTest
     double aggregateLag = 150.0 * partitionCount;
     double expected = aggregateLag / (proposedTaskCount * WeightedCostFunction.MIN_PROCESSING_RATE);
 
-    Assert.assertEquals("Normal lag cost should use raw recovery time", expected, costWithAmp, 0.0001);
+    JUnit5Assertions.assertEquals(expected, costWithAmp, 0.0001, "Normal lag cost should use raw recovery time");
   }
 
   @Test
@@ -394,27 +360,14 @@ public class WeightedCostFunctionTest
                                                                   .build();
 
     double costBelowTier1 = costFunction.computeCost(metrics, proposedTaskCount, belowTier1).totalCost();
-    Assert.assertEquals(
-        "Below tier1, amplification uses the default multiplier",
-        costFunction.computeCost(metrics, proposedTaskCount, noThreshold).totalCost(),
-        costBelowTier1,
-        0.0001
-    );
+    JUnit5Assertions.assertEquals(costFunction.computeCost(metrics, proposedTaskCount, noThreshold).totalCost(), costBelowTier1, 0.0001, "Below tier1, amplification uses the default multiplier");
 
     double lagPerPartition = aggregateLag / partitionCount;
     double highLagCostFactor =
         1.0 + WeightedCostFunction.DEFAULT_HIGH_LAG_COST_FACTOR * Math.log(lagPerPartition);
     double costAtTier1 = costFunction.computeCost(metrics, proposedTaskCount, atTier1).totalCost();
-    Assert.assertEquals(
-        "At/above the high-lag threshold, the cost factor maxes out at DEFAULT_HIGH_LAG_COST_FACTOR",
-        aggregateLag * highLagCostFactor / (proposedTaskCount * WeightedCostFunction.MIN_PROCESSING_RATE),
-        costAtTier1,
-        0.0001
-    );
-    Assert.assertTrue(
-        "High-lag cost should exceed the default-multiplier cost for the same lag",
-        costAtTier1 > costBelowTier1
-    );
+    JUnit5Assertions.assertEquals(aggregateLag * highLagCostFactor / (proposedTaskCount * WeightedCostFunction.MIN_PROCESSING_RATE), costAtTier1, 0.0001, "At/above the high-lag threshold, the cost factor maxes out at DEFAULT_HIGH_LAG_COST_FACTOR");
+    JUnit5Assertions.assertTrue(costAtTier1 > costBelowTier1, "High-lag cost should exceed the default-multiplier cost for the same lag");
   }
 
   @Test
@@ -440,17 +393,12 @@ public class WeightedCostFunctionTest
     double lowCost = costFunction.computeCost(lowLag, proposedTaskCount, lagOnly).totalCost();
     double highCost = costFunction.computeCost(highLag, proposedTaskCount, lagOnly).totalCost();
 
-    Assert.assertTrue("Higher lag should produce higher cost", highCost > lowCost);
+    JUnit5Assertions.assertTrue(highCost > lowCost, "Higher lag should produce higher cost");
 
     // The ratio of costs matches the ratio of raw lags.
     double lagRatio = 10_000.0 / 100.0;
     double costRatio = highCost / lowCost;
-    Assert.assertEquals(
-        "Normal lag cost should grow linearly with lag",
-        lagRatio,
-        costRatio,
-        0.0001
-    );
+    JUnit5Assertions.assertEquals(lagRatio, costRatio, 0.0001, "Normal lag cost should grow linearly with lag");
   }
 
 
@@ -460,7 +408,7 @@ public class WeightedCostFunctionTest
     int n = 10;
 
     // At optimal ratio: penalty = 0, cost = n * OPTIMAL_TASK_IDLE_RATIO
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         n * WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO,
         costFunction.uShapedIdleCost(
             WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO,
@@ -471,14 +419,14 @@ public class WeightedCostFunctionTest
     );
 
     // At idle = 0 (fully under-provisioned): norm = 1, penalty = UNDER_PROVISIONING_PENALTY
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         n * (WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO + WeightedCostFunction.UNDER_PROVISIONING_PENALTY),
         costFunction.uShapedIdleCost(0.0, n, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO),
         1e-9
     );
 
     // At idle = 1 (fully over-provisioned): norm = 1, penalty = OVER_PROVISIONING_PENALTY
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         n * (WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO + WeightedCostFunction.OVER_PROVISIONING_PENALTY),
         costFunction.uShapedIdleCost(1.0, n, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO),
         1e-9
@@ -490,24 +438,15 @@ public class WeightedCostFunctionTest
         n,
         WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO
     );
-    Assert.assertTrue(
-        "idle=0 costs more than optimal",
-        costFunction.uShapedIdleCost(0.0, n, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO) > optimalCost
-    );
-    Assert.assertTrue(
-        "idle=1 costs more than optimal",
-        costFunction.uShapedIdleCost(1.0, n, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO) > optimalCost
-    );
+    JUnit5Assertions.assertTrue(costFunction.uShapedIdleCost(0.0, n, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO) > optimalCost, "idle=0 costs more than optimal");
+    JUnit5Assertions.assertTrue(costFunction.uShapedIdleCost(1.0, n, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO) > optimalCost, "idle=1 costs more than optimal");
 
     // Over-provisioning is penalized more than under-provisioning (OVER > UNDER)
-    Assert.assertTrue(
-        "over-provisioning penalty exceeds under-provisioning penalty",
-        costFunction.uShapedIdleCost(1.0, n, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO)
-        > costFunction.uShapedIdleCost(0.0, n, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO)
-    );
+    JUnit5Assertions.assertTrue(costFunction.uShapedIdleCost(1.0, n, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO)
+        > costFunction.uShapedIdleCost(0.0, n, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO), "over-provisioning penalty exceeds under-provisioning penalty");
 
     // Cost scales linearly with task count at any fixed idle ratio
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         2 * costFunction.uShapedIdleCost(0.5, n, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO),
         costFunction.uShapedIdleCost(0.5, 2 * n, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO),
         1e-9
@@ -519,7 +458,7 @@ public class WeightedCostFunctionTest
   {
     // 75% utilization (750/1000) -> idle = 0.25
     final CostMetrics utilized = createMetricsWithMaxObservedRate(750.0, 1000.0, 0.3);
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         0.25,
         utilized.estimateIdleRatioFromProcessingRate(),
         0.0001
@@ -527,7 +466,7 @@ public class WeightedCostFunctionTest
 
     // Utilization above 100% (rate exceeds the watermark) clamps idle to 0, not negative
     final CostMetrics overUtilized = createMetricsWithMaxObservedRate(1500.0, 1000.0, 0.3);
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         0.0,
         overUtilized.estimateIdleRatioFromProcessingRate(),
         0.0001
@@ -535,7 +474,7 @@ public class WeightedCostFunctionTest
 
     // No throughput baseline yet (maxObservedRate=0) -> return negative (unknown), never NaN from 0/0
     final CostMetrics noBaseline = createMetricsWithMaxObservedRate(0.0, 0.0, 0.3);
-    Assert.assertTrue(noBaseline.estimateIdleRatioFromProcessingRate() < 0);
+    JUnit5Assertions.assertTrue(noBaseline.estimateIdleRatioFromProcessingRate() < 0);
   }
 
   @Test
@@ -562,36 +501,21 @@ public class WeightedCostFunctionTest
     CostMetrics metrics = createMetricsWithMaxObservedRate(100.0, 1000.0, 0.9);
 
     double costWithPollIdleRatio = costFunction.computeCost(metrics, 10, idleOnlyConfig).totalCost();
-    Assert.assertEquals(
-        "Default config should cost using the raw pollIdleRatio",
-        costFunction.uShapedIdleCost(0.9, 10, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO),
-        costWithPollIdleRatio,
-        0.0001
-    );
+    JUnit5Assertions.assertEquals(costFunction.uShapedIdleCost(0.9, 10, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO), costWithPollIdleRatio, 0.0001, "Default config should cost using the raw pollIdleRatio");
 
     double costWithUtilizationRatio = costFunction.computeCost(metrics, 10, utilizationConfig).totalCost();
-    Assert.assertEquals(
-        "usePollIdleRatio=false should cost using the rate-derived idle ratio instead of pollIdleRatio",
-        costFunction.uShapedIdleCost(0.9, 10, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO),
-        costWithUtilizationRatio,
-        0.0001
-    );
+    JUnit5Assertions.assertEquals(costFunction.uShapedIdleCost(0.9, 10, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO), costWithUtilizationRatio, 0.0001, "usePollIdleRatio=false should cost using the rate-derived idle ratio instead of pollIdleRatio");
 
     // Now diverge pollIdleRatio from the utilization-derived value to prove the flag actually switches sources.
     CostMetrics divergingMetrics = createMetricsWithMaxObservedRate(100.0, 1000.0, 0.1);
     double costStillPollIdle = costFunction.computeCost(divergingMetrics, 10, idleOnlyConfig).totalCost();
     double costStillUtilization = costFunction.computeCost(divergingMetrics, 10, utilizationConfig).totalCost();
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         costFunction.uShapedIdleCost(0.1, 10, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO),
         costStillPollIdle,
         0.0001
     );
-    Assert.assertEquals(
-        "Utilization-derived idle ratio (0.9) should be used instead of the diverging pollIdleRatio (0.1)",
-        costFunction.uShapedIdleCost(0.9, 10, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO),
-        costStillUtilization,
-        0.0001
-    );
+    JUnit5Assertions.assertEquals(costFunction.uShapedIdleCost(0.9, 10, WeightedCostFunction.OPTIMAL_TASK_IDLE_RATIO), costStillUtilization, 0.0001, "Utilization-derived idle ratio (0.9) should be used instead of the diverging pollIdleRatio (0.1)");
   }
 
   private CostMetrics createMetrics(

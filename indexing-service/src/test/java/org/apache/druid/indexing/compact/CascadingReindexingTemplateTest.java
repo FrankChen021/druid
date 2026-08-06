@@ -51,17 +51,18 @@ import org.apache.druid.server.coordinator.DataSourceCompactionConfig;
 import org.apache.druid.server.coordinator.InlineSchemaDataSourceCompactionConfig;
 import org.apache.druid.server.coordinator.UserCompactionTaskQueryTuningConfig;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentTimeline;
 import org.easymock.EasyMock;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 import org.joda.time.Period;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -118,12 +119,12 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     final String json = OBJECT_MAPPER.writeValueAsString(template);
     final CascadingReindexingTemplate fromJson = OBJECT_MAPPER.readValue(json, CascadingReindexingTemplate.class);
 
-    Assertions.assertEquals(template.getDataSource(), fromJson.getDataSource());
-    Assertions.assertEquals(template.getTaskPriority(), fromJson.getTaskPriority());
-    Assertions.assertEquals(template.getInputSegmentSizeBytes(), fromJson.getInputSegmentSizeBytes());
-    Assertions.assertEquals(template.getEngine(), fromJson.getEngine());
-    Assertions.assertEquals(template.getTaskContext(), fromJson.getTaskContext());
-    Assertions.assertEquals(template.getType(), fromJson.getType());
+    JUnit5Assertions.assertEquals(template.getDataSource(), fromJson.getDataSource());
+    JUnit5Assertions.assertEquals(template.getTaskPriority(), fromJson.getTaskPriority());
+    JUnit5Assertions.assertEquals(template.getInputSegmentSizeBytes(), fromJson.getInputSegmentSizeBytes());
+    JUnit5Assertions.assertEquals(template.getEngine(), fromJson.getEngine());
+    JUnit5Assertions.assertEquals(template.getTaskContext(), fromJson.getTaskContext());
+    JUnit5Assertions.assertEquals(template.getType(), fromJson.getType());
   }
 
   @Test
@@ -158,15 +159,15 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     final String json = OBJECT_MAPPER.writeValueAsString(template);
     final DataSourceCompactionConfig fromJson = OBJECT_MAPPER.readValue(json, DataSourceCompactionConfig.class);
 
-    Assertions.assertTrue(fromJson instanceof CascadingReindexingTemplate);
+    JUnit5Assertions.assertTrue(fromJson instanceof CascadingReindexingTemplate);
     final CascadingReindexingTemplate cascadingFromJson = (CascadingReindexingTemplate) fromJson;
 
-    Assertions.assertEquals("testDataSource", cascadingFromJson.getDataSource());
-    Assertions.assertEquals(30, cascadingFromJson.getTaskPriority());
-    Assertions.assertEquals(500000L, cascadingFromJson.getInputSegmentSizeBytes());
-    Assertions.assertEquals(CompactionEngine.MSQ, cascadingFromJson.getEngine());
-    Assertions.assertEquals(ImmutableMap.of("key", "value"), cascadingFromJson.getTaskContext());
-    Assertions.assertEquals(CascadingReindexingTemplate.TYPE, cascadingFromJson.getType());
+    JUnit5Assertions.assertEquals(cascadingFromJson.getDataSource(), "testDataSource");
+    JUnit5Assertions.assertEquals(30, cascadingFromJson.getTaskPriority());
+    JUnit5Assertions.assertEquals(500000L, cascadingFromJson.getInputSegmentSizeBytes());
+    JUnit5Assertions.assertEquals(CompactionEngine.MSQ, cascadingFromJson.getEngine());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("key", "value"), cascadingFromJson.getTaskContext());
+    JUnit5Assertions.assertEquals(CascadingReindexingTemplate.TYPE, cascadingFromJson.getType());
   }
 
   @Test
@@ -194,7 +195,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     // Call createCompactionJobs - should return empty list without processing
     final List<CompactionJob> jobs = template.createCompactionJobs(null, null);
 
-    Assertions.assertTrue(jobs.isEmpty());
+    JUnit5Assertions.assertTrue(jobs.isEmpty());
     EasyMock.verify(notReadyProvider);
   }
 
@@ -204,7 +205,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     final ReindexingRuleProvider mockProvider = EasyMock.createMock(ReindexingRuleProvider.class);
     EasyMock.replay(mockProvider);
 
-    DruidException exception = Assertions.assertThrows(
+    DruidException exception = JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> new CascadingReindexingTemplate(
             "testDataSource",
@@ -221,7 +222,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
         )
     );
 
-    Assertions.assertEquals("Cannot set both skipOffsetFromNow and skipOffsetFromLatest", exception.getMessage());
+    JUnit5Assertions.assertEquals(exception.getMessage(), "Cannot set both skipOffsetFromNow and skipOffsetFromLatest");
     EasyMock.verify(mockProvider);
   }
 
@@ -231,7 +232,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     final ReindexingRuleProvider mockProvider = EasyMock.createMock(ReindexingRuleProvider.class);
     EasyMock.replay(mockProvider);
 
-    DruidException exception = Assertions.assertThrows(
+    DruidException exception = JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> new CascadingReindexingTemplate(
             null,  // null dataSource
@@ -248,14 +249,14 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
         )
     );
 
-    Assertions.assertTrue(exception.getMessage().contains("'dataSource' cannot be null"));
+    JUnit5Assertions.assertTrue(exception.getMessage().contains("'dataSource' cannot be null"));
     EasyMock.verify(mockProvider);
   }
 
   @Test
   public void test_constructor_nullRuleProviderThrowsException()
   {
-    DruidException exception = Assertions.assertThrows(
+    DruidException exception = JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> new CascadingReindexingTemplate(
             "testDataSource",
@@ -272,7 +273,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
         )
     );
 
-    Assertions.assertTrue(exception.getMessage().contains("'ruleProvider' cannot be null"));
+    JUnit5Assertions.assertTrue(exception.getMessage().contains("'ruleProvider' cannot be null"));
   }
 
   @Test
@@ -281,7 +282,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     final ReindexingRuleProvider mockProvider = EasyMock.createMock(ReindexingRuleProvider.class);
     EasyMock.replay(mockProvider);
 
-    DruidException exception = Assertions.assertThrows(
+    DruidException exception = JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> new CascadingReindexingTemplate(
             "testDataSource",
@@ -298,7 +299,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
         )
     );
 
-    Assertions.assertTrue(exception.getMessage().contains("'defaultSegmentGranularity' cannot be null"));
+    JUnit5Assertions.assertTrue(exception.getMessage().contains("'defaultSegmentGranularity' cannot be null"));
     EasyMock.verify(mockProvider);
   }
 
@@ -312,7 +313,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
         .partitionsSpec(new DynamicPartitionsSpec(1000, null))
         .build();
 
-    DruidException exception = Assertions.assertThrows(
+    DruidException exception = JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> new CascadingReindexingTemplate(
             "testDataSource",
@@ -329,7 +330,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
         )
     );
 
-    Assertions.assertTrue(
+    JUnit5Assertions.assertTrue(
         exception.getMessage().contains("Cannot set 'partitionsSpec' inside 'tuningConfig'"),
         "Expected message about partitionsSpec in tuningConfig, got: " + exception.getMessage()
     );
@@ -352,12 +353,12 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     template.createCompactionJobs(mockSource, mockParams);
     List<Interval> processedIntervals = template.getProcessedIntervals();
 
-    Assertions.assertEquals(2, processedIntervals.size());
+    JUnit5Assertions.assertEquals(2, processedIntervals.size());
     // Intervals are now in chronological order (oldest first)
-    Assertions.assertEquals(DateTimes.MIN, processedIntervals.get(0).getStart());
-    Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(0).getEnd());
-    Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(1).getStart());
-    Assertions.assertEquals(referenceTime.minusDays(7), processedIntervals.get(1).getEnd());
+    JUnit5Assertions.assertEquals(DateTimes.MIN, processedIntervals.get(0).getStart());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(0).getEnd());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(1).getStart());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(7), processedIntervals.get(1).getEnd());
 
     EasyMock.verify(mockProvider, mockParams, mockSource);
   }
@@ -377,8 +378,8 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
 
     List<CompactionJob> jobs = template.createCompactionJobs(mockSource, mockParams);
 
-    Assertions.assertTrue(jobs.isEmpty());
-    Assertions.assertTrue(template.getProcessedIntervals().isEmpty());
+    JUnit5Assertions.assertTrue(jobs.isEmpty());
+    JUnit5Assertions.assertTrue(template.getProcessedIntervals().isEmpty());
 
     EasyMock.verify(mockProvider, mockParams, mockSource);
   }
@@ -399,11 +400,11 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     template.createCompactionJobs(mockSource, mockParams);
     List<Interval> processedIntervals = template.getProcessedIntervals();
 
-    Assertions.assertEquals(2, processedIntervals.size());
-    Assertions.assertEquals(DateTimes.MIN, processedIntervals.get(0).getStart());
-    Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(0).getEnd());
-    Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(1).getStart());
-    Assertions.assertEquals(referenceTime.minusDays(15), processedIntervals.get(1).getEnd());
+    JUnit5Assertions.assertEquals(2, processedIntervals.size());
+    JUnit5Assertions.assertEquals(DateTimes.MIN, processedIntervals.get(0).getStart());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(0).getEnd());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(1).getStart());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(15), processedIntervals.get(1).getEnd());
 
     EasyMock.verify(mockProvider, mockParams, mockSource);
   }
@@ -424,11 +425,11 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     template.createCompactionJobs(mockSource, mockParams);
     List<Interval> processedIntervals = template.getProcessedIntervals();
 
-    Assertions.assertEquals(2, processedIntervals.size());
-    Assertions.assertEquals(DateTimes.MIN, processedIntervals.get(0).getStart());
-    Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(0).getEnd());
-    Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(1).getStart());
-    Assertions.assertEquals(referenceTime.minusDays(25), processedIntervals.get(1).getEnd());
+    JUnit5Assertions.assertEquals(2, processedIntervals.size());
+    JUnit5Assertions.assertEquals(DateTimes.MIN, processedIntervals.get(0).getStart());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(0).getEnd());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(1).getStart());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(25), processedIntervals.get(1).getEnd());
 
     EasyMock.verify(mockProvider, mockParams, mockSource);
   }
@@ -448,8 +449,8 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
 
     List<CompactionJob> jobs = template.createCompactionJobs(mockSource, mockParams);
 
-    Assertions.assertTrue(jobs.isEmpty());
-    Assertions.assertTrue(template.getProcessedIntervals().isEmpty());
+    JUnit5Assertions.assertTrue(jobs.isEmpty());
+    JUnit5Assertions.assertTrue(template.getProcessedIntervals().isEmpty());
 
     EasyMock.verify(mockProvider, mockParams, mockSource);
   }
@@ -470,11 +471,11 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     template.createCompactionJobs(mockSource, mockParams);
     List<Interval> processedIntervals = template.getProcessedIntervals();
 
-    Assertions.assertEquals(2, processedIntervals.size());
-    Assertions.assertEquals(DateTimes.MIN, processedIntervals.get(0).getStart());
-    Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(0).getEnd());
-    Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(1).getStart());
-    Assertions.assertEquals(referenceTime.minusDays(20), processedIntervals.get(1).getEnd());
+    JUnit5Assertions.assertEquals(2, processedIntervals.size());
+    JUnit5Assertions.assertEquals(DateTimes.MIN, processedIntervals.get(0).getStart());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(0).getEnd());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(1).getStart());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(20), processedIntervals.get(1).getEnd());
 
     EasyMock.verify(mockProvider, mockParams, mockSource);
   }
@@ -495,11 +496,11 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     template.createCompactionJobs(mockSource, mockParams);
     List<Interval> processedIntervals = template.getProcessedIntervals();
 
-    Assertions.assertEquals(2, processedIntervals.size());
-    Assertions.assertEquals(DateTimes.MIN, processedIntervals.get(0).getStart());
-    Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(0).getEnd());
-    Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(1).getStart());
-    Assertions.assertEquals(referenceTime.minusDays(20), processedIntervals.get(1).getEnd());
+    JUnit5Assertions.assertEquals(2, processedIntervals.size());
+    JUnit5Assertions.assertEquals(DateTimes.MIN, processedIntervals.get(0).getStart());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(0).getEnd());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(30), processedIntervals.get(1).getStart());
+    JUnit5Assertions.assertEquals(referenceTime.minusDays(20), processedIntervals.get(1).getEnd());
 
     EasyMock.verify(mockProvider, mockParams, mockSource);
   }
@@ -579,7 +580,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
   }
 
   /**
@@ -685,7 +686,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
   }
 
   /**
@@ -770,7 +771,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
   }
 
   /**
@@ -873,7 +874,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
   }
 
   /**
@@ -985,7 +986,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
   }
 
   /**
@@ -1023,12 +1024,12 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
         null
     );
 
-    DruidException exception = Assertions.assertThrows(
+    DruidException exception = JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> template.generateAlignedSearchIntervals(referenceTime)
     );
 
-    Assertions.assertTrue(
+    JUnit5Assertions.assertTrue(
         exception.getMessage().contains("requires at least one reindexing rule")
     );
   }
@@ -1098,7 +1099,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
   }
 
   /**
@@ -1166,7 +1167,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
   }
 
   /**
@@ -1242,7 +1243,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
   }
 
   /**
@@ -1302,7 +1303,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
   }
 
   /**
@@ -1369,7 +1370,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
   }
 
   /**
@@ -1469,7 +1470,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
   }
 
   /**
@@ -1525,15 +1526,15 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
         null
     );
 
-    IllegalArgumentException exception = Assertions.assertThrows(
+    IllegalArgumentException exception = JUnit5Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> template.generateAlignedSearchIntervals(referenceTime)
     );
 
-    Assertions.assertTrue(
+    JUnit5Assertions.assertTrue(
         exception.getMessage().contains("Invalid segment granularity timeline")
     );
-    Assertions.assertTrue(
+    JUnit5Assertions.assertTrue(
         exception.getMessage().contains("coarser granularity")
     );
   }
@@ -1588,15 +1589,15 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
         null
     );
 
-    IllegalArgumentException exception = Assertions.assertThrows(
+    IllegalArgumentException exception = JUnit5Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> template.generateAlignedSearchIntervals(referenceTime)
     );
 
-    Assertions.assertTrue(
+    JUnit5Assertions.assertTrue(
         exception.getMessage().contains("Invalid segment granularity timeline")
     );
-    Assertions.assertTrue(
+    JUnit5Assertions.assertTrue(
         exception.getMessage().contains("coarser granularity")
     );
   }
@@ -1648,10 +1649,10 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
 
     // Also verify the VCs are accessible through the IntervalPartitioningInfo
-    Assertions.assertEquals(defaultVCs, actual.get(0).getVirtualColumns());
+    JUnit5Assertions.assertEquals(defaultVCs, actual.get(0).getVirtualColumns());
   }
 
   /**
@@ -1713,12 +1714,12 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     List<IntervalPartitioningInfo> actual = template.generateAlignedSearchIntervals(referenceTime);
-    Assertions.assertEquals(expected, actual);
+    JUnit5Assertions.assertEquals(expected, actual);
 
     // Real rule entry should NOT have the default VCs
-    Assertions.assertNull(actual.get(0).getVirtualColumns());
+    JUnit5Assertions.assertNull(actual.get(0).getVirtualColumns());
     // Prepended synthetic entry should have the default VCs
-    Assertions.assertEquals(defaultVCs, actual.get(1).getVirtualColumns());
+    JUnit5Assertions.assertEquals(defaultVCs, actual.get(1).getVirtualColumns());
   }
 
   /**
@@ -1763,15 +1764,15 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     final String json = mapper.writeValueAsString(template);
 
     // Verify VCs are present in the JSON
-    Assertions.assertTrue(json.contains("defaultPartitioningVirtualColumns"));
-    Assertions.assertTrue(json.contains("vc_bucket"));
+    JUnit5Assertions.assertTrue(json.contains("defaultPartitioningVirtualColumns"));
+    JUnit5Assertions.assertTrue(json.contains("vc_bucket"));
 
     // Verify round-trip deserialization
     final CascadingReindexingTemplate fromJson = mapper.readValue(json, CascadingReindexingTemplate.class);
-    Assertions.assertEquals(template.getDataSource(), fromJson.getDataSource());
-    Assertions.assertEquals(template.getTaskPriority(), fromJson.getTaskPriority());
-    Assertions.assertEquals(template.getInputSegmentSizeBytes(), fromJson.getInputSegmentSizeBytes());
-    Assertions.assertEquals(
+    JUnit5Assertions.assertEquals(template.getDataSource(), fromJson.getDataSource());
+    JUnit5Assertions.assertEquals(template.getTaskPriority(), fromJson.getTaskPriority());
+    JUnit5Assertions.assertEquals(template.getInputSegmentSizeBytes(), fromJson.getInputSegmentSizeBytes());
+    JUnit5Assertions.assertEquals(
         template.getDefaultPartitioningVirtualColumns(),
         fromJson.getDefaultPartitioningVirtualColumns()
     );
@@ -1795,7 +1796,7 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     CompactionConfigValidationResult result = template.validate(CLUSTER_CONFIG);
-    Assertions.assertTrue(result.isValid());
+    JUnit5Assertions.assertTrue(result.isValid());
   }
 
   @Test
@@ -1816,11 +1817,8 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     CompactionConfigValidationResult result = template.validate(CLUSTER_CONFIG);
-    Assertions.assertFalse(result.isValid());
-    Assertions.assertEquals(
-        "MSQ: Invalid partitioning type[HashedPartitionsSpec]. Must be either 'dynamic' or 'range'",
-        result.getReason()
-    );
+    JUnit5Assertions.assertFalse(result.isValid());
+    JUnit5Assertions.assertEquals(result.getReason(), "MSQ: Invalid partitioning type[HashedPartitionsSpec]. Must be either 'dynamic' or 'range'");
   }
 
   @Test
@@ -1841,11 +1839,8 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     CompactionConfigValidationResult result = template.validate(CLUSTER_CONFIG);
-    Assertions.assertFalse(result.isValid());
-    Assertions.assertEquals(
-        "MSQ: 'maxTotalRows' not supported with 'dynamic' partitioning",
-        result.getReason()
-    );
+    JUnit5Assertions.assertFalse(result.isValid());
+    JUnit5Assertions.assertEquals(result.getReason(), "MSQ: 'maxTotalRows' not supported with 'dynamic' partitioning");
   }
 
   @Test
@@ -1866,11 +1861,8 @@ public class CascadingReindexingTemplateTest extends InitializedNullHandlingTest
     );
 
     CompactionConfigValidationResult result = template.validate(CLUSTER_CONFIG);
-    Assertions.assertFalse(result.isValid());
-    Assertions.assertEquals(
-        "MSQ: Context maxNumTasks[1] must be at least 2 (1 controller + 1 worker)",
-        result.getReason()
-    );
+    JUnit5Assertions.assertFalse(result.isValid());
+    JUnit5Assertions.assertEquals(result.getReason(), "MSQ: Context maxNumTasks[1] must be at least 2 (1 controller + 1 worker)");
   }
 
   private static class TestCascadingReindexingTemplate extends CascadingReindexingTemplate

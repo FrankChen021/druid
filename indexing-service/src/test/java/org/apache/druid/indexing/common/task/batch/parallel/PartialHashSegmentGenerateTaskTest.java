@@ -35,14 +35,13 @@ import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.JUnit5Matchers;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.util.Collections;
@@ -62,12 +61,12 @@ public class PartialHashSegmentGenerateTaskTest
       ParallelIndexTestingFactory.createDataSchema(ParallelIndexTestingFactory.INPUT_INTERVALS)
   );
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
   private PartialHashSegmentGenerateTask target;
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     target = new PartialHashSegmentGenerateTask(
@@ -93,13 +92,13 @@ public class PartialHashSegmentGenerateTaskTest
   public void hasCorrectPrefixForAutomaticId()
   {
     String id = target.getId();
-    MatcherAssert.assertThat(id, Matchers.startsWith(PartialHashSegmentGenerateTask.TYPE));
+    JUnit5Assertions.assertMatches(id, JUnit5Matchers.startsWith(PartialHashSegmentGenerateTask.TYPE));
   }
 
   @Test
   public void hasCorrectInputSourceResources()
   {
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         Collections.singleton(
             new ResourceAction(new Resource(
                 LocalInputSource.TYPE_KEY,
@@ -128,9 +127,9 @@ public class PartialHashSegmentGenerateTaskTest
             new HashedPartitionsSpec(null, expectedNumBuckets, null),
             null
         );
-    Assert.assertEquals(intervals.size(), partitionAnalysis.getNumTimePartitions());
+    JUnit5Assertions.assertEquals(intervals.size(), partitionAnalysis.getNumTimePartitions());
     for (Interval interval : intervals) {
-      Assert.assertEquals(expectedNumBuckets, partitionAnalysis.getBucketAnalysis(interval).intValue());
+      JUnit5Assertions.assertEquals(expectedNumBuckets, partitionAnalysis.getBucketAnalysis(interval).intValue());
     }
   }
 
@@ -160,9 +159,9 @@ public class PartialHashSegmentGenerateTaskTest
             new HashedPartitionsSpec(null, null, null),
             intervalToNumShards
         );
-    Assert.assertEquals(intervals.size(), partitionAnalysis.getNumTimePartitions());
+    JUnit5Assertions.assertEquals(intervals.size(), partitionAnalysis.getNumTimePartitions());
     for (Interval interval : intervals) {
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           intervalToNumShards.get(interval).intValue(),
           partitionAnalysis.getBucketAnalysis(interval).intValue()
       );

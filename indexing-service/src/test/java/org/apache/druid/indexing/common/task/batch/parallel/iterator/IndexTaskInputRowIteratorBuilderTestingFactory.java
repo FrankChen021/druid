@@ -27,10 +27,10 @@ import org.apache.druid.indexer.granularity.GranularitySpec;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.EasyMock;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
-import org.junit.Assert;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -155,7 +155,7 @@ class IndexTaskInputRowIteratorBuilderTestingFactory
       HandlingInputRowIterator iterator = iteratorBuilder.build();
 
       InputRow nextInputRow = iterator.next();
-      Assert.assertEquals(expectedNextInputRow, nextInputRow);
+      JUnit5Assertions.assertEquals(expectedNextInputRow, nextInputRow);
 
       return handlerInvocationHistory;
     }

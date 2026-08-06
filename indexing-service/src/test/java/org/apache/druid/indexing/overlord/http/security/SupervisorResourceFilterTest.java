@@ -32,16 +32,17 @@ import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.EasyMock;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.PathSegment;
 import javax.ws.rs.core.Response;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -62,7 +63,7 @@ public class SupervisorResourceFilterTest
 
   private List<Object> mocksToVerify;
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     supervisorManager = EasyMock.createMock(SupervisorManager.class);
@@ -78,7 +79,7 @@ public class SupervisorResourceFilterTest
   {
     setExpectations("/druid/indexer/v1/supervisor/datasource1", "GET", "datasource1", Action.READ, true);
     ContainerRequest filteredRequest = resourceFilter.filter(containerRequest);
-    Assert.assertNotNull(filteredRequest);
+    JUnit5Assertions.assertNotNull(filteredRequest);
     verifyMocks();
   }
 
@@ -94,7 +95,7 @@ public class SupervisorResourceFilterTest
     catch (ForbiddenException e) {
       expected = e;
     }
-    Assert.assertNotNull(expected);
+    JUnit5Assertions.assertNotNull(expected);
     verifyMocks();
   }
 
@@ -103,7 +104,7 @@ public class SupervisorResourceFilterTest
   {
     setExpectations("/druid/indexer/v1/supervisor/datasource1", "POST", "datasource1", Action.WRITE, true);
     ContainerRequest filteredRequest = resourceFilter.filter(containerRequest);
-    Assert.assertNotNull(filteredRequest);
+    JUnit5Assertions.assertNotNull(filteredRequest);
     verifyMocks();
   }
 
@@ -119,7 +120,7 @@ public class SupervisorResourceFilterTest
     catch (ForbiddenException e) {
       expected = e;
     }
-    Assert.assertNotNull(expected);
+    JUnit5Assertions.assertNotNull(expected);
     verifyMocks();
   }
 
@@ -150,8 +151,8 @@ public class SupervisorResourceFilterTest
       expected = e;
     }
 
-    Assert.assertNotNull(expected);
-    Assert.assertEquals(expected.getResponse().getStatus(), Response.Status.NOT_FOUND.getStatusCode());
+    JUnit5Assertions.assertNotNull(expected);
+    JUnit5Assertions.assertEquals(expected.getResponse().getStatus(), Response.Status.NOT_FOUND.getStatusCode());
     EasyMock.verify(containerRequest);
     EasyMock.verify(supervisorManager);
   }

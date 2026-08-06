@@ -29,9 +29,9 @@ import org.apache.druid.segment.incremental.InputRowFilterResult;
 import org.apache.druid.segment.incremental.RowIngestionMeters;
 import org.apache.druid.segment.incremental.SimpleRowIngestionMeters;
 import org.apache.druid.segment.realtime.SegmentGenerationMetrics;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.List;
@@ -53,7 +53,7 @@ public class TaskRealtimeMetricsMonitorTest
   private StubServiceEmitter emitter;
   private TaskRealtimeMetricsMonitor target;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     segmentGenerationMetrics = new SegmentGenerationMetrics();
@@ -72,9 +72,9 @@ public class TaskRealtimeMetricsMonitorTest
     target.doMonitor(emitter);
 
     List<ServiceMetricEvent> events = emitter.getMetricEvents("ingest/events/unparseable");
-    Assert.assertFalse(events.isEmpty());
+    JUnit5Assertions.assertFalse(events.isEmpty());
     for (ServiceMetricEvent sme : events) {
-      Assert.assertEquals(TAGS, sme.getUserDims().get(DruidMetrics.TAGS));
+      JUnit5Assertions.assertEquals(TAGS, sme.getUserDims().get(DruidMetrics.TAGS));
     }
   }
 
@@ -92,9 +92,9 @@ public class TaskRealtimeMetricsMonitorTest
     target.doMonitor(emitter);
 
     List<ServiceMetricEvent> events = emitter.getMetricEvents("ingest/events/unparseable");
-    Assert.assertFalse(events.isEmpty());
+    JUnit5Assertions.assertFalse(events.isEmpty());
     for (ServiceMetricEvent sme : events) {
-      Assert.assertFalse(sme.getUserDims().containsKey(DruidMetrics.TAGS));
+      JUnit5Assertions.assertFalse(sme.getUserDims().containsKey(DruidMetrics.TAGS));
     }
   }
 
@@ -102,17 +102,17 @@ public class TaskRealtimeMetricsMonitorTest
   public void testMessageGapAggStats()
   {
     target.doMonitor(emitter);
-    Assert.assertTrue(emitter.getMetricEvents("ingest/events/minMessageGap").isEmpty());
-    Assert.assertTrue(emitter.getMetricEvents("ingest/events/maxMessageGap").isEmpty());
-    Assert.assertTrue(emitter.getMetricEvents("ingest/events/avgMessageGap").isEmpty());
+    JUnit5Assertions.assertTrue(emitter.getMetricEvents("ingest/events/minMessageGap").isEmpty());
+    JUnit5Assertions.assertTrue(emitter.getMetricEvents("ingest/events/maxMessageGap").isEmpty());
+    JUnit5Assertions.assertTrue(emitter.getMetricEvents("ingest/events/avgMessageGap").isEmpty());
 
     emitter.flush();
     segmentGenerationMetrics.reportMessageGap(1);
     target.doMonitor(emitter);
 
-    Assert.assertFalse(emitter.getMetricEvents("ingest/events/minMessageGap").isEmpty());
-    Assert.assertFalse(emitter.getMetricEvents("ingest/events/maxMessageGap").isEmpty());
-    Assert.assertFalse(emitter.getMetricEvents("ingest/events/avgMessageGap").isEmpty());
+    JUnit5Assertions.assertFalse(emitter.getMetricEvents("ingest/events/minMessageGap").isEmpty());
+    JUnit5Assertions.assertFalse(emitter.getMetricEvents("ingest/events/maxMessageGap").isEmpty());
+    JUnit5Assertions.assertFalse(emitter.getMetricEvents("ingest/events/avgMessageGap").isEmpty());
   }
 
   @Test
@@ -144,10 +144,10 @@ public class TaskRealtimeMetricsMonitorTest
       thrownAwayByReason.put(reason.toString(), event.getValue().longValue());
     }
 
-    Assert.assertEquals(Long.valueOf(2), thrownAwayByReason.get("null"));
-    Assert.assertEquals(Long.valueOf(3), thrownAwayByReason.get("beforeMinimumMessageTime"));
-    Assert.assertEquals(Long.valueOf(1), thrownAwayByReason.get("afterMaximumMessageTime"));
-    Assert.assertEquals(Long.valueOf(4), thrownAwayByReason.get("filtered"));
+    JUnit5Assertions.assertEquals(Long.valueOf(2), thrownAwayByReason.get("null"));
+    JUnit5Assertions.assertEquals(Long.valueOf(3), thrownAwayByReason.get("beforeMinimumMessageTime"));
+    JUnit5Assertions.assertEquals(Long.valueOf(1), thrownAwayByReason.get("afterMaximumMessageTime"));
+    JUnit5Assertions.assertEquals(Long.valueOf(4), thrownAwayByReason.get("filtered"));
   }
 
   @Test
@@ -172,11 +172,11 @@ public class TaskRealtimeMetricsMonitorTest
     }
 
     // Only reasons with non-zero counts should be emitted
-    Assert.assertEquals(2, thrownAwayByReason.size());
-    Assert.assertTrue(thrownAwayByReason.containsKey("null"));
-    Assert.assertTrue(thrownAwayByReason.containsKey("filtered"));
-    Assert.assertFalse(thrownAwayByReason.containsKey("beforeMinimumMessageTime"));
-    Assert.assertFalse(thrownAwayByReason.containsKey("afterMaximumMessageTime"));
+    JUnit5Assertions.assertEquals(2, thrownAwayByReason.size());
+    JUnit5Assertions.assertTrue(thrownAwayByReason.containsKey("null"));
+    JUnit5Assertions.assertTrue(thrownAwayByReason.containsKey("filtered"));
+    JUnit5Assertions.assertFalse(thrownAwayByReason.containsKey("beforeMinimumMessageTime"));
+    JUnit5Assertions.assertFalse(thrownAwayByReason.containsKey("afterMaximumMessageTime"));
   }
 
   @Test
@@ -200,7 +200,7 @@ public class TaskRealtimeMetricsMonitorTest
         firstCallNullCount = event.getValue().longValue();
       }
     }
-    Assert.assertEquals(2, firstCallNullCount);
+    JUnit5Assertions.assertEquals(2, firstCallNullCount);
 
     emitter.flush();
     realMeters.incrementThrownAway(InputRowFilterResult.NULL_OR_EMPTY_RECORD);
@@ -216,8 +216,8 @@ public class TaskRealtimeMetricsMonitorTest
     }
 
     // Should emit only the delta (1 more NULL, 2 new FILTERED)
-    Assert.assertEquals(Long.valueOf(1), secondCallCounts.get("null"));
-    Assert.assertEquals(Long.valueOf(2), secondCallCounts.get("filtered"));
+    JUnit5Assertions.assertEquals(Long.valueOf(1), secondCallCounts.get("null"));
+    JUnit5Assertions.assertEquals(Long.valueOf(2), secondCallCounts.get("filtered"));
   }
 
   private ServiceMetricEvent.Builder createMetricEventBuilder()

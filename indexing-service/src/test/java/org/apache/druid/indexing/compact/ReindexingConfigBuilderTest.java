@@ -52,10 +52,10 @@ import org.apache.druid.server.compaction.ReindexingRuleProvider;
 import org.apache.druid.server.coordinator.InlineSchemaDataSourceCompactionConfig;
 import org.apache.druid.server.coordinator.UserCompactionTaskDimensionsConfig;
 import org.apache.druid.server.coordinator.UserCompactionTaskQueryTuningConfig;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 import org.joda.time.Period;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -113,16 +113,16 @@ public class ReindexingConfigBuilderTest
 
     int count = configBuilder.applyTo(builder);
 
-    Assertions.assertEquals(1, count);
+    JUnit5Assertions.assertEquals(1, count);
 
     InlineSchemaDataSourceCompactionConfig config = builder.build();
-    Assertions.assertNotNull(config.getGranularitySpec());
-    Assertions.assertNotNull(config.getGranularitySpec().getSegmentGranularity());
-    Assertions.assertEquals(Granularities.DAY, config.getGranularitySpec().getSegmentGranularity());
-    Assertions.assertNotNull(config.getGranularitySpec().getQueryGranularity());
-    Assertions.assertEquals(Granularities.HOUR, config.getGranularitySpec().getQueryGranularity());
-    Assertions.assertNotNull(config.getGranularitySpec().isRollup());
-    Assertions.assertTrue(config.getGranularitySpec().isRollup());
+    JUnit5Assertions.assertNotNull(config.getGranularitySpec());
+    JUnit5Assertions.assertNotNull(config.getGranularitySpec().getSegmentGranularity());
+    JUnit5Assertions.assertEquals(Granularities.DAY, config.getGranularitySpec().getSegmentGranularity());
+    JUnit5Assertions.assertNotNull(config.getGranularitySpec().getQueryGranularity());
+    JUnit5Assertions.assertEquals(Granularities.HOUR, config.getGranularitySpec().getQueryGranularity());
+    JUnit5Assertions.assertNotNull(config.getGranularitySpec().isRollup());
+    JUnit5Assertions.assertTrue(config.getGranularitySpec().isRollup());
 
     // Test applyToWithDetails() on a fresh builder
     InlineSchemaDataSourceCompactionConfig.Builder builderForDetails =
@@ -132,16 +132,16 @@ public class ReindexingConfigBuilderTest
     ReindexingConfigBuilder.BuildResult buildResult = configBuilder.applyToWithDetails(builderForDetails);
 
     // Verify count matches
-    Assertions.assertEquals(count, buildResult.getRuleCount());
+    JUnit5Assertions.assertEquals(count, buildResult.getRuleCount());
 
     // Verify applied rules - should only contain the data schema rule, not the synthetic segment granularity
-    Assertions.assertNotNull(buildResult.getAppliedRules());
-    Assertions.assertEquals(1, buildResult.getAppliedRules().size());
-    Assertions.assertTrue(buildResult.getAppliedRules().get(0) instanceof ReindexingDataSchemaRule);
+    JUnit5Assertions.assertNotNull(buildResult.getAppliedRules());
+    JUnit5Assertions.assertEquals(1, buildResult.getAppliedRules().size());
+    JUnit5Assertions.assertTrue(buildResult.getAppliedRules().get(0) instanceof ReindexingDataSchemaRule);
 
     // Verify config matches
     InlineSchemaDataSourceCompactionConfig configFromDetails = builderForDetails.build();
-    Assertions.assertEquals(config.getGranularitySpec(), configFromDetails.getGranularitySpec());
+    JUnit5Assertions.assertEquals(config.getGranularitySpec(), configFromDetails.getGranularitySpec());
   }
 
   @Test
@@ -196,10 +196,10 @@ public class ReindexingConfigBuilderTest
 
     int count = configBuilder.applyTo(builder);
 
-    Assertions.assertEquals(1, count);
+    JUnit5Assertions.assertEquals(1, count);
 
     InlineSchemaDataSourceCompactionConfig config = builder.build();
-    Assertions.assertEquals(baseTable, config.getBaseTable());
+    JUnit5Assertions.assertEquals(baseTable, config.getBaseTable());
   }
 
   @Test
@@ -235,36 +235,36 @@ public class ReindexingConfigBuilderTest
 
     int count = configBuilder.applyTo(builder);
 
-    Assertions.assertEquals(5, count);
+    JUnit5Assertions.assertEquals(5, count);
 
     InlineSchemaDataSourceCompactionConfig config = builder.build();
 
-    Assertions.assertNotNull(config.getGranularitySpec().getSegmentGranularity());
-    Assertions.assertEquals(Granularities.DAY, config.getGranularitySpec().getSegmentGranularity());
+    JUnit5Assertions.assertNotNull(config.getGranularitySpec().getSegmentGranularity());
+    JUnit5Assertions.assertEquals(Granularities.DAY, config.getGranularitySpec().getSegmentGranularity());
 
-    Assertions.assertNotNull(config.getGranularitySpec().getQueryGranularity());
-    Assertions.assertEquals(Granularities.HOUR, config.getGranularitySpec().getQueryGranularity());
-    Assertions.assertTrue(config.getGranularitySpec().isRollup());
+    JUnit5Assertions.assertNotNull(config.getGranularitySpec().getQueryGranularity());
+    JUnit5Assertions.assertEquals(Granularities.HOUR, config.getGranularitySpec().getQueryGranularity());
+    JUnit5Assertions.assertTrue(config.getGranularitySpec().isRollup());
 
-    Assertions.assertNotNull(config.getTuningConfig());
-    Assertions.assertNotNull(config.getMetricsSpec());
-    Assertions.assertEquals(1, config.getMetricsSpec().length);
-    Assertions.assertEquals("count", config.getMetricsSpec()[0].getName());
+    JUnit5Assertions.assertNotNull(config.getTuningConfig());
+    JUnit5Assertions.assertNotNull(config.getMetricsSpec());
+    JUnit5Assertions.assertEquals(1, config.getMetricsSpec().length);
+    JUnit5Assertions.assertEquals(config.getMetricsSpec()[0].getName(), "count");
 
-    Assertions.assertNotNull(config.getDimensionsSpec());
+    JUnit5Assertions.assertNotNull(config.getDimensionsSpec());
 
-    Assertions.assertNotNull(config.getProjections());
-    Assertions.assertEquals(1, config.getProjections().size()); // only 1 as we match the 2nd dataSchemaRule
+    JUnit5Assertions.assertNotNull(config.getProjections());
+    JUnit5Assertions.assertEquals(1, config.getProjections().size()); // only 1 as we match the 2nd dataSchemaRule
 
-    Assertions.assertNotNull(config.getTransformSpec());
+    JUnit5Assertions.assertNotNull(config.getTransformSpec());
     DimFilter appliedFilter = config.getTransformSpec().getFilter();
-    Assertions.assertTrue(appliedFilter instanceof NotDimFilter);
+    JUnit5Assertions.assertTrue(appliedFilter instanceof NotDimFilter);
 
     NotDimFilter notFilter = (NotDimFilter) appliedFilter;
-    Assertions.assertTrue(notFilter.getField() instanceof OrDimFilter);
+    JUnit5Assertions.assertTrue(notFilter.getField() instanceof OrDimFilter);
 
     OrDimFilter orFilter = (OrDimFilter) notFilter.getField();
-    Assertions.assertEquals(2, orFilter.getFields().size()); // 2 filters combined
+    JUnit5Assertions.assertEquals(2, orFilter.getFields().size()); // 2 filters combined
 
     // Now test applyToWithDetails() on a fresh builder
     InlineSchemaDataSourceCompactionConfig.Builder builderForDetails =
@@ -274,31 +274,31 @@ public class ReindexingConfigBuilderTest
     ReindexingConfigBuilder.BuildResult buildResult = configBuilder.applyToWithDetails(builderForDetails);
 
     // Verify BuildResult count matches applyTo() count
-    Assertions.assertEquals(count, buildResult.getRuleCount());
+    JUnit5Assertions.assertEquals(count, buildResult.getRuleCount());
 
     // Verify applied rules list
-    Assertions.assertNotNull(buildResult.getAppliedRules());
-    Assertions.assertEquals(5, buildResult.getAppliedRules().size());
+    JUnit5Assertions.assertNotNull(buildResult.getAppliedRules());
+    JUnit5Assertions.assertEquals(5, buildResult.getAppliedRules().size());
 
     // Verify rule types (order-independent)
-    Assertions.assertEquals(1, buildResult.getAppliedRules().stream().filter(r -> r instanceof ReindexingPartitioningRule).count());
-    Assertions.assertEquals(1, buildResult.getAppliedRules().stream().filter(r -> r instanceof ReindexingIndexSpecRule).count());
-    Assertions.assertEquals(1, buildResult.getAppliedRules().stream().filter(r -> r instanceof ReindexingDataSchemaRule).count());
-    Assertions.assertEquals(2, buildResult.getAppliedRules().stream().filter(r -> r instanceof ReindexingDeletionRule).count());
+    JUnit5Assertions.assertEquals(1, buildResult.getAppliedRules().stream().filter(r -> r instanceof ReindexingPartitioningRule).count());
+    JUnit5Assertions.assertEquals(1, buildResult.getAppliedRules().stream().filter(r -> r instanceof ReindexingIndexSpecRule).count());
+    JUnit5Assertions.assertEquals(1, buildResult.getAppliedRules().stream().filter(r -> r instanceof ReindexingDataSchemaRule).count());
+    JUnit5Assertions.assertEquals(2, buildResult.getAppliedRules().stream().filter(r -> r instanceof ReindexingDeletionRule).count());
 
     // Verify rule IDs (order-independent)
     Set<String> appliedRuleIds = buildResult.getAppliedRules().stream()
         .map(ReindexingRule::getId)
         .collect(Collectors.toSet());
-    Assertions.assertEquals(
+    JUnit5Assertions.assertEquals(
         Set.of("gran-30d", "indexSpec-30d", "schema-60d", "filter-30d", "filter-60d"),
         appliedRuleIds
     );
 
     // Verify the config produced by applyToWithDetails() matches the original
     InlineSchemaDataSourceCompactionConfig configFromDetails = builderForDetails.build();
-    Assertions.assertEquals(config.getGranularitySpec(), configFromDetails.getGranularitySpec());
-    Assertions.assertEquals(config.getTuningConfig(), configFromDetails.getTuningConfig());
+    JUnit5Assertions.assertEquals(config.getGranularitySpec(), configFromDetails.getGranularitySpec());
+    JUnit5Assertions.assertEquals(config.getTuningConfig(), configFromDetails.getTuningConfig());
   }
 
   @Test
@@ -332,16 +332,16 @@ public class ReindexingConfigBuilderTest
 
     int count = configBuilder.applyTo(builder);
 
-    Assertions.assertEquals(0, count);
+    JUnit5Assertions.assertEquals(0, count);
 
     InlineSchemaDataSourceCompactionConfig config = builder.build();
 
-    Assertions.assertNotNull(config.getTuningConfig());
-    Assertions.assertNull(config.getMetricsSpec());
-    Assertions.assertNull(config.getDimensionsSpec());
-    Assertions.assertNull(config.getIoConfig());
-    Assertions.assertNull(config.getProjections());
-    Assertions.assertNull(config.getTransformSpec());
+    JUnit5Assertions.assertNotNull(config.getTuningConfig());
+    JUnit5Assertions.assertNull(config.getMetricsSpec());
+    JUnit5Assertions.assertNull(config.getDimensionsSpec());
+    JUnit5Assertions.assertNull(config.getIoConfig());
+    JUnit5Assertions.assertNull(config.getProjections());
+    JUnit5Assertions.assertNull(config.getTransformSpec());
   }
 
   @Test
@@ -385,16 +385,16 @@ public class ReindexingConfigBuilderTest
 
     int count = configBuilder.applyTo(builder);
 
-    Assertions.assertEquals(1, count);
+    JUnit5Assertions.assertEquals(1, count);
 
     InlineSchemaDataSourceCompactionConfig config = builder.build();
-    Assertions.assertNotNull(config.getTransformSpec());
+    JUnit5Assertions.assertNotNull(config.getTransformSpec());
     DimFilter appliedFilter = config.getTransformSpec().getFilter();
     // Single rule: filter should be NOT(directFilter), not NOT(OR(directFilter))
-    Assertions.assertInstanceOf(NotDimFilter.class, appliedFilter);
+    JUnit5Assertions.assertInstanceOf(NotDimFilter.class, appliedFilter);
     NotDimFilter notFilter = (NotDimFilter) appliedFilter;
     // Inner filter should be the SelectorDimFilter directly, not an OrDimFilter
-    Assertions.assertInstanceOf(SelectorDimFilter.class, notFilter.getField());
+    JUnit5Assertions.assertInstanceOf(SelectorDimFilter.class, notFilter.getField());
   }
 
   @Test
@@ -449,16 +449,16 @@ public class ReindexingConfigBuilderTest
 
     int count = configBuilder.applyTo(builder);
 
-    Assertions.assertEquals(1, count);
+    JUnit5Assertions.assertEquals(1, count);
 
     InlineSchemaDataSourceCompactionConfig config = builder.build();
-    Assertions.assertNotNull(config.getTransformSpec());
-    Assertions.assertNotNull(config.getTransformSpec().getFilter());
+    JUnit5Assertions.assertNotNull(config.getTransformSpec());
+    JUnit5Assertions.assertNotNull(config.getTransformSpec().getFilter());
     // VCs should be present in the transform spec
     VirtualColumns resultVCs = config.getTransformSpec().getVirtualColumns();
-    Assertions.assertNotNull(resultVCs);
-    Assertions.assertEquals(1, resultVCs.getVirtualColumns().length);
-    Assertions.assertEquals("extractedField", resultVCs.getVirtualColumns()[0].getOutputName());
+    JUnit5Assertions.assertNotNull(resultVCs);
+    JUnit5Assertions.assertEquals(1, resultVCs.getVirtualColumns().length);
+    JUnit5Assertions.assertEquals(resultVCs.getVirtualColumns()[0].getOutputName(), "extractedField");
   }
 
   @Test
@@ -496,12 +496,12 @@ public class ReindexingConfigBuilderTest
 
     int count = configBuilder.applyTo(builder);
 
-    Assertions.assertEquals(0, count);
+    JUnit5Assertions.assertEquals(0, count);
 
     InlineSchemaDataSourceCompactionConfig config = builder.build();
-    Assertions.assertNotNull(config.getTuningConfig());
+    JUnit5Assertions.assertNotNull(config.getTuningConfig());
     // maxRowsInMemory from base should be preserved
-    Assertions.assertEquals(100_000, config.getTuningConfig().getMaxRowsInMemory());
+    JUnit5Assertions.assertEquals(100_000, config.getTuningConfig().getMaxRowsInMemory());
   }
 
   @Test
@@ -567,7 +567,7 @@ public class ReindexingConfigBuilderTest
         null
     );
 
-    Assertions.assertThrows(
+    JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> configBuilder.applyTo(builder)
     );
@@ -639,20 +639,20 @@ public class ReindexingConfigBuilderTest
     int count = configBuilder.applyTo(builder);
 
     // partitioningRule + deletionRule = 2
-    Assertions.assertEquals(2, count);
+    JUnit5Assertions.assertEquals(2, count);
 
     InlineSchemaDataSourceCompactionConfig config = builder.build();
-    Assertions.assertNotNull(config.getTransformSpec());
+    JUnit5Assertions.assertNotNull(config.getTransformSpec());
     VirtualColumns resultVCs = config.getTransformSpec().getVirtualColumns();
-    Assertions.assertNotNull(resultVCs);
+    JUnit5Assertions.assertNotNull(resultVCs);
     // Should have both VCs merged
-    Assertions.assertEquals(2, resultVCs.getVirtualColumns().length);
+    JUnit5Assertions.assertEquals(2, resultVCs.getVirtualColumns().length);
     Set<String> vcNames = Set.of(
         resultVCs.getVirtualColumns()[0].getOutputName(),
         resultVCs.getVirtualColumns()[1].getOutputName()
     );
-    Assertions.assertTrue(vcNames.contains("partition_vc"));
-    Assertions.assertTrue(vcNames.contains("deletion_vc"));
+    JUnit5Assertions.assertTrue(vcNames.contains("partition_vc"));
+    JUnit5Assertions.assertTrue(vcNames.contains("deletion_vc"));
   }
 
   private ReindexingRuleProvider createFullyPopulatedProvider()

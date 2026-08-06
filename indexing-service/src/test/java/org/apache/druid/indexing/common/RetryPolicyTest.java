@@ -19,10 +19,10 @@
 
 package org.apache.druid.indexing.common;
 
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.joda.time.Duration;
 import org.joda.time.Period;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  */
@@ -38,13 +38,13 @@ public class RetryPolicyTest
             .setMaxRetryCount(6)
     );
 
-    Assert.assertEquals(new Duration("PT1S"), retryPolicy.getAndIncrementRetryDelay());
-    Assert.assertEquals(new Duration("PT2S"), retryPolicy.getAndIncrementRetryDelay());
-    Assert.assertEquals(new Duration("PT4S"), retryPolicy.getAndIncrementRetryDelay());
-    Assert.assertEquals(new Duration("PT8S"), retryPolicy.getAndIncrementRetryDelay());
-    Assert.assertEquals(new Duration("PT10S"), retryPolicy.getAndIncrementRetryDelay());
-    Assert.assertEquals(new Duration("PT10S"), retryPolicy.getAndIncrementRetryDelay());
-    Assert.assertEquals(null, retryPolicy.getAndIncrementRetryDelay());
-    Assert.assertTrue(retryPolicy.hasExceededRetryThreshold());
+    JUnit5Assertions.assertEquals(new Duration("PT1S"), retryPolicy.getAndIncrementRetryDelay());
+    JUnit5Assertions.assertEquals(new Duration("PT2S"), retryPolicy.getAndIncrementRetryDelay());
+    JUnit5Assertions.assertEquals(new Duration("PT4S"), retryPolicy.getAndIncrementRetryDelay());
+    JUnit5Assertions.assertEquals(new Duration("PT8S"), retryPolicy.getAndIncrementRetryDelay());
+    JUnit5Assertions.assertEquals(new Duration("PT10S"), retryPolicy.getAndIncrementRetryDelay());
+    JUnit5Assertions.assertEquals(new Duration("PT10S"), retryPolicy.getAndIncrementRetryDelay());
+    JUnit5Assertions.assertEquals(null, retryPolicy.getAndIncrementRetryDelay());
+    JUnit5Assertions.assertTrue(retryPolicy.hasExceededRetryThreshold());
   }
 }

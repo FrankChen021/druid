@@ -24,8 +24,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.indexing.common.TaskToolbox;
 import org.apache.druid.segment.TestHelper;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.EasyMock;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -121,22 +121,19 @@ class HadoopIndexTaskStubTest
 
     ObjectMapper jsonMapper = TestHelper.makeJsonMapper();
     Task task = jsonMapper.readValue(hadoop_json, Task.class);
-    Assertions.assertInstanceOf(HadoopIndexTaskStub.class, task);
+    JUnit5Assertions.assertInstanceOf(HadoopIndexTaskStub.class, task);
 
     HadoopIndexTaskStub stub = (HadoopIndexTaskStub) task;
-    Assertions.assertNotNull(stub.getSpec());
-    Assertions.assertEquals(
-        "wikipedia",
-        ((Map<String, ?>) stub.getSpec().get("dataSchema")).get("dataSource")
-    );
+    JUnit5Assertions.assertNotNull(stub.getSpec());
+    JUnit5Assertions.assertEquals(((Map<String, ?>) stub.getSpec().get("dataSchema")).get("dataSource"), "wikipedia");
 
     HadoopIndexTaskStub again =
         (HadoopIndexTaskStub) jsonMapper.readValue(jsonMapper.writeValueAsString(task), Task.class);
-    Assertions.assertEquals(stub.getSpec(), again.getSpec());
-    Assertions.assertEquals(stub.getHadoopDependencyCoordinates(), again.getHadoopDependencyCoordinates());
+    JUnit5Assertions.assertEquals(stub.getSpec(), again.getSpec());
+    JUnit5Assertions.assertEquals(stub.getHadoopDependencyCoordinates(), again.getHadoopDependencyCoordinates());
 
     TaskToolbox toolBox = EasyMock.createNiceMock(TaskToolbox.class);
-    Throwable t = Assertions.assertThrows(DruidException.class, () -> stub.runTask(toolBox));
-    Assertions.assertEquals("The Apache Hadoop ingestion task was removed in Druid 37.0", t.getMessage());
+    Throwable t = JUnit5Assertions.assertThrows(DruidException.class, () -> stub.runTask(toolBox));
+    JUnit5Assertions.assertEquals(t.getMessage(), "The Apache Hadoop ingestion task was removed in Druid 37.0");
   }
 }

@@ -31,12 +31,13 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.EasyMock;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import javax.servlet.http.HttpServletRequest;
+
 import java.util.Collections;
 
 public class SamplerResourceTest
@@ -78,7 +79,7 @@ public class SamplerResourceTest
     }
   };
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     req = EasyMock.createStrictMock(HttpServletRequest.class);
@@ -125,7 +126,7 @@ public class SamplerResourceTest
         samplerSpec
     );
 
-    Assert.assertThrows(ForbiddenException.class, () -> samplerResource.post(samplerSpec, req));
+    JUnit5Assertions.assertThrows(ForbiddenException.class, () -> samplerResource.post(samplerSpec, req));
   }
 
   @Test
@@ -174,7 +175,7 @@ public class SamplerResourceTest
         samplerSpec
     );
 
-    Assert.assertThrows(UOE.class, () -> samplerResource.post(samplerSpec, req));
+    JUnit5Assertions.assertThrows(UOE.class, () -> samplerResource.post(samplerSpec, req));
   }
 
   private void expectAuthorizationTokenCheck(String username)

@@ -33,12 +33,12 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.loading.LocalDataSegmentPuller;
 import org.apache.druid.segment.loading.LocalLoadSpec;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.utils.CompressionUtils;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,11 +53,11 @@ public class DeepStorageShuffleClientTest
   private File segmentFile;
   private String segmentFileName;
 
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception
   {
     final Injector injector = GuiceInjectors.makeStartupInjectorWithModules(
@@ -102,12 +102,12 @@ public class DeepStorageShuffleClientTest
             ImmutableMap.of("type", "local", "path", segmentFile.getAbsolutePath())
         )
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         StringUtils.format("%s/unzipped_%s", partitionDir.getAbsolutePath(), subTaskId),
         unzippedDir.getAbsolutePath()
     );
     File fetchedSegmentFile = unzippedDir.listFiles((dir, name) -> name.endsWith(".tmp"))[0];
-    Assert.assertEquals(segmentFileName, fetchedSegmentFile.getName());
-    Assert.assertTrue(fetchedSegmentFile.length() > 0);
+    JUnit5Assertions.assertEquals(segmentFileName, fetchedSegmentFile.getName());
+    JUnit5Assertions.assertTrue(fetchedSegmentFile.length() > 0);
   }
 }

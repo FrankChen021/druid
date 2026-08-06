@@ -25,10 +25,10 @@ import org.apache.druid.indexing.worker.config.WorkerConfig;
 import org.apache.druid.java.util.common.FileUtils;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
-import org.junit.Assert;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,8 +39,8 @@ import java.util.stream.Collectors;
 
 public class TaskStorageDirTrackerTest
 {
-  @ClassRule
-  public static final TemporaryFolder TMP = new TemporaryFolder();
+  @RegisterExtension
+  public static final TempDirExtension TMP = new TempDirExtension();
 
   @Test
   public void testGetOrSelectTaskDir() throws IOException
@@ -80,14 +80,11 @@ public class TaskStorageDirTrackerTest
     otherTracker.returnStorageSlot(otherTracker.pickStorageSlot("task3"));
     verifier.validate(otherTracker.pickStorageSlot("eighth-task"), "A", "slot2");
 
-    final IAE iae = Assert.assertThrows(
+    final IAE iae = JUnit5Assertions.assertThrows(
         IAE.class,
         () -> tracker.returnStorageSlot(otherTracker.pickStorageSlot("eighth-task"))
     );
-    Assert.assertEquals(
-        "Cannot return storage slot for task [eighth-task] that I don't own.",
-        iae.getMessage()
-    );
+    JUnit5Assertions.assertEquals(iae.getMessage(), "Cannot return storage slot for task [eighth-task] that I don't own.");
   }
 
   private void validateRoundRobinAllocation(File tmpFolder, TaskStorageDirTracker dirTracker)
@@ -147,7 +144,7 @@ public class TaskStorageDirTrackerTest
     verifier.validate(tracker.pickStorageSlot("task4"), "slot4");
     verifier.validate(tracker.pickStorageSlot("task10293721"), "slot3");
 
-    Assert.assertThrows(
+    JUnit5Assertions.assertThrows(
         ISE.class,
         () -> tracker.pickStorageSlot("seventh-task")
     );
@@ -177,7 +174,7 @@ public class TaskStorageDirTrackerTest
     StorageSlotVerifier verifier = new StorageSlotVerifier(tmpFolder).setExpectedSize(100_000_000L);
     verifier.validate(tracker.pickStorageSlot("task1"), "A", "slot0");
     verifier.validate(tracker.pickStorageSlot("task2"), "B", "slot0");
-    Assert.assertThrows(
+    JUnit5Assertions.assertThrows(
         ISE.class,
         () -> tracker.pickStorageSlot("third-task")
     );
@@ -219,10 +216,10 @@ public class TaskStorageDirTrackerTest
     );
 
     // Ensure that task count is correctly updated
-    Assert.assertEquals(2, tracker.getNumUsedSlots());
+    JUnit5Assertions.assertEquals(2, tracker.getNumUsedSlots());
 
-    Assert.assertNull(dirs.get("task3"));
-    Assert.assertNull(dirs.get("task4"));
+    JUnit5Assertions.assertNull(dirs.get("task3"));
+    JUnit5Assertions.assertNull(dirs.get("task4"));
 
     // Re-create the dirs so that we can actually pick stuff again.
     tracker.ensureDirectories();
@@ -254,24 +251,24 @@ public class TaskStorageDirTrackerTest
     final TaskStorageDirTracker tracker = TaskStorageDirTracker.fromBaseDirs(files, workerCapacity, baseTaskDirSize);
     tracker.ensureDirectories();
 
-    Assert.assertEquals(0, tracker.getNumUsedSlots());
+    JUnit5Assertions.assertEquals(0, tracker.getNumUsedSlots());
 
     tracker.pickStorageSlot("task0");
     tracker.pickStorageSlot("task1");
     tracker.pickStorageSlot("task2");
 
-    Assert.assertEquals(3, tracker.getNumUsedSlots());
+    JUnit5Assertions.assertEquals(3, tracker.getNumUsedSlots());
 
     tracker.returnStorageSlot(tracker.pickStorageSlot("task0"));
 
-    Assert.assertEquals(2, tracker.getNumUsedSlots());
+    JUnit5Assertions.assertEquals(2, tracker.getNumUsedSlots());
 
     tracker.pickStorageSlot("task3");
     tracker.pickStorageSlot("task4");
     tracker.pickStorageSlot("task5");
     tracker.pickStorageSlot("task6");
 
-    Assert.assertEquals(6, tracker.getNumUsedSlots());
+    JUnit5Assertions.assertEquals(6, tracker.getNumUsedSlots());
 
     FileUtils.deleteDirectory(tmpFolder);
   }
@@ -298,16 +295,16 @@ public class TaskStorageDirTrackerTest
       for (String dir : dirs) {
         theFile = new File(theFile, dir);
       }
-      Assert.assertEquals(theFile, slot.getDirectory());
+      JUnit5Assertions.assertEquals(theFile, slot.getDirectory());
       if (expectedSize != null) {
-        Assert.assertEquals(expectedSize.longValue(), slot.getNumBytes());
+        JUnit5Assertions.assertEquals(expectedSize.longValue(), slot.getNumBytes());
       }
       return slot;
     }
 
     public void validateException(TaskStorageDirTracker tracker, String taskId)
     {
-      Assert.assertThrows(
+      JUnit5Assertions.assertThrows(
           ISE.class,
           () -> tracker.pickStorageSlot(taskId)
       );

@@ -34,13 +34,13 @@ import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.io.IOException;
@@ -52,8 +52,8 @@ public class IndexTaskSamplerSpecTest extends EasyMockSupport
 
   private final InputSourceSampler inputSourceSampler = createMock(InputSourceSampler.class);
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
   public IndexTaskSamplerSpecTest()
   {
@@ -116,17 +116,17 @@ public class IndexTaskSamplerSpecTest extends EasyMockSupport
     verifyAll();
 
     InputSource inputSource = capturedInputSource.getValue();
-    Assert.assertEquals(new File("/tmp"), ((LocalInputSource) inputSource).getBaseDir());
-    Assert.assertEquals("wikiticker-2015-09-12-sampled.json", ((LocalInputSource) inputSource).getFilter());
+    JUnit5Assertions.assertEquals(new File("/tmp"), ((LocalInputSource) inputSource).getBaseDir());
+    JUnit5Assertions.assertEquals(((LocalInputSource) inputSource).getFilter(), "wikiticker-2015-09-12-sampled.json");
 
     DataSchema dataSchema = capturedDataSchema.getValue();
-    Assert.assertEquals("sampler", dataSchema.getDataSource());
-    Assert.assertEquals(JsonInputFormat.class, capturedInputFormat.getValue().getClass());
+    JUnit5Assertions.assertEquals(dataSchema.getDataSource(), "sampler");
+    JUnit5Assertions.assertEquals(JsonInputFormat.class, capturedInputFormat.getValue().getClass());
 
     SamplerConfig samplerConfig = capturedSamplerConfig.getValue();
-    Assert.assertEquals(123, samplerConfig.getNumRows());
-    Assert.assertEquals(2345, samplerConfig.getTimeoutMs());
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(123, samplerConfig.getNumRows());
+    JUnit5Assertions.assertEquals(2345, samplerConfig.getTimeoutMs());
+    JUnit5Assertions.assertEquals(
         Collections.singleton(
             new ResourceAction(new Resource(
                 LocalInputSource.TYPE_KEY,

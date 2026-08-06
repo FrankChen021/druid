@@ -34,20 +34,20 @@ import org.apache.druid.indexing.overlord.Segments;
 import org.apache.druid.indexing.overlord.TimeChunkLockRequest;
 import org.apache.druid.indexing.overlord.supervisor.NoopSupervisorSpec;
 import org.apache.druid.java.util.common.Intervals;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
-import org.assertj.core.api.Assertions;
-import org.hamcrest.MatcherAssert;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class SegmentTransactionalInsertActionTest
 {
-  @Rule
+  @RegisterExtension
   public TaskActionTestKit actionTestKit = new TaskActionTestKit();
 
   private static final String DATA_SOURCE = "none";
@@ -116,7 +116,7 @@ public class SegmentTransactionalInsertActionTest
         task,
         actionTestKit.getTaskActionToolbox()
     );
-    Assert.assertEquals(SegmentPublishResult.ok(ImmutableSet.of(SEGMENT1)), result1);
+    JUnit5Assertions.assertEquals(SegmentPublishResult.ok(ImmutableSet.of(SEGMENT1)), result1);
 
     SegmentPublishResult result2 = SegmentTransactionalInsertAction.appendAction(
         ImmutableSet.of(SEGMENT2),
@@ -129,14 +129,14 @@ public class SegmentTransactionalInsertActionTest
         task,
         actionTestKit.getTaskActionToolbox()
     );
-    Assert.assertEquals(SegmentPublishResult.ok(ImmutableSet.of(SEGMENT2)), result2);
+    JUnit5Assertions.assertEquals(SegmentPublishResult.ok(ImmutableSet.of(SEGMENT2)), result2);
 
-    Assertions.assertThat(
+    assertThat(
         actionTestKit.getMetadataStorageCoordinator()
                      .retrieveUsedSegmentsForInterval(DATA_SOURCE, INTERVAL, Segments.ONLY_VISIBLE)
     ).containsExactlyInAnyOrder(SEGMENT1, SEGMENT2);
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         new ObjectMetadata(ImmutableList.of(2)),
         actionTestKit.getMetadataStorageCoordinator().retrieveDataSourceMetadata(SUPERVISOR_ID)
     );
@@ -160,7 +160,7 @@ public class SegmentTransactionalInsertActionTest
         task,
         actionTestKit.getTaskActionToolbox()
     );
-    Assert.assertEquals(SegmentPublishResult.ok(ImmutableSet.of(SEGMENT1)), result1);
+    JUnit5Assertions.assertEquals(SegmentPublishResult.ok(ImmutableSet.of(SEGMENT1)), result1);
 
     SegmentPublishResult result2 = SegmentTransactionalInsertAction.appendAction(
         ImmutableSet.of(SEGMENT2),
@@ -173,14 +173,14 @@ public class SegmentTransactionalInsertActionTest
         task,
         actionTestKit.getTaskActionToolbox()
     );
-    Assert.assertEquals(SegmentPublishResult.ok(ImmutableSet.of(SEGMENT2)), result2);
+    JUnit5Assertions.assertEquals(SegmentPublishResult.ok(ImmutableSet.of(SEGMENT2)), result2);
 
-    Assertions.assertThat(
+    assertThat(
         actionTestKit.getMetadataStorageCoordinator()
                      .retrieveUsedSegmentsForInterval(DATA_SOURCE, INTERVAL, Segments.ONLY_VISIBLE)
     ).containsExactlyInAnyOrder(SEGMENT1, SEGMENT2);
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         new ObjectMetadata(ImmutableList.of(2)),
         actionTestKit.getMetadataStorageCoordinator().retrieveDataSourceMetadata(SUPERVISOR_ID)
     );
@@ -208,7 +208,7 @@ public class SegmentTransactionalInsertActionTest
         actionTestKit.getTaskActionToolbox()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         SegmentPublishResult.fail(
             "The new start metadata state[ObjectMetadata{theObject=[1]}] is"
             + " ahead of the last committed end state[null]. Try resetting the supervisor."
@@ -226,8 +226,8 @@ public class SegmentTransactionalInsertActionTest
     actionTestKit.getTaskLockbox().add(task);
     acquireTimeChunkLock(TaskLockType.EXCLUSIVE, task, INTERVAL, 5000);
 
-    MatcherAssert.assertThat(
-        Assert.assertThrows(
+    JUnit5Assertions.assertMatches(
+        JUnit5Assertions.assertThrows(
             DruidException.class,
             () -> action.perform(task, actionTestKit.getTaskActionToolbox())
         ),

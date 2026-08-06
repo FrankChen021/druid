@@ -39,21 +39,21 @@ import org.apache.druid.rpc.ServiceLocation;
 import org.apache.druid.rpc.ServiceLocations;
 import org.apache.druid.rpc.ServiceNotAvailableException;
 import org.apache.druid.segment.incremental.ParseExceptionReport;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.JUnit5Matchers;
 import org.easymock.EasyMock;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import javax.ws.rs.core.MediaType;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -74,18 +74,18 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
   private ServiceClientFactory serviceClientFactory;
   private SeekableStreamIndexTaskClient<Integer, Long> client;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     serviceClient = new MockServiceClient();
     serviceClientFactory = (serviceName, serviceLocator, retryPolicy) -> {
-      Assert.assertEquals(TASK_ID, serviceName);
+      JUnit5Assertions.assertEquals(TASK_ID, serviceName);
       return serviceClient;
     };
     client = new TestSeekableStreamIndexTaskClientAsyncImpl();
   }
 
-  @After
+  @AfterEach
   public void tearDown()
   {
     serviceClient.verify();
@@ -103,7 +103,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         jsonMapper.writeValueAsBytes(checkpoints)
     );
 
-    Assert.assertEquals(checkpoints, client.getCheckpointsAsync(TASK_ID, false).get());
+    JUnit5Assertions.assertEquals(checkpoints, client.getCheckpointsAsync(TASK_ID, false).get());
   }
 
   @Test
@@ -118,7 +118,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         jsonMapper.writeValueAsBytes(offsets)
     );
 
-    Assert.assertEquals(offsets, client.getCurrentOffsetsAsync(TASK_ID, false).get());
+    JUnit5Assertions.assertEquals(offsets, client.getCurrentOffsetsAsync(TASK_ID, false).get());
   }
 
   @Test
@@ -133,7 +133,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         jsonMapper.writeValueAsBytes(offsets)
     );
 
-    Assert.assertEquals(offsets, client.getEndOffsetsAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(offsets, client.getEndOffsetsAsync(TASK_ID).get());
   }
 
   @Test
@@ -144,7 +144,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         new ServiceNotAvailableException(TASK_ID)
     );
 
-    Assert.assertEquals(Collections.emptyMap(), client.getEndOffsetsAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(Collections.emptyMap(), client.getEndOffsetsAsync(TASK_ID).get());
   }
 
   @Test
@@ -157,7 +157,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         ByteArrays.EMPTY_ARRAY
     );
 
-    Assert.assertEquals(true, client.stopAsync(TASK_ID, true).get());
+    JUnit5Assertions.assertEquals(true, client.stopAsync(TASK_ID, true).get());
   }
 
   @Test
@@ -170,7 +170,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         ByteArrays.EMPTY_ARRAY
     );
 
-    Assert.assertEquals(true, client.stopAsync(TASK_ID, false).get());
+    JUnit5Assertions.assertEquals(true, client.stopAsync(TASK_ID, false).get());
   }
 
   @Test
@@ -186,7 +186,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         )
     );
 
-    Assert.assertEquals(false, client.stopAsync(TASK_ID, false).get());
+    JUnit5Assertions.assertEquals(false, client.stopAsync(TASK_ID, false).get());
   }
 
   @Test
@@ -197,7 +197,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         new ServiceNotAvailableException(TASK_ID)
     );
 
-    Assert.assertEquals(false, client.stopAsync(TASK_ID, false).get());
+    JUnit5Assertions.assertEquals(false, client.stopAsync(TASK_ID, false).get());
   }
 
   @Test
@@ -208,7 +208,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         new ServiceClosedException(TASK_ID)
     );
 
-    Assert.assertEquals(true, client.stopAsync(TASK_ID, false).get());
+    JUnit5Assertions.assertEquals(true, client.stopAsync(TASK_ID, false).get());
   }
 
   @Test
@@ -219,12 +219,12 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         new IOException()
     );
 
-    final ExecutionException e = Assert.assertThrows(
+    final ExecutionException e = JUnit5Assertions.assertThrows(
         ExecutionException.class,
         () -> client.stopAsync(TASK_ID, false).get()
     );
 
-    MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(IOException.class));
+    JUnit5Assertions.assertMatches(e.getCause(), JUnit5Matchers.instanceOf(IOException.class));
   }
 
   @Test
@@ -237,7 +237,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         ByteArrays.EMPTY_ARRAY
     );
 
-    Assert.assertEquals(true, client.resumeAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(true, client.resumeAsync(TASK_ID).get());
   }
 
   @Test
@@ -248,7 +248,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         new IOException()
     );
 
-    Assert.assertEquals(false, client.resumeAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(false, client.resumeAsync(TASK_ID).get());
   }
 
   @Test
@@ -265,7 +265,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         ByteArrays.EMPTY_ARRAY
     );
 
-    Assert.assertEquals(true, client.setEndOffsetsAsync(TASK_ID, offsets, false).get());
+    JUnit5Assertions.assertEquals(true, client.setEndOffsetsAsync(TASK_ID, offsets, false).get());
   }
 
   @Test
@@ -276,7 +276,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         new IOException()
     );
 
-    Assert.assertEquals(false, client.resumeAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(false, client.resumeAsync(TASK_ID).get());
   }
 
   @Test
@@ -289,7 +289,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         jsonMapper.writeValueAsBytes(SeekableStreamIndexTaskRunner.Status.READING)
     );
 
-    Assert.assertEquals(SeekableStreamIndexTaskRunner.Status.READING, client.getStatusAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(SeekableStreamIndexTaskRunner.Status.READING, client.getStatusAsync(TASK_ID).get());
   }
 
   @Test
@@ -300,7 +300,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         new ServiceNotAvailableException(TASK_ID)
     );
 
-    Assert.assertEquals(SeekableStreamIndexTaskRunner.Status.NOT_STARTED, client.getStatusAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(SeekableStreamIndexTaskRunner.Status.NOT_STARTED, client.getStatusAsync(TASK_ID).get());
   }
 
   @Test
@@ -315,7 +315,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         jsonMapper.writeValueAsBytes(startTime)
     );
 
-    Assert.assertEquals(startTime, client.getStartTimeAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(startTime, client.getStartTimeAsync(TASK_ID).get());
   }
 
   @Test
@@ -328,7 +328,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         ByteArrays.EMPTY_ARRAY
     );
 
-    Assert.assertNull(client.getStartTimeAsync(TASK_ID).get());
+    JUnit5Assertions.assertNull(client.getStartTimeAsync(TASK_ID).get());
   }
 
   @Test
@@ -339,7 +339,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         new ServiceNotAvailableException(TASK_ID)
     );
 
-    Assert.assertNull(client.getStartTimeAsync(TASK_ID).get());
+    JUnit5Assertions.assertNull(client.getStartTimeAsync(TASK_ID).get());
   }
 
   @Test
@@ -354,7 +354,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         jsonMapper.writeValueAsBytes(offsets)
     );
 
-    Assert.assertEquals(offsets, client.pauseAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(offsets, client.pauseAsync(TASK_ID).get());
   }
 
   @Test
@@ -369,15 +369,15 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         jsonMapper.writeValueAsBytes(offsets)
     );
 
-    final ExecutionException e = Assert.assertThrows(
+    final ExecutionException e = JUnit5Assertions.assertThrows(
         ExecutionException.class,
         () -> client.pauseAsync(TASK_ID).get()
     );
 
-    MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(IllegalStateException.class));
-    MatcherAssert.assertThat(
+    JUnit5Assertions.assertMatches(e.getCause(), JUnit5Matchers.instanceOf(IllegalStateException.class));
+    JUnit5Assertions.assertMatches(
         e.getCause().getMessage(),
-        CoreMatchers.startsWith("Pause request for task [the-task] failed with response [100 Continue]")
+        JUnit5Matchers.startsWith("Pause request for task [the-task] failed with response [100 Continue]")
     );
   }
 
@@ -403,7 +403,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         jsonMapper.writeValueAsBytes(offsets)
     );
 
-    Assert.assertEquals(offsets, client.pauseAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(offsets, client.pauseAsync(TASK_ID).get());
   }
 
   @Test
@@ -419,12 +419,12 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         new IOException()
     );
 
-    final ExecutionException e = Assert.assertThrows(
+    final ExecutionException e = JUnit5Assertions.assertThrows(
         ExecutionException.class,
         () -> client.pauseAsync(TASK_ID).get()
     );
 
-    MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(IOException.class));
+    JUnit5Assertions.assertMatches(e.getCause(), JUnit5Matchers.instanceOf(IOException.class));
   }
 
   @Test
@@ -454,7 +454,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         jsonMapper.writeValueAsBytes(offsets)
     );
 
-    Assert.assertEquals(offsets, client.pauseAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(offsets, client.pauseAsync(TASK_ID).get());
   }
 
   @Test
@@ -482,15 +482,15 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         jsonMapper.writeValueAsBytes(SeekableStreamIndexTaskRunner.Status.READING)
     );
 
-    final ExecutionException e = Assert.assertThrows(
+    final ExecutionException e = JUnit5Assertions.assertThrows(
         ExecutionException.class,
         () -> client.pauseAsync(TASK_ID).get()
     );
 
-    MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(IllegalStateException.class));
-    MatcherAssert.assertThat(
+    JUnit5Assertions.assertMatches(e.getCause(), JUnit5Matchers.instanceOf(IllegalStateException.class));
+    JUnit5Assertions.assertMatches(
         e.getCause().getMessage(),
-        CoreMatchers.startsWith("Task [the-task] failed to change its status from [READING] to [PAUSED]")
+        JUnit5Matchers.startsWith("Task [the-task] failed to change its status from [READING] to [PAUSED]")
     );
   }
 
@@ -506,7 +506,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         jsonMapper.writeValueAsBytes(retVal)
     );
 
-    Assert.assertEquals(retVal, client.getMovingAveragesAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(retVal, client.getMovingAveragesAsync(TASK_ID).get());
   }
 
   @Test
@@ -519,7 +519,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         ByteArrays.EMPTY_ARRAY
     );
 
-    Assert.assertNull(client.getMovingAveragesAsync(TASK_ID).get());
+    JUnit5Assertions.assertNull(client.getMovingAveragesAsync(TASK_ID).get());
   }
 
   @Test
@@ -532,7 +532,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         null
     );
 
-    Assert.assertNull(client.getMovingAveragesAsync(TASK_ID).get());
+    JUnit5Assertions.assertNull(client.getMovingAveragesAsync(TASK_ID).get());
   }
 
   @Test
@@ -549,7 +549,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         jsonMapper.writeValueAsBytes(retVal)
     );
 
-    Assert.assertEquals(retVal, client.getParseErrorsAsync(TASK_ID).get());
+    JUnit5Assertions.assertEquals(retVal, client.getParseErrorsAsync(TASK_ID).get());
   }
 
   @Test
@@ -562,7 +562,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
         ByteArrays.EMPTY_ARRAY
     );
 
-    Assert.assertNull(client.getParseErrorsAsync(TASK_ID).get());
+    JUnit5Assertions.assertNull(client.getParseErrorsAsync(TASK_ID).get());
   }
 
   @Test
@@ -575,7 +575,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
 
     try (final SeekableStreamIndexTaskClientAsyncImpl.SeekableStreamTaskLocator locator =
              new SeekableStreamIndexTaskClientAsyncImpl.SeekableStreamTaskLocator(taskInfoProvider, TASK_ID)) {
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           ServiceLocations.closed(),
           locator.locate().get()
       );
@@ -596,7 +596,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
 
     try (final SeekableStreamIndexTaskClientAsyncImpl.SeekableStreamTaskLocator locator =
              new SeekableStreamIndexTaskClientAsyncImpl.SeekableStreamTaskLocator(taskInfoProvider, TASK_ID)) {
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           ServiceLocations.forLocations(Collections.emptySet()),
           locator.locate().get()
       );
@@ -617,7 +617,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
 
     try (final SeekableStreamIndexTaskClientAsyncImpl.SeekableStreamTaskLocator locator =
              new SeekableStreamIndexTaskClientAsyncImpl.SeekableStreamTaskLocator(taskInfoProvider, TASK_ID)) {
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           ServiceLocations.forLocation(new ServiceLocation("foo", 80, -1, "/druid/worker/v1/chat/" + TASK_ID)),
           locator.locate().get()
       );
@@ -636,7 +636,7 @@ public class SeekableStreamIndexTaskClientAsyncImplTest
 
     try (final SeekableStreamIndexTaskClientAsyncImpl.SeekableStreamTaskLocator locator =
              new SeekableStreamIndexTaskClientAsyncImpl.SeekableStreamTaskLocator(taskInfoProvider, TASK_ID)) {
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           ServiceLocations.closed(),
           locator.locate().get()
       );

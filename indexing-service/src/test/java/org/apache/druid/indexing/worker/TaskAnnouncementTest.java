@@ -29,8 +29,8 @@ import org.apache.druid.indexing.common.task.IndexTask;
 import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.indexing.common.task.TaskResource;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.Test;
 
 public class TaskAnnouncementTest
 {
@@ -70,15 +70,15 @@ public class TaskAnnouncementTest
         TaskAnnouncement.class
     );
 
-    Assert.assertEquals("theid", statusFromStatus.getId());
-    Assert.assertEquals("theid", statusFromAnnouncement.getId());
-    Assert.assertEquals("theid", announcementFromStatus.getTaskStatus().getId());
-    Assert.assertEquals("theid", announcementFromAnnouncement.getTaskStatus().getId());
+    JUnit5Assertions.assertEquals(statusFromStatus.getId(), "theid");
+    JUnit5Assertions.assertEquals(statusFromAnnouncement.getId(), "theid");
+    JUnit5Assertions.assertEquals(announcementFromStatus.getTaskStatus().getId(), "theid");
+    JUnit5Assertions.assertEquals(announcementFromAnnouncement.getTaskStatus().getId(), "theid");
 
-    Assert.assertEquals("theid", announcementFromStatus.getTaskResource().getAvailabilityGroup());
-    Assert.assertEquals("rofl", announcementFromAnnouncement.getTaskResource().getAvailabilityGroup());
+    JUnit5Assertions.assertEquals(announcementFromStatus.getTaskResource().getAvailabilityGroup(), "theid");
+    JUnit5Assertions.assertEquals(announcementFromAnnouncement.getTaskResource().getAvailabilityGroup(), "rofl");
 
-    Assert.assertEquals(1, announcementFromStatus.getTaskResource().getRequiredCapacity());
-    Assert.assertEquals(2, announcementFromAnnouncement.getTaskResource().getRequiredCapacity());
+    JUnit5Assertions.assertEquals(1, announcementFromStatus.getTaskResource().getRequiredCapacity());
+    JUnit5Assertions.assertEquals(2, announcementFromAnnouncement.getTaskResource().getRequiredCapacity());
   }
 }

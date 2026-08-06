@@ -23,12 +23,12 @@ import com.google.common.collect.ImmutableList;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.partition.NumberedOverwriteShardSpec;
 import org.apache.druid.timeline.partition.PartitionIds;
 import org.joda.time.Interval;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -51,7 +51,7 @@ public class TaskLockHelperTest
         createSegment(3, 3, 4, (short) 1, (short) 1)    // rootPartitionRange [3, 4)
     );
 
-    Assertions.assertThrows(
+    JUnit5Assertions.assertThrows(
         ISE.class,
         () -> TaskLockHelper.verifyRootPartitionIsAdjacentAndAtomicUpdateGroupIsFull(segments)
     );
@@ -90,7 +90,7 @@ public class TaskLockHelperTest
         createSegment(10, 10, 11, (short) 1, (short) 1)
     );
 
-    Assertions.assertThrows(
+    JUnit5Assertions.assertThrows(
         ISE.class,
         () -> TaskLockHelper.verifyRootPartitionIsAdjacentAndAtomicUpdateGroupIsFull(segments)
     );
@@ -116,7 +116,7 @@ public class TaskLockHelperTest
     );
 
     // Should throw ISE because atomicUpdateGroupSize is 3 but we only have 2 segments
-    Assertions.assertThrows(
+    JUnit5Assertions.assertThrows(
         ISE.class,
         () -> TaskLockHelper.verifyRootPartitionIsAdjacentAndAtomicUpdateGroupIsFull(segments)
     );
@@ -130,7 +130,7 @@ public class TaskLockHelperTest
         createSegment(0, 0, 1, (short) 1, (short) 2),
         createSegment(1, 0, 1, (short) 2, (short) 2) // Different minor version
     );
-    Assertions.assertThrows(
+    JUnit5Assertions.assertThrows(
         ISE.class,
         () -> TaskLockHelper.verifyRootPartitionIsAdjacentAndAtomicUpdateGroupIsFull(segments)
     );
@@ -144,7 +144,7 @@ public class TaskLockHelperTest
         createSegment(0, 0, 1, (short) 1, (short) 2),
         createSegment(1, 0, 1, (short) 1, (short) 3)
     );
-    Assertions.assertThrows(
+    JUnit5Assertions.assertThrows(
         ISE.class,
         () -> TaskLockHelper.verifyRootPartitionIsAdjacentAndAtomicUpdateGroupIsFull(segments)
     );
@@ -193,7 +193,7 @@ public class TaskLockHelperTest
             .size(0)
             .build()
     );
-    Assertions.assertThrows(
+    JUnit5Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> TaskLockHelper.verifyRootPartitionIsAdjacentAndAtomicUpdateGroupIsFull(segments)
     );

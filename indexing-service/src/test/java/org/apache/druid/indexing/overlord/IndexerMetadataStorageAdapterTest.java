@@ -28,12 +28,11 @@ import org.apache.druid.indexing.common.task.NoopTask;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.metadata.TaskLookup;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.EasyMock;
-import org.hamcrest.MatcherAssert;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -43,7 +42,7 @@ public class IndexerMetadataStorageAdapterTest
   private IndexerMetadataStorageCoordinator indexerMetadataStorageCoordinator;
   private IndexerMetadataStorageAdapter indexerMetadataStorageAdapter;
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     indexerMetadataStorageCoordinator = EasyMock.strictMock(IndexerMetadataStorageCoordinator.class);
@@ -82,7 +81,7 @@ public class IndexerMetadataStorageAdapterTest
         .andReturn(10);
     EasyMock.replay(taskStorage, indexerMetadataStorageCoordinator);
 
-    Assert.assertEquals(10, indexerMetadataStorageAdapter.deletePendingSegments("dataSource", deleteInterval));
+    JUnit5Assertions.assertEquals(10, indexerMetadataStorageAdapter.deletePendingSegments("dataSource", deleteInterval));
   }
 
   @Test
@@ -115,8 +114,8 @@ public class IndexerMetadataStorageAdapterTest
         .andReturn(10);
     EasyMock.replay(taskStorage, indexerMetadataStorageCoordinator);
 
-    MatcherAssert.assertThat(
-        Assert.assertThrows(
+    JUnit5Assertions.assertMatches(
+        JUnit5Assertions.assertThrows(
             DruidException.class,
             () -> indexerMetadataStorageAdapter.deletePendingSegments("dataSource", deleteInterval)
         ),
@@ -158,8 +157,8 @@ public class IndexerMetadataStorageAdapterTest
         .andReturn(10);
     EasyMock.replay(taskStorage, indexerMetadataStorageCoordinator);
 
-    MatcherAssert.assertThat(
-        Assert.assertThrows(
+    JUnit5Assertions.assertMatches(
+        JUnit5Assertions.assertThrows(
             DruidException.class,
             () -> indexerMetadataStorageAdapter.deletePendingSegments("dataSource", deleteInterval)
         ),

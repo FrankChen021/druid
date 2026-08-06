@@ -30,11 +30,11 @@ import org.apache.druid.segment.data.CompressionStrategy;
 import org.apache.druid.segment.incremental.AppendableIndexBuilder;
 import org.apache.druid.segment.incremental.AppendableIndexSpec;
 import org.apache.druid.segment.indexing.TuningConfig;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.utils.JvmUtils;
 import org.apache.druid.utils.RuntimeInfo;
 import org.joda.time.Period;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.io.File;
@@ -66,36 +66,36 @@ public class SeekableStreamAppenderatorConfigTest
     final SeekableStreamAppenderatorConfig appenderatorConfig =
         SeekableStreamAppenderatorConfig.fromTuningConfig(tuningConfig, null);
 
-    Assert.assertEquals(tuningConfig.isReportParseExceptions(), appenderatorConfig.isReportParseExceptions());
-    Assert.assertEquals(tuningConfig.getMaxPendingPersists(), appenderatorConfig.getMaxPendingPersists());
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(tuningConfig.isReportParseExceptions(), appenderatorConfig.isReportParseExceptions());
+    JUnit5Assertions.assertEquals(tuningConfig.getMaxPendingPersists(), appenderatorConfig.getMaxPendingPersists());
+    JUnit5Assertions.assertEquals(
         tuningConfig.isSkipBytesInMemoryOverheadCheck(),
         appenderatorConfig.isSkipBytesInMemoryOverheadCheck()
     );
-    Assert.assertEquals(tuningConfig.getIntermediatePersistPeriod(), appenderatorConfig.getIntermediatePersistPeriod());
-    Assert.assertEquals(tuningConfig.getBasePersistDirectory(), appenderatorConfig.getBasePersistDirectory());
-    Assert.assertEquals(tuningConfig.getMaxRowsInMemory(), appenderatorConfig.getMaxRowsInMemory());
-    Assert.assertEquals(tuningConfig.getMaxBytesInMemory(), appenderatorConfig.getMaxBytesInMemory());
-    Assert.assertEquals(tuningConfig.getIndexSpec(), appenderatorConfig.getIndexSpec());
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(tuningConfig.getIntermediatePersistPeriod(), appenderatorConfig.getIntermediatePersistPeriod());
+    JUnit5Assertions.assertEquals(tuningConfig.getBasePersistDirectory(), appenderatorConfig.getBasePersistDirectory());
+    JUnit5Assertions.assertEquals(tuningConfig.getMaxRowsInMemory(), appenderatorConfig.getMaxRowsInMemory());
+    JUnit5Assertions.assertEquals(tuningConfig.getMaxBytesInMemory(), appenderatorConfig.getMaxBytesInMemory());
+    JUnit5Assertions.assertEquals(tuningConfig.getIndexSpec(), appenderatorConfig.getIndexSpec());
+    JUnit5Assertions.assertEquals(
         tuningConfig.getIndexSpecForIntermediatePersists(),
         appenderatorConfig.getIndexSpecForIntermediatePersists()
     );
-    Assert.assertEquals(tuningConfig.getNumPersistThreads(), appenderatorConfig.getNumPersistThreads());
-    Assert.assertEquals(tuningConfig.getMaxRowsPerSegment(), appenderatorConfig.getMaxRowsPerSegment());
-    Assert.assertEquals(tuningConfig.getMaxTotalRows(), appenderatorConfig.getMaxTotalRows());
-    Assert.assertEquals(tuningConfig.getMaxColumnsToMerge(), appenderatorConfig.getMaxColumnsToMerge());
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(tuningConfig.getNumPersistThreads(), appenderatorConfig.getNumPersistThreads());
+    JUnit5Assertions.assertEquals(tuningConfig.getMaxRowsPerSegment(), appenderatorConfig.getMaxRowsPerSegment());
+    JUnit5Assertions.assertEquals(tuningConfig.getMaxTotalRows(), appenderatorConfig.getMaxTotalRows());
+    JUnit5Assertions.assertEquals(tuningConfig.getMaxColumnsToMerge(), appenderatorConfig.getMaxColumnsToMerge());
+    JUnit5Assertions.assertEquals(
         tuningConfig.isSkipBytesInMemoryOverheadCheck(),
         appenderatorConfig.isSkipBytesInMemoryOverheadCheck()
     );
-    Assert.assertEquals(tuningConfig.getMaxColumnsToMerge(), appenderatorConfig.getMaxColumnsToMerge());
+    JUnit5Assertions.assertEquals(tuningConfig.getMaxColumnsToMerge(), appenderatorConfig.getMaxColumnsToMerge());
   }
 
   @Test
   public void test_calculateDefaultMaxColumnsToMerge_direct2g_xmx1g_maxBytesAuto_2proc_1merge()
   {
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         17293,
         SeekableStreamAppenderatorConfig.calculateDefaultMaxColumnsToMerge(
             new DruidProcessingConfigTest.MockRuntimeInfo(2, 2_000_000_000L, 1_000_000_000L),
@@ -108,7 +108,7 @@ public class SeekableStreamAppenderatorConfigTest
   @Test
   public void test_calculateDefaultMaxColumnsToMerge_direct2g_xmx1g_maxBytesUnlimited_2proc_1merge()
   {
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         17293,
         SeekableStreamAppenderatorConfig.calculateDefaultMaxColumnsToMerge(
             new DruidProcessingConfigTest.MockRuntimeInfo(2, 2_000_000_000L, 1_000_000_000L),
@@ -121,7 +121,7 @@ public class SeekableStreamAppenderatorConfigTest
   @Test
   public void test_calculateDefaultMaxColumnsToMerge_direct1800m_xmx1g_maxBytesUnlimited_2proc_1merge()
   {
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         15258,
         SeekableStreamAppenderatorConfig.calculateDefaultMaxColumnsToMerge(
             new DruidProcessingConfigTest.MockRuntimeInfo(2, 1_800_000_000L, 1_000_000_000L),
@@ -134,7 +134,7 @@ public class SeekableStreamAppenderatorConfigTest
   @Test
   public void test_calculateDefaultMaxColumnsToMerge_direct1800m_xmx1g_maxBytesUnlimited_3proc_2merge()
   {
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         13224,
         SeekableStreamAppenderatorConfig.calculateDefaultMaxColumnsToMerge(
             new DruidProcessingConfigTest.MockRuntimeInfo(3, 1_800_000_000L, 1_000_000_000L),
@@ -147,7 +147,7 @@ public class SeekableStreamAppenderatorConfigTest
   @Test
   public void test_calculateDefaultMaxColumnsToMerge_direct2g_xmx1g_maxBytes20m_2proc_1merge()
   {
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         6666,
         SeekableStreamAppenderatorConfig.calculateDefaultMaxColumnsToMerge(
             new DruidProcessingConfigTest.MockRuntimeInfo(2, 2_000_000_000L, 1_000_000_000L),
@@ -160,7 +160,7 @@ public class SeekableStreamAppenderatorConfigTest
   @Test
   public void test_calculateDefaultMaxColumnsToMerge_directUnsupported_xmx1g_maxBytes20m_2proc_1merge()
   {
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         1017,
         SeekableStreamAppenderatorConfig.calculateDefaultMaxColumnsToMerge(
             new RuntimeInfo()

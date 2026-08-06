@@ -33,19 +33,18 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.rpc.indexing.NoopOverlordClient;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.segment.loading.StorageLocationConfig;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.BucketNumberedShardSpec;
 import org.apache.druid.timeline.partition.BuildingShardSpec;
 import org.apache.druid.timeline.partition.ShardSpec;
 import org.apache.druid.timeline.partition.ShardSpecLookup;
-import org.hamcrest.MatcherAssert;
 import org.joda.time.Interval;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,14 +54,14 @@ import java.util.Optional;
 
 public class LocalIntermediaryDataManagerManualAddAndDeleteTest
 {
-  @Rule
-  public TemporaryFolder tempDir = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension tempDir = new TempDirExtension();
 
   private LocalIntermediaryDataManager intermediaryDataManager;
   private File intermediarySegmentsLocation;
   private File siblingLocation;
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException
   {
     final WorkerConfig workerConfig = new WorkerConfig();
@@ -76,7 +75,7 @@ public class LocalIntermediaryDataManagerManualAddAndDeleteTest
     intermediaryDataManager.start();
   }
 
-  @After
+  @AfterEach
   public void teardown()
   {
     intermediaryDataManager.stop();
@@ -94,11 +93,11 @@ public class LocalIntermediaryDataManagerManualAddAndDeleteTest
     File segmentFile = generateSegmentDir("file_" + i);
     DataSegment segment = newSegment(Intervals.of("2018/2019"), 4);
 
-    IllegalStateException e = Assert.assertThrows(
+    IllegalStateException e = JUnit5Assertions.assertThrows(
         IllegalStateException.class,
         () -> intermediaryDataManager.addSegment("supervisorTaskId", "subTaskId", segment, segmentFile)
     );
-    Assert.assertEquals(StringUtils.format("Can't find location to handle segment[%s]", segment), e.getMessage());
+    JUnit5Assertions.assertEquals(StringUtils.format("Can't find location to handle segment[%s]", segment), e.getMessage());
   }
 
   @Test
@@ -119,7 +118,7 @@ public class LocalIntermediaryDataManagerManualAddAndDeleteTest
           interval,
           partitionId
       );
-      Assert.assertTrue(file.isPresent());
+      JUnit5Assertions.assertTrue(file.isPresent());
     }
   }
 
@@ -140,7 +139,7 @@ public class LocalIntermediaryDataManagerManualAddAndDeleteTest
 
     for (int partitionId = 0; partitionId < 2; partitionId++) {
       for (int subTaskId = 0; subTaskId < 2; subTaskId++) {
-        Assert.assertFalse(
+        JUnit5Assertions.assertFalse(
             intermediaryDataManager.findPartitionFile(supervisorTaskId, "subTaskId_" + subTaskId, interval, partitionId)
                                    .isPresent()
         );
@@ -176,10 +175,10 @@ public class LocalIntermediaryDataManagerManualAddAndDeleteTest
         "test data",
         StandardCharsets.UTF_8
     );
-    Assert.assertTrue(new File(intermediarySegmentsLocation, supervisorTaskId).exists());
-    Assert.assertTrue(dataFile.exists());
-    MatcherAssert.assertThat(
-        Assert.assertThrows(DruidException.class, () -> intermediaryDataManager.deletePartitions(supervisorTaskId)),
+    JUnit5Assertions.assertTrue(new File(intermediarySegmentsLocation, supervisorTaskId).exists());
+    JUnit5Assertions.assertTrue(dataFile.exists());
+    JUnit5Assertions.assertMatches(
+        JUnit5Assertions.assertThrows(DruidException.class, () -> intermediaryDataManager.deletePartitions(supervisorTaskId)),
         DruidExceptionMatcher.invalidInput().expectMessageIs(
             StringUtils.format(
                 "Invalid value for field [supervisorTaskId]: Value [%s] cannot start with '.'.",
@@ -187,8 +186,8 @@ public class LocalIntermediaryDataManagerManualAddAndDeleteTest
             )
         )
     );
-    Assert.assertTrue(new File(intermediarySegmentsLocation, supervisorTaskId).exists());
-    Assert.assertTrue(dataFile.exists());
+    JUnit5Assertions.assertTrue(new File(intermediarySegmentsLocation, supervisorTaskId).exists());
+    JUnit5Assertions.assertTrue(dataFile.exists());
   }
 
   @Test
@@ -213,13 +212,13 @@ public class LocalIntermediaryDataManagerManualAddAndDeleteTest
         StandardCharsets.UTF_8
     );
 
-    Assert.assertTrue(new File(intermediarySegmentsLocation, supervisorTaskId).exists());
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(new File(intermediarySegmentsLocation, supervisorTaskId).exists());
+    JUnit5Assertions.assertTrue(
         new File(intermediarySegmentsLocation, supervisorTaskId + "/" + someFilePath).exists());
 
 
-    MatcherAssert.assertThat(
-        Assert.assertThrows(DruidException.class, () ->
+    JUnit5Assertions.assertMatches(
+        JUnit5Assertions.assertThrows(DruidException.class, () ->
             intermediaryDataManager.findPartitionFile(
                 supervisorTaskId,
                 someFile,

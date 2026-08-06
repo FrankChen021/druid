@@ -45,18 +45,18 @@ import org.apache.druid.segment.loading.LocalDataSegmentPusherConfig;
 import org.apache.druid.segment.loading.LocalLoadSpec;
 import org.apache.druid.segment.loading.SegmentLoadingException;
 import org.apache.druid.segment.loading.StorageLocationConfig;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.BucketNumberedShardSpec;
 import org.apache.druid.utils.CompressionUtils;
 import org.joda.time.Interval;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 import java.io.File;
@@ -68,20 +68,20 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+@MethodSource("data")
 public class ShuffleDataSegmentPusherTest
 {
   private static final String LOCAL = "local";
   private static final String DEEPSTORE = "deepstore";
 
-  @Parameterized.Parameters(name = "intermediateDataManager={0}")
   public static Collection<Object[]> data()
   {
     return ImmutableList.of(new Object[]{LOCAL}, new Object[]{DEEPSTORE});
   }
 
-  @Rule
-  public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public final TempDirExtension temporaryFolder = new TempDirExtension();
 
   private IntermediaryDataManager intermediaryDataManager;
   private ShuffleDataSegmentPusher segmentPusher;
@@ -95,7 +95,7 @@ public class ShuffleDataSegmentPusherTest
     this.intermediateDataStore = intermediateDataStore;
   }
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException
   {
     final WorkerConfig workerConfig = new WorkerConfig();
@@ -136,7 +136,7 @@ public class ShuffleDataSegmentPusherTest
     );
   }
 
-  @After
+  @AfterEach
   public void teardown()
   {
     intermediaryDataManager.stop();
@@ -149,8 +149,8 @@ public class ShuffleDataSegmentPusherTest
     final DataSegment segment = newSegment(Intervals.of("2018/2019"));
     final DataSegment pushed = segmentPusher.push(segmentDir, segment, true);
 
-    Assert.assertEquals(9, pushed.getBinaryVersion().intValue());
-    Assert.assertEquals(14, pushed.getSize()); // 10 bytes data + 4 bytes version
+    JUnit5Assertions.assertEquals(9, pushed.getBinaryVersion().intValue());
+    JUnit5Assertions.assertEquals(14, pushed.getSize()); // 10 bytes data + 4 bytes version
 
     final File tempDir = temporaryFolder.newFolder();
     if (intermediaryDataManager instanceof LocalIntermediaryDataManager) {
@@ -160,7 +160,7 @@ public class ShuffleDataSegmentPusherTest
           segment.getInterval(),
           segment.getShardSpec().getPartitionNum()
       );
-      Assert.assertTrue(zippedSegment.isPresent());
+      JUnit5Assertions.assertTrue(zippedSegment.isPresent());
       CompressionUtils.unzip(
           zippedSegment.get(),
           tempDir,
@@ -169,7 +169,7 @@ public class ShuffleDataSegmentPusherTest
       );
     } else if (intermediaryDataManager instanceof DeepStorageIntermediaryDataManager) {
       final LoadSpec loadSpec = mapper.convertValue(pushed.getLoadSpec(), LoadSpec.class);
-      Assert.assertTrue(pushed.getLoadSpec()
+      JUnit5Assertions.assertTrue(pushed.getLoadSpec()
                               .get("path")
                               .toString()
                               .startsWith(localDeepStore.getAbsolutePath()
@@ -181,11 +181,11 @@ public class ShuffleDataSegmentPusherTest
     final List<File> unzippedFiles = Arrays.asList(tempDir.listFiles());
     unzippedFiles.sort(Comparator.comparing(File::getName));
     final File dataFile = unzippedFiles.get(0);
-    Assert.assertEquals("test", dataFile.getName());
-    Assert.assertEquals("test data.", Files.readFirstLine(dataFile, StandardCharsets.UTF_8));
+    JUnit5Assertions.assertEquals(dataFile.getName(), "test");
+    JUnit5Assertions.assertEquals(Files.readFirstLine(dataFile, StandardCharsets.UTF_8), "test data.");
     final File versionFile = unzippedFiles.get(1);
-    Assert.assertEquals("version.bin", versionFile.getName());
-    Assert.assertArrayEquals(Ints.toByteArray(0x9), Files.toByteArray(versionFile));
+    JUnit5Assertions.assertEquals(versionFile.getName(), "version.bin");
+    JUnit5Assertions.assertArrayEquals(Ints.toByteArray(0x9), Files.toByteArray(versionFile));
   }
 
   private File generateSegmentDir() throws IOException

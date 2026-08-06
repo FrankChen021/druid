@@ -33,18 +33,17 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.explain.ExplainAttributes;
 import org.apache.druid.query.explain.ExplainPlan;
 import org.apache.druid.query.http.ClientSqlQuery;
-import org.hamcrest.MatcherAssert;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.Collections;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertEquals;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertFalse;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertThrows;
+import static org.apache.druid.testing.junit5.JUnit5Assertions.assertTrue;
 
 public class ScheduledBatchSupervisorSpecTest
 {
@@ -53,7 +52,7 @@ public class ScheduledBatchSupervisorSpecTest
   private ScheduledBatchTaskManager scheduler;
   private ClientSqlQuery query;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     brokerClient = Mockito.mock(BrokerClient.class);
@@ -206,7 +205,7 @@ public class ScheduledBatchSupervisorSpecTest
                ))
            ));
 
-    MatcherAssert.assertThat(
+    JUnit5Assertions.assertMatches(
         assertThrows(
             DruidException.class,
             () -> new ScheduledBatchSupervisorSpec(
@@ -239,7 +238,7 @@ public class ScheduledBatchSupervisorSpecTest
         scheduler,
         brokerClient
     );
-    Assert.assertTrue(supervisorSpec.getInputSourceResources().isEmpty());
+    JUnit5Assertions.assertTrue(supervisorSpec.getInputSourceResources().isEmpty());
   }
 
   private void testSerde(final ScheduledBatchSupervisorSpec spec)

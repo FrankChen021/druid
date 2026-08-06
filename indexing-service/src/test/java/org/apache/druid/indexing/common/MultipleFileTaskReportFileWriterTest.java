@@ -24,10 +24,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.indexer.report.IngestionStatsAndErrorsTaskReport;
 import org.apache.druid.indexer.report.TaskReport;
 import org.apache.druid.segment.TestHelper;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.io.IOException;
@@ -38,8 +38,8 @@ public class MultipleFileTaskReportFileWriterTest
 {
   private static final String TASK_ID = "mytask";
 
-  @Rule
-  public final TemporaryFolder tempFolder = new TemporaryFolder();
+  @RegisterExtension
+  public final TempDirExtension tempFolder = new TempDirExtension();
 
   @Test
   public void testReport() throws IOException
@@ -56,11 +56,11 @@ public class MultipleFileTaskReportFileWriterTest
 
     writer.write(TASK_ID, reportsMap);
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         reportsMap,
         mapper.readValue(Files.readAllBytes(file.toPath()), new TypeReference<Map<String, TaskReport>>() {})
     );
 
-    Assert.assertEquals(file.getAbsolutePath(), writer.getReportsFile(TASK_ID).getAbsolutePath());
+    JUnit5Assertions.assertEquals(file.getAbsolutePath(), writer.getReportsFile(TASK_ID).getAbsolutePath());
   }
 }

@@ -85,6 +85,7 @@ import org.apache.druid.java.util.metrics.MonitorScheduler;
 import org.apache.druid.java.util.metrics.StubServiceEmitter;
 import org.apache.druid.metadata.DerbyMetadataStorageActionHandlerFactory;
 import org.apache.druid.metadata.IndexerSQLMetadataStorageCoordinator;
+import org.apache.druid.metadata.JUnit5TestDerbyConnector;
 import org.apache.druid.metadata.TestDerbyConnector;
 import org.apache.druid.metadata.segment.SqlSegmentMetadataTransactionFactory;
 import org.apache.druid.metadata.segment.cache.NoopSegmentMetadataCache;
@@ -126,20 +127,20 @@ import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.coordinator.simulate.TestDruidLeaderSelector;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
 import org.apache.druid.server.security.AuthTestUtils;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.utils.CompressionUtils;
 import org.apache.druid.utils.JvmUtils;
-import org.assertj.core.api.Assertions;
 import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
 import org.joda.time.Interval;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -156,15 +157,17 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public abstract class SeekableStreamIndexTaskTestBase extends EasyMockSupport
 {
   private static final Logger log = new Logger(SeekableStreamIndexTaskTestBase.class);
 
-  @Rule
-  public final TemporaryFolder tempFolder = new TemporaryFolder();
+  @RegisterExtension
+  public final TempDirExtension tempFolder = new TempDirExtension();
 
-  @Rule
-  public final TestDerbyConnector.DerbyConnectorRule derby = new TestDerbyConnector.DerbyConnectorRule();
+  @RegisterExtension
+  public final JUnit5TestDerbyConnector derby = new JUnit5TestDerbyConnector();
 
   protected static final ObjectMapper OBJECT_MAPPER;
   protected static final DataSchema DATA_SCHEMA =
@@ -218,7 +221,7 @@ public abstract class SeekableStreamIndexTaskTestBase extends EasyMockSupport
     this.lockGranularity = lockGranularity;
   }
 
-  @Before
+  @BeforeEach
   public void setupBase()
   {
     emitter = new StubServiceEmitter();
@@ -226,7 +229,7 @@ public abstract class SeekableStreamIndexTaskTestBase extends EasyMockSupport
     EmittingLogger.registerEmitter(emitter);
   }
 
-  @After
+  @AfterEach
   public void tearDownBase()
   {
     emitter.close();
@@ -391,12 +394,12 @@ public abstract class SeekableStreamIndexTaskTestBase extends EasyMockSupport
 
   protected void verifyPersistAndMergeTimeMetricsArePositive(SegmentGenerationMetrics observedSegmentGenerationMetrics)
   {
-    Assert.assertNotNull(observedSegmentGenerationMetrics);
-    Assert.assertTrue(observedSegmentGenerationMetrics.persistTimeMillis() > 0);
-    Assert.assertTrue(observedSegmentGenerationMetrics.persistCpuTime() > 0);
+    JUnit5Assertions.assertNotNull(observedSegmentGenerationMetrics);
+    JUnit5Assertions.assertTrue(observedSegmentGenerationMetrics.persistTimeMillis() > 0);
+    JUnit5Assertions.assertTrue(observedSegmentGenerationMetrics.persistCpuTime() > 0);
 
-    Assert.assertTrue(observedSegmentGenerationMetrics.mergeTimeMillis() > 0);
-    Assert.assertTrue(observedSegmentGenerationMetrics.mergeCpuTime() > 0);
+    JUnit5Assertions.assertTrue(observedSegmentGenerationMetrics.mergeTimeMillis() > 0);
+    JUnit5Assertions.assertTrue(observedSegmentGenerationMetrics.mergeCpuTime() > 0);
   }
 
   protected void assertEqualsExceptVersion(
@@ -404,7 +407,7 @@ public abstract class SeekableStreamIndexTaskTestBase extends EasyMockSupport
       List<SegmentDescriptor> actualDescriptors
   ) throws IOException
   {
-    Assert.assertEquals("number of segments", expectedDescriptors.size(), actualDescriptors.size());
+    JUnit5Assertions.assertEquals(expectedDescriptors.size(), actualDescriptors.size(), "number of segments");
     final Comparator<SegmentDescriptor> comparator = (s1, s2) -> {
       final int intervalCompare = Comparators.intervalsByStartThenEnd().compare(s1.getInterval(), s2.getInterval());
       if (intervalCompare == 0) {
@@ -424,18 +427,18 @@ public abstract class SeekableStreamIndexTaskTestBase extends EasyMockSupport
     for (int i = 0; i < expectedDescsCopy.size(); i++) {
       SegmentDescriptorAndExpectedDim1Values expectedDesc = expectedDescsCopy.get(i);
       SegmentDescriptor actualDesc = actualDescsCopy.get(i);
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           expectedDesc.segmentDescriptor.getInterval(),
           actualDesc.getInterval()
       );
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           expectedDesc.segmentDescriptor.getPartitionNumber(),
           actualDesc.getPartitionNumber()
       );
       if (expectedDesc.expectedDim1Values.isEmpty()) {
         continue; // Treating empty expectedDim1Values as a signal that checking the dim1 column value is not needed.
       }
-      Assertions.assertThat(readSegmentColumn("dim1", actualDesc))
+      assertThat(readSegmentColumn("dim1", actualDesc))
                 .describedAs("dim1 values")
                 .isIn(expectedDesc.expectedDim1Values);
     }
@@ -548,7 +551,7 @@ public abstract class SeekableStreamIndexTaskTestBase extends EasyMockSupport
       RowIngestionMetersTotals expectedTotals
   )
   {
-    Assert.assertEquals(expectedTotals, task.getRunner().getRowIngestionMeters().getTotals());
+    JUnit5Assertions.assertEquals(expectedTotals, task.getRunner().getRowIngestionMeters().getTotals());
   }
 
   protected abstract QueryRunnerFactoryConglomerate makeQueryRunnerConglomerate();

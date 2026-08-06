@@ -59,16 +59,18 @@ import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.segment.transform.ExpressionTransform;
 import org.apache.druid.segment.transform.TransformSpec;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.ExpectedToThrow;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -81,7 +83,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+@MethodSource("constructorFeeder")
 public class InputSourceSamplerTest extends InitializedNullHandlingTest
 {
   private enum ParserType
@@ -114,10 +117,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
   private InputSourceSampler inputSourceSampler;
   private ParserType parserType;
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
-  @Parameterized.Parameters(name = "parserType = {0}")
   public static Iterable<Object[]> constructorFeeder()
   {
     OBJECT_MAPPER.registerModules(new SamplerModule().getJacksonModules());
@@ -132,7 +134,7 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
     this.parserType = parserType;
   }
 
-  @Before
+  @BeforeEach
   public void setupTest()
   {
     inputSourceSampler = new InputSourceSampler(OBJECT_MAPPER);
@@ -168,9 +170,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
     final InputSource inputSource = createInputSource(getTestRows());
     final SamplerResponse response = inputSourceSampler.sample(inputSource, createInputFormat(), null, null);
 
-    Assert.assertEquals(6, response.getNumRowsRead());
-    Assert.assertEquals(0, response.getNumRowsIndexed());
-    Assert.assertEquals(6, response.getData().size());
+    JUnit5Assertions.assertEquals(6, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(0, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(6, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
 
@@ -241,9 +243,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
         new SamplerConfig(3, null, null, null)
     );
 
-    Assert.assertEquals(3, response.getNumRowsRead());
-    Assert.assertEquals(0, response.getNumRowsIndexed());
-    Assert.assertEquals(3, response.getData().size());
+    JUnit5Assertions.assertEquals(3, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(0, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(3, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
 
@@ -287,9 +289,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
 
     SamplerResponse response = inputSourceSampler.sample(inputSource, inputFormat, dataSchema, null);
 
-    Assert.assertEquals(6, response.getNumRowsRead());
-    Assert.assertEquals(6, response.getNumRowsIndexed());
-    Assert.assertEquals(6, response.getData().size());
+    JUnit5Assertions.assertEquals(6, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(6, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(6, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
 
@@ -396,9 +398,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
 
     SamplerResponse response = inputSourceSampler.sample(inputSource, inputFormat, dataSchema, null);
 
-    Assert.assertEquals(6, response.getNumRowsRead());
-    Assert.assertEquals(5, response.getNumRowsIndexed());
-    Assert.assertEquals(6, response.getData().size());
+    JUnit5Assertions.assertEquals(6, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(5, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(6, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
 
@@ -496,9 +498,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
 
     SamplerResponse response = inputSourceSampler.sample(inputSource, inputFormat, dataSchema, null);
 
-    Assert.assertEquals(6, response.getNumRowsRead());
-    Assert.assertEquals(5, response.getNumRowsIndexed());
-    Assert.assertEquals(6, response.getData().size());
+    JUnit5Assertions.assertEquals(6, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(5, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(6, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
 
@@ -602,9 +604,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
 
     SamplerResponse response = inputSourceSampler.sample(inputSource, inputFormat, dataSchema, null);
 
-    Assert.assertEquals(6, response.getNumRowsRead());
-    Assert.assertEquals(5, response.getNumRowsIndexed());
-    Assert.assertEquals(6, response.getData().size());
+    JUnit5Assertions.assertEquals(6, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(5, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(6, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
 
@@ -713,9 +715,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
 
     SamplerResponse response = inputSourceSampler.sample(inputSource, inputFormat, dataSchema, null);
 
-    Assert.assertEquals(6, response.getNumRowsRead());
-    Assert.assertEquals(5, response.getNumRowsIndexed());
-    Assert.assertEquals(4, response.getData().size());
+    JUnit5Assertions.assertEquals(6, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(5, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(4, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
 
@@ -796,9 +798,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
 
     SamplerResponse response = inputSourceSampler.sample(inputSource, inputFormat, dataSchema, null);
 
-    Assert.assertEquals(6, response.getNumRowsRead());
-    Assert.assertEquals(5, response.getNumRowsIndexed());
-    Assert.assertEquals(3, response.getData().size());
+    JUnit5Assertions.assertEquals(6, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(5, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(3, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
 
@@ -867,9 +869,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
 
     SamplerResponse response = inputSourceSampler.sample(inputSource, inputFormat, dataSchema, null);
 
-    Assert.assertEquals(6, response.getNumRowsRead());
-    Assert.assertEquals(5, response.getNumRowsIndexed());
-    Assert.assertEquals(4, response.getData().size());
+    JUnit5Assertions.assertEquals(6, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(5, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(4, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
 
@@ -956,9 +958,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
 
     SamplerResponse response = inputSourceSampler.sample(inputSource, inputFormat, dataSchema, null);
 
-    Assert.assertEquals(6, response.getNumRowsRead());
-    Assert.assertEquals(5, response.getNumRowsIndexed());
-    Assert.assertEquals(3, response.getData().size());
+    JUnit5Assertions.assertEquals(6, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(5, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(3, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
 
@@ -1024,9 +1026,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
 
     SamplerResponse response = inputSourceSampler.sample(inputSource, inputFormat, dataSchema, null);
 
-    Assert.assertEquals(5, response.getNumRowsRead());
-    Assert.assertEquals(4, response.getNumRowsIndexed());
-    Assert.assertEquals(3, response.getData().size());
+    JUnit5Assertions.assertEquals(5, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(4, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(3, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
 
@@ -1111,9 +1113,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
 
     SamplerResponse response = inputSourceSampler.sample(inputSource, inputFormat, dataSchema, null);
 
-    Assert.assertEquals(7, response.getNumRowsRead());
-    Assert.assertEquals(5, response.getNumRowsIndexed());
-    Assert.assertEquals(4, response.getData().size());
+    JUnit5Assertions.assertEquals(7, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(5, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(4, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
 
@@ -1232,9 +1234,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
     //
     int illegalRows = STR_JSON_ROWS.size();
     int legalRows = STR_JSON_ROWS.size() - 1;
-    Assert.assertEquals(illegalRows + legalRows, response.getNumRowsRead());
-    Assert.assertEquals(legalRows, response.getNumRowsIndexed());
-    Assert.assertEquals(illegalRows + 2, response.getData().size());
+    JUnit5Assertions.assertEquals(illegalRows + legalRows, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(legalRows, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(illegalRows + 2, response.getData().size());
 
     List<SamplerResponseRow> data = response.getData();
     List<Map<String, Object>> rawColumnList = this.getRawColumns();
@@ -1289,7 +1291,8 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
     );
   }
 
-  @Test(expected = SamplerException.class)
+  @Test
+  @ExpectedToThrow(SamplerException.class)
   public void testReaderCreationException()
   {
     InputSource failingReaderInputSource = new InputSource()
@@ -1348,9 +1351,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
         new SamplerConfig(4, null, null, null)
     );
 
-    Assert.assertEquals(4, response.getNumRowsRead());
-    Assert.assertEquals(4, response.getNumRowsIndexed());
-    Assert.assertEquals(2, response.getData().size());
+    JUnit5Assertions.assertEquals(4, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(4, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(2, response.getData().size());
 
   }
 
@@ -1383,9 +1386,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
         new SamplerConfig(null, null, HumanReadableBytes.valueOf(256), null)
     );
 
-    Assert.assertEquals(4, response.getNumRowsRead());
-    Assert.assertEquals(4, response.getNumRowsIndexed());
-    Assert.assertEquals(2, response.getData().size());
+    JUnit5Assertions.assertEquals(4, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(4, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(2, response.getData().size());
   }
 
   @Test
@@ -1417,9 +1420,9 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
         new SamplerConfig(null, null, null, HumanReadableBytes.valueOf(300))
     );
 
-    Assert.assertEquals(4, response.getNumRowsRead());
-    Assert.assertEquals(4, response.getNumRowsIndexed());
-    Assert.assertEquals(2, response.getData().size());
+    JUnit5Assertions.assertEquals(4, response.getNumRowsRead());
+    JUnit5Assertions.assertEquals(4, response.getNumRowsIndexed());
+    JUnit5Assertions.assertEquals(2, response.getData().size());
   }
 
   private List<String> getTestRows()
@@ -1507,10 +1510,10 @@ public class InputSourceSamplerTest extends InitializedNullHandlingTest
 
   private static void assertEqualsSamplerResponseRow(SamplerResponseRow row1, SamplerResponseRow row2)
   {
-    Assert.assertTrue(equalsIgnoringType(row1.getInput(), row2.getInput()));
-    Assert.assertEquals(row1.getParsed(), row2.getParsed());
-    Assert.assertEquals(row1.getError(), row2.getError());
-    Assert.assertEquals(row1.isUnparseable(), row2.isUnparseable());
+    JUnit5Assertions.assertTrue(equalsIgnoringType(row1.getInput(), row2.getInput()));
+    JUnit5Assertions.assertEquals(row1.getParsed(), row2.getParsed());
+    JUnit5Assertions.assertEquals(row1.getError(), row2.getError());
+    JUnit5Assertions.assertEquals(row1.isUnparseable(), row2.isUnparseable());
   }
 
   private static boolean equalsIgnoringType(Map<String, Object> map1, Map<String, Object> map2)

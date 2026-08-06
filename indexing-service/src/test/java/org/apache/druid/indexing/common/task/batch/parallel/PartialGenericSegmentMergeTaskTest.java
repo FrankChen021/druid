@@ -23,21 +23,22 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.druid.indexer.partitions.HashedPartitionsSpec;
 import org.apache.druid.indexing.common.task.TuningConfigBuilder;
 import org.apache.druid.segment.TestHelper;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 import java.util.Collections;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+@MethodSource("data")
 public class PartialGenericSegmentMergeTaskTest extends AbstractParallelIndexSupervisorTaskTest
 {
-  @Parameterized.Parameters(name = "partitionLocation = {0}")
+
   public static Iterable<?> data()
   {
     return Arrays.asList(
@@ -46,8 +47,7 @@ public class PartialGenericSegmentMergeTaskTest extends AbstractParallelIndexSup
     );
   }
 
-  @Parameterized.Parameter
-  public PartitionLocation partitionLocation;
+  private final PartitionLocation partitionLocation;
 
   private static final GenericPartitionLocation GENERIC_PARTITION_LOCATION = new GenericPartitionLocation(
       ParallelIndexTestingFactory.HOST,
@@ -65,20 +65,21 @@ public class PartialGenericSegmentMergeTaskTest extends AbstractParallelIndexSup
       ImmutableMap.of()
   );
 
-  @Rule
-  public ExpectedException exception = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension exception = ExpectedFailureExtension.none();
 
   private PartialGenericSegmentMergeTask target;
   private PartialSegmentMergeIOConfig ioConfig;
   private HashedPartitionsSpec partitionsSpec;
 
-  public PartialGenericSegmentMergeTaskTest()
+  public PartialGenericSegmentMergeTaskTest(final PartitionLocation partitionLocation)
   {
     // We don't need to emulate transient failures for this test.
     super(0.0, 0.0);
+    this.partitionLocation = partitionLocation;
   }
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     ioConfig = new PartialSegmentMergeIOConfig(Collections.singletonList(partitionLocation));
@@ -117,7 +118,7 @@ public class PartialGenericSegmentMergeTaskTest extends AbstractParallelIndexSup
   public void hasCorrectPrefixForAutomaticId()
   {
     String id = target.getId();
-    Assert.assertTrue(id.startsWith(PartialGenericSegmentMergeTask.TYPE));
+    JUnit5Assertions.assertTrue(id.startsWith(PartialGenericSegmentMergeTask.TYPE));
   }
 
   @Test
@@ -148,6 +149,6 @@ public class PartialGenericSegmentMergeTaskTest extends AbstractParallelIndexSup
   @Test
   public void testGetInputSourceResources()
   {
-    Assert.assertTrue(target.getInputSourceResources().isEmpty());
+    JUnit5Assertions.assertTrue(target.getInputSourceResources().isEmpty());
   }
 }

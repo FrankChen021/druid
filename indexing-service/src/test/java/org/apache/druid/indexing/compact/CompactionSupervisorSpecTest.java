@@ -29,9 +29,9 @@ import org.apache.druid.segment.TestDataSource;
 import org.apache.druid.server.coordinator.CompactionConfigValidationResult;
 import org.apache.druid.server.coordinator.DataSourceCompactionConfig;
 import org.apache.druid.server.coordinator.InlineSchemaDataSourceCompactionConfig;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
@@ -42,7 +42,7 @@ public class CompactionSupervisorSpecTest
   private static final ObjectMapper OBJECT_MAPPER = new DefaultObjectMapper();
   private CompactionScheduler scheduler;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     scheduler = Mockito.mock(CompactionScheduler.class);
@@ -87,13 +87,11 @@ public class CompactionSupervisorSpecTest
   {
     Mockito.when(scheduler.validateCompactionConfig(ArgumentMatchers.any()))
            .thenReturn(CompactionConfigValidationResult.failure("bad spec"));
-    Assert.assertEquals(
-        "Compaction supervisor spec is invalid. Reason[bad spec].", new CompactionSupervisorSpec(
+    JUnit5Assertions.assertEquals(new CompactionSupervisorSpec(
             new InlineSchemaDataSourceCompactionConfig.Builder().forDataSource("datasource").build(),
             false,
             scheduler
-        ).createSupervisor().getStatus().getPayload().getMessage()
-    );
+        ).createSupervisor().getStatus().getPayload().getMessage(), "Compaction supervisor spec is invalid. Reason[bad spec].");
   }
 
   @Test
@@ -106,12 +104,12 @@ public class CompactionSupervisorSpecTest
         false,
         scheduler
     );
-    final DruidException thrown = Assert.assertThrows(
+    final DruidException thrown = JUnit5Assertions.assertThrows(
         DruidException.class,
         invalidSpec::validateSpec
     );
-    Assert.assertEquals(DruidException.Category.INVALID_INPUT, thrown.getCategory());
-    Assert.assertEquals("Invalid compaction supervisor spec: bad spec", thrown.getMessage());
+    JUnit5Assertions.assertEquals(DruidException.Category.INVALID_INPUT, thrown.getCategory());
+    JUnit5Assertions.assertEquals(thrown.getMessage(), "Invalid compaction supervisor spec: bad spec");
   }
 
   @Test
@@ -133,9 +131,9 @@ public class CompactionSupervisorSpecTest
         false,
         scheduler
     );
-    Assert.assertEquals("autocompact__wiki", activeSpec.getId());
-    Assert.assertEquals(Collections.singletonList(TestDataSource.WIKI), activeSpec.getDataSources());
-    Assert.assertFalse(activeSpec.isSuspended());
+    JUnit5Assertions.assertEquals(activeSpec.getId(), "autocompact__wiki");
+    JUnit5Assertions.assertEquals(Collections.singletonList(TestDataSource.WIKI), activeSpec.getDataSources());
+    JUnit5Assertions.assertFalse(activeSpec.isSuspended());
   }
 
   @Test
@@ -151,7 +149,7 @@ public class CompactionSupervisorSpecTest
         = new CompactionSupervisorSpec(spec, false, scheduler);
 
     final CompactionSupervisor supervisor = activeSpec.createSupervisor();
-    Assert.assertEquals(CompactionSupervisor.State.RUNNING, supervisor.getState());
+    JUnit5Assertions.assertEquals(CompactionSupervisor.State.RUNNING, supervisor.getState());
 
     supervisor.start();
     supervisor.stop(false);
@@ -171,7 +169,7 @@ public class CompactionSupervisorSpecTest
         = new CompactionSupervisorSpec(spec, false, scheduler);
 
     final CompactionSupervisor supervisor = activeSpec.createSupervisor();
-    Assert.assertEquals(CompactionSupervisor.State.SCHEDULER_STOPPED, supervisor.getState());
+    JUnit5Assertions.assertEquals(CompactionSupervisor.State.SCHEDULER_STOPPED, supervisor.getState());
 
     supervisor.start();
     supervisor.stop(false);
@@ -193,7 +191,7 @@ public class CompactionSupervisorSpecTest
         = new CompactionSupervisorSpec(spec, true, scheduler);
 
     final CompactionSupervisor supervisor = suspendedSpec.createSupervisor();
-    Assert.assertEquals(CompactionSupervisor.State.SUSPENDED, supervisor.getState());
+    JUnit5Assertions.assertEquals(CompactionSupervisor.State.SUSPENDED, supervisor.getState());
 
     supervisor.start();
     supervisor.stop(false);
@@ -209,13 +207,13 @@ public class CompactionSupervisorSpecTest
         false,
         scheduler
     );
-    Assert.assertFalse(activeSpec.isSuspended());
+    JUnit5Assertions.assertFalse(activeSpec.isSuspended());
 
     final CompactionSupervisorSpec suspendedSpec = activeSpec.createSuspendedSpec();
-    Assert.assertTrue(suspendedSpec.isSuspended());
-    Assert.assertEquals(activeSpec.getId(), suspendedSpec.getId());
-    Assert.assertEquals(activeSpec.getSpec(), suspendedSpec.getSpec());
-    Assert.assertEquals(activeSpec.getDataSources(), suspendedSpec.getDataSources());
+    JUnit5Assertions.assertTrue(suspendedSpec.isSuspended());
+    JUnit5Assertions.assertEquals(activeSpec.getId(), suspendedSpec.getId());
+    JUnit5Assertions.assertEquals(activeSpec.getSpec(), suspendedSpec.getSpec());
+    JUnit5Assertions.assertEquals(activeSpec.getDataSources(), suspendedSpec.getDataSources());
   }
 
   @Test
@@ -226,13 +224,13 @@ public class CompactionSupervisorSpecTest
         true,
         scheduler
     );
-    Assert.assertTrue(suspendedSpec.isSuspended());
+    JUnit5Assertions.assertTrue(suspendedSpec.isSuspended());
 
     final CompactionSupervisorSpec activeSpec = suspendedSpec.createRunningSpec();
-    Assert.assertFalse(activeSpec.isSuspended());
-    Assert.assertEquals(activeSpec.getId(), suspendedSpec.getId());
-    Assert.assertEquals(activeSpec.getSpec(), suspendedSpec.getSpec());
-    Assert.assertEquals(activeSpec.getDataSources(), suspendedSpec.getDataSources());
+    JUnit5Assertions.assertFalse(activeSpec.isSuspended());
+    JUnit5Assertions.assertEquals(activeSpec.getId(), suspendedSpec.getId());
+    JUnit5Assertions.assertEquals(activeSpec.getSpec(), suspendedSpec.getSpec());
+    JUnit5Assertions.assertEquals(activeSpec.getDataSources(), suspendedSpec.getDataSources());
   }
 
   @Test
@@ -243,7 +241,7 @@ public class CompactionSupervisorSpecTest
         true,
         scheduler
     );
-    Assert.assertTrue(supervisorSpec.getInputSourceResources().isEmpty());
+    JUnit5Assertions.assertTrue(supervisorSpec.getInputSourceResources().isEmpty());
   }
 
   private void testSerde(CompactionSupervisorSpec spec)
@@ -251,13 +249,13 @@ public class CompactionSupervisorSpecTest
     try {
       String json = OBJECT_MAPPER.writeValueAsString(spec);
       SupervisorSpec deserialized = OBJECT_MAPPER.readValue(json, SupervisorSpec.class);
-      Assert.assertTrue(deserialized instanceof CompactionSupervisorSpec);
+      JUnit5Assertions.assertTrue(deserialized instanceof CompactionSupervisorSpec);
 
       final CompactionSupervisorSpec observedSpec = (CompactionSupervisorSpec) deserialized;
-      Assert.assertEquals(spec.isSuspended(), observedSpec.isSuspended());
-      Assert.assertEquals(spec.getSpec(), observedSpec.getSpec());
-      Assert.assertEquals(spec.getId(), observedSpec.getId());
-      Assert.assertEquals(spec.getDataSources(), observedSpec.getDataSources());
+      JUnit5Assertions.assertEquals(spec.isSuspended(), observedSpec.isSuspended());
+      JUnit5Assertions.assertEquals(spec.getSpec(), observedSpec.getSpec());
+      JUnit5Assertions.assertEquals(spec.getId(), observedSpec.getId());
+      JUnit5Assertions.assertEquals(spec.getDataSources(), observedSpec.getDataSources());
     }
     catch (Exception e) {
       throw DruidException.defensive(e, "Error while performing serde");

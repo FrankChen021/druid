@@ -33,6 +33,8 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.rpc.indexing.NoopOverlordClient;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.segment.loading.StorageLocationConfig;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.BucketNumberedShardSpec;
 import org.apache.druid.timeline.partition.BuildingShardSpec;
@@ -40,11 +42,9 @@ import org.apache.druid.timeline.partition.ShardSpec;
 import org.apache.druid.timeline.partition.ShardSpecLookup;
 import org.joda.time.Interval;
 import org.joda.time.Period;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.io.IOException;
@@ -56,13 +56,13 @@ import java.util.Set;
 
 public class LocalIntermediaryDataManagerAutoCleanupTest
 {
-  @Rule
-  public TemporaryFolder tempDir = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension tempDir = new TempDirExtension();
 
   private TaskConfig taskConfig;
   private OverlordClient overlordClient;
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException
   {
     this.taskConfig = new TaskConfigBuilder()
@@ -86,7 +86,7 @@ public class LocalIntermediaryDataManagerAutoCleanupTest
   @Test
   public void testCompletedExpiredSupervisor() throws IOException, InterruptedException
   {
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         isCleanedUpAfter3s("supervisor_1", new Period("PT1S"))
     );
   }
@@ -94,7 +94,7 @@ public class LocalIntermediaryDataManagerAutoCleanupTest
   @Test
   public void testCompletedNotExpiredSupervisor() throws IOException, InterruptedException
   {
-    Assert.assertFalse(
+    JUnit5Assertions.assertFalse(
         isCleanedUpAfter3s("supervisor_2", new Period("PT10S"))
     );
   }
@@ -102,7 +102,7 @@ public class LocalIntermediaryDataManagerAutoCleanupTest
   @Test
   public void testRunningSupervisor() throws IOException, InterruptedException
   {
-    Assert.assertFalse(
+    JUnit5Assertions.assertFalse(
         isCleanedUpAfter3s("running_supervisor_1", new Period("PT1S"))
     );
   }

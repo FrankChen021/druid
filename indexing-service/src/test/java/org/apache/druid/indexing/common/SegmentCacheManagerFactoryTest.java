@@ -31,8 +31,8 @@ import org.apache.druid.segment.loading.SegmentLoaderConfig;
 import org.apache.druid.segment.loading.SegmentLocalCacheManager;
 import org.apache.druid.segment.loading.StorageLoadingThreadPool;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.utils.RuntimeInfo;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -75,8 +75,8 @@ class SegmentCacheManagerFactoryTest
       final SegmentCacheManager m1 = factory.manufacturate(new File(tempDir, "a"), null, true, false);
       final SegmentCacheManager m2 = factory.manufacturate(new File(tempDir, "b"), null, true, false);
 
-      Assertions.assertSame(shared, m1.getLoadingThreadPool());
-      Assertions.assertSame(shared, m2.getLoadingThreadPool());
+      JUnit5Assertions.assertSame(shared, m1.getLoadingThreadPool());
+      JUnit5Assertions.assertSame(shared, m2.getLoadingThreadPool());
     }
     finally {
       shared.stop();
@@ -100,7 +100,7 @@ class SegmentCacheManagerFactoryTest
         );
 
     final SegmentCacheManager m = factory.manufacturate(new File(tempDir, "c"), null, false, false);
-    Assertions.assertFalse(m.getLoadingThreadPool().isAvailable());
+    JUnit5Assertions.assertFalse(m.getLoadingThreadPool().isAvailable());
   }
 
   @Test
@@ -129,22 +129,22 @@ class SegmentCacheManagerFactoryTest
       final SegmentLoaderConfig derived = m.getConfig();
 
       // Operator-tuned settings are carried over from the injected config...
-      Assertions.assertEquals(99999999L, derived.getVirtualStorageMetadataReservationEstimate());
-      Assertions.assertEquals(65536L, derived.getVirtualStorageCoalesceGapBytes());
-      Assertions.assertEquals(8388608L, derived.getVirtualStorageMaxFetchRunBytes());
+      JUnit5Assertions.assertEquals(99999999L, derived.getVirtualStorageMetadataReservationEstimate());
+      JUnit5Assertions.assertEquals(65536L, derived.getVirtualStorageCoalesceGapBytes());
+      JUnit5Assertions.assertEquals(8388608L, derived.getVirtualStorageMaxFetchRunBytes());
       // ...while the per-task location and mode flags are overridden.
-      Assertions.assertTrue(derived.isVirtualStorage());
-      Assertions.assertTrue(derived.isVirtualStorageEphemeral());
-      Assertions.assertTrue(derived.isVirtualStoragePartialDownloadsEnabled());
-      Assertions.assertEquals(1, derived.getLocations().size());
-      Assertions.assertEquals(new File(tempDir, "task"), derived.getLocations().get(0).getPath());
+      JUnit5Assertions.assertTrue(derived.isVirtualStorage());
+      JUnit5Assertions.assertTrue(derived.isVirtualStorageEphemeral());
+      JUnit5Assertions.assertTrue(derived.isVirtualStoragePartialDownloadsEnabled());
+      JUnit5Assertions.assertEquals(1, derived.getLocations().size());
+      JUnit5Assertions.assertEquals(new File(tempDir, "task"), derived.getLocations().get(0).getPath());
       // ...and settings incompatible with virtual storage are cleared (no shared info dir, no page-cache warming).
-      Assertions.assertNull(derived.getInfoDir());
-      Assertions.assertEquals(0, derived.getNumThreadsToLoadSegmentsIntoPageCacheOnDownload());
+      JUnit5Assertions.assertNull(derived.getInfoDir());
+      JUnit5Assertions.assertEquals(0, derived.getNumThreadsToLoadSegmentsIntoPageCacheOnDownload());
 
       // The shared injected config is not mutated by the derive.
-      Assertions.assertFalse(injected.isVirtualStorage());
-      Assertions.assertTrue(injected.getLocations().isEmpty());
+      JUnit5Assertions.assertFalse(injected.isVirtualStorage());
+      JUnit5Assertions.assertTrue(injected.getLocations().isEmpty());
     }
     finally {
       shared.stop();
@@ -180,14 +180,14 @@ class SegmentCacheManagerFactoryTest
     final SegmentLoaderConfig derived = m.getConfig();
 
     // Transient settings are the safe defaults, not the injected node's values.
-    Assertions.assertFalse(derived.isVirtualStorage());
-    Assertions.assertEquals(0, derived.getNumThreadsToLoadSegmentsIntoPageCacheOnDownload());
-    Assertions.assertTrue(derived.isDeleteOnRemove());
-    Assertions.assertNull(derived.getInfoDir());
-    Assertions.assertFalse(derived.isLazyLoadOnStart());
+    JUnit5Assertions.assertFalse(derived.isVirtualStorage());
+    JUnit5Assertions.assertEquals(0, derived.getNumThreadsToLoadSegmentsIntoPageCacheOnDownload());
+    JUnit5Assertions.assertTrue(derived.isDeleteOnRemove());
+    JUnit5Assertions.assertNull(derived.getInfoDir());
+    JUnit5Assertions.assertFalse(derived.isLazyLoadOnStart());
     // The per-task location is still applied.
-    Assertions.assertEquals(1, derived.getLocations().size());
-    Assertions.assertEquals(new File(tempDir, "eager"), derived.getLocations().get(0).getPath());
+    JUnit5Assertions.assertEquals(1, derived.getLocations().size());
+    JUnit5Assertions.assertEquals(new File(tempDir, "eager"), derived.getLocations().get(0).getPath());
   }
 
   @Test
@@ -198,9 +198,9 @@ class SegmentCacheManagerFactoryTest
     final SegmentCacheManager m1 = factory.manufacturate(new File(tempDir, "d"), null, true, false);
     final SegmentCacheManager m2 = factory.manufacturate(new File(tempDir, "e"), null, true, false);
     try {
-      Assertions.assertTrue(m1.getLoadingThreadPool().isAvailable());
+      JUnit5Assertions.assertTrue(m1.getLoadingThreadPool().isAvailable());
       // createWithOwnedPool builds one pool and shares it across the factory's manufacturate calls.
-      Assertions.assertSame(m1.getLoadingThreadPool(), m2.getLoadingThreadPool());
+      JUnit5Assertions.assertSame(m1.getLoadingThreadPool(), m2.getLoadingThreadPool());
     }
     finally {
       m1.getLoadingThreadPool().stop();

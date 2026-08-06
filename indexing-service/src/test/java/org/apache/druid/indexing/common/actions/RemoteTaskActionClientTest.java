@@ -36,6 +36,8 @@ import org.apache.druid.rpc.RequestBuilder;
 import org.apache.druid.rpc.ServiceClient;
 import org.apache.druid.rpc.ServiceClientImpl;
 import org.apache.druid.rpc.StandardRetryPolicy;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.EasyMock;
 import org.jboss.netty.buffer.BigEndianHeapChannelBuffer;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
@@ -43,11 +45,9 @@ import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http.HttpVersion;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -59,13 +59,13 @@ import java.util.concurrent.ExecutionException;
 
 public class RemoteTaskActionClientTest
 {
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
   private ServiceClient directOverlordClient;
   private final ObjectMapper objectMapper = new DefaultObjectMapper();
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     directOverlordClient = EasyMock.createMock(ServiceClient.class);
@@ -108,7 +108,7 @@ public class RemoteTaskActionClientTest
     RemoteTaskActionClient client = new RemoteTaskActionClient(task, directOverlordClient, objectMapper);
     final List<TaskLock> locks = client.submit(action);
 
-    Assert.assertEquals(expectedLocks, locks);
+    JUnit5Assertions.assertEquals(expectedLocks, locks);
     EasyMock.verify(directOverlordClient);
   }
 
@@ -173,6 +173,6 @@ public class RemoteTaskActionClientTest
       totalWaitTimeMillis += ServiceClientImpl.computeBackoffMs(retryPolicy, attempt);
     }
 
-    Assert.assertEquals(13, defaultRetryConfig.getMaxRetryCount());
+    JUnit5Assertions.assertEquals(13, defaultRetryConfig.getMaxRetryCount());
   }
 }

@@ -60,24 +60,27 @@ import org.apache.druid.segment.realtime.appenderator.StreamAppenderatorDriver;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.coordinator.CreateDataSegments;
 import org.apache.druid.server.security.AuthTestUtils;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.partition.DimensionValueSetShardSpec;
 import org.apache.druid.timeline.partition.NumberedShardSpec;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import javax.annotation.Nullable;
 import javax.ws.rs.core.Response;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -100,13 +103,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.mockito.ArgumentMatchers.any;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class SeekableStreamIndexTaskRunnerTest
 {
   private static final String DATA_SOURCE = "datasource";
 
-  @Rule
-  public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public final TempDirExtension temporaryFolder = new TempDirExtension();
 
   @Mock
   private InputRow row;
@@ -116,7 +120,7 @@ public class SeekableStreamIndexTaskRunnerTest
 
   private StubServiceEmitter emitter;
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     emitter = new StubServiceEmitter();
@@ -152,9 +156,9 @@ public class SeekableStreamIndexTaskRunnerTest
 
     sequences.removeFirstElementDuringNextSnapshotOrSize();
 
-    Assert.assertSame(secondSequence, runner.getLastSequenceMetadata());
-    Assert.assertEquals(1, sequences.size());
-    Assert.assertSame(secondSequence, sequences.get(0));
+    JUnit5Assertions.assertSame(secondSequence, runner.getLastSequenceMetadata());
+    JUnit5Assertions.assertEquals(1, sequences.size());
+    JUnit5Assertions.assertSame(secondSequence, sequences.get(0));
   }
 
   @Test
@@ -168,8 +172,8 @@ public class SeekableStreamIndexTaskRunnerTest
 
     final Response response = runner.setEndOffsets(ImmutableMap.of("partition", "5"), false);
 
-    Assert.assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
-    Assert.assertEquals("Task must be paused before changing the end offsets", response.getEntity());
+    JUnit5Assertions.assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+    JUnit5Assertions.assertEquals(response.getEntity(), "Task must be paused before changing the end offsets");
   }
 
   @Test
@@ -196,8 +200,8 @@ public class SeekableStreamIndexTaskRunnerTest
 
     final Response response = runner.setEndOffsets(ImmutableMap.of("partition", "6"), false);
 
-    Assert.assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
-    Assert.assertTrue(response.getEntity().toString().contains("has already endOffsets set"));
+    JUnit5Assertions.assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+    JUnit5Assertions.assertTrue(response.getEntity().toString().contains("has already endOffsets set"));
   }
 
   @Test
@@ -212,13 +216,10 @@ public class SeekableStreamIndexTaskRunnerTest
     try (final PausedRunner ignored = pauseRunner(runner)) {
       final Response response = runner.setEndOffsets(ImmutableMap.of("partition", "4"), false);
 
-      Assert.assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
-      Assert.assertEquals(
-          "End sequence must be >= current sequence for partition [partition] (current: 5)",
-          response.getEntity()
-      );
-      Assert.assertFalse(runner.getLastSequenceMetadata().isCheckpointed());
-      Assert.assertEquals(1, runner.getSequences().size());
+      JUnit5Assertions.assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+      JUnit5Assertions.assertEquals(response.getEntity(), "End sequence must be >= current sequence for partition [partition] (current: 5)");
+      JUnit5Assertions.assertFalse(runner.getLastSequenceMetadata().isCheckpointed());
+      JUnit5Assertions.assertEquals(1, runner.getSequences().size());
     }
   }
 
@@ -234,18 +235,18 @@ public class SeekableStreamIndexTaskRunnerTest
     try (final PausedRunner pausedRunner = pauseRunner(runner)) {
       final Response response = runner.setEndOffsets(ImmutableMap.of("partition", "5"), false);
 
-      Assert.assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+      JUnit5Assertions.assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
       pausedRunner.awaitResumed();
     }
 
     final List<SequenceMetadata<String, String>> sequences = runner.getSequences();
-    Assert.assertEquals(2, sequences.size());
-    Assert.assertTrue(sequences.get(0).isCheckpointed());
-    Assert.assertEquals(ImmutableMap.of("partition", "5"), sequences.get(0).getEndOffsets());
-    Assert.assertEquals("test_1", sequences.get(1).getSequenceName());
-    Assert.assertEquals(ImmutableMap.of("partition", "5"), sequences.get(1).getStartOffsets());
-    Assert.assertEquals(ImmutableMap.of("partition", "10"), sequences.get(1).getEndOffsets());
-    Assert.assertEquals(ImmutableSet.of("partition"), sequences.get(1).getExclusiveStartPartitions());
+    JUnit5Assertions.assertEquals(2, sequences.size());
+    JUnit5Assertions.assertTrue(sequences.get(0).isCheckpointed());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("partition", "5"), sequences.get(0).getEndOffsets());
+    JUnit5Assertions.assertEquals(sequences.get(1).getSequenceName(), "test_1");
+    JUnit5Assertions.assertEquals(ImmutableMap.of("partition", "5"), sequences.get(1).getStartOffsets());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("partition", "10"), sequences.get(1).getEndOffsets());
+    JUnit5Assertions.assertEquals(ImmutableSet.of("partition"), sequences.get(1).getExclusiveStartPartitions());
   }
 
   @Test
@@ -260,14 +261,14 @@ public class SeekableStreamIndexTaskRunnerTest
     try (final PausedRunner pausedRunner = pauseRunner(runner)) {
       final Response response = runner.setEndOffsets(ImmutableMap.of("partition", "6"), true);
 
-      Assert.assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+      JUnit5Assertions.assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
       pausedRunner.awaitResumed();
     }
 
     final List<SequenceMetadata<String, String>> sequences = runner.getSequences();
-    Assert.assertEquals(1, sequences.size());
-    Assert.assertTrue(sequences.get(0).isCheckpointed());
-    Assert.assertEquals(ImmutableMap.of("partition", "6"), sequences.get(0).getEndOffsets());
+    JUnit5Assertions.assertEquals(1, sequences.size());
+    JUnit5Assertions.assertTrue(sequences.get(0).isCheckpointed());
+    JUnit5Assertions.assertEquals(ImmutableMap.of("partition", "6"), sequences.get(0).getEndOffsets());
   }
 
   @Test
@@ -281,13 +282,13 @@ public class SeekableStreamIndexTaskRunnerTest
     );
 
     Mockito.when(row.getTimestamp()).thenReturn(now);
-    Assert.assertEquals(InputRowFilterResult.ACCEPTED, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.ACCEPTED, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(row));
 
     Mockito.when(row.getTimestamp()).thenReturn(now.minusHours(2).minusMinutes(1));
-    Assert.assertEquals(InputRowFilterResult.BEFORE_MIN_MESSAGE_TIME, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.BEFORE_MIN_MESSAGE_TIME, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(row));
 
     Mockito.when(row.getTimestamp()).thenReturn(now.plusHours(2).plusMinutes(1));
-    Assert.assertEquals(InputRowFilterResult.AFTER_MAX_MESSAGE_TIME, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.AFTER_MAX_MESSAGE_TIME, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(row));
   }
 
   @Test
@@ -297,13 +298,13 @@ public class SeekableStreamIndexTaskRunnerTest
     final TestSeekableStreamIndexTaskRunner runner = createRunner();
 
     Mockito.when(row.getTimestamp()).thenReturn(now);
-    Assert.assertEquals(InputRowFilterResult.ACCEPTED, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.ACCEPTED, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(row));
 
     Mockito.when(row.getTimestamp()).thenReturn(now.minusHours(2).minusMinutes(1));
-    Assert.assertEquals(InputRowFilterResult.ACCEPTED, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.ACCEPTED, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(row));
 
     Mockito.when(row.getTimestamp()).thenReturn(now.plusHours(2).plusMinutes(1));
-    Assert.assertEquals(InputRowFilterResult.ACCEPTED, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(row));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.ACCEPTED, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(row));
   }
 
   @Test
@@ -311,7 +312,7 @@ public class SeekableStreamIndexTaskRunnerTest
   {
     final TestSeekableStreamIndexTaskRunner runner = createRunner();
 
-    Assert.assertEquals(InputRowFilterResult.NULL_OR_EMPTY_RECORD, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(null));
+    JUnit5Assertions.assertEquals(InputRowFilterResult.NULL_OR_EMPTY_RECORD, runner.ensureRowIsNonNullAndWithinMessageTimeBounds(null));
   }
 
   @Test
@@ -320,7 +321,7 @@ public class SeekableStreamIndexTaskRunnerTest
     final TestSeekableStreamIndexTaskRunner runner = createRunner();
     Mockito.when(task.getId()).thenReturn("task1");
     Mockito.when(task.getSupervisorId()).thenReturn("supervisorId");
-    Assert.assertEquals("supervisorId", runner.getSupervisorId());
+    JUnit5Assertions.assertEquals(runner.getSupervisorId(), "supervisorId");
 
     // Setup the task to return a RecordSupplier, StreamAppenderatorDriver, Appenderator
     final RecordSupplier<?, ?, ?> recordSupplier = Mockito.mock(RecordSupplier.class);
@@ -376,12 +377,9 @@ public class SeekableStreamIndexTaskRunnerTest
 
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(segment);
 
-    Assert.assertTrue(
-        "A segment created during the current run with observed values should get a DimensionValueSetShardSpec",
-        annotated.getShardSpec() instanceof DimensionValueSetShardSpec
-    );
+    JUnit5Assertions.assertTrue(annotated.getShardSpec() instanceof DimensionValueSetShardSpec, "A segment created during the current run with observed values should get a DimensionValueSetShardSpec");
     final DimensionValueSetShardSpec shardSpec = (DimensionValueSetShardSpec) annotated.getShardSpec();
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         Arrays.asList("tenant_a", "tenant_b", "tenant_c"),
         shardSpec.getPartitionDimensionValues().get("tenant")
     );
@@ -413,15 +411,9 @@ public class SeekableStreamIndexTaskRunnerTest
 
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(segment);
 
-    Assert.assertTrue(
-        "A restart-spanned segment must be stamped with a DimensionValueSetShardSpec (class-uniform with freshly-stamped "
-        + "segments in the same interval) so SegmentPublisherHelper does not reject the publish",
-        annotated.getShardSpec() instanceof DimensionValueSetShardSpec
-    );
-    Assert.assertTrue(
-        "Its filters must be empty (no pruning) so incompletely-observed pre-restart rows are never pruned away",
-        ((DimensionValueSetShardSpec) annotated.getShardSpec()).getPartitionDimensionValues().isEmpty()
-    );
+    JUnit5Assertions.assertTrue(annotated.getShardSpec() instanceof DimensionValueSetShardSpec, "A restart-spanned segment must be stamped with a DimensionValueSetShardSpec (class-uniform with freshly-stamped "
+        + "segments in the same interval) so SegmentPublisherHelper does not reject the publish");
+    JUnit5Assertions.assertTrue(((DimensionValueSetShardSpec) annotated.getShardSpec()).getPartitionDimensionValues().isEmpty(), "Its filters must be empty (no pruning) so incompletely-observed pre-restart rows are never pruned away");
   }
 
   /**
@@ -454,15 +446,15 @@ public class SeekableStreamIndexTaskRunnerTest
     final DataSegment annotatedRestartSpanned = runner.annotateSegmentWithPartitionDimensionValues(restartSpanned);
     final DataSegment annotatedFreshlyObserved = runner.annotateSegmentWithPartitionDimensionValues(freshlyObserved);
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         annotatedRestartSpanned.getShardSpec().getClass(),
         annotatedFreshlyObserved.getShardSpec().getClass()
     );
-    Assert.assertTrue(annotatedRestartSpanned.getShardSpec() instanceof DimensionValueSetShardSpec);
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(annotatedRestartSpanned.getShardSpec() instanceof DimensionValueSetShardSpec);
+    JUnit5Assertions.assertTrue(
         ((DimensionValueSetShardSpec) annotatedRestartSpanned.getShardSpec()).getPartitionDimensionValues().isEmpty()
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         List.of("tenant_a"),
         ((DimensionValueSetShardSpec) annotatedFreshlyObserved.getShardSpec()).getPartitionDimensionValues().get("tenant")
     );
@@ -490,16 +482,16 @@ public class SeekableStreamIndexTaskRunnerTest
 
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(segment);
 
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         annotated.getShardSpec() instanceof DimensionValueSetShardSpec
     );
     final DimensionValueSetShardSpec shardSpec = (DimensionValueSetShardSpec) annotated.getShardSpec();
     // tenant declares both its non-null value AND null, so IS NULL queries are not pruned.
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         Arrays.asList(null, "tenant_a"),
         shardSpec.getPartitionDimensionValues().get("tenant")
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         ImmutableSet.of("us-west"),
         ImmutableSet.copyOf(shardSpec.getPartitionDimensionValues().get("region"))
     );
@@ -525,9 +517,9 @@ public class SeekableStreamIndexTaskRunnerTest
 
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(segment);
 
-    Assert.assertTrue(annotated.getShardSpec() instanceof DimensionValueSetShardSpec);
+    JUnit5Assertions.assertTrue(annotated.getShardSpec() instanceof DimensionValueSetShardSpec);
     final DimensionValueSetShardSpec shardSpec = (DimensionValueSetShardSpec) annotated.getShardSpec();
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         Collections.singletonList(null),
         shardSpec.getPartitionDimensionValues().get("tenant")
     );
@@ -551,11 +543,8 @@ public class SeekableStreamIndexTaskRunnerTest
     // No observe(...) call: nothing was recorded for this segment.
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(createSingleSegment());
 
-    Assert.assertTrue(annotated.getShardSpec() instanceof DimensionValueSetShardSpec);
-    Assert.assertTrue(
-        "A segment with no observed values declares no filters (no pruning) but stays a DimensionValueSetShardSpec",
-        ((DimensionValueSetShardSpec) annotated.getShardSpec()).getPartitionDimensionValues().isEmpty()
-    );
+    JUnit5Assertions.assertTrue(annotated.getShardSpec() instanceof DimensionValueSetShardSpec);
+    JUnit5Assertions.assertTrue(((DimensionValueSetShardSpec) annotated.getShardSpec()).getPartitionDimensionValues().isEmpty(), "A segment with no observed values declares no filters (no pruning) but stays a DimensionValueSetShardSpec");
   }
 
   /**
@@ -574,7 +563,7 @@ public class SeekableStreamIndexTaskRunnerTest
     final DataSegment segment = createSingleSegment();
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(segment);
 
-    Assert.assertSame("With the feature off the segment must be returned unchanged", segment, annotated);
+    JUnit5Assertions.assertSame(segment, annotated, "With the feature off the segment must be returned unchanged");
   }
 
   /** Boundary: observed values exactly equal the cap, dim must still stamp. */
@@ -592,8 +581,8 @@ public class SeekableStreamIndexTaskRunnerTest
 
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(segment);
 
-    Assert.assertTrue(annotated.getShardSpec() instanceof DimensionValueSetShardSpec);
-    Assert.assertEquals(
+    JUnit5Assertions.assertTrue(annotated.getShardSpec() instanceof DimensionValueSetShardSpec);
+    JUnit5Assertions.assertEquals(
         Arrays.asList("tenant_a", "tenant_b", "tenant_c"),
         ((DimensionValueSetShardSpec) annotated.getShardSpec()).getPartitionDimensionValues().get("tenant")
     );
@@ -614,11 +603,8 @@ public class SeekableStreamIndexTaskRunnerTest
 
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(segment);
 
-    Assert.assertTrue(annotated.getShardSpec() instanceof DimensionValueSetShardSpec);
-    Assert.assertTrue(
-        "Over-cap dimension must be absent from the filter map so possibleInDomain treats it as unconstrained",
-        ((DimensionValueSetShardSpec) annotated.getShardSpec()).getPartitionDimensionValues().isEmpty()
-    );
+    JUnit5Assertions.assertTrue(annotated.getShardSpec() instanceof DimensionValueSetShardSpec);
+    JUnit5Assertions.assertTrue(((DimensionValueSetShardSpec) annotated.getShardSpec()).getPartitionDimensionValues().isEmpty(), "Over-cap dimension must be absent from the filter map so possibleInDomain treats it as unconstrained");
   }
 
   /** Per-dim independence: a runaway dim must not disable pruning on its under-cap siblings. */
@@ -641,15 +627,8 @@ public class SeekableStreamIndexTaskRunnerTest
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(segment);
 
     final DimensionValueSetShardSpec shardSpec = (DimensionValueSetShardSpec) annotated.getShardSpec();
-    Assert.assertNull(
-        "Over-cap dim must be absent",
-        shardSpec.getPartitionDimensionValues().get("tenant")
-    );
-    Assert.assertEquals(
-        "Under-cap dim must be stamped normally",
-        Arrays.asList("us-east", "us-west"),
-        shardSpec.getPartitionDimensionValues().get("region")
-    );
+    JUnit5Assertions.assertNull(shardSpec.getPartitionDimensionValues().get("tenant"), "Over-cap dim must be absent");
+    JUnit5Assertions.assertEquals(Arrays.asList("us-east", "us-west"), shardSpec.getPartitionDimensionValues().get("region"), "Under-cap dim must be stamped normally");
   }
 
   /** Null counts toward the cap like any other distinct value. */
@@ -667,10 +646,7 @@ public class SeekableStreamIndexTaskRunnerTest
 
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(segment);
 
-    Assert.assertTrue(
-        "Null counts toward the cap; over-cap dim must be omitted",
-        ((DimensionValueSetShardSpec) annotated.getShardSpec()).getPartitionDimensionValues().isEmpty()
-    );
+    JUnit5Assertions.assertTrue(((DimensionValueSetShardSpec) annotated.getShardSpec()).getPartitionDimensionValues().isEmpty(), "Null counts toward the cap; over-cap dim must be omitted");
   }
 
   private static DataSegment createSingleSegment()
@@ -951,7 +927,7 @@ public class SeekableStreamIndexTaskRunnerTest
       }
       Thread.sleep(10);
     }
-    Assert.fail("Timed out waiting for status [" + status + "]");
+    JUnit5Assertions.fail("Timed out waiting for status [" + status + "]");
   }
 
   private static boolean invokePossiblyPause(SeekableStreamIndexTaskRunner runner) throws Exception
@@ -992,7 +968,7 @@ public class SeekableStreamIndexTaskRunnerTest
 
     void awaitResumed() throws Exception
     {
-      Assert.assertTrue(possiblyPauseFuture.get(2, TimeUnit.SECONDS));
+      JUnit5Assertions.assertTrue(possiblyPauseFuture.get(2, TimeUnit.SECONDS));
     }
 
     @Override

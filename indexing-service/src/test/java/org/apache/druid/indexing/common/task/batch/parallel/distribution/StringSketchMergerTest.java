@@ -20,22 +20,22 @@
 package org.apache.druid.indexing.common.task.batch.parallel.distribution;
 
 import org.apache.druid.data.input.StringTuple;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.partition.PartitionBoundaries;
 import org.easymock.EasyMock;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class StringSketchMergerTest
 {
   private StringSketchMerger target;
 
-  @Rule
-  public ExpectedException exception = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension exception = ExpectedFailureExtension.none();
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     target = new StringSketchMerger();
@@ -73,9 +73,9 @@ public class StringSketchMergerTest
     StringDistribution merged = target.getResult();
 
     PartitionBoundaries partitions = merged.getEvenPartitionsByMaxSize(1);
-    Assert.assertEquals(3, partitions.size());
-    Assert.assertNull(partitions.get(0));
-    Assert.assertEquals(string2, partitions.get(1));
-    Assert.assertNull(partitions.get(2));
+    JUnit5Assertions.assertEquals(3, partitions.size());
+    JUnit5Assertions.assertNull(partitions.get(0));
+    JUnit5Assertions.assertEquals(string2, partitions.get(1));
+    JUnit5Assertions.assertNull(partitions.get(2));
   }
 }

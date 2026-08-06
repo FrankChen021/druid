@@ -19,6 +19,7 @@
 
 package org.apache.druid.indexing.common.tasklogs;
 
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
@@ -27,8 +28,7 @@ import org.apache.logging.log4j.core.appender.ConsoleAppender;
 import org.apache.logging.log4j.core.appender.HttpAppender;
 import org.apache.logging.log4j.core.config.ConfigurationSource;
 import org.apache.logging.log4j.core.layout.PatternLayout;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -71,7 +71,7 @@ public class ConsoleLoggingEnforcementTest
                                                                          .findFirst()
                                                                          .get()
                                                                          .getLayout();
-    Assert.assertEquals("%m", layout.getConversionPattern());
+    JUnit5Assertions.assertEquals(layout.getConversionPattern(), "%m");
   }
 
   @Test
@@ -104,7 +104,7 @@ public class ConsoleLoggingEnforcementTest
                                                                          .findFirst()
                                                                          .get()
                                                                          .getLayout();
-    Assert.assertEquals(defaultPattern, layout.getConversionPattern());
+    JUnit5Assertions.assertEquals(defaultPattern, layout.getConversionPattern());
   }
 
   @Test
@@ -141,7 +141,7 @@ public class ConsoleLoggingEnforcementTest
                                                                          .findFirst()
                                                                          .get()
                                                                          .getLayout();
-    Assert.assertEquals("%m", layout.getConversionPattern());
+    JUnit5Assertions.assertEquals(layout.getConversionPattern(), "%m");
   }
 
   @Test
@@ -184,7 +184,7 @@ public class ConsoleLoggingEnforcementTest
                                                                          .findFirst()
                                                                          .get()
                                                                          .getLayout();
-    Assert.assertEquals("%m", layout.getConversionPattern());
+    JUnit5Assertions.assertEquals(layout.getConversionPattern(), "%m");
   }
 
   @Test
@@ -225,7 +225,7 @@ public class ConsoleLoggingEnforcementTest
                                                                          .findFirst()
                                                                          .get()
                                                                          .getLayout();
-    Assert.assertEquals("%m", layout.getConversionPattern());
+    JUnit5Assertions.assertEquals(layout.getConversionPattern(), "%m");
   }
 
   @Test
@@ -292,7 +292,7 @@ public class ConsoleLoggingEnforcementTest
                                                                          .findFirst()
                                                                          .get()
                                                                          .getLayout();
-    Assert.assertEquals("%m", layout.getConversionPattern());
+    JUnit5Assertions.assertEquals(layout.getConversionPattern(), "%m");
   }
 
   private LoggerContext enforceConsoleLogger(String configuration) throws IOException
@@ -318,14 +318,14 @@ public class ConsoleLoggingEnforcementTest
   )
   {
     // there's two appenders
-    Assert.assertEquals(2, logger.getAppenders().size());
+    JUnit5Assertions.assertEquals(2, logger.getAppenders().size());
 
     // and the appenders must be ConsoleAppender and HttpAppender
-    Assert.assertEquals(ConsoleAppender.class, logger.getAppenders().get(consoleName).getClass());
-    Assert.assertEquals(HttpAppender.class, logger.getAppenders().get(httpName).getClass());
+    JUnit5Assertions.assertEquals(ConsoleAppender.class, logger.getAppenders().get(consoleName).getClass());
+    JUnit5Assertions.assertEquals(HttpAppender.class, logger.getAppenders().get(httpName).getClass());
 
     if (level != null) {
-      Assert.assertEquals(level, logger.getLevel());
+      JUnit5Assertions.assertEquals(level, logger.getLevel());
     }
   }
 
@@ -333,17 +333,17 @@ public class ConsoleLoggingEnforcementTest
   private void assertHasOnlyOneConsoleAppender(Logger logger, Level level)
   {
     // there's only one appender
-    Assert.assertEquals(1, logger.getAppenders().size());
+    JUnit5Assertions.assertEquals(1, logger.getAppenders().size());
 
     // and this appender must be ConsoleAppender
-    Assert.assertEquals(ConsoleAppender.class, logger.getAppenders()
+    JUnit5Assertions.assertEquals(ConsoleAppender.class, logger.getAppenders()
                                                      .values()
                                                      .stream()
                                                      .findFirst()
                                                      .get()
                                                      .getClass());
     if (level != null) {
-      Assert.assertEquals(level, logger.getLevel());
+      JUnit5Assertions.assertEquals(level, logger.getLevel());
     }
   }
 

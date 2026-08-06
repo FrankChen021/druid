@@ -84,13 +84,13 @@ import org.apache.druid.server.coordinator.InlineSchemaDataSourceCompactionConfi
 import org.apache.druid.server.coordinator.simulate.BlockingExecutorService;
 import org.apache.druid.server.coordinator.simulate.WrappingScheduledExecutorService;
 import org.apache.druid.server.coordinator.stats.Stats;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 import org.joda.time.Period;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -139,7 +139,7 @@ public class OverlordCompactionSchedulerTest
   private String dataSource;
   private OverlordCompactionScheduler scheduler;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     dataSource = "wiki_" + IdUtils.getRandomId();
@@ -159,16 +159,16 @@ public class OverlordCompactionSchedulerTest
     );
 
     taskMaster = new TaskMaster(null, null);
-    Assert.assertFalse(taskMaster.isHalfOrFullLeader());
-    Assert.assertFalse(taskMaster.isFullLeader());
+    JUnit5Assertions.assertFalse(taskMaster.isHalfOrFullLeader());
+    JUnit5Assertions.assertFalse(taskMaster.isFullLeader());
 
     taskMaster.becomeHalfLeader(taskRunner, taskQueue);
-    Assert.assertTrue(taskMaster.isHalfOrFullLeader());
-    Assert.assertFalse(taskMaster.isFullLeader());
+    JUnit5Assertions.assertTrue(taskMaster.isHalfOrFullLeader());
+    JUnit5Assertions.assertFalse(taskMaster.isFullLeader());
 
     taskMaster.becomeFullLeader();
-    Assert.assertTrue(taskMaster.isHalfOrFullLeader());
-    Assert.assertTrue(taskMaster.isFullLeader());
+    JUnit5Assertions.assertTrue(taskMaster.isHalfOrFullLeader());
+    JUnit5Assertions.assertTrue(taskMaster.isFullLeader());
 
     taskStorage = new HeapMemoryTaskStorage(new TaskStorageConfig(null));
 
@@ -244,45 +244,45 @@ public class OverlordCompactionSchedulerTest
   @Test
   public void test_becomeLeader_triggersStart_ifEnabled()
   {
-    Assert.assertTrue(scheduler.isEnabled());
+    JUnit5Assertions.assertTrue(scheduler.isEnabled());
 
-    Assert.assertFalse(scheduler.isRunning());
-    Assert.assertFalse(executor.hasPendingTasks());
+    JUnit5Assertions.assertFalse(scheduler.isRunning());
+    JUnit5Assertions.assertFalse(executor.hasPendingTasks());
 
     scheduler.becomeLeader();
     runScheduledJob();
 
-    Assert.assertTrue(scheduler.isRunning());
+    JUnit5Assertions.assertTrue(scheduler.isRunning());
   }
 
   @Test
   public void test_becomeLeader_doesNotTriggerStart_ifDisabled()
   {
     disableScheduler();
-    Assert.assertFalse(scheduler.isEnabled());
+    JUnit5Assertions.assertFalse(scheduler.isEnabled());
 
-    Assert.assertFalse(scheduler.isRunning());
+    JUnit5Assertions.assertFalse(scheduler.isRunning());
 
     scheduler.becomeLeader();
     runScheduledJob();
 
-    Assert.assertFalse(scheduler.isRunning());
+    JUnit5Assertions.assertFalse(scheduler.isRunning());
   }
 
   @Test
   public void test_stopBeingLeader_triggersStop()
   {
-    Assert.assertFalse(scheduler.isRunning());
+    JUnit5Assertions.assertFalse(scheduler.isRunning());
 
     scheduler.becomeLeader();
     runScheduledJob();
-    Assert.assertTrue(scheduler.isRunning());
+    JUnit5Assertions.assertTrue(scheduler.isRunning());
 
     scheduler.stopBeingLeader();
-    Assert.assertTrue(scheduler.isRunning());
+    JUnit5Assertions.assertTrue(scheduler.isRunning());
 
     runScheduledJob();
-    Assert.assertFalse(scheduler.isRunning());
+    JUnit5Assertions.assertFalse(scheduler.isRunning());
   }
 
   @Test
@@ -291,16 +291,16 @@ public class OverlordCompactionSchedulerTest
     // Start scheduler
     scheduler.becomeLeader();
     runScheduledJob();
-    Assert.assertTrue(scheduler.isRunning());
+    JUnit5Assertions.assertTrue(scheduler.isRunning());
 
     // Disable scheduler to trigger stop
     disableScheduler();
-    Assert.assertFalse(scheduler.isEnabled());
-    Assert.assertTrue(scheduler.isRunning());
+    JUnit5Assertions.assertFalse(scheduler.isEnabled());
+    JUnit5Assertions.assertTrue(scheduler.isRunning());
 
     // Scheduler finally stops in the next schedule cycle
     runScheduledJob();
-    Assert.assertFalse(scheduler.isRunning());
+    JUnit5Assertions.assertFalse(scheduler.isRunning());
   }
 
   @Test
@@ -311,15 +311,15 @@ public class OverlordCompactionSchedulerTest
     // Becoming leader does not trigger start since scheduler is disabled
     scheduler.becomeLeader();
     runScheduledJob();
-    Assert.assertFalse(scheduler.isRunning());
+    JUnit5Assertions.assertFalse(scheduler.isRunning());
 
     // Enable the schduler to trigger start
     enableScheduler();
-    Assert.assertFalse(scheduler.isRunning());
+    JUnit5Assertions.assertFalse(scheduler.isRunning());
 
     // Scheduler finally starts in the next schedule cycle
     runScheduledJob();
-    Assert.assertTrue(scheduler.isRunning());
+    JUnit5Assertions.assertTrue(scheduler.isRunning());
   }
 
   @Test
@@ -352,19 +352,19 @@ public class OverlordCompactionSchedulerTest
   {
     scheduler.becomeLeader();
     runScheduledJob();
-    Assert.assertEquals(enabled, segmentsMetadataManager.isPollingDatabasePeriodically());
+    JUnit5Assertions.assertEquals(enabled, segmentsMetadataManager.isPollingDatabasePeriodically());
 
     scheduler.stopBeingLeader();
     runScheduledJob();
-    Assert.assertFalse(segmentsMetadataManager.isPollingDatabasePeriodically());
+    JUnit5Assertions.assertFalse(segmentsMetadataManager.isPollingDatabasePeriodically());
   }
 
   @Test
   public void test_validateCompactionConfig_returnsInvalid_forNullConfig()
   {
     final CompactionConfigValidationResult result = scheduler.validateCompactionConfig(null);
-    Assert.assertFalse(result.isValid());
-    Assert.assertEquals("Cannot be null", result.getReason());
+    JUnit5Assertions.assertFalse(result.isValid());
+    JUnit5Assertions.assertEquals(result.getReason(), "Cannot be null");
   }
 
   @Test
@@ -378,11 +378,8 @@ public class OverlordCompactionSchedulerTest
         .build();
 
     final CompactionConfigValidationResult result = scheduler.validateCompactionConfig(datasourceConfig);
-    Assert.assertFalse(result.isValid());
-    Assert.assertEquals(
-        "MSQ: Context maxNumTasks[1] must be at least 2 (1 controller + 1 worker)",
-        result.getReason()
-    );
+    JUnit5Assertions.assertFalse(result.isValid());
+    JUnit5Assertions.assertEquals(result.getReason(), "MSQ: Context maxNumTasks[1] must be at least 2 (1 controller + 1 worker)");
   }
 
   @Test
@@ -403,7 +400,7 @@ public class OverlordCompactionSchedulerTest
     );
 
     final CompactionConfigValidationResult result = scheduler.validateCompactionConfig(template);
-    Assert.assertTrue(result.isValid());
+    JUnit5Assertions.assertTrue(result.isValid());
   }
 
   @Test
@@ -419,11 +416,11 @@ public class OverlordCompactionSchedulerTest
     final AutoCompactionSnapshot.Builder expectedSnapshot = AutoCompactionSnapshot.builder(dataSource);
     expectedSnapshot.incrementWaitingStats(CompactionStatistics.create(100_000_000, null, 1, 1));
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         expectedSnapshot.build(),
         scheduler.getCompactionSnapshot(dataSource)
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         Map.of(dataSource, expectedSnapshot.build()),
         scheduler.getAllCompactionSnapshots()
     );
@@ -446,13 +443,13 @@ public class OverlordCompactionSchedulerTest
     runScheduledJob();
     Mockito.verify(taskQueue, Mockito.never()).add(ArgumentMatchers.any());
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         AutoCompactionSnapshot.builder(dataSource)
                               .withStatus(AutoCompactionSnapshot.ScheduleStatus.NOT_ENABLED)
                               .build(),
         scheduler.getCompactionSnapshot(dataSource)
     );
-    Assert.assertTrue(scheduler.getAllCompactionSnapshots().isEmpty());
+    JUnit5Assertions.assertTrue(scheduler.getAllCompactionSnapshots().isEmpty());
 
     serviceEmitter.verifyNotEmitted(Stats.Compaction.SUBMITTED_TASKS.getMetricName());
     serviceEmitter.verifyNotEmitted(Stats.Compaction.COMPACTED_BYTES.getMetricName());
@@ -473,13 +470,13 @@ public class OverlordCompactionSchedulerTest
     final CompactionSimulateResult simulateResult = scheduler.simulateRunWithConfigUpdate(
         new ClusterCompactionConfig(null, null, null, null, null, null)
     );
-    Assert.assertEquals(1, simulateResult.getCompactionStates().size());
+    JUnit5Assertions.assertEquals(1, simulateResult.getCompactionStates().size());
     final Table pendingCompactionTable = simulateResult.getCompactionStates().get(CompactionStatus.State.PENDING);
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         Arrays.asList("dataSource", "interval", "numSegments", "bytes", "maxTaskSlots", "reasonToCompact"),
         pendingCompactionTable.getColumnNames()
     );
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         Collections.singletonList(
             Arrays.asList(
                 dataSource,
@@ -498,7 +495,7 @@ public class OverlordCompactionSchedulerTest
     final CompactionSimulateResult simulateResultWhenDisabled = scheduler.simulateRunWithConfigUpdate(
         new ClusterCompactionConfig(null, null, null, null, null, null)
     );
-    Assert.assertTrue(simulateResultWhenDisabled.getCompactionStates().isEmpty());
+    JUnit5Assertions.assertTrue(simulateResultWhenDisabled.getCompactionStates().isEmpty());
 
     scheduler.stopBeingLeader();
   }
@@ -506,10 +503,10 @@ public class OverlordCompactionSchedulerTest
   @Test
   public void test_getAllCompactionSnapshots_returnsEmpty_beforeFirstRun()
   {
-    Assert.assertTrue(scheduler.isEnabled());
-    Assert.assertFalse(scheduler.isRunning());
+    JUnit5Assertions.assertTrue(scheduler.isEnabled());
+    JUnit5Assertions.assertFalse(scheduler.isRunning());
 
-    Assert.assertTrue(scheduler.getAllCompactionSnapshots().isEmpty());
+    JUnit5Assertions.assertTrue(scheduler.getAllCompactionSnapshots().isEmpty());
   }
 
   @Test
@@ -518,7 +515,7 @@ public class OverlordCompactionSchedulerTest
     scheduler.startCompaction(dataSource, createSupervisorWithInlineSpec());
 
     AutoCompactionSnapshot snapshot = scheduler.getCompactionSnapshot(dataSource);
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         AutoCompactionSnapshot.ScheduleStatus.AWAITING_FIRST_RUN,
         snapshot.getScheduleStatus()
     );
@@ -543,8 +540,8 @@ public class OverlordCompactionSchedulerTest
     Mockito.verify(taskQueue, Mockito.times(expectedCount)).add(taskArgumentCaptor.capture());
 
     for (Task task : taskArgumentCaptor.getAllValues()) {
-      Assert.assertTrue(task instanceof CompactionTask);
-      Assert.assertEquals(dataSource, task.getDataSource());
+      JUnit5Assertions.assertTrue(task instanceof CompactionTask);
+      JUnit5Assertions.assertEquals(dataSource, task.getDataSource());
 
       final CompactionTask compactionTask = (CompactionTask) task;
       runCompactionTask(

@@ -51,17 +51,17 @@ import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
-import org.apache.druid.testing.junit.LoggerCaptureRule;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.LoggerCaptureExtension;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.logging.log4j.core.LogEvent;
 import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -75,8 +75,8 @@ public class PartialDimensionCardinalityTaskTest
 
   public static class ConstructorTest
   {
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
+    @RegisterExtension
+    public ExpectedFailureExtension exception = ExpectedFailureExtension.none();
 
     @Test
     public void requiresForceGuaranteedRollup()
@@ -126,7 +126,7 @@ public class PartialDimensionCardinalityTaskTest
     {
       PartialDimensionCardinalityTask task = new PartialDimensionCardinalityTaskBuilder()
           .build();
-      Assert.assertEquals(
+      JUnit5Assertions.assertEquals(
           Collections.singleton(
               new ResourceAction(new Resource(
                   InlineInputSource.TYPE_KEY,
@@ -142,25 +142,25 @@ public class PartialDimensionCardinalityTaskTest
       PartialDimensionCardinalityTask task = new PartialDimensionCardinalityTaskBuilder()
           .id(ParallelIndexTestingFactory.AUTOMATIC_ID)
           .build();
-      Assert.assertTrue(task.getId().startsWith(PartialDimensionCardinalityTask.TYPE));
+      JUnit5Assertions.assertTrue(task.getId().startsWith(PartialDimensionCardinalityTask.TYPE));
     }
   }
 
   public static class RunTaskTest
   {
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
+    @RegisterExtension
+    public ExpectedFailureExtension exception = ExpectedFailureExtension.none();
 
-    @Rule
-    public TemporaryFolder temporaryFolder = new TemporaryFolder();
+    @RegisterExtension
+    public TempDirExtension temporaryFolder = new TempDirExtension();
 
-    @Rule
-    public LoggerCaptureRule logger = new LoggerCaptureRule(ParseExceptionHandler.class);
+    @RegisterExtension
+    public LoggerCaptureExtension logger = new LoggerCaptureExtension(ParseExceptionHandler.class);
 
     private Capture<SubTaskReport> reportCapture;
     private TaskToolbox taskToolbox;
 
-    @Before
+    @BeforeEach
     public void setup()
     {
       reportCapture = Capture.newInstance();
@@ -217,9 +217,9 @@ public class PartialDimensionCardinalityTaskTest
       task.runTask(taskToolbox);
 
       List<LogEvent> logEvents = logger.getLogEvents();
-      Assert.assertEquals(1, logEvents.size());
+      JUnit5Assertions.assertEquals(1, logEvents.size());
       String logMessage = logEvents.get(0).getMessage().getFormattedMessage();
-      Assert.assertTrue(logMessage.contains("Encountered parse exception"));
+      JUnit5Assertions.assertTrue(logMessage.contains("Encountered parse exception"));
     }
 
     @Test
@@ -237,7 +237,7 @@ public class PartialDimensionCardinalityTaskTest
 
       task.runTask(taskToolbox);
 
-      Assert.assertEquals(Collections.emptyList(), logger.getLogEvents());
+      JUnit5Assertions.assertEquals(Collections.emptyList(), logger.getLogEvents());
     }
 
     @Test
@@ -270,12 +270,12 @@ public class PartialDimensionCardinalityTaskTest
 
       DimensionCardinalityReport report = runTask(taskBuilder);
 
-      Assert.assertEquals(ParallelIndexTestingFactory.ID, report.getTaskId());
+      JUnit5Assertions.assertEquals(ParallelIndexTestingFactory.ID, report.getTaskId());
       Map<Interval, byte[]> intervalToCardinalities = report.getIntervalToCardinalities();
       byte[] hllSketchBytes = Iterables.getOnlyElement(intervalToCardinalities.values());
       HllSketch hllSketch = HllSketch.wrap(Memory.wrap(hllSketchBytes));
-      Assert.assertNotNull(hllSketch);
-      Assert.assertEquals(1L, (long) hllSketch.getEstimate());
+      JUnit5Assertions.assertNotNull(hllSketch);
+      JUnit5Assertions.assertEquals(1L, (long) hllSketch.getEstimate());
     }
 
     @Test
@@ -302,12 +302,12 @@ public class PartialDimensionCardinalityTaskTest
 
       DimensionCardinalityReport report = runTask(taskBuilder);
 
-      Assert.assertEquals(ParallelIndexTestingFactory.ID, report.getTaskId());
+      JUnit5Assertions.assertEquals(ParallelIndexTestingFactory.ID, report.getTaskId());
       Map<Interval, byte[]> intervalToCardinalities = report.getIntervalToCardinalities();
       byte[] hllSketchBytes = Iterables.getOnlyElement(intervalToCardinalities.values());
       HllSketch hllSketch = HllSketch.wrap(Memory.wrap(hllSketchBytes));
-      Assert.assertNotNull(hllSketch);
-      Assert.assertEquals(4L, (long) hllSketch.getEstimate());
+      JUnit5Assertions.assertNotNull(hllSketch);
+      JUnit5Assertions.assertEquals(4L, (long) hllSketch.getEstimate());
 
     }
 
@@ -327,21 +327,21 @@ public class PartialDimensionCardinalityTaskTest
 
       DimensionCardinalityReport report = runTask(taskBuilder);
 
-      Assert.assertEquals(ParallelIndexTestingFactory.ID, report.getTaskId());
+      JUnit5Assertions.assertEquals(ParallelIndexTestingFactory.ID, report.getTaskId());
       Map<Interval, byte[]> intervalToCardinalities = report.getIntervalToCardinalities();
-      Assert.assertEquals(2, intervalToCardinalities.size());
+      JUnit5Assertions.assertEquals(2, intervalToCardinalities.size());
 
       byte[] hllSketchBytes;
       HllSketch hllSketch;
       hllSketchBytes = intervalToCardinalities.get(Intervals.of("1970-01-01T00:00:00.000Z/1970-01-02T00:00:00.000Z"));
       hllSketch = HllSketch.wrap(Memory.wrap(hllSketchBytes));
-      Assert.assertNotNull(hllSketch);
-      Assert.assertEquals(1L, (long) hllSketch.getEstimate());
+      JUnit5Assertions.assertNotNull(hllSketch);
+      JUnit5Assertions.assertEquals(1L, (long) hllSketch.getEstimate());
 
       hllSketchBytes = intervalToCardinalities.get(Intervals.of("1970-01-02T00:00:00.000Z/1970-01-03T00:00:00.000Z"));
       hllSketch = HllSketch.wrap(Memory.wrap(hllSketchBytes));
-      Assert.assertNotNull(hllSketch);
-      Assert.assertEquals(4L, (long) hllSketch.getEstimate());
+      JUnit5Assertions.assertNotNull(hllSketch);
+      JUnit5Assertions.assertEquals(4L, (long) hllSketch.getEstimate());
     }
 
     @Test
@@ -352,8 +352,8 @@ public class PartialDimensionCardinalityTaskTest
 
       TaskStatus taskStatus = task.runTask(taskToolbox);
 
-      Assert.assertEquals(ParallelIndexTestingFactory.ID, taskStatus.getId());
-      Assert.assertEquals(TaskState.SUCCESS, taskStatus.getStatusCode());
+      JUnit5Assertions.assertEquals(ParallelIndexTestingFactory.ID, taskStatus.getId());
+      JUnit5Assertions.assertEquals(TaskState.SUCCESS, taskStatus.getStatusCode());
     }
 
     private DimensionCardinalityReport runTask(PartialDimensionCardinalityTaskBuilder taskBuilder)

@@ -32,21 +32,21 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.SegmentUtils;
 import org.apache.druid.segment.realtime.appenderator.Appenderator;
 import org.apache.druid.segment.realtime.appenderator.TransactionalSegmentPublisher;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.Set;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class SequenceMetadataTest
 {
   @Mock
@@ -88,15 +88,12 @@ public class SequenceMetadataTest
     TransactionalSegmentPublisher transactionalSegmentPublisher
         = sequenceMetadata.createPublisher(mockSeekableStreamIndexTaskRunner, mockTaskToolbox, true);
 
-    ISE exception = Assert.assertThrows(
+    ISE exception = JUnit5Assertions.assertThrows(
         ISE.class,
         () -> transactionalSegmentPublisher.publishAnnotatedSegments(notNullNotEmptySegment, ImmutableSet.of(), null, null)
     );
-    Assert.assertEquals(
-        "Stream ingestion task unexpectedly attempted to overwrite segments: "
-        + SegmentUtils.commaSeparatedIdentifiers(notNullNotEmptySegment),
-        exception.getMessage()
-    );
+    JUnit5Assertions.assertEquals(exception.getMessage(), "Stream ingestion task unexpectedly attempted to overwrite segments: "
+        + SegmentUtils.commaSeparatedIdentifiers(notNullNotEmptySegment));
   }
 
   @Test
@@ -166,10 +163,10 @@ public class SequenceMetadataTest
 
     Mockito.when(mockSeekableStreamIndexTaskRunner.createSequenceNumber(ArgumentMatchers.any())).thenReturn(makeSequenceNumber("1", false));
     Mockito.when(mockSeekableStreamIndexTaskRunner.isEndOffsetExclusive()).thenReturn(true);
-    Assert.assertFalse(sequenceMetadata.canHandle(mockSeekableStreamIndexTaskRunner, record));
+    JUnit5Assertions.assertFalse(sequenceMetadata.canHandle(mockSeekableStreamIndexTaskRunner, record));
 
     Mockito.when(mockSeekableStreamIndexTaskRunner.isEndOffsetExclusive()).thenReturn(false);
-    Assert.assertFalse(sequenceMetadata.canHandle(mockSeekableStreamIndexTaskRunner, record));
+    JUnit5Assertions.assertFalse(sequenceMetadata.canHandle(mockSeekableStreamIndexTaskRunner, record));
   }
 
   private OrderedSequenceNumber<String> makeSequenceNumber(String seq, boolean isExclusive)

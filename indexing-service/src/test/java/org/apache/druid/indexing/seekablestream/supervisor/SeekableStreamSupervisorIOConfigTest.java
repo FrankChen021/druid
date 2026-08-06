@@ -28,14 +28,14 @@ import org.apache.druid.indexing.seekablestream.supervisor.autoscaler.AutoScaler
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
-import org.hamcrest.MatcherAssert;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
 import org.joda.time.Period;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
+
 import java.util.Map;
 
 import static org.mockito.Mockito.mock;
@@ -78,23 +78,23 @@ public class SeekableStreamSupervisorIOConfigTest
     {
     };
 
-    Assert.assertEquals("stream", config.getStream());
-    Assert.assertEquals(inputFormat, config.getInputFormat());
-    Assert.assertEquals(Integer.valueOf(1), config.getReplicas());
-    Assert.assertEquals(1, config.getTaskCount());
-    Assert.assertEquals(Duration.standardHours(1), config.getTaskDuration());
-    Assert.assertEquals(Duration.standardSeconds(5), config.getStartDelay());
-    Assert.assertEquals(Duration.standardSeconds(30), config.getPeriod());
-    Assert.assertFalse(config.isUseEarliestSequenceNumber());
-    Assert.assertEquals(Duration.standardMinutes(30), config.getCompletionTimeout());
-    Assert.assertFalse(config.getEarlyMessageRejectionPeriod().isPresent());
-    Assert.assertFalse(config.getLateMessageRejectionPeriod().isPresent());
-    Assert.assertFalse(config.getLateMessageRejectionStartDateTime().isPresent());
-    Assert.assertNull(config.getIdleConfig());
-    Assert.assertNull(config.getStopTaskCount());
-    Assert.assertEquals(lagAggregator, config.getLagAggregator());
-    Assert.assertEquals(1, config.getMaxAllowedStops());
-    Assert.assertNull(config.getServerPriorityToReplicas());
+    JUnit5Assertions.assertEquals(config.getStream(), "stream");
+    JUnit5Assertions.assertEquals(inputFormat, config.getInputFormat());
+    JUnit5Assertions.assertEquals(Integer.valueOf(1), config.getReplicas());
+    JUnit5Assertions.assertEquals(1, config.getTaskCount());
+    JUnit5Assertions.assertEquals(Duration.standardHours(1), config.getTaskDuration());
+    JUnit5Assertions.assertEquals(Duration.standardSeconds(5), config.getStartDelay());
+    JUnit5Assertions.assertEquals(Duration.standardSeconds(30), config.getPeriod());
+    JUnit5Assertions.assertFalse(config.isUseEarliestSequenceNumber());
+    JUnit5Assertions.assertEquals(Duration.standardMinutes(30), config.getCompletionTimeout());
+    JUnit5Assertions.assertFalse(config.getEarlyMessageRejectionPeriod().isPresent());
+    JUnit5Assertions.assertFalse(config.getLateMessageRejectionPeriod().isPresent());
+    JUnit5Assertions.assertFalse(config.getLateMessageRejectionStartDateTime().isPresent());
+    JUnit5Assertions.assertNull(config.getIdleConfig());
+    JUnit5Assertions.assertNull(config.getStopTaskCount());
+    JUnit5Assertions.assertEquals(lagAggregator, config.getLagAggregator());
+    JUnit5Assertions.assertEquals(1, config.getMaxAllowedStops());
+    JUnit5Assertions.assertNull(config.getServerPriorityToReplicas());
   }
 
   @Test
@@ -154,8 +154,8 @@ public class SeekableStreamSupervisorIOConfigTest
     )
     {
     };
-    Assert.assertEquals(expectedTaskCount, config.getTaskCount());
-    Assert.assertEquals(expectedExplicit, config.isTaskCountExplicit());
+    JUnit5Assertions.assertEquals(expectedTaskCount, config.getTaskCount());
+    JUnit5Assertions.assertEquals(expectedExplicit, config.isTaskCountExplicit());
   }
 
   @Test
@@ -163,7 +163,7 @@ public class SeekableStreamSupervisorIOConfigTest
   {
     LagAggregator lagAggregator = mock(LagAggregator.class);
 
-    IAE ex = Assert.assertThrows(
+    IAE ex = JUnit5Assertions.assertThrows(
         IAE.class,
         () -> new TestableSeekableStreamSupervisorIOConfig(
             "stream",
@@ -188,7 +188,7 @@ public class SeekableStreamSupervisorIOConfigTest
         {
         }
     );
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         ex.getMessage()
           .contains(
               "SeekableStreamSupervisorIOConfig does not support both properties lateMessageRejectionStartDateTime and lateMessageRejectionPeriod"
@@ -199,7 +199,7 @@ public class SeekableStreamSupervisorIOConfigTest
   @Test
   public void testNullAggregatorThrows()
   {
-    DruidException ex = Assert.assertThrows(
+    DruidException ex = JUnit5Assertions.assertThrows(
         DruidException.class,
         () -> new TestableSeekableStreamSupervisorIOConfig(
             "stream",
@@ -224,7 +224,7 @@ public class SeekableStreamSupervisorIOConfigTest
         {
         }
     );
-    Assert.assertTrue(
+    JUnit5Assertions.assertTrue(
         ex.getMessage().contains("'lagAggregator' must be specified in supervisor 'spec.ioConfig'")
     );
   }
@@ -257,7 +257,7 @@ public class SeekableStreamSupervisorIOConfigTest
     )
     {
     };
-    Assert.assertEquals(7, config1.getMaxAllowedStops());
+    JUnit5Assertions.assertEquals(7, config1.getMaxAllowedStops());
 
     // Autoscaler disabled, stopTaskCount set
     SeekableStreamSupervisorIOConfig config2 = new TestableSeekableStreamSupervisorIOConfig(
@@ -282,7 +282,7 @@ public class SeekableStreamSupervisorIOConfigTest
     )
     {
     };
-    Assert.assertEquals(3, config2.getMaxAllowedStops());
+    JUnit5Assertions.assertEquals(3, config2.getMaxAllowedStops());
   }
 
   @Test
@@ -320,11 +320,11 @@ public class SeekableStreamSupervisorIOConfigTest
     {
     };
 
-    Assert.assertEquals(5, config.getMaxAllowedStops());
+    JUnit5Assertions.assertEquals(5, config.getMaxAllowedStops());
 
     // Ensure never goes below 1
     when(autoScalerConfig.getStopTaskCountRatio()).thenReturn(0.05);
-    Assert.assertEquals(1, config.getMaxAllowedStops());
+    JUnit5Assertions.assertEquals(1, config.getMaxAllowedStops());
 
     // Autoscaler enabled, stopTaskCountRatio unset, stopTaskCount set
     when(autoScalerConfig.getEnableTaskAutoScaler()).thenReturn(true);
@@ -354,7 +354,7 @@ public class SeekableStreamSupervisorIOConfigTest
     {
     };
 
-    Assert.assertEquals(1, config2.getMaxAllowedStops());
+    JUnit5Assertions.assertEquals(1, config2.getMaxAllowedStops());
 
 
     // Autoscaler enabled, stopTaskCountRatio unset, stopTaskCount unset
@@ -385,38 +385,38 @@ public class SeekableStreamSupervisorIOConfigTest
     {
     };
 
-    Assert.assertEquals(10, config3.getMaxAllowedStops());
+    JUnit5Assertions.assertEquals(10, config3.getMaxAllowedStops());
   }
 
   @Test
   public void testReplicasIsSetWhenserverPriorityToReplicas()
   {
     final SeekableStreamSupervisorIOConfig config = makeSeekableStreamSupervisorIOConfig(null, serverPriorityToReplicas);
-    Assert.assertEquals(serverPriorityToReplicas, config.getServerPriorityToReplicas());
-    Assert.assertEquals(Integer.valueOf(5), config.getReplicas());
+    JUnit5Assertions.assertEquals(serverPriorityToReplicas, config.getServerPriorityToReplicas());
+    JUnit5Assertions.assertEquals(Integer.valueOf(5), config.getReplicas());
   }
 
   @Test
   public void testReplicasOnlyConfig()
   {
     final SeekableStreamSupervisorIOConfig config = makeSeekableStreamSupervisorIOConfig(4, null);
-    Assert.assertEquals(Integer.valueOf(4), config.getReplicas());
-    Assert.assertNull(config.getServerPriorityToReplicas());
+    JUnit5Assertions.assertEquals(Integer.valueOf(4), config.getReplicas());
+    JUnit5Assertions.assertNull(config.getServerPriorityToReplicas());
   }
 
   @Test
   public void testMatchingReplicasAndServerPriority()
   {
     final SeekableStreamSupervisorIOConfig config = makeSeekableStreamSupervisorIOConfig(5, serverPriorityToReplicas);
-    Assert.assertEquals(Integer.valueOf(5), config.getReplicas());
-    Assert.assertEquals(serverPriorityToReplicas, config.getServerPriorityToReplicas());
+    JUnit5Assertions.assertEquals(Integer.valueOf(5), config.getReplicas());
+    JUnit5Assertions.assertEquals(serverPriorityToReplicas, config.getServerPriorityToReplicas());
   }
 
   @Test
   public void testMismatchBetweenReplicasAndServerPriorityReplicasThrowsException()
   {
-    MatcherAssert.assertThat(
-        Assert.assertThrows(
+    JUnit5Assertions.assertMatches(
+        JUnit5Assertions.assertThrows(
             DruidException.class,
             () -> makeSeekableStreamSupervisorIOConfig(3, serverPriorityToReplicas)
         ),
@@ -434,8 +434,8 @@ public class SeekableStreamSupervisorIOConfigTest
   public void testNegativeReplicasThrowsException()
   {
     final Map<Integer, Integer> invalidServerPriorityToReplicas = Map.of(0, 2, 1, -1);
-    MatcherAssert.assertThat(
-        Assert.assertThrows(
+    JUnit5Assertions.assertMatches(
+        JUnit5Assertions.assertThrows(
             DruidException.class,
             () -> makeSeekableStreamSupervisorIOConfig(null, invalidServerPriorityToReplicas)
         ),
@@ -506,9 +506,9 @@ public class SeekableStreamSupervisorIOConfigTest
     {
     };
 
-    Assert.assertTrue(config.isBounded());
-    Assert.assertNotNull(config.getBoundedStreamConfig());
-    Assert.assertEquals(boundedConfig, config.getBoundedStreamConfig());
+    JUnit5Assertions.assertTrue(config.isBounded());
+    JUnit5Assertions.assertNotNull(config.getBoundedStreamConfig());
+    JUnit5Assertions.assertEquals(boundedConfig, config.getBoundedStreamConfig());
   }
 
   @Test
@@ -539,8 +539,8 @@ public class SeekableStreamSupervisorIOConfigTest
     {
     };
 
-    Assert.assertFalse(config.isBounded());
-    Assert.assertNull(config.getBoundedStreamConfig());
+    JUnit5Assertions.assertFalse(config.isBounded());
+    JUnit5Assertions.assertNull(config.getBoundedStreamConfig());
   }
 
   @Test
@@ -571,8 +571,8 @@ public class SeekableStreamSupervisorIOConfigTest
     {
     };
 
-    Assert.assertFalse(config.isBounded());
-    Assert.assertNull(config.getBoundedStreamConfig());
+    JUnit5Assertions.assertFalse(config.isBounded());
+    JUnit5Assertions.assertNull(config.getBoundedStreamConfig());
   }
 
   private static SupervisorIOConfigBuilder.DefaultSupervisorIOConfigBuilder ioConfigBuilder()
@@ -589,15 +589,15 @@ public class SeekableStreamSupervisorIOConfigTest
   public void testEqualsAndHashCode()
   {
     final SeekableStreamSupervisorIOConfig config = ioConfigBuilder().build();
-    Assert.assertEquals(config, ioConfigBuilder().build());
-    Assert.assertEquals(config.hashCode(), ioConfigBuilder().build().hashCode());
-    Assert.assertNotEquals(config, null);
-    Assert.assertNotEquals(config, "not an io config");
-    Assert.assertNotEquals(config, ioConfigBuilder().withStream("other").build());
-    Assert.assertNotEquals(config, ioConfigBuilder().withReplicas(9).build());
-    Assert.assertNotEquals(config, ioConfigBuilder().withTaskCount(9).build());
-    Assert.assertNotEquals(config, ioConfigBuilder().withStopTaskCount(7).build());
-    Assert.assertNotEquals(config, ioConfigBuilder().withIdleConfig(new IdleConfig(true, 5L)).build());
+    JUnit5Assertions.assertEquals(config, ioConfigBuilder().build());
+    JUnit5Assertions.assertEquals(config.hashCode(), ioConfigBuilder().build().hashCode());
+    JUnit5Assertions.assertNotEquals(config, null);
+    JUnit5Assertions.assertNotEquals(config, "not an io config");
+    JUnit5Assertions.assertNotEquals(config, ioConfigBuilder().withStream("other").build());
+    JUnit5Assertions.assertNotEquals(config, ioConfigBuilder().withReplicas(9).build());
+    JUnit5Assertions.assertNotEquals(config, ioConfigBuilder().withTaskCount(9).build());
+    JUnit5Assertions.assertNotEquals(config, ioConfigBuilder().withStopTaskCount(7).build());
+    JUnit5Assertions.assertNotEquals(config, ioConfigBuilder().withIdleConfig(new IdleConfig(true, 5L)).build());
   }
 
   @Test
@@ -631,10 +631,10 @@ public class SeekableStreamSupervisorIOConfigTest
   {
     // The default aggregator is a stateless singleton; instance() always returns DEFAULT.
     final LagAggregator aggregator = LagAggregator.DefaultLagAggregator.instance();
-    Assert.assertSame(LagAggregator.DEFAULT, aggregator);
-    Assert.assertEquals(aggregator, LagAggregator.DefaultLagAggregator.instance());
-    Assert.assertNotEquals(aggregator, null);
-    Assert.assertNotEquals(aggregator, "not a lag aggregator");
+    JUnit5Assertions.assertSame(LagAggregator.DEFAULT, aggregator);
+    JUnit5Assertions.assertEquals(aggregator, LagAggregator.DefaultLagAggregator.instance());
+    JUnit5Assertions.assertNotEquals(aggregator, null);
+    JUnit5Assertions.assertNotEquals(aggregator, "not a lag aggregator");
   }
 
   /**

@@ -22,10 +22,11 @@ package org.apache.druid.indexing.worker.shuffle;
 import com.google.common.collect.ImmutableSet;
 import org.apache.druid.indexing.worker.shuffle.ShuffleMetrics.PerDatasourceShuffleMetrics;
 import org.apache.druid.java.util.common.concurrent.Execs;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,11 +37,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 public class ShuffleMetricsTest
 {
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ExpectedFailureExtension expectedException = ExpectedFailureExtension.none();
 
   @Test
   public void testShuffleRequested()
@@ -56,19 +58,19 @@ public class ShuffleMetricsTest
     metrics.shuffleRequested(supervisorTask2, 30);
 
     final Map<String, PerDatasourceShuffleMetrics> snapshot = metrics.snapshotAndReset();
-    Assert.assertEquals(ImmutableSet.of(supervisorTask1, supervisorTask2, supervisorTask3), snapshot.keySet());
+    JUnit5Assertions.assertEquals(ImmutableSet.of(supervisorTask1, supervisorTask2, supervisorTask3), snapshot.keySet());
 
     PerDatasourceShuffleMetrics perDatasourceShuffleMetrics = snapshot.get(supervisorTask1);
-    Assert.assertEquals(2, perDatasourceShuffleMetrics.getShuffleRequests());
-    Assert.assertEquals(1536, perDatasourceShuffleMetrics.getShuffleBytes());
+    JUnit5Assertions.assertEquals(2, perDatasourceShuffleMetrics.getShuffleRequests());
+    JUnit5Assertions.assertEquals(1536, perDatasourceShuffleMetrics.getShuffleBytes());
 
     perDatasourceShuffleMetrics = snapshot.get(supervisorTask2);
-    Assert.assertEquals(2, perDatasourceShuffleMetrics.getShuffleRequests());
-    Assert.assertEquals(40, perDatasourceShuffleMetrics.getShuffleBytes());
+    JUnit5Assertions.assertEquals(2, perDatasourceShuffleMetrics.getShuffleRequests());
+    JUnit5Assertions.assertEquals(40, perDatasourceShuffleMetrics.getShuffleBytes());
 
     perDatasourceShuffleMetrics = snapshot.get(supervisorTask3);
-    Assert.assertEquals(1, perDatasourceShuffleMetrics.getShuffleRequests());
-    Assert.assertEquals(10000, perDatasourceShuffleMetrics.getShuffleBytes());
+    JUnit5Assertions.assertEquals(1, perDatasourceShuffleMetrics.getShuffleRequests());
+    JUnit5Assertions.assertEquals(10000, perDatasourceShuffleMetrics.getShuffleBytes());
   }
 
   @Test
@@ -87,10 +89,11 @@ public class ShuffleMetricsTest
     shuffleMetrics.shuffleRequested("supervisor2", 10);
     shuffleMetrics.snapshotAndReset();
 
-    Assert.assertEquals(Collections.emptyMap(), shuffleMetrics.getDatasourceMetrics());
+    JUnit5Assertions.assertEquals(Collections.emptyMap(), shuffleMetrics.getDatasourceMetrics());
   }
 
-  @Test(timeout = 5000L)
+  @Test
+  @Timeout(value = 5000L, unit = TimeUnit.MILLISECONDS)
   public void testConcurrency() throws ExecutionException, InterruptedException
   {
     final ExecutorService exec = Execs.multiThreaded(3, "shuffle-metrics-test-%d"); // 2 for write, 1 for read
@@ -133,13 +136,13 @@ public class ShuffleMetricsTest
       boolean task1ShouldBeInSecondSnapshot = false;
       boolean task2ShouldBeInSecondSnapshot = false;
 
-      Assert.assertEquals(2, firstSnapshot.size());
-      Assert.assertNotNull(firstSnapshot.get(supervisorTask1));
-      Assert.assertTrue(
+      JUnit5Assertions.assertEquals(2, firstSnapshot.size());
+      JUnit5Assertions.assertNotNull(firstSnapshot.get(supervisorTask1));
+      JUnit5Assertions.assertTrue(
           2048 == firstSnapshot.get(supervisorTask1).getShuffleBytes()
           || 2080 == firstSnapshot.get(supervisorTask1).getShuffleBytes()
       );
-      Assert.assertTrue(
+      JUnit5Assertions.assertTrue(
           2 == firstSnapshot.get(supervisorTask1).getShuffleRequests()
           || 3 == firstSnapshot.get(supervisorTask1).getShuffleRequests()
       );
@@ -147,12 +150,12 @@ public class ShuffleMetricsTest
         expectedSecondSnapshotSize++;
         task1ShouldBeInSecondSnapshot = true;
       }
-      Assert.assertNotNull(firstSnapshot.get(supervisorTask2));
-      Assert.assertTrue(
+      JUnit5Assertions.assertNotNull(firstSnapshot.get(supervisorTask2));
+      JUnit5Assertions.assertTrue(
           60 == firstSnapshot.get(supervisorTask2).getShuffleBytes()
           || 70 == firstSnapshot.get(supervisorTask2).getShuffleBytes()
       );
-      Assert.assertTrue(
+      JUnit5Assertions.assertTrue(
           2 == firstSnapshot.get(supervisorTask2).getShuffleRequests()
           || 3 == firstSnapshot.get(supervisorTask2).getShuffleRequests()
       );
@@ -166,16 +169,16 @@ public class ShuffleMetricsTest
       }
       final Map<String, PerDatasourceShuffleMetrics> secondSnapshot = metrics.snapshotAndReset();
 
-      Assert.assertEquals(expectedSecondSnapshotSize, secondSnapshot.size());
-      Assert.assertEquals(task1ShouldBeInSecondSnapshot, secondSnapshot.containsKey(supervisorTask1));
+      JUnit5Assertions.assertEquals(expectedSecondSnapshotSize, secondSnapshot.size());
+      JUnit5Assertions.assertEquals(task1ShouldBeInSecondSnapshot, secondSnapshot.containsKey(supervisorTask1));
       if (task1ShouldBeInSecondSnapshot) {
-        Assert.assertEquals(32, secondSnapshot.get(supervisorTask1).getShuffleBytes());
-        Assert.assertEquals(1, secondSnapshot.get(supervisorTask1).getShuffleRequests());
+        JUnit5Assertions.assertEquals(32, secondSnapshot.get(supervisorTask1).getShuffleBytes());
+        JUnit5Assertions.assertEquals(1, secondSnapshot.get(supervisorTask1).getShuffleRequests());
       }
-      Assert.assertEquals(task2ShouldBeInSecondSnapshot, secondSnapshot.containsKey(supervisorTask2));
+      JUnit5Assertions.assertEquals(task2ShouldBeInSecondSnapshot, secondSnapshot.containsKey(supervisorTask2));
       if (task2ShouldBeInSecondSnapshot) {
-        Assert.assertEquals(10, secondSnapshot.get(supervisorTask2).getShuffleBytes());
-        Assert.assertEquals(1, secondSnapshot.get(supervisorTask2).getShuffleRequests());
+        JUnit5Assertions.assertEquals(10, secondSnapshot.get(supervisorTask2).getShuffleBytes());
+        JUnit5Assertions.assertEquals(1, secondSnapshot.get(supervisorTask2).getShuffleRequests());
       }
 
     }

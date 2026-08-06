@@ -26,15 +26,13 @@ import org.apache.druid.data.input.StringTuple;
 import org.apache.druid.jackson.JacksonModule;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.TestHelper;
+import org.apache.druid.testing.junit5.ExpectedFailureExtension;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.JUnit5Matchers;
 import org.apache.druid.timeline.partition.PartitionBoundaries;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.hamcrest.number.IsCloseTo;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -92,7 +90,7 @@ public class StringSketchTest
   {
     private StringSketch target;
 
-    @Before
+    @BeforeEach
     public void setup()
     {
       target = new StringSketch();
@@ -102,40 +100,40 @@ public class StringSketchTest
     public void putIfNewMin()
     {
       StringTuple value = MAX_STRING;
-      Assert.assertEquals(0, getCount());
+      JUnit5Assertions.assertEquals(0, getCount());
 
       target.putIfNewMin(value);
-      Assert.assertEquals(1, getCount());
+      JUnit5Assertions.assertEquals(1, getCount());
 
       target.putIfNewMin(value);
-      Assert.assertEquals(1, getCount());
-      Assert.assertEquals(value, target.getDelegate().getMinItem());
-      Assert.assertEquals(value, target.getDelegate().getMaxItem());
+      JUnit5Assertions.assertEquals(1, getCount());
+      JUnit5Assertions.assertEquals(value, target.getDelegate().getMinItem());
+      JUnit5Assertions.assertEquals(value, target.getDelegate().getMaxItem());
 
       target.putIfNewMin(MIN_STRING);
-      Assert.assertEquals(2, getCount());
-      Assert.assertEquals(MIN_STRING, target.getDelegate().getMinItem());
-      Assert.assertEquals(MAX_STRING, target.getDelegate().getMaxItem());
+      JUnit5Assertions.assertEquals(2, getCount());
+      JUnit5Assertions.assertEquals(MIN_STRING, target.getDelegate().getMinItem());
+      JUnit5Assertions.assertEquals(MAX_STRING, target.getDelegate().getMaxItem());
     }
 
     @Test
     public void putIfNewMax()
     {
       StringTuple value = MIN_STRING;
-      Assert.assertEquals(0, getCount());
+      JUnit5Assertions.assertEquals(0, getCount());
 
       target.putIfNewMax(value);
-      Assert.assertEquals(1, getCount());
+      JUnit5Assertions.assertEquals(1, getCount());
 
       target.putIfNewMax(value);
-      Assert.assertEquals(1, getCount());
-      Assert.assertEquals(value, target.getDelegate().getMinItem());
-      Assert.assertEquals(value, target.getDelegate().getMaxItem());
+      JUnit5Assertions.assertEquals(1, getCount());
+      JUnit5Assertions.assertEquals(value, target.getDelegate().getMinItem());
+      JUnit5Assertions.assertEquals(value, target.getDelegate().getMaxItem());
 
       target.putIfNewMax(MAX_STRING);
-      Assert.assertEquals(2, getCount());
-      Assert.assertEquals(MIN_STRING, target.getDelegate().getMinItem());
-      Assert.assertEquals(MAX_STRING, target.getDelegate().getMaxItem());
+      JUnit5Assertions.assertEquals(2, getCount());
+      JUnit5Assertions.assertEquals(MIN_STRING, target.getDelegate().getMinItem());
+      JUnit5Assertions.assertEquals(MAX_STRING, target.getDelegate().getMaxItem());
     }
 
     private long getCount()
@@ -155,8 +153,8 @@ public class StringSketchTest
 
     public static class TargetSizeTest
     {
-      @Rule
-      public ExpectedException exception = ExpectedException.none();
+      @RegisterExtension
+      public ExpectedFailureExtension exception = ExpectedFailureExtension.none();
 
       @Test
       public void requiresPositiveSize()
@@ -172,7 +170,7 @@ public class StringSketchTest
       {
         StringSketch sketch = new StringSketch();
         PartitionBoundaries partitionBoundaries = sketch.getEvenPartitionsByTargetSize(1);
-        Assert.assertEquals(0, partitionBoundaries.size());
+        JUnit5Assertions.assertEquals(0, partitionBoundaries.size());
       }
 
       @Test
@@ -181,9 +179,9 @@ public class StringSketchTest
         StringSketch sketch = new StringSketch();
         sketch.put(MIN_STRING);
         PartitionBoundaries partitionBoundaries = sketch.getEvenPartitionsByTargetSize(1);
-        Assert.assertEquals(2, partitionBoundaries.size());
-        Assert.assertNull(partitionBoundaries.get(0));
-        Assert.assertNull(partitionBoundaries.get(1));
+        JUnit5Assertions.assertEquals(2, partitionBoundaries.size());
+        JUnit5Assertions.assertNull(partitionBoundaries.get(0));
+        JUnit5Assertions.assertNull(partitionBoundaries.get(1));
       }
 
       @Test
@@ -209,25 +207,25 @@ public class StringSketchTest
         String partitionBoundariesString = PartitionTest.toString(partitionBoundaries);
         int expectedHighPartitionBoundaryCount = (int) Math.ceil((double) NUM_STRING / targetSize);
         int expectedLowPartitionBoundaryCount = expectedHighPartitionBoundaryCount - 1;
-        MatcherAssert.assertThat(
+        JUnit5Assertions.assertMatches(
             "targetSize=" + targetSize + " " + partitionBoundariesString,
             partitionBoundaries.size(),
-            Matchers.lessThanOrEqualTo(expectedHighPartitionBoundaryCount + 1)
+            JUnit5Matchers.lessThanOrEqualTo(expectedHighPartitionBoundaryCount + 1)
         );
-        MatcherAssert.assertThat(
+        JUnit5Assertions.assertMatches(
             "targetSize=" + targetSize + " " + partitionBoundariesString,
             partitionBoundaries.size(),
-            Matchers.greaterThanOrEqualTo(expectedLowPartitionBoundaryCount + 1)
+            JUnit5Matchers.greaterThanOrEqualTo(expectedLowPartitionBoundaryCount + 1)
         );
 
         int previous = 0;
         for (int i = 1; i < partitionBoundaries.size() - 1; i++) {
           int current = Integer.parseInt(partitionBoundaries.get(i).get(0));
           int size = current - previous;
-          MatcherAssert.assertThat(
+          JUnit5Assertions.assertMatches(
               getErrMsgPrefix(targetSize, i) + partitionBoundariesString,
               (double) size,
-              IsCloseTo.closeTo(targetSize, Math.ceil(DELTA) * 2)
+              JUnit5Matchers.closeTo(targetSize, Math.ceil(DELTA) * 2)
           );
           previous = current;
         }
@@ -250,8 +248,8 @@ public class StringSketchTest
 
     public static class MaxSizeTest
     {
-      @Rule
-      public ExpectedException exception = ExpectedException.none();
+      @RegisterExtension
+      public ExpectedFailureExtension exception = ExpectedFailureExtension.none();
 
       @Test
       public void requiresPositiveSize()
@@ -267,7 +265,7 @@ public class StringSketchTest
       {
         StringSketch sketch = new StringSketch();
         PartitionBoundaries partitionBoundaries = sketch.getEvenPartitionsByMaxSize(1);
-        Assert.assertEquals(0, partitionBoundaries.size());
+        JUnit5Assertions.assertEquals(0, partitionBoundaries.size());
       }
 
       @Test
@@ -276,9 +274,9 @@ public class StringSketchTest
         StringSketch sketch = new StringSketch();
         sketch.put(MIN_STRING);
         PartitionBoundaries partitionBoundaries = sketch.getEvenPartitionsByMaxSize(1);
-        Assert.assertEquals(2, partitionBoundaries.size());
-        Assert.assertNull(partitionBoundaries.get(0));
-        Assert.assertNull(partitionBoundaries.get(1));
+        JUnit5Assertions.assertEquals(2, partitionBoundaries.size());
+        JUnit5Assertions.assertNull(partitionBoundaries.get(0));
+        JUnit5Assertions.assertNull(partitionBoundaries.get(1));
       }
 
       @Test
@@ -303,11 +301,7 @@ public class StringSketchTest
 
         String partitionBoundariesString = PartitionTest.toString(partitionBoundaries);
         long expectedPartitionCount = (long) Math.ceil((double) NUM_STRING / maxSize);
-        Assert.assertEquals(
-            "maxSize=" + maxSize + " " + partitionBoundariesString,
-            expectedPartitionCount + 1,
-            partitionBoundaries.size()
-        );
+        JUnit5Assertions.assertEquals(expectedPartitionCount + 1, partitionBoundaries.size(), "maxSize=" + maxSize + " " + partitionBoundariesString);
 
         double minSize = (double) NUM_STRING / expectedPartitionCount - DELTA;
 
@@ -315,15 +309,15 @@ public class StringSketchTest
         for (int i = 1; i < partitionBoundaries.size() - 1; i++) {
           int current = Integer.parseInt(partitionBoundaries.get(i).get(0));
           int size = current - previous;
-          MatcherAssert.assertThat(
+          JUnit5Assertions.assertMatches(
               getErrMsgPrefix(maxSize, i) + partitionBoundariesString,
               size,
-              Matchers.lessThanOrEqualTo(maxSize)
+              JUnit5Matchers.lessThanOrEqualTo(maxSize)
           );
-          MatcherAssert.assertThat(
+          JUnit5Assertions.assertMatches(
               getErrMsgPrefix(maxSize, i) + partitionBoundariesString,
               (double) size,
-              Matchers.greaterThanOrEqualTo(minSize)
+              JUnit5Matchers.greaterThanOrEqualTo(minSize)
           );
           previous = current;
         }
@@ -350,17 +344,17 @@ public class StringSketchTest
     {
       String partitionBoundariesString = toString(partitionBoundaries);
 
-      Assert.assertEquals(partitionBoundariesString, StringSketch.SKETCH_K + 1, partitionBoundaries.size());
+      JUnit5Assertions.assertEquals(StringSketch.SKETCH_K + 1, partitionBoundaries.size(), partitionBoundariesString);
       assertFirstAndLastPartitionsCorrect(partitionBoundaries);
 
       int previous = 0;
       for (int i = 1; i < partitionBoundaries.size() - 1; i++) {
         int current = Integer.parseInt(partitionBoundaries.get(i).get(0));
-        Assert.assertEquals(
-            getErrMsgPrefix(1, i) + partitionBoundariesString,
+        JUnit5Assertions.assertEquals(
             1,
             current - previous,
-            FACTOR
+            FACTOR,
+            getErrMsgPrefix(1, i) + partitionBoundariesString
         );
         previous = current;
       }
@@ -368,14 +362,14 @@ public class StringSketchTest
 
     private static void assertSinglePartition(PartitionBoundaries partitionBoundaries)
     {
-      Assert.assertEquals(2, partitionBoundaries.size());
+      JUnit5Assertions.assertEquals(2, partitionBoundaries.size());
       assertFirstAndLastPartitionsCorrect(partitionBoundaries);
     }
 
     private static void assertFirstAndLastPartitionsCorrect(PartitionBoundaries partitionBoundaries)
     {
-      Assert.assertNull(partitionBoundaries.get(0));
-      Assert.assertNull(partitionBoundaries.get(partitionBoundaries.size() - 1));
+      JUnit5Assertions.assertNull(partitionBoundaries.get(0));
+      JUnit5Assertions.assertNull(partitionBoundaries.get(partitionBoundaries.size() - 1));
     }
 
     private static String getErrMsgPrefix(int size, int i)

@@ -27,9 +27,9 @@ import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.segment.IndexSpec;
 import org.apache.druid.segment.data.CompressionStrategy;
 import org.apache.druid.segment.indexing.TuningConfig;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
@@ -37,7 +37,7 @@ public class CompactionTuningConfigTest
 {
   private final ObjectMapper mapper = new DefaultObjectMapper();
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     mapper.registerSubtypes(new NamedType(CompactionTask.CompactionTuningConfig.class, "compcation"));
@@ -51,22 +51,19 @@ public class CompactionTuningConfigTest
     final byte[] json = mapper.writeValueAsBytes(tuningConfig);
     final ParallelIndexTuningConfig fromJson =
         (CompactionTask.CompactionTuningConfig) mapper.readValue(json, TuningConfig.class);
-    Assert.assertEquals(fromJson, tuningConfig);
+    JUnit5Assertions.assertEquals(fromJson, tuningConfig);
   }
 
   @Test
   public void testConfigWithNonZeroAwaitSegmentAvailabilityTimeoutThrowsException()
   {
-    final Exception e = Assert.assertThrows(
+    final Exception e = JUnit5Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> TuningConfigBuilder.forCompactionTask()
                                  .withAwaitSegmentAvailabilityTimeoutMillis(5L)
                                  .build()
     );
-    Assert.assertEquals(
-        "awaitSegmentAvailabilityTimeoutMillis is not supported for Compcation Task",
-        e.getMessage()
-    );
+    JUnit5Assertions.assertEquals(e.getMessage(), "awaitSegmentAvailabilityTimeoutMillis is not supported for Compcation Task");
   }
 
   @Test
@@ -76,7 +73,7 @@ public class CompactionTuningConfigTest
         .forCompactionTask()
         .withAwaitSegmentAvailabilityTimeoutMillis(0L)
         .build();
-    Assert.assertEquals(0L, tuningConfig.getAwaitSegmentAvailabilityTimeoutMillis());
+    JUnit5Assertions.assertEquals(0L, tuningConfig.getAwaitSegmentAvailabilityTimeoutMillis());
   }
 
   @Test
@@ -84,7 +81,7 @@ public class CompactionTuningConfigTest
   {
     final CompactionTask.CompactionTuningConfig tuningConfig =
         TuningConfigBuilder.forCompactionTask().build();
-    Assert.assertEquals(0L, tuningConfig.getAwaitSegmentAvailabilityTimeoutMillis());
+    JUnit5Assertions.assertEquals(0L, tuningConfig.getAwaitSegmentAvailabilityTimeoutMillis());
   }
 
   @Test

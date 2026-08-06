@@ -30,12 +30,12 @@ import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.http.client.response.InputStreamFullResponseHandler;
 import org.apache.druid.java.util.http.client.response.InputStreamFullResponseHolder;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
 import org.easymock.EasyMock;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http.HttpVersion;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,9 +52,9 @@ public class TaskRunnerUtilsTest
         "/druid/worker/v1/task/%s/log",
         "foo bar&"
     );
-    Assert.assertEquals("https://1.2.3.4:8290/druid/worker/v1/task/foo%20bar%26/log", url.toString());
-    Assert.assertEquals("1.2.3.4:8290", url.getAuthority());
-    Assert.assertEquals("/druid/worker/v1/task/foo%20bar%26/log", url.getPath());
+    JUnit5Assertions.assertEquals(url.toString(), "https://1.2.3.4:8290/druid/worker/v1/task/foo%20bar%26/log");
+    JUnit5Assertions.assertEquals(url.getAuthority(), "1.2.3.4:8290");
+    JUnit5Assertions.assertEquals(url.getPath(), "/druid/worker/v1/task/foo%20bar%26/log");
   }
 
   @Test
@@ -65,7 +65,7 @@ public class TaskRunnerUtilsTest
         "/druid/worker/v1/task/%s/log",
         "foo bar&"
     );
-    Assert.assertEquals("https://1.2.3.4:8290/druid/worker/v1/task/foo%20bar%26/log", url.toString());
+    JUnit5Assertions.assertEquals(url.toString(), "https://1.2.3.4:8290/druid/worker/v1/task/foo%20bar%26/log");
   }
 
   @Test
@@ -82,8 +82,8 @@ public class TaskRunnerUtilsTest
         url("http://example.com/liveReports")
     );
 
-    Assert.assertTrue(stream.isPresent());
-    Assert.assertEquals(report, StringUtils.fromUtf8(ByteStreams.toByteArray(stream.get())));
+    JUnit5Assertions.assertTrue(stream.isPresent());
+    JUnit5Assertions.assertEquals(report, StringUtils.fromUtf8(ByteStreams.toByteArray(stream.get())));
     EasyMock.verify(httpClient);
   }
 
@@ -107,7 +107,7 @@ public class TaskRunnerUtilsTest
             .andReturn(Futures.immediateFuture(response(HttpResponseStatus.INTERNAL_SERVER_ERROR, "error")));
     EasyMock.replay(httpClient);
 
-    final IOException e = Assert.assertThrows(
+    final IOException e = JUnit5Assertions.assertThrows(
         IOException.class,
         () -> TaskRunnerUtils.streamTaskReportsFromTaskLocation(
             httpClient,
@@ -115,7 +115,7 @@ public class TaskRunnerUtilsTest
         )
     );
 
-    Assert.assertTrue(e.getMessage().contains("500 Internal Server Error"));
+    JUnit5Assertions.assertTrue(e.getMessage().contains("500 Internal Server Error"));
     EasyMock.verify(httpClient);
   }
 
@@ -128,7 +128,7 @@ public class TaskRunnerUtilsTest
             .andReturn(Futures.immediateFuture(response(status, "error")));
     EasyMock.replay(httpClient);
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         Optional.absent(),
         TaskRunnerUtils.streamTaskReportsFromTaskLocation(httpClient, url("http://example.com/liveReports"))
     );

@@ -60,14 +60,14 @@ import org.apache.druid.segment.realtime.appenderator.UnifiedIndexerAppenderator
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.coordination.DataSegmentAnnouncer;
 import org.apache.druid.server.security.AuthTestUtils;
+import org.apache.druid.testing.junit5.JUnit5Assertions;
+import org.apache.druid.testing.junit5.TempDirExtension;
 import org.apache.druid.utils.JvmUtils;
 import org.apache.druid.utils.RuntimeInfo;
 import org.easymock.EasyMock;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mockito;
 
 import java.io.IOException;
@@ -101,10 +101,10 @@ public class TaskToolboxTest
   private CacheConfig mockCacheConfig = EasyMock.createMock(CacheConfig.class);
   private SegmentLoaderConfig segmentLoaderConfig = EasyMock.createMock(SegmentLoaderConfig.class);
 
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
-  @Before
+  @BeforeEach
   public void setUp() throws IOException
   {
     EasyMock.expect(task.getId()).andReturn("task_id").anyTimes();
@@ -171,25 +171,25 @@ public class TaskToolboxTest
   @Test
   public void testGetDataSegmentArchiver()
   {
-    Assert.assertEquals(mockDataSegmentArchiver, taskToolbox.build(task).getDataSegmentArchiver());
+    JUnit5Assertions.assertEquals(mockDataSegmentArchiver, taskToolbox.build(task).getDataSegmentArchiver());
   }
 
   @Test
   public void testGetSegmentLoaderConfig()
   {
-    Assert.assertEquals(segmentLoaderConfig, taskToolbox.build(task).getSegmentLoaderConfig());
+    JUnit5Assertions.assertEquals(segmentLoaderConfig, taskToolbox.build(task).getSegmentLoaderConfig());
   }
 
   @Test
   public void testGetSegmentAnnouncer()
   {
-    Assert.assertEquals(mockSegmentAnnouncer, taskToolbox.build(task).getSegmentAnnouncer());
+    JUnit5Assertions.assertEquals(mockSegmentAnnouncer, taskToolbox.build(task).getSegmentAnnouncer());
   }
 
   @Test
   public void testGetQueryRunnerFactoryConglomerate()
   {
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         mockQueryRunnerFactoryConglomerate,
         taskToolbox.build(task).getQueryRunnerFactoryConglomerate()
     );
@@ -198,49 +198,49 @@ public class TaskToolboxTest
   @Test
   public void testGetQueryProcessingPool()
   {
-    Assert.assertEquals(mockQueryProcessingPool, taskToolbox.build(task).getQueryProcessingPool());
+    JUnit5Assertions.assertEquals(mockQueryProcessingPool, taskToolbox.build(task).getQueryProcessingPool());
   }
 
   @Test
   public void testGetMonitorScheduler()
   {
-    Assert.assertEquals(mockMonitorScheduler, taskToolbox.build(task).getMonitorScheduler());
+    JUnit5Assertions.assertEquals(mockMonitorScheduler, taskToolbox.build(task).getMonitorScheduler());
   }
 
   @Test
   public void testGetObjectMapper()
   {
-    Assert.assertEquals(ObjectMapper, taskToolbox.build(task).getJsonMapper());
+    JUnit5Assertions.assertEquals(ObjectMapper, taskToolbox.build(task).getJsonMapper());
   }
 
   @Test
   public void testGetEmitter()
   {
-    Assert.assertEquals(mockEmitter, taskToolbox.build(task).getEmitter());
+    JUnit5Assertions.assertEquals(mockEmitter, taskToolbox.build(task).getEmitter());
   }
 
   @Test
   public void testGetDataSegmentKiller()
   {
-    Assert.assertEquals(mockDataSegmentKiller, taskToolbox.build(task).getDataSegmentKiller());
+    JUnit5Assertions.assertEquals(mockDataSegmentKiller, taskToolbox.build(task).getDataSegmentKiller());
   }
 
   @Test
   public void testGetDataSegmentMover()
   {
-    Assert.assertEquals(mockDataSegmentMover, taskToolbox.build(task).getDataSegmentMover());
+    JUnit5Assertions.assertEquals(mockDataSegmentMover, taskToolbox.build(task).getDataSegmentMover());
   }
 
   @Test
   public void testGetCache()
   {
-    Assert.assertEquals(mockCache, taskToolbox.build(task).getCache());
+    JUnit5Assertions.assertEquals(mockCache, taskToolbox.build(task).getCache());
   }
 
   @Test
   public void testGetCacheConfig()
   {
-    Assert.assertEquals(mockCacheConfig, taskToolbox.build(task).getCacheConfig());
+    JUnit5Assertions.assertEquals(mockCacheConfig, taskToolbox.build(task).getCacheConfig());
   }
 
   @Test
@@ -252,17 +252,17 @@ public class TaskToolboxTest
         new DruidProcessingConfigTest.MockRuntimeInfo(12, 1_000_000, 2_000_000);
     final RuntimeInfo adjustedRuntimeInfo = TaskToolbox.createAdjustedRuntimeInfo(runtimeInfo, appenderatorsManager);
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         runtimeInfo.getAvailableProcessors(),
         adjustedRuntimeInfo.getAvailableProcessors()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         runtimeInfo.getMaxHeapSizeBytes(),
         adjustedRuntimeInfo.getMaxHeapSizeBytes()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         runtimeInfo.getDirectMemorySizeBytes(),
         adjustedRuntimeInfo.getDirectMemorySizeBytes()
     );
@@ -292,17 +292,17 @@ public class TaskToolboxTest
 
     final RuntimeInfo adjustedRuntimeInfo = TaskToolbox.createAdjustedRuntimeInfo(runtimeInfo, appenderatorsManager);
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         runtimeInfo.getAvailableProcessors() / numWorkers,
         adjustedRuntimeInfo.getAvailableProcessors()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         runtimeInfo.getMaxHeapSizeBytes() / numWorkers,
         adjustedRuntimeInfo.getMaxHeapSizeBytes()
     );
 
-    Assert.assertEquals(
+    JUnit5Assertions.assertEquals(
         runtimeInfo.getDirectMemorySizeBytes() / numWorkers,
         adjustedRuntimeInfo.getDirectMemorySizeBytes()
     );
