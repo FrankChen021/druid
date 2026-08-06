@@ -35,12 +35,6 @@
   <description>Druid extension for generating histograms based on Netflix's Spectator library</description>
 
   <dependencies>
-    <!-- Required to resolve Matcher signatures inherited from BaseCalciteQueryTest. -->
-    <dependency>
-      <groupId>org.hamcrest</groupId>
-      <artifactId>hamcrest</artifactId>
-      <scope>test</scope>
-    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
