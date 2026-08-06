@@ -27,6 +27,10 @@ import org.apache.druid.catalog.storage.sql.SQLCatalogManager;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.metadata.JUnit5TestDerbyConnector;
+import org.apache.druid.metadata.MetadataStorageConnector;
+import org.apache.druid.metadata.MetadataStorageConnectorConfig;
+import org.apache.druid.metadata.MetadataStorageTablesConfig;
+import org.apache.druid.metadata.TestDerbyConnector.DerbyConnectorRule5;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -34,6 +38,8 @@ import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceType;
+
+import java.util.function.Supplier;
 
 public class CatalogTests
 {
@@ -81,13 +87,35 @@ public class CatalogTests
     public CatalogManager manager;
     public CatalogStorage storage;
 
-    public DbFixture(JUnit5TestDerbyConnector derbyConnectorRule)
+    public DbFixture(JUnit5TestDerbyConnector derbyConnector)
+    {
+      this(
+          derbyConnector.getConnector(),
+          derbyConnector.getMetadataConnectorConfig(),
+          derbyConnector.metadataTablesConfigSupplier()
+      );
+    }
+
+    public DbFixture(DerbyConnectorRule5 derbyConnector)
+    {
+      this(
+          derbyConnector.getConnector(),
+          derbyConnector.getMetadataConnectorConfig(),
+          derbyConnector.metadataTablesConfigSupplier()
+      );
+    }
+
+    private DbFixture(
+        MetadataStorageConnector connector,
+        MetadataStorageConnectorConfig connectorConfig,
+        Supplier<MetadataStorageTablesConfig> tablesConfigSupplier
+    )
     {
       MetadataStorageManager metastoreMgr = new MetadataStorageManager(
           JSON_MAPPER,
-          derbyConnectorRule.getConnector(),
-          () -> derbyConnectorRule.getMetadataConnectorConfig(),
-          derbyConnectorRule.metadataTablesConfigSupplier()
+          connector,
+          () -> connectorConfig,
+          tablesConfigSupplier
       );
       manager = new SQLCatalogManager(metastoreMgr);
       manager.start();
