@@ -1,0 +1,140 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.druid.testing;
+
+import org.apache.commons.io.FileUtils;
+import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+
+public class TempDirExtension implements BeforeAllCallback, BeforeEachCallback, AfterAllCallback, AfterEachCallback
+{
+  private final File parentDirectory;
+  private File root;
+
+  public TempDirExtension()
+  {
+    this(null);
+  }
+
+  public TempDirExtension(final File parentDirectory)
+  {
+    this.parentDirectory = parentDirectory;
+  }
+
+  @Override
+  public void beforeAll(final ExtensionContext context) throws IOException
+  {
+    create();
+  }
+
+  @Override
+  public void beforeEach(final ExtensionContext context) throws IOException
+  {
+    create();
+  }
+
+  @Override
+  public void afterAll(final ExtensionContext context) throws IOException
+  {
+    delete();
+  }
+
+  @Override
+  public void afterEach(final ExtensionContext context) throws IOException
+  {
+    delete();
+  }
+
+  public void create() throws IOException
+  {
+    if (root == null) {
+      final File parent = parentDirectory == null ? null : parentDirectory;
+      root = parent == null
+             ? Files.createTempDirectory("junit").toFile()
+             : Files.createTempDirectory(parent.toPath(), "junit").toFile();
+    }
+  }
+
+  public File getRoot()
+  {
+    ensureCreated();
+    return root;
+  }
+
+  public File newFolder() throws IOException
+  {
+    ensureCreated();
+    return Files.createTempDirectory(root.toPath(), "junit").toFile();
+  }
+
+  public File newFolder(final String... folderNames) throws IOException
+  {
+    ensureCreated();
+    File folder = root;
+    for (final String folderName : folderNames) {
+      folder = new File(folder, folderName);
+    }
+    if (!folder.mkdirs() && !folder.isDirectory()) {
+      throw new IOException("Unable to create temporary folder " + folder);
+    }
+    return folder;
+  }
+
+  public File newFile() throws IOException
+  {
+    ensureCreated();
+    return File.createTempFile("junit", null, root);
+  }
+
+  public File newFile(final String fileName) throws IOException
+  {
+    ensureCreated();
+    final File file = new File(root, fileName);
+    if (!file.createNewFile()) {
+      throw new IOException("Unable to create temporary file " + file);
+    }
+    return file;
+  }
+
+  public void delete() throws IOException
+  {
+    if (root != null) {
+      FileUtils.deleteDirectory(root);
+      root = null;
+    }
+  }
+
+  private void ensureCreated()
+  {
+    try {
+      create();
+    }
+    catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+}
