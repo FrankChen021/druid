@@ -42,19 +42,19 @@ import org.apache.druid.segment.TestIndex;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.incremental.IncrementalIndexCursorFactory;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.hamcrest.Matchers;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.TempDirExtension;
+import org.apache.druid.testing.ThrowableExpectation;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nullable;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -70,7 +70,9 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+
+@MethodSource("constructorFeeder")
 public class FrameFileTest extends InitializedNullHandlingTest
 {
   /**
@@ -144,11 +146,11 @@ public class FrameFileTest extends InitializedNullHandlingTest
     abstract int getRowCount();
   }
 
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ThrowableExpectation expectedException = ThrowableExpectation.none();
 
   private final FrameType frameType;
   private final int maxRowsPerFrame;
@@ -178,14 +180,6 @@ public class FrameFileTest extends InitializedNullHandlingTest
     this.useLegacyFrameSerialization = useLegacyFrameSerialization;
   }
 
-  @Parameterized.Parameters(
-      name = "frameType = {0}, "
-             + "maxRowsPerFrame = {1}, "
-             + "partitioned = {2}, "
-             + "adapter = {3}, "
-             + "maxMmapSize = {4}, "
-             + "useLegacyFrameSerialization = {5}"
-  )
   public static Iterable<Object[]> constructorFeeder()
   {
     final List<Object[]> constructors = new ArrayList<>();
@@ -232,7 +226,7 @@ public class FrameFileTest extends InitializedNullHandlingTest
     }
   }
 
-  @Before
+  @BeforeEach
   public void setUp() throws IOException
   {
     cursorFactory = adapterType.getCursorFactory();
@@ -246,7 +240,7 @@ public class FrameFileTest extends InitializedNullHandlingTest
     }
   }
 
-  @AfterClass
+  @AfterAll
   public static void afterClass()
   {
     FRAME_FILES.clear();
@@ -256,7 +250,7 @@ public class FrameFileTest extends InitializedNullHandlingTest
   public void test_numFrames() throws IOException
   {
     try (final FrameFile frameFile = FrameFile.open(file, maxMmapSize, null)) {
-      Assert.assertEquals(computeExpectedNumFrames(), frameFile.numFrames());
+      JupiterAssertions.assertEquals(computeExpectedNumFrames(), frameFile.numFrames());
     }
   }
 
@@ -264,7 +258,7 @@ public class FrameFileTest extends InitializedNullHandlingTest
   public void test_numPartitions() throws IOException
   {
     try (final FrameFile frameFile = FrameFile.open(file, maxMmapSize, null)) {
-      Assert.assertEquals(computeExpectedNumPartitions(), frameFile.numPartitions());
+      JupiterAssertions.assertEquals(computeExpectedNumPartitions(), frameFile.numPartitions());
     }
   }
 
@@ -273,10 +267,10 @@ public class FrameFileTest extends InitializedNullHandlingTest
   {
     try (final FrameFile frameFile = FrameFile.open(file, maxMmapSize, null)) {
       // Skip test for empty files.
-      Assume.assumeThat(frameFile.numFrames(), Matchers.greaterThan(0));
+      Assumptions.assumeTrue(frameFile.numFrames() > 0);
 
       final Frame firstFrame = frameFile.rac(0, makeConcreteDeserializer()).as(Frame.class);
-      Assert.assertEquals(Math.min(rowCount, maxRowsPerFrame), firstFrame.numRows());
+      JupiterAssertions.assertEquals(Math.min(rowCount, maxRowsPerFrame), firstFrame.numRows());
     }
   }
 
@@ -285,10 +279,10 @@ public class FrameFileTest extends InitializedNullHandlingTest
   {
     try (final FrameFile frameFile = FrameFile.open(file, maxMmapSize, null)) {
       // Skip test for empty files.
-      Assume.assumeThat(frameFile.numFrames(), Matchers.greaterThan(0));
+      Assumptions.assumeTrue(frameFile.numFrames() > 0);
 
       final Frame lastFrame = frameFile.rac(frameFile.numFrames() - 1, makeConcreteDeserializer()).as(Frame.class);
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           rowCount % maxRowsPerFrame != 0
           ? rowCount % maxRowsPerFrame
           : Math.min(rowCount, maxRowsPerFrame),
@@ -342,7 +336,7 @@ public class FrameFileTest extends InitializedNullHandlingTest
     try (final FrameFile frameFile = FrameFile.open(file, maxMmapSize, null)) {
       if (partitioned) {
         for (int partitionNum = 0; partitionNum < frameFile.numPartitions(); partitionNum++) {
-          Assert.assertEquals(
+          JupiterAssertions.assertEquals(
               "partition #" + partitionNum,
               Math.min(
                   IntMath.divide(
@@ -356,7 +350,7 @@ public class FrameFileTest extends InitializedNullHandlingTest
           );
         }
       } else {
-        Assert.assertEquals(frameFile.numFrames(), frameFile.getPartitionStartFrame(0));
+        JupiterAssertions.assertEquals(frameFile.numFrames(), frameFile.getPartitionStartFrame(0));
       }
     }
   }
@@ -365,7 +359,7 @@ public class FrameFileTest extends InitializedNullHandlingTest
   public void test_file() throws IOException
   {
     try (final FrameFile frameFile = FrameFile.open(file, maxMmapSize, null)) {
-      Assert.assertEquals(file, frameFile.file());
+      JupiterAssertions.assertEquals(file, frameFile.file());
     }
   }
 
@@ -373,10 +367,10 @@ public class FrameFileTest extends InitializedNullHandlingTest
   public void test_open_withDeleteOnClose() throws IOException
   {
     FrameFile.open(file, maxMmapSize, null).close();
-    Assert.assertTrue(file.exists());
+    JupiterAssertions.assertTrue(file.exists());
 
     FrameFile.open(file, null, FrameFile.Flag.DELETE_ON_CLOSE).close();
-    Assert.assertFalse(file.exists());
+    JupiterAssertions.assertFalse(file.exists());
   }
 
   @Test
@@ -388,7 +382,7 @@ public class FrameFileTest extends InitializedNullHandlingTest
 
     // Closing original file does nothing; must wait for other files to be closed.
     frameFile1.close();
-    Assert.assertTrue(file.exists());
+    JupiterAssertions.assertTrue(file.exists());
 
     // Can still get a reference after frameFile1 is closed, just because others are still open. Strange but true.
     final FrameFile frameFile4 = frameFile1.newReference();
@@ -400,14 +394,14 @@ public class FrameFileTest extends InitializedNullHandlingTest
     frameFile2.close();
     frameFile2.close();
     frameFile2.close();
-    Assert.assertTrue(file.exists());
+    JupiterAssertions.assertTrue(file.exists());
 
     frameFile3.close();
-    Assert.assertTrue(file.exists());
+    JupiterAssertions.assertTrue(file.exists());
 
     // Final reference is closed; file is now gone.
     frameFile4.close();
-    Assert.assertFalse(file.exists());
+    JupiterAssertions.assertFalse(file.exists());
 
     // Can no longer get new references.
     expectedException.expect(IllegalStateException.class);

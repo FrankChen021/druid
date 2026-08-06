@@ -35,8 +35,11 @@ import org.apache.druid.segment.CursorFactory;
 import org.apache.druid.segment.TestIndex;
 import org.apache.druid.segment.incremental.IncrementalIndexCursorFactory;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.TempDirExtension;
+import org.apache.druid.testing.matchers.CoreMatchers;
+import org.apache.druid.testing.matchers.MatcherAssert;
+import org.apache.druid.testing.matchers.ThrowableMessageMatcher;
 import org.jboss.netty.buffer.ByteBufferBackedChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.handler.codec.http.DefaultHttpChunk;
@@ -45,14 +48,11 @@ import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http.HttpVersion;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.io.IOException;
@@ -62,11 +62,13 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+
+@MethodSource("constructorFeeder")
 public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTest
 {
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
   private final int maxRowsPerFrame;
 
@@ -80,7 +82,6 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
     this.maxRowsPerFrame = maxRowsPerFrame;
   }
 
-  @Parameterized.Parameters(name = "maxRowsPerFrame = {0}")
   public static Iterable<Object[]> constructorFeeder()
   {
     final List<Object[]> constructors = new ArrayList<>();
@@ -92,7 +93,7 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
     return constructors;
   }
 
-  @Before
+  @BeforeEach
   public void setUp() throws IOException
   {
     cursorFactory = new IncrementalIndexCursorFactory(TestIndex.getIncrementalTestIndex());
@@ -116,20 +117,20 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
         null
     );
 
-    Assert.assertFalse(response1.isFinished());
-    Assert.assertTrue(response1.isContinueReading());
-    Assert.assertFalse(response1.getObj().isExceptionCaught());
-    Assert.assertFalse(response1.getObj().isLastFetch());
+    JupiterAssertions.assertFalse(response1.isFinished());
+    JupiterAssertions.assertTrue(response1.isContinueReading());
+    JupiterAssertions.assertFalse(response1.getObj().isExceptionCaught());
+    JupiterAssertions.assertFalse(response1.getObj().isLastFetch());
 
     final ClientResponse<FrameFilePartialFetch> response2 = handler.done(response1);
 
-    Assert.assertTrue(response2.isFinished());
-    Assert.assertTrue(response2.isContinueReading());
-    Assert.assertFalse(response2.getObj().isExceptionCaught());
-    Assert.assertFalse(response2.getObj().isLastFetch());
+    JupiterAssertions.assertTrue(response2.isFinished());
+    JupiterAssertions.assertTrue(response2.isContinueReading());
+    JupiterAssertions.assertFalse(response2.getObj().isExceptionCaught());
+    JupiterAssertions.assertFalse(response2.getObj().isLastFetch());
 
     final ListenableFuture<?> backpressureFuture = response2.getObj().backpressureFuture();
-    Assert.assertFalse(backpressureFuture.isDone());
+    JupiterAssertions.assertFalse(backpressureFuture.isDone());
 
     channel.doneWriting();
 
@@ -139,7 +140,7 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
     );
 
     // Backpressure future resolves once channel is read.
-    Assert.assertTrue(backpressureFuture.isDone());
+    JupiterAssertions.assertTrue(backpressureFuture.isDone());
   }
 
   @Test
@@ -150,18 +151,18 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
         null
     );
 
-    Assert.assertFalse(response1.isFinished());
-    Assert.assertTrue(response1.isContinueReading());
-    Assert.assertFalse(response1.getObj().isExceptionCaught());
-    Assert.assertFalse(response1.getObj().isLastFetch());
+    JupiterAssertions.assertFalse(response1.isFinished());
+    JupiterAssertions.assertTrue(response1.isContinueReading());
+    JupiterAssertions.assertFalse(response1.getObj().isExceptionCaught());
+    JupiterAssertions.assertFalse(response1.getObj().isLastFetch());
 
     final ClientResponse<FrameFilePartialFetch> response2 = handler.done(response1);
 
-    Assert.assertTrue(response2.isFinished());
-    Assert.assertTrue(response2.isContinueReading());
-    Assert.assertFalse(response2.getObj().isExceptionCaught());
-    Assert.assertFalse(response2.getObj().isLastFetch());
-    Assert.assertTrue(response2.getObj().backpressureFuture().isDone());
+    JupiterAssertions.assertTrue(response2.isFinished());
+    JupiterAssertions.assertTrue(response2.isContinueReading());
+    JupiterAssertions.assertFalse(response2.getObj().isExceptionCaught());
+    JupiterAssertions.assertFalse(response2.getObj().isLastFetch());
+    JupiterAssertions.assertTrue(response2.getObj().backpressureFuture().isDone());
   }
 
   @Test
@@ -178,18 +179,18 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
         null
     );
 
-    Assert.assertFalse(response1.isFinished());
-    Assert.assertTrue(response1.isContinueReading());
-    Assert.assertFalse(response1.getObj().isExceptionCaught());
-    Assert.assertTrue(response1.getObj().isLastFetch());
+    JupiterAssertions.assertFalse(response1.isFinished());
+    JupiterAssertions.assertTrue(response1.isContinueReading());
+    JupiterAssertions.assertFalse(response1.getObj().isExceptionCaught());
+    JupiterAssertions.assertTrue(response1.getObj().isLastFetch());
 
     final ClientResponse<FrameFilePartialFetch> response2 = handler.done(response1);
 
-    Assert.assertTrue(response2.isFinished());
-    Assert.assertTrue(response2.isContinueReading());
-    Assert.assertFalse(response2.getObj().isExceptionCaught());
-    Assert.assertTrue(response2.getObj().isLastFetch());
-    Assert.assertTrue(response2.getObj().backpressureFuture().isDone());
+    JupiterAssertions.assertTrue(response2.isFinished());
+    JupiterAssertions.assertTrue(response2.isContinueReading());
+    JupiterAssertions.assertFalse(response2.getObj().isExceptionCaught());
+    JupiterAssertions.assertTrue(response2.getObj().isLastFetch());
+    JupiterAssertions.assertTrue(response2.getObj().backpressureFuture().isDone());
   }
 
   @Test
@@ -203,7 +204,7 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
         null
     );
 
-    Assert.assertFalse(response.isFinished());
+    JupiterAssertions.assertFalse(response.isFinished());
 
     for (int p = chunkSize; p < allBytes.length; p += chunkSize) {
       response = handler.handleChunk(
@@ -212,20 +213,20 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
           p / chunkSize
       );
 
-      Assert.assertFalse(response.isFinished());
-      Assert.assertFalse(response.getObj().isExceptionCaught());
-      Assert.assertFalse(response.getObj().isLastFetch());
+      JupiterAssertions.assertFalse(response.isFinished());
+      JupiterAssertions.assertFalse(response.getObj().isExceptionCaught());
+      JupiterAssertions.assertFalse(response.getObj().isLastFetch());
     }
 
     final ClientResponse<FrameFilePartialFetch> finalResponse = handler.done(response);
 
-    Assert.assertTrue(finalResponse.isFinished());
-    Assert.assertTrue(finalResponse.isContinueReading());
-    Assert.assertFalse(response.getObj().isExceptionCaught());
-    Assert.assertFalse(response.getObj().isLastFetch());
+    JupiterAssertions.assertTrue(finalResponse.isFinished());
+    JupiterAssertions.assertTrue(finalResponse.isContinueReading());
+    JupiterAssertions.assertFalse(response.getObj().isExceptionCaught());
+    JupiterAssertions.assertFalse(response.getObj().isLastFetch());
 
     final ListenableFuture<?> backpressureFuture = response.getObj().backpressureFuture();
-    Assert.assertFalse(backpressureFuture.isDone());
+    JupiterAssertions.assertFalse(backpressureFuture.isDone());
 
     channel.doneWriting();
 
@@ -235,7 +236,7 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
     );
 
     // Backpressure future resolves after channel is read.
-    Assert.assertTrue(backpressureFuture.isDone());
+    JupiterAssertions.assertTrue(backpressureFuture.isDone());
   }
 
   @Test
@@ -247,11 +248,11 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
     );
 
     final ClientResponse<FrameFilePartialFetch> finalResponse = handler.done(response);
-    Assert.assertTrue(finalResponse.isFinished());
-    Assert.assertTrue(finalResponse.isContinueReading());
+    JupiterAssertions.assertTrue(finalResponse.isFinished());
+    JupiterAssertions.assertTrue(finalResponse.isContinueReading());
 
     // Verify that the exception handler was called.
-    Assert.assertTrue(finalResponse.getObj().isExceptionCaught());
+    JupiterAssertions.assertTrue(finalResponse.getObj().isExceptionCaught());
     final Throwable e = finalResponse.getObj().getExceptionCaught();
     MatcherAssert.assertThat(e, CoreMatchers.instanceOf(IllegalStateException.class));
     MatcherAssert.assertThat(
@@ -262,7 +263,7 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
     );
 
     // Verify that the channel has not had an error state set. This enables reconnection later.
-    Assert.assertFalse(channel.isErrorOrFinished());
+    JupiterAssertions.assertFalse(channel.isErrorOrFinished());
   }
 
   @Test
@@ -276,11 +277,11 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
     response = handler.handleChunk(response, makeChunk(StringUtils.toUtf8("no!")), 1);
 
     final ClientResponse<FrameFilePartialFetch> finalResponse = handler.done(response);
-    Assert.assertTrue(finalResponse.isFinished());
-    Assert.assertTrue(finalResponse.isContinueReading());
+    JupiterAssertions.assertTrue(finalResponse.isFinished());
+    JupiterAssertions.assertTrue(finalResponse.isContinueReading());
 
     // Verify that the exception handler was called.
-    Assert.assertTrue(finalResponse.getObj().isExceptionCaught());
+    JupiterAssertions.assertTrue(finalResponse.getObj().isExceptionCaught());
     final Throwable e = finalResponse.getObj().getExceptionCaught();
     MatcherAssert.assertThat(e, CoreMatchers.instanceOf(IllegalStateException.class));
     MatcherAssert.assertThat(
@@ -291,7 +292,7 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
     );
 
     // Verify that the channel has not had an error state set. This enables reconnection later.
-    Assert.assertFalse(channel.isErrorOrFinished());
+    JupiterAssertions.assertFalse(channel.isErrorOrFinished());
   }
 
   @Test
@@ -306,7 +307,7 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
         null
     );
 
-    Assert.assertFalse(response.isFinished());
+    JupiterAssertions.assertFalse(response.isFinished());
 
     // Add next chunk.
     response = handler.handleChunk(
@@ -326,18 +327,18 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
     );
 
     // Verify that the exception handler was called.
-    Assert.assertTrue(response.getObj().isExceptionCaught());
+    JupiterAssertions.assertTrue(response.getObj().isExceptionCaught());
     final Throwable e = response.getObj().getExceptionCaught();
     MatcherAssert.assertThat(e, CoreMatchers.instanceOf(IllegalStateException.class));
     MatcherAssert.assertThat(e, ThrowableMessageMatcher.hasMessage(CoreMatchers.equalTo("Oh no!")));
 
     // Verify that the channel has not had an error state set.
-    Assert.assertFalse(channel.isErrorOrFinished());
+    JupiterAssertions.assertFalse(channel.isErrorOrFinished());
 
     // Simulate successful reconnection with a different handler: add the rest of the data directly to the channel.
     channel.addChunk(byteSlice(allBytes, chunkSize * 2, chunkSize));
     channel.addChunk(byteSlice(allBytes, chunkSize * 3, chunkSize));
-    Assert.assertEquals(allBytes.length, channel.getBytesAdded());
+    JupiterAssertions.assertEquals(allBytes.length, channel.getBytesAdded());
     channel.doneWriting();
 
     FrameTestUtil.assertRowsEqual(
@@ -362,8 +363,8 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
         )
     );
 
-    Assert.assertEquals(firstPart, channel.getBytesAdded());
-    Assert.assertTrue(response.isFinished());
+    JupiterAssertions.assertEquals(firstPart, channel.getBytesAdded());
+    JupiterAssertions.assertTrue(response.isFinished());
 
     // Add first quarter after firstPart using a new handler.
     handler = new FrameFileHttpResponseHandler(channel);
@@ -383,7 +384,7 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
     );
 
     // Verify that the exception handler was called.
-    Assert.assertTrue(response.getObj().isExceptionCaught());
+    JupiterAssertions.assertTrue(response.getObj().isExceptionCaught());
     final Throwable e = response.getObj().getExceptionCaught();
     MatcherAssert.assertThat(e, CoreMatchers.instanceOf(IllegalStateException.class));
     MatcherAssert.assertThat(e, ThrowableMessageMatcher.hasMessage(CoreMatchers.equalTo("Oh no!")));
@@ -396,8 +397,8 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
         null
     );
 
-    Assert.assertEquals(firstPart + chunkSize * 4L, channel.getBytesAdded());
-    Assert.assertFalse(response.isFinished());
+    JupiterAssertions.assertEquals(firstPart + chunkSize * 4L, channel.getBytesAdded());
+    JupiterAssertions.assertFalse(response.isFinished());
 
     // Send the rest of the data.
     response = handler.handleChunk(
@@ -405,7 +406,7 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
         makeChunk(byteSlice(allBytes, firstPart + chunkSize * 4, chunkSize * 4)),
         1
     );
-    Assert.assertEquals(firstPart + chunkSize * 8L, channel.getBytesAdded());
+    JupiterAssertions.assertEquals(firstPart + chunkSize * 8L, channel.getBytesAdded());
 
     response = handler.handleChunk(
         response,
@@ -414,11 +415,11 @@ public class FrameFileHttpResponseHandlerTest extends InitializedNullHandlingTes
     );
     response = handler.done(response);
 
-    Assert.assertTrue(response.isFinished());
-    Assert.assertFalse(response.getObj().isExceptionCaught());
+    JupiterAssertions.assertTrue(response.isFinished());
+    JupiterAssertions.assertFalse(response.getObj().isExceptionCaught());
 
     // Verify channel.
-    Assert.assertEquals(allBytes.length, channel.getBytesAdded());
+    JupiterAssertions.assertEquals(allBytes.length, channel.getBytesAdded());
     channel.doneWriting();
     FrameTestUtil.assertRowsEqual(
         FrameTestUtil.readRowsFromCursorFactory(cursorFactory),

@@ -23,8 +23,8 @@ import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.Either;
 import org.apache.druid.java.util.common.StringUtils;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
+import org.apache.druid.testing.matchers.CoreMatchers;
+import org.apache.druid.testing.matchers.MatcherAssert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

@@ -24,9 +24,9 @@ import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.math.expr.ExpressionType;
 import org.apache.druid.math.expr.InputBindings;
-import org.hamcrest.MatcherAssert;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.matchers.MatcherAssert;
+import org.junit.jupiter.api.Test;
 
 public class RegexpExtractExprMacroTest extends MacroTestBase
 {
@@ -53,7 +53,7 @@ public class RegexpExtractExprMacroTest extends MacroTestBase
   public void testInvalidRegexpExtractPattern()
   {
     MatcherAssert.assertThat(
-        Assert.assertThrows(DruidException.class, () ->
+        JupiterAssertions.assertThrows(DruidException.class, () ->
             eval(
                 "regexp_extract('pod-1234-node', '[ab-0-9]')",
                 InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
@@ -73,7 +73,7 @@ public class RegexpExtractExprMacroTest extends MacroTestBase
         "regexp_extract(a, 'f(.o)')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertEquals("foo", result.value());
+    JupiterAssertions.assertEquals("foo", result.value());
   }
 
   @Test
@@ -83,7 +83,7 @@ public class RegexpExtractExprMacroTest extends MacroTestBase
         "regexp_extract(a, 'f(.o)', 0)",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertEquals("foo", result.value());
+    JupiterAssertions.assertEquals("foo", result.value());
   }
 
   @Test
@@ -93,20 +93,20 @@ public class RegexpExtractExprMacroTest extends MacroTestBase
         "regexp_extract(a, 'f(.o)', 1)",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertEquals("oo", result.value());
+    JupiterAssertions.assertEquals("oo", result.value());
   }
 
   @Test
   public void testMatchGroup2()
   {
-    Throwable t = Assert.assertThrows(
+    Throwable t = JupiterAssertions.assertThrows(
         IndexOutOfBoundsException.class,
         () -> eval(
             "regexp_extract(a, 'f(.o)', 2)",
             InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
         )
     );
-    Assert.assertEquals("No group 2", t.getMessage());
+    JupiterAssertions.assertEquals("No group 2", t.getMessage());
   }
 
   @Test
@@ -116,7 +116,7 @@ public class RegexpExtractExprMacroTest extends MacroTestBase
         "regexp_extract(a, 'f(.x)')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertNull(result.value());
+    JupiterAssertions.assertNull(result.value());
   }
 
   @Test
@@ -126,7 +126,7 @@ public class RegexpExtractExprMacroTest extends MacroTestBase
         "regexp_extract(a, '.o$')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertEquals("oo", result.value());
+    JupiterAssertions.assertEquals("oo", result.value());
   }
 
   @Test
@@ -138,7 +138,7 @@ public class RegexpExtractExprMacroTest extends MacroTestBase
         "regexp_extract(a, null)",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertNull(result.value());
+    JupiterAssertions.assertNull(result.value());
   }
 
   @Test
@@ -148,7 +148,7 @@ public class RegexpExtractExprMacroTest extends MacroTestBase
         "regexp_extract(a, '')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertEquals("", result.value());
+    JupiterAssertions.assertEquals("", result.value());
   }
 
   @Test
@@ -171,13 +171,13 @@ public class RegexpExtractExprMacroTest extends MacroTestBase
     expectException(IllegalArgumentException.class, "Function[regexp_extract] pattern must be a string literal");
 
     final ExprEval<?> result = eval("regexp_extract(a, null)", InputBindings.nilBindings());
-    Assert.assertNull(result.value());
+    JupiterAssertions.assertNull(result.value());
   }
 
   @Test
   public void testEmptyStringPatternOnNull()
   {
     final ExprEval<?> result = eval("regexp_extract(a, '')", InputBindings.nilBindings());
-    Assert.assertNull(result.value());
+    JupiterAssertions.assertNull(result.value());
   }
 }

@@ -28,7 +28,9 @@ import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.LoggerConfig;
-import org.junit.rules.ExternalResource;
+import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +38,7 @@ import java.util.List;
 /**
  * JUnit rule to capture a class's logger output to an in-memory buffer to allow verification of log messages in tests.
  */
-public class LoggerCaptureRule extends ExternalResource
+public class LoggerCaptureRule implements BeforeEachCallback, AfterEachCallback
 {
   private final Class<?> targetClass;
 
@@ -49,6 +51,11 @@ public class LoggerCaptureRule extends ExternalResource
   }
 
   @Override
+  public void beforeEach(final ExtensionContext context)
+  {
+    before();
+  }
+
   public void before()
   {
     inMemoryAppender = new InMemoryAppender(targetClass);
@@ -59,6 +66,11 @@ public class LoggerCaptureRule extends ExternalResource
   }
 
   @Override
+  public void afterEach(final ExtensionContext context)
+  {
+    after();
+  }
+
   public void after()
   {
     clearLogEvents();

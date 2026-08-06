@@ -45,12 +45,12 @@ import org.apache.druid.segment.TestIndex;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
 import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.testing.TempDirExtension;
+import org.apache.druid.testing.ThrowableExpectation;
 import org.apache.druid.timeline.SegmentId;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.Collections;
 import java.util.List;
@@ -86,17 +86,17 @@ public class VectorizedVirtualColumnTest
       "false"
   );
 
-  @Rule
-  public final TemporaryFolder tmpFolder = new TemporaryFolder();
+  @RegisterExtension
+  public final TempDirExtension tmpFolder = new TempDirExtension();
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ThrowableExpectation expectedException = ThrowableExpectation.none();
 
   private AggregationTestHelper groupByTestHelper;
   private AggregationTestHelper timeseriesTestHelper;
   private List<Segment> segments = null;
 
-  @Before
+  @BeforeEach
   public void setup()
   {
     groupByTestHelper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(

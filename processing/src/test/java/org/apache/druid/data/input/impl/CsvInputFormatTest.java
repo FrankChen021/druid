@@ -23,10 +23,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.matchers.CoreMatchers;
+import org.apache.druid.testing.matchers.MatcherAssert;
+import org.apache.druid.testing.matchers.ThrowableMessageMatcher;
 import org.apache.druid.utils.CompressionUtils;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

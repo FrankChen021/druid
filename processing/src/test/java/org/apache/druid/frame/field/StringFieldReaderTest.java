@@ -32,8 +32,8 @@ import org.apache.druid.segment.DimensionDictionarySelector;
 import org.apache.druid.segment.DimensionSelector;
 import org.apache.druid.segment.data.IndexedInts;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
+import org.apache.druid.testing.matchers.CoreMatchers;
+import org.apache.druid.testing.matchers.MatcherAssert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +46,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import javax.annotation.Nullable;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;

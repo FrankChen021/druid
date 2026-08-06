@@ -33,9 +33,9 @@ import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.incremental.OnheapIncrementalIndex;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.JupiterAssertions;
 import org.joda.time.DateTime;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -422,22 +422,22 @@ public class DataGeneratorTest extends InitializedNullHandlingTest
   public void testBasicSchemasAndGeneratorSchemaInfo()
   {
     GeneratorSchemaInfo basicSchema = GeneratorBasicSchemas.SCHEMA_MAP.get("basic");
-    Assert.assertEquals(13, basicSchema.getColumnSchemas().size());
-    Assert.assertEquals(6, basicSchema.getAggs().size());
-    Assert.assertEquals(6, basicSchema.getAggsArray().length);
-    Assert.assertNotNull(basicSchema.getDimensionsSpec());
-    Assert.assertNotNull(basicSchema.getDataInterval());
-    Assert.assertTrue(basicSchema.isWithRollup());
+    JupiterAssertions.assertEquals(13, basicSchema.getColumnSchemas().size());
+    JupiterAssertions.assertEquals(6, basicSchema.getAggs().size());
+    JupiterAssertions.assertEquals(6, basicSchema.getAggsArray().length);
+    JupiterAssertions.assertNotNull(basicSchema.getDimensionsSpec());
+    JupiterAssertions.assertNotNull(basicSchema.getDataInterval());
+    JupiterAssertions.assertTrue(basicSchema.isWithRollup());
   }
 
   @Test
   public void testRealRoundingDistributionZeroGetters()
   {
     RealRoundingDistribution dist = new RealRoundingDistribution(new NormalDistribution());
-    Assert.assertEquals(0, dist.getSupportLowerBound());
-    Assert.assertEquals(0, dist.getSupportUpperBound());
-    Assert.assertEquals(0, dist.getNumericalMean(), 0);
-    Assert.assertEquals(0, dist.getNumericalVariance(), 0);
+    JupiterAssertions.assertEquals(0, dist.getSupportLowerBound());
+    JupiterAssertions.assertEquals(0, dist.getSupportUpperBound());
+    JupiterAssertions.assertEquals(0, dist.getNumericalMean(), 0);
+    JupiterAssertions.assertEquals(0, dist.getNumericalVariance(), 0);
   }
 
   @Test
@@ -500,7 +500,7 @@ public class DataGeneratorTest extends InitializedNullHandlingTest
     DataGenerator dataGenerator = new DataGenerator(schemas, 9999, 0, 0, 1000.0);
     for (int i = 0; i < 100000; i++) {
       InputRow row = dataGenerator.nextRow();
-      Assert.assertNotNull(row);
+      JupiterAssertions.assertNotNull(row);
       tracker.addRow(row);
     }
 
@@ -576,7 +576,7 @@ public class DataGeneratorTest extends InitializedNullHandlingTest
       String format = expected ? "%s dimension is nullable" : "%s dimension is not nullable";
       String message = String.format(Locale.US, format, dim);
       Map<Object, RowValuePropertyTracker> valueMap = dimensionMap.get(dim);
-      Assert.assertEquals(message, expected, valueMap.containsKey(""));
+      JupiterAssertions.assertEquals(message, expected, valueMap.containsKey(""));
     }
 
     private void assertTimeStamp(String dim, long startTime, long endTime)
@@ -591,7 +591,7 @@ public class DataGeneratorTest extends InitializedNullHandlingTest
       );
       for (Object val : valueMap.keySet()) {
         long timeStamp = valueMap.get(val).getTimeStamp().getMillis();
-        Assert.assertTrue(message, timeStamp >= startTime && timeStamp <= endTime);
+        JupiterAssertions.assertTrue(message, timeStamp >= startTime && timeStamp <= endTime);
       }
     }
 
@@ -603,7 +603,7 @@ public class DataGeneratorTest extends InitializedNullHandlingTest
       for (Object val : valueMap.keySet()) {
         count += valueMap.get(val).getCount();
       }
-      Assert.assertEquals(message, expected, count);
+      JupiterAssertions.assertEquals(message, expected, count);
     }
 
     public void printStuff()
@@ -671,7 +671,7 @@ public class DataGeneratorTest extends InitializedNullHandlingTest
 
     DataGenerator dataGenerator = new DataGenerator(schemas, 9999, 0, 0, 1000.0);
     List<InputRow> rows = dataGenerator.toList(100);
-    Assert.assertEquals(100, rows.size());
+    JupiterAssertions.assertEquals(100, rows.size());
 
     for (InputRow row : rows) {
       tracker.addRow(row);
@@ -744,6 +744,6 @@ public class DataGeneratorTest extends InitializedNullHandlingTest
         .build();
 
     dataGenerator.addToIndex(index, 100);
-    Assert.assertEquals(100, index.numRows());
+    JupiterAssertions.assertEquals(100, index.numRows());
   }
 }

@@ -73,16 +73,16 @@ import org.apache.druid.segment.index.semantic.StringValueSetIndexes;
 import org.apache.druid.segment.index.semantic.ValueIndexes;
 import org.apache.druid.segment.writeout.SegmentWriteOutMediumFactory;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.TempDirExtension;
 import org.apache.druid.timeline.SegmentId;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -100,12 +100,11 @@ import java.util.stream.Collectors;
 
 public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
 {
-  @Rule
-  public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public final TempDirExtension temporaryFolder = new TempDirExtension();
 
   protected IndexMerger indexMerger;
 
-  @Parameterized.Parameters(name = "{index}: metric compression={0}, dimension compression={1}, long encoding={2}, segment write-out medium={3}")
   public static Collection<Object[]> data()
   {
     return Collections2.transform(
@@ -156,7 +155,7 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
   protected final boolean useBitmapIndexes;
   protected final BitmapSerdeFactory serdeFactory;
 
-  @Rule
+  @RegisterExtension
   public final CloserRule closer = new CloserRule(false);
 
   protected IndexMergerTestBase(
@@ -192,19 +191,19 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         indexIO.loadIndex(indexMerger.persist(toPersist, tempDir, indexSpec, null))
     );
 
-    Assert.assertEquals(2, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
-    Assert.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
-    Assert.assertEquals(3, index.getColumnNames().size());
+    JupiterAssertions.assertEquals(2, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
+    JupiterAssertions.assertEquals(3, index.getColumnNames().size());
 
     assertDimCompression(index, indexSpec.getDimensionCompression());
 
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertArrayEquals(
         IncrementalIndexTest.getDefaultCombiningAggregatorFactories(),
         index.getMetadata().getAggregators()
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Granularities.NONE,
         index.getMetadata().getQueryGranularity()
     );
@@ -249,25 +248,25 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         indexIO.loadIndex(indexMerger.persist(toPersist, tempDir, indexSpec, null))
     );
 
-    Assert.assertEquals(6, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
-    Assert.assertEquals(makeOrderBys("dim1", "dim2", "__time"), Lists.newArrayList(index.getOrdering()));
-    Assert.assertEquals(3, index.getColumnNames().size());
+    JupiterAssertions.assertEquals(6, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(makeOrderBys("dim1", "dim2", "__time"), Lists.newArrayList(index.getOrdering()));
+    JupiterAssertions.assertEquals(3, index.getColumnNames().size());
 
     assertDimCompression(index, indexSpec.getDimensionCompression());
 
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertArrayEquals(
         IncrementalIndexTest.getDefaultCombiningAggregatorFactories(),
         index.getMetadata().getAggregators()
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Granularities.NONE,
         index.getMetadata().getQueryGranularity()
     );
 
-    Assert.assertEquals(6, index.getNumRows());
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(6, index.getNumRows());
+    JupiterAssertions.assertEquals(
         ImmutableList.of(
             ImmutableList.of("1", "2", timestamp, 1L),
             ImmutableList.of("1", "2", timestamp, 1L),
@@ -319,25 +318,25 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         indexIO.loadIndex(indexMerger.persist(toPersist, tempDir, indexSpec, null))
     );
 
-    Assert.assertEquals(4, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
-    Assert.assertEquals(makeOrderBys("dim1", "dim2", "__time"), Lists.newArrayList(index.getOrdering()));
-    Assert.assertEquals(3, index.getColumnNames().size());
+    JupiterAssertions.assertEquals(4, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(makeOrderBys("dim1", "dim2", "__time"), Lists.newArrayList(index.getOrdering()));
+    JupiterAssertions.assertEquals(3, index.getColumnNames().size());
 
     assertDimCompression(index, indexSpec.getDimensionCompression());
 
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertArrayEquals(
         IncrementalIndexTest.getDefaultCombiningAggregatorFactories(),
         index.getMetadata().getAggregators()
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Granularities.NONE,
         index.getMetadata().getQueryGranularity()
     );
 
-    Assert.assertEquals(4, index.getNumRows());
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(4, index.getNumRows());
+    JupiterAssertions.assertEquals(
         ImmutableList.of(
             ImmutableList.of("1", "2", timestamp, 2L),
             ImmutableList.of("1", "2", timestamp + 1, 1L),
@@ -372,18 +371,18 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         indexIO.loadIndex(indexMerger.persist(toPersist, tempDir, indexSpec, null))
     );
 
-    Assert.assertEquals(2, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
-    Assert.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
-    Assert.assertEquals(3, index.getColumnNames().size());
+    JupiterAssertions.assertEquals(2, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
+    JupiterAssertions.assertEquals(3, index.getColumnNames().size());
     assertDimCompression(index, indexSpec.getDimensionCompression());
 
     final QueryableIndexIndexableAdapter adapter = new QueryableIndexIndexableAdapter(index);
     final List<DebugRow> rowList = RowIteratorHelper.toList(adapter.getRows());
 
-    Assert.assertEquals(2, rowList.size());
-    Assert.assertEquals(ImmutableList.of("1", "2"), rowList.get(0).dimensionValues());
-    Assert.assertEquals(Arrays.asList("3", null), rowList.get(1).dimensionValues());
+    JupiterAssertions.assertEquals(2, rowList.size());
+    JupiterAssertions.assertEquals(ImmutableList.of("1", "2"), rowList.get(0).dimensionValues());
+    JupiterAssertions.assertEquals(Arrays.asList("3", null), rowList.get(1).dimensionValues());
 
     checkBitmapIndex(Collections.emptyList(), getBitmapIndex(adapter, "dim1", null));
     checkBitmapIndex(Collections.singletonList(0), getBitmapIndex(adapter, "dim1", "1"));
@@ -409,14 +408,14 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         indexIO.loadIndex(indexMerger.persist(toPersist, tempDir, indexSpec, null))
     );
 
-    Assert.assertEquals(2, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
-    Assert.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
-    Assert.assertEquals(3, index.getColumnNames().size());
+    JupiterAssertions.assertEquals(2, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
+    JupiterAssertions.assertEquals(3, index.getColumnNames().size());
 
     assertDimCompression(index, indexSpec.getDimensionCompression());
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         new Metadata(
             metadataElems,
             IncrementalIndexTest.getDefaultCombiningAggregatorFactories(),
@@ -467,17 +466,17 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         indexIO.loadIndex(indexMerger.persist(toPersist1, tempDir1, indexSpec, null))
     );
 
-    Assert.assertEquals(2, index1.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index1.getAvailableDimensions()));
-    Assert.assertEquals(3, index1.getColumnNames().size());
+    JupiterAssertions.assertEquals(2, index1.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index1.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(3, index1.getColumnNames().size());
 
     QueryableIndex index2 = closer.closeLater(
         indexIO.loadIndex(indexMerger.persist(toPersist2, tempDir2, indexSpec, null))
     );
 
-    Assert.assertEquals(2, index2.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index2.getAvailableDimensions()));
-    Assert.assertEquals(3, index2.getColumnNames().size());
+    JupiterAssertions.assertEquals(2, index2.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index2.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(3, index2.getColumnNames().size());
 
     AggregatorFactory[] mergedAggregators = new AggregatorFactory[]{
         new CountAggregatorFactory("count")
@@ -496,14 +495,14 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(3, merged.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(merged.getAvailableDimensions()));
-    Assert.assertEquals(3, merged.getColumnNames().size());
+    JupiterAssertions.assertEquals(3, merged.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(merged.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(3, merged.getColumnNames().size());
     assertDimCompression(index2, indexSpec.getDimensionCompression());
     assertDimCompression(index1, indexSpec.getDimensionCompression());
     assertDimCompression(merged, indexSpec.getDimensionCompression());
 
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertArrayEquals(
         getCombiningAggregators(mergedAggregators),
         merged.getMetadata().getAggregators()
     );
@@ -562,14 +561,14 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(1, index1.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(ImmutableList.of("dim2"), ImmutableList.copyOf(index1.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(1, index1.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(ImmutableList.of("dim2"), ImmutableList.copyOf(index1.getAvailableDimensions()));
 
-    Assert.assertEquals(1, index2.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(ImmutableList.of("dim2"), ImmutableList.copyOf(index2.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(1, index2.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(ImmutableList.of("dim2"), ImmutableList.copyOf(index2.getAvailableDimensions()));
 
-    Assert.assertEquals(2, merged.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(ImmutableList.of("dim2"), ImmutableList.copyOf(merged.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(2, merged.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(ImmutableList.of("dim2"), ImmutableList.copyOf(merged.getAvailableDimensions()));
 
     assertDimCompression(index1, indexSpec.getDimensionCompression());
     assertDimCompression(index2, indexSpec.getDimensionCompression());
@@ -601,9 +600,9 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
 
     indexIO.validateTwoSegments(incrementalAdapter, queryableAdapter);
 
-    Assert.assertEquals(2, index1.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index1.getAvailableDimensions()));
-    Assert.assertEquals(3, index1.getColumnNames().size());
+    JupiterAssertions.assertEquals(2, index1.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index1.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(3, index1.getColumnNames().size());
 
 
     QueryableIndex merged = closer.closeLater(
@@ -620,9 +619,9 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(2, merged.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(merged.getAvailableDimensions()));
-    Assert.assertEquals(3, merged.getColumnNames().size());
+    JupiterAssertions.assertEquals(2, merged.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(merged.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(3, merged.getColumnNames().size());
 
     indexIO.validateTwoSegments(tempDir1, mergedDir);
 
@@ -655,9 +654,9 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
 
     indexIO.validateTwoSegments(incrementalAdapter, queryableAdapter);
 
-    Assert.assertEquals(2, index1.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index1.getAvailableDimensions()));
-    Assert.assertEquals(3, index1.getColumnNames().size());
+    JupiterAssertions.assertEquals(2, index1.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index1.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(3, index1.getColumnNames().size());
 
     IndexSpec.Builder builder = IndexSpec.builder().withBitmapSerdeFactory(indexSpec.getBitmapSerdeFactory());
     if (CompressionStrategy.LZ4.equals(indexSpec.getDimensionCompression())) {
@@ -689,9 +688,9 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(2, merged.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(merged.getAvailableDimensions()));
-    Assert.assertEquals(3, merged.getColumnNames().size());
+    JupiterAssertions.assertEquals(2, merged.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(merged.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(3, merged.getColumnNames().size());
 
     indexIO.validateTwoSegments(tempDir1, mergedDir);
 
@@ -729,14 +728,14 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         Method method = cls.getDeclaredMethod("getCompressionStrategy");
         method.setAccessible(true);
         Object strategy = method.invoke(obj);
-        Assert.assertEquals(expectedStrategy, strategy);
+        JupiterAssertions.assertEquals(expectedStrategy, strategy);
         return;
       }
       catch (NoSuchMethodException e) {
         cls = cls.getSuperclass();
       }
     }
-    Assert.fail("Could not find getCompressionStrategy() on " + obj.getClass());
+    JupiterAssertions.fail("Could not find getCompressionStrategy() on " + obj.getClass());
   }
 
 
@@ -782,21 +781,21 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     final QueryableIndexIndexableAdapter adapter = new QueryableIndexIndexableAdapter(merged);
     final List<DebugRow> rowList = RowIteratorHelper.toList(adapter.getRows());
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Arrays.asList("__time", "d3", "d1", "d2"),
         ImmutableList.copyOf(adapter.getDimensionNames(true))
     );
-    Assert.assertEquals(Arrays.asList("d3", "d1", "d2"), ImmutableList.copyOf(adapter.getDimensionNames(false)));
-    Assert.assertEquals(3, rowList.size());
+    JupiterAssertions.assertEquals(Arrays.asList("d3", "d1", "d2"), ImmutableList.copyOf(adapter.getDimensionNames(false)));
+    JupiterAssertions.assertEquals(3, rowList.size());
 
-    Assert.assertEquals(Arrays.asList("30000", "100", "4000"), rowList.get(0).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(3L), rowList.get(0).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("30000", "100", "4000"), rowList.get(0).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(3L), rowList.get(0).metricValues());
 
-    Assert.assertEquals(Arrays.asList("40000", "300", "2000"), rowList.get(1).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(3L), rowList.get(1).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("40000", "300", "2000"), rowList.get(1).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(3L), rowList.get(1).metricValues());
 
-    Assert.assertEquals(Arrays.asList("50000", "200", "3000"), rowList.get(2).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(3L), rowList.get(2).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("50000", "200", "3000"), rowList.get(2).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(3L), rowList.get(2).metricValues());
 
     checkBitmapIndex(Collections.emptyList(), getBitmapIndex(adapter, "d3", null));
     checkBitmapIndex(Collections.singletonList(0), getBitmapIndex(adapter, "d3", "30000"));
@@ -877,27 +876,27 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     final QueryableIndexIndexableAdapter adapter = new QueryableIndexIndexableAdapter(merged);
     final List<DebugRow> rowList = RowIteratorHelper.toList(adapter.getRows());
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("__time", "dimA", "dimB", "dimC"),
         ImmutableList.copyOf(adapter.getDimensionNames(true))
     );
-    Assert.assertEquals(ImmutableList.of("dimA", "dimB", "dimC"), ImmutableList.copyOf(adapter.getDimensionNames(false)));
-    Assert.assertEquals(4, rowList.size());
+    JupiterAssertions.assertEquals(ImmutableList.of("dimA", "dimB", "dimC"), ImmutableList.copyOf(adapter.getDimensionNames(false)));
+    JupiterAssertions.assertEquals(4, rowList.size());
 
-    Assert.assertEquals(Arrays.asList(null, null, "1"), rowList.get(0).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList.get(0).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, null, "1"), rowList.get(0).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList.get(0).metricValues());
 
-    Assert.assertEquals(Arrays.asList(null, null, "2"), rowList.get(1).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList.get(1).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, null, "2"), rowList.get(1).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList.get(1).metricValues());
 
-    Assert.assertEquals(Arrays.asList("1", null, null), rowList.get(2).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(2L), rowList.get(2).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("1", null, null), rowList.get(2).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(2L), rowList.get(2).metricValues());
 
-    Assert.assertEquals(Arrays.asList("2", null, null), rowList.get(3).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(2L), rowList.get(3).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("2", null, null), rowList.get(3).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(2L), rowList.get(3).metricValues());
 
-    Assert.assertEquals(useBitmapIndexes, adapter.getCapabilities("dimA").hasBitmapIndexes());
-    Assert.assertEquals(useBitmapIndexes, adapter.getCapabilities("dimC").hasBitmapIndexes());
+    JupiterAssertions.assertEquals(useBitmapIndexes, adapter.getCapabilities("dimA").hasBitmapIndexes());
+    JupiterAssertions.assertEquals(useBitmapIndexes, adapter.getCapabilities("dimC").hasBitmapIndexes());
 
     if (useBitmapIndexes) {
       checkBitmapIndex(Arrays.asList(0, 1), getBitmapIndex(adapter, "dimA", null));
@@ -985,35 +984,35 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(Arrays.asList("dimA", "dimB", "dimC"), Lists.newArrayList(merged.getAvailableDimensions()));
-    Assert.assertEquals(makeOrderBys("dimA", "dimB", "dimC", "__time"), Lists.newArrayList(merged.getOrdering()));
+    JupiterAssertions.assertEquals(Arrays.asList("dimA", "dimB", "dimC"), Lists.newArrayList(merged.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(makeOrderBys("dimA", "dimB", "dimC", "__time"), Lists.newArrayList(merged.getOrdering()));
 
     final QueryableIndexIndexableAdapter adapter = new QueryableIndexIndexableAdapter(merged);
     final List<DebugRow> rowList = RowIteratorHelper.toList(adapter.getRows());
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("__time", "dimA", "dimB", "dimC"),
         ImmutableList.copyOf(adapter.getDimensionNames(true))
     );
-    Assert.assertEquals(ImmutableList.of("dimA", "dimB", "dimC"), ImmutableList.copyOf(adapter.getDimensionNames(false)));
-    Assert.assertEquals(4, rowList.size());
+    JupiterAssertions.assertEquals(ImmutableList.of("dimA", "dimB", "dimC"), ImmutableList.copyOf(adapter.getDimensionNames(false)));
+    JupiterAssertions.assertEquals(4, rowList.size());
 
-    Assert.assertEquals(Arrays.asList(null, null, "1"), rowList.get(0).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList.get(0).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, null, "1"), rowList.get(0).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList.get(0).metricValues());
 
-    Assert.assertEquals(Arrays.asList(null, null, "2"), rowList.get(1).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList.get(1).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, null, "2"), rowList.get(1).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList.get(1).metricValues());
 
-    Assert.assertEquals(Arrays.asList("1", null, null), rowList.get(2).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(2L), rowList.get(2).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("1", null, null), rowList.get(2).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(2L), rowList.get(2).metricValues());
 
-    Assert.assertEquals(Arrays.asList("2", null, null), rowList.get(3).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(2L), rowList.get(3).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("2", null, null), rowList.get(3).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(2L), rowList.get(3).metricValues());
 
-    Assert.assertEquals(useBitmapIndexes, adapter.getCapabilities("dimA").hasBitmapIndexes());
+    JupiterAssertions.assertEquals(useBitmapIndexes, adapter.getCapabilities("dimA").hasBitmapIndexes());
     // we always have an "index" for a column with all null values (since everything matches or doesnt)
-    Assert.assertTrue(adapter.getCapabilities("dimB").hasBitmapIndexes());
-    Assert.assertEquals(useBitmapIndexes, adapter.getCapabilities("dimC").hasBitmapIndexes());
+    JupiterAssertions.assertTrue(adapter.getCapabilities("dimB").hasBitmapIndexes());
+    JupiterAssertions.assertEquals(useBitmapIndexes, adapter.getCapabilities("dimC").hasBitmapIndexes());
 
     if (useBitmapIndexes) {
       checkBitmapIndex(Arrays.asList(0, 1), getBitmapIndex(adapter, "dimA", null));
@@ -1070,30 +1069,30 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
       final QueryableIndexIndexableAdapter adapter = new QueryableIndexIndexableAdapter(merged);
       final List<DebugRow> rowList = RowIteratorHelper.toList(adapter.getRows());
 
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           ImmutableList.of("__time", "dimA", "dimB"),
           ImmutableList.copyOf(adapter.getDimensionNames(true))
       );
-      Assert.assertEquals(ImmutableList.of("dimA", "dimB"), ImmutableList.copyOf(adapter.getDimensionNames(false)));
-      Assert.assertEquals(5, rowList.size());
+      JupiterAssertions.assertEquals(ImmutableList.of("dimA", "dimB"), ImmutableList.copyOf(adapter.getDimensionNames(false)));
+      JupiterAssertions.assertEquals(5, rowList.size());
 
-      Assert.assertEquals(Arrays.asList(null, "1"), rowList.get(0).dimensionValues());
-      Assert.assertEquals(Collections.singletonList(1L), rowList.get(0).metricValues());
+      JupiterAssertions.assertEquals(Arrays.asList(null, "1"), rowList.get(0).dimensionValues());
+      JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList.get(0).metricValues());
 
-      Assert.assertEquals(Arrays.asList(null, "2"), rowList.get(1).dimensionValues());
-      Assert.assertEquals(Collections.singletonList(1L), rowList.get(1).metricValues());
+      JupiterAssertions.assertEquals(Arrays.asList(null, "2"), rowList.get(1).dimensionValues());
+      JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList.get(1).metricValues());
 
-      Assert.assertEquals(Arrays.asList(null, "3"), rowList.get(2).dimensionValues());
-      Assert.assertEquals(Collections.singletonList(1L), rowList.get(2).metricValues());
+      JupiterAssertions.assertEquals(Arrays.asList(null, "3"), rowList.get(2).dimensionValues());
+      JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList.get(2).metricValues());
 
-      Assert.assertEquals(Arrays.asList("1", null), rowList.get(3).dimensionValues());
-      Assert.assertEquals(Collections.singletonList(1L), rowList.get(3).metricValues());
+      JupiterAssertions.assertEquals(Arrays.asList("1", null), rowList.get(3).dimensionValues());
+      JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList.get(3).metricValues());
 
-      Assert.assertEquals(Arrays.asList("2", null), rowList.get(4).dimensionValues());
-      Assert.assertEquals(Collections.singletonList(1L), rowList.get(4).metricValues());
+      JupiterAssertions.assertEquals(Arrays.asList("2", null), rowList.get(4).dimensionValues());
+      JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList.get(4).metricValues());
 
       // dimA always has bitmap indexes, since it has them in indexA (it comes in through discovery).
-      Assert.assertTrue(adapter.getCapabilities("dimA").hasBitmapIndexes());
+      JupiterAssertions.assertTrue(adapter.getCapabilities("dimA").hasBitmapIndexes());
       checkBitmapIndex(Arrays.asList(0, 1, 2), getBitmapIndex(adapter, "dimA", null));
       checkBitmapIndex(Collections.singletonList(3), getBitmapIndex(adapter, "dimA", "1"));
       checkBitmapIndex(Collections.singletonList(4), getBitmapIndex(adapter, "dimA", "2"));
@@ -1102,7 +1101,7 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
       // dimB may or may not have bitmap indexes, since it comes in through explicit definition in toPersistB2.
       //noinspection ObjectEquality
       if (toPersistB == toPersistB2) {
-        Assert.assertEquals(useBitmapIndexes, adapter.getCapabilities("dimB").hasBitmapIndexes());
+        JupiterAssertions.assertEquals(useBitmapIndexes, adapter.getCapabilities("dimB").hasBitmapIndexes());
       }
       //noinspection ObjectEquality
       if (toPersistB != toPersistB2 || useBitmapIndexes) {
@@ -1211,29 +1210,29 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
       final QueryableIndexIndexableAdapter adapter = new QueryableIndexIndexableAdapter(merged);
       final List<DebugRow> rowList = RowIteratorHelper.toList(adapter.getRows());
 
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           ImmutableList.of("__time", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9"),
           ImmutableList.copyOf(adapter.getDimensionNames(true))
       );
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           ImmutableList.of("d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9"),
           ImmutableList.copyOf(adapter.getDimensionNames(false))
       );
-      Assert.assertEquals(4, rowList.size());
+      JupiterAssertions.assertEquals(4, rowList.size());
 
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           Arrays.asList("", "", "310", null, null, null, "", null, "910"),
           rowList.get(0).dimensionValues()
       );
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           Arrays.asList(null, "210", "311", null, null, null, "710", "810", "911"),
           rowList.get(1).dimensionValues()
       );
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           Arrays.asList(null, null, null, null, "520", "620", "720", "820", "920"),
           rowList.get(2).dimensionValues()
       );
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           Arrays.asList(null, null, null, null, "", "621", "", "821", "921"),
           rowList.get(3).dimensionValues()
       );
@@ -1366,21 +1365,21 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     final QueryableIndexIndexableAdapter adapter = new QueryableIndexIndexableAdapter(merged);
     final List<DebugRow> rowList = RowIteratorHelper.toList(adapter.getRows());
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("__time", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9"),
         ImmutableList.copyOf(adapter.getDimensionNames(true))
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9"),
         ImmutableList.copyOf(adapter.getDimensionNames(false))
     );
 
-    Assert.assertEquals(4, rowList.size());
+    JupiterAssertions.assertEquals(4, rowList.size());
 
-    Assert.assertEquals(Arrays.asList("", "", "310", null, null, null, "", null, "910"), rowList.get(0).dimensionValues());
-    Assert.assertEquals(Arrays.asList("", "", "310", null, null, null, "", null, "910"), rowList.get(1).dimensionValues());
-    Assert.assertEquals(Arrays.asList("", "", "310", null, null, null, "", null, "910"), rowList.get(2).dimensionValues());
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(Arrays.asList("", "", "310", null, null, null, "", null, "910"), rowList.get(0).dimensionValues());
+    JupiterAssertions.assertEquals(Arrays.asList("", "", "310", null, null, null, "", null, "910"), rowList.get(1).dimensionValues());
+    JupiterAssertions.assertEquals(Arrays.asList("", "", "310", null, null, null, "", null, "910"), rowList.get(2).dimensionValues());
+    JupiterAssertions.assertEquals(
         Arrays.asList(null, null, null, null, "", "621", "", "821", "921"),
         rowList.get(3).dimensionValues()
     );
@@ -1401,11 +1400,11 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
 
   private void checkBitmapIndex(List<Integer> expected, BitmapValues real)
   {
-    Assert.assertEquals("bitmap size", expected.size(), real.size());
+    JupiterAssertions.assertEquals("bitmap size", expected.size(), real.size());
     int i = 0;
     for (IntIterator iterator = real.iterator(); iterator.hasNext(); ) {
       int index = iterator.nextInt();
-      Assert.assertEquals(expected.get(i++), (Integer) index);
+      JupiterAssertions.assertEquals(expected.get(i++), (Integer) index);
     }
   }
 
@@ -1505,27 +1504,27 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     final QueryableIndexIndexableAdapter adapter2 = new QueryableIndexIndexableAdapter(merged2);
     final List<DebugRow> rowList2 = RowIteratorHelper.toList(adapter2.getRows());
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("__time", "dimB", "dimA"),
         ImmutableList.copyOf(adapter.getDimensionNames(true))
     );
-    Assert.assertEquals(ImmutableList.of("dimB", "dimA"), ImmutableList.copyOf(adapter.getDimensionNames(false)));
-    Assert.assertEquals(5, rowList.size());
+    JupiterAssertions.assertEquals(ImmutableList.of("dimB", "dimA"), ImmutableList.copyOf(adapter.getDimensionNames(false)));
+    JupiterAssertions.assertEquals(5, rowList.size());
 
-    Assert.assertEquals(Arrays.asList(null, "1"), rowList.get(0).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(3L), rowList.get(0).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, "1"), rowList.get(0).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(3L), rowList.get(0).metricValues());
 
-    Assert.assertEquals(Arrays.asList(null, "2"), rowList.get(1).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(2L), rowList.get(1).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, "2"), rowList.get(1).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(2L), rowList.get(1).metricValues());
 
-    Assert.assertEquals(Arrays.asList("1", null), rowList.get(2).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(3L), rowList.get(2).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("1", null), rowList.get(2).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(3L), rowList.get(2).metricValues());
 
-    Assert.assertEquals(Arrays.asList("2", null), rowList.get(3).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(2L), rowList.get(3).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("2", null), rowList.get(3).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(2L), rowList.get(3).metricValues());
 
-    Assert.assertEquals(Arrays.asList("3", null), rowList.get(4).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(2L), rowList.get(4).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("3", null), rowList.get(4).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(2L), rowList.get(4).metricValues());
 
     checkBitmapIndex(Arrays.asList(2, 3, 4), getBitmapIndex(adapter, "dimA", null));
     checkBitmapIndex(Collections.singletonList(0), getBitmapIndex(adapter, "dimA", "1"));
@@ -1536,44 +1535,44 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     checkBitmapIndex(Collections.singletonList(3), getBitmapIndex(adapter, "dimB", "2"));
     checkBitmapIndex(Collections.singletonList(4), getBitmapIndex(adapter, "dimB", "3"));
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("__time", "dimA", "dimB", "dimC"),
         ImmutableList.copyOf(adapter2.getDimensionNames(true))
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("dimA", "dimB", "dimC"),
         ImmutableList.copyOf(adapter2.getDimensionNames(false))
     );
-    Assert.assertEquals(12, rowList2.size());
-    Assert.assertEquals(Arrays.asList(null, null, "1"), rowList2.get(0).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList2.get(0).metricValues());
-    Assert.assertEquals(Arrays.asList(null, null, "2"), rowList2.get(1).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList2.get(1).metricValues());
+    JupiterAssertions.assertEquals(12, rowList2.size());
+    JupiterAssertions.assertEquals(Arrays.asList(null, null, "1"), rowList2.get(0).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList2.get(0).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, null, "2"), rowList2.get(1).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList2.get(1).metricValues());
 
-    Assert.assertEquals(Arrays.asList(null, null, "3"), rowList2.get(2).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList2.get(2).metricValues());
-    Assert.assertEquals(Arrays.asList(null, "1", null), rowList2.get(3).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList2.get(3).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, null, "3"), rowList2.get(2).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList2.get(2).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, "1", null), rowList2.get(3).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList2.get(3).metricValues());
 
-    Assert.assertEquals(Arrays.asList(null, "2", null), rowList2.get(4).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList2.get(4).metricValues());
-    Assert.assertEquals(Arrays.asList(null, "3", null), rowList2.get(5).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList2.get(5).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, "2", null), rowList2.get(4).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList2.get(4).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, "3", null), rowList2.get(5).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList2.get(5).metricValues());
 
-    Assert.assertEquals(Arrays.asList("1", null, null), rowList2.get(6).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(3L), rowList2.get(6).metricValues());
-    Assert.assertEquals(Arrays.asList("2", null, null), rowList2.get(7).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList2.get(7).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("1", null, null), rowList2.get(6).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(3L), rowList2.get(6).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("2", null, null), rowList2.get(7).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList2.get(7).metricValues());
 
-    Assert.assertEquals(Arrays.asList(null, "1", null), rowList2.get(8).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList2.get(8).metricValues());
-    Assert.assertEquals(Arrays.asList(null, "2", null), rowList2.get(9).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList2.get(9).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, "1", null), rowList2.get(8).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList2.get(8).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, "2", null), rowList2.get(9).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList2.get(9).metricValues());
 
-    Assert.assertEquals(Arrays.asList(null, "3", null), rowList2.get(10).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(1L), rowList2.get(10).metricValues());
-    Assert.assertEquals(Arrays.asList("2", null, null), rowList2.get(11).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(2L), rowList2.get(11).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(null, "3", null), rowList2.get(10).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(1L), rowList2.get(10).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList("2", null, null), rowList2.get(11).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(2L), rowList2.get(11).metricValues());
 
     checkBitmapIndex(Arrays.asList(0, 1, 2, 3, 4, 5, 8, 9, 10), getBitmapIndex(adapter2, "dimA", null));
     checkBitmapIndex(Collections.singletonList(6), getBitmapIndex(adapter2, "dimA", "1"));
@@ -1693,7 +1692,7 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         closer.closeLater(indexIO.loadIndex(merged)),
         SegmentId.dummy("test")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableSet.of("A", "C"),
         Arrays.stream(segment.as(Metadata.class).getAggregators()).map(AggregatorFactory::getName).collect(Collectors.toSet())
     );
@@ -1769,7 +1768,7 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         closer.closeLater(indexIO.loadIndex(merged)),
         SegmentId.dummy("test")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableSet.of("A", "C"),
         Arrays.stream(segment.as(Metadata.class).getAggregators()).map(AggregatorFactory::getName).collect(Collectors.toSet())
     );
@@ -1841,13 +1840,14 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         closer.closeLater(indexIO.loadIndex(merged)),
         SegmentId.dummy("test")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableSet.of("A", "B", "C"),
         Arrays.stream(segment.as(Metadata.class).getAggregators()).map(AggregatorFactory::getName).collect(Collectors.toSet())
     );
   }
 
-  @Test(expected = IAE.class)
+  @Test
+  @org.apache.druid.testing.ExpectThrows(IAE.class)
   public void testMismatchedMetricsVarying() throws IOException
   {
 
@@ -1889,7 +1889,7 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         closer.closeLater(indexIO.loadIndex(merged)),
         SegmentId.dummy("test")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableSet.of("A", "B", "C"),
         Arrays.stream(segment.as(Metadata.class).getAggregators()).map(AggregatorFactory::getName).collect(Collectors.toSet())
     );
@@ -1930,17 +1930,17 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     final IndexableAdapter adapter = new QueryableIndexIndexableAdapter(merged);
     final List<DebugRow> rowList = RowIteratorHelper.toList(adapter.getRows());
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("__time", "dimA", "dimB", "dimC"),
         ImmutableList.copyOf(adapter.getDimensionNames(true))
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("dimA", "dimB", "dimC"),
         ImmutableList.copyOf(adapter.getDimensionNames(false))
     );
-    Assert.assertEquals(4, rowList.size());
+    JupiterAssertions.assertEquals(4, rowList.size());
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Arrays.asList(
             null,
             null,
@@ -1948,16 +1948,16 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         ),
         rowList.get(0).dimensionValues()
     );
-    Assert.assertEquals(Collections.singletonList(2L), rowList.get(0).metricValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(2L), rowList.get(0).metricValues());
 
-    Assert.assertEquals(Arrays.asList(72L, 60000.789f, "World"), rowList.get(1).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(2L), rowList.get(0).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(72L, 60000.789f, "World"), rowList.get(1).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(2L), rowList.get(0).metricValues());
 
-    Assert.assertEquals(Arrays.asList(100L, 4000.567f, "Hello"), rowList.get(2).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(2L), rowList.get(1).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(100L, 4000.567f, "Hello"), rowList.get(2).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(2L), rowList.get(1).metricValues());
 
-    Assert.assertEquals(Arrays.asList(3001L, 1.2345f, "Foobar"), rowList.get(3).dimensionValues());
-    Assert.assertEquals(Collections.singletonList(2L), rowList.get(2).metricValues());
+    JupiterAssertions.assertEquals(Arrays.asList(3001L, 1.2345f, "Foobar"), rowList.get(3).dimensionValues());
+    JupiterAssertions.assertEquals(Collections.singletonList(2L), rowList.get(2).metricValues());
   }
 
   private IncrementalIndex getIndexWithNumericDims()
@@ -2046,14 +2046,14 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     List<String> actualColumnNames = Lists.newArrayList(index.getColumnNames());
     Collections.sort(expectedColumnNames);
     Collections.sort(actualColumnNames);
-    Assert.assertEquals(expectedColumnNames, actualColumnNames);
+    JupiterAssertions.assertEquals(expectedColumnNames, actualColumnNames);
 
     SmooshedFileMapper sfm = closer.closeLater(SmooshedFileMapper.load(tempDir));
     List<String> expectedFilenames = Arrays.asList("A", "__time", "d1", "index.drd", "metadata.drd");
     List<String> actualFilenames = new ArrayList<>(sfm.getInternalFilenames());
     Collections.sort(expectedFilenames);
     Collections.sort(actualFilenames);
-    Assert.assertEquals(expectedFilenames, actualFilenames);
+    JupiterAssertions.assertEquals(expectedFilenames, actualFilenames);
   }
 
 
@@ -2164,23 +2164,23 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     adapter = new QueryableIndexIndexableAdapter(index);
     rowList = RowIteratorHelper.toList(adapter.getRows());
 
-    Assert.assertEquals(2, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
-    Assert.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
-    Assert.assertEquals(3, index.getColumnNames().size());
+    JupiterAssertions.assertEquals(2, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
+    JupiterAssertions.assertEquals(3, index.getColumnNames().size());
 
-    Assert.assertEquals(2, rowList.size());
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(2, rowList.size());
+    JupiterAssertions.assertEquals(
         Arrays.asList(Arrays.asList("a", "a", "b", "x"), Arrays.asList("a", "b", "x", "x")),
         rowList.get(0).dimensionValues()
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Arrays.asList(Arrays.asList("a", "b", "x"), Arrays.asList("a", "b", "x")),
         rowList.get(1).dimensionValues()
     );
 
-    Assert.assertEquals(useBitmapIndexes, adapter.getCapabilities("dim1").hasBitmapIndexes());
-    Assert.assertEquals(useBitmapIndexes, adapter.getCapabilities("dim2").hasBitmapIndexes());
+    JupiterAssertions.assertEquals(useBitmapIndexes, adapter.getCapabilities("dim1").hasBitmapIndexes());
+    JupiterAssertions.assertEquals(useBitmapIndexes, adapter.getCapabilities("dim2").hasBitmapIndexes());
 
     if (useBitmapIndexes) {
       checkBitmapIndex(Collections.emptyList(), getBitmapIndex(adapter, "dim1", null));
@@ -2197,22 +2197,22 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     schema = makeDimensionSchemas(Arrays.asList("dim1", "dim2"), MultiValueHandling.SORTED_SET);
     index = persistAndLoad(schema, rows);
 
-    Assert.assertEquals(1, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
-    Assert.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
-    Assert.assertEquals(3, index.getColumnNames().size());
+    JupiterAssertions.assertEquals(1, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
+    JupiterAssertions.assertEquals(3, index.getColumnNames().size());
 
     adapter = new QueryableIndexIndexableAdapter(index);
     rowList = RowIteratorHelper.toList(adapter.getRows());
 
-    Assert.assertEquals(1, rowList.size());
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(1, rowList.size());
+    JupiterAssertions.assertEquals(
         Arrays.asList(Arrays.asList("a", "b", "x"), Arrays.asList("a", "b", "x")),
         rowList.get(0).dimensionValues()
     );
 
-    Assert.assertEquals(useBitmapIndexes, adapter.getCapabilities("dim1").hasBitmapIndexes());
-    Assert.assertEquals(useBitmapIndexes, adapter.getCapabilities("dim2").hasBitmapIndexes());
+    JupiterAssertions.assertEquals(useBitmapIndexes, adapter.getCapabilities("dim1").hasBitmapIndexes());
+    JupiterAssertions.assertEquals(useBitmapIndexes, adapter.getCapabilities("dim2").hasBitmapIndexes());
 
     if (useBitmapIndexes) {
       checkBitmapIndex(Collections.emptyList(), getBitmapIndex(adapter, "dim1", null));
@@ -2229,26 +2229,26 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     schema = makeDimensionSchemas(Arrays.asList("dim1", "dim2"), MultiValueHandling.ARRAY);
     index = persistAndLoad(schema, rows);
 
-    Assert.assertEquals(2, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
-    Assert.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
-    Assert.assertEquals(3, index.getColumnNames().size());
+    JupiterAssertions.assertEquals(2, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
+    JupiterAssertions.assertEquals(3, index.getColumnNames().size());
 
     adapter = new QueryableIndexIndexableAdapter(index);
     rowList = RowIteratorHelper.toList(adapter.getRows());
 
-    Assert.assertEquals(2, rowList.size());
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(2, rowList.size());
+    JupiterAssertions.assertEquals(
         Arrays.asList(Arrays.asList("a", "b", "x"), Arrays.asList("x", "a", "b")),
         rowList.get(0).dimensionValues()
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Arrays.asList(Arrays.asList("x", "a", "a", "b"), Arrays.asList("a", "x", "b", "x")),
         rowList.get(1).dimensionValues()
     );
 
-    Assert.assertEquals(useBitmapIndexes, adapter.getCapabilities("dim1").hasBitmapIndexes());
-    Assert.assertEquals(useBitmapIndexes, adapter.getCapabilities("dim2").hasBitmapIndexes());
+    JupiterAssertions.assertEquals(useBitmapIndexes, adapter.getCapabilities("dim1").hasBitmapIndexes());
+    JupiterAssertions.assertEquals(useBitmapIndexes, adapter.getCapabilities("dim2").hasBitmapIndexes());
 
     if (useBitmapIndexes) {
       checkBitmapIndex(Collections.emptyList(), getBitmapIndex(adapter, "dim1", null));
@@ -2287,19 +2287,19 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(3, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
-    Assert.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
-    Assert.assertEquals(3, index.getColumnNames().size());
+    JupiterAssertions.assertEquals(3, index.getColumnHolder(ColumnHolder.TIME_COLUMN_NAME).getLength());
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), Lists.newArrayList(index.getAvailableDimensions()));
+    JupiterAssertions.assertEquals(makeOrderBys("__time", "dim1", "dim2"), Lists.newArrayList(index.getOrdering()));
+    JupiterAssertions.assertEquals(3, index.getColumnNames().size());
 
     assertDimCompression(index, indexSpec.getDimensionCompression());
 
-    Assert.assertArrayEquals(
+    JupiterAssertions.assertArrayEquals(
         IncrementalIndexTest.getDefaultCombiningAggregatorFactories(),
         index.getMetadata().getAggregators()
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Granularities.NONE,
         index.getMetadata().getQueryGranularity()
     );
@@ -2395,22 +2395,22 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     final QueryableIndexIndexableAdapter adapter = new QueryableIndexIndexableAdapter(merged);
     final List<DebugRow> rowList = RowIteratorHelper.toList(adapter.getRows());
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("__time", "dimA", "dimMultiVal"),
         ImmutableList.copyOf(adapter.getDimensionNames(true))
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("dimA", "dimMultiVal"),
         ImmutableList.copyOf(adapter.getDimensionNames(false))
     );
 
-    Assert.assertEquals(3, rowList.size());
-    Assert.assertEquals(Arrays.asList("leek", Arrays.asList("1", "2", "3", "5")), rowList.get(0).dimensionValues());
-    Assert.assertEquals(1L, rowList.get(0).metricValues().get(0));
-    Assert.assertEquals(Arrays.asList("leek", Arrays.asList("1", "2", "4")), rowList.get(1).dimensionValues());
-    Assert.assertEquals(2L, rowList.get(1).metricValues().get(0));
-    Assert.assertEquals(Arrays.asList("potato", Arrays.asList("0", "1", "4")), rowList.get(2).dimensionValues());
-    Assert.assertEquals(1L, rowList.get(2).metricValues().get(0));
+    JupiterAssertions.assertEquals(3, rowList.size());
+    JupiterAssertions.assertEquals(Arrays.asList("leek", Arrays.asList("1", "2", "3", "5")), rowList.get(0).dimensionValues());
+    JupiterAssertions.assertEquals(1L, rowList.get(0).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", Arrays.asList("1", "2", "4")), rowList.get(1).dimensionValues());
+    JupiterAssertions.assertEquals(2L, rowList.get(1).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("potato", Arrays.asList("0", "1", "4")), rowList.get(2).dimensionValues());
+    JupiterAssertions.assertEquals(1L, rowList.get(2).metricValues().get(0));
 
     checkBitmapIndex(Arrays.asList(0, 1), getBitmapIndex(adapter, "dimA", "leek"));
     checkBitmapIndex(Collections.singletonList(2), getBitmapIndex(adapter, "dimA", "potato"));
@@ -2629,58 +2629,58 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     final QueryableIndexIndexableAdapter adapter = new QueryableIndexIndexableAdapter(merged);
     final List<DebugRow> rowList = RowIteratorHelper.toList(adapter.getRows());
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("__time", "dimA", "dimMultiVal"),
         ImmutableList.copyOf(adapter.getDimensionNames(true))
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("dimA", "dimMultiVal"),
         ImmutableList.copyOf(adapter.getDimensionNames(false))
     );
 
-    Assert.assertEquals(14, rowList.size());
+    JupiterAssertions.assertEquals(14, rowList.size());
 
-    Assert.assertEquals(Arrays.asList("leek", null), rowList.get(0).dimensionValues());
-    Assert.assertEquals(8L, rowList.get(0).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", null), rowList.get(0).dimensionValues());
+    JupiterAssertions.assertEquals(8L, rowList.get(0).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("leek", Arrays.asList(null, "1", "2", "3")), rowList.get(1).dimensionValues());
-    Assert.assertEquals(2L, rowList.get(1).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", Arrays.asList(null, "1", "2", "3")), rowList.get(1).dimensionValues());
+    JupiterAssertions.assertEquals(2L, rowList.get(1).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("leek", Arrays.asList(null, "3")), rowList.get(2).dimensionValues());
-    Assert.assertEquals(2L, rowList.get(2).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", Arrays.asList(null, "3")), rowList.get(2).dimensionValues());
+    JupiterAssertions.assertEquals(2L, rowList.get(2).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("leek", ""), rowList.get(3).dimensionValues());
-    Assert.assertEquals(4L, rowList.get(3).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", ""), rowList.get(3).dimensionValues());
+    JupiterAssertions.assertEquals(4L, rowList.get(3).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("leek", Arrays.asList("", "1", "2", "3")), rowList.get(4).dimensionValues());
-    Assert.assertEquals(2L, rowList.get(4).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", Arrays.asList("", "1", "2", "3")), rowList.get(4).dimensionValues());
+    JupiterAssertions.assertEquals(2L, rowList.get(4).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("leek", Arrays.asList("", "3")), rowList.get(5).dimensionValues());
-    Assert.assertEquals(2L, rowList.get(5).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", Arrays.asList("", "3")), rowList.get(5).dimensionValues());
+    JupiterAssertions.assertEquals(2L, rowList.get(5).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("leek", "1"), rowList.get(6).dimensionValues());
-    Assert.assertEquals(4L, rowList.get(6).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", "1"), rowList.get(6).dimensionValues());
+    JupiterAssertions.assertEquals(4L, rowList.get(6).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("leek", Arrays.asList("1", "2", "3")), rowList.get(7).dimensionValues());
-    Assert.assertEquals(2L, rowList.get(7).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", Arrays.asList("1", "2", "3")), rowList.get(7).dimensionValues());
+    JupiterAssertions.assertEquals(2L, rowList.get(7).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("leek", Arrays.asList("1", "3")), rowList.get(8).dimensionValues());
-    Assert.assertEquals(2L, rowList.get(8).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", Arrays.asList("1", "3")), rowList.get(8).dimensionValues());
+    JupiterAssertions.assertEquals(2L, rowList.get(8).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("leek", Arrays.asList("1", "3", "5")), rowList.get(9).dimensionValues());
-    Assert.assertEquals(2L, rowList.get(9).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", Arrays.asList("1", "3", "5")), rowList.get(9).dimensionValues());
+    JupiterAssertions.assertEquals(2L, rowList.get(9).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("leek", Arrays.asList("1", "4")), rowList.get(10).dimensionValues());
-    Assert.assertEquals(2L, rowList.get(10).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", Arrays.asList("1", "4")), rowList.get(10).dimensionValues());
+    JupiterAssertions.assertEquals(2L, rowList.get(10).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("leek", "2"), rowList.get(11).dimensionValues());
-    Assert.assertEquals(4L, rowList.get(11).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("leek", "2"), rowList.get(11).dimensionValues());
+    JupiterAssertions.assertEquals(4L, rowList.get(11).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("potato", Arrays.asList("1", "3")), rowList.get(12).dimensionValues());
-    Assert.assertEquals(2L, rowList.get(12).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("potato", Arrays.asList("1", "3")), rowList.get(12).dimensionValues());
+    JupiterAssertions.assertEquals(2L, rowList.get(12).metricValues().get(0));
 
-    Assert.assertEquals(Arrays.asList("potato", "2"), rowList.get(13).dimensionValues());
-    Assert.assertEquals(4L, rowList.get(13).metricValues().get(0));
+    JupiterAssertions.assertEquals(Arrays.asList("potato", "2"), rowList.get(13).dimensionValues());
+    JupiterAssertions.assertEquals(4L, rowList.get(13).metricValues().get(0));
 
     checkBitmapIndex(Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), getBitmapIndex(adapter, "dimA", "leek"));
     checkBitmapIndex(Arrays.asList(12, 13), getBitmapIndex(adapter, "dimA", "potato"));
@@ -2721,40 +2721,40 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     final QueryableIndexIndexableAdapter adapter = new QueryableIndexIndexableAdapter(merged);
     final List<DebugRow> rowList = RowIteratorHelper.toList(adapter.getRows());
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("__time", "d1", "d2", "d3", "d4", "d5"),
         ImmutableList.copyOf(adapter.getDimensionNames(true))
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("d1", "d2", "d3", "d4", "d5"),
         ImmutableList.copyOf(adapter.getDimensionNames(false))
     );
 
-    Assert.assertEquals(4, rowList.size());
+    JupiterAssertions.assertEquals(4, rowList.size());
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Arrays.asList("a", "b", "c", "d", "e"),
         rowList.get(0).dimensionValues()
     );
-    Assert.assertEquals(1L, rowList.get(0).metricValues().get(0));
+    JupiterAssertions.assertEquals(1L, rowList.get(0).metricValues().get(0));
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Arrays.asList("aa", "bb", "cc", "dd", "ee"),
         rowList.get(1).dimensionValues()
     );
-    Assert.assertEquals(1L, rowList.get(1).metricValues().get(0));
+    JupiterAssertions.assertEquals(1L, rowList.get(1).metricValues().get(0));
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Arrays.asList("aaa", "bbb", "ccc", "ddd", "eee"),
         rowList.get(2).dimensionValues()
     );
-    Assert.assertEquals(1L, rowList.get(2).metricValues().get(0));
+    JupiterAssertions.assertEquals(1L, rowList.get(2).metricValues().get(0));
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Arrays.asList("1", "2", "3", "4", "5"),
         rowList.get(3).dimensionValues()
     );
-    Assert.assertEquals(3L, rowList.get(3).metricValues().get(0));
+    JupiterAssertions.assertEquals(3L, rowList.get(3).metricValues().get(0));
 
     checkBitmapIndex(Collections.singletonList(0), getBitmapIndex(adapter, "d1", "a"));
     checkBitmapIndex(Collections.singletonList(1), getBitmapIndex(adapter, "d1", "aa"));
@@ -3130,7 +3130,7 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         rowCount++;
         cursor.advance();
       }
-      Assert.assertEquals(5, rowCount);
+      JupiterAssertions.assertEquals(5, rowCount);
     }
 
     try (final CursorHolder cursorHolder = cursorFactory.makeCursorHolder(p2Spec)) {
@@ -3140,26 +3140,26 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
         rowCount++;
         cursor.advance();
       }
-      Assert.assertEquals(3, rowCount);
+      JupiterAssertions.assertEquals(3, rowCount);
     }
 
     QueryableIndex p1Index = merged.getProjectionQueryableIndex("a_hourly_c_sum");
-    Assert.assertNotNull(p1Index);
+    JupiterAssertions.assertNotNull(p1Index);
     ColumnHolder aHolder = p1Index.getColumnHolder("a");
     DictionaryEncodedColumn aCol = (DictionaryEncodedColumn) aHolder.getColumn();
-    Assert.assertEquals(3, aCol.getCardinality());
+    JupiterAssertions.assertEquals(3, aCol.getCardinality());
 
     QueryableIndex p2Index = merged.getProjectionQueryableIndex("a_c_sum");
-    Assert.assertNotNull(p2Index);
+    JupiterAssertions.assertNotNull(p2Index);
     ColumnHolder aHolder2 = p2Index.getColumnHolder("a");
     DictionaryEncodedColumn aCol2 = (DictionaryEncodedColumn) aHolder2.getColumn();
-    Assert.assertEquals(3, aCol2.getCardinality());
+    JupiterAssertions.assertEquals(3, aCol2.getCardinality());
 
     if (serdeFactory != null) {
 
       BitmapResultFactory resultFactory = new DefaultBitmapResultFactory(serdeFactory.getBitmapFactory());
 
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           2,
           resultFactory.toImmutableBitmap(
               aHolder.getIndexSupplier()
@@ -3169,7 +3169,7 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
           ).size()
       );
 
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           1,
           resultFactory.toImmutableBitmap(
               aHolder2.getIndexSupplier()

@@ -80,17 +80,17 @@ import org.apache.druid.segment.incremental.IncrementalIndexCursorFactory;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.incremental.OnheapIncrementalIndex;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.TempDirExtension;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.partition.LinearShardSpec;
 import org.apache.druid.utils.CloseableUtils;
 import org.joda.time.DateTime;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -118,7 +118,7 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
                                                                                   .setHasMultipleValues(true)
                                                                                   .setHasNulls(true);
 
-  @BeforeClass
+  @BeforeAll
   public static void setup()
   {
     CLOSER = Closer.create();
@@ -150,15 +150,15 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
     );
   }
 
-  @AfterClass
+  @AfterAll
   public static void teardown()
   {
     CloseableUtils.closeAndSuppressExceptions(CLOSER, throwable -> {
     });
   }
 
-  @Rule
-  public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public final TempDirExtension temporaryFolder = new TempDirExtension();
 
 
   @Test
@@ -197,26 +197,26 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
           Object bindingVal = bindings.get(columnName);
           Object bindingVal2 = bindings2.get(columnName);
           if (dimSelectorVal == null) {
-            Assert.assertNull(dimSelectorVal);
-            Assert.assertNull(valueSelectorVal);
-            Assert.assertNull(bindingVal);
+            JupiterAssertions.assertNull(dimSelectorVal);
+            JupiterAssertions.assertNull(valueSelectorVal);
+            JupiterAssertions.assertNull(bindingVal);
             if (isMultiVal) {
-              Assert.assertNull(((Object[]) bindingVal2)[0]);
+              JupiterAssertions.assertNull(((Object[]) bindingVal2)[0]);
             } else {
-              Assert.assertNull(bindingVal2);
+              JupiterAssertions.assertNull(bindingVal2);
             }
 
           } else {
             if (isMultiVal) {
-              Assert.assertEquals(dimSelectorVal, ((Object[]) bindingVal)[0]);
-              Assert.assertEquals(valueSelectorVal, ((Object[]) bindingVal)[0]);
-              Assert.assertEquals(dimSelectorVal, ((Object[]) bindingVal2)[0]);
-              Assert.assertEquals(valueSelectorVal, ((Object[]) bindingVal2)[0]);
+              JupiterAssertions.assertEquals(dimSelectorVal, ((Object[]) bindingVal)[0]);
+              JupiterAssertions.assertEquals(valueSelectorVal, ((Object[]) bindingVal)[0]);
+              JupiterAssertions.assertEquals(dimSelectorVal, ((Object[]) bindingVal2)[0]);
+              JupiterAssertions.assertEquals(valueSelectorVal, ((Object[]) bindingVal2)[0]);
             } else {
-              Assert.assertEquals(dimSelectorVal, bindingVal);
-              Assert.assertEquals(valueSelectorVal, bindingVal);
-              Assert.assertEquals(dimSelectorVal, bindingVal2);
-              Assert.assertEquals(valueSelectorVal, bindingVal2);
+              JupiterAssertions.assertEquals(dimSelectorVal, bindingVal);
+              JupiterAssertions.assertEquals(valueSelectorVal, bindingVal);
+              JupiterAssertions.assertEquals(dimSelectorVal, bindingVal2);
+              JupiterAssertions.assertEquals(valueSelectorVal, bindingVal2);
             }
           }
 
@@ -281,20 +281,20 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
           Object bindingVal4 = bindings4.get(columnName);
 
           if (dimSelectorVal == null) {
-            Assert.assertNull(dimSelectorVal);
-            Assert.assertNull(valueSelectorVal);
-            Assert.assertNull(bindingVal);
-            Assert.assertNull(bindingVal2);
-            Assert.assertNull(bindingVal3);
+            JupiterAssertions.assertNull(dimSelectorVal);
+            JupiterAssertions.assertNull(valueSelectorVal);
+            JupiterAssertions.assertNull(bindingVal);
+            JupiterAssertions.assertNull(bindingVal2);
+            JupiterAssertions.assertNull(bindingVal3);
             // binding4 has null coercion
-            Assert.assertArrayEquals(new Object[]{null}, (Object[]) bindingVal4);
+            JupiterAssertions.assertArrayEquals(new Object[]{null}, (Object[]) bindingVal4);
           } else {
-            Assert.assertArrayEquals(((List) dimSelectorVal).toArray(), (Object[]) bindingVal);
-            Assert.assertArrayEquals(((List) valueSelectorVal).toArray(), (Object[]) bindingVal);
-            Assert.assertArrayEquals(((List) dimSelectorVal).toArray(), (Object[]) bindingVal2);
-            Assert.assertArrayEquals(((List) valueSelectorVal).toArray(), (Object[]) bindingVal2);
-            Assert.assertArrayEquals(((List) dimSelectorVal).toArray(), (Object[]) bindingVal3);
-            Assert.assertArrayEquals(((List) valueSelectorVal).toArray(), (Object[]) bindingVal3);
+            JupiterAssertions.assertArrayEquals(((List) dimSelectorVal).toArray(), (Object[]) bindingVal);
+            JupiterAssertions.assertArrayEquals(((List) valueSelectorVal).toArray(), (Object[]) bindingVal);
+            JupiterAssertions.assertArrayEquals(((List) dimSelectorVal).toArray(), (Object[]) bindingVal2);
+            JupiterAssertions.assertArrayEquals(((List) valueSelectorVal).toArray(), (Object[]) bindingVal2);
+            JupiterAssertions.assertArrayEquals(((List) dimSelectorVal).toArray(), (Object[]) bindingVal3);
+            JupiterAssertions.assertArrayEquals(((List) valueSelectorVal).toArray(), (Object[]) bindingVal3);
           }
 
           cursor.advance();
@@ -333,14 +333,14 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
           Object bindingVal = bindings.get(columnName);
           Object bindingVal2 = bindings2.get(columnName);
           if (valueSelector.isNull()) {
-            Assert.assertNull(valueSelector.getObject());
-            Assert.assertNull(bindingVal);
-            Assert.assertNull(bindingVal2);
+            JupiterAssertions.assertNull(valueSelector.getObject());
+            JupiterAssertions.assertNull(bindingVal);
+            JupiterAssertions.assertNull(bindingVal2);
           } else {
-            Assert.assertEquals(valueSelector.getObject(), bindingVal);
-            Assert.assertEquals(valueSelector.getLong(), bindingVal);
-            Assert.assertEquals(valueSelector.getObject(), bindingVal2);
-            Assert.assertEquals(valueSelector.getLong(), bindingVal2);
+            JupiterAssertions.assertEquals(valueSelector.getObject(), bindingVal);
+            JupiterAssertions.assertEquals(valueSelector.getLong(), bindingVal);
+            JupiterAssertions.assertEquals(valueSelector.getObject(), bindingVal2);
+            JupiterAssertions.assertEquals(valueSelector.getLong(), bindingVal2);
           }
           cursor.advance();
         }
@@ -378,14 +378,14 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
           Object bindingVal = bindings.get(columnName);
           Object bindingVal2 = bindings2.get(columnName);
           if (valueSelector.isNull()) {
-            Assert.assertNull(valueSelector.getObject());
-            Assert.assertNull(bindingVal);
-            Assert.assertNull(bindingVal2);
+            JupiterAssertions.assertNull(valueSelector.getObject());
+            JupiterAssertions.assertNull(bindingVal);
+            JupiterAssertions.assertNull(bindingVal2);
           } else {
-            Assert.assertEquals(valueSelector.getObject(), bindingVal);
-            Assert.assertEquals(valueSelector.getDouble(), bindingVal);
-            Assert.assertEquals(valueSelector.getObject(), bindingVal2);
-            Assert.assertEquals(valueSelector.getDouble(), bindingVal2);
+            JupiterAssertions.assertEquals(valueSelector.getObject(), bindingVal);
+            JupiterAssertions.assertEquals(valueSelector.getDouble(), bindingVal);
+            JupiterAssertions.assertEquals(valueSelector.getObject(), bindingVal2);
+            JupiterAssertions.assertEquals(valueSelector.getDouble(), bindingVal2);
           }
           cursor.advance();
         }
@@ -396,7 +396,7 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
   @Test
   public void test_canMapOverDictionary_oneSingleValueInput()
   {
-    Assert.assertTrue(
+    JupiterAssertions.assertTrue(
         ExpressionSelectors.canMapOverDictionary(
             Parser.parse("dim1 == 2", ExprMacroTable.nil()).analyzeInputs(),
             SINGLE_VALUE
@@ -407,7 +407,7 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
   @Test
   public void test_canMapOverDictionary_oneSingleValueInputSpecifiedTwice()
   {
-    Assert.assertTrue(
+    JupiterAssertions.assertTrue(
         ExpressionSelectors.canMapOverDictionary(
             Parser.parse("concat(dim1, dim1) == 2", ExprMacroTable.nil()).analyzeInputs(),
             SINGLE_VALUE
@@ -418,7 +418,7 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
   @Test
   public void test_canMapOverDictionary_oneMultiValueInput()
   {
-    Assert.assertTrue(
+    JupiterAssertions.assertTrue(
         ExpressionSelectors.canMapOverDictionary(
             Parser.parse("dim1 == 2", ExprMacroTable.nil()).analyzeInputs(),
             MULTI_VAL
@@ -429,7 +429,7 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
   @Test
   public void test_canMapOverDictionary_oneUnknownInput()
   {
-    Assert.assertFalse(
+    JupiterAssertions.assertFalse(
         ExpressionSelectors.canMapOverDictionary(
             Parser.parse("dim1 == 2", ExprMacroTable.nil()).analyzeInputs(),
             new ColumnCapabilitiesImpl()
@@ -440,7 +440,7 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
   @Test
   public void test_canMapOverDictionary_oneSingleValueInputInArrayContext()
   {
-    Assert.assertFalse(
+    JupiterAssertions.assertFalse(
         ExpressionSelectors.canMapOverDictionary(
             Parser.parse("array_contains(dim1, 2)", ExprMacroTable.nil()).analyzeInputs(),
             ColumnCapabilitiesImpl.createDefault().setType(ColumnType.STRING_ARRAY)
@@ -451,7 +451,7 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
   @Test
   public void test_canMapOverDictionary_oneMultiValueInputInArrayContext()
   {
-    Assert.assertFalse(
+    JupiterAssertions.assertFalse(
         ExpressionSelectors.canMapOverDictionary(
             Parser.parse("array_contains(dim1, 2)", ExprMacroTable.nil()).analyzeInputs(),
             MULTI_VAL
@@ -462,7 +462,7 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
   @Test
   public void test_canMapOverDictionary_oneUnknownInputInArrayContext()
   {
-    Assert.assertFalse(
+    JupiterAssertions.assertFalse(
         ExpressionSelectors.canMapOverDictionary(
             Parser.parse("array_contains(dim1, 2)", ExprMacroTable.nil()).analyzeInputs(),
             new ColumnCapabilitiesImpl()
@@ -473,7 +473,7 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
   @Test
   public void test_canMapOverDictionary()
   {
-    Assert.assertTrue(
+    JupiterAssertions.assertTrue(
         ExpressionSelectors.canMapOverDictionary(
             Parser.parse("dim1 == 2", ExprMacroTable.nil()).analyzeInputs(),
             SINGLE_VALUE
@@ -491,14 +491,14 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
         false
     );
 
-    Assert.assertNotNull(supplier);
-    Assert.assertEquals(null, supplier.get());
+    JupiterAssertions.assertNotNull(supplier);
+    JupiterAssertions.assertEquals(null, supplier.get());
 
     settableSupplier.set(null);
-    Assert.assertEquals(null, supplier.get());
+    JupiterAssertions.assertEquals(null, supplier.get());
 
     settableSupplier.set("1234");
-    Assert.assertEquals("1234", supplier.get());
+    JupiterAssertions.assertEquals("1234", supplier.get());
   }
 
   @Test
@@ -510,20 +510,20 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
         true
     );
 
-    Assert.assertNotNull(supplier);
-    Assert.assertEquals(null, supplier.get());
+    JupiterAssertions.assertNotNull(supplier);
+    JupiterAssertions.assertEquals(null, supplier.get());
 
     settableSupplier.set(1.1f);
-    Assert.assertEquals(1.1f, supplier.get());
+    JupiterAssertions.assertEquals(1.1f, supplier.get());
 
     settableSupplier.set(1L);
-    Assert.assertEquals(1L, supplier.get());
+    JupiterAssertions.assertEquals(1L, supplier.get());
 
     settableSupplier.set("1234");
-    Assert.assertEquals("1234", supplier.get());
+    JupiterAssertions.assertEquals("1234", supplier.get());
 
     settableSupplier.set("1.234");
-    Assert.assertEquals("1.234", supplier.get());
+    JupiterAssertions.assertEquals("1.234", supplier.get());
   }
 
   @Test
@@ -536,14 +536,14 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
     );
 
 
-    Assert.assertNotNull(supplier);
-    Assert.assertEquals(null, supplier.get());
+    JupiterAssertions.assertNotNull(supplier);
+    JupiterAssertions.assertEquals(null, supplier.get());
 
     settableSupplier.set(1.1f);
-    Assert.assertEquals(1.1f, supplier.get());
+    JupiterAssertions.assertEquals(1.1f, supplier.get());
 
     settableSupplier.set(1L);
-    Assert.assertEquals(1L, supplier.get());
+    JupiterAssertions.assertEquals(1L, supplier.get());
   }
 
   @Test
@@ -555,14 +555,14 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
         true
     );
 
-    Assert.assertNotNull(supplier);
-    Assert.assertEquals(null, supplier.get());
+    JupiterAssertions.assertNotNull(supplier);
+    JupiterAssertions.assertEquals(null, supplier.get());
 
     settableSupplier.set("1.1");
-    Assert.assertEquals("1.1", supplier.get());
+    JupiterAssertions.assertEquals("1.1", supplier.get());
 
     settableSupplier.set("1");
-    Assert.assertEquals("1", supplier.get());
+    JupiterAssertions.assertEquals("1", supplier.get());
   }
 
   @Test
@@ -574,11 +574,11 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
         true
     );
 
-    Assert.assertNotNull(supplier);
-    Assert.assertEquals(null, supplier.get());
+    JupiterAssertions.assertNotNull(supplier);
+    JupiterAssertions.assertEquals(null, supplier.get());
 
     settableSupplier.set(ImmutableList.of("1", "2", "3"));
-    Assert.assertArrayEquals(new String[]{"1", "2", "3"}, (Object[]) supplier.get());
+    JupiterAssertions.assertArrayEquals(new String[]{"1", "2", "3"}, (Object[]) supplier.get());
   }
 
   @Test
@@ -590,27 +590,27 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
         true
     );
 
-    Assert.assertNotNull(supplier);
-    Assert.assertEquals(null, supplier.get());
+    JupiterAssertions.assertNotNull(supplier);
+    JupiterAssertions.assertEquals(null, supplier.get());
 
     settableSupplier.set(new String[]{"1", "2", "3"});
-    Assert.assertArrayEquals(new String[]{"1", "2", "3"}, (Object[]) supplier.get());
+    JupiterAssertions.assertArrayEquals(new String[]{"1", "2", "3"}, (Object[]) supplier.get());
   }
 
   @Test
   public void test_coerceEvalToSelectorObject()
   {
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of(1L, 2L, 3L),
         ExpressionSelectors.coerceEvalToObjectOrList(ExprEval.ofLongArray(new Long[]{1L, 2L, 3L}))
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of(1.0, 2.0, 3.0),
         ExpressionSelectors.coerceEvalToObjectOrList(ExprEval.ofDoubleArray(new Double[]{1.0, 2.0, 3.0}))
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ImmutableList.of("a", "b", "c"),
         ExpressionSelectors.coerceEvalToObjectOrList(ExprEval.ofStringArray(new String[]{"a", "b", "c"}))
     );
@@ -619,19 +619,19 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
     withNulls.add("a");
     withNulls.add(null);
     withNulls.add("c");
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         withNulls,
         ExpressionSelectors.coerceEvalToObjectOrList(ExprEval.ofStringArray(new String[]{"a", null, "c"}))
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         ExpressionSelectors.coerceEvalToObjectOrList(ExprEval.ofLongArray(null))
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         1L,
         ExpressionSelectors.coerceEvalToObjectOrList(ExprEval.ofLongArray(new Long[]{1L}))
     );
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         ExpressionSelectors.coerceEvalToObjectOrList(ExprEval.ofLongArray(new Long[]{null}))
     );
   }
@@ -685,17 +685,17 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
         Object y = yExprSelector.getObject();
         String expectedFoo = "foofoo";
         if (rowCount == 0) {
-          Assert.assertEquals(expectedFoo, x);
-          Assert.assertNull(y);
+          JupiterAssertions.assertEquals(expectedFoo, x);
+          JupiterAssertions.assertNull(y);
         } else {
-          Assert.assertNull(x);
-          Assert.assertEquals(expectedFoo, y);
+          JupiterAssertions.assertNull(x);
+          JupiterAssertions.assertEquals(expectedFoo, y);
         }
         rowCount++;
         cursor.advance();
       }
 
-      Assert.assertEquals(2, rowCount);
+      JupiterAssertions.assertEquals(2, rowCount);
     }
   }
 
@@ -727,12 +727,12 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
       while (!cursor.isDone()) {
         Object x = xExprSelector.getObject();
         double expectedFoo = 1.1;
-        Assert.assertEquals(expectedFoo, x);
+        JupiterAssertions.assertEquals(expectedFoo, x);
         rowCount++;
         cursor.advance();
       }
 
-      Assert.assertEquals(1, rowCount);
+      JupiterAssertions.assertEquals(1, rowCount);
     }
   }
 
@@ -848,7 +848,7 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
 
       for (Segment segment : segments) {
         final CursorFactory cursorFactory = segment.as(CursorFactory.class);
-        Assert.assertNotNull(cursorFactory);
+        JupiterAssertions.assertNotNull(cursorFactory);
         final CursorHolder holder = closer.register(cursorFactory.makeCursorHolder(CursorBuildSpec.FULL_SCAN));
 
         final Cursor cursor = holder.asCursor();
@@ -974,68 +974,68 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
 
         // first row
         // "a"
-        Assert.assertNull(stringSelectorToLong.getObject());
-        Assert.assertNull(stringSelectorToDouble.getObject());
-        Assert.assertArrayEquals(new Object[]{"a"}, (Object[]) stringToArraySelector.getObject());
+        JupiterAssertions.assertNull(stringSelectorToLong.getObject());
+        JupiterAssertions.assertNull(stringSelectorToDouble.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{"a"}, (Object[]) stringToArraySelector.getObject());
 
         // ["a1", "a2"]
-        Assert.assertNull(multiStringToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{"a1", "a2"}, (Object[]) multiStringToStringArraySelector.getObject());
+        JupiterAssertions.assertNull(multiStringToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{"a1", "a2"}, (Object[]) multiStringToStringArraySelector.getObject());
 
         // 1
-        Assert.assertEquals("1", longToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{1.0}, (Object[]) longToDoubleArraySelector.getObject());
+        JupiterAssertions.assertEquals("1", longToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{1.0}, (Object[]) longToDoubleArraySelector.getObject());
 
         // 1.1
-        Assert.assertEquals("1.1", doubleToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{1L}, (Object[]) doubleToLongArraySelector.getObject());
+        JupiterAssertions.assertEquals("1.1", doubleToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{1L}, (Object[]) doubleToLongArraySelector.getObject());
 
         // ["a1", "a2"]
-        Assert.assertNull(stringArrayToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{null, null}, (Object[]) stringArrayToLongArraySelector.getObject());
-        Assert.assertNull(stringArrayToDoubleSelector.getObject());
+        JupiterAssertions.assertNull(stringArrayToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{null, null}, (Object[]) stringArrayToLongArraySelector.getObject());
+        JupiterAssertions.assertNull(stringArrayToDoubleSelector.getObject());
 
         // [1, 1]
-        Assert.assertNull(longArrayToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{1.0, 1.0}, (Object[]) longArrayToDoubleArraySelector.getObject());
+        JupiterAssertions.assertNull(longArrayToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{1.0, 1.0}, (Object[]) longArrayToDoubleArraySelector.getObject());
 
         // [1.1, 1.1]
-        Assert.assertArrayEquals(new Object[]{"1.1", "1.1"}, (Object[]) doubleArrayToStringArraySelector.getObject());
-        Assert.assertNull(doubleArrayToLongSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{"1.1", "1.1"}, (Object[]) doubleArrayToStringArraySelector.getObject());
+        JupiterAssertions.assertNull(doubleArrayToLongSelector.getObject());
 
         cursor.advance();
         offset.increment();
 
         // first row
         // "b"
-        Assert.assertNull(stringSelectorToLong.getObject());
-        Assert.assertNull(stringSelectorToDouble.getObject());
-        Assert.assertArrayEquals(new Object[]{"b"}, (Object[]) stringToArraySelector.getObject());
+        JupiterAssertions.assertNull(stringSelectorToLong.getObject());
+        JupiterAssertions.assertNull(stringSelectorToDouble.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{"b"}, (Object[]) stringToArraySelector.getObject());
 
         // ["b1"]
-        Assert.assertEquals("b1", multiStringToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{"b1"}, (Object[]) multiStringToStringArraySelector.getObject());
+        JupiterAssertions.assertEquals("b1", multiStringToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{"b1"}, (Object[]) multiStringToStringArraySelector.getObject());
 
         // 2
-        Assert.assertEquals("2", longToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{2.0}, (Object[]) longToDoubleArraySelector.getObject());
+        JupiterAssertions.assertEquals("2", longToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{2.0}, (Object[]) longToDoubleArraySelector.getObject());
 
         // 2.2
-        Assert.assertEquals("2.2", doubleToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{2L}, (Object[]) doubleToLongArraySelector.getObject());
+        JupiterAssertions.assertEquals("2.2", doubleToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{2L}, (Object[]) doubleToLongArraySelector.getObject());
 
         // ["2.2"]
-        Assert.assertEquals("2.2", stringArrayToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{2L}, (Object[]) stringArrayToLongArraySelector.getObject());
-        Assert.assertEquals(2.2, stringArrayToDoubleSelector.getObject());
+        JupiterAssertions.assertEquals("2.2", stringArrayToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{2L}, (Object[]) stringArrayToLongArraySelector.getObject());
+        JupiterAssertions.assertEquals(2.2, stringArrayToDoubleSelector.getObject());
 
         // [2]
-        Assert.assertEquals("2", longArrayToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{2.0}, (Object[]) longArrayToDoubleArraySelector.getObject());
+        JupiterAssertions.assertEquals("2", longArrayToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{2.0}, (Object[]) longArrayToDoubleArraySelector.getObject());
 
         // [2.2]
-        Assert.assertArrayEquals(new Object[]{"2.2"}, (Object[]) doubleArrayToStringArraySelector.getObject());
-        Assert.assertEquals(2L, doubleArrayToLongSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{"2.2"}, (Object[]) doubleArrayToStringArraySelector.getObject());
+        JupiterAssertions.assertEquals(2L, doubleArrayToLongSelector.getObject());
 
         cursor.advance();
         offset.increment();
@@ -1043,74 +1043,74 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
 
         // third row
         // null
-        Assert.assertNull(stringSelectorToLong.getObject());
-        Assert.assertNull(stringSelectorToDouble.getObject());
-        Assert.assertNull(stringToArraySelector.getObject());
+        JupiterAssertions.assertNull(stringSelectorToLong.getObject());
+        JupiterAssertions.assertNull(stringSelectorToDouble.getObject());
+        JupiterAssertions.assertNull(stringToArraySelector.getObject());
 
         // []
-        Assert.assertNull(multiStringToStringSelector.getObject());
+        JupiterAssertions.assertNull(multiStringToStringSelector.getObject());
         if (segment instanceof IncrementalIndexSegment || segment instanceof QueryableIndexSegment || segment instanceof FrameSegment) {
-          Assert.assertNull(multiStringToStringSelector.getObject());
+          JupiterAssertions.assertNull(multiStringToStringSelector.getObject());
         } else {
           // this one is kind of weird, the row based segment selector does not convert the empty list into null like
           // the others do
-          Assert.assertArrayEquals(new Object[0], (Object[]) multiStringToStringArraySelector.getObject());
+          JupiterAssertions.assertArrayEquals(new Object[0], (Object[]) multiStringToStringArraySelector.getObject());
         }
 
         // null
-        Assert.assertNull(longToStringSelector.getObject());
-        Assert.assertNull(longToDoubleArraySelector.getObject());
+        JupiterAssertions.assertNull(longToStringSelector.getObject());
+        JupiterAssertions.assertNull(longToDoubleArraySelector.getObject());
 
         // null
-        Assert.assertNull(doubleToStringSelector.getObject());
-        Assert.assertNull(doubleToLongArraySelector.getObject());
+        JupiterAssertions.assertNull(doubleToStringSelector.getObject());
+        JupiterAssertions.assertNull(doubleToLongArraySelector.getObject());
 
         // null
-        Assert.assertNull(stringArrayToStringSelector.getObject());
-        Assert.assertNull(stringArrayToLongArraySelector.getObject());
-        Assert.assertNull(stringArrayToDoubleSelector.getObject());
+        JupiterAssertions.assertNull(stringArrayToStringSelector.getObject());
+        JupiterAssertions.assertNull(stringArrayToLongArraySelector.getObject());
+        JupiterAssertions.assertNull(stringArrayToDoubleSelector.getObject());
 
         // null
-        Assert.assertNull(longArrayToStringSelector.getObject());
-        Assert.assertNull(longArrayToDoubleArraySelector.getObject());
+        JupiterAssertions.assertNull(longArrayToStringSelector.getObject());
+        JupiterAssertions.assertNull(longArrayToDoubleArraySelector.getObject());
 
         // null
-        Assert.assertNull(doubleArrayToStringArraySelector.getObject());
-        Assert.assertNull(doubleArrayToLongSelector.getObject());
+        JupiterAssertions.assertNull(doubleArrayToStringArraySelector.getObject());
+        JupiterAssertions.assertNull(doubleArrayToLongSelector.getObject());
 
         cursor.advance();
         offset.increment();
 
         // fourth row
         // "4"
-        Assert.assertEquals(4L, stringSelectorToLong.getObject());
-        Assert.assertEquals(4.0, stringSelectorToDouble.getObject());
-        Assert.assertArrayEquals(new Object[]{"4"}, (Object[]) stringToArraySelector.getObject());
+        JupiterAssertions.assertEquals(4L, stringSelectorToLong.getObject());
+        JupiterAssertions.assertEquals(4.0, stringSelectorToDouble.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{"4"}, (Object[]) stringToArraySelector.getObject());
 
         // [null, null, 4.4]
-        Assert.assertNull(multiStringToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{null, null, "4.4"}, (Object[]) multiStringToStringArraySelector.getObject());
+        JupiterAssertions.assertNull(multiStringToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{null, null, "4.4"}, (Object[]) multiStringToStringArraySelector.getObject());
 
         // 4
-        Assert.assertEquals("4", longToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{4.0}, (Object[]) longToDoubleArraySelector.getObject());
+        JupiterAssertions.assertEquals("4", longToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{4.0}, (Object[]) longToDoubleArraySelector.getObject());
 
         // 4.4
-        Assert.assertEquals("4.4", doubleToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[]{4L}, (Object[]) doubleToLongArraySelector.getObject());
+        JupiterAssertions.assertEquals("4.4", doubleToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[]{4L}, (Object[]) doubleToLongArraySelector.getObject());
 
         // []
-        Assert.assertNull(stringArrayToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[0], (Object[]) stringArrayToLongArraySelector.getObject());
-        Assert.assertNull(stringArrayToDoubleSelector.getObject());
+        JupiterAssertions.assertNull(stringArrayToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[0], (Object[]) stringArrayToLongArraySelector.getObject());
+        JupiterAssertions.assertNull(stringArrayToDoubleSelector.getObject());
 
         // []
-        Assert.assertNull(longArrayToStringSelector.getObject());
-        Assert.assertArrayEquals(new Object[0], (Object[]) longArrayToDoubleArraySelector.getObject());
+        JupiterAssertions.assertNull(longArrayToStringSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[0], (Object[]) longArrayToDoubleArraySelector.getObject());
 
         // []
-        Assert.assertArrayEquals(new Object[0], (Object[]) doubleArrayToStringArraySelector.getObject());
-        Assert.assertNull(doubleArrayToLongSelector.getObject());
+        JupiterAssertions.assertArrayEquals(new Object[0], (Object[]) doubleArrayToStringArraySelector.getObject());
+        JupiterAssertions.assertNull(doubleArrayToLongSelector.getObject());
       }
     }
   }
@@ -1146,7 +1146,7 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
         ColumnSelectorFactory factory = cursor.getColumnSelectorFactory();
 
         ColumnValueSelector<ExprEval> selector = ExpressionSelectors.makeExprEvalSelector(factory, nowExpr);
-        Assert.assertFalse(
+        JupiterAssertions.assertFalse(
             "now() must not be folded into a ConstantExprEvalSelector because its value changes over time",
             selector instanceof ConstantExprEvalSelector
         );
@@ -1156,11 +1156,11 @@ public class ExpressionSelectorsTest extends InitializedNullHandlingTest
         cursor.advance();
         final long second = selector.getLong();
 
-        Assert.assertTrue(
+        JupiterAssertions.assertTrue(
             "now() must be monotonic across rows; got first=" + first + " second=" + second,
             second >= first
         );
-        Assert.assertNotEquals(
+        JupiterAssertions.assertNotEquals(
             "now() must re-evaluate after the cursor advances; a ConstantExprEvalSelector would return the same value",
             first,
             second

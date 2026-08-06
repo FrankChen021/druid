@@ -139,26 +139,21 @@ import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.Description;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.ThrowableExpectation;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Period;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.internal.matchers.ThrowableCauseMatcher;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.ExternalResource;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -173,7 +168,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+
+@MethodSource("constructorFeeder")
 public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
 {
   public static final ObjectMapper DEFAULT_MAPPER = TestHelper.makeSmileMapper();
@@ -216,8 +213,8 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
   private final GroupByStatsProvider statsProvider;
   private final boolean useVectorApi;
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ThrowableExpectation expectedException = ThrowableExpectation.none();
 
   static final GroupByQueryConfig V2_CONFIG = new GroupByQueryConfig()
   {
@@ -415,18 +412,12 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
     return new GroupByQueryRunnerFactory(groupingEngine, toolChest, bufferPools.getProcessingPool());
   }
 
-  @Rule
-  public ExternalResource externalResource = new ExternalResource()
+  @BeforeEach
+  public void resetStats()
   {
-    @Override
-    protected void before()
-    {
-      // reset the aggregate before each test parameter is run
-      statsProvider.getStatsSince();
-    }
-  };
-
-  @Parameterized.Parameters(name = "{0}")
+    // reset the aggregate before each test parameter is run
+    statsProvider.getStatsSince();
+  }
   public static Collection<Object[]> constructorFeeder()
   {
     setUpClass();
@@ -459,7 +450,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
     return constructors;
   }
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpClass()
   {
     if (BUFFER_POOLS == null) {
@@ -467,7 +458,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
     }
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDownClass()
   {
     BUFFER_POOLS.close();
@@ -494,7 +485,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
     this.useVectorApi = useVectorApi;
   }
 
-  @Before
+  @BeforeEach
   public void initializeExpressionProcessing()
   {
     if (useVectorApi) {
@@ -504,7 +495,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
     }
   }
 
-  @After
+  @AfterEach
   public void resetExpressionProcessing()
   {
     ExpressionProcessing.initializeForTests();
@@ -1394,28 +1385,12 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
 
     if (!vectorize) {
       expectedException.expect(RuntimeException.class);
-      expectedException.expectCause(CoreMatchers.instanceOf(ExecutionException.class));
-      expectedException.expectCause(
-          ThrowableCauseMatcher.hasCause(CoreMatchers.instanceOf(UnexpectedMultiValueDimensionException.class))
-      );
+      expectedException.expectCause(ExecutionException.class);
+      expectedException.expectCauseCause(UnexpectedMultiValueDimensionException.class);
       expectedException.expect(
-          new BaseMatcher<Throwable>()
-          {
-            @Override
-            public boolean matches(Object o)
-            {
-              final UnexpectedMultiValueDimensionException cause =
-                  (UnexpectedMultiValueDimensionException) ((Throwable) o).getCause().getCause();
-
-              return dimName.equals(cause.getDimensionName());
-            }
-
-            @Override
-            public void describeTo(Description description)
-            {
-              description.appendText("an UnexpectedMultiValueDimensionException with dimension [placementish]");
-            }
-          }
+          thrown -> dimName.equals(
+              ((UnexpectedMultiValueDimensionException) thrown.getCause().getCause()).getDimensionName()
+          )
       );
       expectedException.expectMessage(
           StringUtils.format(
@@ -3422,7 +3397,8 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
     TestHelper.assertExpectedObjects(expectedResults, results, "uniques");
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
+  @org.apache.druid.testing.ExpectThrows(IllegalArgumentException.class)
   public void testGroupByWithUniquesAndPostAggWithSameName()
   {
     GroupByQuery query = makeQueryBuilder()
@@ -3638,7 +3614,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
 
     List<ResultRow> expectedResults = ImmutableList.of();
     Iterable<ResultRow> results = GroupByQueryRunnerTestHelper.runQuery(factory, runner, query);
-    Assert.assertEquals(expectedResults, results);
+    JupiterAssertions.assertEquals(expectedResults, results);
   }
 
   @Test
@@ -3700,7 +3676,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
   }
 
   @Test
-  @Ignore
+  @Disabled
   /**
    * This test exists only to show what the current behavior is and not necessarily to define that this is
    * correct behavior.  In fact, the behavior when returning the empty string from a DimExtractionFn is, by
@@ -4282,7 +4258,8 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
     );
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
+  @org.apache.druid.testing.ExpectThrows(IllegalArgumentException.class)
   public void testMergeResultsWithNegativeLimit()
   {
     GroupByQuery.Builder builder = makeQueryBuilder()
@@ -5080,7 +5057,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
     TestHelper.assertExpectedObjects(expectedResults, results, "lookup-limit");
   }
 
-  @Ignore
+  @Disabled
   @Test
   // This is a test to verify per limit groupings, but Druid currently does not support this functionality. At a point
   // in time when Druid does support this, we can re-evaluate this test.
@@ -5117,11 +5094,11 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
 
     final Object next1 = resultsIter.next();
     Object expectedNext1 = expectedResultsIter.next();
-    Assert.assertEquals("order-limit", expectedNext1, next1);
+    JupiterAssertions.assertEquals("order-limit", expectedNext1, next1);
 
     final Object next2 = resultsIter.next();
     Object expectedNext2 = expectedResultsIter.next();
-    Assert.assertNotEquals("order-limit", expectedNext2, next2);
+    JupiterAssertions.assertNotEquals("order-limit", expectedNext2, next2);
   }
 
   @Test
@@ -6303,7 +6280,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
 
     Iterable<ResultRow> results = GroupByQueryRunnerTestHelper.runQuery(factory, runner, query);
     Row result = Iterables.getOnlyElement(results).toMapBasedRow(query);
-    Assert.assertEquals(51.0d, result.getMetric("meanOnDouble").doubleValue(), 0.0001d);
+    JupiterAssertions.assertEquals(51.0d, result.getMetric("meanOnDouble").doubleValue(), 0.0001d);
   }
 
   @Test
@@ -6393,7 +6370,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .build();
 
     Iterable<ResultRow> results = GroupByQueryRunnerTestHelper.runQuery(factory, runner, query);
-    Assert.assertFalse(results.iterator().hasNext());
+    JupiterAssertions.assertFalse(results.iterator().hasNext());
   }
 
   @Test
@@ -10375,7 +10352,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setGranularity(QueryRunnerTestHelper.DAY_GRAN)
         .build();
 
-    Assert.assertEquals(Functions.<Sequence<ResultRow>>identity(), query.getLimitSpec().build(query));
+    JupiterAssertions.assertEquals(Functions.<Sequence<ResultRow>>identity(), query.getLimitSpec().build(query));
 
     List<ResultRow> expectedResults = Arrays.asList(
         makeRow(
@@ -10441,7 +10418,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setGranularity(QueryRunnerTestHelper.ALL_GRAN)
         .build();
 
-    Assert.assertNotEquals(Functions.<Sequence<ResultRow>>identity(), query.getLimitSpec().build(query));
+    JupiterAssertions.assertNotEquals(Functions.<Sequence<ResultRow>>identity(), query.getLimitSpec().build(query));
 
     List<ResultRow> expectedResults = Arrays.asList(
         makeRow(
@@ -10624,7 +10601,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setGranularity(QueryRunnerTestHelper.DAY_GRAN)
         .build();
 
-    Assert.assertEquals(Functions.<Sequence<ResultRow>>identity(), query.getLimitSpec().build(query));
+    JupiterAssertions.assertEquals(Functions.<Sequence<ResultRow>>identity(), query.getLimitSpec().build(query));
 
     List<ResultRow> expectedResults = Arrays.asList(
         makeRow(
@@ -10670,7 +10647,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setGranularity(QueryRunnerTestHelper.ALL_GRAN)
         .build();
 
-    Assert.assertNotEquals(Functions.<Sequence<ResultRow>>identity(), query.getLimitSpec().build(query));
+    JupiterAssertions.assertNotEquals(Functions.<Sequence<ResultRow>>identity(), query.getLimitSpec().build(query));
 
     List<ResultRow> expectedResults = Arrays.asList(
         makeRow(
@@ -10715,7 +10692,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setGranularity(QueryRunnerTestHelper.ALL_GRAN)
         .build();
 
-    Assert.assertNotEquals(Functions.<Sequence<ResultRow>>identity(), query.getLimitSpec().build(query));
+    JupiterAssertions.assertNotEquals(Functions.<Sequence<ResultRow>>identity(), query.getLimitSpec().build(query));
 
     List<ResultRow> expectedResults = Arrays.asList(
         makeRow(
@@ -12164,7 +12141,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .build();
 
     Iterable<ResultRow> results = GroupByQueryRunnerTestHelper.runQuery(factory, runner, query);
-    Assert.assertFalse(results.iterator().hasNext());
+    JupiterAssertions.assertFalse(results.iterator().hasNext());
   }
 
 
@@ -13766,7 +13743,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
   {
     try (final CursorHolder cursorHolder =
              originalRunner.getSegment().as(CursorFactory.class).makeCursorHolder(CursorBuildSpec.FULL_SCAN)) {
-      Assume.assumeTrue(Cursors.getTimeOrdering(cursorHolder.getOrdering()) == Order.ASCENDING);
+      Assumptions.assumeTrue(Cursors.getTimeOrdering(cursorHolder.getOrdering()) == Order.ASCENDING);
     }
   }
 
@@ -13793,12 +13770,12 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
       return;
     }
     GroupByStatsProvider.AggregateStats aggregateStats = statsProvider.getStatsSince();
-    Assert.assertEquals(1, aggregateStats.getSpilledQueries());
-    Assert.assertTrue(aggregateStats.getSpilledBytes() > 0);
-    Assert.assertEquals(1, aggregateStats.getMergeBufferQueries());
-    Assert.assertTrue(aggregateStats.getMergeBufferAcquisitionTimeNs() > 0);
+    JupiterAssertions.assertEquals(1, aggregateStats.getSpilledQueries());
+    JupiterAssertions.assertTrue(aggregateStats.getSpilledBytes() > 0);
+    JupiterAssertions.assertEquals(1, aggregateStats.getMergeBufferQueries());
+    JupiterAssertions.assertTrue(aggregateStats.getMergeBufferAcquisitionTimeNs() > 0);
     if (!skipMergeDictionaryMetric) {
-      Assert.assertTrue(aggregateStats.getMergeDictionarySize() > 0);
+      JupiterAssertions.assertTrue(aggregateStats.getMergeDictionarySize() > 0);
     }
   }
 
@@ -13807,4 +13784,3 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
     verifyGroupByMetricsForSmallBufferConfig(false);
   }
 }
-

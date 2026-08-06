@@ -31,9 +31,9 @@ import org.apache.druid.segment.data.ObjectStrategy;
 import org.apache.druid.segment.serde.ComplexMetricExtractor;
 import org.apache.druid.segment.serde.ComplexMetricSerde;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
+import org.apache.druid.testing.matchers.CoreMatchers;
+import org.apache.druid.testing.matchers.MatcherAssert;
+import org.apache.druid.testing.matchers.ThrowableMessageMatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +44,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import javax.annotation.Nullable;
+
 import java.nio.ByteBuffer;
 
 @ExtendWith(MockitoExtension.class)

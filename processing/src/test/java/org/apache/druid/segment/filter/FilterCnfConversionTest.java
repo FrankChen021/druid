@@ -32,10 +32,11 @@ import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.filter.cnf.CNFFilterExplosionException;
 import org.apache.druid.segment.filter.cnf.CalciteCnfHelper;
 import org.apache.druid.segment.filter.cnf.HiveCnfHelper;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.JupiterAssertions;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -200,7 +201,7 @@ public class FilterCnfConversionTest
         FilterTestUtils.selector("col2", "val2")
     );
     final List<Filter> normalizedOrClauses = Filters.toNormalizedOrClauses(muchReducible);
-    Assert.assertEquals(expected, normalizedOrClauses);
+    JupiterAssertions.assertEquals(expected, normalizedOrClauses);
   }
 
   @Test
@@ -408,7 +409,7 @@ public class FilterCnfConversionTest
         FilterTestUtils.not(FilterTestUtils.selector("col1", "val11"))
     );
     final List<Filter> normalizedOrClauses = Filters.toNormalizedOrClauses(filter);
-    Assert.assertEquals(expected, normalizedOrClauses);
+    JupiterAssertions.assertEquals(expected, normalizedOrClauses);
   }
 
   @Test
@@ -516,20 +517,21 @@ public class FilterCnfConversionTest
     );
     List<Filter> expected = Collections.singletonList(filter);
     List<Filter> normalizedOrClauses = Filters.toNormalizedOrClauses(filter);
-    Assert.assertEquals(expected, normalizedOrClauses);
+    JupiterAssertions.assertEquals(expected, normalizedOrClauses);
   }
 
   @Test
   public void testTrueFalseFilterRequiredColumnRewrite()
   {
-    Assert.assertTrue(TrueFilter.instance().supportsRequiredColumnRewrite());
-    Assert.assertTrue(FalseFilter.instance().supportsRequiredColumnRewrite());
+    JupiterAssertions.assertTrue(TrueFilter.instance().supportsRequiredColumnRewrite());
+    JupiterAssertions.assertTrue(FalseFilter.instance().supportsRequiredColumnRewrite());
 
-    Assert.assertEquals(TrueFilter.instance(), TrueFilter.instance().rewriteRequiredColumns(ImmutableMap.of()));
-    Assert.assertEquals(FalseFilter.instance(), FalseFilter.instance().rewriteRequiredColumns(ImmutableMap.of()));
+    JupiterAssertions.assertEquals(TrueFilter.instance(), TrueFilter.instance().rewriteRequiredColumns(ImmutableMap.of()));
+    JupiterAssertions.assertEquals(FalseFilter.instance(), FalseFilter.instance().rewriteRequiredColumns(ImmutableMap.of()));
   }
 
-  @Test(expected = CNFFilterExplosionException.class)
+  @Test
+  @org.apache.druid.testing.ExpectThrows(CNFFilterExplosionException.class)
   public void testExceptionOnCNFFilterExplosion() throws CNFFilterExplosionException
   {
     Filter filter = FilterTestUtils.or(
@@ -604,7 +606,7 @@ public class FilterCnfConversionTest
   private void assertFilter(Filter original, Filter expectedConverted, Filter actualConverted)
   {
     assertEquivalent(original, expectedConverted);
-    Assert.assertEquals(expectedConverted, actualConverted);
+    JupiterAssertions.assertEquals(expectedConverted, actualConverted);
   }
 
   /**
@@ -614,13 +616,13 @@ public class FilterCnfConversionTest
   {
     final Set<SelectorFilter> s1 = searchForSelectors(f1);
     final Set<SelectorFilter> s2 = searchForSelectors(f2);
-    Assert.assertEquals(s1, s2);
+    JupiterAssertions.assertEquals(s1, s2);
 
     // Compare truth table
     final List<SelectorFilter> selectorFilters = new ArrayList<>(s1);
     List<Map<SelectorFilter, Boolean>> truthValues = populate(selectorFilters, selectorFilters.size() - 1);
     for (Map<SelectorFilter, Boolean> truthValue : truthValues) {
-      Assert.assertEquals(evaluateFilterWith(f1, truthValue), evaluateFilterWith(f2, truthValue));
+      JupiterAssertions.assertEquals(evaluateFilterWith(f1, truthValue), evaluateFilterWith(f2, truthValue));
     }
   }
 

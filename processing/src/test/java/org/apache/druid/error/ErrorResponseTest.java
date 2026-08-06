@@ -22,9 +22,9 @@ package org.apache.druid.error;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.matchers.DruidMatchers;
 import org.apache.druid.query.QueryTimeoutException;
-import org.hamcrest.Matcher;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
+import org.apache.druid.testing.matchers.Matcher;
+import org.apache.druid.testing.matchers.MatcherAssert;
+import org.apache.druid.testing.matchers.Matchers;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

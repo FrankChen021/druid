@@ -70,13 +70,14 @@ import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.incremental.OnheapIncrementalIndex;
 import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMediumFactory;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.JupiterAssertions;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -90,7 +91,8 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  *
  */
-@RunWith(Parameterized.class)
+@ParameterizedClass
+@MethodSource("constructorFeeder")
 public class SpatialFilterTest extends InitializedNullHandlingTest
 {
   public static final int NUM_POINTS = 5000;
@@ -111,7 +113,6 @@ public class SpatialFilterTest extends InitializedNullHandlingTest
     this.segment = segment;
   }
 
-  @Parameterized.Parameters
   public static Collection<?> constructorFeeder() throws IOException
   {
     final IndexSpec indexSpec = IndexSpec.getDefault();
@@ -767,10 +768,10 @@ public class SpatialFilterTest extends InitializedNullHandlingTest
         new FilterTuning(false, 1, 1)
     );
     // String complex
-    Assert.assertTrue(spatialFilter.makeMatcher(new TestSpatialSelectorFactory("0,0")).matches(true));
+    JupiterAssertions.assertTrue(spatialFilter.makeMatcher(new TestSpatialSelectorFactory("0,0")).matches(true));
     // Unknown complex, invokes object predicate
-    Assert.assertFalse(spatialFilter.makeMatcher(new TestSpatialSelectorFactory(new Date())).matches(true));
-    Assert.assertFalse(spatialFilter.makeMatcher(new TestSpatialSelectorFactory(new Object())).matches(true));
+    JupiterAssertions.assertFalse(spatialFilter.makeMatcher(new TestSpatialSelectorFactory(new Date())).matches(true));
+    JupiterAssertions.assertFalse(spatialFilter.makeMatcher(new TestSpatialSelectorFactory(new Object())).matches(true));
   }
 
   static class TestSpatialSelectorFactory implements ColumnSelectorFactory

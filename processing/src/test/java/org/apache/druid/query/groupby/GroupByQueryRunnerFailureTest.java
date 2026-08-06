@@ -43,16 +43,15 @@ import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.segment.TestHelper;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.ThrowableExpectation;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -64,7 +63,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+
+@MethodSource("constructorFeeder")
 public class GroupByQueryRunnerFailureTest
 {
   private QueryProcessingPool processingPool;
@@ -96,8 +97,8 @@ public class GroupByQueryRunnerFailureTest
     }
   };
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ThrowableExpectation expectedException = ThrowableExpectation.none();
 
   private static GroupByQueryRunnerFactory makeQueryRunnerFactory(
       final ObjectMapper mapper,
@@ -140,10 +141,10 @@ public class GroupByQueryRunnerFailureTest
 
   private QueryRunner<ResultRow> runner;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "MERGE_BUFFER_POOL size, pre-test",
         MERGE_BUFFER_POOL.maxSize(),
         MERGE_BUFFER_POOL.getPoolSize()
@@ -154,10 +155,10 @@ public class GroupByQueryRunnerFailureTest
     );
   }
 
-  @After
+  @AfterEach
   public void tearDown()
   {
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "MERGE_BUFFER_POOL size, post-test",
         MERGE_BUFFER_POOL.maxSize(),
         MERGE_BUFFER_POOL.getPoolSize()
@@ -165,14 +166,12 @@ public class GroupByQueryRunnerFailureTest
     processingPool.shutdown();
   }
 
-  @AfterClass
+  @AfterAll
   public static void teardownClass()
   {
     BUFFER_POOL.close();
     MERGE_BUFFER_POOL.close();
   }
-
-  @Parameters(name = "{0}")
   public static Collection<Object[]> constructorFeeder()
   {
     final List<Object[]> args = new ArrayList<>();
@@ -187,7 +186,8 @@ public class GroupByQueryRunnerFailureTest
     this.runner = FACTORY.mergeRunners(Execs.directExecutor(), ImmutableList.of(runner));
   }
 
-  @Test(timeout = 60_000L)
+  @Test
+  @org.junit.jupiter.api.Timeout(value = 60_000L, unit = java.util.concurrent.TimeUnit.MILLISECONDS)
   public void testNotEnoughMergeBuffersOnQueryable()
   {
     expectedException.expect(ResourceLimitExceededException.class);
@@ -215,7 +215,8 @@ public class GroupByQueryRunnerFailureTest
     GroupByQueryRunnerTestHelper.runQuery(FACTORY, runner, query);
   }
 
-  @Test(timeout = 60_000L)
+  @Test
+  @org.junit.jupiter.api.Timeout(value = 60_000L, unit = java.util.concurrent.TimeUnit.MILLISECONDS)
   public void testResourceLimitExceededOnBroker()
   {
     expectedException.expect(ResourceLimitExceededException.class);
@@ -253,7 +254,8 @@ public class GroupByQueryRunnerFailureTest
     GroupByQueryRunnerTestHelper.runQuery(FACTORY, runner, query);
   }
 
-  @Test(timeout = 60_000L)
+  @Test
+  @org.junit.jupiter.api.Timeout(value = 60_000L, unit = java.util.concurrent.TimeUnit.MILLISECONDS)
   public void testInsufficientResourcesOnBroker()
   {
     final GroupByQuery query = GroupByQuery
@@ -289,7 +291,8 @@ public class GroupByQueryRunnerFailureTest
     }
   }
 
-  @Test(timeout = 60_000L)
+  @Test
+  @org.junit.jupiter.api.Timeout(value = 60_000L, unit = java.util.concurrent.TimeUnit.MILLISECONDS)
   public void testTimeoutExceptionOnQueryable_singleThreaded()
   {
     final GroupByQuery query = GroupByQuery
@@ -327,15 +330,16 @@ public class GroupByQueryRunnerFailureTest
 
     QueryRunner<ResultRow> mergeRunners = factory.mergeRunners(Execs.directExecutor(), ImmutableList.of(runner, mockRunner));
 
-    QueryTimeoutException ex = Assert.assertThrows(
+    QueryTimeoutException ex = JupiterAssertions.assertThrows(
         QueryTimeoutException.class,
         () -> GroupByQueryRunnerTestHelper.runQuery(factory, mergeRunners, query)
     );
     // Assert overall timeout is triggered
-    Assert.assertEquals("Query [test] timed out", ex.getMessage());
+    JupiterAssertions.assertEquals("Query [test] timed out", ex.getMessage());
   }
 
-  @Test(timeout = 60_000L)
+  @Test
+  @org.junit.jupiter.api.Timeout(value = 60_000L, unit = java.util.concurrent.TimeUnit.MILLISECONDS)
   public void testTimeoutExceptionOnQueryable_multiThreaded()
   {
     final GroupByQuery query = GroupByQuery
@@ -376,15 +380,16 @@ public class GroupByQueryRunnerFailureTest
         List.of(runner, mockRunner)
     );
 
-    QueryTimeoutException ex = Assert.assertThrows(
+    QueryTimeoutException ex = JupiterAssertions.assertThrows(
         QueryTimeoutException.class,
         () -> GroupByQueryRunnerTestHelper.runQuery(factory, mergeRunners, query)
     );
     // Assert overall timeout is triggered
-    Assert.assertEquals("Query [test] timed out", ex.getMessage());
+    JupiterAssertions.assertEquals("Query [test] timed out", ex.getMessage());
   }
 
-  @Test(timeout = 20_000L)
+  @Test
+  @org.junit.jupiter.api.Timeout(value = 20_000L, unit = java.util.concurrent.TimeUnit.MILLISECONDS)
   public void test_multiThreaded_perSegmentTimeout_causes_queryTimeout()
   {
     final GroupByQuery query = GroupByQuery
@@ -430,15 +435,16 @@ public class GroupByQueryRunnerFailureTest
         List.of(runner, mockRunner)
     );
 
-    QueryTimeoutException ex = Assert.assertThrows(
+    QueryTimeoutException ex = JupiterAssertions.assertThrows(
         QueryTimeoutException.class,
         () -> GroupByQueryRunnerTestHelper.runQuery(factory, mergeRunners, query)
     );
     // Assert per-segment timeout is triggered
-    Assert.assertEquals("Query timeout, cancelling pending results for query [test]. Per-segment timeout exceeded.", ex.getMessage());
+    JupiterAssertions.assertEquals("Query timeout, cancelling pending results for query [test]. Per-segment timeout exceeded.", ex.getMessage());
   }
 
-  @Test(timeout = 20_000L)
+  @Test
+  @org.junit.jupiter.api.Timeout(value = 20_000L, unit = java.util.concurrent.TimeUnit.MILLISECONDS)
   public void test_singleThreaded_perSegmentTimeout_causes_queryTimeout()
   {
     final GroupByQuery query = GroupByQuery
@@ -484,15 +490,16 @@ public class GroupByQueryRunnerFailureTest
         List.of(runner, mockRunner)
     );
 
-    QueryTimeoutException ex = Assert.assertThrows(
+    QueryTimeoutException ex = JupiterAssertions.assertThrows(
         QueryTimeoutException.class,
         () -> GroupByQueryRunnerTestHelper.runQuery(factory, mergeRunners, query)
     );
     // Assert per-segment timeout is triggered
-    Assert.assertEquals("Query timeout, cancelling pending results for query [test]. Per-segment timeout exceeded.", ex.getMessage());
+    JupiterAssertions.assertEquals("Query timeout, cancelling pending results for query [test]. Per-segment timeout exceeded.", ex.getMessage());
   }
 
-  @Test(timeout = 5_000L)
+  @Test
+  @org.junit.jupiter.api.Timeout(value = 5_000L, unit = java.util.concurrent.TimeUnit.MILLISECONDS)
   public void test_perSegmentTimeout_crossQuery() throws Exception
   {
     GroupByQueryRunnerFactory factory = makeQueryRunnerFactory(
@@ -568,7 +575,7 @@ public class GroupByQueryRunnerFailureTest
         thrown.set(e);
         return;
       }
-      Assert.fail("Expected QueryTimeoutException for slow query");
+      JupiterAssertions.fail("Expected QueryTimeoutException for slow query");
     });
 
     slowQueryThread.start();
@@ -585,13 +592,13 @@ public class GroupByQueryRunnerFailureTest
         );
       }
       catch (Exception e) {
-        Assert.fail("Expected fast query to succeed");
+        JupiterAssertions.fail("Expected fast query to succeed");
       }
     });
 
     fastQueryThread.start();
     boolean fastStartedEarly = fastStart.await(500, TimeUnit.MILLISECONDS);
-    Assert.assertFalse(
+    JupiterAssertions.assertFalse(
         "Fast query should be blocked and not started while slow queries are running",
         fastStartedEarly
     );
@@ -599,6 +606,6 @@ public class GroupByQueryRunnerFailureTest
     fastQueryThread.join();
     slowQueryThread.join();
 
-    Assert.assertEquals("Query timeout, cancelling pending results for query [slow]. Per-segment timeout exceeded.", thrown.get().getMessage());
+    JupiterAssertions.assertEquals("Query timeout, cancelling pending results for query [slow]. Per-segment timeout exceeded.", thrown.get().getMessage());
   }
 }

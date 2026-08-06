@@ -25,8 +25,8 @@ import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.query.lookup.LookupExtractorFactoryContainer;
 import org.apache.druid.query.lookup.LookupExtractorFactoryContainerProvider;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.JupiterAssertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -83,10 +83,10 @@ public class LookupExprMacroTest extends MacroTestBase
   @Test
   public void testValidCalls()
   {
-    Assert.assertNotNull(apply(getArgs(Lists.newArrayList("1", "test_lookup"))));
-    Assert.assertNotNull(apply(getArgs(Lists.newArrayList("null", "test_lookup"))));
-    Assert.assertNotNull(apply(getArgs(Lists.newArrayList("1", "test_lookup", null))));
-    Assert.assertNotNull(apply(getArgs(Lists.newArrayList("1", "test_lookup", "N/A"))));
+    JupiterAssertions.assertNotNull(apply(getArgs(Lists.newArrayList("1", "test_lookup"))));
+    JupiterAssertions.assertNotNull(apply(getArgs(Lists.newArrayList("null", "test_lookup"))));
+    JupiterAssertions.assertNotNull(apply(getArgs(Lists.newArrayList("1", "test_lookup", null))));
+    JupiterAssertions.assertNotNull(apply(getArgs(Lists.newArrayList("1", "test_lookup", "N/A"))));
   }
 
   private List<Expr> getArgs(List<Object> args)

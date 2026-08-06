@@ -43,16 +43,16 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.segment.QueryableIndexCursorFactory;
 import org.apache.druid.segment.TestIndex;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.matchers.CoreMatchers;
+import org.apache.druid.testing.matchers.MatcherAssert;
+import org.apache.druid.testing.matchers.Matchers;
+import org.apache.druid.testing.matchers.ThrowableMessageMatcher;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -66,7 +66,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+
+@MethodSource("constructorFeeder")
 public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameProcessorExecutorTestSuite
 {
   private final int lowerBouncerPoolSize;
@@ -98,12 +100,6 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
     this.delayed = delayed;
   }
 
-  @Parameterized.Parameters(name =
-      "numThreads = {0}, "
-      + "lowerBouncerPoolSize = {1}, "
-      + "higherBouncerPoolSize = {2}, "
-      + "maxOutstandingProcessors = {3}, "
-      + "delayed = {4}")
   public static Collection<Object[]> constructorFeeder()
   {
     final List<Object[]> constructors = new ArrayList<>();
@@ -131,7 +127,7 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
     return constructors;
   }
 
-  @Before
+  @BeforeEach
   @Override
   public void setUp() throws Exception
   {
@@ -147,14 +143,14 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
     }
   }
 
-  @After
+  @AfterEach
   @Override
   public void tearDown() throws Exception
   {
     super.tearDown(); // Stops exec, waits for termination
 
     synchronized (this) {
-      Assert.assertEquals(0, concurrentNow);
+      JupiterAssertions.assertEquals(0, concurrentNow);
       MatcherAssert.assertThat(concurrentHighWatermark, Matchers.lessThanOrEqualTo(lowerBouncerPoolSize));
       if (higherBouncerPoolSize != -1) {
         MatcherAssert.assertThat(concurrentHighWatermark, Matchers.lessThanOrEqualTo(higherBouncerPoolSize));
@@ -162,13 +158,13 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
       MatcherAssert.assertThat(concurrentHighWatermark, Matchers.lessThanOrEqualTo(maxOutstandingProcessors));
     }
 
-    Assert.assertEquals("Bouncer current running count", 0, bouncer.getCurrentCount());
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals("Bouncer current running count", 0, bouncer.getCurrentCount());
+    JupiterAssertions.assertEquals(
         "Bouncer max pool size",
         higherBouncerPoolSize == -1 ? lowerBouncerPoolSize : Math.min(lowerBouncerPoolSize, higherBouncerPoolSize),
         bouncer.getMaxCount()
     );
-    Assert.assertEquals("Encountered single close (from ensureClose)", 1, closed.get());
+    JupiterAssertions.assertEquals("Encountered single close (from ensureClose)", 1, closed.get());
   }
 
   @Test
@@ -181,7 +177,7 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
         null
     );
 
-    Assert.assertEquals("xyzzy", future.get());
+    JupiterAssertions.assertEquals("xyzzy", future.get());
   }
 
   @Test
@@ -226,7 +222,7 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
         null
     );
 
-    Assert.assertEquals(numProcessors, (long) future.get());
+    JupiterAssertions.assertEquals(numProcessors, (long) future.get());
   }
 
   @Test
@@ -256,7 +252,7 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
         null
     );
 
-    final ExecutionException e = Assert.assertThrows(ExecutionException.class, future::get);
+    final ExecutionException e = JupiterAssertions.assertThrows(ExecutionException.class, future::get);
     MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(RuntimeException.class));
     MatcherAssert.assertThat(e.getCause().getCause(), CoreMatchers.instanceOf(RuntimeException.class));
     MatcherAssert.assertThat(
@@ -289,7 +285,7 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
         null
     );
 
-    final ExecutionException e = Assert.assertThrows(ExecutionException.class, future::get);
+    final ExecutionException e = JupiterAssertions.assertThrows(ExecutionException.class, future::get);
     MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(IllegalStateException.class));
     MatcherAssert.assertThat(e.getCause(), ThrowableMessageMatcher.hasMessage(CoreMatchers.equalTo("error!")));
   }
@@ -316,7 +312,7 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
         null
     );
 
-    final ExecutionException e = Assert.assertThrows(ExecutionException.class, future::get);
+    final ExecutionException e = JupiterAssertions.assertThrows(ExecutionException.class, future::get);
     MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(IllegalStateException.class));
     MatcherAssert.assertThat(e.getCause(), ThrowableMessageMatcher.hasMessage(CoreMatchers.equalTo("error!")));
   }
@@ -343,7 +339,7 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
         null
     );
 
-    final ExecutionException e = Assert.assertThrows(ExecutionException.class, future::get);
+    final ExecutionException e = JupiterAssertions.assertThrows(ExecutionException.class, future::get);
     MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(IllegalStateException.class));
     MatcherAssert.assertThat(e.getCause(), ThrowableMessageMatcher.hasMessage(CoreMatchers.equalTo("error!")));
   }
@@ -370,7 +366,7 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
         null
     );
 
-    final ExecutionException e = Assert.assertThrows(ExecutionException.class, future::get);
+    final ExecutionException e = JupiterAssertions.assertThrows(ExecutionException.class, future::get);
     MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(IllegalStateException.class));
     MatcherAssert.assertThat(e.getCause(), ThrowableMessageMatcher.hasMessage(CoreMatchers.equalTo("error!")));
   }
@@ -396,7 +392,7 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
         null
     );
 
-    final ExecutionException e = Assert.assertThrows(ExecutionException.class, future::get);
+    final ExecutionException e = JupiterAssertions.assertThrows(ExecutionException.class, future::get);
     MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(IllegalStateException.class));
     MatcherAssert.assertThat(e.getCause(), ThrowableMessageMatcher.hasMessage(CoreMatchers.equalTo("error!")));
   }
@@ -425,12 +421,13 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
         null
     );
 
-    final ExecutionException e = Assert.assertThrows(ExecutionException.class, future::get);
+    final ExecutionException e = JupiterAssertions.assertThrows(ExecutionException.class, future::get);
     MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(IllegalStateException.class));
     MatcherAssert.assertThat(e.getCause(), ThrowableMessageMatcher.hasMessage(CoreMatchers.equalTo("error!")));
   }
 
-  @Test(timeout = 30_000L)
+  @Test
+  @org.junit.jupiter.api.Timeout(value = 30_000L, unit = java.util.concurrent.TimeUnit.MILLISECONDS)
   @SuppressWarnings("BusyWait")
   public void test_runAllFully_futureCancel() throws InterruptedException
   {
@@ -460,15 +457,15 @@ public class RunAllFullyWidgetTest extends FrameProcessorExecutorTest.BaseFrameP
       processors.get(i).awaitRun();
     }
 
-    Assert.assertTrue(future.cancel(true));
-    Assert.assertTrue(future.isCancelled());
+    JupiterAssertions.assertTrue(future.cancel(true));
+    JupiterAssertions.assertTrue(future.isCancelled());
 
     // We don't have a good way to wait for future cancellation to truly finish. Resort to a waiting-loop.
     while (exec.cancelableProcessorCount() > 0) {
       Thread.sleep(10);
     }
 
-    Assert.assertEquals(0, exec.cancelableProcessorCount());
+    JupiterAssertions.assertEquals(0, exec.cancelableProcessorCount());
   }
 
   /**

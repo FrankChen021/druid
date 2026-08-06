@@ -50,14 +50,14 @@ import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.incremental.OnheapIncrementalIndex;
 import org.apache.druid.segment.vector.VectorCursor;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
-import org.hamcrest.CoreMatchers;
+import org.apache.druid.testing.matchers.CoreMatchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.runners.Parameterized;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -66,7 +66,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.apache.druid.testing.matchers.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -81,7 +81,6 @@ public class ShimCursorTest
     ExpressionProcessing.initializeForTests();
   }
 
-  @Parameterized.Parameters
   public static Collection<Object> vectorSizes()
   {
     return List.of(1, 2, 4, 7, 512);

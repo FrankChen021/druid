@@ -20,12 +20,12 @@
 package org.apache.druid.error;
 
 import org.apache.druid.matchers.DruidMatchers;
-import org.hamcrest.Description;
-import org.hamcrest.DiagnosingMatcher;
-import org.hamcrest.Matcher;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.hamcrest.core.AllOf;
+import org.apache.druid.testing.matchers.AllOf;
+import org.apache.druid.testing.matchers.Description;
+import org.apache.druid.testing.matchers.DiagnosingMatcher;
+import org.apache.druid.testing.matchers.Matcher;
+import org.apache.druid.testing.matchers.MatcherAssert;
+import org.apache.druid.testing.matchers.Matchers;
 
 import java.util.ArrayList;
 

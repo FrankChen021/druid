@@ -22,8 +22,8 @@ package org.apache.druid.query.expression;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.math.expr.InputBindings;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.JupiterAssertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -58,62 +58,62 @@ public class IPv4AddressParseExprMacroTest extends MacroTestBase
   public void testnullStringArg()
   {
     Expr nullString = ExprEval.ofString(null).toExpr();
-    Assert.assertNull(eval(nullString));
+    JupiterAssertions.assertNull(eval(nullString));
   }
 
   @Test
   public void testnullLongArg()
   {
     Expr nullLong = ExprEval.ofLong(null).toExpr();
-    Assert.assertNull(eval(nullLong));
+    JupiterAssertions.assertNull(eval(nullLong));
   }
 
   @Test
   public void testInvalidArgType()
   {
     Expr longArray = ExprEval.ofLongArray(new Long[]{1L, 2L}).toExpr();
-    Assert.assertNull(eval(longArray));
+    JupiterAssertions.assertNull(eval(longArray));
   }
 
   @Test
   public void testInvalidStringArgNotIPAddress()
   {
     Expr notIpAddress = ExprEval.ofString("druid.apache.org").toExpr();
-    Assert.assertNull(eval(notIpAddress));
+    JupiterAssertions.assertNull(eval(notIpAddress));
   }
 
   @Test
   public void testInvalidStringArgIPv6Compatible()
   {
     Expr ipv6Compatible = ExprEval.ofString("::192.168.0.1").toExpr();
-    Assert.assertNull(eval(ipv6Compatible));
+    JupiterAssertions.assertNull(eval(ipv6Compatible));
   }
 
   @Test
   public void testValidStringArgIPv6Mapped()
   {
     Expr ipv6Mapped = ExprEval.ofString("::ffff:192.168.0.1").toExpr();
-    Assert.assertNull(eval(ipv6Mapped));
+    JupiterAssertions.assertNull(eval(ipv6Mapped));
   }
 
   @Test
   public void testValidStringArgIPv4()
   {
-    Assert.assertEquals(EXPECTED, eval(VALID));
+    JupiterAssertions.assertEquals(EXPECTED, eval(VALID));
   }
 
   @Test
   public void testValidStringArgUnsignedInt()
   {
     Expr unsignedInt = ExprEval.ofString("3232235521").toExpr();
-    Assert.assertNull(eval(unsignedInt));
+    JupiterAssertions.assertNull(eval(unsignedInt));
   }
 
   @Test
   public void testInvalidLongArgTooLow()
   {
     Expr tooLow = ExprEval.ofLong(-1L).toExpr();
-    Assert.assertNull(eval(tooLow));
+    JupiterAssertions.assertNull(eval(tooLow));
   }
 
   @Test
@@ -121,7 +121,7 @@ public class IPv4AddressParseExprMacroTest extends MacroTestBase
   {
     long lowest = 0L;
     Expr tooLow = ExprEval.ofLong(lowest).toExpr();
-    Assert.assertEquals(lowest, eval(tooLow));
+    JupiterAssertions.assertEquals(lowest, eval(tooLow));
   }
 
   @Test
@@ -129,14 +129,14 @@ public class IPv4AddressParseExprMacroTest extends MacroTestBase
   {
     long highest = 0xff_ff_ff_ffL;
     Expr tooLow = ExprEval.ofLong(highest).toExpr();
-    Assert.assertEquals(highest, eval(tooLow));
+    JupiterAssertions.assertEquals(highest, eval(tooLow));
   }
 
   @Test
   public void testInvalidLongArgTooHigh()
   {
     Expr tooHigh = ExprEval.ofLong(0x1_00_00_00_00L).toExpr();
-    Assert.assertNull(eval(tooHigh));
+    JupiterAssertions.assertNull(eval(tooHigh));
   }
 
   @Test
@@ -144,7 +144,7 @@ public class IPv4AddressParseExprMacroTest extends MacroTestBase
   {
     long value = EXPECTED;
     Expr valid = ExprEval.ofLong(value).toExpr();
-    Assert.assertEquals(value, eval(valid));
+    JupiterAssertions.assertEquals(value, eval(valid));
   }
 
   private Object eval(Expr arg)

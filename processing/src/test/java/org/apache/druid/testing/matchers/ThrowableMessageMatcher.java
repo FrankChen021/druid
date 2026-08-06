@@ -17,31 +17,16 @@
  * under the License.
  */
 
-package org.apache.druid.testing;
+package org.apache.druid.testing.matchers;
 
-import org.junit.rules.TestRule;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
-
-import java.util.concurrent.TimeUnit;
-
-/**
- * This Rule is based on {@link org.junit.rules.Timeout}, additionally deadlocked threads are detected.
- */
-public final class DeadlockDetectingTimeout implements TestRule
+public class ThrowableMessageMatcher
 {
-  private final long timeout;
-  private final TimeUnit timeoutUnit;
-
-  public DeadlockDetectingTimeout(long timeout, TimeUnit timeoutUnit)
+  private ThrowableMessageMatcher()
   {
-    this.timeout = timeout;
-    this.timeoutUnit = timeoutUnit;
   }
 
-  @Override
-  public Statement apply(Statement base, Description description)
+  public static Matcher<Throwable> hasMessage(final Matcher<String> messageMatcher)
   {
-    return new DeadlockDetectingFailOnTimeout(timeout, timeoutUnit, base);
+    return throwable -> throwable instanceof Throwable && messageMatcher.matches(((Throwable) throwable).getMessage());
   }
 }

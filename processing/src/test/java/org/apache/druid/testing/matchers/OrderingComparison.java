@@ -17,20 +17,21 @@
  * under the License.
  */
 
-package org.apache.druid.annotations;
+package org.apache.druid.testing.matchers;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
-/**
- * Annotating test methods, which names have "parametersFor" prefix, and used by {@code JUnitParamsRunner}, see
- * https://github.com/Pragmatists/junitparams/wiki/Quickstart. IntelliJ's inspection "Unused declarations" knows about
- * this annotation.
- */
-@Retention(RetentionPolicy.SOURCE)
-@Target(ElementType.METHOD)
-public @interface UsedByJUnitParamsRunner
+public class OrderingComparison
 {
+  private OrderingComparison()
+  {
+  }
+
+  public static <T extends Comparable<T>> Matcher<T> greaterThanOrEqualTo(final T expected)
+  {
+    return Matchers.greaterThanOrEqualTo(expected);
+  }
+
+  public static <T extends Comparable<T>> Matcher<T> lessThanOrEqualTo(final T expected)
+  {
+    return Matchers.lessThanOrEqualTo(expected);
+  }
 }
