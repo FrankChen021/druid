@@ -27,7 +27,6 @@ import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.segment.join.MapJoinableFactory;
 import org.apache.druid.segment.loading.SegmentLocalCacheManager;
 import org.apache.druid.segment.metadata.CentralizedDatasourceSchemaConfig;
-import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.SegmentManager;
 import org.apache.druid.server.SpecificSegmentsQuerySegmentWalker;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
@@ -35,9 +34,10 @@ import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
 import org.apache.druid.sql.calcite.util.CalciteTestBase;
 import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.apache.druid.sql.calcite.util.SqlTestQueryStack;
 import org.apache.druid.sql.calcite.util.TestTimelineServerView;
 import org.easymock.EasyMock;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -50,7 +50,7 @@ public class DruidSchemaNoDataInitTest extends CalciteTestBase
   public void testInitializationWithNoData() throws Exception
   {
     try (final Closer closer = Closer.create()) {
-      final QueryRunnerFactoryConglomerate conglomerate = QueryStackTests.createQueryRunnerFactoryConglomerate(closer);
+      final QueryRunnerFactoryConglomerate conglomerate = SqlTestQueryStack.createQueryRunnerFactoryConglomerate(closer);
       final BrokerSegmentMetadataCache cache = new BrokerSegmentMetadataCache(
           CalciteTests.createMockQueryLifecycleFactory(
               SpecificSegmentsQuerySegmentWalker.createWalker(conglomerate),
@@ -72,7 +72,7 @@ public class DruidSchemaNoDataInitTest extends CalciteTestBase
       cache.awaitInitialization();
       final DruidSchema druidSchema = new DruidSchema(cache, null, CatalogResolver.NULL_RESOLVER);
 
-      Assert.assertEquals(ImmutableSet.of(), druidSchema.getTableNames());
+      Assertions.assertEquals(ImmutableSet.of(), druidSchema.getTableNames());
     }
   }
 }
