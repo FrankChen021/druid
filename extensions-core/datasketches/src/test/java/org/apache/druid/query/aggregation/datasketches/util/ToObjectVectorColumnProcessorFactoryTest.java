@@ -33,7 +33,6 @@ import org.apache.druid.segment.QueryableIndexCursorFactory;
 import org.apache.druid.segment.TestIndex;
 import org.apache.druid.segment.vector.VectorCursor;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,8 +41,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
-
-import static org.hamcrest.MatcherAssert.assertThat;
 
 public class ToObjectVectorColumnProcessorFactoryTest extends InitializedNullHandlingTest
 {
@@ -170,7 +167,7 @@ public class ToObjectVectorColumnProcessorFactoryTest extends InitializedNullHan
   public void testComplexSketch()
   {
     final Object sketch = Iterables.getOnlyElement(readColumn("quality_uniques", 1));
-    assertThat(sketch, CoreMatchers.instanceOf(HyperLogLogCollector.class));
+    Assertions.assertInstanceOf(HyperLogLogCollector.class, sketch);
   }
 
   private CursorHolder makeCursorHolder()

@@ -42,7 +42,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -168,8 +167,8 @@ public class AzureStorageTest
     supplier.set(new TestPagedResponse<>(ImmutableList.of(blobItem)));
     PagedIterable<BlobItem> pagedIterable = new PagedIterable<>(supplier);
     Mockito.doReturn(pagedIterable).when(blobContainerClient).listBlobs(
-        ArgumentMatchers.any(),
-        ArgumentMatchers.any()
+        Mockito.any(),
+        Mockito.any()
     );
     Mockito.doReturn(blobContainerClient).when(blobServiceClient).getBlobContainerClient(CONTAINER);
 
@@ -190,8 +189,8 @@ public class AzureStorageTest
     supplier.set(new TestPagedResponse<>(ImmutableList.of(blobItem)));
     PagedIterable<BlobItem> pagedIterable = new PagedIterable<>(supplier);
     Mockito.doReturn(pagedIterable).when(blobContainerClient).listBlobs(
-        ArgumentMatchers.any(),
-        ArgumentMatchers.any()
+        Mockito.any(),
+        Mockito.any()
     );
     Mockito.doReturn(blobContainerClient).when(blobServiceClient).getBlobContainerClient(CONTAINER);
     Mockito.doReturn(blobServiceClient).when(azureClientFactory).getBlobServiceClient(null, STORAGE_ACCOUNT);
@@ -211,8 +210,8 @@ public class AzureStorageTest
     supplier.set(new TestPagedResponse<>(ImmutableList.of(blobItem)));
     PagedIterable<BlobItem> pagedIterable = new PagedIterable<>(supplier);
     Mockito.doReturn(pagedIterable).when(blobContainerClient).listBlobs(
-        ArgumentMatchers.any(),
-        ArgumentMatchers.any()
+        Mockito.any(),
+        Mockito.any()
     );
     Mockito.doReturn(blobContainerClient).when(blobServiceClient).getBlobContainerClient(CONTAINER);
     Mockito.doReturn(blobServiceClient).when(azureClientFactory).getBlobServiceClient(3, storageAccountCustom);
@@ -243,7 +242,7 @@ public class AzureStorageTest
     Mockito.doReturn(blobServiceClient).when(azureClientFactory).getBlobServiceClient(null, STORAGE_ACCOUNT);
     Mockito.doReturn(blobBatchClient).when(azureClientFactory).getBlobBatchClient(blobContainerClient);
     Mockito.doReturn(pagedIterable).when(blobBatchClient).deleteBlobs(
-        captor.capture(), ArgumentMatchers.eq(DeleteSnapshotsOptionType.INCLUDE)
+        captor.capture(), Mockito.eq(DeleteSnapshotsOptionType.INCLUDE)
     );
 
     boolean deleteSuccessful = azureStorage.batchDeleteFiles(CONTAINER, ImmutableList.of(BLOB_NAME), null);
@@ -267,7 +266,7 @@ public class AzureStorageTest
     Mockito.doReturn(blobServiceClient).when(azureClientFactory).getBlobServiceClient(null, STORAGE_ACCOUNT);
     Mockito.doReturn(blobBatchClient).when(azureClientFactory).getBlobBatchClient(blobContainerClient);
     Mockito.doThrow(new RuntimeException()).when(blobBatchClient).deleteBlobs(
-        captor.capture(), ArgumentMatchers.eq(DeleteSnapshotsOptionType.INCLUDE)
+        captor.capture(), Mockito.eq(DeleteSnapshotsOptionType.INCLUDE)
     );
 
     boolean deleteSuccessful = azureStorage.batchDeleteFiles(CONTAINER, ImmutableList.of(BLOB_NAME), null);
@@ -292,7 +291,7 @@ public class AzureStorageTest
     Mockito.doReturn(blobServiceClient).when(azureClientFactory).getBlobServiceClient(null, STORAGE_ACCOUNT);
     Mockito.doReturn(blobBatchClient).when(azureClientFactory).getBlobBatchClient(blobContainerClient);
     Mockito.doReturn(pagedIterable).when(blobBatchClient).deleteBlobs(
-        captor.capture(), ArgumentMatchers.eq(DeleteSnapshotsOptionType.INCLUDE)
+        captor.capture(), Mockito.eq(DeleteSnapshotsOptionType.INCLUDE)
     );
 
 
@@ -329,4 +328,3 @@ public class AzureStorageTest
     assertTrue(overrideArgument.getValue());
   }
 }
-

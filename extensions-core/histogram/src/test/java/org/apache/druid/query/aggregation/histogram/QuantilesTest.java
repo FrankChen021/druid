@@ -22,14 +22,11 @@ package org.apache.druid.query.aggregation.histogram;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-
-import static org.hamcrest.MatcherAssert.assertThat;
 
 public class QuantilesTest
 {
@@ -48,7 +45,7 @@ public class QuantilesTest
     );
 
     Object theObject = mapper.readValue(theString, Object.class);
-    assertThat(theObject, CoreMatchers.instanceOf(LinkedHashMap.class));
+    Assertions.assertInstanceOf(LinkedHashMap.class, theObject);
 
     LinkedHashMap theMap = (LinkedHashMap) theObject;
 

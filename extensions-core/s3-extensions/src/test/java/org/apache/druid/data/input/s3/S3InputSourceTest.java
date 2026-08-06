@@ -68,8 +68,6 @@ import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.apache.druid.utils.CompressionUtils;
 import org.easymock.EasyMock;
 import org.easymock.IArgumentMatcher;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
 import org.joda.time.DateTime;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -1191,11 +1189,10 @@ public class S3InputSourceTest extends InitializedNullHandlingTest
     );
     try (CloseableIterator<InputRow> readerIterator = reader.read()) {
       final IllegalStateException e = Assertions.assertThrows(IllegalStateException.class, readerIterator::hasNext);
-      MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(IOException.class));
-      MatcherAssert.assertThat(e.getCause().getCause(), CoreMatchers.instanceOf(SdkClientException.class));
-      MatcherAssert.assertThat(
-          e.getCause().getCause().getMessage(),
-          CoreMatchers.startsWith("Data read has a different length than the expected")
+      Assertions.assertInstanceOf(IOException.class, e.getCause());
+      Assertions.assertInstanceOf(SdkClientException.class, e.getCause().getCause());
+      Assertions.assertTrue(
+          e.getCause().getCause().getMessage().startsWith("Data read has a different length than the expected")
       );
     }
 

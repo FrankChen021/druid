@@ -26,7 +26,7 @@ import org.apache.druid.catalog.storage.sql.CatalogManager;
 import org.apache.druid.catalog.storage.sql.SQLCatalogManager;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.math.expr.ExprMacroTable;
-import org.apache.druid.metadata.TestDerbyConnector.DerbyConnectorRule;
+import org.apache.druid.metadata.TestDerbyConnector.DerbyConnectorFixture;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -81,7 +81,7 @@ public class CatalogTests
     public CatalogManager manager;
     public CatalogStorage storage;
 
-    public DbFixture(DerbyConnectorRule derbyConnectorRule)
+    public DbFixture(DerbyConnectorFixture derbyConnectorRule)
     {
       MetadataStorageManager metastoreMgr = new MetadataStorageManager(
           JSON_MAPPER,
