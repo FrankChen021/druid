@@ -27,6 +27,7 @@ import org.apache.druid.data.input.impl.systemfield.SystemFields;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.msq.indexing.LegacyMSQSpec;
 import org.apache.druid.msq.indexing.MSQTuningConfig;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.msq.test.MSQTestBase;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.Query;
@@ -43,7 +44,6 @@ import org.apache.druid.sql.calcite.filtration.Filtration;
 import org.apache.druid.sql.calcite.planner.ColumnMapping;
 import org.apache.druid.sql.calcite.planner.ColumnMappings;
 import org.apache.druid.sql.calcite.util.CalciteTests;
-import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -411,7 +411,7 @@ public class MSQWarningsTest extends MSQTestBase
                      .verifyResults();
 
     // Temporary directory should not contain any controller-related folders
-    Assert.assertEquals(0, localFileStorageDir.listFiles().length);
+    JUnitAssertions.assertEquals(0, localFileStorageDir.listFiles().length);
   }
 
   @Test

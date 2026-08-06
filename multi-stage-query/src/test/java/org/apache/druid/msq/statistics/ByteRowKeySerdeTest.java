@@ -22,11 +22,11 @@ package org.apache.druid.msq.statistics;
 import org.apache.datasketches.memory.Memory;
 import org.apache.druid.frame.FrameType;
 import org.apache.druid.frame.key.KeyTestUtils;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ByteRowKeySerdeTest extends InitializedNullHandlingTest
 {
@@ -61,24 +61,24 @@ public class ByteRowKeySerdeTest extends InitializedNullHandlingTest
   private void testSerde(byte[] byteRowKey)
   {
     byte[] bytes = serde.serializeToByteArray(byteRowKey);
-    Assert.assertEquals(serde.sizeOf(byteRowKey), bytes.length);
+    JUnitAssertions.assertEquals(serde.sizeOf(byteRowKey), bytes.length);
 
     Memory wrappedMemory = Memory.wrap(bytes);
-    Assert.assertEquals(serde.sizeOf(wrappedMemory, 0, 1), bytes.length);
+    JUnitAssertions.assertEquals(serde.sizeOf(wrappedMemory, 0, 1), bytes.length);
 
     byte[][] deserialized = serde.deserializeFromMemory(wrappedMemory, 1);
-    Assert.assertArrayEquals(new byte[][]{byteRowKey}, deserialized);
+    JUnitAssertions.assertArrayEquals(new byte[][]{byteRowKey}, deserialized);
   }
 
   private void testSerde(byte[][] inputArray)
   {
     byte[] bytes = serde.serializeToByteArray(inputArray);
-    Assert.assertEquals(serde.sizeOf(inputArray), bytes.length);
+    JUnitAssertions.assertEquals(serde.sizeOf(inputArray), bytes.length);
 
     Memory wrappedMemory = Memory.wrap(bytes);
-    Assert.assertEquals(serde.sizeOf(wrappedMemory, 0, inputArray.length), bytes.length);
+    JUnitAssertions.assertEquals(serde.sizeOf(wrappedMemory, 0, inputArray.length), bytes.length);
 
     byte[][] deserialized = serde.deserializeFromMemory(wrappedMemory, inputArray.length);
-    Assert.assertArrayEquals(inputArray, deserialized);
+    JUnitAssertions.assertArrayEquals(inputArray, deserialized);
   }
 }

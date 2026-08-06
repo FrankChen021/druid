@@ -30,7 +30,6 @@ import org.apache.druid.data.input.impl.JsonInputFormat;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.data.input.impl.systemfield.SystemFields;
 import org.apache.druid.error.DruidException;
-import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.frame.util.DurableStorageUtils;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
@@ -47,7 +46,10 @@ import org.apache.druid.msq.indexing.error.CanceledFault;
 import org.apache.druid.msq.indexing.report.MSQResultsReport;
 import org.apache.druid.msq.sql.MSQTaskQueryMaker;
 import org.apache.druid.msq.test.CounterSnapshotMatcher;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.msq.test.MSQTestBase;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
+import org.apache.druid.msq.test.matchers.ThrowableMessageMatcher;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.InlineDataSource;
@@ -83,6 +85,7 @@ import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.join.JoinType;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.server.lookup.cache.LookupLoadingSpec;
+import org.apache.druid.sql.calcite.DruidExceptionAssertions;
 import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.filtration.Filtration;
@@ -90,9 +93,6 @@ import org.apache.druid.sql.calcite.planner.ColumnMapping;
 import org.apache.druid.sql.calcite.planner.ColumnMappings;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.util.CalciteTests;
-import org.hamcrest.CoreMatchers;
-import org.junit.Assert;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -2356,7 +2356,7 @@ public class MSQSelectTest extends MSQTestBase
                 + "FROM kttm_data "
                 + "GROUP BY 1")
         .setExpectedValidationErrorMatcher(
-            new DruidExceptionMatcher(DruidException.Persona.ADMIN, DruidException.Category.INVALID_INPUT, "general")
+            new DruidExceptionAssertions(DruidException.Persona.ADMIN, DruidException.Category.INVALID_INPUT, "general")
                 .expectMessageIs(
                     "Query could not be planned. A possible reason is "
                     + "[LATEST and EARLIEST aggregators implicitly depend on the __time column, "
@@ -2539,7 +2539,7 @@ public class MSQSelectTest extends MSQTestBase
       result.add(new Object[]{1});
     }
 
-    Assert.assertTrue(result.size() > Limits.MAX_SELECT_RESULT_ROWS);
+    JUnitAssertions.assertTrue(result.size() > Limits.MAX_SELECT_RESULT_ROWS);
 
     testSelectQuery()
         .setSql(StringUtils.format(

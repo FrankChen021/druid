@@ -45,14 +45,14 @@ import org.apache.druid.msq.indexing.report.MSQStatusReport;
 import org.apache.druid.msq.indexing.report.MSQTaskReport;
 import org.apache.druid.msq.indexing.report.MSQTaskReportPayload;
 import org.apache.druid.msq.indexing.report.MSQTaskReportTest;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.RowAdapter;
 import org.apache.druid.segment.RowBasedCursorFactory;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.planner.ColumnMappings;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -114,7 +114,7 @@ public class TaskReportQueryListenerTest
         resultsContext
     );
 
-    Assert.assertTrue(listener.readResults());
+    JUnitAssertions.assertTrue(listener.readResults());
     listener.onResultsStart(frameReader);
 
     // Create a frame with two rows
@@ -122,7 +122,7 @@ public class TaskReportQueryListenerTest
         ImmutableMap.of("x", "foo"),
         ImmutableMap.of("x", "bar")
     ));
-    Assert.assertTrue(listener.onResultBatch(frame.asRAC()));
+    JUnitAssertions.assertTrue(listener.onResultBatch(frame.asRAC()));
 
     listener.onResultsComplete();
     listener.onQueryComplete(
@@ -158,14 +158,14 @@ public class TaskReportQueryListenerTest
             new TypeReference<>() {}
         );
 
-    Assert.assertEquals(ImmutableSet.of("multiStageQuery", TaskContextReport.REPORT_KEY), reportMap.keySet());
-    Assert.assertEquals(TASK_CONTEXT, ((TaskContextReport) reportMap.get(TaskContextReport.REPORT_KEY)).getPayload());
+    JUnitAssertions.assertEquals(ImmutableSet.of("multiStageQuery", TaskContextReport.REPORT_KEY), reportMap.keySet());
+    JUnitAssertions.assertEquals(TASK_CONTEXT, ((TaskContextReport) reportMap.get(TaskContextReport.REPORT_KEY)).getPayload());
 
     final MSQTaskReport report = (MSQTaskReport) reportMap.get("multiStageQuery");
     final List<List<Object>> results =
         report.getPayload().getResults().getResults().stream().map(Arrays::asList).collect(Collectors.toList());
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             ImmutableList.of("foo"),
             ImmutableList.of("bar")
@@ -173,8 +173,8 @@ public class TaskReportQueryListenerTest
         results
     );
 
-    Assert.assertFalse(report.getPayload().getResults().isResultsTruncated());
-    Assert.assertEquals(TaskState.SUCCESS, report.getPayload().getStatus().getStatus());
+    JUnitAssertions.assertFalse(report.getPayload().getResults().isResultsTruncated());
+    JUnitAssertions.assertEquals(TaskState.SUCCESS, report.getPayload().getStatus().getStatus());
   }
 
   @Test
@@ -193,7 +193,7 @@ public class TaskReportQueryListenerTest
         resultsContext
     );
 
-    Assert.assertTrue(listener.readResults());
+    JUnitAssertions.assertTrue(listener.readResults());
     listener.onResultsStart(frameReader);
 
     // Create frames with rows up to MAX_SELECT_RESULT_ROWS
@@ -212,7 +212,7 @@ public class TaskReportQueryListenerTest
     }
 
     // Should have stopped accepting results after MAX_SELECT_RESULT_ROWS
-    Assert.assertFalse(keepGoing);
+    JUnitAssertions.assertFalse(keepGoing);
 
     listener.onQueryComplete(
         new MSQTaskReportPayload(
@@ -247,22 +247,22 @@ public class TaskReportQueryListenerTest
             new TypeReference<>() {}
         );
 
-    Assert.assertEquals(ImmutableSet.of("multiStageQuery", TaskContextReport.REPORT_KEY), reportMap.keySet());
-    Assert.assertEquals(TASK_CONTEXT, ((TaskContextReport) reportMap.get(TaskContextReport.REPORT_KEY)).getPayload());
+    JUnitAssertions.assertEquals(ImmutableSet.of("multiStageQuery", TaskContextReport.REPORT_KEY), reportMap.keySet());
+    JUnitAssertions.assertEquals(TASK_CONTEXT, ((TaskContextReport) reportMap.get(TaskContextReport.REPORT_KEY)).getPayload());
 
     final MSQTaskReport report = (MSQTaskReport) reportMap.get("multiStageQuery");
     final List<List<Object>> results =
         report.getPayload().getResults().getResults().stream().map(Arrays::asList).collect(Collectors.toList());
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         IntStream.range(0, (int) Limits.MAX_SELECT_RESULT_ROWS)
                  .mapToObj(i -> ImmutableList.of("foo"))
                  .collect(Collectors.toList()),
         results
     );
 
-    Assert.assertTrue(report.getPayload().getResults().isResultsTruncated());
-    Assert.assertEquals(TaskState.SUCCESS, report.getPayload().getStatus().getStatus());
+    JUnitAssertions.assertTrue(report.getPayload().getResults().isResultsTruncated());
+    JUnitAssertions.assertEquals(TaskState.SUCCESS, report.getPayload().getStatus().getStatus());
   }
 
   /**

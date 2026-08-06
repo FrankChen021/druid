@@ -24,11 +24,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.msq.guice.MSQIndexingModule;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.server.coordination.DruidServerMetadata;
 import org.apache.druid.server.coordination.ServerType;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class DataServerRequestDescriptorTest
 {
@@ -51,7 +51,7 @@ public class DataServerRequestDescriptorTest
     final ObjectMapper mapper = TestHelper.makeJsonMapper()
                                           .registerModules(new MSQIndexingModule().getJacksonModules());
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         segment,
         mapper.readValue(mapper.writeValueAsString(segment), DataServerRequestDescriptor.class)
     );

@@ -40,14 +40,14 @@ import org.apache.druid.frame.write.FrameWriters;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.segment.RowAdapters;
 import org.apache.druid.segment.RowBasedCursorFactory;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -93,7 +93,7 @@ public class GroupByFrameCombinerTest extends InitializedNullHandlingTest
         1 // one row per frame
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             ImmutableList.of("a", 100L, 11L),
             ImmutableList.of("b", 200L, 22L),
@@ -123,11 +123,11 @@ public class GroupByFrameCombinerTest extends InitializedNullHandlingTest
 
     final List<List<Object>> rows = runMergerWithCombiner(channelData, 1);
 
-    Assert.assertEquals(numKeys, rows.size());
+    JUnitAssertions.assertEquals(numKeys, rows.size());
     for (int k = 0; k < numKeys; k++) {
-      Assert.assertEquals(StringUtils.format("key_%02d", k), rows.get(k).get(0));
-      Assert.assertEquals((long) k, rows.get(k).get(1));
-      Assert.assertEquals((long) numChannels, rows.get(k).get(2));
+      JUnitAssertions.assertEquals(StringUtils.format("key_%02d", k), rows.get(k).get(0));
+      JUnitAssertions.assertEquals((long) k, rows.get(k).get(1));
+      JUnitAssertions.assertEquals((long) numChannels, rows.get(k).get(2));
     }
   }
 
@@ -157,7 +157,7 @@ public class GroupByFrameCombinerTest extends InitializedNullHandlingTest
         3 // multiple rows per frame
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             ImmutableList.of("a", 1L, 130L),
             ImmutableList.of("b", 2L, 530L),

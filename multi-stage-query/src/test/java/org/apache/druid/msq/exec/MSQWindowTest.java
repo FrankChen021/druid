@@ -30,6 +30,8 @@ import org.apache.druid.msq.indexing.MSQTuningConfig;
 import org.apache.druid.msq.indexing.error.TooManyRowsInAWindowFault;
 import org.apache.druid.msq.test.CounterSnapshotMatcher;
 import org.apache.druid.msq.test.MSQTestBase;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
+import org.apache.druid.msq.test.matchers.ThrowableMessageMatcher;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.OrderBy;
@@ -63,8 +65,6 @@ import org.apache.druid.sql.calcite.planner.ColumnMapping;
 import org.apache.druid.sql.calcite.planner.ColumnMappings;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.timeline.SegmentId;
-import org.hamcrest.CoreMatchers;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;

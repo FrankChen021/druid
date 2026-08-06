@@ -23,9 +23,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import nl.jqno.equalsverifier.EqualsVerifier;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.TestHelper;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -44,7 +44,7 @@ public class StageIdTest
         )
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             new StageId("abc", 1),
             new StageId("abc", 2),
@@ -62,7 +62,7 @@ public class StageIdTest
     final ObjectMapper mapper = TestHelper.makeJsonMapper();
     final StageId stageId = new StageId("abc", 1);
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         stageId,
         mapper.readValue(mapper.writeValueAsString(stageId), StageId.class)
     );

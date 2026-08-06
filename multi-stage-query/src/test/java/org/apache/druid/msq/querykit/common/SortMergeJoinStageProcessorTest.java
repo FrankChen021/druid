@@ -23,40 +23,40 @@ import com.google.common.collect.ImmutableList;
 import org.apache.druid.frame.key.KeyColumn;
 import org.apache.druid.frame.key.KeyOrder;
 import org.apache.druid.math.expr.ExprMacroTable;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.join.JoinConditionAnalysis;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class SortMergeJoinStageProcessorTest
 {
   @Test
   public void test_validateCondition()
   {
-    Assert.assertNotNull(
+    JUnitAssertions.assertNotNull(
         SortMergeJoinStageProcessor.validateCondition(
             JoinConditionAnalysis.forExpression("1", "j.", ExprMacroTable.nil())
         )
     );
 
-    Assert.assertNotNull(
+    JUnitAssertions.assertNotNull(
         SortMergeJoinStageProcessor.validateCondition(
             JoinConditionAnalysis.forExpression("x == \"j.y\"", "j.", ExprMacroTable.nil())
         )
     );
 
-    Assert.assertNotNull(
+    JUnitAssertions.assertNotNull(
         SortMergeJoinStageProcessor.validateCondition(
             JoinConditionAnalysis.forExpression("1", "j.", ExprMacroTable.nil())
         )
     );
 
-    Assert.assertNotNull(
+    JUnitAssertions.assertNotNull(
         SortMergeJoinStageProcessor.validateCondition(
             JoinConditionAnalysis.forExpression("x == \"j.y\" && a == \"j.b\"", "j.", ExprMacroTable.nil())
         )
     );
 
-    Assert.assertNotNull(
+    JUnitAssertions.assertNotNull(
         SortMergeJoinStageProcessor.validateCondition(
             JoinConditionAnalysis.forExpression(
                 "notdistinctfrom(x, \"j.y\") && a == \"j.b\"",
@@ -66,14 +66,14 @@ public class SortMergeJoinStageProcessorTest
         )
     );
 
-    Assert.assertThrows(
+    JUnitAssertions.assertThrows(
         IllegalArgumentException.class,
         () -> SortMergeJoinStageProcessor.validateCondition(
             JoinConditionAnalysis.forExpression("x == y", "j.", ExprMacroTable.nil())
         )
     );
 
-    Assert.assertThrows(
+    JUnitAssertions.assertThrows(
         IllegalArgumentException.class,
         () -> SortMergeJoinStageProcessor.validateCondition(
             JoinConditionAnalysis.forExpression("x + 1 == \"j.y\"", "j.", ExprMacroTable.nil())
@@ -84,7 +84,7 @@ public class SortMergeJoinStageProcessorTest
   @Test
   public void test_toKeyColumns()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             ImmutableList.of(new KeyColumn("x", KeyOrder.ASCENDING)),
             ImmutableList.of(new KeyColumn("y", KeyOrder.ASCENDING))
@@ -98,7 +98,7 @@ public class SortMergeJoinStageProcessorTest
         )
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             ImmutableList.of(),
             ImmutableList.of()
@@ -112,7 +112,7 @@ public class SortMergeJoinStageProcessorTest
         )
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             ImmutableList.of(new KeyColumn("x", KeyOrder.ASCENDING), new KeyColumn("a", KeyOrder.ASCENDING)),
             ImmutableList.of(new KeyColumn("y", KeyOrder.ASCENDING), new KeyColumn("b", KeyOrder.ASCENDING))
@@ -126,7 +126,7 @@ public class SortMergeJoinStageProcessorTest
         )
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             ImmutableList.of(new KeyColumn("x", KeyOrder.ASCENDING), new KeyColumn("a", KeyOrder.ASCENDING)),
             ImmutableList.of(new KeyColumn("y", KeyOrder.ASCENDING), new KeyColumn("b", KeyOrder.ASCENDING))
@@ -140,7 +140,7 @@ public class SortMergeJoinStageProcessorTest
         )
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             ImmutableList.of(new KeyColumn("x", KeyOrder.ASCENDING), new KeyColumn("a", KeyOrder.ASCENDING)),
             ImmutableList.of(new KeyColumn("y", KeyOrder.ASCENDING), new KeyColumn("b", KeyOrder.ASCENDING))
@@ -154,7 +154,7 @@ public class SortMergeJoinStageProcessorTest
         )
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             ImmutableList.of(new KeyColumn("x", KeyOrder.ASCENDING), new KeyColumn("a", KeyOrder.ASCENDING)),
             ImmutableList.of(new KeyColumn("y", KeyOrder.ASCENDING), new KeyColumn("b", KeyOrder.ASCENDING))
@@ -172,7 +172,7 @@ public class SortMergeJoinStageProcessorTest
   @Test
   public void test_toRequiredNonNullKeyParts()
   {
-    Assert.assertArrayEquals(
+    JUnitAssertions.assertArrayEquals(
         new int[0],
         SortMergeJoinStageProcessor.toRequiredNonNullKeyParts(
             JoinConditionAnalysis.forExpression(
@@ -183,7 +183,7 @@ public class SortMergeJoinStageProcessorTest
         )
     );
 
-    Assert.assertArrayEquals(
+    JUnitAssertions.assertArrayEquals(
         new int[]{0},
         SortMergeJoinStageProcessor.toRequiredNonNullKeyParts(
             JoinConditionAnalysis.forExpression(
@@ -194,7 +194,7 @@ public class SortMergeJoinStageProcessorTest
         )
     );
 
-    Assert.assertArrayEquals(
+    JUnitAssertions.assertArrayEquals(
         new int[]{0, 1},
         SortMergeJoinStageProcessor.toRequiredNonNullKeyParts(
             JoinConditionAnalysis.forExpression(
@@ -205,7 +205,7 @@ public class SortMergeJoinStageProcessorTest
         )
     );
 
-    Assert.assertArrayEquals(
+    JUnitAssertions.assertArrayEquals(
         new int[]{0},
         SortMergeJoinStageProcessor.toRequiredNonNullKeyParts(
             JoinConditionAnalysis.forExpression(
@@ -216,7 +216,7 @@ public class SortMergeJoinStageProcessorTest
         )
     );
 
-    Assert.assertArrayEquals(
+    JUnitAssertions.assertArrayEquals(
         new int[]{1},
         SortMergeJoinStageProcessor.toRequiredNonNullKeyParts(
             JoinConditionAnalysis.forExpression(
@@ -227,7 +227,7 @@ public class SortMergeJoinStageProcessorTest
         )
     );
 
-    Assert.assertArrayEquals(
+    JUnitAssertions.assertArrayEquals(
         new int[0],
         SortMergeJoinStageProcessor.toRequiredNonNullKeyParts(
             JoinConditionAnalysis.forExpression(

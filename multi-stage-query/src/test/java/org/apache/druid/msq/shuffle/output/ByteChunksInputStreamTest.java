@@ -20,15 +20,16 @@
 package org.apache.druid.msq.shuffle.output;
 
 import com.google.common.collect.ImmutableList;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.msq.test.JUnitAssertions;
+import org.apache.druid.msq.test.matchers.Matchers;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+
+import static org.apache.druid.msq.test.matchers.MatcherAssert.assertThat;
 
 public class ByteChunksInputStreamTest
 {
@@ -46,11 +47,11 @@ public class ByteChunksInputStreamTest
 
       int c;
       while ((c = in.read()) != -1) {
-        MatcherAssert.assertThat("InputStream#read contract", c, Matchers.greaterThanOrEqualTo(0));
+        assertThat("InputStream#read contract", c, Matchers.greaterThanOrEqualTo(0));
         baos.write(c);
       }
 
-      Assert.assertArrayEquals(chunksSubset(0), baos.toByteArray());
+      JUnitAssertions.assertArrayEquals(chunksSubset(0), baos.toByteArray());
     }
   }
 
@@ -62,11 +63,11 @@ public class ByteChunksInputStreamTest
 
       int c;
       while ((c = in.read()) != -1) {
-        MatcherAssert.assertThat("InputStream#read contract", c, Matchers.greaterThanOrEqualTo(0));
+        assertThat("InputStream#read contract", c, Matchers.greaterThanOrEqualTo(0));
         baos.write(c);
       }
 
-      Assert.assertArrayEquals(chunksSubset(1), baos.toByteArray());
+      JUnitAssertions.assertArrayEquals(chunksSubset(1), baos.toByteArray());
     }
   }
 
@@ -79,11 +80,11 @@ public class ByteChunksInputStreamTest
 
       int r;
       while ((r = in.read(buf, 1, 1)) != -1) {
-        Assert.assertEquals("InputStream#read bytes read", 1, r);
+        JUnitAssertions.assertEquals("InputStream#read bytes read", 1, r);
         baos.write(buf, 1, 1);
       }
 
-      Assert.assertArrayEquals(chunksSubset(0), baos.toByteArray());
+      JUnitAssertions.assertArrayEquals(chunksSubset(0), baos.toByteArray());
     }
   }
 
@@ -96,11 +97,11 @@ public class ByteChunksInputStreamTest
 
       int r;
       while ((r = in.read(buf, 1, 1)) != -1) {
-        Assert.assertEquals("InputStream#read bytes read", 1, r);
+        JUnitAssertions.assertEquals("InputStream#read bytes read", 1, r);
         baos.write(buf, 1, 1);
       }
 
-      Assert.assertArrayEquals(chunksSubset(1), baos.toByteArray());
+      JUnitAssertions.assertArrayEquals(chunksSubset(1), baos.toByteArray());
     }
   }
 
@@ -116,7 +117,7 @@ public class ByteChunksInputStreamTest
         baos.write(buf, 2, r);
       }
 
-      Assert.assertArrayEquals(chunksSubset(0), baos.toByteArray());
+      JUnitAssertions.assertArrayEquals(chunksSubset(0), baos.toByteArray());
     }
   }
 
@@ -132,7 +133,7 @@ public class ByteChunksInputStreamTest
         baos.write(buf, 2, r);
       }
 
-      Assert.assertArrayEquals(chunksSubset(1), baos.toByteArray());
+      JUnitAssertions.assertArrayEquals(chunksSubset(1), baos.toByteArray());
     }
   }
 

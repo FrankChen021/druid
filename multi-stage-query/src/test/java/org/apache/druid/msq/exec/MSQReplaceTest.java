@@ -31,7 +31,6 @@ import org.apache.druid.data.input.impl.FloatDimensionSchema;
 import org.apache.druid.data.input.impl.LongDimensionSchema;
 import org.apache.druid.data.input.impl.StringDimensionSchema;
 import org.apache.druid.error.DruidException;
-import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.indexer.granularity.GranularitySpec;
 import org.apache.druid.indexer.granularity.UniformGranularitySpec;
 import org.apache.druid.indexer.partitions.DimensionRangePartitionsSpec;
@@ -66,13 +65,13 @@ import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.transform.CompactionTransformSpec;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
+import org.apache.druid.sql.calcite.DruidExceptionAssertions;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.timeline.CompactionState;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.partition.DimensionRangeShardSpec;
 import org.apache.druid.timeline.partition.NumberedShardSpec;
-import org.easymock.EasyMock;
 import org.joda.time.Duration;
 import org.joda.time.Interval;
 import org.junit.jupiter.api.Test;
@@ -1318,8 +1317,8 @@ public class MSQReplaceTest extends MSQTestBase
     Mockito.doReturn(ImmutableSet.of(existingDataSegment0, existingDataSegment1))
            .when(testTaskActionClient)
            .submit(new RetrieveUsedSegmentsAction(
-               EasyMock.eq("foo"),
-               EasyMock.eq(ImmutableList.of(Intervals.of("2000-01-01/2002-01-01")))
+               "foo",
+               ImmutableList.of(Intervals.of("2000-01-01/2002-01-01"))
            ));
 
 
@@ -1498,8 +1497,8 @@ public class MSQReplaceTest extends MSQTestBase
     Mockito.doReturn(ImmutableSet.of(existingDataSegment))
            .when(testTaskActionClient)
            .submit(new RetrieveUsedSegmentsAction(
-               EasyMock.eq("foo"),
-               EasyMock.eq(ImmutableList.of(Intervals.of("2000-01-01/2000-03-01")))
+               "foo",
+               ImmutableList.of(Intervals.of("2000-01-01/2000-03-01"))
            ));
 
     testIngestQuery().setSql(" REPLACE INTO foo "
@@ -1612,8 +1611,8 @@ public class MSQReplaceTest extends MSQTestBase
     Mockito.doReturn(ImmutableSet.of(existingDataSegment0, existingDataSegment1))
            .when(testTaskActionClient)
            .submit(new RetrieveUsedSegmentsAction(
-               EasyMock.eq("foo"),
-               EasyMock.eq(ImmutableList.of(Intervals.of("2000/2002")))
+               "foo",
+               ImmutableList.of(Intervals.of("2000/2002"))
            ));
 
     testIngestQuery().setSql(" REPLACE INTO foo "
@@ -1671,8 +1670,8 @@ public class MSQReplaceTest extends MSQTestBase
     Mockito.doReturn(ImmutableSet.of(existingDataSegment))
            .when(testTaskActionClient)
            .submit(new RetrieveUsedSegmentsAction(
-               EasyMock.eq("foo"),
-               EasyMock.eq(ImmutableList.of(Intervals.ETERNITY))
+               "foo",
+               ImmutableList.of(Intervals.ETERNITY)
            ));
 
     testIngestQuery().setSql(" REPLACE INTO foo "
@@ -2099,8 +2098,8 @@ public class MSQReplaceTest extends MSQTestBase
     Mockito.doReturn(ImmutableSet.of(existingDataSegment0, existingDataSegment1))
            .when(testTaskActionClient)
            .submit(new RetrieveUsedSegmentsAction(
-               EasyMock.eq("foo"),
-               EasyMock.eq(ImmutableList.of(Intervals.of("1999/2002")))
+               "foo",
+               ImmutableList.of(Intervals.of("1999/2002"))
            ));
 
     testIngestQuery().setSql(" REPLACE INTO foo "
@@ -2178,8 +2177,8 @@ public class MSQReplaceTest extends MSQTestBase
     Mockito.doReturn(ImmutableSet.of(existingDataSegment))
            .when(testTaskActionClient)
            .submit(new RetrieveUsedSegmentsAction(
-               EasyMock.eq("foo1"),
-               EasyMock.eq(ImmutableList.of(Intervals.of("2000/2002")))
+               "foo1",
+               ImmutableList.of(Intervals.of("2000/2002"))
            ));
 
     List<Object[]> expectedResults = ImmutableList.of(
@@ -2722,7 +2721,7 @@ public class MSQReplaceTest extends MSQTestBase
                          + " PARTITIONED BY DAY")
                      .setQueryContext(context)
                      .setExpectedValidationErrorMatcher(
-                         new DruidExceptionMatcher(
+                         new DruidExceptionAssertions(
                              DruidException.Persona.USER,
                              DruidException.Category.INVALID_INPUT,
                              "general"

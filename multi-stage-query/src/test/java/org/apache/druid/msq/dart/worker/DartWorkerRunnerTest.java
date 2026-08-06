@@ -34,12 +34,11 @@ import org.apache.druid.msq.dart.worker.http.GetWorkersResponse;
 import org.apache.druid.msq.exec.Worker;
 import org.apache.druid.msq.exec.WorkerContext;
 import org.apache.druid.msq.exec.WorkerImpl;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
+import org.apache.druid.msq.test.matchers.ThrowableMessageMatcher;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.security.AuthorizerMapper;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +57,8 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.druid.msq.test.matchers.MatcherAssert.assertThat;
 
 /**
  * Functional test of {@link DartWorkerRunner}.
@@ -188,7 +189,7 @@ public class DartWorkerRunnerTest
         () -> workerRunner.startWorker("abc", CONTROLLER_SERVER_HOST, QueryContext.empty())
     );
 
-    MatcherAssert.assertThat(
+    assertThat(
         e,
         ThrowableMessageMatcher.hasMessage(CoreMatchers.containsString(
             "Received startWorker request for unknown controller"))

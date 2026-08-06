@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.druid.error.DruidException;
-import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.indexing.common.TaskLockType;
 import org.apache.druid.indexing.common.actions.RetrieveUsedSegmentsAction;
 import org.apache.druid.indexing.common.actions.SegmentAllocateAction;
@@ -47,15 +46,16 @@ import org.apache.druid.msq.indexing.error.TooManyPartitionsFault;
 import org.apache.druid.msq.indexing.error.TooManySegmentsInTimeChunkFault;
 import org.apache.druid.msq.test.MSQTestBase;
 import org.apache.druid.msq.test.MSQTestTaskActionClient;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
+import org.apache.druid.msq.test.matchers.ThrowableMessageMatcher;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.realtime.appenderator.SegmentIdWithShardSpec;
+import org.apache.druid.sql.calcite.DruidExceptionAssertions;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.DimensionRangeShardSpec;
 import org.apache.druid.timeline.partition.LinearShardSpec;
-import org.hamcrest.CoreMatchers;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentMatchers;
@@ -560,7 +560,7 @@ public class MSQFaultsTest extends MSQTestBase
             + "SELECT dim1, dim2, m1 FROM foo "
             + "PARTITIONED BY ALL TIME")
         .setExpectedValidationErrorMatcher(
-            new DruidExceptionMatcher(
+            new DruidExceptionAssertions(
                 DruidException.Persona.USER,
                 DruidException.Category.INVALID_INPUT,
                 "general"
@@ -582,7 +582,7 @@ public class MSQFaultsTest extends MSQTestBase
             + "(SELECT SUM(cnt) FROM foo)"
         )
         .setExpectedValidationErrorMatcher(
-            new DruidExceptionMatcher(
+            new DruidExceptionAssertions(
                 DruidException.Persona.USER,
                 DruidException.Category.INVALID_INPUT,
                 "general"
@@ -748,7 +748,7 @@ public class MSQFaultsTest extends MSQTestBase
         )
         .setQueryContext(context)
         .setExpectedValidationErrorMatcher(
-            new DruidExceptionMatcher(
+            new DruidExceptionAssertions(
                 DruidException.Persona.USER,
                 DruidException.Category.INVALID_INPUT,
                 "invalidInput"

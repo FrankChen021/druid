@@ -27,11 +27,11 @@ import org.apache.druid.frame.key.KeyColumn;
 import org.apache.druid.frame.key.KeyOrder;
 import org.apache.druid.msq.guice.MSQIndexingModule;
 import org.apache.druid.msq.querykit.common.OffsetLimitStageProcessor;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
@@ -63,7 +63,7 @@ public class QueryDefinitionTest
     final ObjectMapper mapper = TestHelper.makeJsonMapper()
                                           .registerModules(new MSQIndexingModule().getJacksonModules());
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         queryDef,
         mapper.readValue(mapper.writeValueAsString(queryDef), QueryDefinition.class)
     );

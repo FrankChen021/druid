@@ -21,7 +21,7 @@ package org.apache.druid.sql.calcite;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.druid.sql.calcite.NotYetSupported.Modes;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.reflections.Reflections;
 import org.reflections.scanners.MethodAnnotationsScanner;
 
@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
+import static org.apache.druid.msq.test.JUnitAssertions.assertEquals;
 
 public class NotYetSupportedUsageTest
 {

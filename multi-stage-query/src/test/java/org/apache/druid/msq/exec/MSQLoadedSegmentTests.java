@@ -32,7 +32,9 @@ import org.apache.druid.java.util.common.guava.Yielders;
 import org.apache.druid.msq.indexing.LegacyMSQSpec;
 import org.apache.druid.msq.indexing.MSQTuningConfig;
 import org.apache.druid.msq.indexing.destination.TaskReportMSQDestination;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.msq.test.MSQTestBase;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.OrderBy;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
@@ -51,8 +53,6 @@ import org.apache.druid.sql.calcite.planner.ColumnMappings;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
-import org.hamcrest.CoreMatchers;
-import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -167,7 +167,7 @@ public class MSQLoadedSegmentTests extends MSQTestBase
         invocationOnMock -> {
           ScanQuery query = invocationOnMock.getArgument(0);
           ScanQuery.verifyOrderByForNativeExecution(query);
-          Assert.assertEquals(Long.MAX_VALUE, query.getScanRowsLimit());
+          JUnitAssertions.assertEquals(Long.MAX_VALUE, query.getScanRowsLimit());
           return Futures.immediateFuture(
               new DataServerQueryResult<>(
                   ImmutableList.of(

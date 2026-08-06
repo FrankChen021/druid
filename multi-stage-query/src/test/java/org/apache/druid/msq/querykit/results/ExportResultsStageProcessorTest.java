@@ -22,10 +22,10 @@ package org.apache.druid.msq.querykit.results;
 import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.storage.StorageConfig;
 import org.apache.druid.storage.StorageConnectorModule;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
@@ -47,7 +47,7 @@ public class ExportResultsStageProcessorTest
         exportFactoryString,
         ExportResultsStageProcessor.class
     );
-    Assert.assertNull(exportResultsFrameProcessor.getColumnMappings());
-    Assert.assertNull(exportResultsFrameProcessor.getResultsContext());
+    JUnitAssertions.assertNull(exportResultsFrameProcessor.getColumnMappings());
+    JUnitAssertions.assertNull(exportResultsFrameProcessor.getResultsContext());
   }
 }

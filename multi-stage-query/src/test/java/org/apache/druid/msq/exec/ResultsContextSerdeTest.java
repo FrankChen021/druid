@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
@@ -47,9 +48,8 @@ import org.apache.druid.sql.calcite.schema.ViewSchema;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.hook.DruidHookDispatcher;
 import org.easymock.EasyMock;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 
@@ -58,7 +58,7 @@ public class ResultsContextSerdeTest
   private ResultsContext resultsContext;
   private ObjectMapper objectMapper;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     final PlannerToolbox toolbox = new PlannerToolbox(
@@ -110,6 +110,6 @@ public class ResultsContextSerdeTest
     String s = objectMapper.writeValueAsString(resultsContext);
 
     ResultsContext deserialized = objectMapper.readValue(s, ResultsContext.class);
-    Assert.assertEquals(resultsContext, deserialized);
+    JUnitAssertions.assertEquals(resultsContext, deserialized);
   }
 }

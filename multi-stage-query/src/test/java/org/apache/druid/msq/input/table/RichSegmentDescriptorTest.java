@@ -22,10 +22,10 @@ package org.apache.druid.msq.input.table;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.java.util.common.Intervals;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.segment.TestHelper;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class RichSegmentDescriptorTest
 {
@@ -40,7 +40,7 @@ public class RichSegmentDescriptorTest
         3
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         descriptor,
         mapper.readValue(mapper.writeValueAsString(descriptor), RichSegmentDescriptor.class)
     );
@@ -57,7 +57,7 @@ public class RichSegmentDescriptorTest
         3
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         descriptor,
         mapper.readValue(mapper.writeValueAsString(descriptor), RichSegmentDescriptor.class)
     );
@@ -74,7 +74,7 @@ public class RichSegmentDescriptorTest
         3
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         new SegmentDescriptor(Intervals.of("2000/2001"), "2", 3),
         mapper.readValue(mapper.writeValueAsString(descriptor), SegmentDescriptor.class)
     );

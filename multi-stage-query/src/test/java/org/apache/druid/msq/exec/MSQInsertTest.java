@@ -37,7 +37,6 @@ import org.apache.druid.data.input.impl.AggregateProjectionSpec;
 import org.apache.druid.data.input.impl.LongDimensionSchema;
 import org.apache.druid.data.input.impl.StringDimensionSchema;
 import org.apache.druid.error.DruidException;
-import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.hll.HyperLogLogCollector;
 import org.apache.druid.indexing.common.TaskLockType;
 import org.apache.druid.indexing.common.task.Tasks;
@@ -58,6 +57,8 @@ import org.apache.druid.msq.kernel.WorkerAssignmentStrategy;
 import org.apache.druid.msq.sql.MSQTaskQueryMaker;
 import org.apache.druid.msq.test.CounterSnapshotMatcher;
 import org.apache.druid.msq.test.MSQTestBase;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
+import org.apache.druid.msq.test.matchers.ThrowableMessageMatcher;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
@@ -75,6 +76,7 @@ import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.projections.AggregateProjectionSchema;
 import org.apache.druid.server.lookup.cache.LookupLoadingSpec;
+import org.apache.druid.sql.calcite.DruidExceptionAssertions;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
 import org.apache.druid.sql.calcite.planner.ColumnMapping;
 import org.apache.druid.sql.calcite.planner.ColumnMappings;
@@ -82,8 +84,6 @@ import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.timeline.ClusterGroupTuples;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.partition.NumberedShardSpec;
-import org.hamcrest.CoreMatchers;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -714,7 +714,7 @@ public class MSQInsertTest extends MSQTestBase
                              + "  )\n"
                              + ") PARTITIONED by hour")
                      .setExpectedValidationErrorMatcher(
-                         DruidExceptionMatcher.invalidInput().expectMessageIs(
+                         DruidExceptionAssertions.invalidInput().expectMessageIs(
                              "projection[channel_delta_daily] has granularity[{type=period, period=P1D, timeZone=UTC, origin=null}] which must be finer than or equal to segment granularity[{type=period, period=PT1H, timeZone=UTC, origin=null}]"
                          )
                      )
@@ -1793,7 +1793,7 @@ public class MSQInsertTest extends MSQTestBase
         .setExpectedRowSignature(rowSignature)
         .setQueryContext(context)
         .setExpectedValidationErrorMatcher(
-            new DruidExceptionMatcher(
+            new DruidExceptionAssertions(
                 DruidException.Persona.USER,
                 DruidException.Category.INVALID_INPUT,
                 "invalidInput"
@@ -1880,7 +1880,7 @@ public class MSQInsertTest extends MSQTestBase
                          "insert into foo1 select  __time, dim1 , count(*) as cnt from foo where dim1 is not null group by 1, 2 PARTITIONED by day clustered by dim1")
                      .setQueryContext(localContext)
                      .setExpectedExecutionErrorMatcher(
-                         new DruidExceptionMatcher(
+                         new DruidExceptionAssertions(
                              DruidException.Persona.USER,
                              DruidException.Category.INVALID_INPUT,
                              "invalidInput"

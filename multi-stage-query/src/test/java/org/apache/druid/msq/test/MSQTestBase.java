@@ -226,9 +226,7 @@ import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.partition.NumberedShardSpec;
 import org.apache.druid.timeline.partition.ShardSpec;
 import org.apache.druid.timeline.partition.TombstoneShardSpec;
-import org.hamcrest.Matcher;
 import org.joda.time.Interval;
-import org.junit.Assert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mockito;
@@ -254,13 +252,13 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static org.apache.druid.msq.test.matchers.MatcherAssert.assertThat;
 import static org.apache.druid.sql.calcite.util.CalciteTests.DATASOURCE1;
 import static org.apache.druid.sql.calcite.util.CalciteTests.DATASOURCE2;
 import static org.apache.druid.sql.calcite.util.CalciteTests.RESTRICTED_DATASOURCE;
 import static org.apache.druid.sql.calcite.util.CalciteTests.WIKIPEDIA;
 import static org.apache.druid.sql.calcite.util.TestDataBuilder.ROWS1;
 import static org.apache.druid.sql.calcite.util.TestDataBuilder.ROWS2;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -948,10 +946,10 @@ public class MSQTestBase extends BaseCalciteQueryTest
       }
     }
 
-    Assert.assertEquals(expectedMSQSpec.getQuery().withOverriddenContext(ignoredContext), querySpecForTask.getQuery());
-    Assert.assertEquals(expectedMSQSpec.getAssignmentStrategy(), querySpecForTask.getAssignmentStrategy());
-    Assert.assertEquals(expectedMSQSpec.getColumnMappings(), querySpecForTask.getColumnMappings());
-    Assert.assertEquals(expectedMSQSpec.getDestination(), querySpecForTask.getDestination());
+    JUnitAssertions.assertEquals(expectedMSQSpec.getQuery().withOverriddenContext(ignoredContext), querySpecForTask.getQuery());
+    JUnitAssertions.assertEquals(expectedMSQSpec.getAssignmentStrategy(), querySpecForTask.getAssignmentStrategy());
+    JUnitAssertions.assertEquals(expectedMSQSpec.getColumnMappings(), querySpecForTask.getColumnMappings());
+    JUnitAssertions.assertEquals(expectedMSQSpec.getDestination(), querySpecForTask.getDestination());
 
   }
 
@@ -960,19 +958,19 @@ public class MSQTestBase extends BaseCalciteQueryTest
       MSQTuningConfig tuningConfig
   )
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         expectedTuningConfig.getMaxNumWorkers(),
         tuningConfig.getMaxRowsInMemory()
     );
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         expectedTuningConfig.getMaxRowsInMemory(),
         tuningConfig.getMaxRowsInMemory()
     );
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         expectedTuningConfig.getRowsPerSegment(),
         tuningConfig.getRowsPerSegment()
     );
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         expectedTuningConfig.getMaxNumSegments(),
         tuningConfig.getMaxNumSegments()
     );
@@ -1003,9 +1001,9 @@ public class MSQTestBase extends BaseCalciteQueryTest
     protected Set<Interval> expectedTombstoneIntervals = null;
     protected List<Object[]> expectedResultRows = null;
     protected LookupLoadingSpec expectedLookupLoadingSpec = LookupLoadingSpec.NONE;
-    protected Matcher<Throwable> expectedValidationErrorMatcher = null;
+    protected Object expectedValidationErrorMatcher = null;
     protected List<Pair<Predicate<MSQTaskReportPayload>, String>> adhocReportAssertionAndReasons = new ArrayList<>();
-    protected Matcher<Throwable> expectedExecutionErrorMatcher = null;
+    protected Object expectedExecutionErrorMatcher = null;
     protected MSQFault expectedMSQFault = null;
     protected Class<? extends MSQFault> expectedMSQFaultClass = null;
     protected MSQSegmentReport expectedSegmentReport = null;
@@ -1101,13 +1099,13 @@ public class MSQTestBase extends BaseCalciteQueryTest
       return asBuilder();
     }
 
-    public Builder setExpectedValidationErrorMatcher(Matcher<Throwable> expectedValidationErrorMatcher)
+    public Builder setExpectedValidationErrorMatcher(Object expectedValidationErrorMatcher)
     {
       this.expectedValidationErrorMatcher = expectedValidationErrorMatcher;
       return asBuilder();
     }
 
-    public Builder setExpectedExecutionErrorMatcher(Matcher<Throwable> expectedExecutionErrorMatcher)
+    public Builder setExpectedExecutionErrorMatcher(Object expectedExecutionErrorMatcher)
     {
       this.expectedExecutionErrorMatcher = expectedExecutionErrorMatcher;
       return asBuilder();
@@ -1180,7 +1178,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
       Preconditions.checkArgument(sql != null, "Sql cannot be null");
       readyToRun();
 
-      final Throwable e = Assert.assertThrows(
+      final Throwable e = JUnitAssertions.assertThrows(
           Throwable.class,
           () -> runMultiStageQuery(sql, queryContext, authenticationResult, dynamicParameters)
       );
@@ -1200,45 +1198,45 @@ public class MSQTestBase extends BaseCalciteQueryTest
         // Since the time could vary, it can't be asserted, but the dimensions are asserted by using them as a filter.
         // The value should be greater than 0 as a basic sanity check.
         List<Number> metric = getEmittedMetrics("query/time", controllerDims);
-        Assert.assertEquals(1, metric.size());
-        Assert.assertTrue(metric.get(0).longValue() > 0);
+        JUnitAssertions.assertEquals(1, metric.size());
+        JUnitAssertions.assertTrue(metric.get(0).longValue() > 0);
 
         metric = getEmittedMetrics("query/time", workerDims);
-        Assert.assertEquals(1, metric.size());
-        Assert.assertTrue(metric.get(0).longValue() > 0);
+        JUnitAssertions.assertEquals(1, metric.size());
+        JUnitAssertions.assertTrue(metric.get(0).longValue() > 0);
 
         metric = getEmittedMetrics("query/cpu/time", workerDims);
-        Assert.assertEquals(1, metric.size());
-        Assert.assertTrue(metric.get(0).longValue() > 0);
+        JUnitAssertions.assertEquals(1, metric.size());
+        JUnitAssertions.assertTrue(metric.get(0).longValue() > 0);
       }
     }
 
     protected void verifyLookupLoadingInfoInTaskContext(Map<String, Object> context)
     {
       LookupLoadingSpec specFromContext = LookupLoadingSpec.createFromContext(context, LookupLoadingSpec.ALL);
-      Assert.assertEquals(expectedLookupLoadingSpec, specFromContext);
+      JUnitAssertions.assertEquals(expectedLookupLoadingSpec, specFromContext);
     }
 
     protected void verifyWorkerCount(CounterSnapshotsTree counterSnapshotsTree)
     {
       Map<Integer, Map<Integer, CounterSnapshots>> counterMap = counterSnapshotsTree.copyMap();
       for (Map.Entry<Integer, Integer> stageWorkerCount : expectedStageVsWorkerCount.entrySet()) {
-        Assert.assertEquals(stageWorkerCount.getValue().intValue(), counterMap.get(stageWorkerCount.getKey()).size());
+        JUnitAssertions.assertEquals(stageWorkerCount.getValue().intValue(), counterMap.get(stageWorkerCount.getKey()).size());
       }
     }
 
     protected void verifyCounters(CounterSnapshotsTree counterSnapshotsTree)
     {
-      Assert.assertNotNull(counterSnapshotsTree);
+      JUnitAssertions.assertNotNull(counterSnapshotsTree);
 
       final Map<Integer, Map<Integer, CounterSnapshots>> stageWorkerToSnapshots = counterSnapshotsTree.copyMap();
       expectedStageWorkerChannelToCounters.forEach((stage, expectedWorkerChannelToCounters) -> {
         final Map<Integer, CounterSnapshots> workerToCounters = stageWorkerToSnapshots.get(stage);
-        Assert.assertNotNull("No counters for stage " + stage, workerToCounters);
+        JUnitAssertions.assertNotNull("No counters for stage " + stage, workerToCounters);
 
         expectedWorkerChannelToCounters.forEach((worker, expectedChannelToCounters) -> {
           CounterSnapshots counters = workerToCounters.get(worker);
-          Assert.assertNotNull(
+          JUnitAssertions.assertNotNull(
               StringUtils.format("No counters for stage [%d], worker [%d]", stage, worker),
               counters
           );
@@ -1252,7 +1250,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
                     worker,
                     channel
                 );
-                Assert.assertTrue(StringUtils.format(
+                JUnitAssertions.assertTrue(StringUtils.format(
                     "Counters not found for stage [%d], worker [%d], channel [%s]",
                     stage,
                     worker,
@@ -1387,13 +1385,13 @@ public class MSQTestBase extends BaseCalciteQueryTest
             String errorMessage = msqErrorReport.getFault() instanceof TooManyAttemptsForWorker
                                   ? ((TooManyAttemptsForWorker) msqErrorReport.getFault()).getRootErrorMessage()
                                   : MSQFaultUtils.generateMessageWithErrorCode(msqErrorReport.getFault());
-            Assert.assertEquals(
+            JUnitAssertions.assertEquals(
                 MSQFaultUtils.generateMessageWithErrorCode(expectedMSQFault),
                 errorMessage
             );
           }
           if (expectedMSQFaultClass != null) {
-            Assert.assertEquals(
+            JUnitAssertions.assertEquals(
                 expectedMSQFaultClass,
                 msqErrorReport.getFault().getClass()
             );
@@ -1416,7 +1414,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
         );
         // check if segments are created
         if (!expectedResultRows.isEmpty()) {
-          Assert.assertNotEquals(0, testSegmentManager.getGeneratedSegments().size());
+          JUnitAssertions.assertNotEquals(0, testSegmentManager.getGeneratedSegments().size());
         }
 
         String foundDataSource = null;
@@ -1424,7 +1422,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
         for (DataSegment dataSegment : testSegmentManager.getGeneratedSegments()) {
 
           //Assert shard spec class
-          Assert.assertEquals(expectedShardSpec, dataSegment.getShardSpec().getClass());
+          JUnitAssertions.assertEquals(expectedShardSpec, dataSegment.getShardSpec().getClass());
           if (foundDataSource == null) {
             foundDataSource = dataSegment.getDataSource();
 
@@ -1443,17 +1441,17 @@ public class MSQTestBase extends BaseCalciteQueryTest
           final CursorFactory cursorFactory = new QueryableIndexCursorFactory(queryableIndex);
 
           // assert rowSignature
-          Assert.assertEquals(expectedRowSignature, resultSignatureFromRowSignature(cursorFactory.getRowSignature()));
+          JUnitAssertions.assertEquals(expectedRowSignature, resultSignatureFromRowSignature(cursorFactory.getRowSignature()));
 
           // assert rollup
-          Assert.assertEquals(expectedRollUp, queryableIndex.getMetadata().isRollup());
+          JUnitAssertions.assertEquals(expectedRollUp, queryableIndex.getMetadata().isRollup());
 
           // assert query granularity
-          Assert.assertEquals(expectedQueryGranularity, queryableIndex.getMetadata().getQueryGranularity());
+          JUnitAssertions.assertEquals(expectedQueryGranularity, queryableIndex.getMetadata().getQueryGranularity());
 
           // assert aggregator factories; clustered base table segments have no aggregator metadata (never rollup),
           // so treat null as empty
-          Assert.assertArrayEquals(
+          JUnitAssertions.assertArrayEquals(
               expectedAggregatorFactories.toArray(new AggregatorFactory[0]),
               queryableIndex.getMetadata().getAggregators() == null
               ? new AggregatorFactory[0]
@@ -1461,12 +1459,12 @@ public class MSQTestBase extends BaseCalciteQueryTest
           );
 
           if (expectedProjections != null) {
-            Assert.assertEquals(expectedProjections, queryableIndex.getMetadata().getProjections());
+            JUnitAssertions.assertEquals(expectedProjections, queryableIndex.getMetadata().getProjections());
           }
 
           if (expectedClusterGroups != null) {
-            Assert.assertEquals(expectedClusterGroups, dataSegment.getClusterGroups());
-            Assert.assertNotNull(queryableIndex.getMetadata().getClusteredBaseTable());
+            JUnitAssertions.assertEquals(expectedClusterGroups, dataSegment.getClusterGroups());
+            JUnitAssertions.assertNotNull(queryableIndex.getMetadata().getClusteredBaseTable());
           }
 
           for (List<Object> row : FrameTestUtil.readRowsFromCursorFactory(cursorFactory).toList()) {
@@ -1493,7 +1491,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
 
         // assert data source name when result rows is non-empty
         if (!expectedResultRows.isEmpty()) {
-          Assert.assertEquals(expectedDataSource, foundDataSource);
+          JUnitAssertions.assertEquals(expectedDataSource, foundDataSource);
         }
         // assert spec
         if (expectedMSQSpec != null) {
@@ -1503,18 +1501,18 @@ public class MSQTestBase extends BaseCalciteQueryTest
           assertTuningConfig(expectedTuningConfig, foundSpec.getTuningConfig());
         }
         if (expectedSegmentReport != null) {
-          Assert.assertEquals(expectedSegmentReport, reportPayload.getStatus().getSegmentReport());
+          JUnitAssertions.assertEquals(expectedSegmentReport, reportPayload.getStatus().getSegmentReport());
         }
         if (expectedDestinationIntervals != null) {
-          Assert.assertNotNull(foundSpec);
+          JUnitAssertions.assertNotNull(foundSpec);
           DataSourceMSQDestination destination = (DataSourceMSQDestination) foundSpec.getDestination();
-          Assert.assertEquals(expectedDestinationIntervals, destination.getReplaceTimeChunks());
+          JUnitAssertions.assertEquals(expectedDestinationIntervals, destination.getReplaceTimeChunks());
         }
         if (expectedSegments != null) {
           final int timeIndex =
               MSQResultsReport.ColumnAndType.toRowSignature(expectedRowSignature)
                                             .indexOf(ColumnHolder.TIME_COLUMN_NAME);
-          Assert.assertEquals(expectedSegments, segmentIdVsOutputRowsMap.keySet());
+          JUnitAssertions.assertEquals(expectedSegments, segmentIdVsOutputRowsMap.keySet());
           for (Object[] row : transformedOutputRows) {
             List<SegmentId> diskSegmentList = segmentIdVsOutputRowsMap
                 .keySet()
@@ -1530,7 +1528,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
             }
             SegmentId diskSegment = diskSegmentList.get(0);
             // Checking if the row belongs to the correct segment interval
-            Assert.assertTrue(segmentIdVsOutputRowsMap.get(diskSegment).contains(Arrays.asList(row)));
+            JUnitAssertions.assertTrue(segmentIdVsOutputRowsMap.get(diskSegment).contains(Arrays.asList(row)));
           }
         }
 
@@ -1542,7 +1540,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
           if (expectedLastCompactionState != null) {
             CompactionState compactionState = testTaskActionClient.getPublishedSegments().stream().findFirst().get()
                                                                   .getLastCompactionState();
-            Assert.assertEquals(expectedLastCompactionState, compactionState);
+            JUnitAssertions.assertEquals(expectedLastCompactionState, compactionState);
 
           }
           Set<SegmentId> publishedSegmentIds = testTaskActionClient.getPublishedSegments()
@@ -1572,11 +1570,11 @@ public class MSQTestBase extends BaseCalciteQueryTest
                                           .collect(Collectors.toSet())
             );
           }
-          Assert.assertEquals(expectedTombstoneSegmentIds, tombstoneSegmentIds);
+          JUnitAssertions.assertEquals(expectedTombstoneSegmentIds, tombstoneSegmentIds);
         }
 
         for (Pair<Predicate<MSQTaskReportPayload>, String> adhocReportAssertionAndReason : adhocReportAssertionAndReasons) {
-          Assert.assertTrue(adhocReportAssertionAndReason.rhs, adhocReportAssertionAndReason.lhs.test(reportPayload));
+          JUnitAssertions.assertTrue(adhocReportAssertionAndReason.rhs, adhocReportAssertionAndReason.lhs.test(reportPayload));
         }
 
         // assert results
@@ -1610,7 +1608,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
           indexingServiceClient.runTask(controllerId, taskSpec);
         }
         getPayloadOrThrow(controllerId);
-        Assert.fail(StringUtils.format("Query did not throw an exception (sql = [%s])", sql));
+        JUnitAssertions.fail(StringUtils.format("Query did not throw an exception (sql = [%s])", sql));
       }
       catch (Exception e) {
         assertThat(
@@ -1668,13 +1666,13 @@ public class MSQTestBase extends BaseCalciteQueryTest
             String errorMessage = msqErrorReport.getFault() instanceof TooManyAttemptsForWorker
                                   ? ((TooManyAttemptsForWorker) msqErrorReport.getFault()).getRootErrorMessage()
                                   : MSQFaultUtils.generateMessageWithErrorCode(msqErrorReport.getFault());
-            Assert.assertEquals(
+            JUnitAssertions.assertEquals(
                 MSQFaultUtils.generateMessageWithErrorCode(expectedMSQFault),
                 errorMessage
             );
           }
           if (expectedMSQFaultClass != null) {
-            Assert.assertEquals(
+            JUnitAssertions.assertEquals(
                 expectedMSQFaultClass,
                 msqErrorReport.getFault().getClass()
             );
@@ -1738,7 +1736,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
           log.info(rows.stream().map(Arrays::toString).collect(Collectors.joining("\n")));
 
           for (Pair<Predicate<MSQTaskReportPayload>, String> adhocReportAssertionAndReason : adhocReportAssertionAndReasons) {
-            Assert.assertTrue(adhocReportAssertionAndReason.rhs, adhocReportAssertionAndReason.lhs.test(payload));
+            JUnitAssertions.assertTrue(adhocReportAssertionAndReason.rhs, adhocReportAssertionAndReason.lhs.test(payload));
           }
 
           log.info("Found spec: %s", objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(spec));
@@ -1774,7 +1772,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
         return;
       }
 
-      Assert.assertEquals(expectedRowSignature, specAndResults.rhs.lhs);
+      JUnitAssertions.assertEquals(expectedRowSignature, specAndResults.rhs.lhs);
       assertResultsEquals(sql != null ? sql : taskSpec.toString(), expectedResultRows, specAndResults.rhs.rhs);
       assertMSQSpec(expectedMSQSpec, specAndResults.lhs);
       verifyMetrics();
@@ -1805,4 +1803,3 @@ public class MSQTestBase extends BaseCalciteQueryTest
   }
 
 }
-

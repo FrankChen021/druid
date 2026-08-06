@@ -30,9 +30,9 @@ import org.apache.druid.frame.key.KeyTestUtils;
 import org.apache.druid.frame.key.RowKey;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.junit.Assert;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -147,7 +147,7 @@ public class KeyCollectorTestUtils
       final NavigableMap<RowKey, List<Integer>> sortedKeyWeights
   )
   {
-    Assert.assertEquals(sortedKeyWeights.isEmpty() ? null : sortedKeyWeights.firstKey(), collector.minKey());
+    JUnitAssertions.assertEquals(sortedKeyWeights.isEmpty() ? null : sortedKeyWeights.firstKey(), collector.minKey());
 
     for (int targetWeight : new int[]{10_000, 50_000, 300_000}) {
       final ClusterByPartitions partitions = collector.generatePartitionsWithTargetWeight(targetWeight);
