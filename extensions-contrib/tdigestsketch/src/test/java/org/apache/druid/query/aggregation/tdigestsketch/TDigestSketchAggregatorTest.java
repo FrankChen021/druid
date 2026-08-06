@@ -65,7 +65,7 @@ public class TDigestSketchAggregatorTest extends InitializedNullHandlingTest
     TDigestSketchModule.registerSerde();
     TDigestSketchModule module = new TDigestSketchModule();
     helper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
-        module.getJacksonModules(), config, tempFolder);
+        module.getJacksonModules(), config, tempFolder.getRoot());
     InjectableValues currentInjectableValues = helper.getObjectMapper().getInjectableValues();
     InjectableValues.Std currentInjectableValuesStd = (InjectableValues.Std) currentInjectableValues;
     currentInjectableValuesStd.addValue(TDigestConfig.class.getName(), TDigestConfig.builder().build());

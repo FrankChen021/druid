@@ -64,7 +64,7 @@ public class DDSketchAggregatorTest extends InitializedNullHandlingTest
     DDSketchModule module = new DDSketchModule();
     DDSketchModule.registerSerde();
     helper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
-        module.getJacksonModules(), config, tempFolder);
+        module.getJacksonModules(), config, tempFolder.getRoot());
   }
 
   @Parameterized.Parameters(name = "{0}")

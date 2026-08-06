@@ -133,10 +133,10 @@ public class SpectatorHistogramAggregatorTest extends InitializedNullHandlingTes
     SpectatorHistogramModule.registerSerde();
     SpectatorHistogramModule module = new SpectatorHistogramModule();
     helper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
-        module.getJacksonModules(), config, tempFolder);
+        module.getJacksonModules(), config, tempFolder.getRoot());
     timeSeriesHelper = AggregationTestHelper.createTimeseriesQueryAggregationTestHelper(
         module.getJacksonModules(),
-        tempFolder
+        tempFolder.getRoot()
     );
   }
 

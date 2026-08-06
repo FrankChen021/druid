@@ -64,7 +64,7 @@ public class ComplexDimensionGroupByQueryTest
     this.helper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
         Collections.emptyList(),
         config,
-        tempFolder
+        tempFolder.getRoot()
     );
     Sequence<Object[]> rows = Sequences.simple(
         ImmutableList.of(

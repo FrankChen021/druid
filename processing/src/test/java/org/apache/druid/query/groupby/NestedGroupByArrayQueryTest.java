@@ -81,7 +81,7 @@ public class NestedGroupByArrayQueryTest
     this.helper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
         BuiltInTypesModule.getJacksonModulesList(),
         config,
-        tempFolder
+        tempFolder.getRoot()
     );
     this.segmentsGenerator = segmentGenerator;
     this.closer = Closer.create();

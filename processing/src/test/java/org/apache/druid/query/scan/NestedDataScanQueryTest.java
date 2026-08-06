@@ -123,7 +123,7 @@ public class NestedDataScanQueryTest extends InitializedNullHandlingTest
   {
     BuiltInTypesModule.registerHandlersAndSerde();
     List<? extends Module> mods = BuiltInTypesModule.getJacksonModulesList();
-    this.helper = AggregationTestHelper.createScanQueryAggregationTestHelper(mods, tempFolder);
+    this.helper = AggregationTestHelper.createScanQueryAggregationTestHelper(mods, tempFolder.getRoot());
     this.closer = Closer.create();
   }
 

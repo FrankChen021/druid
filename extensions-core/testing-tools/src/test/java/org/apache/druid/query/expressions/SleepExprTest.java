@@ -22,7 +22,6 @@ package org.apache.druid.query.expressions;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.math.expr.Expr;
 import org.apache.druid.math.expr.ExprMacroTable;
-import org.apache.druid.math.expr.FunctionTest;
 import org.apache.druid.math.expr.InputBindings;
 import org.apache.druid.math.expr.Parser;
 import org.apache.druid.testing.InitializedNullHandlingTest;
@@ -68,6 +67,41 @@ public class SleepExprTest extends InitializedNullHandlingTest
 
   private void assertExpr(final String expression)
   {
-    FunctionTest.assertExpr(expression, null, InputBindings.nilBindings(), exprMacroTable);
+    final Expr expr = Parser.parse(expression, exprMacroTable);
+    Assertions.assertEquals(null, expr.eval(InputBindings.nilBindings()).value(), expression);
+
+    final Expr exprNoFlatten = Parser.parse(expression, exprMacroTable, false);
+    final Expr roundTrip = Parser.parse(exprNoFlatten.stringify(), exprMacroTable);
+    Assertions.assertEquals(
+        null,
+        roundTrip.eval(InputBindings.nilBindings()).value(),
+        expression
+    );
+
+    final Expr roundTripFlatten = Parser.parse(expr.stringify(), exprMacroTable);
+    Assertions.assertEquals(
+        null,
+        roundTripFlatten.eval(InputBindings.nilBindings()).value(),
+        expression
+    );
+
+    final Expr singleThreaded = Expr.singleThreaded(expr, InputBindings.nilBindings());
+    Assertions.assertEquals(
+        null,
+        singleThreaded.eval(InputBindings.nilBindings()).value(),
+        expression
+    );
+
+    final Expr singleThreadedNoFlatten = Expr.singleThreaded(exprNoFlatten, InputBindings.nilBindings());
+    Assertions.assertEquals(
+        null,
+        singleThreadedNoFlatten.eval(InputBindings.nilBindings()).value(),
+        expression
+    );
+
+    Assertions.assertEquals(expr.stringify(), roundTrip.stringify());
+    Assertions.assertEquals(expr.stringify(), roundTripFlatten.stringify());
+    Assertions.assertArrayEquals(expr.getCacheKey(), roundTrip.getCacheKey());
+    Assertions.assertArrayEquals(expr.getCacheKey(), roundTripFlatten.getCacheKey());
   }
 }

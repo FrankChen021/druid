@@ -100,7 +100,7 @@ public class StringColumnAggregationTest
     aggregationTestHelper = AggregationTestHelper.createGroupByQueryAggregationTestHelper(
         Collections.emptyList(),
         new GroupByQueryConfig(),
-        tempFolder
+        tempFolder.getRoot()
     );
 
     IncrementalIndex index =
@@ -239,7 +239,10 @@ public class StringColumnAggregationTest
                                   )
                                   .build();
 
-    Sequence seq = AggregationTestHelper.createTimeseriesQueryAggregationTestHelper(Collections.emptyList(), tempFolder)
+    Sequence seq = AggregationTestHelper.createTimeseriesQueryAggregationTestHelper(
+        Collections.emptyList(),
+        tempFolder.getRoot()
+    )
                                         .runQueryOnSegmentsObjs(segments, query);
     TimeseriesResultValue result = ((Result<TimeseriesResultValue>) Iterables.getOnlyElement(seq.toList())).getValue();
 
