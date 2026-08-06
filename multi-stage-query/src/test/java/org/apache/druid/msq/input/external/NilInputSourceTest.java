@@ -20,8 +20,8 @@
 package org.apache.druid.msq.input.external;
 
 import org.apache.druid.msq.input.NilInputSource;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.msq.test.JUnitAssertions;
+import org.junit.jupiter.api.Test;
 
 public class NilInputSourceTest
 {
@@ -30,6 +30,6 @@ public class NilInputSourceTest
   @Test
   public void testGetTypes()
   {
-    Assert.assertTrue(NIL_INPUT_SOURCE.getTypes().isEmpty());
+    JUnitAssertions.assertTrue(NIL_INPUT_SOURCE.getTypes().isEmpty());
   }
 }

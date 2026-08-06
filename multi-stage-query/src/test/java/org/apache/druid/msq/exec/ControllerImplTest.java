@@ -28,11 +28,10 @@ import org.apache.druid.msq.indexing.error.InsertLockPreemptedFault;
 import org.apache.druid.msq.indexing.error.MSQException;
 import org.apache.druid.msq.kernel.StageDefinition;
 import org.apache.druid.msq.kernel.StageId;
-import org.easymock.EasyMock;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.druid.msq.test.JUnitAssertions;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -40,6 +39,9 @@ import java.io.IOException;
 import java.util.Collections;
 
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class ControllerImplTest
 {
@@ -51,7 +53,7 @@ public class ControllerImplTest
   private AutoCloseable mocks;
 
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     mocks = MockitoAnnotations.openMocks(this);
@@ -66,13 +68,12 @@ public class ControllerImplTest
     final SegmentTransactionalInsertAction action =
         SegmentTransactionalInsertAction.appendAction(Collections.emptySet(), null, null, null, null, null);
 
-    final TaskActionClient taskActionClient = EasyMock.mock(TaskActionClient.class);
-    EasyMock.expect(taskActionClient.submit(action)).andReturn(SegmentPublishResult.ok(Collections.emptySet()));
-    EasyMock.replay(taskActionClient);
+    final TaskActionClient taskActionClient = mock(TaskActionClient.class);
+    when(taskActionClient.submit(action)).thenReturn(SegmentPublishResult.ok(Collections.emptySet()));
 
     // All OK.
     ControllerImpl.performSegmentPublish(taskActionClient, action);
-    EasyMock.verify(taskActionClient);
+    verify(taskActionClient).submit(action);
   }
 
   @Test
@@ -81,17 +82,16 @@ public class ControllerImplTest
     final SegmentTransactionalInsertAction action =
         SegmentTransactionalInsertAction.appendAction(Collections.emptySet(), null, null, null, null, null);
 
-    final TaskActionClient taskActionClient = EasyMock.mock(TaskActionClient.class);
-    EasyMock.expect(taskActionClient.submit(action)).andReturn(SegmentPublishResult.fail("oops"));
-    EasyMock.replay(taskActionClient);
+    final TaskActionClient taskActionClient = mock(TaskActionClient.class);
+    when(taskActionClient.submit(action)).thenReturn(SegmentPublishResult.fail("oops"));
 
-    final MSQException e = Assert.assertThrows(
+    final MSQException e = JUnitAssertions.assertThrows(
         MSQException.class,
         () -> ControllerImpl.performSegmentPublish(taskActionClient, action)
     );
 
-    Assert.assertEquals(InsertLockPreemptedFault.instance(), e.getFault());
-    EasyMock.verify(taskActionClient);
+    JUnitAssertions.assertEquals(InsertLockPreemptedFault.instance(), e.getFault());
+    verify(taskActionClient).submit(action);
   }
 
   @Test
@@ -100,17 +100,16 @@ public class ControllerImplTest
     final SegmentTransactionalInsertAction action =
         SegmentTransactionalInsertAction.appendAction(Collections.emptySet(), null, null, null, null, null);
 
-    final TaskActionClient taskActionClient = EasyMock.mock(TaskActionClient.class);
-    EasyMock.expect(taskActionClient.submit(action)).andThrow(new ISE("oops"));
-    EasyMock.replay(taskActionClient);
+    final TaskActionClient taskActionClient = mock(TaskActionClient.class);
+    when(taskActionClient.submit(action)).thenThrow(new ISE("oops"));
 
-    final ISE e = Assert.assertThrows(
+    final ISE e = JUnitAssertions.assertThrows(
         ISE.class,
         () -> ControllerImpl.performSegmentPublish(taskActionClient, action)
     );
 
-    Assert.assertEquals("oops", e.getMessage());
-    EasyMock.verify(taskActionClient);
+    JUnitAssertions.assertEquals("oops", e.getMessage());
+    verify(taskActionClient).submit(action);
   }
 
   @Test
@@ -119,17 +118,16 @@ public class ControllerImplTest
     final SegmentTransactionalInsertAction action =
         SegmentTransactionalInsertAction.appendAction(Collections.emptySet(), null, null, null, null, null);
 
-    final TaskActionClient taskActionClient = EasyMock.mock(TaskActionClient.class);
-    EasyMock.expect(taskActionClient.submit(action)).andThrow(new ISE("are not covered by locks"));
-    EasyMock.replay(taskActionClient);
+    final TaskActionClient taskActionClient = mock(TaskActionClient.class);
+    when(taskActionClient.submit(action)).thenThrow(new ISE("are not covered by locks"));
 
-    final MSQException e = Assert.assertThrows(
+    final MSQException e = JUnitAssertions.assertThrows(
         MSQException.class,
         () -> ControllerImpl.performSegmentPublish(taskActionClient, action)
     );
 
-    Assert.assertEquals(InsertLockPreemptedFault.instance(), e.getFault());
-    EasyMock.verify(taskActionClient);
+    JUnitAssertions.assertEquals(InsertLockPreemptedFault.instance(), e.getFault());
+    verify(taskActionClient).submit(action);
   }
 
 
@@ -142,7 +140,7 @@ public class ControllerImplTest
     // Worker count below threshold
     doReturn(1).when(stageDefinition).getMaxWorkerCount();
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ClusterStatisticsMergeMode.PARALLEL,
         ControllerImpl.finalizeClusterStatisticsMergeMode(
             stageDefinition,
@@ -162,7 +160,7 @@ public class ControllerImplTest
     // Worker count above threshold
     doReturn((int) Limits.MAX_WORKERS_FOR_PARALLEL_MERGE + 1).when(stageDefinition).getMaxWorkerCount();
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ClusterStatisticsMergeMode.PARALLEL,
         ControllerImpl.finalizeClusterStatisticsMergeMode(
             stageDefinition,
@@ -181,7 +179,7 @@ public class ControllerImplTest
     // Worker count above threshold
     doReturn((int) Limits.MAX_WORKERS_FOR_PARALLEL_MERGE + 1).when(stageDefinition).getMaxWorkerCount();
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ClusterStatisticsMergeMode.SEQUENTIAL,
         ControllerImpl.finalizeClusterStatisticsMergeMode(
             stageDefinition,
@@ -195,17 +193,17 @@ public class ControllerImplTest
   public void test_mode_should_not_change()
   {
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ClusterStatisticsMergeMode.SEQUENTIAL,
         ControllerImpl.finalizeClusterStatisticsMergeMode(null, ClusterStatisticsMergeMode.SEQUENTIAL)
     );
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ClusterStatisticsMergeMode.PARALLEL,
         ControllerImpl.finalizeClusterStatisticsMergeMode(null, ClusterStatisticsMergeMode.PARALLEL)
     );
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception
   {
     mocks.close();

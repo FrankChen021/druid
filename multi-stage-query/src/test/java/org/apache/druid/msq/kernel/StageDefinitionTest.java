@@ -31,10 +31,10 @@ import org.apache.druid.msq.exec.Limits;
 import org.apache.druid.msq.input.stage.StageInputSpec;
 import org.apache.druid.msq.querykit.common.OffsetLimitStageProcessor;
 import org.apache.druid.msq.statistics.ClusterByStatisticsCollectorImpl;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class StageDefinitionTest
 {
@@ -61,7 +61,7 @@ public class StageDefinitionTest
         false
     );
 
-    Assert.assertThrows(
+    JUnitAssertions.assertThrows(
         ISE.class,
         () -> stageDefinition.generatePartitionBoundariesForShuffle(null, Limits.DEFAULT_MAX_PARTITIONS)
     );
@@ -86,7 +86,7 @@ public class StageDefinitionTest
         false
     );
 
-    Assert.assertThrows(
+    JUnitAssertions.assertThrows(
         ISE.class,
         () -> stageDefinition.generatePartitionBoundariesForShuffle(null, Limits.DEFAULT_MAX_PARTITIONS)
     );
@@ -111,7 +111,7 @@ public class StageDefinitionTest
         false
     );
 
-    Assert.assertThrows(
+    JUnitAssertions.assertThrows(
         ISE.class,
         () -> stageDefinition.generatePartitionBoundariesForShuffle(
             ClusterByStatisticsCollectorImpl.create(

@@ -23,12 +23,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.msq.sql.MSQTaskQueryMaker;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.msq.test.MSQTestBase;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.util.CalciteTests;
-import org.junit.Assert;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -77,14 +77,14 @@ public class MSQExportTest extends MSQTestBase
                      .setExpectedResultRows(ImmutableList.of())
                      .verifyResults();
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         2, // result file and manifest file
         Objects.requireNonNull(exportDir.listFiles()).length
     );
 
     File resultFile = new File(exportDir, "query-test-query-worker0-partition0.csv");
     List<String> results = readResultsFromFile(resultFile);
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         expectedFooFileContents(true),
         results
     );
@@ -109,7 +109,7 @@ public class MSQExportTest extends MSQTestBase
                      .setExpectedResultRows(ImmutableList.of())
                      .verifyResults();
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         2,
         Objects.requireNonNull(exportDir.listFiles()).length
     );
@@ -117,7 +117,7 @@ public class MSQExportTest extends MSQTestBase
 
     File resultFile = new File(exportDir, "query-test-query-worker0-partition0.csv");
     List<String> results = readResultsFromFile(resultFile);
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         expectedFoo2FileContents(true),
         results
     );
@@ -154,14 +154,14 @@ public class MSQExportTest extends MSQTestBase
                      .setExpectedResultRows(ImmutableList.of())
                      .verifyResults();
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         2, // result file and manifest file
         Objects.requireNonNull(exportDir.listFiles()).length
     );
 
     File resultFile = new File(exportDir, "query-test-query-worker0-partition0.csv");
     List<String> results = readResultsFromFile(resultFile);
-    Assert.assertEquals(expectedResultRows, results);
+    JUnitAssertions.assertEquals(expectedResultRows, results);
   }
 
   @MethodSource("data")
@@ -188,7 +188,7 @@ public class MSQExportTest extends MSQTestBase
                      .setExpectedResultRows(ImmutableList.of())
                      .verifyResults();
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         expectedFooFileContents(false).size() + 1, // + 1 for the manifest file
         Objects.requireNonNull(exportDir.listFiles()).length
     );
@@ -230,14 +230,14 @@ public class MSQExportTest extends MSQTestBase
                      .setExpectedResultRows(ImmutableList.of())
                      .verifyResults();
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         2, // result file and manifest file
         Objects.requireNonNull(exportDir.listFiles()).length
     );
 
     File resultFile = new File(exportDir, "query-test-query-worker0-partition0.csv");
     List<String> results = readResultsFromFile(resultFile);
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             "a,b,c_json", "1,1,\"{\"\"c\"\":1}\"", "2,2,\"{\"\"c\"\":2}\""
         ),
@@ -282,14 +282,14 @@ public class MSQExportTest extends MSQTestBase
                      .setExpectedResultRows(ImmutableList.of())
                      .verifyResults();
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         2, // result file and manifest file
         Objects.requireNonNull(exportDir.listFiles()).length
     );
 
     File resultFile = new File(exportDir, "query-test-query-worker0-partition0.csv");
     List<String> results = readResultsFromFile(resultFile);
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             "a,b,c_ds_hll", "1,b1,\"\"\"AgEHDAMIAQBa1y0L\"\"\"", "2,b2,\"\"\"AgEHDAMIAQCi6V0G\"\"\""
         ),
@@ -323,14 +323,14 @@ public class MSQExportTest extends MSQTestBase
                      .setExpectedResultRows(ImmutableList.of())
                      .verifyResults();
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         2, // result file and manifest file
         Objects.requireNonNull(exportDir.listFiles()).length
     );
 
     File resultFile = new File(exportDir, "query-test-query-worker0-partition0.csv");
     List<String> results = readResultsFromFile(resultFile);
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             "cnt,dim"
         ),
@@ -402,21 +402,21 @@ public class MSQExportTest extends MSQTestBase
                      .setExpectedResultRows(ImmutableList.of())
                      .verifyResults();
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             "cnt,dim1",
             "1,"
         ),
         readResultsFromFile(new File(exportDir, "query-test-query-worker0-partition0.csv"))
     );
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             "cnt,dim1",
             "1,10.1"
         ),
         readResultsFromFile(new File(exportDir, "query-test-query-worker0-partition1.csv"))
     );
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             "cnt,dim1",
             "1,2"
@@ -434,12 +434,12 @@ public class MSQExportTest extends MSQTestBase
         )
     ) {
       for (File file : resultFiles) {
-        Assert.assertEquals(
+        JUnitAssertions.assertEquals(
             StringUtils.format("file:%s", file.getAbsolutePath()),
             bufferedReader.readLine()
         );
       }
-      Assert.assertNull(bufferedReader.readLine());
+      JUnitAssertions.assertNull(bufferedReader.readLine());
     }
 
     final File metaFile = new File(exportDir, ExportMetadataManager.META_FILE);
@@ -448,11 +448,11 @@ public class MSQExportTest extends MSQTestBase
             new InputStreamReader(Files.newInputStream(metaFile.toPath()), StringUtils.UTF8_STRING)
         )
     ) {
-      Assert.assertEquals(
+      JUnitAssertions.assertEquals(
           StringUtils.format("version: %s", ExportMetadataManager.MANIFEST_FILE_VERSION),
           bufferedReader.readLine()
       );
-      Assert.assertNull(bufferedReader.readLine());
+      JUnitAssertions.assertNull(bufferedReader.readLine());
     }
   }
 }

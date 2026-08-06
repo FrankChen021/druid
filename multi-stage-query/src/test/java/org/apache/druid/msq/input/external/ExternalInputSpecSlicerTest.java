@@ -29,12 +29,12 @@ import org.apache.druid.data.input.InputSplit;
 import org.apache.druid.data.input.SplitHintSpec;
 import org.apache.druid.data.input.impl.JsonInputFormat;
 import org.apache.druid.data.input.impl.SplittableInputSource;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.utils.Streams;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 import java.io.File;
@@ -53,7 +53,7 @@ public class ExternalInputSpecSlicerTest
 
   private ExternalInputSpecSlicer slicer;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     slicer = new ExternalInputSpecSlicer();
@@ -62,25 +62,25 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_canSliceDynamic_splittable()
   {
-    Assert.assertTrue(slicer.canSliceDynamic(splittableSpec()));
+    JUnitAssertions.assertTrue(slicer.canSliceDynamic(splittableSpec()));
   }
 
   @Test
   public void test_canSliceDynamic_splittableThatIgnoresSplitHints()
   {
-    Assert.assertTrue(slicer.canSliceDynamic(splittableSpecThatIgnoresSplitHints()));
+    JUnitAssertions.assertTrue(slicer.canSliceDynamic(splittableSpecThatIgnoresSplitHints()));
   }
 
   @Test
   public void test_canSliceDynamic_unsplittable()
   {
-    Assert.assertFalse(slicer.canSliceDynamic(unsplittableSpec()));
+    JUnitAssertions.assertFalse(slicer.canSliceDynamic(unsplittableSpec()));
   }
 
   @Test
   public void test_sliceStatic_unsplittable()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(unsplittableSlice("foo", "bar", "baz")),
         slicer.sliceStatic(unsplittableSpec("foo", "bar", "baz"), null, 2)
     );
@@ -89,7 +89,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceStatic_unsplittable_empty()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(unsplittableSlice()),
         slicer.sliceStatic(unsplittableSpec(), null, 2)
     );
@@ -98,7 +98,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceStatic_splittable()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             splittableSlice("foo", "baz"),
             splittableSlice("bar")
@@ -110,7 +110,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceStatic_splittable_someWorkersEmpty()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             splittableSlice("foo"),
             splittableSlice("bar"),
@@ -123,7 +123,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceStatic_splittable_empty()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(),
         slicer.sliceStatic(splittableSpec(), null, 2)
     );
@@ -132,7 +132,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceStatic_splittableThatIgnoresSplitHints()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             splittableSlice("foo", "baz"),
             splittableSlice("bar")
@@ -144,7 +144,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceDynamic_unsplittable()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             unsplittableSlice("foo", "bar", "baz")
         ),
@@ -155,7 +155,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceDynamic_splittable_needOne()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             splittableSlice("foo", "bar", "baz")
         ),
@@ -166,7 +166,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceDynamic_splittable_needTwoDueToFiles()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             splittableSlice("foo", "bar"),
             splittableSlice("baz")
@@ -178,7 +178,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceDynamic_splittable_needTwoDueToBytes()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             splittableSlice("foo", "bar"),
             splittableSlice("baz")
@@ -190,7 +190,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceDynamic_splittableFilesWithCompression_needThreeDueToBytes()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             splittableSlice("foo.gz"),
             splittableSlice("bar.gz"),
@@ -203,7 +203,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceDynamic_splittableThatIgnoresSplitHints_oneHundredMax()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             splittableSlice("foo"),
             splittableSlice("bar"),
@@ -216,7 +216,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceDynamic_splittableThatIgnoresSplitHints_twoMax()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             splittableSlice("foo", "baz"),
             splittableSlice("bar")
@@ -228,7 +228,7 @@ public class ExternalInputSpecSlicerTest
   @Test
   public void test_sliceDynamic_splittableThatIgnoresSplitHints_oneMax()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             splittableSlice("foo", "bar", "baz")
         ),

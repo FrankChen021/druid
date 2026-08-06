@@ -32,23 +32,22 @@ import org.apache.druid.frame.file.FrameFile;
 import org.apache.druid.frame.read.FrameReader;
 import org.apache.druid.frame.testutil.FrameSequenceBuilder;
 import org.apache.druid.frame.testutil.FrameTestUtil;
+import org.apache.druid.msq.test.JUnitAssertions;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
+import org.apache.druid.msq.test.matchers.Matchers;
+import org.apache.druid.msq.test.matchers.ThrowableCauseMatcher;
+import org.apache.druid.msq.test.matchers.ThrowableMessageMatcher;
 import org.apache.druid.segment.QueryableIndexCursorFactory;
 import org.apache.druid.segment.TestIndex;
 import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.incremental.IncrementalIndexCursorFactory;
 import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.apache.druid.utils.CloseableUtils;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.internal.matchers.ThrowableCauseMatcher;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -59,12 +58,15 @@ import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.util.List;
 
+import static org.apache.druid.msq.test.matchers.MatcherAssert.assertThat;
+
 public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
 {
   /**
    * Tests that use {@link BlockingQueueFrameChannel#minimal()}.
    */
-  public static class WithMinimalBuffering extends InitializedNullHandlingTest
+  @Nested
+  public class WithMinimalBuffering extends InitializedNullHandlingTest
   {
     private final Frame frame = Iterables.getOnlyElement(
         FrameSequenceBuilder
@@ -74,8 +76,8 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
             .toList()
     );
 
-    @Rule
-    public TemporaryFolder temporaryFolder = new TemporaryFolder();
+    @TempDir
+    public File temporaryFolder;
 
     private BlockingQueueFrameChannel channel;
     private ChannelStageOutputReader channelReader;
@@ -87,16 +89,16 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
     private long offset;
     private ListenableFuture<InputStream> nextRead;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception
     {
       channel = BlockingQueueFrameChannel.minimal();
       channelReader = new ChannelStageOutputReader(channel.readable(), FrameTestUtil.WT_CONTEXT_LEGACY);
-      tmpFile = temporaryFolder.newFile();
+      tmpFile = File.createTempFile("junit", null, temporaryFolder);
       tmpOut = Files.newOutputStream(tmpFile.toPath());
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception
     {
       CloseableUtils.closeAll(tmpOut, tmpFrameFile);
@@ -112,7 +114,7 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
         // Do nothing, just keep reading.
       }
 
-      Assert.assertEquals(0, tmpFrameFile.numFrames());
+      JUnitAssertions.assertEquals(0, tmpFrameFile.numFrames());
     }
 
     @Test
@@ -126,14 +128,14 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
         // Do nothing, just keep reading.
       }
 
-      Assert.assertEquals(1, tmpFrameFile.numFrames());
-      Assert.assertEquals(frame.numBytes(), tmpFrameFile.rac(0, null).as(Frame.class).numBytes());
+      JUnitAssertions.assertEquals(1, tmpFrameFile.numFrames());
+      JUnitAssertions.assertEquals(frame.numBytes(), tmpFrameFile.rac(0, null).as(Frame.class).numBytes());
     }
 
     @Test
     public void test_remote_oneFrame_writeAfterFirstRead() throws Exception
     {
-      Assert.assertTrue(doRead(-1));
+      JUnitAssertions.assertTrue(doRead(-1));
 
       // Close after writing one frame.
       channel.writable().write(frame);
@@ -143,8 +145,8 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
         // Do nothing, just keep reading.
       }
 
-      Assert.assertEquals(1, tmpFrameFile.numFrames());
-      Assert.assertEquals(frame.numBytes(), tmpFrameFile.rac(0, null).as(Frame.class).numBytes());
+      JUnitAssertions.assertEquals(1, tmpFrameFile.numFrames());
+      JUnitAssertions.assertEquals(frame.numBytes(), tmpFrameFile.rac(0, null).as(Frame.class).numBytes());
     }
 
     @Test
@@ -158,8 +160,8 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
         // Do nothing, just keep reading.
       }
 
-      Assert.assertEquals(1, tmpFrameFile.numFrames());
-      Assert.assertEquals(frame.numBytes(), tmpFrameFile.rac(0, null).as(Frame.class).numBytes());
+      JUnitAssertions.assertEquals(1, tmpFrameFile.numFrames());
+      JUnitAssertions.assertEquals(frame.numBytes(), tmpFrameFile.rac(0, null).as(Frame.class).numBytes());
     }
 
     @Test
@@ -169,45 +171,45 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
       channel.writable().write(frame);
 
       // See that we can't write another frame.
-      final IllegalStateException e = Assert.assertThrows(
+      final IllegalStateException e = JUnitAssertions.assertThrows(
           IllegalStateException.class,
           () -> channel.writable().write(frame)
       );
 
-      MatcherAssert.assertThat(
+      assertThat(
           e,
           ThrowableMessageMatcher.hasMessage(CoreMatchers.startsWith("Channel has no capacity"))
       );
 
       // Read the first frame until we start blocking.
       while (nextRead == null) {
-        Assert.assertTrue(doRead(1));
+        JUnitAssertions.assertTrue(doRead(1));
       }
 
       // Write the next frame.
-      Assert.assertFalse(nextRead.isDone());
+      JUnitAssertions.assertFalse(nextRead.isDone());
       channel.writable().write(frame);
 
       // This write would have unblocked nextRead, which will now be done.
-      Assert.assertTrue(nextRead.isDone());
+      JUnitAssertions.assertTrue(nextRead.isDone());
 
       // Write a third frame.
       channel.writable().write(frame);
 
       // See that we can't write a fourth frame.
-      final IllegalStateException e2 = Assert.assertThrows(
+      final IllegalStateException e2 = JUnitAssertions.assertThrows(
           IllegalStateException.class,
           () -> channel.writable().write(frame)
       );
 
-      MatcherAssert.assertThat(
+      assertThat(
           e2,
           ThrowableMessageMatcher.hasMessage(CoreMatchers.startsWith("Channel has no capacity"))
       );
 
       // And read until we start blocking.
       while (nextRead == null) {
-        Assert.assertTrue(doRead(1));
+        JUnitAssertions.assertTrue(doRead(1));
       }
 
       // Close.
@@ -218,10 +220,10 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
         // Just keep looping.
       }
 
-      Assert.assertEquals(3, tmpFrameFile.numFrames());
-      Assert.assertEquals(frame.numBytes(), tmpFrameFile.rac(0, null).as(Frame.class).numBytes());
-      Assert.assertEquals(frame.numBytes(), tmpFrameFile.rac(1, null).as(Frame.class).numBytes());
-      Assert.assertEquals(frame.numBytes(), tmpFrameFile.rac(2, null).as(Frame.class).numBytes());
+      JUnitAssertions.assertEquals(3, tmpFrameFile.numFrames());
+      JUnitAssertions.assertEquals(frame.numBytes(), tmpFrameFile.rac(0, null).as(Frame.class).numBytes());
+      JUnitAssertions.assertEquals(frame.numBytes(), tmpFrameFile.rac(1, null).as(Frame.class).numBytes());
+      JUnitAssertions.assertEquals(frame.numBytes(), tmpFrameFile.rac(2, null).as(Frame.class).numBytes());
     }
 
     /**
@@ -274,7 +276,8 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
   /**
    * Tests that use {@link BlockingQueueFrameChannel} that is fully buffered.
    */
-  public static class WithMaximalBuffering extends InitializedNullHandlingTest
+  @Nested
+  public class WithMaximalBuffering extends InitializedNullHandlingTest
   {
     private static final int MAX_FRAMES = 10;
     private static final int EXPECTED_NUM_ROWS = 1209;
@@ -282,13 +285,13 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
     private final BlockingQueueFrameChannel channel = new BlockingQueueFrameChannel(MAX_FRAMES);
     private final ChannelStageOutputReader reader = new ChannelStageOutputReader(channel.readable(), FrameTestUtil.WT_CONTEXT_LEGACY);
 
-    @Rule
-    public TemporaryFolder temporaryFolder = new TemporaryFolder();
+    @TempDir
+    public File temporaryFolder;
 
     private FrameReader frameReader;
     private List<Frame> frameList;
 
-    @Before
+    @BeforeEach
     public void setUp()
     {
       final IncrementalIndex index = TestIndex.getIncrementalTestIndex();
@@ -307,7 +310,7 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
                                       .toList();
     }
 
-    @After
+    @AfterEach
     public void tearDown()
     {
       reader.close();
@@ -318,11 +321,11 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
     {
       writeAllFramesToChannel();
 
-      Assert.assertSame(channel.readable(), reader.readLocally());
+      JUnitAssertions.assertSame(channel.readable(), reader.readLocally());
       reader.close(); // Won't close the channel, because it's already been returned by readLocally
 
       final int numRows = FrameTestUtil.readRowsFromFrameChannel(channel.readable(), frameReader).toList().size();
-      Assert.assertEquals(EXPECTED_NUM_ROWS, numRows);
+      JUnitAssertions.assertEquals(EXPECTED_NUM_ROWS, numRows);
     }
 
     @Test
@@ -333,7 +336,7 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
       reader.close();
 
       // Can't read the channel after closing the reader
-      Assert.assertThrows(
+      JUnitAssertions.assertThrows(
           IllegalStateException.class,
           reader::readLocally
       );
@@ -344,17 +347,17 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
     {
       writeAllFramesToChannel();
 
-      Assert.assertSame(channel.readable(), reader.readLocally());
+      JUnitAssertions.assertSame(channel.readable(), reader.readLocally());
 
       // Can't read remotely after reading locally
-      Assert.assertThrows(
+      JUnitAssertions.assertThrows(
           IllegalStateException.class,
           () -> reader.readRemotelyFrom(0)
       );
 
       // Can still read locally after this error
       final int numRows = FrameTestUtil.readRowsFromFrameChannel(channel.readable(), frameReader).toList().size();
-      Assert.assertEquals(EXPECTED_NUM_ROWS, numRows);
+      JUnitAssertions.assertEquals(EXPECTED_NUM_ROWS, numRows);
     }
 
     @Test
@@ -364,7 +367,7 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
 
       writeAllFramesToChannel();
 
-      final File tmpFile = temporaryFolder.newFile();
+      final File tmpFile = File.createTempFile("junit", null, temporaryFolder);
 
       try (final FileOutputStream tmpOut = new FileOutputStream(tmpFile)) {
         int numReads = 0;
@@ -382,14 +385,14 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
           }
         }
 
-        MatcherAssert.assertThat(numReads, Matchers.greaterThan(1));
+        assertThat(numReads, Matchers.greaterThan(1));
       }
 
       final FrameFile frameFile = FrameFile.open(tmpFile, null);
       final int numRows =
           FrameTestUtil.readRowsFromFrameChannel(new ReadableFileFrameChannel(frameFile, null), frameReader).toList().size();
 
-      Assert.assertEquals(EXPECTED_NUM_ROWS, numRows);
+      JUnitAssertions.assertEquals(EXPECTED_NUM_ROWS, numRows);
     }
 
     @Test
@@ -400,7 +403,7 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
 
       writeAllFramesToChannel();
 
-      final File tmpFile = temporaryFolder.newFile();
+      final File tmpFile = File.createTempFile("junit", null, temporaryFolder);
 
       try (final OutputStream tmpOut = Files.newOutputStream(tmpFile.toPath())) {
         int numReads = 0;
@@ -420,14 +423,14 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
           }
         }
 
-        Assert.assertEquals(numReads, offset + 1);
+        JUnitAssertions.assertEquals(numReads, offset + 1);
       }
 
       final FrameFile frameFile = FrameFile.open(tmpFile, null);
       final int numRows =
           FrameTestUtil.readRowsFromFrameChannel(new ReadableFileFrameChannel(frameFile, null), frameReader).toList().size();
 
-      Assert.assertEquals(EXPECTED_NUM_ROWS, numRows);
+      JUnitAssertions.assertEquals(EXPECTED_NUM_ROWS, numRows);
     }
 
     @Test
@@ -439,7 +442,7 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
       FutureUtils.getUnchecked(reader.readRemotelyFrom(0), true);
 
       // Then read locally
-      Assert.assertThrows(
+      JUnitAssertions.assertThrows(
           IllegalStateException.class,
           reader::readLocally
       );
@@ -453,15 +456,15 @@ public class ChannelStageOutputReaderTest extends InitializedNullHandlingTest
       // Read remotely from offset = 1.
       final InputStream in = FutureUtils.getUnchecked(reader.readRemotelyFrom(1), true);
       final int offset = ByteStreams.toByteArray(in).length;
-      MatcherAssert.assertThat(offset, Matchers.greaterThan(0));
+      assertThat(offset, Matchers.greaterThan(0));
 
       // Then read again from offset = 0; should get an error.
-      final RuntimeException e = Assert.assertThrows(
+      final RuntimeException e = JUnitAssertions.assertThrows(
           RuntimeException.class,
           () -> FutureUtils.getUnchecked(reader.readRemotelyFrom(0), true)
       );
 
-      MatcherAssert.assertThat(
+      assertThat(
           e,
           ThrowableCauseMatcher.hasCause(
               Matchers.allOf(

@@ -47,7 +47,10 @@ import org.apache.druid.msq.indexing.error.CanceledFault;
 import org.apache.druid.msq.indexing.report.MSQResultsReport;
 import org.apache.druid.msq.sql.MSQTaskQueryMaker;
 import org.apache.druid.msq.test.CounterSnapshotMatcher;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.msq.test.MSQTestBase;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
+import org.apache.druid.msq.test.matchers.ThrowableMessageMatcher;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.InlineDataSource;
@@ -90,9 +93,6 @@ import org.apache.druid.sql.calcite.planner.ColumnMapping;
 import org.apache.druid.sql.calcite.planner.ColumnMappings;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.util.CalciteTests;
-import org.hamcrest.CoreMatchers;
-import org.junit.Assert;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -2539,7 +2539,7 @@ public class MSQSelectTest extends MSQTestBase
       result.add(new Object[]{1});
     }
 
-    Assert.assertTrue(result.size() > Limits.MAX_SELECT_RESULT_ROWS);
+    JUnitAssertions.assertTrue(result.size() > Limits.MAX_SELECT_RESULT_ROWS);
 
     testSelectQuery()
         .setSql(StringUtils.format(

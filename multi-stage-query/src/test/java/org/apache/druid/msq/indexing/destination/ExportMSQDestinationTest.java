@@ -22,12 +22,12 @@ package org.apache.druid.msq.indexing.destination;
 import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.sql.http.ResultFormat;
 import org.apache.druid.storage.StorageConfig;
 import org.apache.druid.storage.StorageConnectorModule;
 import org.apache.druid.storage.local.LocalFileExportStorageProvider;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
@@ -49,6 +49,6 @@ public class ExportMSQDestinationTest
     );
 
     ExportMSQDestination newDest = objectMapper.readValue(string, ExportMSQDestination.class);
-    Assert.assertEquals(exportDestination, newDest);
+    JUnitAssertions.assertEquals(exportDestination, newDest);
   }
 }

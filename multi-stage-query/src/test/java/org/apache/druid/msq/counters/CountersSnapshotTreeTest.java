@@ -25,14 +25,15 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.msq.guice.MSQIndexingModule;
+import org.apache.druid.msq.test.JUnitAssertions;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.loading.AcquireSegmentResult;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Objects;
+
+import static org.apache.druid.msq.test.matchers.MatcherAssert.assertThat;
 
 public class CountersSnapshotTreeTest
 {
@@ -73,11 +74,11 @@ public class CountersSnapshotTreeTest
     final CounterSnapshotsTree snapshotsTree2 = serializationMapper.readValue(json, CounterSnapshotsTree.class);
     final CounterSnapshotsTree snapshotsTree3 = deserializationMapper.readValue(json, CounterSnapshotsTree.class);
 
-    Assert.assertEquals(snapshotsTree.copyMap(), snapshotsTree2.copyMap());
-    Assert.assertNotEquals(snapshotsTree.copyMap(), snapshotsTree3.copyMap());
+    JUnitAssertions.assertEquals(snapshotsTree.copyMap(), snapshotsTree2.copyMap());
+    JUnitAssertions.assertNotEquals(snapshotsTree.copyMap(), snapshotsTree3.copyMap());
 
     // Confirm that deserializationMapper reads the TestCounterSnapshot as a NilQueryCounterSnapshot.
-    MatcherAssert.assertThat(
+    assertThat(
         snapshotsTree3.copyMap().get(1).get(2).getMap().get("ctr"),
         CoreMatchers.instanceOf(NilQueryCounterSnapshot.class)
     );

@@ -22,10 +22,10 @@ package org.apache.druid.msq.indexing.client;
 import org.apache.druid.indexer.report.KillTaskReport;
 import org.apache.druid.indexer.report.TaskReport;
 import org.apache.druid.msq.exec.Controller;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.TestDataSource;
 import org.apache.druid.server.security.AuthorizerMapper;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
@@ -54,7 +54,7 @@ public class ControllerChatHandlerTest
            .thenReturn("allow-all");
     Response response = chatHandler.httpGetLiveReports(httpRequest);
 
-    Assert.assertEquals(200, response.getStatus());
-    Assert.assertEquals(reportMap, response.getEntity());
+    JUnitAssertions.assertEquals(200, response.getStatus());
+    JUnitAssertions.assertEquals(reportMap, response.getEntity());
   }
 }

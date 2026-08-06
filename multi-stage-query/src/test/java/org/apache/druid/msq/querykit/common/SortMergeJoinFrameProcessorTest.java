@@ -44,24 +44,21 @@ import org.apache.druid.msq.indexing.error.MSQException;
 import org.apache.druid.msq.indexing.error.TooManyRowsWithSameKeyFault;
 import org.apache.druid.msq.querykit.FrameProcessorTestBase;
 import org.apache.druid.msq.querykit.ReadableInput;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.msq.test.LimitedFrameWriterFactory;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
 import org.apache.druid.segment.CursorFactory;
 import org.apache.druid.segment.RowBasedSegment;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.join.JoinTestHelper;
 import org.apache.druid.segment.join.JoinType;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -69,24 +66,24 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-@RunWith(Parameterized.class)
+import static org.apache.druid.msq.test.matchers.MatcherAssert.assertThat;
+
 public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
 {
   private static final long MAX_BUFFERED_BYTES = 10_000_000;
 
-  private final int rowsPerInputFrame;
-  private final int rowsPerOutputFrame;
+  private int rowsPerInputFrame;
+  private int rowsPerOutputFrame;
 
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @TempDir
+  public File temporaryFolder;
 
-  public SortMergeJoinFrameProcessorTest(int rowsPerInputFrame, int rowsPerOutputFrame)
+  public void initSortMergeJoinFrameProcessorTest(int rowsPerInputFrame, int rowsPerOutputFrame)
   {
     this.rowsPerInputFrame = rowsPerInputFrame;
     this.rowsPerOutputFrame = rowsPerOutputFrame;
   }
 
-  @Parameterized.Parameters(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
   public static Iterable<Object[]> constructorFeeder()
   {
     final List<Object[]> constructors = new ArrayList<>();
@@ -100,9 +97,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     return constructors;
   }
 
-  @Test
-  public void testLeftJoinEmptyLeftSide() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testLeftJoinEmptyLeftSide(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel = ReadableInput.channel(
         ReadableNilFrameChannel.INSTANCE,
         FrameReader.create(JoinTestHelper.FACT_SIGNATURE),
@@ -142,9 +141,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, Collections.emptyList());
   }
 
-  @Test
-  public void testLeftJoinEmptyRightSide() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testLeftJoinEmptyRightSide(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel = buildFactInput(
         ImmutableList.of(
             new KeyColumn("countryIsoCode", KeyOrder.ASCENDING),
@@ -221,9 +222,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testInnerJoinEmptyRightSide() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testInnerJoinEmptyRightSide(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel = buildFactInput(
         ImmutableList.of(
             new KeyColumn("countryIsoCode", KeyOrder.ASCENDING),
@@ -266,9 +269,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, Collections.emptyList());
   }
 
-  @Test
-  public void testLeftJoinCountryIsoCode() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testLeftJoinCountryIsoCode(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel = buildFactInput(
         ImmutableList.of(
             new KeyColumn("countryIsoCode", KeyOrder.ASCENDING),
@@ -340,9 +345,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testCrossJoin() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testCrossJoin(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel = buildFactInput(
         ImmutableList.of(
             new KeyColumn("countryIsoCode", KeyOrder.ASCENDING),
@@ -441,9 +448,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testLeftJoinRegions() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testLeftJoinRegions(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel =
         buildFactInput(
             ImmutableList.of(
@@ -526,9 +535,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testRightJoinRegionCodeOnly() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testRightJoinRegionCodeOnly(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     // This join generates duplicates.
 
     final ReadableInput factChannel =
@@ -609,9 +620,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testFullOuterJoinRegionCodeOnly() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testFullOuterJoinRegionCodeOnly(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     // This join generates duplicates.
 
     final ReadableInput factChannel =
@@ -695,9 +708,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testInnerJoinRegionCodeOnly() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testInnerJoinRegionCodeOnly(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     // This join generates duplicates.
 
     final ReadableInput factChannel =
@@ -772,9 +787,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testInnerJoinRegionCodeOnlyIsNotDistinctFrom() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testInnerJoinRegionCodeOnlyIsNotDistinctFrom(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     // This join generates duplicates.
 
     final ReadableInput factChannel =
@@ -854,9 +871,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testLeftJoinCountryNumber() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testLeftJoinCountryNumber(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel = buildFactInput(
         ImmutableList.of(
             new KeyColumn("countryNumber", KeyOrder.ASCENDING),
@@ -936,9 +955,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testRightJoinCountryNumber() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testRightJoinCountryNumber(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel = buildFactInput(
         ImmutableList.of(
             new KeyColumn("countryNumber", KeyOrder.ASCENDING),
@@ -1018,9 +1039,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testInnerJoinCountryIsoCode() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testInnerJoinCountryIsoCode(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel = buildFactInput(
         ImmutableList.of(
             new KeyColumn("countryIsoCode", KeyOrder.ASCENDING),
@@ -1086,9 +1109,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testInnerJoinCountryIsoCodeNotDistinctFrom() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testInnerJoinCountryIsoCodeNotDistinctFrom(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel = buildFactInput(
         ImmutableList.of(
             new KeyColumn("countryIsoCode", KeyOrder.ASCENDING),
@@ -1154,9 +1179,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testInnerJoinCountryIsoCode_withMaxBufferedBytesLimit_succeeds() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testInnerJoinCountryIsoCode_withMaxBufferedBytesLimit_succeeds(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel = buildFactInput(
         ImmutableList.of(
             new KeyColumn("countryIsoCode", KeyOrder.ASCENDING),
@@ -1222,9 +1249,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testInnerJoinCountryIsoCode_backwards_withMaxBufferedBytesLimit_succeeds() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testInnerJoinCountryIsoCode_backwards_withMaxBufferedBytesLimit_succeeds(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel = buildFactInput(
         ImmutableList.of(
             new KeyColumn("countryIsoCode", KeyOrder.ASCENDING),
@@ -1290,9 +1319,11 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testCountrySelfJoin() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testCountrySelfJoin(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     final ReadableInput factChannel1 = buildFactInput(ImmutableList.of(new KeyColumn("channel", KeyOrder.ASCENDING)));
     final ReadableInput factChannel2 = buildFactInput(ImmutableList.of(new KeyColumn("channel", KeyOrder.ASCENDING)));
 
@@ -1342,11 +1373,13 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     assertResult(processor, outputChannel.readable(), joinSignature, expectedRows);
   }
 
-  @Test
-  public void testCountrySelfJoin_withMaxBufferedBytesLimit_fails() throws Exception
+  @MethodSource("constructorFeeder")
+  @ParameterizedTest(name = "rowsPerInputFrame = {0}, rowsPerOutputFrame = {1}")
+  public void testCountrySelfJoin_withMaxBufferedBytesLimit_fails(int rowsPerInputFrame, int rowsPerOutputFrame) throws Exception
   {
+    initSortMergeJoinFrameProcessorTest(rowsPerInputFrame, rowsPerOutputFrame);
     // Test is only valid when rowsPerInputFrame is low enough that we get multiple frames.
-    Assume.assumeThat(rowsPerInputFrame, Matchers.lessThanOrEqualTo(7));
+    Assumptions.assumeTrue(rowsPerInputFrame <= 7);
 
     final ReadableInput factChannel1 = buildFactInput(ImmutableList.of(new KeyColumn("channel", KeyOrder.ASCENDING)));
     final ReadableInput factChannel2 = buildFactInput(ImmutableList.of(new KeyColumn("channel", KeyOrder.ASCENDING)));
@@ -1373,14 +1406,14 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
         1
     );
 
-    final RuntimeException e = Assert.assertThrows(
+    final RuntimeException e = JUnitAssertions.assertThrows(
         RuntimeException.class,
         () -> run(processor, outputChannel.readable(), joinSignature)
     );
 
-    MatcherAssert.assertThat(e.getCause(), CoreMatchers.instanceOf(RuntimeException.class));
-    MatcherAssert.assertThat(e.getCause().getCause(), CoreMatchers.instanceOf(MSQException.class));
-    MatcherAssert.assertThat(
+    assertThat(e.getCause(), CoreMatchers.instanceOf(RuntimeException.class));
+    assertThat(e.getCause().getCause(), CoreMatchers.instanceOf(MSQException.class));
+    assertThat(
         ((MSQException) e.getCause().getCause()).getFault(),
         CoreMatchers.instanceOf(TooManyRowsWithSameKeyFault.class)
     );
@@ -1410,7 +1443,7 @@ public class SortMergeJoinFrameProcessorTest extends FrameProcessorTestBase
     );
 
     final List<List<Object>> rows = rowsFromProcessor.toList();
-    Assert.assertEquals(Unit.instance(), FutureUtils.getUnchecked(retValFromProcessor, true));
+    JUnitAssertions.assertEquals(Unit.instance(), FutureUtils.getUnchecked(retValFromProcessor, true));
     return rows;
   }
 

@@ -29,10 +29,10 @@ import org.apache.druid.frame.key.KeyOrder;
 import org.apache.druid.frame.key.KeyTestUtils;
 import org.apache.druid.frame.key.RowKey;
 import org.apache.druid.java.util.common.Pair;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -55,10 +55,10 @@ public class QuantilesSketchKeyCollectorTest
         Collections.emptyList(),
         comparator,
         (testName, collector) -> {
-          Assert.assertTrue(collector.isEmpty());
-          Assert.assertThrows(NoSuchElementException.class, collector::minKey);
-          Assert.assertEquals(testName, 0, collector.estimatedTotalWeight());
-          Assert.assertEquals(
+          JUnitAssertions.assertTrue(collector.isEmpty());
+          JUnitAssertions.assertThrows(NoSuchElementException.class, collector::minKey);
+          JUnitAssertions.assertEquals(testName, 0, collector.estimatedTotalWeight());
+          JUnitAssertions.assertEquals(
               ClusterByPartitions.oneUniversalPartition(),
               collector.generatePartitionsWithTargetWeight(1000)
           );
@@ -79,7 +79,7 @@ public class QuantilesSketchKeyCollectorTest
         keyWeights,
         comparator,
         (testName, collector) -> {
-          Assert.assertEquals(testName, numKeys, collector.estimatedTotalWeight());
+          JUnitAssertions.assertEquals(testName, numKeys, collector.estimatedTotalWeight());
           verifyCollector(collector, clusterBy, comparator, sortedKeyWeights);
         }
     );
@@ -97,7 +97,7 @@ public class QuantilesSketchKeyCollectorTest
         keyWeights,
         comparator,
         (testName, collector) -> {
-          Assert.assertEquals(testName, numKeys, collector.estimatedTotalWeight());
+          JUnitAssertions.assertEquals(testName, numKeys, collector.estimatedTotalWeight());
           verifyCollector(collector, clusterBy, comparator, sortedKeyWeights);
         }
     );
@@ -119,8 +119,8 @@ public class QuantilesSketchKeyCollectorTest
             // Intentionally empty loop body.
           }
 
-          Assert.assertEquals(testName, 2, collector.getSketch().getK());
-          Assert.assertEquals(testName, 12, collector.estimatedRetainedKeys());
+          JUnitAssertions.assertEquals(testName, 2, collector.getSketch().getK());
+          JUnitAssertions.assertEquals(testName, 12, collector.estimatedRetainedKeys());
 
           // Don't use verifyCollector, since this collector is downsampled so aggressively that it can't possibly
           // hope to pass those tests. Grade on a curve.
@@ -148,7 +148,7 @@ public class QuantilesSketchKeyCollectorTest
         keyWeights,
         comparator,
         (testName, collector) -> {
-          Assert.assertEquals(
+          JUnitAssertions.assertEquals(
               testName,
               ClusterByStatisticsCollectorImplTest.totalWeight(
                   sortedKeyWeights,
@@ -194,13 +194,13 @@ public class QuantilesSketchKeyCollectorTest
 
 
     collector.add(smallKey, 3);
-    Assert.assertEquals(smallKey.estimatedObjectSizeBytes(), collector.getAverageKeyLength(), 0);
+    JUnitAssertions.assertEquals(smallKey.estimatedObjectSizeBytes(), collector.getAverageKeyLength(), 0);
 
     other.add(largeKey, 5);
-    Assert.assertEquals(largeKey.estimatedObjectSizeBytes(), other.getAverageKeyLength(), 0);
+    JUnitAssertions.assertEquals(largeKey.estimatedObjectSizeBytes(), other.getAverageKeyLength(), 0);
 
     collector.addAll(other);
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         (smallKey.estimatedObjectSizeBytes() * 3 + largeKey.estimatedObjectSizeBytes() * 5) / 8.0,
         collector.getAverageKeyLength(),
         0
@@ -220,7 +220,7 @@ public class QuantilesSketchKeyCollectorTest
         keyWeights,
         comparator,
         (testName, collector) -> {
-          Assert.assertEquals(
+          JUnitAssertions.assertEquals(
               testName,
               ClusterByStatisticsCollectorImplTest.totalWeight(
                   sortedKeyWeights,

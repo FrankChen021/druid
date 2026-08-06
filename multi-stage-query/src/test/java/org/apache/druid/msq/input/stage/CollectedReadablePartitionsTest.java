@@ -24,9 +24,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.msq.guice.MSQIndexingModule;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.TestHelper;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class CollectedReadablePartitionsTest
 {
@@ -35,7 +35,7 @@ public class CollectedReadablePartitionsTest
   {
     final CollectedReadablePartitions partitions =
         (CollectedReadablePartitions) ReadablePartitions.collected(1, ImmutableMap.of(0, 1, 1, 2, 2, 1));
-    Assert.assertEquals(ImmutableMap.of(0, 1, 1, 2, 2, 1), partitions.getPartitionToWorkerMap());
+    JUnitAssertions.assertEquals(ImmutableMap.of(0, 1, 1, 2, 2, 1), partitions.getPartitionToWorkerMap());
   }
 
   @Test
@@ -43,7 +43,7 @@ public class CollectedReadablePartitionsTest
   {
     final CollectedReadablePartitions partitions =
         (CollectedReadablePartitions) ReadablePartitions.collected(1, ImmutableMap.of(0, 1, 1, 2, 2, 1));
-    Assert.assertEquals(1, partitions.getStageNumber());
+    JUnitAssertions.assertEquals(1, partitions.getStageNumber());
   }
 
   @Test
@@ -52,7 +52,7 @@ public class CollectedReadablePartitionsTest
     final CollectedReadablePartitions partitions =
         (CollectedReadablePartitions) ReadablePartitions.collected(1, ImmutableMap.of(0, 1, 1, 2, 2, 1));
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             ReadablePartitions.collected(1, ImmutableMap.of(0, 1, 2, 1)),
             ReadablePartitions.collected(1, ImmutableMap.of(1, 2))
@@ -70,7 +70,7 @@ public class CollectedReadablePartitionsTest
     final CollectedReadablePartitions partitions =
         (CollectedReadablePartitions) ReadablePartitions.collected(1, ImmutableMap.of(0, 1, 1, 2, 2, 1));
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         partitions,
         mapper.readValue(
             mapper.writeValueAsString(partitions),
