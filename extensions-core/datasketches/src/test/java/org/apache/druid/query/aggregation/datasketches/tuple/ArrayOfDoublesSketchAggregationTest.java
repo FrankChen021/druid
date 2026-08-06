@@ -42,7 +42,7 @@ import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
-import org.apache.druid.query.groupby.GroupByQueryRunnerTestHelper;
+import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
 import org.apache.druid.query.groupby.ResultRow;
 import org.apache.druid.query.timeseries.TimeseriesResultValue;
 import org.apache.druid.segment.column.ColumnType;
@@ -82,7 +82,7 @@ public class ArrayOfDoublesSketchAggregationTest extends InitializedNullHandling
   public static Collection<?> constructorFeeder()
   {
     final List<Object[]> constructors = new ArrayList<>();
-    for (GroupByQueryConfig config : GroupByQueryRunnerTestHelper.testConfigs()) {
+    for (GroupByQueryConfig config : GroupByQueryRunnerTest.testConfigs()) {
       constructors.add(new Object[]{config});
     }
     return constructors;

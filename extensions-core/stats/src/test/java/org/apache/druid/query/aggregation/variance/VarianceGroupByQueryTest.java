@@ -35,6 +35,7 @@ import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByQueryRunnerFactory;
+import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
 import org.apache.druid.query.groupby.GroupByQueryRunnerTestHelper;
 import org.apache.druid.query.groupby.ResultRow;
 import org.apache.druid.query.groupby.TestGroupByBuffers;
@@ -68,8 +69,8 @@ public class VarianceGroupByQueryTest extends InitializedNullHandlingTest
     setUpClass();
 
     final List<Object[]> constructors = new ArrayList<>();
-    for (GroupByQueryConfig config : GroupByQueryRunnerTestHelper.testConfigs()) {
-      final GroupByQueryRunnerFactory factory = GroupByQueryRunnerTestHelper.makeQueryRunnerFactory(
+    for (GroupByQueryConfig config : GroupByQueryRunnerTest.testConfigs()) {
+      final GroupByQueryRunnerFactory factory = GroupByQueryRunnerTest.makeQueryRunnerFactory(
           TestHelper.makeSmileMapper(),
           config,
           BUFFER_POOLS

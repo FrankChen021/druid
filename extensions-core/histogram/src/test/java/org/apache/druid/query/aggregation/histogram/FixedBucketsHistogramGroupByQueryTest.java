@@ -29,6 +29,7 @@ import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByQueryRunnerFactory;
+import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
 import org.apache.druid.query.groupby.GroupByQueryRunnerTestHelper;
 import org.apache.druid.query.groupby.ResultRow;
 import org.apache.druid.query.groupby.TestGroupByBuffers;
@@ -91,7 +92,7 @@ public class FixedBucketsHistogramGroupByQueryTest extends InitializedNullHandli
     );
 
     for (GroupByQueryConfig config : configs) {
-      final GroupByQueryRunnerFactory factory = GroupByQueryRunnerTestHelper.makeQueryRunnerFactory(
+      final GroupByQueryRunnerFactory factory = GroupByQueryRunnerTest.makeQueryRunnerFactory(
           TestHelper.makeSmileMapper(),
           config,
           BUFFER_POOLS

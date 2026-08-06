@@ -42,7 +42,7 @@ import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFact
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
-import org.apache.druid.query.groupby.GroupByQueryRunnerTestHelper;
+import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
 import org.apache.druid.query.groupby.ResultRow;
 import org.apache.druid.query.groupby.epinephelinae.GroupByTestColumnSelectorFactory;
 import org.apache.druid.query.groupby.epinephelinae.GrouperTestUtil;
@@ -91,7 +91,7 @@ public class HllSketchAggregatorTest extends InitializedNullHandlingTest
   public static Collection<?> constructorFeeder()
   {
     final List<Object[]> constructors = new ArrayList<>();
-    for (GroupByQueryConfig config : GroupByQueryRunnerTestHelper.testConfigs()) {
+    for (GroupByQueryConfig config : GroupByQueryRunnerTest.testConfigs()) {
       for (String vectorize : new String[]{"false", "force"}) {
         for (StringEncoding stringEncoding : StringEncoding.values()) {
           if (!("force".equals(vectorize))) {
