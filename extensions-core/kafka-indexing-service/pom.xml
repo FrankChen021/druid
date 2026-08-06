@@ -125,6 +125,7 @@
     </dependency>
 
     <!-- Tests -->
+    <!-- KafkaIndexTaskTest inherits JUnit 4 rules from SeekableStreamIndexTaskTestBase. -->
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>

@@ -158,15 +158,15 @@
         </dependency>
 
         <!-- Tests -->
-        <!-- SeekableStreamIndexTaskTestBase still uses JUnit 4 rules. -->
-        <dependency>
-            <groupId>org.easymock</groupId>
-            <artifactId>easymock</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!-- Used by the parent SeekableStreamIndexTaskTestBase fixture. -->
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.easymock</groupId>
+            <artifactId>easymock</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

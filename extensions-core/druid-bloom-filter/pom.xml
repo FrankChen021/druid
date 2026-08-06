@@ -129,6 +129,7 @@
       <artifactId>reflections</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- BaseCalciteQueryTest exposes Hamcrest Matcher types in its inherited test API. -->
     <dependency>
       <groupId>org.hamcrest</groupId>
       <artifactId>hamcrest</artifactId>
