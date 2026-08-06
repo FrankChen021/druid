@@ -24,9 +24,9 @@ import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.math.expr.ExpressionType;
 import org.apache.druid.math.expr.InputBindings;
-import org.hamcrest.MatcherAssert;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.matchers.MatcherAssert;
+import org.junit.jupiter.api.Test;
 
 public class RegexpLikeExprMacroTest extends MacroTestBase
 {
@@ -53,7 +53,7 @@ public class RegexpLikeExprMacroTest extends MacroTestBase
   public void testInvalidRegexpLikePattern()
   {
     MatcherAssert.assertThat(
-        Assert.assertThrows(
+        JupiterAssertions.assertThrows(
             DruidException.class,
             () -> eval("regexp_like('a', '[Ab-C]')", InputBindings.nilBindings())),
         DruidExceptionMatcher.invalidInput().expectMessageContains(
@@ -70,7 +70,7 @@ public class RegexpLikeExprMacroTest extends MacroTestBase
         "regexp_like(a, 'f.o')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -83,7 +83,7 @@ public class RegexpLikeExprMacroTest extends MacroTestBase
         "regexp_like(a, 'f.x')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(false).value(),
         result.value()
     );
@@ -98,7 +98,7 @@ public class RegexpLikeExprMacroTest extends MacroTestBase
         "regexp_like(a, null)",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -111,7 +111,7 @@ public class RegexpLikeExprMacroTest extends MacroTestBase
         "regexp_like(a, '')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "foo")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -126,7 +126,7 @@ public class RegexpLikeExprMacroTest extends MacroTestBase
         "regexp_like(a, null)",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -139,7 +139,7 @@ public class RegexpLikeExprMacroTest extends MacroTestBase
         "regexp_like(a, '')",
         InputBindings.forInputSupplier("a", ExpressionType.STRING, () -> "")
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -151,7 +151,7 @@ public class RegexpLikeExprMacroTest extends MacroTestBase
     expectException(IllegalArgumentException.class, "Function[regexp_like] pattern must be a STRING literal");
 
     final ExprEval<?> result = eval("regexp_like(a, null)", InputBindings.nilBindings());
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         ExprEval.ofLongBoolean(true).value(),
         result.value()
     );
@@ -161,6 +161,6 @@ public class RegexpLikeExprMacroTest extends MacroTestBase
   public void testEmptyStringPatternOnNull()
   {
     final ExprEval<?> result = eval("regexp_like(a, '')", InputBindings.nilBindings());
-    Assert.assertNull(result.value());
+    JupiterAssertions.assertNull(result.value());
   }
 }

@@ -40,12 +40,12 @@ import org.apache.druid.segment.index.BitmapColumnIndex;
 import org.apache.druid.segment.index.semantic.StringValueSetIndexes;
 import org.apache.druid.segment.index.semantic.Utf8ValueSetIndexes;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
+import org.apache.druid.testing.JupiterAssertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.io.IOException;
@@ -56,6 +56,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.STRICT_STUBS)
 public class InDimFilterTest extends InitializedNullHandlingTest
 {
   private ObjectMapper mapper = new DefaultObjectMapper();
@@ -63,15 +65,12 @@ public class InDimFilterTest extends InitializedNullHandlingTest
   private final String serializedFilter =
       "{\"type\":\"in\",\"dimension\":\"dimTest\",\"values\":[\"bad\",\"good\"]}";
 
-  @Rule
-  public MockitoRule mockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
-
   @Test
   public void testDeserialization() throws IOException
   {
     final InDimFilter actualInDimFilter = mapper.readerFor(DimFilter.class).readValue(serializedFilter);
     final InDimFilter expectedInDimFilter = new InDimFilter("dimTest", Arrays.asList("good", "bad"), null);
-    Assert.assertEquals(expectedInDimFilter, actualInDimFilter);
+    JupiterAssertions.assertEquals(expectedInDimFilter, actualInDimFilter);
   }
 
   @Test
@@ -79,7 +78,7 @@ public class InDimFilterTest extends InitializedNullHandlingTest
   {
     final InDimFilter dimInFilter = new InDimFilter("dimTest", Arrays.asList("good", "bad"), null);
     final String actualSerializedFilter = mapper.writeValueAsString(dimInFilter);
-    Assert.assertEquals(serializedFilter, actualSerializedFilter);
+    JupiterAssertions.assertEquals(serializedFilter, actualSerializedFilter);
   }
 
   @Test
@@ -88,7 +87,7 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final Set<String> values = new InDimFilter.ValuesSet();
     values.addAll(Arrays.asList("v1", "v2", "v3"));
     final InDimFilter filter = new InDimFilter("dim", values);
-    Assert.assertSame(values, filter.getValues());
+    JupiterAssertions.assertSame(values, filter.getValues());
   }
 
   @Test
@@ -96,8 +95,8 @@ public class InDimFilterTest extends InitializedNullHandlingTest
   {
     final InDimFilter.ValuesSet values = InDimFilter.ValuesSet.copyOf(ImmutableSet.of("v1", "", "v3"));
     final InDimFilter filter = new InDimFilter("dim", values);
-    Assert.assertSame(values, filter.getValues());
-    Assert.assertEquals(Sets.newHashSet("v1", "", "v3"), filter.getValues());
+    JupiterAssertions.assertSame(values, filter.getValues());
+    JupiterAssertions.assertEquals(Sets.newHashSet("v1", "", "v3"), filter.getValues());
   }
 
   @Test
@@ -105,7 +104,7 @@ public class InDimFilterTest extends InitializedNullHandlingTest
   {
     final InDimFilter dimFilter1 = new InDimFilter("dim", ImmutableList.of("v1", "v2"), null);
     final InDimFilter dimFilter2 = new InDimFilter("dim", ImmutableList.of("v2", "v1"), null);
-    Assert.assertArrayEquals(dimFilter1.getCacheKey(), dimFilter2.getCacheKey());
+    JupiterAssertions.assertArrayEquals(dimFilter1.getCacheKey(), dimFilter2.getCacheKey());
   }
 
   @Test
@@ -114,7 +113,7 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final InDimFilter inDimFilter1 = new InDimFilter("dimTest", Arrays.asList(null, "abc"), null);
     final InDimFilter inDimFilter2 = new InDimFilter("dimTest", Arrays.asList("", "abc"), null);
 
-    Assert.assertFalse(Arrays.equals(inDimFilter1.getCacheKey(), inDimFilter2.getCacheKey()));
+    JupiterAssertions.assertFalse(Arrays.equals(inDimFilter1.getCacheKey(), inDimFilter2.getCacheKey()));
   }
 
   @Test
@@ -126,9 +125,9 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final InDimFilter dimFilter3 = new InDimFilter("dim", ImmutableSortedSet.copyOf(Arrays.asList("v2", "v1")));
     reverseOrderSet.addAll(Arrays.asList("v1", "v2"));
     final InDimFilter dimFilter4 = new InDimFilter("dim", reverseOrderSet);
-    Assert.assertArrayEquals(dimFilter1.getCacheKey(), dimFilter2.getCacheKey());
-    Assert.assertArrayEquals(dimFilter1.getCacheKey(), dimFilter3.getCacheKey());
-    Assert.assertArrayEquals(dimFilter1.getCacheKey(), dimFilter4.getCacheKey());
+    JupiterAssertions.assertArrayEquals(dimFilter1.getCacheKey(), dimFilter2.getCacheKey());
+    JupiterAssertions.assertArrayEquals(dimFilter1.getCacheKey(), dimFilter3.getCacheKey());
+    JupiterAssertions.assertArrayEquals(dimFilter1.getCacheKey(), dimFilter4.getCacheKey());
   }
 
   @Test
@@ -136,7 +135,7 @@ public class InDimFilterTest extends InitializedNullHandlingTest
   {
     final InDimFilter inDimFilter1 = new InDimFilter("dimTest", Arrays.asList("good", "bad"), null);
     final InDimFilter inDimFilter2 = new InDimFilter("dimTest", Collections.singletonList("good,bad"), null);
-    Assert.assertFalse(Arrays.equals(inDimFilter1.getCacheKey(), inDimFilter2.getCacheKey()));
+    JupiterAssertions.assertFalse(Arrays.equals(inDimFilter1.getCacheKey(), inDimFilter2.getCacheKey()));
   }
 
   @Test
@@ -144,7 +143,7 @@ public class InDimFilterTest extends InitializedNullHandlingTest
   {
     final InDimFilter inDimFilter1 = new InDimFilter("dimTest", Arrays.asList(null, "abc"), null);
     final InDimFilter inDimFilter2 = new InDimFilter("dimTest", Arrays.asList("\0\0\0\0", "abc"), null);
-    Assert.assertFalse(Arrays.equals(inDimFilter1.getCacheKey(), inDimFilter2.getCacheKey()));
+    JupiterAssertions.assertFalse(Arrays.equals(inDimFilter1.getCacheKey(), inDimFilter2.getCacheKey()));
   }
 
   @Test
@@ -152,7 +151,7 @@ public class InDimFilterTest extends InitializedNullHandlingTest
   {
     final InDimFilter inDimFilter1 = new InDimFilter("dimTest", Arrays.asList("bar", "foo"), null);
     final InDimFilter inDimFilter2 = new InDimFilter("dimTest", Arrays.asList("barf", "oo"), null);
-    Assert.assertFalse(Arrays.equals(inDimFilter1.getCacheKey(), inDimFilter2.getCacheKey()));
+    JupiterAssertions.assertFalse(Arrays.equals(inDimFilter1.getCacheKey(), inDimFilter2.getCacheKey()));
   }
 
   @Test
@@ -161,7 +160,7 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     RegexDimExtractionFn regexFn = new RegexDimExtractionFn(".*", false, null);
     final InDimFilter inDimFilter1 = new InDimFilter("dimTest", Arrays.asList("good", "bad"), regexFn);
     final InDimFilter inDimFilter2 = new InDimFilter("dimTest", Collections.singletonList("good,bad"), regexFn);
-    Assert.assertFalse(Arrays.equals(inDimFilter1.getCacheKey(), inDimFilter2.getCacheKey()));
+    JupiterAssertions.assertFalse(Arrays.equals(inDimFilter1.getCacheKey(), inDimFilter2.getCacheKey()));
   }
 
   @Test
@@ -171,7 +170,7 @@ public class InDimFilterTest extends InitializedNullHandlingTest
         "{\"type\":\"in\",\"dimension\":\"dimTest\",\"values\":[null]}",
         InDimFilter.class
     );
-    Assert.assertNotNull(inDimFilter.getCacheKey());
+    JupiterAssertions.assertNotNull(inDimFilter.getCacheKey());
   }
 
   @Test
@@ -179,7 +178,7 @@ public class InDimFilterTest extends InitializedNullHandlingTest
   {
     InDimFilter filter1 = new InDimFilter("dim", Arrays.asList("val", null), null);
     InDimFilter filter2 = new InDimFilter("dim", Collections.singletonList("val"), null);
-    Assert.assertFalse(Arrays.equals(filter1.getCacheKey(), filter2.getCacheKey()));
+    JupiterAssertions.assertFalse(Arrays.equals(filter1.getCacheKey(), filter2.getCacheKey()));
   }
 
   @Test
@@ -187,7 +186,7 @@ public class InDimFilterTest extends InitializedNullHandlingTest
   {
     final InDimFilter filter = new InDimFilter("dim", ImmutableList.of("v1", "v2"), null);
     // Compares the array object, not the elements of the array
-    Assert.assertSame(filter.getCacheKey(), filter.getCacheKey());
+    JupiterAssertions.assertSame(filter.getCacheKey(), filter.getCacheKey());
   }
 
   @Test
@@ -195,15 +194,15 @@ public class InDimFilterTest extends InitializedNullHandlingTest
   {
     final InDimFilter dimFilter1 = new InDimFilter("dim", ImmutableList.of("v1", "v2", "v3"), null);
     final InDimFilter dimFilter2 = new InDimFilter("dim", ImmutableList.of("v3", "v2", "v1"), null);
-    Assert.assertEquals(dimFilter1.getDimensionRangeSet("dim"), dimFilter2.getDimensionRangeSet("dim"));
+    JupiterAssertions.assertEquals(dimFilter1.getDimensionRangeSet("dim"), dimFilter2.getDimensionRangeSet("dim"));
   }
 
   @Test
   public void testOptimizeSingleValueInToSelector()
   {
     final InDimFilter filter = new InDimFilter("dim", Collections.singleton("v1"), null);
-    Assert.assertEquals(new SelectorDimFilter("dim", "v1", null), filter.optimize(false));
-    Assert.assertEquals(new SelectorDimFilter("dim", "v1", null), filter.optimize(true));
+    JupiterAssertions.assertEquals(new SelectorDimFilter("dim", "v1", null), filter.optimize(false));
+    JupiterAssertions.assertEquals(new SelectorDimFilter("dim", "v1", null), filter.optimize(true));
   }
 
   @Test
@@ -215,56 +214,56 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final LookupExtractor lookup = ImmutableLookupMap.fromMap(lookupMap).asLookupExtractor(false, () -> new byte[0]);
     final LookupExtractionFn extractionFn = new LookupExtractionFn(lookup, false, null, null, true);
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup bar",
         Sets.newHashSet("foo"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup bar (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup baz",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("baz"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup baz (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("baz"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup [def, bar, baz]",
         Sets.newHashSet("abc", "foo"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Arrays.asList("def", "bar", "baz"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup [def, bar, baz] (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Arrays.asList("def", "bar", "baz"), extractionFn), true)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup null",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup null (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup empty string",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup empty string (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), true)
     );
@@ -279,57 +278,57 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final LookupExtractor lookup = ImmutableLookupMap.fromMap(lookupMap).asLookupExtractor(false, () -> new byte[0]);
     final LookupExtractionFn extractionFn = new LookupExtractionFn(lookup, false, "baz", null, true);
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup bar",
         Sets.newHashSet("foo"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup bar (includeUnknown)",
         Sets.newHashSet("foo"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), true)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup baz",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("baz"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup baz (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("baz"), extractionFn), true)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup [def, bar, baz]",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Arrays.asList("def", "bar", "baz"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup [def, bar, baz] (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Arrays.asList("def", "bar", "baz"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup null",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup null (includeUnknown)",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup empty string",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup empty string (includeUnknown)",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), true)
@@ -346,56 +345,56 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final LookupExtractor lookup = ImmutableLookupMap.fromMap(lookupMap).asLookupExtractor(false, () -> new byte[0]);
     final LookupExtractionFn extractionFn = new LookupExtractionFn(lookup, false, "bar", null, true);
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup bar",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup bar (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup baz",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("baz"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup baz (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("baz"), extractionFn), true)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup [def, bar, baz]",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Arrays.asList("def", "bar", "baz"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup [def, bar, baz] (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Arrays.asList("def", "bar", "baz"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup null",
         Collections.singleton("nv"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup null (includeUnknown)",
         Collections.singleton("nv"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup empty string",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup empty string (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), true)
     );
@@ -411,57 +410,57 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final LookupExtractor lookup = ImmutableLookupMap.fromMap(lookupMap).asLookupExtractor(false, () -> new byte[0]);
     final LookupExtractionFn extractionFn = new LookupExtractionFn(lookup, false, "bar", null, true);
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup bar",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup bar (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup baz",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("baz"), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup baz (includeUnknown)",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("baz"), extractionFn), true)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup [def, bar, baz]",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Arrays.asList("def", "bar", "baz"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup [def, bar, baz] (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Arrays.asList("def", "bar", "baz"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup null",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup null (includeUnknown)",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup empty string",
         Collections.singleton("emptystring"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup empty string (includeUnknown)",
         Collections.singleton("emptystring"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), true)
@@ -476,23 +475,23 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final LookupExtractor lookup = ImmutableLookupMap.fromMap(lookupMap).asLookupExtractor(false, () -> new byte[0]);
     final LookupExtractionFn extractionFn = new LookupExtractionFn(lookup, false, null, null, true);
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup empty string",
         Collections.singleton("emptystring"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup empty string (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), true)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup null",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup null (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), true)
     );
@@ -506,23 +505,23 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final LookupExtractor lookup = ImmutableLookupMap.fromMap(lookupMap).asLookupExtractor(false, () -> new byte[0]);
     final LookupExtractionFn extractionFn = new LookupExtractionFn(lookup, false, null, null, true);
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup bar",
         Collections.singleton(""),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup bar (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), true)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup null",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup null (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), true)
     );
@@ -537,58 +536,58 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final LookupExtractor lookup = ImmutableLookupMap.fromMap(lookupMap).asLookupExtractor(false, () -> new byte[0]);
     final LookupExtractionFn extractionFn = new LookupExtractionFn(lookup, true, null, null, true);
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup bar",
         Sets.newHashSet("bar", "foo"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup bar (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup baz",
         Collections.singleton("baz"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("baz"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup baz (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("baz"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup [def, bar, baz]",
         Sets.newHashSet("abc", "bar", "baz", "def", "foo"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Arrays.asList("def", "bar", "baz"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup [def, bar, baz] (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Arrays.asList("def", "bar", "baz"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup null",
         Collections.singleton(null),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup null (includeUnknown)",
         Collections.singleton(null),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup empty string",
         Collections.singleton(""),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup empty string (includeUnknown)",
         null,
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), true)
@@ -604,61 +603,61 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final LookupExtractor lookup = ImmutableLookupMap.fromMap(lookupMap).asLookupExtractor(true, () -> new byte[0]);
     final LookupExtractionFn extractionFn = new LookupExtractionFn(lookup, false, null, null, true);
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup bar",
         Sets.newHashSet("foo"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup bar (includeUnknown)",
         Sets.newHashSet("foo"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("bar"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup baz",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("baz"), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup baz (includeUnknown)",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("baz"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup [def, bar, baz]",
         Sets.newHashSet("abc", "foo"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Arrays.asList("def", "bar", "baz"), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup [def, bar, baz] (includeUnknown)",
         Sets.newHashSet("abc", "foo"),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Arrays.asList("def", "bar", "baz"), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup null",
         Collections.singleton(null),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup null (includeUnknown)",
         Collections.singleton(null),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup empty string",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), false)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup empty string (includeUnknown)",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), true)
@@ -673,34 +672,34 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final LookupExtractor lookup = ImmutableLookupMap.fromMap(lookupMap).asLookupExtractor(false, () -> new byte[0]);
     final LookupExtractionFn extractionFn = new LookupExtractionFn(lookup, false, null, null, true);
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup nv",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("nv"), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup nv (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton("nv"), extractionFn), true)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup null",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup null (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(null), extractionFn), true)
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "reverse lookup empty string",
         Collections.emptySet(),
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), false)
     );
 
-    Assert.assertNull(
+    JupiterAssertions.assertNull(
         "reverse lookup empty string (includeUnknown)",
         InDimFilter.optimizeLookup(new InDimFilter("dim", Collections.singleton(""), extractionFn), true)
     );
@@ -732,15 +731,15 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     final ValueMatcher matcher = filter.toFilter().makeMatcher(columnSelectorFactory);
 
     // This would throw an exception without InDimFilter's null-checking lambda wrapping.
-    Assert.assertFalse(matcher.matches(false));
+    JupiterAssertions.assertFalse(matcher.matches(false));
 
     row.put("dim", "foo");
     // Now it should match.
-    Assert.assertTrue(matcher.matches(false));
+    JupiterAssertions.assertTrue(matcher.matches(false));
 
     row.put("dim", "fox");
     // Now it *shouldn't* match.
-    Assert.assertFalse(matcher.matches(false));
+    JupiterAssertions.assertFalse(matcher.matches(false));
   }
 
   @Test
@@ -764,7 +763,7 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     Mockito.when(valueIndexes.forSortedValuesUtf8(expectedValuesSet.toUtf8())).thenReturn(bitmapColumnIndex);
 
     final BitmapColumnIndex retVal = inFilter.getBitmapColumnIndex(indexSelector);
-    Assert.assertSame("inFilter returns the intended bitmapColumnIndex", bitmapColumnIndex, retVal);
+    JupiterAssertions.assertSame("inFilter returns the intended bitmapColumnIndex", bitmapColumnIndex, retVal);
   }
 
   @Test
@@ -789,6 +788,6 @@ public class InDimFilterTest extends InitializedNullHandlingTest
     Mockito.when(valueIndex.forSortedValues(expectedValuesSet)).thenReturn(bitmapColumnIndex);
 
     final BitmapColumnIndex retVal = inFilter.getBitmapColumnIndex(indexSelector);
-    Assert.assertSame("inFilter returns the intended bitmapColumnIndex", bitmapColumnIndex, retVal);
+    JupiterAssertions.assertSame("inFilter returns the intended bitmapColumnIndex", bitmapColumnIndex, retVal);
   }
 }

@@ -20,25 +20,22 @@
 package org.apache.druid.segment;
 
 import com.google.common.util.concurrent.Runnables;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.ThrowableExpectation;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class CloserRuleTest
 {
-  @Rule
-  public final ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public final ThrowableExpectation expectedException = ThrowableExpectation.none();
 
   @Test
   public void testCloses() throws Throwable
@@ -56,7 +53,7 @@ public class CloserRuleTest
         }
     );
     run(closer, Runnables.doNothing());
-    Assert.assertTrue(closed.get());
+    JupiterAssertions.assertTrue(closed.get());
   }
 
   @Test
@@ -88,10 +85,10 @@ public class CloserRuleTest
     catch (Exception e) {
       ex = e;
     }
-    Assert.assertTrue(closed.get());
-    Assert.assertNotNull(ex);
-    Assert.assertTrue(ex instanceof ArithmeticException);
-    Assert.assertEquals(msg, ex.getMessage());
+    JupiterAssertions.assertTrue(closed.get());
+    JupiterAssertions.assertNotNull(ex);
+    JupiterAssertions.assertTrue(ex instanceof ArithmeticException);
+    JupiterAssertions.assertEquals(msg, ex.getMessage());
   }
 
 
@@ -138,10 +135,10 @@ public class CloserRuleTest
     catch (Throwable e) {
       ex = e;
     }
-    Assert.assertEquals(arithmeticException, ex);
-    Assert.assertNotNull(ex);
-    Assert.assertNotNull(ex.getSuppressed());
-    Assert.assertEquals(suppressed, ex.getSuppressed()[0]);
+    JupiterAssertions.assertEquals(arithmeticException, ex);
+    JupiterAssertions.assertNotNull(ex);
+    JupiterAssertions.assertNotNull(ex.getSuppressed());
+    JupiterAssertions.assertEquals(suppressed, ex.getSuppressed()[0]);
   }
 
   @Test
@@ -167,7 +164,7 @@ public class CloserRuleTest
     catch (Throwable throwable) {
       ex = throwable;
     }
-    Assert.assertEquals(ioException, ex);
+    JupiterAssertions.assertEquals(ioException, ex);
   }
 
 
@@ -263,24 +260,13 @@ public class CloserRuleTest
     catch (Throwable throwable) {
       ex = throwable;
     }
-    Assert.assertNotNull(ex);
-    Assert.assertEquals(ioExceptions.size(), counter.get());
-    Assert.assertEquals(2, ex.getSuppressed().length);
+    JupiterAssertions.assertNotNull(ex);
+    JupiterAssertions.assertEquals(ioExceptions.size(), counter.get());
+    JupiterAssertions.assertEquals(2, ex.getSuppressed().length);
   }
 
   private void run(CloserRule closer, final Runnable runnable) throws Throwable
   {
-    closer.apply(
-        new Statement()
-        {
-          @Override
-          public void evaluate()
-          {
-            runnable.run();
-          }
-        }, Description.createTestDescription(
-            CloserRuleTest.class.getName(), "baseRunner", UUID.randomUUID()
-        )
-    ).evaluate();
+    closer.run(runnable::run);
   }
 }

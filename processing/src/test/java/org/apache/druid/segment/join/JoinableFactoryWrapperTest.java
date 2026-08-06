@@ -39,11 +39,11 @@ import org.apache.druid.segment.join.table.IndexedTable;
 import org.apache.druid.segment.join.table.IndexedTableJoinable;
 import org.apache.druid.segment.join.table.RowBasedIndexedTable;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.TempDirExtension;
+import org.apache.druid.testing.ThrowableExpectation;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.Arrays;
 import java.util.List;
@@ -142,11 +142,11 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
       DateTimes.nowUtc().toString()
   );
 
-  @Rule
-  public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public TempDirExtension temporaryFolder = new TempDirExtension();
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ThrowableExpectation expectedException = ThrowableExpectation.none();
 
   @Test
   public void test_checkClausePrefixesForDuplicatesAndShadowing_noConflicts()
@@ -213,7 +213,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(new InDimFilter("x", TEST_LOOKUP_KEYS)),
             ImmutableList.of()
@@ -237,7 +237,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(new InDimFilter(
                                  "x",
@@ -269,7 +269,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
     // Although the filter created was an In Filter in equijoin (here inFilter = IN (Mexico))
     // We should receive a SelectorFilter for Filters.toFilter(inFilter) call
     // and should receive a SelectorFilter with x = Mexico
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(new SelectorFilter("x", "Mexico", null)),
             ImmutableList.of()
@@ -308,7 +308,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(new InDimFilter("x", TEST_LOOKUP_KEYS), new InDimFilter("x", TEST_LOOKUP_KEYS)),
             ImmutableList.of(clauses.get(2))
@@ -347,7 +347,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(
                 new InDimFilter("x", TEST_LOOKUP_KEYS),
@@ -380,7 +380,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         2
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(),
             ImmutableList.of(clause)
@@ -405,7 +405,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(),
             ImmutableList.of(clause)
@@ -430,7 +430,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(new InDimFilter("x", TEST_LOOKUP_KEYS)),
             ImmutableList.of(clause)
@@ -455,7 +455,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(FalseFilter.instance()),
             ImmutableList.of()
@@ -480,7 +480,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(),
             ImmutableList.of(clause)
@@ -505,7 +505,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(),
             ImmutableList.of(clause)
@@ -530,7 +530,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(),
             ImmutableList.of(clause)
@@ -566,7 +566,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(new InDimFilter("x", TEST_LOOKUP_KEYS)),
             clauses
@@ -605,7 +605,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(new InDimFilter("x", TEST_LOOKUP_KEYS)),
             clauses
@@ -644,7 +644,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(new InDimFilter("x", TEST_LOOKUP_KEYS), new InDimFilter("x", TEST_LOOKUP_KEYS)),
             clauses.subList(1, clauses.size())
@@ -679,7 +679,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
         Integer.MAX_VALUE
     );
 
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(),
             clauses
@@ -704,7 +704,7 @@ public class JoinableFactoryWrapperTest extends InitializedNullHandlingTest
     );
 
     // Optimization does not kick in as there are > 1 equijoins
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         Pair.of(
             ImmutableList.of(),
             ImmutableList.of(joinableClause)

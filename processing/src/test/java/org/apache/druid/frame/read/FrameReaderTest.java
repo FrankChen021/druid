@@ -28,16 +28,18 @@ import org.apache.druid.segment.CursorFactory;
 import org.apache.druid.segment.QueryableIndexCursorFactory;
 import org.apache.druid.segment.TestIndex;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.apache.druid.testing.JupiterAssertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+
+@MethodSource("constructorFeeder")
 public class FrameReaderTest extends InitializedNullHandlingTest
 {
   private final FrameType frameType;
@@ -51,7 +53,6 @@ public class FrameReaderTest extends InitializedNullHandlingTest
     this.frameType = frameType;
   }
 
-  @Parameterized.Parameters(name = "frameType = {0}")
   public static Iterable<Object[]> constructorFeeder()
   {
     final List<Object[]> constructors = new ArrayList<>();
@@ -63,7 +64,7 @@ public class FrameReaderTest extends InitializedNullHandlingTest
     return constructors;
   }
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     inputCursorFactory = new QueryableIndexCursorFactory(TestIndex.getNoRollupMMappedTestIndex());
@@ -80,14 +81,14 @@ public class FrameReaderTest extends InitializedNullHandlingTest
   @Test
   public void testSignature()
   {
-    Assert.assertEquals(inputCursorFactory.getRowSignature(), frameReader.signature());
+    JupiterAssertions.assertEquals(inputCursorFactory.getRowSignature(), frameReader.signature());
   }
 
   @Test
   public void testColumnCapabilitiesToColumnType()
   {
     for (final String columnName : inputCursorFactory.getRowSignature().getColumnNames()) {
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           columnName,
           inputCursorFactory.getRowSignature().getColumnCapabilities(columnName).toColumnType(),
           frameReader.columnCapabilities(frame, columnName).toColumnType()

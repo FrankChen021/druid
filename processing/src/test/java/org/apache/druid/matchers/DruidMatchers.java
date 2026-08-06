@@ -20,8 +20,8 @@
 package org.apache.druid.matchers;
 
 import org.apache.druid.java.util.common.IAE;
-import org.hamcrest.Matcher;
-import org.hamcrest.Matchers;
+import org.apache.druid.testing.matchers.Matcher;
+import org.apache.druid.testing.matchers.Matchers;
 
 import java.util.ArrayList;
 import java.util.Map;

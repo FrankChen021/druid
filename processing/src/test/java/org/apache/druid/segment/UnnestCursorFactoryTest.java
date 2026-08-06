@@ -53,18 +53,17 @@ import org.apache.druid.segment.join.PostJoinCursor;
 import org.apache.druid.segment.transform.TransformSpec;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.TempDirExtension;
+import org.apache.druid.testing.matchers.CoreMatchers;
+import org.apache.druid.testing.matchers.MatcherAssert;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.partition.LinearShardSpec;
 import org.apache.druid.utils.CloseableUtils;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -81,8 +80,8 @@ import static org.apache.druid.segment.filter.Filters.or;
 
 public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
 {
-  @ClassRule
-  public static TemporaryFolder tmp = new TemporaryFolder();
+  @RegisterExtension
+  public static TempDirExtension tmp = new TempDirExtension();
   private static Closer CLOSER;
   private static IncrementalIndex INCREMENTAL_INDEX;
   private static IncrementalIndexCursorFactory INCREMENTAL_INDEX_CURSOR_FACTORY;
@@ -96,7 +95,7 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
   private static String OUTPUT_COLUMN_NAME1 = "unnested-multi-string1-again";
 
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() throws IOException
   {
     CLOSER = Closer.create();
@@ -161,7 +160,7 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
     );
   }
 
-  @AfterClass
+  @AfterAll
   public static void teardown()
   {
     CloseableUtils.closeAndSuppressExceptions(CLOSER, throwable -> {
@@ -174,7 +173,7 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
     String colName = "multi-string1";
     for (UnnestCursorFactory cursorFactory : CURSOR_FACTORIES) {
       cursorFactory.getColumnCapabilities(colName);
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           cursorFactory.getColumnCapabilities(colName).toColumnType(),
           INCREMENTAL_INDEX_CURSOR_FACTORY.getColumnCapabilities(colName).toColumnType()
       );
@@ -207,14 +206,14 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
 
     for (int i = 0; i < columnsInTable.size(); i++) {
       ColumnCapabilities capabilities = cursorFactory.getColumnCapabilities(columnsInTable.get(i));
-      Assert.assertEquals(capabilities.getType(), valueTypes.get(i));
+      JupiterAssertions.assertEquals(capabilities.getType(), valueTypes.get(i));
     }
     assertColumnReadsIdentifier(cursorFactory.getUnnestColumn(), colName);
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         cursorFactory.getColumnCapabilities(OUTPUT_COLUMN_NAME).isDictionaryEncoded(),
         ColumnCapabilities.Capable.TRUE // passed through from dict-encoded input
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         cursorFactory.getColumnCapabilities(OUTPUT_COLUMN_NAME).hasMultipleValues(),
         ColumnCapabilities.Capable.FALSE
     );
@@ -248,8 +247,8 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
       each row has 8 entries.
       unnest 2 rows -> 16 rows after unnest
        */
-      Assert.assertEquals(count, 16);
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(count, 16);
+      JupiterAssertions.assertEquals(
           Arrays.asList("0", "1", "2", "3", "4", "5", "6", "7", "10", "11", "12", "13", "14", "15", "8", "9"),
           rows
       );
@@ -270,10 +269,10 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
 
     final AsyncCursorHolder asyncHolder = unnest.makeCursorHolderAsync(CursorBuildSpec.FULL_SCAN);
     try {
-      Assert.assertFalse("unnest holder must wait for the base to complete", asyncHolder.isReady());
+      JupiterAssertions.assertFalse("unnest holder must wait for the base to complete", asyncHolder.isReady());
 
       base.complete();
-      Assert.assertTrue("unnest holder becomes ready once the base completes", asyncHolder.isReady());
+      JupiterAssertions.assertTrue("unnest holder becomes ready once the base completes", asyncHolder.isReady());
 
       try (final CursorHolder cursorHolder = asyncHolder.release()) {
         final Cursor cursor = cursorHolder.asCursor();
@@ -284,7 +283,7 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
           rows.add(dimSelector.getObject());
           cursor.advance();
         }
-        Assert.assertEquals(
+        JupiterAssertions.assertEquals(
             Arrays.asList("0", "1", "2", "3", "4", "5", "6", "7", "10", "11", "12", "13", "14", "15", "8", "9"),
             rows
         );
@@ -307,9 +306,9 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
     );
 
     final AsyncCursorHolder asyncHolder = unnest.makeCursorHolderAsync(CursorBuildSpec.FULL_SCAN);
-    Assert.assertFalse(asyncHolder.isReady());
+    JupiterAssertions.assertFalse(asyncHolder.isReady());
     asyncHolder.close();
-    Assert.assertTrue("closing the unnest holder before it's ready cancels the base load", base.canceled.get());
+    JupiterAssertions.assertTrue("closing the unnest holder before it's ready cancels the base load", base.canceled.get());
   }
 
   @Test
@@ -336,8 +335,8 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
         cursor.advance();
         count++;
       }
-      Assert.assertEquals(count, 12);
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(count, 12);
+      JupiterAssertions.assertEquals(
           Arrays.asList(2L, 3L, 1L, null, 3L, 1L, null, 2L, 9L, 1L, 2L, 3L),
           rows
       );
@@ -401,8 +400,8 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
         cursor.advance();
         count++;
       }
-      Assert.assertEquals(count, 11);
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(count, 11);
+      JupiterAssertions.assertEquals(
           Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L, null, 7L, 8L, 9L, 10L),
           rows
       );
@@ -424,9 +423,9 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
         Object dimSelectorVal = dimSelector.getObject();
         Object valueSelectorVal = valueSelector.getObject();
         if (dimSelectorVal == null) {
-          Assert.assertNull(dimSelectorVal);
+          JupiterAssertions.assertNull(dimSelectorVal);
         } else if (valueSelectorVal == null) {
-          Assert.assertNull(valueSelectorVal);
+          JupiterAssertions.assertNull(valueSelectorVal);
         }
         cursor.advance();
         count++;
@@ -437,8 +436,8 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
                        fabricated so cardinality is 17
       unnest of unnest -> 16*8 = 128 rows
        */
-      Assert.assertEquals(count, 128);
-      Assert.assertEquals(dimSelector.getValueCardinality(), 17);
+      JupiterAssertions.assertEquals(count, 128);
+      JupiterAssertions.assertEquals(dimSelector.getValueCardinality(), 17);
     }
   }
 
@@ -473,11 +472,11 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
       Cursor cursor = cursorHolder.asCursor();
       final Filter pushDownFilter = testCursorFactory.getPushDownFilter();
 
-      Assert.assertEquals(expectedPushDownFilter, pushDownFilter);
-      Assert.assertEquals(cursor.getClass(), PostJoinCursor.class);
+      JupiterAssertions.assertEquals(expectedPushDownFilter, pushDownFilter);
+      JupiterAssertions.assertEquals(cursor.getClass(), PostJoinCursor.class);
       final Filter postFilter = ((PostJoinCursor) cursor).getPostJoinFilter();
       // OR-case so base filter should match the postJoinFilter
-      Assert.assertEquals(baseFilter, postFilter);
+      JupiterAssertions.assertEquals(baseFilter, postFilter);
     }
   }
 
@@ -518,11 +517,11 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
       Cursor cursor = cursorHolder.asCursor();
       final Filter pushDownFilter = testCursorFactory.getPushDownFilter();
 
-      Assert.assertEquals(expectedPushDownFilter, pushDownFilter);
-      Assert.assertEquals(cursor.getClass(), PostJoinCursor.class);
+      JupiterAssertions.assertEquals(expectedPushDownFilter, pushDownFilter);
+      JupiterAssertions.assertEquals(cursor.getClass(), PostJoinCursor.class);
       final Filter postFilter = ((PostJoinCursor) cursor).getPostJoinFilter();
       // OR-case so base filter should match the postJoinFilter
-      Assert.assertEquals(baseFilter, postFilter);
+      JupiterAssertions.assertEquals(baseFilter, postFilter);
     }
   }
 
@@ -794,17 +793,17 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
       Cursor cursor = cursorHolder.asCursor();
       final Filter pushDownFilter = testCursorFactory.getPushDownFilter();
 
-      Assert.assertEquals(expectedPushDownFilter, pushDownFilter);
-      Assert.assertEquals(cursor.getClass(), PostJoinCursor.class);
+      JupiterAssertions.assertEquals(expectedPushDownFilter, pushDownFilter);
+      JupiterAssertions.assertEquals(cursor.getClass(), PostJoinCursor.class);
       final Filter postFilter = ((PostJoinCursor) cursor).getPostJoinFilter();
-      Assert.assertEquals(filter.toFilter(), postFilter);
+      JupiterAssertions.assertEquals(filter.toFilter(), postFilter);
 
       int count = 0;
       while (!cursor.isDone()) {
         cursor.advance();
         count++;
       }
-      Assert.assertEquals(1, count);
+      JupiterAssertions.assertEquals(1, count);
     }
   }
 
@@ -835,17 +834,17 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
       Cursor cursor = cursorHolder.asCursor();
       final Filter pushDownFilter = testCursorFactory.getPushDownFilter();
 
-      Assert.assertEquals(expectedPushDownFilter, pushDownFilter);
-      Assert.assertEquals(cursor.getClass(), PostJoinCursor.class);
+      JupiterAssertions.assertEquals(expectedPushDownFilter, pushDownFilter);
+      JupiterAssertions.assertEquals(cursor.getClass(), PostJoinCursor.class);
       final Filter postFilter = ((PostJoinCursor) cursor).getPostJoinFilter();
-      Assert.assertEquals(queryFilter, postFilter);
+      JupiterAssertions.assertEquals(queryFilter, postFilter);
 
       int count = 0;
       while (!cursor.isDone()) {
         cursor.advance();
         count++;
       }
-      Assert.assertEquals(1, count);
+      JupiterAssertions.assertEquals(1, count);
     }
   }
 
@@ -885,14 +884,14 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
       while (!cursor.isDone()) {
         Object dimSelectorVal = dimSelector.getObject();
         if (dimSelectorVal == null) {
-          Assert.assertNull(dimSelectorVal);
-          Assert.assertTrue(matcher.matches(true));
+          JupiterAssertions.assertNull(dimSelectorVal);
+          JupiterAssertions.assertTrue(matcher.matches(true));
         }
-        Assert.assertFalse(matcher.matches(false));
+        JupiterAssertions.assertFalse(matcher.matches(false));
         cursor.advance();
         count++;
       }
-      Assert.assertEquals(count, 569);
+      JupiterAssertions.assertEquals(count, 569);
     }
   }
 
@@ -924,7 +923,7 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
         null
     );
 
-    Assertions.assertEquals(expected, transformed);
+    JupiterAssertions.assertEquals(expected, transformed);
   }
 
   @Test
@@ -954,7 +953,7 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
         null
     );
 
-    Assertions.assertEquals(expected, transformed);
+    JupiterAssertions.assertEquals(expected, transformed);
   }
 
   @Test
@@ -997,7 +996,7 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
         split.getBaseTableFilter()
     );
 
-    Assertions.assertEquals(expected, transformed);
+    JupiterAssertions.assertEquals(expected, transformed);
   }
 
   @Test
@@ -1047,7 +1046,7 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
         split.getBaseTableFilter()
     );
 
-    Assertions.assertEquals(expected, transformed);
+    JupiterAssertions.assertEquals(expected, transformed);
   }
 
   @Test
@@ -1077,7 +1076,7 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
         null
     );
 
-    Assertions.assertEquals(expected, transformed);
+    JupiterAssertions.assertEquals(expected, transformed);
   }
 
   public void testComputeBaseAndPostUnnestFilters(
@@ -1102,7 +1101,7 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
   )
   {
     final String inputColumn = cursorFactory.getUnnestInputIfDirectAccess(cursorFactory.getUnnestColumn());
-    Assert.assertNotNull(inputColumn);
+    JupiterAssertions.assertNotNull(inputColumn);
     final VirtualColumn vc = cursorFactory.getUnnestColumn();
     UnnestCursorFactory.UnnestFilterSplit filterSplit = UnnestCursorFactory.computeBaseAndPostUnnestFilters(
         testQueryFilter,
@@ -1114,12 +1113,12 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
     );
     Filter actualPushDownFilter = filterSplit.getBaseTableFilter();
     Filter actualPostUnnestFilter = filterSplit.getPostUnnestFilter();
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "Expects only top level child of And Filter to push down to base",
         expectedBasePushDown,
         actualPushDownFilter == null ? "" : actualPushDownFilter.toString()
     );
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(
         "Should have post unnest filter",
         expectedPostUnnest,
         actualPostUnnestFilter == null ? "" : actualPostUnnestFilter.toString()
@@ -1129,7 +1128,7 @@ public class UnnestCursorFactoryTest extends InitializedNullHandlingTest
   private static void assertColumnReadsIdentifier(final VirtualColumn column, final String identifier)
   {
     MatcherAssert.assertThat(column, CoreMatchers.instanceOf(ExpressionVirtualColumn.class));
-    Assert.assertEquals("\"" + identifier + "\"", ((ExpressionVirtualColumn) column).getExpression());
+    JupiterAssertions.assertEquals("\"" + identifier + "\"", ((ExpressionVirtualColumn) column).getExpression());
   }
 }
 

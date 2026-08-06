@@ -100,16 +100,17 @@ import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.ThrowableExpectation;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -122,18 +123,17 @@ import java.util.stream.Collectors;
 
 /**
  */
-@RunWith(Parameterized.class)
+@ParameterizedClass
+@MethodSource("constructorFeeder")
 public class TopNQueryRunnerTest extends InitializedNullHandlingTest
 {
   private static final Closer RESOURCE_CLOSER = Closer.create();
 
-  @AfterClass
+  @AfterAll
   public static void teardown() throws IOException
   {
     RESOURCE_CLOSER.close();
   }
-
-  @Parameterized.Parameters(name = "{6}")
   public static Iterable<Object[]> constructorFeeder()
   {
     List<QueryRunner<Result<TopNResultValue>>> retVal = queryRunners(true);
@@ -196,8 +196,8 @@ public class TopNQueryRunnerTest extends InitializedNullHandlingTest
 
     RESOURCE_CLOSER.register(() -> {
       // Verify that all objects have been returned to the pool.
-      Assert.assertEquals("defaultPool objects created", defaultPool.poolSize(), defaultPool.objectsCreatedCount());
-      Assert.assertEquals("customPool objects created", customPool.poolSize(), customPool.objectsCreatedCount());
+      JupiterAssertions.assertEquals("defaultPool objects created", defaultPool.poolSize(), defaultPool.objectsCreatedCount());
+      JupiterAssertions.assertEquals("customPool objects created", customPool.poolSize(), customPool.objectsCreatedCount());
       defaultPool.close();
       customPool.close();
     });
@@ -209,8 +209,8 @@ public class TopNQueryRunnerTest extends InitializedNullHandlingTest
   private final List<AggregatorFactory> commonAggregators;
 
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
+  @RegisterExtension
+  public ThrowableExpectation expectedException = ThrowableExpectation.none();
 
   @SuppressWarnings("unused")
   public TopNQueryRunnerTest(
@@ -2225,8 +2225,8 @@ public class TopNQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
     List<Result<TopNResultValue>> list = runWithMerge(query).toList();
-    Assert.assertEquals(list.size(), 1);
-    Assert.assertEquals("Didn't merge results", list.get(0).getValue().getValue().size(), 1);
+    JupiterAssertions.assertEquals(list.size(), 1);
+    JupiterAssertions.assertEquals("Didn't merge results", list.get(0).getValue().getValue().size(), 1);
     TestHelper.assertExpectedResults(expectedResults, list, "Failed to match");
   }
 
@@ -2272,8 +2272,8 @@ public class TopNQueryRunnerTest extends InitializedNullHandlingTest
         )
     );
     List<Result<TopNResultValue>> list = runWithMerge(query).toList();
-    Assert.assertEquals(list.size(), 1);
-    Assert.assertEquals("Didn't merge results", list.get(0).getValue().getValue().size(), 1);
+    JupiterAssertions.assertEquals(list.size(), 1);
+    JupiterAssertions.assertEquals("Didn't merge results", list.get(0).getValue().getValue().size(), 1);
     TestHelper.assertExpectedResults(expectedResults, list, "Failed to match");
   }
 
@@ -3784,7 +3784,7 @@ public class TopNQueryRunnerTest extends InitializedNullHandlingTest
     );
     Sequence<Result<TopNResultValue>> results = runWithMerge(query);
     for (Result<TopNResultValue> result : results.toList()) {
-      Assert.assertEquals(result.getValue(), result.getValue()); // TODO: fix this test
+      JupiterAssertions.assertEquals(result.getValue(), result.getValue()); // TODO: fix this test
     }
   }
 
@@ -5817,7 +5817,7 @@ public class TopNQueryRunnerTest extends InitializedNullHandlingTest
         .build();
 
     // Don't check results, just the fact that the query could complete
-    Assert.assertNotNull(runWithMerge(query).toList());
+    JupiterAssertions.assertNotNull(runWithMerge(query).toList());
   }
 
   @Test
@@ -7392,7 +7392,7 @@ public class TopNQueryRunnerTest extends InitializedNullHandlingTest
   {
     try (final CursorHolder cursorHolder =
              runner.getSegment().as(CursorFactory.class).makeCursorHolder(CursorBuildSpec.FULL_SCAN)) {
-      Assume.assumeTrue(Cursors.getTimeOrdering(cursorHolder.getOrdering()) == Order.ASCENDING);
+      Assumptions.assumeTrue(Cursors.getTimeOrdering(cursorHolder.getOrdering()) == Order.ASCENDING);
     }
   }
 

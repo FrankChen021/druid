@@ -92,19 +92,19 @@ import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.segment.virtual.NestedFieldVirtualColumn;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.JupiterAssertions;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 import org.joda.time.Period;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -117,7 +117,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@RunWith(Parameterized.class)
+@ParameterizedClass
+
+@MethodSource("constructorFeeder")
 public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
 {
   private static final Closer CLOSER = Closer.create();
@@ -402,7 +404,6 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                         )
                         .collect(Collectors.toList());
 
-  @Parameterized.Parameters(name = "name: {0}, segmentTimeOrdered: {5}, autoSchema: {6}, writeNullColumns: {7}")
   public static Collection<?> constructorFeeder()
   {
     final List<Object[]> constructors = new ArrayList<>();
@@ -515,7 +516,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
     return constructors;
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanup() throws IOException
   {
     CLOSER.close();
@@ -535,7 +536,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
   public final boolean segmentSortedByTime;
   public final boolean autoSchema;
 
-  @Rule
+  @RegisterExtension
   public final CloserRule closer = new CloserRule(false);
 
   public CursorFactoryProjectionTest(
@@ -725,11 +726,11 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
 
     final CursorBuildSpec buildSpec = GroupingEngine.makeCursorBuildSpec(query, null);
 
-    Throwable t = Assert.assertThrows(
+    Throwable t = JupiterAssertions.assertThrows(
         DruidException.class,
         () -> projectionsCursorFactory.makeCursorHolder(buildSpec)
     );
-    Assert.assertEquals("Force projections specified, but none satisfy query", t.getMessage());
+    JupiterAssertions.assertEquals("Force projections specified, but none satisfy query", t.getMessage());
   }
 
   @Test
@@ -1459,12 +1460,12 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                                         .build();
 
     final CursorBuildSpec buildSpec = TimeseriesQueryEngine.makeCursorBuildSpec(query, null);
-    DruidException e = Assert.assertThrows(
+    DruidException e = JupiterAssertions.assertThrows(
         DruidException.class,
         () -> projectionsCursorFactory.makeCursorHolder(buildSpec)
     );
-    Assert.assertEquals(DruidException.Category.INVALID_INPUT, e.getCategory());
-    Assert.assertEquals("Projection[b_c_sum] specified, but does not satisfy query", e.getMessage());
+    JupiterAssertions.assertEquals(DruidException.Category.INVALID_INPUT, e.getCategory());
+    JupiterAssertions.assertEquals("Projection[b_c_sum] specified, but does not satisfy query", e.getMessage());
   }
 
   @Test
@@ -1549,7 +1550,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
   public void testTimeseriesQueryGranularityFinerThanProjectionGranularity()
   {
     // timeseries query only works on base table if base table is sorted by time
-    Assume.assumeTrue(segmentSortedByTime);
+    Assumptions.assumeTrue(segmentSortedByTime);
     final TimeseriesQuery query = Druids.newTimeseriesQueryBuilder()
                                         .dataSource("test")
                                         .intervals(ImmutableList.of(Intervals.ETERNITY))
@@ -1878,16 +1879,16 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
     );
 
 
-    Assertions.assertEquals(UTC_MIDNIGHT, projectionsTimeBoundaryInspector.getMinTime());
+    JupiterAssertions.assertEquals(UTC_MIDNIGHT, projectionsTimeBoundaryInspector.getMinTime());
     if (isRealtime || segmentSortedByTime) {
-      Assertions.assertEquals(UTC_01H31M, projectionsTimeBoundaryInspector.getMaxTime());
+      JupiterAssertions.assertEquals(UTC_01H31M, projectionsTimeBoundaryInspector.getMaxTime());
     } else {
       // min and max time are inexact for non time ordered segments
-      Assertions.assertEquals(UTC_01H31M.plusMillis(1), projectionsTimeBoundaryInspector.getMaxTime());
+      JupiterAssertions.assertEquals(UTC_01H31M.plusMillis(1), projectionsTimeBoundaryInspector.getMaxTime());
     }
 
     // timeseries query only works on base table if base table is sorted by time
-    Assume.assumeTrue(segmentSortedByTime);
+    Assumptions.assumeTrue(segmentSortedByTime);
     final Sequence<Result<TimeseriesResultValue>> resultRowsNoProjection = timeseriesEngine.process(
         query.withOverriddenContext(Map.of(QueryContexts.NO_PROJECTIONS, true)),
         projectionsCursorFactory,
@@ -2069,7 +2070,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
     assertTimeseriesResults(query.getResultRowSignature(RowSignature.Finalization.YES), expectedResults, results);
 
     // timeseries query only works on base table if base table is sorted by time
-    Assume.assumeTrue(segmentSortedByTime);
+    Assumptions.assumeTrue(segmentSortedByTime);
     final Sequence<Result<TimeseriesResultValue>> resultRowsNoProjection = timeseriesEngine.process(
         query.withOverriddenContext(Map.of(QueryContexts.NO_PROJECTIONS, true)),
         cursorFactory,
@@ -2087,10 +2088,10 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
 
   private void assertGroupByResults(List<Object[]> expected, List<ResultRow> actual)
   {
-    Assertions.assertEquals(expected.size(), actual.size());
+    JupiterAssertions.assertEquals(expected.size(), actual.size());
     Object[] actualArray = actual.stream().map(ResultRow::getArray).map(Arrays::toString).toArray();
     // print a full diff of all differing elements.
-    Assertions.assertEquals(
+    JupiterAssertions.assertEquals(
         Arrays.toString(expected.stream().map(Arrays::toString).toArray()),
         Arrays.toString(actualArray)
     );
@@ -2102,9 +2103,9 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
       List<Result<TimeseriesResultValue>> actual
   )
   {
-    Assertions.assertEquals(expected.size(), actual.size());
+    JupiterAssertions.assertEquals(expected.size(), actual.size());
     for (int i = 0; i < expected.size(); i++) {
-      Assertions.assertArrayEquals(expected.get(i), getResultArray(actual.get(i), querySignature));
+      JupiterAssertions.assertArrayEquals(expected.get(i), getResultArray(actual.get(i), querySignature));
     }
   }
 
@@ -2139,7 +2140,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
           cursor.advance();
         }
       }
-      Assert.assertEquals(expectedRowCount, rowCount);
+      JupiterAssertions.assertEquals(expectedRowCount, rowCount);
     }
   }
 
@@ -2227,7 +2228,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
 
     void assertProjection()
     {
-      Assertions.assertEquals(expectedProjection, capturedProjection);
+      JupiterAssertions.assertEquals(expectedProjection, capturedProjection);
       capturedProjection = null;
     }
   }

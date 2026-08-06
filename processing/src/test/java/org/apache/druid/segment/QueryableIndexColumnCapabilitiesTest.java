@@ -46,12 +46,12 @@ import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.TempDirExtension;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -61,15 +61,15 @@ import java.util.Map;
 
 public class QueryableIndexColumnCapabilitiesTest extends InitializedNullHandlingTest
 {
-  @ClassRule
-  public static TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @RegisterExtension
+  public static TempDirExtension temporaryFolder = new TempDirExtension();
 
   private static IncrementalIndex INC_INDEX;
   private static QueryableIndex MMAP_INDEX;
   private static IncrementalIndex INC_INDEX_WITH_NULLS;
   private static QueryableIndex MMAP_INDEX_WITH_NULLS;
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() throws IOException
   {
     InputRowSchema rowSchema = new InputRowSchema(
@@ -142,7 +142,7 @@ public class QueryableIndexColumnCapabilitiesTest extends InitializedNullHandlin
     MMAP_INDEX_WITH_NULLS = builderWithNulls.buildMMappedIndex();
   }
 
-  @AfterClass
+  @AfterAll
   public static void teardown()
   {
     INC_INDEX.close();
@@ -227,34 +227,34 @@ public class QueryableIndexColumnCapabilitiesTest extends InitializedNullHandlin
   public void testStringColumn()
   {
     ColumnCapabilities caps = INC_INDEX.getColumnCapabilities("d1");
-    Assert.assertEquals(ValueType.STRING, caps.getType());
-    Assert.assertTrue(caps.hasBitmapIndexes());
-    Assert.assertTrue(caps.isDictionaryEncoded().isMaybeTrue());
-    Assert.assertTrue(caps.isDictionaryEncoded().isTrue());
-    Assert.assertFalse(caps.areDictionaryValuesSorted().isTrue());
-    Assert.assertTrue(caps.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertEquals(ValueType.STRING, caps.getType());
+    JupiterAssertions.assertTrue(caps.hasBitmapIndexes());
+    JupiterAssertions.assertTrue(caps.isDictionaryEncoded().isMaybeTrue());
+    JupiterAssertions.assertTrue(caps.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertFalse(caps.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertTrue(caps.areDictionaryValuesUnique().isTrue());
     // multi-value is unknown unless explicitly set to 'true'
-    Assert.assertTrue(caps.hasMultipleValues().isUnknown());
+    JupiterAssertions.assertTrue(caps.hasMultipleValues().isUnknown());
     // at index merge or query time we 'complete' the capabilities to take a snapshot of the current state,
     // coercing any 'UNKNOWN' values to false
-    Assert.assertFalse(
+    JupiterAssertions.assertFalse(
         ColumnCapabilitiesImpl.snapshot(
             caps,
             CapabilitiesBasedFormat.DIMENSION_CAPABILITY_MERGE_LOGIC
         ).hasMultipleValues().isMaybeTrue()
     );
-    Assert.assertFalse(caps.hasSpatialIndexes());
-    Assert.assertTrue(caps.hasNulls().isUnknown());
+    JupiterAssertions.assertFalse(caps.hasSpatialIndexes());
+    JupiterAssertions.assertTrue(caps.hasNulls().isUnknown());
 
     caps = MMAP_INDEX.getColumnHolder("d1").getCapabilities();
-    Assert.assertEquals(ValueType.STRING, caps.getType());
-    Assert.assertTrue(caps.hasBitmapIndexes());
-    Assert.assertTrue(caps.isDictionaryEncoded().isTrue());
-    Assert.assertTrue(caps.areDictionaryValuesSorted().isTrue());
-    Assert.assertTrue(caps.areDictionaryValuesUnique().isTrue());
-    Assert.assertFalse(caps.hasMultipleValues().isMaybeTrue());
-    Assert.assertFalse(caps.hasSpatialIndexes());
-    Assert.assertFalse(caps.hasNulls().isMaybeTrue());
+    JupiterAssertions.assertEquals(ValueType.STRING, caps.getType());
+    JupiterAssertions.assertTrue(caps.hasBitmapIndexes());
+    JupiterAssertions.assertTrue(caps.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertTrue(caps.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertTrue(caps.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertFalse(caps.hasMultipleValues().isMaybeTrue());
+    JupiterAssertions.assertFalse(caps.hasSpatialIndexes());
+    JupiterAssertions.assertFalse(caps.hasNulls().isMaybeTrue());
   }
 
 
@@ -262,57 +262,57 @@ public class QueryableIndexColumnCapabilitiesTest extends InitializedNullHandlin
   public void testStringColumnWithNulls()
   {
     ColumnCapabilities caps = INC_INDEX_WITH_NULLS.getColumnCapabilities("d1");
-    Assert.assertEquals(ValueType.STRING, caps.getType());
-    Assert.assertTrue(caps.hasBitmapIndexes());
-    Assert.assertTrue(caps.isDictionaryEncoded().isTrue());
-    Assert.assertFalse(caps.areDictionaryValuesSorted().isTrue());
-    Assert.assertTrue(caps.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertEquals(ValueType.STRING, caps.getType());
+    JupiterAssertions.assertTrue(caps.hasBitmapIndexes());
+    JupiterAssertions.assertTrue(caps.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertFalse(caps.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertTrue(caps.areDictionaryValuesUnique().isTrue());
     // multi-value is unknown unless explicitly set to 'true'
-    Assert.assertTrue(caps.hasMultipleValues().isUnknown());
+    JupiterAssertions.assertTrue(caps.hasMultipleValues().isUnknown());
     // at index merge or query time we 'complete' the capabilities to take a snapshot of the current state,
     // coercing any 'UNKNOWN' values to false
-    Assert.assertFalse(
+    JupiterAssertions.assertFalse(
         ColumnCapabilitiesImpl.snapshot(
             caps,
             CapabilitiesBasedFormat.DIMENSION_CAPABILITY_MERGE_LOGIC
         ).hasMultipleValues().isMaybeTrue()
     );
-    Assert.assertFalse(caps.hasSpatialIndexes());
-    Assert.assertTrue(caps.hasNulls().isTrue());
+    JupiterAssertions.assertFalse(caps.hasSpatialIndexes());
+    JupiterAssertions.assertTrue(caps.hasNulls().isTrue());
 
     caps = MMAP_INDEX_WITH_NULLS.getColumnHolder("d1").getCapabilities();
-    Assert.assertEquals(ValueType.STRING, caps.getType());
-    Assert.assertTrue(caps.hasBitmapIndexes());
-    Assert.assertTrue(caps.isDictionaryEncoded().isTrue());
-    Assert.assertTrue(caps.areDictionaryValuesSorted().isTrue());
-    Assert.assertTrue(caps.areDictionaryValuesUnique().isTrue());
-    Assert.assertFalse(caps.hasMultipleValues().isMaybeTrue());
-    Assert.assertFalse(caps.hasSpatialIndexes());
-    Assert.assertTrue(caps.hasNulls().isTrue());
+    JupiterAssertions.assertEquals(ValueType.STRING, caps.getType());
+    JupiterAssertions.assertTrue(caps.hasBitmapIndexes());
+    JupiterAssertions.assertTrue(caps.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertTrue(caps.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertTrue(caps.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertFalse(caps.hasMultipleValues().isMaybeTrue());
+    JupiterAssertions.assertFalse(caps.hasSpatialIndexes());
+    JupiterAssertions.assertTrue(caps.hasNulls().isTrue());
   }
 
   @Test
   public void testMultiStringColumn()
   {
     ColumnCapabilities caps = INC_INDEX.getColumnCapabilities("d2");
-    Assert.assertEquals(ValueType.STRING, caps.getType());
-    Assert.assertTrue(caps.hasBitmapIndexes());
-    Assert.assertTrue(caps.isDictionaryEncoded().isTrue());
-    Assert.assertFalse(caps.areDictionaryValuesSorted().isTrue());
-    Assert.assertTrue(caps.areDictionaryValuesUnique().isTrue());
-    Assert.assertTrue(caps.hasMultipleValues().isTrue());
-    Assert.assertFalse(caps.hasSpatialIndexes());
-    Assert.assertTrue(caps.hasNulls().isUnknown());
+    JupiterAssertions.assertEquals(ValueType.STRING, caps.getType());
+    JupiterAssertions.assertTrue(caps.hasBitmapIndexes());
+    JupiterAssertions.assertTrue(caps.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertFalse(caps.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertTrue(caps.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertTrue(caps.hasMultipleValues().isTrue());
+    JupiterAssertions.assertFalse(caps.hasSpatialIndexes());
+    JupiterAssertions.assertTrue(caps.hasNulls().isUnknown());
 
     caps = MMAP_INDEX.getColumnHolder("d2").getCapabilities();
-    Assert.assertEquals(ValueType.STRING, caps.getType());
-    Assert.assertTrue(caps.hasBitmapIndexes());
-    Assert.assertTrue(caps.isDictionaryEncoded().isTrue());
-    Assert.assertTrue(caps.areDictionaryValuesSorted().isTrue());
-    Assert.assertTrue(caps.areDictionaryValuesUnique().isTrue());
-    Assert.assertTrue(caps.hasMultipleValues().isTrue());
-    Assert.assertFalse(caps.hasSpatialIndexes());
-    Assert.assertFalse(caps.hasNulls().isMaybeTrue());
+    JupiterAssertions.assertEquals(ValueType.STRING, caps.getType());
+    JupiterAssertions.assertTrue(caps.hasBitmapIndexes());
+    JupiterAssertions.assertTrue(caps.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertTrue(caps.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertTrue(caps.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertTrue(caps.hasMultipleValues().isTrue());
+    JupiterAssertions.assertFalse(caps.hasSpatialIndexes());
+    JupiterAssertions.assertFalse(caps.hasNulls().isMaybeTrue());
   }
 
 
@@ -320,24 +320,24 @@ public class QueryableIndexColumnCapabilitiesTest extends InitializedNullHandlin
   public void testMultiStringColumnWithNulls()
   {
     ColumnCapabilities caps = INC_INDEX_WITH_NULLS.getColumnCapabilities("d2");
-    Assert.assertEquals(ValueType.STRING, caps.getType());
-    Assert.assertTrue(caps.hasBitmapIndexes());
-    Assert.assertTrue(caps.isDictionaryEncoded().isTrue());
-    Assert.assertFalse(caps.areDictionaryValuesSorted().isTrue());
-    Assert.assertTrue(caps.areDictionaryValuesUnique().isTrue());
-    Assert.assertTrue(caps.hasMultipleValues().isTrue());
-    Assert.assertFalse(caps.hasSpatialIndexes());
-    Assert.assertTrue(caps.hasNulls().isTrue());
+    JupiterAssertions.assertEquals(ValueType.STRING, caps.getType());
+    JupiterAssertions.assertTrue(caps.hasBitmapIndexes());
+    JupiterAssertions.assertTrue(caps.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertFalse(caps.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertTrue(caps.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertTrue(caps.hasMultipleValues().isTrue());
+    JupiterAssertions.assertFalse(caps.hasSpatialIndexes());
+    JupiterAssertions.assertTrue(caps.hasNulls().isTrue());
 
     caps = MMAP_INDEX_WITH_NULLS.getColumnHolder("d2").getCapabilities();
-    Assert.assertEquals(ValueType.STRING, caps.getType());
-    Assert.assertTrue(caps.hasBitmapIndexes());
-    Assert.assertTrue(caps.isDictionaryEncoded().isTrue());
-    Assert.assertTrue(caps.areDictionaryValuesSorted().isTrue());
-    Assert.assertTrue(caps.areDictionaryValuesUnique().isTrue());
-    Assert.assertTrue(caps.hasMultipleValues().isTrue());
-    Assert.assertFalse(caps.hasSpatialIndexes());
-    Assert.assertTrue(caps.hasNulls().isTrue());
+    JupiterAssertions.assertEquals(ValueType.STRING, caps.getType());
+    JupiterAssertions.assertTrue(caps.hasBitmapIndexes());
+    JupiterAssertions.assertTrue(caps.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertTrue(caps.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertTrue(caps.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertTrue(caps.hasMultipleValues().isTrue());
+    JupiterAssertions.assertFalse(caps.hasSpatialIndexes());
+    JupiterAssertions.assertTrue(caps.hasNulls().isTrue());
   }
 
   @Test
@@ -352,38 +352,38 @@ public class QueryableIndexColumnCapabilitiesTest extends InitializedNullHandlin
 
   private void assertComplexColumnCapabilites(ColumnCapabilities caps)
   {
-    Assert.assertEquals(HyperUniquesAggregatorFactory.TYPE, caps.toColumnType());
-    Assert.assertFalse(caps.hasBitmapIndexes());
-    Assert.assertFalse(caps.isDictionaryEncoded().isTrue());
-    Assert.assertFalse(caps.areDictionaryValuesSorted().isTrue());
-    Assert.assertFalse(caps.areDictionaryValuesUnique().isTrue());
-    Assert.assertFalse(caps.hasSpatialIndexes());
-    Assert.assertFalse(caps.hasMultipleValues().isUnknown());
-    Assert.assertTrue(caps.hasNulls().isTrue());
+    JupiterAssertions.assertEquals(HyperUniquesAggregatorFactory.TYPE, caps.toColumnType());
+    JupiterAssertions.assertFalse(caps.hasBitmapIndexes());
+    JupiterAssertions.assertFalse(caps.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertFalse(caps.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertFalse(caps.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertFalse(caps.hasSpatialIndexes());
+    JupiterAssertions.assertFalse(caps.hasMultipleValues().isUnknown());
+    JupiterAssertions.assertTrue(caps.hasNulls().isTrue());
   }
 
   private void assertNonStringColumnCapabilities(ColumnCapabilities caps, ColumnType valueType)
   {
-    Assert.assertEquals(valueType, caps.toColumnType());
-    Assert.assertFalse(caps.hasBitmapIndexes());
-    Assert.assertFalse(caps.isDictionaryEncoded().isTrue());
-    Assert.assertFalse(caps.areDictionaryValuesSorted().isTrue());
-    Assert.assertFalse(caps.areDictionaryValuesUnique().isTrue());
-    Assert.assertFalse(caps.hasMultipleValues().isMaybeTrue());
-    Assert.assertFalse(caps.hasSpatialIndexes());
-    Assert.assertFalse(caps.hasNulls().isTrue());
+    JupiterAssertions.assertEquals(valueType, caps.toColumnType());
+    JupiterAssertions.assertFalse(caps.hasBitmapIndexes());
+    JupiterAssertions.assertFalse(caps.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertFalse(caps.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertFalse(caps.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertFalse(caps.hasMultipleValues().isMaybeTrue());
+    JupiterAssertions.assertFalse(caps.hasSpatialIndexes());
+    JupiterAssertions.assertFalse(caps.hasNulls().isTrue());
   }
 
   private void assertNonStringColumnCapabilitiesWithNulls(ColumnCapabilities caps, ColumnType valueType)
   {
-    Assert.assertEquals(valueType, caps.toColumnType());
-    Assert.assertFalse(caps.hasBitmapIndexes());
-    Assert.assertFalse(caps.isDictionaryEncoded().isTrue());
-    Assert.assertFalse(caps.areDictionaryValuesSorted().isTrue());
-    Assert.assertFalse(caps.areDictionaryValuesUnique().isTrue());
-    Assert.assertFalse(caps.hasMultipleValues().isMaybeTrue());
-    Assert.assertFalse(caps.hasSpatialIndexes());
+    JupiterAssertions.assertEquals(valueType, caps.toColumnType());
+    JupiterAssertions.assertFalse(caps.hasBitmapIndexes());
+    JupiterAssertions.assertFalse(caps.isDictionaryEncoded().isTrue());
+    JupiterAssertions.assertFalse(caps.areDictionaryValuesSorted().isTrue());
+    JupiterAssertions.assertFalse(caps.areDictionaryValuesUnique().isTrue());
+    JupiterAssertions.assertFalse(caps.hasMultipleValues().isMaybeTrue());
+    JupiterAssertions.assertFalse(caps.hasSpatialIndexes());
     // check isMaybeTrue because incremental index uses Unknown
-    Assert.assertTrue(caps.hasNulls().isMaybeTrue());
+    JupiterAssertions.assertTrue(caps.hasNulls().isMaybeTrue());
   }
 }

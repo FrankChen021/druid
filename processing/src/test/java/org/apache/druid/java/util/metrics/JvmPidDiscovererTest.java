@@ -19,8 +19,8 @@
 
 package org.apache.druid.java.util.metrics;
 
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
+import org.apache.druid.testing.matchers.MatcherAssert;
+import org.apache.druid.testing.matchers.Matchers;
 import org.junit.jupiter.api.Test;
 
 public class JvmPidDiscovererTest

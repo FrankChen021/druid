@@ -68,13 +68,13 @@ import org.apache.druid.segment.incremental.IncrementalIndexCreator;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.incremental.OnheapIncrementalIndex;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.ThrowableExpectation;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -89,15 +89,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  */
-@RunWith(Parameterized.class)
+@ParameterizedClass
+@MethodSource("constructorFeeder")
 public class IncrementalIndexTest extends InitializedNullHandlingTest
 {
   public final IncrementalIndexCreator indexCreator;
   private final boolean isPreserveExistingMetrics;
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
-  @Rule
+  @RegisterExtension
+  public ThrowableExpectation expectedException = ThrowableExpectation.none();
+  @RegisterExtension
   public final CloserRule closer = new CloserRule(false);
 
   public IncrementalIndexTest(String indexType, String mode, boolean isPreserveExistingMetrics) throws JsonProcessingException
@@ -111,7 +112,6 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
     ));
   }
 
-  @Parameterized.Parameters(name = "{index}: {0}, {1}, {2}")
   public static Collection<?> constructorFeeder()
   {
     return IncrementalIndexCreator.indexTypeCartesianProduct(
@@ -229,20 +229,20 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
     IncrementalIndex index = indexCreator.createIndex((Object) DEFAULT_AGGREGATOR_FACTORIES);
 
     populateIndex(timestamp, index);
-    Assert.assertEquals(Arrays.asList("__time", "dim1", "dim2"), index.getDimensionNames(true));
-    Assert.assertEquals(Arrays.asList("dim1", "dim2"), index.getDimensionNames(false));
-    Assert.assertEquals(2, index.numRows());
+    JupiterAssertions.assertEquals(Arrays.asList("__time", "dim1", "dim2"), index.getDimensionNames(true));
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2"), index.getDimensionNames(false));
+    JupiterAssertions.assertEquals(2, index.numRows());
 
     final Iterator<Row> rows = index.iterator();
     Row row = rows.next();
-    Assert.assertEquals(timestamp, row.getTimestampFromEpoch());
-    Assert.assertEquals(Collections.singletonList("1"), row.getDimension("dim1"));
-    Assert.assertEquals(Collections.singletonList("2"), row.getDimension("dim2"));
+    JupiterAssertions.assertEquals(timestamp, row.getTimestampFromEpoch());
+    JupiterAssertions.assertEquals(Collections.singletonList("1"), row.getDimension("dim1"));
+    JupiterAssertions.assertEquals(Collections.singletonList("2"), row.getDimension("dim2"));
 
     row = rows.next();
-    Assert.assertEquals(timestamp, row.getTimestampFromEpoch());
-    Assert.assertEquals(Collections.singletonList("3"), row.getDimension("dim1"));
-    Assert.assertEquals(Collections.singletonList("4"), row.getDimension("dim2"));
+    JupiterAssertions.assertEquals(timestamp, row.getTimestampFromEpoch());
+    JupiterAssertions.assertEquals(Collections.singletonList("3"), row.getDimension("dim1"));
+    JupiterAssertions.assertEquals(Collections.singletonList("4"), row.getDimension("dim2"));
   }
 
   @Test
@@ -285,9 +285,9 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(Arrays.asList("__time", "dim1", "dim2", "dim3"), index.getDimensionNames(true));
-    Assert.assertEquals(Arrays.asList("dim1", "dim2", "dim3"), index.getDimensionNames(false));
-    Assert.assertEquals(
+    JupiterAssertions.assertEquals(Arrays.asList("__time", "dim1", "dim2", "dim3"), index.getDimensionNames(true));
+    JupiterAssertions.assertEquals(Arrays.asList("dim1", "dim2", "dim3"), index.getDimensionNames(false));
+    JupiterAssertions.assertEquals(
         Arrays.asList(
             "count",
             "count_selector_filtered",
@@ -297,30 +297,30 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
         ),
         index.getMetricNames()
     );
-    Assert.assertEquals(2, index.numRows());
+    JupiterAssertions.assertEquals(2, index.numRows());
 
     final Iterator<Row> rows = index.iterator();
     Row row = rows.next();
-    Assert.assertEquals(timestamp, row.getTimestampFromEpoch());
-    Assert.assertEquals(Collections.singletonList("1"), row.getDimension("dim1"));
-    Assert.assertEquals(Collections.singletonList("2"), row.getDimension("dim2"));
-    Assert.assertEquals(Arrays.asList("a", "b"), row.getDimension("dim3"));
-    Assert.assertEquals(1L, row.getMetric("count"));
-    Assert.assertEquals(1L, row.getMetric("count_selector_filtered"));
-    Assert.assertEquals(1L, row.getMetric("count_bound_filtered"));
-    Assert.assertEquals(1L, row.getMetric("count_multivaldim_filtered"));
-    Assert.assertEquals(0L, row.getMetric("count_numeric_filtered"));
+    JupiterAssertions.assertEquals(timestamp, row.getTimestampFromEpoch());
+    JupiterAssertions.assertEquals(Collections.singletonList("1"), row.getDimension("dim1"));
+    JupiterAssertions.assertEquals(Collections.singletonList("2"), row.getDimension("dim2"));
+    JupiterAssertions.assertEquals(Arrays.asList("a", "b"), row.getDimension("dim3"));
+    JupiterAssertions.assertEquals(1L, row.getMetric("count"));
+    JupiterAssertions.assertEquals(1L, row.getMetric("count_selector_filtered"));
+    JupiterAssertions.assertEquals(1L, row.getMetric("count_bound_filtered"));
+    JupiterAssertions.assertEquals(1L, row.getMetric("count_multivaldim_filtered"));
+    JupiterAssertions.assertEquals(0L, row.getMetric("count_numeric_filtered"));
 
     row = rows.next();
-    Assert.assertEquals(timestamp, row.getTimestampFromEpoch());
-    Assert.assertEquals(Collections.singletonList("3"), row.getDimension("dim1"));
-    Assert.assertEquals(Collections.singletonList("4"), row.getDimension("dim2"));
-    Assert.assertEquals(Arrays.asList("c", "d"), row.getDimension("dim3"));
-    Assert.assertEquals(1L, row.getMetric("count"));
-    Assert.assertEquals(0L, row.getMetric("count_selector_filtered"));
-    Assert.assertEquals(0L, row.getMetric("count_bound_filtered"));
-    Assert.assertEquals(0L, row.getMetric("count_multivaldim_filtered"));
-    Assert.assertEquals(1L, row.getMetric("count_numeric_filtered"));
+    JupiterAssertions.assertEquals(timestamp, row.getTimestampFromEpoch());
+    JupiterAssertions.assertEquals(Collections.singletonList("3"), row.getDimension("dim1"));
+    JupiterAssertions.assertEquals(Collections.singletonList("4"), row.getDimension("dim2"));
+    JupiterAssertions.assertEquals(Arrays.asList("c", "d"), row.getDimension("dim3"));
+    JupiterAssertions.assertEquals(1L, row.getMetric("count"));
+    JupiterAssertions.assertEquals(0L, row.getMetric("count_selector_filtered"));
+    JupiterAssertions.assertEquals(0L, row.getMetric("count_bound_filtered"));
+    JupiterAssertions.assertEquals(0L, row.getMetric("count_multivaldim_filtered"));
+    JupiterAssertions.assertEquals(1L, row.getMetric("count_numeric_filtered"));
   }
 
   @Test
@@ -403,14 +403,14 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
     List<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
     Result<TimeseriesResultValue> result = Iterables.getOnlyElement(results);
     boolean isRollup = index.isRollup();
-    Assert.assertEquals(rows * (isRollup ? 1 : 2), result.getValue().getLongMetric("rows").intValue());
+    JupiterAssertions.assertEquals(rows * (isRollup ? 1 : 2), result.getValue().getLongMetric("rows").intValue());
     for (int i = 0; i < dimensionCount; ++i) {
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           "Failed long sum on dimension " + i,
           2 * rows,
           result.getValue().getLongMetric("sumResult" + i).intValue()
       );
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           "Failed double sum on dimension " + i,
           2 * rows,
           result.getValue().getDoubleMetric("doubleSumResult" + i).intValue()
@@ -418,7 +418,8 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
     }
   }
 
-  @Test(timeout = 60_000L)
+  @Test
+  @org.junit.jupiter.api.Timeout(value = 60_000L, unit = java.util.concurrent.TimeUnit.MILLISECONDS)
   public void testConcurrentAddRead() throws InterruptedException, ExecutionException
   {
     final int dimensionCount = 5;
@@ -573,7 +574,7 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
                       if (maxValueExpected > 0) {
                         // Eventually consistent, but should be somewhere in that range
                         // Actual result is validated after all writes are guaranteed done.
-                        Assert.assertTrue(
+                        JupiterAssertions.assertTrue(
                             StringUtils.format("%d >= %g >= 0 violated", maxValueExpected, result),
                             result >= 0 && result <= maxValueExpected
                         );
@@ -591,8 +592,8 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
     allFutures.addAll(queryFutures);
     allFutures.addAll(indexFutures);
     Futures.allAsList(allFutures).get();
-    Assert.assertTrue("Queries ran too fast", queriesAccumualted.get() > 0);
-    Assert.assertTrue("Did not hit concurrency, please try again", concurrentlyRan.get() > 0);
+    JupiterAssertions.assertTrue("Queries ran too fast", queriesAccumualted.get() > 0);
+    JupiterAssertions.assertTrue("Did not hit concurrency, please try again", concurrentlyRan.get() > 0);
     queryExecutor.shutdown();
     indexExecutor.shutdown();
     QueryRunner<Result<TimeseriesResultValue>> runner = new FinalizeResultsQueryRunner<Result<TimeseriesResultValue>>(
@@ -608,17 +609,17 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
     List<Result<TimeseriesResultValue>> results = runner.run(QueryPlus.wrap(query)).toList();
     boolean isRollup = index.isRollup();
     for (Result<TimeseriesResultValue> result : results) {
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           elementsPerThread * (isRollup ? 1 : addThreads),
           result.getValue().getLongMetric("rows").intValue()
       );
       for (int i = 0; i < dimensionCount; ++i) {
-        Assert.assertEquals(
+        JupiterAssertions.assertEquals(
             StringUtils.format("Failed long sum on dimension %d", i),
             elementsPerThread * addThreads,
             result.getValue().getLongMetric(StringUtils.format("sumResult%s", i)).intValue()
         );
-        Assert.assertEquals(
+        JupiterAssertions.assertEquals(
             StringUtils.format("Failed double sum on dimension %d", i),
             elementsPerThread * addThreads,
             result.getValue().getDoubleMetric(StringUtils.format("doubleSumResult%s", i)).intValue()
@@ -644,8 +645,8 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
             .build()
     );
 
-    Assert.assertEquals(Arrays.asList("__time", "dim0", "dim1"), incrementalIndex.getDimensionNames(true));
-    Assert.assertEquals(Arrays.asList("dim0", "dim1"), incrementalIndex.getDimensionNames(false));
+    JupiterAssertions.assertEquals(Arrays.asList("__time", "dim0", "dim1"), incrementalIndex.getDimensionNames(true));
+    JupiterAssertions.assertEquals(Arrays.asList("dim0", "dim1"), incrementalIndex.getDimensionNames(false));
   }
 
   @Test
@@ -680,7 +681,7 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(2, index.numRows());
+    JupiterAssertions.assertEquals(2, index.numRows());
   }
 
   @Test
@@ -720,29 +721,29 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(index.isRollup() ? 1 : 4, index.numRows());
+    JupiterAssertions.assertEquals(index.isRollup() ? 1 : 4, index.numRows());
     Iterator<Row> iterator = index.iterator();
     int rowCount = 0;
     while (iterator.hasNext()) {
       rowCount++;
       Row row = iterator.next();
-      Assert.assertEquals(1481871600000L, row.getTimestampFromEpoch());
+      JupiterAssertions.assertEquals(1481871600000L, row.getTimestampFromEpoch());
       if (index.isRollup()) {
         // All rows are rollup into one row
-        Assert.assertEquals(isPreserveExistingMetrics ? 7 : 4, row.getMetric("count").intValue());
-        Assert.assertEquals(isPreserveExistingMetrics ? 14 : 5, row.getMetric("sum_of_x").intValue());
+        JupiterAssertions.assertEquals(isPreserveExistingMetrics ? 7 : 4, row.getMetric("count").intValue());
+        JupiterAssertions.assertEquals(isPreserveExistingMetrics ? 14 : 5, row.getMetric("sum_of_x").intValue());
       } else {
         // We still have 4 rows
         if (rowCount == 1 || rowCount == 2) {
-          Assert.assertEquals(1, row.getMetric("count").intValue());
-          Assert.assertEquals(1 + rowCount, row.getMetric("sum_of_x").intValue());
+          JupiterAssertions.assertEquals(1, row.getMetric("count").intValue());
+          JupiterAssertions.assertEquals(1 + rowCount, row.getMetric("sum_of_x").intValue());
         } else {
           if (isPreserveExistingMetrics) {
-            Assert.assertEquals(rowCount - 1, row.getMetric("count").intValue());
-            Assert.assertEquals(1 + rowCount, row.getMetric("sum_of_x").intValue());
+            JupiterAssertions.assertEquals(rowCount - 1, row.getMetric("count").intValue());
+            JupiterAssertions.assertEquals(1 + rowCount, row.getMetric("sum_of_x").intValue());
           } else {
-            Assert.assertEquals(1, row.getMetric("count").intValue());
-            Assert.assertNull(row.getMetric("sum_of_x"));
+            JupiterAssertions.assertEquals(1, row.getMetric("count").intValue());
+            JupiterAssertions.assertNull(row.getMetric("sum_of_x"));
           }
         }
       }
@@ -787,29 +788,29 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(index.isRollup() ? 1 : 4, index.numRows());
+    JupiterAssertions.assertEquals(index.isRollup() ? 1 : 4, index.numRows());
     Iterator<Row> iterator = index.iterator();
     int rowCount = 0;
     while (iterator.hasNext()) {
       rowCount++;
       Row row = iterator.next();
-      Assert.assertEquals(1481871600000L, row.getTimestampFromEpoch());
+      JupiterAssertions.assertEquals(1481871600000L, row.getTimestampFromEpoch());
       if (index.isRollup()) {
         // All rows are rollup into one row
-        Assert.assertEquals(isPreserveExistingMetrics ? 7 : 4, row.getMetric("count").intValue());
-        Assert.assertEquals(isPreserveExistingMetrics ? 14 : 5, row.getMetric("sum_of_x").intValue());
+        JupiterAssertions.assertEquals(isPreserveExistingMetrics ? 7 : 4, row.getMetric("count").intValue());
+        JupiterAssertions.assertEquals(isPreserveExistingMetrics ? 14 : 5, row.getMetric("sum_of_x").intValue());
       } else {
         // We still have 4 rows
         if (rowCount == 1 || rowCount == 2) {
-          Assert.assertEquals(1, row.getMetric("count").intValue());
-          Assert.assertEquals(1 + rowCount, row.getMetric("sum_of_x").intValue());
+          JupiterAssertions.assertEquals(1, row.getMetric("count").intValue());
+          JupiterAssertions.assertEquals(1 + rowCount, row.getMetric("sum_of_x").intValue());
         } else {
           if (isPreserveExistingMetrics) {
-            Assert.assertEquals(rowCount - 1, row.getMetric("count").intValue());
-            Assert.assertEquals(1 + rowCount, row.getMetric("sum_of_x").intValue());
+            JupiterAssertions.assertEquals(rowCount - 1, row.getMetric("count").intValue());
+            JupiterAssertions.assertEquals(1 + rowCount, row.getMetric("sum_of_x").intValue());
           } else {
-            Assert.assertEquals(1, row.getMetric("count").intValue());
-            Assert.assertNull(row.getMetric("sum_of_x"));
+            JupiterAssertions.assertEquals(1, row.getMetric("count").intValue());
+            JupiterAssertions.assertNull(row.getMetric("sum_of_x"));
           }
         }
       }
@@ -839,30 +840,30 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(index.isRollup() ? 1 : 2, index.numRows());
+    JupiterAssertions.assertEquals(index.isRollup() ? 1 : 2, index.numRows());
     Iterator<Row> iterator = index.iterator();
     int rowCount = 0;
     while (iterator.hasNext()) {
       rowCount++;
       Row row = iterator.next();
-      Assert.assertEquals(1481871600000L, row.getTimestampFromEpoch());
+      JupiterAssertions.assertEquals(1481871600000L, row.getTimestampFromEpoch());
       if (index.isRollup()) {
         // All rows are rollup into one row
-        Assert.assertEquals(isPreserveExistingMetrics ? 5 : 2, row.getMetric("count").intValue());
-        Assert.assertEquals(isPreserveExistingMetrics ? 9 : 3, row.getMetric("sum_of_x").intValue());
+        JupiterAssertions.assertEquals(isPreserveExistingMetrics ? 5 : 2, row.getMetric("count").intValue());
+        JupiterAssertions.assertEquals(isPreserveExistingMetrics ? 9 : 3, row.getMetric("sum_of_x").intValue());
       } else {
         // We still have 2 rows
         if (rowCount == 1) {
           if (isPreserveExistingMetrics) {
-            Assert.assertEquals(2, row.getMetric("count").intValue());
-            Assert.assertEquals(4, row.getMetric("sum_of_x").intValue());
+            JupiterAssertions.assertEquals(2, row.getMetric("count").intValue());
+            JupiterAssertions.assertEquals(4, row.getMetric("sum_of_x").intValue());
           } else {
-            Assert.assertEquals(1, row.getMetric("count").intValue());
-            Assert.assertNull(row.getMetric("sum_of_x"));
+            JupiterAssertions.assertEquals(1, row.getMetric("count").intValue());
+            JupiterAssertions.assertNull(row.getMetric("sum_of_x"));
           }
         } else {
-          Assert.assertEquals(isPreserveExistingMetrics ? 3 : 1, row.getMetric("count").intValue());
-          Assert.assertEquals(isPreserveExistingMetrics ? 5 : 3, row.getMetric("sum_of_x").intValue());
+          JupiterAssertions.assertEquals(isPreserveExistingMetrics ? 3 : 1, row.getMetric("count").intValue());
+          JupiterAssertions.assertEquals(isPreserveExistingMetrics ? 5 : 3, row.getMetric("sum_of_x").intValue());
         }
       }
     }
@@ -891,25 +892,25 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(index.isRollup() ? 1 : 2, index.numRows());
+    JupiterAssertions.assertEquals(index.isRollup() ? 1 : 2, index.numRows());
     Iterator<Row> iterator = index.iterator();
     int rowCount = 0;
     while (iterator.hasNext()) {
       rowCount++;
       Row row = iterator.next();
-      Assert.assertEquals(1481871600000L, row.getTimestampFromEpoch());
+      JupiterAssertions.assertEquals(1481871600000L, row.getTimestampFromEpoch());
       if (index.isRollup()) {
         // All rows are rollup into one row
-        Assert.assertEquals(2, row.getMetric("count").intValue());
-        Assert.assertEquals(7, row.getMetric("sum_of_x").intValue());
+        JupiterAssertions.assertEquals(2, row.getMetric("count").intValue());
+        JupiterAssertions.assertEquals(7, row.getMetric("sum_of_x").intValue());
       } else {
         // We still have 2 rows
         if (rowCount == 1) {
-          Assert.assertEquals(1, row.getMetric("count").intValue());
-          Assert.assertEquals(4, row.getMetric("sum_of_x").intValue());
+          JupiterAssertions.assertEquals(1, row.getMetric("count").intValue());
+          JupiterAssertions.assertEquals(4, row.getMetric("sum_of_x").intValue());
         } else {
-          Assert.assertEquals(1, row.getMetric("count").intValue());
-          Assert.assertEquals(3, row.getMetric("sum_of_x").intValue());
+          JupiterAssertions.assertEquals(1, row.getMetric("count").intValue());
+          JupiterAssertions.assertEquals(3, row.getMetric("sum_of_x").intValue());
         }
       }
     }
@@ -941,25 +942,25 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(index.isRollup() ? 1 : 2, index.numRows());
+    JupiterAssertions.assertEquals(index.isRollup() ? 1 : 2, index.numRows());
     Iterator<Row> iterator = index.iterator();
     int rowCount = 0;
     while (iterator.hasNext()) {
       rowCount++;
       Row row = iterator.next();
-      Assert.assertEquals(1481871600000L, row.getTimestampFromEpoch());
+      JupiterAssertions.assertEquals(1481871600000L, row.getTimestampFromEpoch());
       if (index.isRollup()) {
         // All rows are rollup into one row
-        Assert.assertEquals(2, row.getMetric("count").intValue());
-        Assert.assertEquals(3, row.getMetric("sum_of_x").intValue());
+        JupiterAssertions.assertEquals(2, row.getMetric("count").intValue());
+        JupiterAssertions.assertEquals(3, row.getMetric("sum_of_x").intValue());
       } else {
         // We still have 2 rows
         if (rowCount == 1) {
-          Assert.assertEquals(1, row.getMetric("count").intValue());
-          Assert.assertNull(row.getMetric("sum_of_x"));
+          JupiterAssertions.assertEquals(1, row.getMetric("count").intValue());
+          JupiterAssertions.assertNull(row.getMetric("sum_of_x"));
         } else {
-          Assert.assertEquals(1, row.getMetric("count").intValue());
-          Assert.assertEquals(3, row.getMetric("sum_of_x").intValue());
+          JupiterAssertions.assertEquals(1, row.getMetric("count").intValue());
+          JupiterAssertions.assertEquals(3, row.getMetric("sum_of_x").intValue());
         }
       }
     }
@@ -988,25 +989,25 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
         )
     );
 
-    Assert.assertEquals(index.isRollup() ? 1 : 2, index.numRows());
+    JupiterAssertions.assertEquals(index.isRollup() ? 1 : 2, index.numRows());
     Iterator<Row> iterator = index.iterator();
     int rowCount = 0;
     while (iterator.hasNext()) {
       rowCount++;
       Row row = iterator.next();
-      Assert.assertEquals(1481871600000L, row.getTimestampFromEpoch());
+      JupiterAssertions.assertEquals(1481871600000L, row.getTimestampFromEpoch());
       if (index.isRollup()) {
         // All rows are rollup into one row
-        Assert.assertEquals(2, row.getMetric("count").intValue());
-        Assert.assertEquals(isPreserveExistingMetrics ? 200 : 7, row.getMetric("sum_of_x").intValue());
+        JupiterAssertions.assertEquals(2, row.getMetric("count").intValue());
+        JupiterAssertions.assertEquals(isPreserveExistingMetrics ? 200 : 7, row.getMetric("sum_of_x").intValue());
       } else {
         // We still have 2 rows
         if (rowCount == 1) {
-          Assert.assertEquals(1, row.getMetric("count").intValue());
-          Assert.assertEquals(isPreserveExistingMetrics ? 100 : 4, row.getMetric("sum_of_x").intValue());
+          JupiterAssertions.assertEquals(1, row.getMetric("count").intValue());
+          JupiterAssertions.assertEquals(isPreserveExistingMetrics ? 100 : 4, row.getMetric("sum_of_x").intValue());
         } else {
-          Assert.assertEquals(1, row.getMetric("count").intValue());
-          Assert.assertEquals(isPreserveExistingMetrics ? 100 : 3, row.getMetric("sum_of_x").intValue());
+          JupiterAssertions.assertEquals(1, row.getMetric("count").intValue());
+          JupiterAssertions.assertEquals(isPreserveExistingMetrics ? 100 : 3, row.getMetric("sum_of_x").intValue());
         }
       }
     }

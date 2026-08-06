@@ -50,8 +50,8 @@ import org.apache.druid.segment.column.StringEncodingStrategy;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.transform.ExpressionTransform;
 import org.apache.druid.segment.transform.TransformSpec;
+import org.apache.druid.testing.TempDirExtension;
 import org.apache.druid.timeline.SegmentId;
-import org.junit.rules.TemporaryFolder;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -144,7 +144,7 @@ public class NestedDataTestUtils
   }
 
   public static List<Segment> createSegmentsWithConcatenatedJsonInput(
-      TemporaryFolder tempFolder,
+      TempDirExtension tempFolder,
       Closer closer,
       String inputFile,
       Granularity granularity,
@@ -166,7 +166,7 @@ public class NestedDataTestUtils
 
   public static class ResourceFileSegmentBuilder
   {
-    private TemporaryFolder tempFolder;
+    private TempDirExtension tempFolder;
     private Closer closer;
 
     private List<InputSource> inputSources =
@@ -190,7 +190,7 @@ public class NestedDataTestUtils
      * <li>rollup is on by default</li>
      * <li>use the default index spec</li>
      */
-    public ResourceFileSegmentBuilder(TemporaryFolder tempFolder, Closer closer)
+    public ResourceFileSegmentBuilder(TempDirExtension tempFolder, Closer closer)
     {
       this.tempFolder = tempFolder;
       this.closer = closer;
@@ -297,7 +297,7 @@ public class NestedDataTestUtils
    */
   @Deprecated
   public static List<Segment> createSegments(
-      TemporaryFolder tempFolder,
+      TempDirExtension tempFolder,
       Closer closer,
       String input,
       InputFormat inputFormat,
@@ -326,7 +326,7 @@ public class NestedDataTestUtils
   }
 
   public static List<Segment> createSegments(
-      TemporaryFolder tempFolder,
+      TempDirExtension tempFolder,
       Closer closer,
       List<InputSource> inputs,
       InputFormat inputFormat,
@@ -374,7 +374,7 @@ public class NestedDataTestUtils
    * turn a small file into bigger file with a bunch of copies of itself
    */
   public static File selfConcatenateResourceFile(
-      TemporaryFolder tempFolder,
+      TempDirExtension tempFolder,
       String inputFileName,
       int numCopies
   ) throws IOException
@@ -402,16 +402,16 @@ public class NestedDataTestUtils
     return tmpFile;
   }
 
-  public static List<BiFunction<TemporaryFolder, Closer, List<Segment>>> getSegmentGenerators(
+  public static List<BiFunction<TempDirExtension, Closer, List<Segment>>> getSegmentGenerators(
       String jsonInputFile
   )
   {
-    final List<BiFunction<TemporaryFolder, Closer, List<Segment>>> segmentsGenerators =
+    final List<BiFunction<TempDirExtension, Closer, List<Segment>>> segmentsGenerators =
         new ArrayList<>();
     segmentsGenerators.add(new BiFunction<>()
     {
       @Override
-      public List<Segment> apply(TemporaryFolder tempFolder, Closer closer)
+      public List<Segment> apply(TempDirExtension tempFolder, Closer closer)
       {
         try {
           return ImmutableList.<Segment>builder()
@@ -433,7 +433,7 @@ public class NestedDataTestUtils
     segmentsGenerators.add(new BiFunction<>()
     {
       @Override
-      public List<Segment> apply(TemporaryFolder tempFolder, Closer closer)
+      public List<Segment> apply(TempDirExtension tempFolder, Closer closer)
       {
         try {
           return ImmutableList.of(
@@ -455,7 +455,7 @@ public class NestedDataTestUtils
     segmentsGenerators.add(new BiFunction<>()
     {
       @Override
-      public List<Segment> apply(TemporaryFolder tempFolder, Closer closer)
+      public List<Segment> apply(TempDirExtension tempFolder, Closer closer)
       {
         try {
           return ImmutableList.<Segment>builder()
@@ -477,7 +477,7 @@ public class NestedDataTestUtils
     segmentsGenerators.add(new BiFunction<>()
     {
       @Override
-      public List<Segment> apply(TemporaryFolder tempFolder, Closer closer)
+      public List<Segment> apply(TempDirExtension tempFolder, Closer closer)
       {
         try {
           return Stream.of(

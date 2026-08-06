@@ -21,8 +21,8 @@ package org.apache.druid.frame.processor;
 
 import com.google.common.util.concurrent.Futures;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
+import org.apache.druid.testing.matchers.CoreMatchers;
+import org.apache.druid.testing.matchers.MatcherAssert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

@@ -30,11 +30,11 @@ import org.apache.druid.segment.CursorFactory;
 import org.apache.druid.segment.RowBasedSegment;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.druid.testing.JupiterAssertions;
+import org.apache.druid.testing.matchers.MatcherAssert;
+import org.apache.druid.testing.matchers.Matchers;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
@@ -46,7 +46,7 @@ public class FrameComparisonWidgetImplTest extends InitializedNullHandlingTest
   private Frame frameWithoutComplexColumns;
   private Frame frameWithComplexColumns;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     final CursorFactory rowBasedAdapterWithoutComplexColumn = new RowBasedSegment<>(
@@ -112,10 +112,10 @@ public class FrameComparisonWidgetImplTest extends InitializedNullHandlingTest
                 .allMatch(Objects::nonNull);
 
       // null key part, if any, is always the second one (1)
-      Assert.assertTrue(widget.hasNonNullKeyParts(i, new int[0]));
-      Assert.assertTrue(widget.hasNonNullKeyParts(i, new int[]{0, 2}));
-      Assert.assertEquals(isAllNonNull, widget.hasNonNullKeyParts(i, new int[]{0, 1, 2}));
-      Assert.assertEquals(isAllNonNull, widget.hasNonNullKeyParts(i, new int[]{1}));
+      JupiterAssertions.assertTrue(widget.hasNonNullKeyParts(i, new int[0]));
+      JupiterAssertions.assertTrue(widget.hasNonNullKeyParts(i, new int[]{0, 2}));
+      JupiterAssertions.assertEquals(isAllNonNull, widget.hasNonNullKeyParts(i, new int[]{0, 1, 2}));
+      JupiterAssertions.assertEquals(isAllNonNull, widget.hasNonNullKeyParts(i, new int[]{1}));
     }
   }
 
@@ -138,7 +138,7 @@ public class FrameComparisonWidgetImplTest extends InitializedNullHandlingTest
     for (int i = 0; i < frameWithoutComplexColumns.numRows(); i++) {
       final boolean isAllNonNull =
           Arrays.stream(ByteRowKeyComparatorTest.KEY_OBJECTS_WITHOUT_COMPLEX_COLUMN.get(i)).allMatch(Objects::nonNull);
-      Assert.assertEquals(isAllNonNull, widget.hasNonNullKeyParts(i, new int[]{0, 1, 2, 3}));
+      JupiterAssertions.assertEquals(isAllNonNull, widget.hasNonNullKeyParts(i, new int[]{0, 1, 2, 3}));
     }
   }
 
@@ -173,7 +173,7 @@ public class FrameComparisonWidgetImplTest extends InitializedNullHandlingTest
           0,
           keyColumns.size()
       );
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           KeyTestUtils.createKey(signature, FrameType.latestRowBased(), expectedKeyArray),
           widget.readKey(i)
       );
@@ -197,7 +197,7 @@ public class FrameComparisonWidgetImplTest extends InitializedNullHandlingTest
     );
 
     for (int i = 0; i < frameWithoutComplexColumns.numRows(); i++) {
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           KeyTestUtils.createKey(
               ByteRowKeyComparatorTest.NO_COMPLEX_SIGNATURE,
               FrameType.latestRowBased(),
@@ -226,7 +226,7 @@ public class FrameComparisonWidgetImplTest extends InitializedNullHandlingTest
 
     // Compare self-to-self should be equal.
     for (int i = 0; i < frameWithoutComplexColumns.numRows(); i++) {
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           0,
           widget.compare(
               i,
@@ -275,10 +275,10 @@ public class FrameComparisonWidgetImplTest extends InitializedNullHandlingTest
           Arrays.stream(ByteRowKeyComparatorTest.ALL_KEY_OBJECTS.get(i)).limit(3).allMatch(Objects::nonNull);
 
       // Only second is non-null throughout
-      Assert.assertTrue(widget.hasNonNullKeyParts(i, new int[]{1}));
-      Assert.assertTrue(widget.hasNonNullKeyParts(i, new int[]{1}));
-      Assert.assertEquals(isAllNonNull, widget.hasNonNullKeyParts(i, new int[]{0, 1, 2}));
-      Assert.assertEquals(
+      JupiterAssertions.assertTrue(widget.hasNonNullKeyParts(i, new int[]{1}));
+      JupiterAssertions.assertTrue(widget.hasNonNullKeyParts(i, new int[]{1}));
+      JupiterAssertions.assertEquals(isAllNonNull, widget.hasNonNullKeyParts(i, new int[]{0, 1, 2}));
+      JupiterAssertions.assertEquals(
           isAllNonNull,
           widget.hasNonNullKeyParts(i, new int[]{0}) && widget.hasNonNullKeyParts(i, new int[]{2})
       );
@@ -308,7 +308,7 @@ public class FrameComparisonWidgetImplTest extends InitializedNullHandlingTest
     for (int i = 0; i < frameWithoutComplexColumns.numRows(); i++) {
       final boolean isAllNonNull =
           Arrays.stream(ByteRowKeyComparatorTest.ALL_KEY_OBJECTS.get(i)).allMatch(Objects::nonNull);
-      Assert.assertEquals(isAllNonNull, widget.hasNonNullKeyParts(i, new int[]{0, 1, 2, 3, 4, 5, 6, 7}));
+      JupiterAssertions.assertEquals(isAllNonNull, widget.hasNonNullKeyParts(i, new int[]{0, 1, 2, 3, 4, 5, 6, 7}));
     }
   }
 
@@ -337,7 +337,7 @@ public class FrameComparisonWidgetImplTest extends InitializedNullHandlingTest
     for (int i = 0; i < frameWithComplexColumns.numRows(); i++) {
       final Object[] expectedKeyArray = new Object[keyColumns.size()];
       System.arraycopy(ByteRowKeyComparatorTest.ALL_KEY_OBJECTS.get(i), 0, expectedKeyArray, 0, keyColumns.size());
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           KeyTestUtils.createKey(signature, FrameType.latestRowBased(), expectedKeyArray),
           widget.readKey(i)
       );
@@ -365,7 +365,7 @@ public class FrameComparisonWidgetImplTest extends InitializedNullHandlingTest
     );
 
     for (int i = 0; i < frameWithComplexColumns.numRows(); i++) {
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           KeyTestUtils.createKey(
               ByteRowKeyComparatorTest.SIGNATURE,
               FrameType.latestRowBased(),
@@ -398,7 +398,7 @@ public class FrameComparisonWidgetImplTest extends InitializedNullHandlingTest
 
     // Compare self-to-self should be equal.
     for (int i = 0; i < frameWithComplexColumns.numRows(); i++) {
-      Assert.assertEquals(
+      JupiterAssertions.assertEquals(
           0,
           widget.compare(
               i,
