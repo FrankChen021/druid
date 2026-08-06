@@ -26,11 +26,11 @@ import org.apache.druid.frame.key.KeyColumn;
 import org.apache.druid.frame.key.KeyOrder;
 import org.apache.druid.msq.statistics.ClusterByStatisticsCollectorImpl;
 import org.apache.druid.msq.statistics.ClusterByStatisticsSnapshot;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -68,7 +68,7 @@ public class KeyCollectorSnapshotSerializerTest extends InitializedNullHandlingT
 
     final ClusterByStatisticsSnapshot deserializedSnapshot = ClusterByStatisticsSnapshotSerde.deserialize(serializedSnapshot);
 
-    Assert.assertEquals(snapshot, deserializedSnapshot);
+    JUnitAssertions.assertEquals(snapshot, deserializedSnapshot);
   }
 
   @Test
@@ -83,7 +83,7 @@ public class KeyCollectorSnapshotSerializerTest extends InitializedNullHandlingT
 
     final ClusterByStatisticsSnapshot deserializedSnapshot = ClusterByStatisticsSnapshotSerde.deserialize(serializedSnapshot);
 
-    Assert.assertEquals(snapshot, deserializedSnapshot);
+    JUnitAssertions.assertEquals(snapshot, deserializedSnapshot);
   }
 
   private ClusterByStatisticsCollectorImpl makeCollector(final boolean aggregate)

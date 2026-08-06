@@ -21,8 +21,8 @@ package org.apache.druid.msq.sql.entity;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.Assert;
-import org.junit.Test;
+import org.apache.druid.msq.test.JUnitAssertions;
+import org.junit.jupiter.api.Test;
 
 public class ColumnNameAndTypesTest
 {
@@ -34,18 +34,18 @@ public class ColumnNameAndTypesTest
   @Test
   public void sanityTest() throws JsonProcessingException
   {
-    Assert.assertEquals(JSON_STRING, MAPPER.writeValueAsString(COLUMN_NAME_AND_TYPES));
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(JSON_STRING, MAPPER.writeValueAsString(COLUMN_NAME_AND_TYPES));
+    JUnitAssertions.assertEquals(
         COLUMN_NAME_AND_TYPES,
         MAPPER.readValue(MAPPER.writeValueAsString(COLUMN_NAME_AND_TYPES), ColumnNameAndTypes.class)
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         COLUMN_NAME_AND_TYPES.hashCode(),
         MAPPER.readValue(MAPPER.writeValueAsString(COLUMN_NAME_AND_TYPES), ColumnNameAndTypes.class)
               .hashCode()
     );
-    Assert.assertEquals("ColumnNameAndTypes{colName='test', sqlTypeName='test1', nativeTypeName='test2'}",
+    JUnitAssertions.assertEquals("ColumnNameAndTypes{colName='test', sqlTypeName='test1', nativeTypeName='test2'}",
                         COLUMN_NAME_AND_TYPES.toString());
 
   }

@@ -38,16 +38,15 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.msq.statistics.serde.ClusterByStatisticsSnapshotSerde;
+import org.apache.druid.msq.test.JUnitAssertions;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
+import org.apache.druid.msq.test.matchers.Matchers;
+import org.apache.druid.msq.test.matchers.ThrowableMessageMatcher;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -67,6 +66,9 @@ import java.util.TreeMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
+
+import static org.apache.druid.msq.test.JUnitAssertions.assertThrows;
+import static org.apache.druid.msq.test.matchers.MatcherAssert.assertThat;
 
 public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlingTest
 {
@@ -119,8 +121,8 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
         aggregate,
         keys,
         (testName, collector) -> {
-          Assert.assertEquals(StringUtils.format("%s: tracked bucket count", testName), 1, trackedBuckets(collector));
-          Assert.assertEquals(StringUtils.format("%s: tracked row count", testName), numRows, trackedRows(collector));
+          JUnitAssertions.assertEquals(StringUtils.format("%s: tracked bucket count", testName), 1, trackedBuckets(collector));
+          JUnitAssertions.assertEquals(StringUtils.format("%s: tracked row count", testName), numRows, trackedRows(collector));
 
           for (int targetPartitionWeight : new int[]{5111, 6543, (int) numRows + 10}) {
             verifyPartitionsWithTargetWeight(
@@ -168,8 +170,8 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
         aggregate,
         keys,
         (testName, collector) -> {
-          Assert.assertEquals(StringUtils.format("%s: tracked bucket count", testName), 1, trackedBuckets(collector));
-          Assert.assertEquals(StringUtils.format("%s: tracked row count", testName), numRows, trackedRows(collector));
+          JUnitAssertions.assertEquals(StringUtils.format("%s: tracked bucket count", testName), 1, trackedBuckets(collector));
+          JUnitAssertions.assertEquals(StringUtils.format("%s: tracked row count", testName), numRows, trackedRows(collector));
 
           for (int targetPartitionWeight : new int[]{5111, 6543, (int) numRows + 10}) {
             verifyPartitionsWithTargetWeight(
@@ -219,10 +221,10 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
         aggregate,
         keys,
         (testName, collector) -> {
-          Assert.assertEquals(StringUtils.format("%s: tracked bucket count", testName), 1, trackedBuckets(collector));
+          JUnitAssertions.assertEquals(StringUtils.format("%s: tracked bucket count", testName), 1, trackedBuckets(collector));
 
           final double expectedNumRows = (double) numRows / duplicationFactor;
-          Assert.assertEquals(
+          JUnitAssertions.assertEquals(
               StringUtils.format("%s: tracked row count", testName),
               expectedNumRows,
               (double) trackedRows(collector),
@@ -278,8 +280,8 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
         aggregate,
         keys,
         (testName, collector) -> {
-          Assert.assertEquals(StringUtils.format("%s: bucket count", testName), numBuckets, trackedBuckets(collector));
-          Assert.assertEquals(StringUtils.format("%s: row count", testName), numRows, trackedRows(collector));
+          JUnitAssertions.assertEquals(StringUtils.format("%s: bucket count", testName), numBuckets, trackedBuckets(collector));
+          JUnitAssertions.assertEquals(StringUtils.format("%s: row count", testName), numRows, trackedRows(collector));
 
           for (int targetPartitionWeight : new int[]{5111, 6543}) {
             verifyPartitionsWithTargetWeight(
@@ -293,12 +295,12 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
 
           for (int maxPartitionCount : new int[]{1, 2, 3, 10, 50}) {
             if (maxPartitionCount < numBuckets) {
-              final IllegalStateException e = Assert.assertThrows(
+              final IllegalStateException e = JUnitAssertions.assertThrows(
                   IllegalStateException.class,
                   () -> collector.generatePartitionsWithMaxCount(maxPartitionCount)
               );
 
-              MatcherAssert.assertThat(
+              assertThat(
                   e,
                   ThrowableMessageMatcher.hasMessage(CoreMatchers.startsWith("Unable to compute partition ranges"))
               );
@@ -342,7 +344,7 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
         aggregate,
         keys,
         (testName, collector) -> {
-          Assert.assertEquals(StringUtils.format("%s: bucket count", testName), numBuckets, trackedBuckets(collector));
+          JUnitAssertions.assertEquals(StringUtils.format("%s: bucket count", testName), numBuckets, trackedBuckets(collector));
 
           for (int targetPartitionWeight : new int[]{1701, 2301}) {
             verifyPartitionsWithTargetWeight(
@@ -358,7 +360,7 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
             if (maxPartitionCount < numBuckets) {
               // Cannot compute partitions ranges when maxPartitionCount < numBuckets, because there must be at
               // least one partition per bucket.
-              final IllegalStateException e = Assert.assertThrows(
+              final IllegalStateException e = JUnitAssertions.assertThrows(
                   IllegalStateException.class,
                   () -> verifyPartitionsWithMaxCount(
                       StringUtils.format("%s: generatePartitionsWithMaxCount(%d)", testName, maxPartitionCount),
@@ -369,7 +371,7 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
                   )
               );
 
-              MatcherAssert.assertThat(
+              assertThat(
                   e,
                   ThrowableMessageMatcher.hasMessage(CoreMatchers.startsWith("Unable to compute partition ranges"))
               );
@@ -413,10 +415,10 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
         aggregate,
         keys,
         (testName, collector) -> {
-          Assert.assertEquals(StringUtils.format("%s: bucket count", testName), numBuckets, trackedBuckets(collector));
+          JUnitAssertions.assertEquals(StringUtils.format("%s: bucket count", testName), numBuckets, trackedBuckets(collector));
 
           // trackedRows will equal numBuckets, because the collectors have been downsampled so much
-          Assert.assertEquals(StringUtils.format("%s: row count", testName), numBuckets, trackedRows(collector));
+          JUnitAssertions.assertEquals(StringUtils.format("%s: row count", testName), numBuckets, trackedRows(collector));
 
           for (int targetPartitionWeight : new int[]{1701, 2301}) {
             verifyPartitionsWithTargetWeight(
@@ -430,12 +432,12 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
 
           for (int maxPartitionCount : new int[]{1, 10, numBuckets, numBuckets + 1}) {
             if (maxPartitionCount < numBuckets) {
-              final IllegalStateException e = Assert.assertThrows(
+              final IllegalStateException e = JUnitAssertions.assertThrows(
                   IllegalStateException.class,
                   () -> collector.generatePartitionsWithMaxCount(maxPartitionCount)
               );
 
-              MatcherAssert.assertThat(
+              assertThat(
                   e,
                   ThrowableMessageMatcher.hasMessage(CoreMatchers.startsWith("Unable to compute partition ranges"))
               );
@@ -473,7 +475,7 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
     clusterByStatisticsCollector.add(createKey(CLUSTER_BY_XYZ_BUCKET_BY_X, 2, 3, "value2"), 1);
     clusterByStatisticsCollector.add(createKey(CLUSTER_BY_XYZ_BUCKET_BY_X, 1, 1, "Extremely long key string for unit test; Extremely long key string for unit test;"), 500);
 
-    Assert.assertTrue(clusterByStatisticsCollector.getTotalRetainedBytes() <= 35000);
+    JUnitAssertions.assertTrue(clusterByStatisticsCollector.getTotalRetainedBytes() <= 35000);
   }
 
   @Test
@@ -487,29 +489,32 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
     clusterByStatisticsCollector.downSample();
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testMoreBucketsThanKeysThrowsException()
   {
-    ClusterByStatisticsCollectorImpl.create(ClusterBy.none(),
-                                            RowSignature.empty(),
-                                            FrameType.latestRowBased(),
-                                            0,
-                                            5,
-                                            false,
-                                            false);
+    assertThrows(IllegalArgumentException.class, () ->
+      ClusterByStatisticsCollectorImpl.create(ClusterBy.none(),
+          RowSignature.empty(),
+          FrameType.latestRowBased(),
+          0,
+          5,
+          false,
+          false));
   }
 
-  @Test(expected = TooManyBucketsException.class)
+  @Test
   public void testTooManyBuckets()
   {
-    ClusterByStatisticsCollector clusterByStatisticsCollector = ClusterByStatisticsCollectorImpl.create(ClusterBy.none(),
-                                                                                                        RowSignature.empty(),
-                                                                                                        FrameType.latestRowBased(),
-                                                                                                        5,
-                                                                                                        0,
-                                                                                                        false,
-                                                                                                        false);
-    clusterByStatisticsCollector.add(RowKey.empty(), 1);
+    assertThrows(TooManyBucketsException.class, () -> {
+      ClusterByStatisticsCollector clusterByStatisticsCollector = ClusterByStatisticsCollectorImpl.create(ClusterBy.none(),
+          RowSignature.empty(),
+          FrameType.latestRowBased(),
+          5,
+          0,
+          false,
+          false);
+      clusterByStatisticsCollector.add(RowKey.empty(), 1);
+    });
   }
 
   @Test
@@ -522,58 +527,66 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
                                                                                                         0,
                                                                                                         false,
                                                                                                         false);
-    Assert.assertEquals(ClusterByPartitions.oneUniversalPartition(), clusterByStatisticsCollector.generatePartitionsWithTargetWeight(10));
+    JUnitAssertions.assertEquals(ClusterByPartitions.oneUniversalPartition(), clusterByStatisticsCollector.generatePartitionsWithTargetWeight(10));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testGeneratePartitionWithZeroTargetWeightThrowsException()
   {
-    ClusterByStatisticsCollector clusterByStatisticsCollector = ClusterByStatisticsCollectorImpl.create(ClusterBy.none(),
-                                                                                                        RowSignature.empty(),
-                                                                                                        FrameType.latestRowBased(),
-                                                                                                        5,
-                                                                                                        0,
-                                                                                                        false, false);
-    clusterByStatisticsCollector.generatePartitionsWithTargetWeight(0);
+    assertThrows(IllegalArgumentException.class, () -> {
+      ClusterByStatisticsCollector clusterByStatisticsCollector = ClusterByStatisticsCollectorImpl.create(ClusterBy.none(),
+          RowSignature.empty(),
+          FrameType.latestRowBased(),
+          5,
+          0,
+          false, false);
+      clusterByStatisticsCollector.generatePartitionsWithTargetWeight(0);
+    });
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testGeneratePartitionWithZeroCountThrowsException()
   {
-    ClusterByStatisticsCollector clusterByStatisticsCollector = ClusterByStatisticsCollectorImpl.create(ClusterBy.none(),
-                                                                                                        RowSignature.empty(),
-                                                                                                        FrameType.latestRowBased(),
-                                                                                                        5,
-                                                                                                        0,
-                                                                                                        false,
-                                                                                                        false);
-    clusterByStatisticsCollector.generatePartitionsWithMaxCount(0);
+    assertThrows(IllegalArgumentException.class, () -> {
+      ClusterByStatisticsCollector clusterByStatisticsCollector = ClusterByStatisticsCollectorImpl.create(ClusterBy.none(),
+          RowSignature.empty(),
+          FrameType.latestRowBased(),
+          5,
+          0,
+          false,
+          false);
+      clusterByStatisticsCollector.generatePartitionsWithMaxCount(0);
+    });
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test
   public void testHasMultipleValuesFalseThrowsException()
   {
-    ClusterByStatisticsCollector clusterByStatisticsCollector = ClusterByStatisticsCollectorImpl.create(ClusterBy.none(),
-                                                                                                        RowSignature.empty(),
-                                                                                                        FrameType.latestRowBased(),
-                                                                                                        5,
-                                                                                                        0,
-                                                                                                        false,
-                                                                                                        false);
-    clusterByStatisticsCollector.hasMultipleValues(0);
+    assertThrows(IllegalStateException.class, () -> {
+      ClusterByStatisticsCollector clusterByStatisticsCollector = ClusterByStatisticsCollectorImpl.create(ClusterBy.none(),
+          RowSignature.empty(),
+          FrameType.latestRowBased(),
+          5,
+          0,
+          false,
+          false);
+      clusterByStatisticsCollector.hasMultipleValues(0);
+    });
   }
 
-  @Test(expected = ISE.class)
+  @Test
   public void testHasMultipleValuesInvalidKeyThrowsException()
   {
-    ClusterByStatisticsCollector clusterByStatisticsCollector = ClusterByStatisticsCollectorImpl.create(ClusterBy.none(),
-                                                                                                        RowSignature.empty(),
-                                                                                                        FrameType.latestRowBased(),
-                                                                                                        5,
-                                                                                                        0,
-                                                                                                        false,
-                                                                                                        false);
-    clusterByStatisticsCollector.hasMultipleValues(-1);
+    assertThrows(ISE.class, () -> {
+      ClusterByStatisticsCollector clusterByStatisticsCollector = ClusterByStatisticsCollectorImpl.create(ClusterBy.none(),
+          RowSignature.empty(),
+          FrameType.latestRowBased(),
+          5,
+          0,
+          false,
+          false);
+      clusterByStatisticsCollector.hasMultipleValues(-1);
+    });
   }
 
   private void doTest(
@@ -743,7 +756,7 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
         )
     );
 
-    MatcherAssert.assertThat(
+    assertThat(
         StringUtils.format("%s: number of partitions ≤ max", testName),
         partitions.size(),
         Matchers.lessThanOrEqualTo(maxPartitionCount)
@@ -759,7 +772,7 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
   {
     final RowKeyReader keyReader = clusterBy.keyReader(SIGNATURE, FrameType.latestRowBased());
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         StringUtils.format("%s: number of buckets", testName),
         expectedNumberOfBuckets,
         partitions.ranges()
@@ -785,7 +798,7 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
       final Comparator<RowKey> comparator
   )
   {
-    Assert.assertTrue(StringUtils.format("%s: partitions abutting", testName), partitions.allAbutting());
+    JUnitAssertions.assertTrue(StringUtils.format("%s: partitions abutting", testName), partitions.allAbutting());
 
     final List<ClusterByPartition> ranges = partitions.ranges();
 
@@ -794,13 +807,13 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
 
       // Check expected nullness of the start key.
       if (i == 0) {
-        Assert.assertEquals(
+        JUnitAssertions.assertEquals(
             StringUtils.format("%s: partition %d: start is min key", testName, i),
             expectedMinKey,
             partition.getStart()
         );
       } else {
-        Assert.assertNotNull(
+        JUnitAssertions.assertNotNull(
             StringUtils.format("%s: partition %d: start is nonnull", testName, i),
             partition.getStart()
         );
@@ -808,12 +821,12 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
 
       // Check expected nullness of the end key.
       if (i == ranges.size() - 1) {
-        Assert.assertNull(
+        JUnitAssertions.assertNull(
             StringUtils.format("%s: partition %d (final): end is null", testName, i),
             partition.getEnd()
         );
       } else {
-        Assert.assertNotNull(
+        JUnitAssertions.assertNotNull(
             StringUtils.format("%s: partition %d: end is nonnull", testName, i),
             partition.getEnd()
         );
@@ -821,7 +834,7 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
 
       // Check that the ends are all after the starts.
       if (partition.getStart() != null && partition.getEnd() != null) {
-        MatcherAssert.assertThat(
+        assertThat(
             StringUtils.format("%s: partition %d: start compareTo end", testName, i),
             comparator.compare(partition.getStart(), partition.getEnd()),
             Matchers.lessThan(0)
@@ -853,7 +866,7 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
           clusterBy.getBucketByCount()
       );
 
-      Assert.assertEquals(
+      JUnitAssertions.assertEquals(
           StringUtils.format("%s: partition %d: first, last bucket key are equal", testName, i),
           firstBucketKey,
           lastBucketKey
@@ -893,7 +906,7 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
       final long actualNumberOfRows = rowsPerPartition.get(partition.getStart());
 
       // Reasonable maximum number of rows per partition.
-      MatcherAssert.assertThat(
+      assertThat(
           StringUtils.format("%s: partition #%d: number of rows", testName, i),
           actualNumberOfRows,
           Matchers.lessThanOrEqualTo((long) ((1 + PARTITION_SIZE_LEEWAY) * expectedPartitionSize))
@@ -906,7 +919,7 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
           || !keyReader.trim(partitions.get(i + 1).getStart(), clusterBy.getBucketByCount()).equals(bucketKey);
 
       if (!isLastInBucket) {
-        MatcherAssert.assertThat(
+        assertThat(
             StringUtils.format("%s: partition #%d: number of rows", testName, i),
             actualNumberOfRows,
             Matchers.greaterThanOrEqualTo((long) ((1 - PARTITION_SIZE_LEEWAY) * expectedPartitionSize))
@@ -997,14 +1010,14 @@ public class ClusterByStatisticsCollectorImplTest extends InitializedNullHandlin
           ClusterByStatisticsSnapshot.class
       );
 
-      Assert.assertEquals(StringUtils.format("%s: snapshot is serializable", testName), snapshot, snapshot2);
+      JUnitAssertions.assertEquals(StringUtils.format("%s: snapshot is serializable", testName), snapshot, snapshot2);
 
       // Verify octet stream serialization
       ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
       ClusterByStatisticsSnapshotSerde.serialize(byteArrayOutputStream, snapshot);
 
       final ClusterByStatisticsSnapshot snapshot3 = ClusterByStatisticsSnapshotSerde.deserialize(ByteBuffer.wrap(byteArrayOutputStream.toByteArray()));
-      Assert.assertEquals(StringUtils.format("%s: snapshot is serializable", testName), snapshot, snapshot3);
+      JUnitAssertions.assertEquals(StringUtils.format("%s: snapshot is serializable", testName), snapshot, snapshot3);
     }
     catch (IOException e) {
       throw new RuntimeException(e);

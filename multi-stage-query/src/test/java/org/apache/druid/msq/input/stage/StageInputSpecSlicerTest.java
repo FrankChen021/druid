@@ -25,13 +25,14 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntAVLTreeSet;
 import org.apache.druid.msq.exec.OutputChannelMode;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.druid.msq.test.JUnitAssertions;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
+
+import static org.apache.druid.msq.test.matchers.MatcherAssert.assertThat;
 
 public class StageInputSpecSlicerTest
 {
@@ -55,7 +56,7 @@ public class StageInputSpecSlicerTest
 
   private StageInputSpecSlicer slicer;
 
-  @Before
+  @BeforeEach
   public void setUp()
   {
     slicer = new StageInputSpecSlicer(STAGE_PARTITIONS_MAP, STAGE_OUTPUT_MODE_MAP);
@@ -64,13 +65,13 @@ public class StageInputSpecSlicerTest
   @Test
   public void test_canSliceDynamic()
   {
-    Assert.assertFalse(slicer.canSliceDynamic(new StageInputSpec(0)));
+    JUnitAssertions.assertFalse(slicer.canSliceDynamic(new StageInputSpec(0)));
   }
 
   @Test
   public void test_sliceStatic_stageZeroOneSlice()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         Collections.singletonList(
             new StageInputSlice(
                 0,
@@ -85,7 +86,7 @@ public class StageInputSpecSlicerTest
   @Test
   public void test_sliceStatic_stageZeroTwoSlices()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             new StageInputSlice(
                 0,
@@ -105,7 +106,7 @@ public class StageInputSpecSlicerTest
   @Test
   public void test_sliceStatic_stageOneTwoSlices()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             new StageInputSlice(
                 1,
@@ -125,11 +126,11 @@ public class StageInputSpecSlicerTest
   @Test
   public void test_sliceStatic_notAvailable()
   {
-    final IllegalStateException e = Assert.assertThrows(
+    final IllegalStateException e = JUnitAssertions.assertThrows(
         IllegalStateException.class,
         () -> slicer.sliceStatic(new StageInputSpec(3), null, 1)
     );
 
-    MatcherAssert.assertThat(e.getMessage(), CoreMatchers.equalTo("Stage[3] output partitions not available"));
+    assertThat(e.getMessage(), CoreMatchers.equalTo("Stage[3] output partitions not available"));
   }
 }

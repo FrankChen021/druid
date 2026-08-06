@@ -24,11 +24,11 @@ import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.msq.guice.MSQIndexingModule;
 import org.apache.druid.msq.input.InputSpec;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 
@@ -47,7 +47,7 @@ public class TableInputSpecTest extends InitializedNullHandlingTest
         null
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         spec,
         mapper.readValue(mapper.writeValueAsString(spec), InputSpec.class)
     );
@@ -63,7 +63,7 @@ public class TableInputSpecTest extends InitializedNullHandlingTest
         null
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         spec,
         mapper.readValue(mapper.writeValueAsString(spec), InputSpec.class)
     );
@@ -78,7 +78,7 @@ public class TableInputSpecTest extends InitializedNullHandlingTest
         Collections.singletonList(new SegmentDescriptor(Intervals.of("2000/P1M"), "version", 0))
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         spec,
         mapper.readValue(mapper.writeValueAsString(spec), InputSpec.class)
     );

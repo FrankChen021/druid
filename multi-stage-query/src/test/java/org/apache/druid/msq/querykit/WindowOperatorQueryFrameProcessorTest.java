@@ -37,7 +37,9 @@ import org.apache.druid.msq.counters.ChannelCounters;
 import org.apache.druid.msq.indexing.CountingWritableFrameChannel;
 import org.apache.druid.msq.indexing.error.MSQException;
 import org.apache.druid.msq.indexing.error.TooManyRowsInAWindowFault;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.msq.test.LimitedFrameWriterFactory;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryDataSource;
@@ -51,10 +53,7 @@ import org.apache.druid.segment.CursorFactory;
 import org.apache.druid.segment.RowBasedSegment;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -62,6 +61,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.apache.druid.msq.test.matchers.MatcherAssert.assertThat;
 
 public class WindowOperatorQueryFrameProcessorTest extends FrameProcessorTestBase
 {
@@ -144,15 +145,15 @@ public class WindowOperatorQueryFrameProcessorTest extends FrameProcessorTestBas
     );
 
     List<List<Object>> outputRows = rowsFromProcessor.toList();
-    Assert.assertEquals(INPUT_ROWS.size(), outputRows.size());
+    JUnitAssertions.assertEquals(INPUT_ROWS.size(), outputRows.size());
 
     for (int i = 0; i < INPUT_ROWS.size(); i++) {
       Map<String, Object> inputRow = INPUT_ROWS.get(i);
       List<Object> outputRow = outputRows.get(i);
 
-      Assert.assertEquals("cityName should match", inputRow.get("cityName"), outputRow.get(0));
-      Assert.assertEquals("added should match", inputRow.get("added"), outputRow.get(1));
-      Assert.assertEquals("row_number() should be correct", (long) i + 1, outputRow.get(2));
+      JUnitAssertions.assertEquals("cityName should match", inputRow.get("cityName"), outputRow.get(0));
+      JUnitAssertions.assertEquals("added should match", inputRow.get("added"), outputRow.get(1));
+      JUnitAssertions.assertEquals("row_number() should be correct", (long) i + 1, outputRow.get(2));
     }
   }
 
@@ -229,15 +230,15 @@ public class WindowOperatorQueryFrameProcessorTest extends FrameProcessorTestBas
     );
 
     List<List<Object>> outputRows = rowsFromProcessor.toList();
-    Assert.assertEquals(INPUT_ROWS.size(), outputRows.size());
+    JUnitAssertions.assertEquals(INPUT_ROWS.size(), outputRows.size());
 
     for (int i = 0; i < INPUT_ROWS.size(); i++) {
       Map<String, Object> inputRow = INPUT_ROWS.get(i);
       List<Object> outputRow = outputRows.get(i);
 
-      Assert.assertEquals("cityName should match", inputRow.get("cityName"), outputRow.get(0));
-      Assert.assertEquals("added should match", inputRow.get("added"), outputRow.get(1));
-      Assert.assertEquals("row_number() should be correct", (long) i + 1, outputRow.get(2));
+      JUnitAssertions.assertEquals("cityName should match", inputRow.get("cityName"), outputRow.get(0));
+      JUnitAssertions.assertEquals("added should match", inputRow.get("added"), outputRow.get(1));
+      JUnitAssertions.assertEquals("row_number() should be correct", (long) i + 1, outputRow.get(2));
     }
   }
 
@@ -250,15 +251,15 @@ public class WindowOperatorQueryFrameProcessorTest extends FrameProcessorTestBas
   @Test
   public void testMaxRowsMaterializedConstraint()
   {
-    final RuntimeException e = Assert.assertThrows(
+    final RuntimeException e = JUnitAssertions.assertThrows(
         RuntimeException.class,
         () -> runProcessor(2, 3)
     );
-    MatcherAssert.assertThat(
+    assertThat(
         ((MSQException) e.getCause().getCause()).getFault(),
         CoreMatchers.instanceOf(TooManyRowsInAWindowFault.class)
     );
-    Assert.assertTrue(e.getMessage().contains("TooManyRowsInAWindow: Too many rows in a window (requested = 7, max = 2)"));
+    JUnitAssertions.assertTrue(e.getMessage().contains("TooManyRowsInAWindow: Too many rows in a window (requested = 7, max = 2)"));
   }
 
   public void runProcessor(int maxRowsMaterialized, int expectedNumFramesWritten) throws Exception
@@ -339,8 +340,8 @@ public class WindowOperatorQueryFrameProcessorTest extends FrameProcessorTestBas
     final List<List<Object>> rows = rowsFromProcessor.toList();
 
     long actualNumFrames = Arrays.stream(channelCounters.snapshot().getFrames()).findFirst().getAsLong();
-    Assert.assertEquals(expectedNumFramesWritten, actualNumFrames);
-    Assert.assertEquals(7, rows.size());
+    JUnitAssertions.assertEquals(expectedNumFramesWritten, actualNumFrames);
+    JUnitAssertions.assertEquals(7, rows.size());
   }
 
   private ReadableInput buildWindowTestInputChannel() throws IOException

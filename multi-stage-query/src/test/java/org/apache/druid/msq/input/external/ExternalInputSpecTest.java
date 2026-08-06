@@ -25,9 +25,9 @@ import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.data.input.impl.systemfield.SystemFields;
 import org.apache.druid.msq.guice.MSQIndexingModule;
 import org.apache.druid.msq.input.InputSpec;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.TestHelper;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.Collections;
@@ -51,7 +51,7 @@ public class ExternalInputSpecTest
         ExternalInputSpecSlicerTest.SIGNATURE
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         spec,
         mapper.readValue(mapper.writeValueAsString(spec), InputSpec.class)
     );

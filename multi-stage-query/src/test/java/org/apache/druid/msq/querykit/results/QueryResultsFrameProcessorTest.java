@@ -32,11 +32,11 @@ import org.apache.druid.java.util.common.Unit;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.msq.querykit.FrameProcessorTestBase;
 import org.apache.druid.msq.querykit.ReadableInput;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.TestIndex;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.incremental.IncrementalIndexCursorFactory;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
@@ -88,7 +88,7 @@ public class QueryResultsFrameProcessorTest extends FrameProcessorTestBase
         FrameTestUtil.readRowsFromCursorFactory(cursorFactory, signature, false),
         rowsFromProcessor
     );
-    Assert.assertEquals(Unit.instance(), retVal.get());
+    JUnitAssertions.assertEquals(Unit.instance(), retVal.get());
   }
 
 }

@@ -25,9 +25,9 @@ import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.ints.IntAVLTreeSet;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.msq.guice.MSQIndexingModule;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.TestHelper;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class CombinedReadablePartitionsTest
 {
@@ -41,19 +41,19 @@ public class CombinedReadablePartitionsTest
   @Test
   public void testEmpty()
   {
-    Assert.assertEquals(0, Iterables.size(ReadablePartitions.empty()));
+    JUnitAssertions.assertEquals(0, Iterables.size(ReadablePartitions.empty()));
   }
 
   @Test
   public void testSplitOne()
   {
-    Assert.assertEquals(ImmutableList.of(PARTITIONS), PARTITIONS.split(1));
+    JUnitAssertions.assertEquals(ImmutableList.of(PARTITIONS), PARTITIONS.split(1));
   }
 
   @Test
   public void testSplitTwo()
   {
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         ImmutableList.of(
             ReadablePartitions.combine(
                 ImmutableList.of(
@@ -78,7 +78,7 @@ public class CombinedReadablePartitionsTest
     final ObjectMapper mapper = TestHelper.makeJsonMapper()
                                           .registerModules(new MSQIndexingModule().getJacksonModules());
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         PARTITIONS,
         mapper.readValue(
             mapper.writeValueAsString(PARTITIONS),

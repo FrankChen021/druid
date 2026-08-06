@@ -24,13 +24,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.druid.frame.channel.ReadableFrameChannel;
 import org.apache.druid.frame.channel.ReadableNilFrameChannel;
 import org.apache.druid.frame.file.FrameFile;
+import org.apache.druid.msq.test.JUnitAssertions;
+import org.apache.druid.msq.test.matchers.Matchers;
 import org.apache.druid.testing.InitializedNullHandlingTest;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -41,10 +39,12 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.concurrent.ExecutionException;
 
+import static org.apache.druid.msq.test.matchers.MatcherAssert.assertThat;
+
 public class NilStageOutputReaderTest extends InitializedNullHandlingTest
 {
-  @Rule
-  public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @TempDir
+  public File temporaryFolder;
 
   private final NilStageOutputReader reader = NilStageOutputReader.INSTANCE;
 
@@ -52,14 +52,14 @@ public class NilStageOutputReaderTest extends InitializedNullHandlingTest
   public void test_readRemotelyFrom_zeroOffset() throws IOException, ExecutionException, InterruptedException
   {
     final ListenableFuture<InputStream> future = reader.readRemotelyFrom(0L);
-    final File tmpFile = temporaryFolder.newFile();
+    final File tmpFile = File.createTempFile("junit", null, temporaryFolder);
 
     try (final InputStream in = future.get()) {
       Files.copy(in, tmpFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
 
     try (final FrameFile frameFile = FrameFile.open(tmpFile, null)) {
-      Assert.assertEquals(0, frameFile.numFrames());
+      JUnitAssertions.assertEquals(0, frameFile.numFrames());
     }
   }
 
@@ -68,13 +68,13 @@ public class NilStageOutputReaderTest extends InitializedNullHandlingTest
   {
     final long offset = 5L;
 
-    final File tmpFile = temporaryFolder.newFile();
+    final File tmpFile = File.createTempFile("junit", null, temporaryFolder);
     try (final OutputStream out = new FileOutputStream(tmpFile)) {
       // write from beginning to offset 5
       try (final InputStream in = reader.readRemotelyFrom(0).get()) {
         for (int i = 0; i < offset; i++) {
           final int r = in.read();
-          MatcherAssert.assertThat(r, Matchers.greaterThanOrEqualTo(0));
+          assertThat(r, Matchers.greaterThanOrEqualTo(0));
           out.write(r);
         }
       }
@@ -87,7 +87,7 @@ public class NilStageOutputReaderTest extends InitializedNullHandlingTest
 
     // Verify written file
     try (final FrameFile frameFile = FrameFile.open(tmpFile, null)) {
-      Assert.assertEquals(0, frameFile.numFrames());
+      JUnitAssertions.assertEquals(0, frameFile.numFrames());
     }
   }
 
@@ -97,7 +97,7 @@ public class NilStageOutputReaderTest extends InitializedNullHandlingTest
     final ListenableFuture<InputStream> future = reader.readRemotelyFrom(1000L);
 
     try (final InputStream inputStream = future.get()) {
-      Assert.assertEquals(-1, inputStream.read()); // expect EOF
+      JUnitAssertions.assertEquals(-1, inputStream.read()); // expect EOF
     }
   }
 
@@ -105,6 +105,6 @@ public class NilStageOutputReaderTest extends InitializedNullHandlingTest
   public void test_readLocally()
   {
     final ReadableFrameChannel channel = reader.readLocally();
-    Assert.assertSame(ReadableNilFrameChannel.INSTANCE, channel);
+    JUnitAssertions.assertSame(ReadableNilFrameChannel.INSTANCE, channel);
   }
 }

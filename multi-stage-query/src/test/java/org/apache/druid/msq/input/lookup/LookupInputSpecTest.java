@@ -23,9 +23,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.msq.guice.MSQIndexingModule;
 import org.apache.druid.msq.input.InputSpec;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.TestHelper;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class LookupInputSpecTest
 {
@@ -37,7 +37,7 @@ public class LookupInputSpecTest
 
     final LookupInputSpec spec = new LookupInputSpec("myLookup");
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         spec,
         mapper.readValue(mapper.writeValueAsString(spec), InputSpec.class)
     );

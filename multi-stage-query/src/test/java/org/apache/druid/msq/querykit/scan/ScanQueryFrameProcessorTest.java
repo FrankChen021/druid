@@ -43,6 +43,8 @@ import org.apache.druid.msq.querykit.FrameProcessorTestBase;
 import org.apache.druid.msq.querykit.ReadableInput;
 import org.apache.druid.msq.querykit.SegmentReferenceHolder;
 import org.apache.druid.msq.test.LimitedFrameWriterFactory;
+import org.apache.druid.msq.test.matchers.CoreMatchers;
+import org.apache.druid.msq.test.matchers.ThrowableMessageMatcher;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.policy.PolicyEnforcer;
 import org.apache.druid.query.scan.ScanQuery;
@@ -64,13 +66,9 @@ import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.incremental.IncrementalIndexCursorFactory;
 import org.apache.druid.timeline.SegmentId;
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
 import org.joda.time.Interval;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.internal.matchers.ThrowableMessageMatcher;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -78,6 +76,8 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.druid.msq.test.matchers.MatcherAssert.assertThat;
 
 public class ScanQueryFrameProcessorTest extends FrameProcessorTestBase
 {
@@ -171,7 +171,7 @@ public class ScanQueryFrameProcessorTest extends FrameProcessorTestBase
         rowsFromProcessor
     );
 
-    Assert.assertEquals(Unit.instance(), retVal.get());
+    Assertions.assertEquals(Unit.instance(), retVal.get());
     Assertions.assertEquals(0, segmentReferenceProvider.getNumReferences()); // Segment reference was closed
   }
 
@@ -260,12 +260,12 @@ public class ScanQueryFrameProcessorTest extends FrameProcessorTestBase
         FrameReader.create(signature)
     );
 
-    final RuntimeException e = Assert.assertThrows(
+    final RuntimeException e = Assertions.assertThrows(
         RuntimeException.class,
         rowsFromProcessor::toList
     );
 
-    MatcherAssert.assertThat(
+    assertThat(
         e,
         ThrowableMessageMatcher.hasMessage(CoreMatchers.containsString(
             "Expected eternity intervals, but got[[2001-01-01T00:00:00.000Z/2011-01-01T00:00:00.000Z, "
@@ -441,6 +441,6 @@ public class ScanQueryFrameProcessorTest extends FrameProcessorTestBase
         rowsFromProcessor
     );
 
-    Assert.assertEquals(Unit.instance(), retVal.get(30, TimeUnit.SECONDS));
+    Assertions.assertEquals(Unit.instance(), retVal.get(30, TimeUnit.SECONDS));
   }
 }

@@ -25,11 +25,11 @@ import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.msq.guice.MSQIndexingModule;
 import org.apache.druid.msq.input.InputSlice;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.server.coordination.DruidServerMetadata;
 import org.apache.druid.server.coordination.ServerType;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class SegmentsInputSliceTest
 {
@@ -73,7 +73,7 @@ public class SegmentsInputSliceTest
         )
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         slice,
         mapper.readValue(mapper.writeValueAsString(slice), InputSlice.class)
     );
@@ -110,7 +110,7 @@ public class SegmentsInputSliceTest
         null
     );
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         expectedSlice,
         mapper.readValue(sliceString, InputSlice.class)
     );

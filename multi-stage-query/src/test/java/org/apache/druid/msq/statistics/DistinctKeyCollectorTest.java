@@ -28,18 +28,20 @@ import org.apache.druid.frame.key.KeyColumn;
 import org.apache.druid.frame.key.KeyOrder;
 import org.apache.druid.frame.key.RowKey;
 import org.apache.druid.java.util.common.Pair;
+import org.apache.druid.msq.test.JUnitAssertions;
+import org.apache.druid.msq.test.matchers.Matchers;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.NoSuchElementException;
+
+import static org.apache.druid.msq.test.JUnitAssertions.assertThrows;
+import static org.apache.druid.msq.test.matchers.MatcherAssert.assertThat;
 
 public class DistinctKeyCollectorTest
 {
@@ -56,10 +58,10 @@ public class DistinctKeyCollectorTest
         Collections.emptyList(),
         comparator,
         (testName, collector) -> {
-          Assert.assertTrue(collector.isEmpty());
-          Assert.assertThrows(NoSuchElementException.class, collector::minKey);
-          Assert.assertEquals(testName, 0, collector.estimatedTotalWeight());
-          Assert.assertEquals(
+          JUnitAssertions.assertTrue(collector.isEmpty());
+          JUnitAssertions.assertThrows(NoSuchElementException.class, collector::minKey);
+          JUnitAssertions.assertEquals(testName, 0, collector.estimatedTotalWeight());
+          JUnitAssertions.assertEquals(
               ClusterByPartitions.oneUniversalPartition(),
               collector.generatePartitionsWithTargetWeight(1000)
           );
@@ -80,7 +82,7 @@ public class DistinctKeyCollectorTest
         keyWeights,
         comparator,
         (testName, collector) -> {
-          Assert.assertEquals(numKeys, collector.estimatedTotalWeight(), numKeys * 0.05);
+          JUnitAssertions.assertEquals(numKeys, collector.estimatedTotalWeight(), numKeys * 0.05);
           verifyCollector(collector, clusterBy, comparator, sortedKeyWeights);
         }
     );
@@ -113,7 +115,7 @@ public class DistinctKeyCollectorTest
         keyWeights,
         comparator,
         (testName, collector) -> {
-          Assert.assertEquals(
+          JUnitAssertions.assertEquals(
               testName,
               sortedKeyWeights.size(),
               collector.estimatedTotalWeight(),
@@ -124,11 +126,13 @@ public class DistinctKeyCollectorTest
     );
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void test_generateWithNegativeTargetWeight_throwsException()
   {
-    DistinctKeyCollector distinctKeyCollector = DistinctKeyCollectorFactory.create(clusterBy, signature).newKeyCollector();
-    distinctKeyCollector.generatePartitionsWithTargetWeight(-1);
+    assertThrows(IllegalArgumentException.class, () -> {
+      DistinctKeyCollector distinctKeyCollector = DistinctKeyCollectorFactory.create(clusterBy, signature).newKeyCollector();
+      distinctKeyCollector.generatePartitionsWithTargetWeight(-1);
+    });
   }
 
   @Test
@@ -147,8 +151,8 @@ public class DistinctKeyCollectorTest
             // Intentionally empty loop body.
           }
 
-          Assert.assertTrue(DistinctKeyCollector.SMALLEST_MAX_BYTES >= collector.getMaxBytes());
-          MatcherAssert.assertThat(
+          JUnitAssertions.assertTrue(DistinctKeyCollector.SMALLEST_MAX_BYTES >= collector.getMaxBytes());
+          assertThat(
               testName,
               (int) collector.estimatedRetainedBytes(),
               Matchers.lessThanOrEqualTo(DistinctKeyCollector.SMALLEST_MAX_BYTES)
@@ -179,7 +183,7 @@ public class DistinctKeyCollectorTest
         keyWeights,
         comparator,
         (testName, collector) -> {
-          Assert.assertEquals(
+          JUnitAssertions.assertEquals(
               sortedKeyWeights.size(),
               collector.estimatedTotalWeight(),
               sortedKeyWeights.size() * 0.05
@@ -202,7 +206,7 @@ public class DistinctKeyCollectorTest
         keyWeights,
         comparator,
         (testName, collector) -> {
-          Assert.assertEquals(
+          JUnitAssertions.assertEquals(
               ClusterByStatisticsCollectorImplTest.totalWeight(
                   sortedKeyWeights,
                   new ClusterByPartition(null, null),
@@ -229,7 +233,7 @@ public class DistinctKeyCollectorTest
         keyWeights,
         comparator,
         (testName, collector) -> {
-          Assert.assertEquals(
+          JUnitAssertions.assertEquals(
               ClusterByStatisticsCollectorImplTest.totalWeight(
                   sortedKeyWeights,
                   new ClusterByPartition(null, null),
@@ -250,7 +254,7 @@ public class DistinctKeyCollectorTest
       final NavigableMap<RowKey, List<Integer>> sortedKeyWeights
   )
   {
-    MatcherAssert.assertThat((int) collector.estimatedRetainedBytes(), Matchers.lessThan(collector.getMaxBytes()));
+    assertThat((int) collector.estimatedRetainedBytes(), Matchers.lessThan(collector.getMaxBytes()));
 
     KeyCollectorTestUtils.verifyCollector(
         collector,

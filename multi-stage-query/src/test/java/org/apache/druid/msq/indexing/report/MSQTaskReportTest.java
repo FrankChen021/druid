@@ -40,13 +40,12 @@ import org.apache.druid.msq.kernel.QueryDefinition;
 import org.apache.druid.msq.kernel.ShuffleSpec;
 import org.apache.druid.msq.kernel.StageDefinition;
 import org.apache.druid.msq.querykit.common.OffsetLimitStageProcessor;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.util.ArrayDeque;
@@ -79,8 +78,8 @@ public class MSQTaskReportTest
           )
           .build();
 
-  @Rule
-  public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @TempDir
+  public File temporaryFolder;
 
   @Test
   public void testSerdeResultsReport() throws Exception
@@ -132,17 +131,17 @@ public class MSQTaskReportTest
         TaskReport.class
     );
 
-    Assert.assertEquals(TASK_ID, report2.getTaskId());
-    Assert.assertEquals(report.getPayload().getStatus().getStatus(), report2.getPayload().getStatus().getStatus());
-    Assert.assertNull(report2.getPayload().getStatus().getErrorReport());
-    Assert.assertEquals(report.getPayload().getStatus().getRunningTasks(), report2.getPayload().getStatus().getRunningTasks());
-    Assert.assertEquals(report.getPayload().getStatus().getPendingTasks(), report2.getPayload().getStatus().getPendingTasks());
-    Assert.assertEquals(report.getPayload().getStages(), report2.getPayload().getStages());
+    JUnitAssertions.assertEquals(TASK_ID, report2.getTaskId());
+    JUnitAssertions.assertEquals(report.getPayload().getStatus().getStatus(), report2.getPayload().getStatus().getStatus());
+    JUnitAssertions.assertNull(report2.getPayload().getStatus().getErrorReport());
+    JUnitAssertions.assertEquals(report.getPayload().getStatus().getRunningTasks(), report2.getPayload().getStatus().getRunningTasks());
+    JUnitAssertions.assertEquals(report.getPayload().getStatus().getPendingTasks(), report2.getPayload().getStatus().getPendingTasks());
+    JUnitAssertions.assertEquals(report.getPayload().getStages(), report2.getPayload().getStages());
 
     final List<Object[]> results2 = report2.getPayload().getResults().getResults();
-    Assert.assertEquals(results.size(), results2.size());
+    JUnitAssertions.assertEquals(results.size(), results2.size());
     for (int i = 0; i < results.size(); i++) {
-      Assert.assertArrayEquals(results.get(i), results2.get(i));
+      JUnitAssertions.assertArrayEquals(results.get(i), results2.get(i));
     }
   }
 
@@ -187,13 +186,13 @@ public class MSQTaskReportTest
         TaskReport.class
     );
 
-    Assert.assertEquals(TASK_ID, report2.getTaskId());
-    Assert.assertEquals(report.getPayload().getStatus().getStatus(), report2.getPayload().getStatus().getStatus());
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(TASK_ID, report2.getTaskId());
+    JUnitAssertions.assertEquals(report.getPayload().getStatus().getStatus(), report2.getPayload().getStatus().getStatus());
+    JUnitAssertions.assertEquals(
         report.getPayload().getStatus().getErrorReport(),
         report2.getPayload().getStatus().getErrorReport()
     );
-    Assert.assertEquals(report.getPayload().getStages(), report2.getPayload().getStages());
+    JUnitAssertions.assertEquals(report.getPayload().getStages(), report2.getPayload().getStages());
   }
 
   @Test
@@ -228,7 +227,7 @@ public class MSQTaskReportTest
         )
     );
 
-    final File reportFile = temporaryFolder.newFile();
+    final File reportFile = File.createTempFile("junit", null, temporaryFolder);
     final SingleFileTaskReportFileWriter writer = new SingleFileTaskReportFileWriter(reportFile);
     final ObjectMapper mapper = TestHelper.makeJsonMapper()
                                           .registerModules(new MSQIndexingModule().getJacksonModules());
@@ -243,8 +242,8 @@ public class MSQTaskReportTest
 
     final MSQTaskReport report2 = (MSQTaskReport) reportMap.get(MSQTaskReport.REPORT_KEY);
 
-    Assert.assertEquals(TASK_ID, report2.getTaskId());
-    Assert.assertEquals(report.getPayload().getStatus().getStatus(), report2.getPayload().getStatus().getStatus());
-    Assert.assertEquals(report.getPayload().getStages(), report2.getPayload().getStages());
+    JUnitAssertions.assertEquals(TASK_ID, report2.getTaskId());
+    JUnitAssertions.assertEquals(report.getPayload().getStatus().getStatus(), report2.getPayload().getStatus().getStatus());
+    JUnitAssertions.assertEquals(report.getPayload().getStages(), report2.getPayload().getStages());
   }
 }

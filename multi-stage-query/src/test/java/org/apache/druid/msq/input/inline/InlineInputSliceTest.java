@@ -23,12 +23,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.msq.guice.MSQIndexingModule;
 import org.apache.druid.msq.input.InputSlice;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 
@@ -47,7 +47,7 @@ public class InlineInputSliceTest
 
     final InlineInputSlice slice = new InlineInputSlice(dataSource);
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         slice,
         mapper.readValue(mapper.writeValueAsString(slice), InputSlice.class)
     );

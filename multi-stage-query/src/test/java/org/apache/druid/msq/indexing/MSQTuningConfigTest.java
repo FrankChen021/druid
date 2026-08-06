@@ -22,13 +22,13 @@ package org.apache.druid.msq.indexing;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.indexer.partitions.PartitionsSpec;
+import org.apache.druid.msq.test.JUnitAssertions;
 import org.apache.druid.segment.IndexSpec;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.StringEncodingStrategy;
 import org.apache.druid.segment.data.CompressionStrategy;
 import org.apache.druid.segment.data.FrontCodedIndexed;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class MSQTuningConfigTest
 {
@@ -37,7 +37,7 @@ public class MSQTuningConfigTest
   {
     final ObjectMapper mapper = TestHelper.makeJsonMapper();
 
-    Assert.assertEquals(
+    JUnitAssertions.assertEquals(
         MSQTuningConfig.defaultConfig(),
         mapper.readValue(
             mapper.writeValueAsString(MSQTuningConfig.defaultConfig()),
@@ -62,7 +62,7 @@ public class MSQTuningConfigTest
                  .build()
     );
 
-    Assert.assertEquals(config, mapper.readValue(mapper.writeValueAsString(config), MSQTuningConfig.class));
+    JUnitAssertions.assertEquals(config, mapper.readValue(mapper.writeValueAsString(config), MSQTuningConfig.class));
   }
 
   @Test
@@ -82,21 +82,21 @@ public class MSQTuningConfigTest
   public void testDefaultValuesForElements()
   {
     MSQTuningConfig msqTuningConfig = new MSQTuningConfig(null, null, null, null, null);
-    Assert.assertEquals(1, msqTuningConfig.getMaxNumWorkers());
-    Assert.assertEquals(100000, msqTuningConfig.getMaxRowsInMemory());
-    Assert.assertEquals(PartitionsSpec.DEFAULT_MAX_ROWS_PER_SEGMENT, msqTuningConfig.getRowsPerSegment());
-    Assert.assertEquals(null, msqTuningConfig.getMaxNumSegments());
-    Assert.assertEquals(IndexSpec.getDefault(), msqTuningConfig.getIndexSpec());
+    JUnitAssertions.assertEquals(1, msqTuningConfig.getMaxNumWorkers());
+    JUnitAssertions.assertEquals(100000, msqTuningConfig.getMaxRowsInMemory());
+    JUnitAssertions.assertEquals(PartitionsSpec.DEFAULT_MAX_ROWS_PER_SEGMENT, msqTuningConfig.getRowsPerSegment());
+    JUnitAssertions.assertEquals(null, msqTuningConfig.getMaxNumSegments());
+    JUnitAssertions.assertEquals(IndexSpec.getDefault(), msqTuningConfig.getIndexSpec());
   }
 
   @Test
   public void testCustomValuesForElements()
   {
     MSQTuningConfig msqTuningConfig = new MSQTuningConfig(5, 200000, 5000, 10, IndexSpec.builder().build());
-    Assert.assertEquals(5, msqTuningConfig.getMaxNumWorkers());
-    Assert.assertEquals(200000, msqTuningConfig.getMaxRowsInMemory());
-    Assert.assertEquals(5000, msqTuningConfig.getRowsPerSegment());
-    Assert.assertEquals(Integer.valueOf(10), msqTuningConfig.getMaxNumSegments());
-    Assert.assertEquals(IndexSpec.builder().build(), msqTuningConfig.getIndexSpec());
+    JUnitAssertions.assertEquals(5, msqTuningConfig.getMaxNumWorkers());
+    JUnitAssertions.assertEquals(200000, msqTuningConfig.getMaxRowsInMemory());
+    JUnitAssertions.assertEquals(5000, msqTuningConfig.getRowsPerSegment());
+    JUnitAssertions.assertEquals(Integer.valueOf(10), msqTuningConfig.getMaxNumSegments());
+    JUnitAssertions.assertEquals(IndexSpec.builder().build(), msqTuningConfig.getIndexSpec());
   }
 }
