@@ -158,5 +158,12 @@
       <scope>test</scope>
       <type>test-jar</type>
     </dependency>
+    <dependency>
+      <groupId>org.apache.druid</groupId>
+      <artifactId>druid-indexing-service</artifactId>
+      <version>${project.parent.version}</version>
+      <scope>test</scope>
+      <type>test-jar</type>
+    </dependency>
   </dependencies>
 </project>
