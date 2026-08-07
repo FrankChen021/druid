@@ -29,6 +29,7 @@ public abstract class DiagnosingMatcher<T> implements Matcher<T>
 
   protected abstract boolean matches(Object actual, Description mismatchDescription);
 
+  @Override
   public abstract void describeTo(Description description);
 
   @Override
