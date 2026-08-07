@@ -77,7 +77,7 @@ import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.LongMaxAggregatorFactory;
 import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
-import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
+import org.apache.druid.query.groupby.GroupByQueryRunnerTestHelper;
 import org.apache.druid.query.groupby.GroupingEngine;
 import org.apache.druid.query.groupby.TestGroupByBuffers;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
@@ -245,7 +245,8 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
       );
     });
     when(segmentCacheManager.acquireCachedSegment(any(), any())).thenReturn(Optional.empty());
-    GroupingEngine groupingEngine = GroupByQueryRunnerTest.makeQueryRunnerFactory(
+    GroupingEngine groupingEngine = GroupByQueryRunnerTestHelper.makeQueryRunnerFactory(
+        objectMapper,
         new GroupByQueryConfig(),
         TestGroupByBuffers.createDefault()
     ).getGroupingEngine();

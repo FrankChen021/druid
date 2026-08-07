@@ -76,7 +76,7 @@ import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
-import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
+import org.apache.druid.query.groupby.GroupByQueryRunnerTestHelper;
 import org.apache.druid.query.groupby.GroupingEngine;
 import org.apache.druid.query.groupby.TestGroupByBuffers;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
@@ -194,7 +194,8 @@ public class MSQTaskQueryMakerTest
 
     jsonMapper = new DefaultObjectMapper();
     queryProcessingPool = new ForwardingQueryProcessingPool(Execs.singleThreaded("Test-runner-processing-pool"));
-    groupingEngine = GroupByQueryRunnerTest.makeQueryRunnerFactory(
+    groupingEngine = GroupByQueryRunnerTestHelper.makeQueryRunnerFactory(
+        objectMapper,
         new GroupByQueryConfig(),
         TestGroupByBuffers.createDefault()
     ).getGroupingEngine();

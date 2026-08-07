@@ -135,7 +135,7 @@ import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.aggregation.datasketches.hll.HllSketchModule;
 import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFactory;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
-import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
+import org.apache.druid.query.groupby.GroupByQueryRunnerTestHelper;
 import org.apache.druid.query.groupby.GroupingEngine;
 import org.apache.druid.query.groupby.TestGroupByBuffers;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
@@ -510,7 +510,8 @@ public class MSQTestBase extends BaseCalciteQueryTest
           };
 
           GroupByQueryConfig groupByQueryConfig = new GroupByQueryConfig();
-          GroupingEngine groupingEngine = GroupByQueryRunnerTest.makeQueryRunnerFactory(
+          GroupingEngine groupingEngine = GroupByQueryRunnerTestHelper.makeQueryRunnerFactory(
+              objectMapper,
               groupByQueryConfig,
               groupByBuffers
           ).getGroupingEngine();
