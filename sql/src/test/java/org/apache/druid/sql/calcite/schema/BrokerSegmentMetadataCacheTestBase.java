@@ -228,7 +228,7 @@ public class BrokerSegmentMetadataCacheTestBase extends InitializedNullHandlingT
       final File tmpDir,
       final InputRowSchema rowSchema,
       final List<InputRow> rows
-  ) throws Exception
+  )
   {
     return IndexBuilder.create()
                        .tmpDir(tmpDir)
