@@ -3505,7 +3505,7 @@ public class KafkaIndexTaskTest extends SeekableStreamIndexTaskTestBase
         )
     );
 
-    final Injector peonInjector = CliPeonTest.makePeonInjectorWithStubEmitter(task, super.tempFolder, OBJECT_MAPPER);
+    final Injector peonInjector = CliPeonTest.makePeonInjectorWithStubEmitter(task, super.tempFolder.getRoot(), OBJECT_MAPPER);
     Emitter peonEmitter = peonInjector.getInstance(Emitter.class);
     Assertions.assertTrue(peonEmitter instanceof StubServiceEmitter);
     emitter = (StubServiceEmitter) peonEmitter;
