@@ -19,6 +19,7 @@
 
 package org.apache.druid.sql.calcite.planner;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.UOE;
@@ -38,6 +39,7 @@ public class PlannerConfig
   public static final String CTX_COMPUTE_INNER_JOIN_COST_AS_FILTER = "computeInnerJoinCostAsFilter";
   public static final String CTX_KEY_USE_NATIVE_QUERY_EXPLAIN = "useNativeQueryExplain";
   public static final String CTX_KEY_FORCE_EXPRESSION_VIRTUAL_COLUMNS = "forceExpressionVirtualColumns";
+  public static final String CTX_ENABLE_NATIVE_QUERY_FOR_SYSTEM_TABLES = "enableNativeQueryForSystemTables";
   public static final String CTX_MAX_NUMERIC_IN_FILTERS = "maxNumericInFilters";
   public static final String CTX_REQUIRE_TIME_CONDITION = "requireTimeCondition";
   public static final int NUM_FILTER_NOT_USED = -1;
@@ -82,6 +84,9 @@ public class PlannerConfig
 
   @JsonProperty
   private boolean enableSysQueriesTable = false;
+
+  @JsonIgnore
+  private boolean enableNativeQueryForSystemTables = false;
 
   public int getMaxNumericInFilters()
   {
@@ -160,6 +165,12 @@ public class PlannerConfig
     return enableSysQueriesTable;
   }
 
+  @JsonIgnore
+  public boolean isEnableNativeQueryForSystemTables()
+  {
+    return enableNativeQueryForSystemTables;
+  }
+
   public PlannerConfig withOverrides(final Map<String, Object> queryContext)
   {
     if (queryContext.isEmpty()) {
@@ -189,6 +200,7 @@ public class PlannerConfig
            && forceExpressionVirtualColumns == that.forceExpressionVirtualColumns
            && maxNumericInFilters == that.maxNumericInFilters
            && enableSysQueriesTable == that.enableSysQueriesTable
+           && enableNativeQueryForSystemTables == that.enableNativeQueryForSystemTables
            && Objects.equals(sqlTimeZone, that.sqlTimeZone)
            && Objects.equals(nativeQuerySqlPlanningMode, that.nativeQuerySqlPlanningMode);
   }
@@ -210,7 +222,8 @@ public class PlannerConfig
         forceExpressionVirtualColumns,
         maxNumericInFilters,
         nativeQuerySqlPlanningMode,
-        enableSysQueriesTable
+        enableSysQueriesTable,
+        enableNativeQueryForSystemTables
     );
   }
 
@@ -227,6 +240,7 @@ public class PlannerConfig
            ", useNativeQueryExplain=" + useNativeQueryExplain +
            ", nativeQuerySqlPlanningMode=" + nativeQuerySqlPlanningMode +
            ", enableSysQueriesTable=" + enableSysQueriesTable +
+           ", enableNativeQueryForSystemTables=" + enableNativeQueryForSystemTables +
            '}';
   }
 
@@ -262,6 +276,7 @@ public class PlannerConfig
     private int maxNumericInFilters;
     private String nativeQuerySqlPlanningMode;
     private boolean enableSysQueriesTable;
+    private boolean enableNativeQueryForSystemTables;
 
     public Builder(PlannerConfig base)
     {
@@ -282,6 +297,7 @@ public class PlannerConfig
       maxNumericInFilters = base.getMaxNumericInFilters();
       nativeQuerySqlPlanningMode = base.getNativeQuerySqlPlanningMode();
       enableSysQueriesTable = base.isEnableSysQueriesTable();
+      enableNativeQueryForSystemTables = base.isEnableNativeQueryForSystemTables();
     }
 
     public Builder requireTimeCondition(boolean option)
@@ -399,6 +415,11 @@ public class PlannerConfig
           CTX_KEY_FORCE_EXPRESSION_VIRTUAL_COLUMNS,
           forceExpressionVirtualColumns
       );
+      enableNativeQueryForSystemTables = QueryContexts.parseBoolean(
+          queryContext,
+          CTX_ENABLE_NATIVE_QUERY_FOR_SYSTEM_TABLES,
+          enableNativeQueryForSystemTables
+      );
       final int queryContextMaxNumericInFilters = QueryContexts.parseInt(
           queryContext,
           CTX_MAX_NUMERIC_IN_FILTERS,
@@ -459,6 +480,7 @@ public class PlannerConfig
       config.forceExpressionVirtualColumns = forceExpressionVirtualColumns;
       config.nativeQuerySqlPlanningMode = nativeQuerySqlPlanningMode;
       config.enableSysQueriesTable = enableSysQueriesTable;
+      config.enableNativeQueryForSystemTables = enableNativeQueryForSystemTables;
       return config;
     }
   }
@@ -488,6 +510,12 @@ public class PlannerConfig
       overrides.put(
           CTX_REQUIRE_TIME_CONDITION,
           String.valueOf(requireTimeCondition)
+      );
+    }
+    if (def.enableNativeQueryForSystemTables != enableNativeQueryForSystemTables) {
+      overrides.put(
+          CTX_ENABLE_NATIVE_QUERY_FOR_SYSTEM_TABLES,
+          String.valueOf(enableNativeQueryForSystemTables)
       );
     }
 

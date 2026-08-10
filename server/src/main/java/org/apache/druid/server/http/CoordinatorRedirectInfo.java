@@ -33,7 +33,8 @@ public class CoordinatorRedirectInfo implements RedirectInfo
 {
   private static final Set<String> LOCAL_PATHS = ImmutableSet.of(
       "/druid/coordinator/v1/leader",
-      "/druid/coordinator/v1/isLeader"
+      "/druid/coordinator/v1/isLeader",
+      "/druid/v2/system"
   );
 
   private final DruidCoordinator coordinator;

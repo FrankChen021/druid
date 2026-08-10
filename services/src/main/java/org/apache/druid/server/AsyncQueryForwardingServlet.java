@@ -223,7 +223,9 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
 
     // The Router does not have the ability to look inside SQL queries and route them intelligently, so just treat
     // them as a generic request.
-    final boolean isNativeQueryEndpoint = requestURI.startsWith("/druid/v2") && !requestURI.startsWith("/druid/v2/sql");
+    final boolean isNativeQueryEndpoint = requestURI.startsWith("/druid/v2")
+                                          && !requestURI.startsWith("/druid/v2/sql")
+                                          && !requestURI.startsWith("/druid/v2/system");
     final boolean isSqlQueryEndpoint = requestURI.startsWith("/druid/v2/sql");
 
     final boolean isAvaticaJson = requestURI.startsWith("/druid/v2/sql/avatica");

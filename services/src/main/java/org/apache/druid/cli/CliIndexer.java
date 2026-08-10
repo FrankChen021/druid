@@ -58,6 +58,7 @@ import org.apache.druid.indexer.report.TaskReportFileWriter;
 import org.apache.druid.indexing.common.MultipleFileTaskReportFileWriter;
 import org.apache.druid.indexing.overlord.TaskRunner;
 import org.apache.druid.indexing.overlord.ThreadingTaskRunner;
+import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
 import org.apache.druid.indexing.worker.Worker;
 import org.apache.druid.indexing.worker.WorkerTaskManager;
 import org.apache.druid.indexing.worker.config.WorkerConfig;
@@ -129,6 +130,7 @@ public class CliIndexer extends ServerRunnable
         new QueryRunnerFactoryModule(),
         new SegmentWranglerModule(),
         new JoinableFactoryModule(),
+        new NativeSystemQueryModule(),
         new IndexerServiceModule(),
         new Module()
         {

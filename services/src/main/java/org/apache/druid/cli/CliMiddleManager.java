@@ -55,6 +55,7 @@ import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervi
 import org.apache.druid.indexing.common.task.batch.parallel.ShuffleClient;
 import org.apache.druid.indexing.overlord.ForkingTaskRunner;
 import org.apache.druid.indexing.overlord.TaskRunner;
+import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
 import org.apache.druid.indexing.worker.Worker;
 import org.apache.druid.indexing.worker.WorkerTaskManager;
 import org.apache.druid.indexing.worker.config.WorkerConfig;
@@ -116,6 +117,7 @@ public class CliMiddleManager extends ServerRunnable
   {
     return ImmutableList.of(
         new MiddleManagerServiceModule(),
+        new NativeSystemQueryModule(),
         new Module()
         {
           @Override

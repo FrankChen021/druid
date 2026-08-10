@@ -36,6 +36,7 @@ import org.apache.calcite.linq4j.DefaultEnumerable;
 import org.apache.calcite.linq4j.Enumerable;
 import org.apache.calcite.linq4j.Enumerator;
 import org.apache.calcite.linq4j.Linq4j;
+import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
@@ -79,6 +80,7 @@ import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.SqlEngine;
+import org.apache.druid.sql.calcite.table.DruidTable;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 import org.apache.druid.sql.http.GetQueriesResponse;
 import org.apache.druid.sql.http.QueryInfo;
@@ -136,6 +138,26 @@ public class SystemSchema extends AbstractSchema
   private static final long IS_AVAILABLE_TRUE = 1L;
   private static final long IS_OVERSHADOWED_FALSE = 0L;
   private static final long IS_OVERSHADOWED_TRUE = 1L;
+
+  /**
+   * Returns the native representation for a supported system table, or {@code null} for a traditional system table.
+   * The schema keeps the traditional table registered so the query context can select the execution mode per query.
+   */
+  @Nullable
+  public static DruidTable getNativeSystemTable(final RelOptTable table)
+  {
+    final List<String> qualifiedName = table.getQualifiedName();
+    if (qualifiedName.size() < 2
+        || !NamedSystemSchema.NAME.equals(qualifiedName.get(qualifiedName.size() - 2))) {
+      return null;
+    }
+
+    return switch (qualifiedName.get(qualifiedName.size() - 1)) {
+      case TASKS_TABLE -> new NativeTasksTable();
+      case SystemServerPropertiesTable.TABLE_NAME -> new NativeServerPropertiesTable();
+      default -> null;
+    };
+  }
 
   static final RowSignature SEGMENTS_SIGNATURE = RowSignature
       .builder()
@@ -288,7 +310,10 @@ public class SystemSchema extends AbstractSchema
         )
     );
     builder.put(SERVER_SEGMENTS_TABLE, new ServerSegmentsTable(serverView, authorizerMapper));
-    builder.put(TASKS_TABLE, new TasksTable(overlordClient, authorizerMapper));
+    builder.put(
+        TASKS_TABLE,
+        new TasksTable(overlordClient, authorizerMapper)
+    );
     builder.put(SUPERVISOR_TABLE, new SupervisorsTable(overlordClient, authorizerMapper));
     builder.put(
         SystemServerPropertiesTable.TABLE_NAME,

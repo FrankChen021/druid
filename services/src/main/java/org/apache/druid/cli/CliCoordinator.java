@@ -55,6 +55,7 @@ import org.apache.druid.guice.SegmentSchemaCacheModule;
 import org.apache.druid.guice.SupervisorCleanupModule;
 import org.apache.druid.guice.annotations.EscalatedGlobal;
 import org.apache.druid.guice.http.JettyHttpClientModule;
+import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -174,6 +175,11 @@ public class CliCoordinator extends ServerRunnable
 
     modules.add(JettyHttpClientModule.global());
     modules.add(new MetadataManagerModule());
+
+    // Coordinator-as-Overlord installs the shared module from CliOverlord below, including the tasks provider.
+    if (!beOverlord) {
+      modules.add(new NativeSystemQueryModule());
+    }
 
     if (isSegmentSchemaCacheEnabled) {
       validateCentralizedDatasourceSchemaConfig(properties);

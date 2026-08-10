@@ -133,7 +133,7 @@ public class WindowOperatorQuery extends BaseQuery<RowsAndColumns>
               new ScanOperatorFactory(
                   null,
                   scan.getFilter(),
-                  scan.getOffsetLimit(),
+                  isEffectivelyUnbounded(scan.getOffsetLimit()) ? null : scan.getOffsetLimit(),
                   scan.getColumns(),
                   scan.getVirtualColumns().isEmpty() ? null : scan.getVirtualColumns(),
                   ordering
@@ -144,6 +144,13 @@ public class WindowOperatorQuery extends BaseQuery<RowsAndColumns>
     } else {
       this.leafOperators = leafOperators;
     }
+  }
+
+  private static boolean isEffectivelyUnbounded(final OffsetLimit offsetLimit)
+  {
+    // ScanQuery represents an absent SQL limit as Long.MAX_VALUE. Avoid treating it as a real operator limit,
+    // since doing so forces an unnecessary frame materialization before sorting.
+    return offsetLimit != null && offsetLimit.getOffset() == 0 && offsetLimit.getLimit() == Long.MAX_VALUE;
   }
 
   @JsonProperty("operatorDefinition")

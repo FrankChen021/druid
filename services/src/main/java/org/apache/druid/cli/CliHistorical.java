@@ -41,6 +41,7 @@ import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.ServerTypeConfig;
+import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.msq.dart.guice.DartWorkerMemoryManagementModule;
 import org.apache.druid.msq.dart.guice.DartWorkerModule;
@@ -96,6 +97,7 @@ public class CliHistorical extends ServerRunnable
         new QueryRunnerFactoryModule(),
         new SegmentWranglerModule(),
         new JoinableFactoryModule(),
+        new NativeSystemQueryModule(),
         new HistoricalServiceModule(),
         binder -> {
           binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/historical");

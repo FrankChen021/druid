@@ -36,6 +36,7 @@ import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.RouterProcessingModule;
 import org.apache.druid.guice.http.JettyHttpClientModule;
+import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.lookup.LookupSerdeModule;
@@ -90,6 +91,7 @@ public class CliRouter extends ServerRunnable
         new RouterProcessingModule(),
         new QueryableModule(),
         new QueryRunnerFactoryModule(),
+        new NativeSystemQueryModule(),
         new JettyHttpClientModule("druid.router.http", Router.class),
         JettyHttpClientModule.global(),
         binder -> {

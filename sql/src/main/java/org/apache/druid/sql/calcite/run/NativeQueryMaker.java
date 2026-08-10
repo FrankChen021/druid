@@ -26,22 +26,25 @@ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.Hook;
+import org.apache.druid.common.guava.FutureUtils;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.UOE;
-import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryToolChest;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.filter.BoundDimFilter;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.query.ordering.StringComparators;
 import org.apache.druid.query.planning.ExecutionVertex;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
+import org.apache.druid.rpc.indexing.NativeSystemQueryResponse;
 import org.apache.druid.segment.column.ColumnHolder;
+import org.apache.druid.server.NativeSystemQueryClient;
 import org.apache.druid.server.QueryLifecycle;
 import org.apache.druid.server.QueryLifecycleFactory;
 import org.apache.druid.server.QueryResponse;
@@ -52,8 +55,11 @@ import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.rel.CannotBuildQueryException;
 import org.apache.druid.sql.calcite.rel.DruidQuery;
 import org.apache.druid.sql.hook.DruidHook;
+
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -64,18 +70,21 @@ public class NativeQueryMaker implements QueryMaker
   private final PlannerContext plannerContext;
   private final ObjectMapper jsonMapper;
   private final List<Entry<Integer, String>> fieldMapping;
+  private final NativeSystemQueryClient nativeSystemQueryClient;
 
   public NativeQueryMaker(
       final QueryLifecycleFactory queryLifecycleFactory,
       final PlannerContext plannerContext,
       final ObjectMapper jsonMapper,
-      final List<Entry<Integer, String>> fieldMapping
+      final List<Entry<Integer, String>> fieldMapping,
+      final NativeSystemQueryClient nativeSystemQueryClient
   )
   {
     this.queryLifecycleFactory = queryLifecycleFactory;
     this.plannerContext = plannerContext;
     this.jsonMapper = jsonMapper;
     this.fieldMapping = fieldMapping;
+    this.nativeSystemQueryClient = nativeSystemQueryClient;
   }
 
   @Override
@@ -177,6 +186,38 @@ public class NativeQueryMaker implements QueryMaker
 
     final AuthenticationResult authenticationResult = plannerContext.getAuthenticationResult();
     final AuthorizationResult authorizationResult = plannerContext.getAuthorizationResult();
+    if (query.getDataSource() instanceof SystemTableDataSource) {
+      final Map<String, Object> authenticationContext = new HashMap<>();
+      authenticationContext.put(
+          SystemTableDataSource.CTX_AUTHENTICATION_IDENTITY,
+          authenticationResult.getIdentity()
+      );
+      authenticationContext.put(
+          SystemTableDataSource.CTX_AUTHENTICATION_AUTHORIZER,
+          authenticationResult.getAuthorizerName()
+      );
+      authenticationContext.put(
+          SystemTableDataSource.CTX_AUTHENTICATED_BY,
+          authenticationResult.getAuthenticatedBy()
+      );
+      authenticationContext.put(
+          SystemTableDataSource.CTX_AUTHENTICATION_CONTEXT,
+          authenticationResult.getContext()
+      );
+      // This is an internal transport flag. NativeSystemQueryClient uses a scan-only copy when it contacts
+      // components, while the Broker must always execute the original query over the combined rows.
+      authenticationContext.put(SystemTableDataSource.CTX_NATIVE_SYSTEM_QUERY_SCAN_ONLY, false);
+      query = query.withOverriddenContext(authenticationContext);
+
+      if (nativeSystemQueryClient == null) {
+        throw new ISE("No native system query client is available");
+      }
+      final NativeSystemQueryResponse response = FutureUtils.getUnchecked(
+          nativeSystemQueryClient.run(query),
+          true
+      );
+      query = query.withDataSource(InlineDataSource.fromIterable(response.getRows(), response.getSignature()));
+    }
     final QueryLifecycle queryLifecycle = queryLifecycleFactory.factorize();
 
     // After calling "runSimple" the query will start running. We need to do this before reading the toolChest, since
@@ -208,7 +249,21 @@ public class NativeQueryMaker implements QueryMaker
       final List<RelDataType> newTypes
   )
   {
-    final List<String> originalFields = toolChest.resultArraySignature(query).getColumnNames();
+    return mapArrayResultSequence(
+        new QueryResponse<>(toolChest.resultsAsArrays(query, results.getResults()), results.getResponseContext()),
+        toolChest.resultArraySignature(query).getColumnNames(),
+        newFields,
+        newTypes
+    );
+  }
+
+  private QueryResponse<Object[]> mapArrayResultSequence(
+      final QueryResponse<Object[]> results,
+      final List<String> originalFields,
+      final List<String> newFields,
+      final List<RelDataType> newTypes
+  )
+  {
 
     // Build hash map for looking up original field positions, in case the number of fields is super high.
     final Object2IntMap<String> originalFieldsLookup = new Object2IntOpenHashMap<>();
@@ -233,11 +288,10 @@ public class NativeQueryMaker implements QueryMaker
       mapping[i] = idx;
     }
 
-    final Sequence<Object[]> sequence = toolChest.resultsAsArrays(query, results.getResults());
     final SqlResults.Context sqlResultsContext = SqlResults.Context.fromPlannerContext(plannerContext);
     return new QueryResponse<>(
         Sequences.map(
-            sequence,
+            results.getResults(),
             array -> {
               final Object[] newArray = new Object[mapping.length];
               for (int i = 0; i < mapping.length; i++) {

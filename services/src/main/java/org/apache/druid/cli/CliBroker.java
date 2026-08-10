@@ -57,6 +57,7 @@ import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.ServerTypeConfig;
+import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.msq.dart.guice.DartControllerMemoryManagementModule;
 import org.apache.druid.msq.dart.guice.DartControllerModule;
@@ -127,6 +128,7 @@ public class CliBroker extends ServerRunnable
         ),
         new SegmentWranglerModule(),
         new JoinableFactoryModule(),
+        new NativeSystemQueryModule(),
         new BrokerServiceModule(),
         binder -> {
           validateCentralizedDatasourceSchemaConfig(getProperties());

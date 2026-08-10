@@ -101,6 +101,7 @@ import org.apache.druid.indexing.overlord.duty.TaskLogAutoCleanerConfig;
 import org.apache.druid.indexing.overlord.duty.UnusedSegmentsKiller;
 import org.apache.druid.indexing.overlord.hrtr.HttpRemoteTaskRunnerFactory;
 import org.apache.druid.indexing.overlord.hrtr.HttpRemoteTaskRunnerResource;
+import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
 import org.apache.druid.indexing.overlord.http.OverlordCompactionResource;
 import org.apache.druid.indexing.overlord.http.OverlordDataSourcesResource;
 import org.apache.druid.indexing.overlord.http.OverlordRedirectInfo;
@@ -206,6 +207,7 @@ public class CliOverlord extends ServerRunnable
     return ImmutableList.of(
         new DerbyTaskStorageModule(),
         standalone ? new MetadataManagerModule() : binder -> {},
+        new NativeSystemQueryModule(),
         new Module()
         {
           @Override

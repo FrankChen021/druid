@@ -21,7 +21,6 @@ package org.apache.druid.indexing.overlord;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import org.apache.druid.indexer.TaskInfo;
@@ -38,12 +37,14 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.metadata.LockFilterPolicy;
 import org.apache.druid.metadata.TaskLookup;
 import org.apache.druid.metadata.TaskLookup.TaskLookupType;
+import org.apache.druid.metadata.TaskStorageQueryFilter;
 import org.joda.time.Duration;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -196,6 +197,49 @@ public class TaskQueryTool
       @Nullable String type
   )
   {
+    final TaskStorageQueryFilter.Builder filterBuilder = TaskStorageQueryFilter.builder();
+    if (dataSource != null) {
+      filterBuilder.addValues(TaskStorageQueryFilter.Column.DATASOURCE, Set.of(dataSource));
+    }
+    if (type != null) {
+      filterBuilder.addValues(TaskStorageQueryFilter.Column.TYPE, Set.of(type));
+    }
+    return getTaskStatusPlusList(
+        state,
+        filterBuilder.build(),
+        createdTimeInterval,
+        maxCompletedTasks,
+        dataSource,
+        type
+    );
+  }
+
+  public List<TaskStatusPlus> getTaskStatusPlusList(
+      final TaskStateLookup state,
+      final TaskStorageQueryFilter storageFilter,
+      @Nullable final String createdTimeInterval,
+      @Nullable final Integer maxCompletedTasks
+  )
+  {
+    return getTaskStatusPlusList(
+        state,
+        storageFilter,
+        createdTimeInterval,
+        maxCompletedTasks,
+        storageFilter.getSingleDataSource(),
+        storageFilter.getSingleType()
+    );
+  }
+
+  private List<TaskStatusPlus> getTaskStatusPlusList(
+      final TaskStateLookup state,
+      final TaskStorageQueryFilter storageFilter,
+      @Nullable final String createdTimeInterval,
+      @Nullable final Integer maxCompletedTasks,
+      @Nullable final String runnerDataSource,
+      @Nullable final String runnerType
+  )
+  {
     Optional<TaskRunner> taskRunnerOptional = taskMaster.getTaskRunner();
     if (!taskRunnerOptional.isPresent()) {
       return Collections.emptyList();
@@ -218,16 +262,16 @@ public class TaskQueryTool
     // after the first snapshotting.
     Stream<TaskStatusPlus> taskStatusPlusStream = retrieveTaskStatusesFromMetadataStore(
         state,
-        dataSource,
+        storageFilter,
         createdTimeDuration,
         maxCompletedTasks,
-        type
+        runnerType
     );
     final Map<String, ? extends TaskRunnerWorkItem> runnerWorkItems = getTaskRunnerWorkItems(
         taskRunner,
         state,
-        dataSource,
-        type
+        runnerDataSource,
+        runnerType
     );
 
     if (state == TaskStateLookup.PENDING || state == TaskStateLookup.RUNNING) {
@@ -284,24 +328,23 @@ public class TaskQueryTool
 
   private Stream<TaskStatusPlus> retrieveTaskStatusesFromMetadataStore(
       TaskStateLookup state,
-      @Nullable String dataSource,
+      TaskStorageQueryFilter storageFilter,
       Duration createdTimeDuration,
       @Nullable Integer maxCompletedTasks,
-      @Nullable String type
+      @Nullable String exactTypeFilter
   )
   {
-    final Map<TaskLookupType, TaskLookup> taskLookups;
+    final Map<TaskLookupType, TaskLookup> taskLookups = new HashMap<>();
     switch (state) {
       case ALL:
-        taskLookups = ImmutableMap.of(
-            TaskLookupType.ACTIVE,
-            TaskLookup.ActiveTaskLookup.getInstance(),
+        taskLookups.put(TaskLookupType.ACTIVE, TaskLookup.ActiveTaskLookup.getInstance());
+        taskLookups.put(
             TaskLookupType.COMPLETE,
             TaskLookup.CompleteTaskLookup.of(maxCompletedTasks, createdTimeDuration)
         );
         break;
       case COMPLETE:
-        taskLookups = ImmutableMap.of(
+        taskLookups.put(
             TaskLookupType.COMPLETE,
             TaskLookup.CompleteTaskLookup.of(maxCompletedTasks, createdTimeDuration)
         );
@@ -309,20 +352,24 @@ public class TaskQueryTool
       case WAITING:
       case PENDING:
       case RUNNING:
-        taskLookups = ImmutableMap.of(
-            TaskLookupType.ACTIVE,
-            TaskLookup.ActiveTaskLookup.getInstance()
-        );
+        taskLookups.put(TaskLookupType.ACTIVE, TaskLookup.ActiveTaskLookup.getInstance());
         break;
       default:
         throw new IAE("Unknown state: [%s]", state);
     }
 
+    if (!storageFilter.includesActiveTasks()) {
+      taskLookups.remove(TaskLookupType.ACTIVE);
+    }
+    if (!storageFilter.includesCompleteTasks()) {
+      taskLookups.remove(TaskLookupType.COMPLETE);
+    }
+
     final Stream<TaskStatusPlus> taskStatusPlusStream
-        = storage.getTaskStatusPlusList(taskLookups, dataSource).stream();
-    if (type != null) {
+        = storage.getTaskStatusPlusListWithFilter(taskLookups, storageFilter).stream();
+    if (exactTypeFilter != null) {
       return taskStatusPlusStream.filter(
-          statusPlus -> type.equals(statusPlus == null ? null : statusPlus.getType())
+          statusPlus -> exactTypeFilter.equals(statusPlus == null ? null : statusPlus.getType())
       );
     } else {
       return taskStatusPlusStream;

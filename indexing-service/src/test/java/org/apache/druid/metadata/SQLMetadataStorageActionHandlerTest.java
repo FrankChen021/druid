@@ -447,6 +447,117 @@ public class SQLMetadataStorageActionHandlerTest
     verifyTaskInfoToMetadataInfo(activeAltered, taskMetadataInfos, false);
   }
 
+  @Test
+  public void testGetTaskStatusListWithStorageFilters()
+  {
+    insertTask("task-1", "group-a", "noop", "datasource-a", "2014-01-10", TaskState.RUNNING, true);
+    insertTask("task-2", "group-b", "other", "datasource-b", "2014-01-20", TaskState.SUCCESS, true);
+    insertTask("task-3", "group-a", "other", "datasource-a", "2014-01-30", TaskState.FAILED, true);
+    insertTask("task-legacy", "group-a", "noop", "datasource-a", "2014-01-15", TaskState.RUNNING, false);
+
+    assertFilteredTaskIds(
+        Set.of("task-1", "task-3"),
+        TaskStorageQueryFilter.builder()
+                              .addValues(TaskStorageQueryFilter.Column.TASK_ID, Set.of("task-1", "task-3"))
+                              .build()
+    );
+    // Null group_id and type values are retained as a migration-safe superset. The native filter remains residual.
+    assertFilteredTaskIds(
+        Set.of("task-1", "task-3", "task-legacy"),
+        TaskStorageQueryFilter.builder()
+                              .addValues(TaskStorageQueryFilter.Column.GROUP_ID, Set.of("group-a"))
+                              .build()
+    );
+    assertFilteredTaskIds(
+        Set.of("task-1", "task-legacy"),
+        TaskStorageQueryFilter.builder()
+                              .addValues(TaskStorageQueryFilter.Column.TYPE, Set.of("noop"))
+                              .build()
+    );
+    assertFilteredTaskIds(
+        Set.of("task-2"),
+        TaskStorageQueryFilter.builder()
+                              .addValues(TaskStorageQueryFilter.Column.DATASOURCE, Set.of("datasource-b"))
+                              .build()
+    );
+    assertFilteredTaskIds(
+        Set.of("task-3"),
+        TaskStorageQueryFilter.builder()
+                              .addValues(
+                                  TaskStorageQueryFilter.Column.CREATED_TIME,
+                                  Set.of("2014-01-30T00:00:00.000Z")
+                              )
+                              .build()
+    );
+    assertFilteredTaskIds(
+        Set.of("task-2", "task-legacy"),
+        TaskStorageQueryFilter.builder()
+                              .addCreatedTimeRange(
+                                  "2014-01-15T00:00:00.000Z",
+                                  false,
+                                  "2014-01-30T00:00:00.000Z",
+                                  true
+                              )
+                              .build()
+    );
+    assertFilteredTaskIds(
+        Set.of("task-1", "task-legacy"),
+        TaskStorageQueryFilter.builder()
+                              .addValues(TaskStorageQueryFilter.Column.STATUS, Set.of(TaskState.RUNNING.name()))
+                              .build()
+    );
+    // SUCCESS and FAILED share the completed-task lookup; the native residual filter distinguishes them.
+    assertFilteredTaskIds(
+        Set.of("task-2", "task-3"),
+        TaskStorageQueryFilter.builder()
+                              .addValues(TaskStorageQueryFilter.Column.STATUS, Set.of(TaskState.SUCCESS.name()))
+                              .build()
+    );
+  }
+
+  private void assertFilteredTaskIds(
+      final Set<String> expectedTaskIds,
+      final TaskStorageQueryFilter filter
+  )
+  {
+    final Map<TaskLookup.TaskLookupType, TaskLookup> taskLookups = new HashMap<>();
+    taskLookups.put(TaskLookup.TaskLookupType.ACTIVE, ActiveTaskLookup.getInstance());
+    taskLookups.put(
+        TaskLookup.TaskLookupType.COMPLETE,
+        CompleteTaskLookup.withTasksCreatedPriorTo(null, DateTimes.of("2014-01-01"))
+    );
+
+    final Set<String> actualTaskIds = handler.getTaskStatusListWithFilter(taskLookups, filter, false)
+                                             .stream()
+                                             .map(taskStatus -> taskStatus.getTaskIdentifier().getId())
+                                             .collect(Collectors.toSet());
+    Assert.assertEquals(expectedTaskIds, actualTaskIds);
+  }
+
+  private void insertTask(
+      final String id,
+      final String groupId,
+      final String storedType,
+      final String dataSource,
+      final String createdTime,
+      final TaskState taskState,
+      final boolean migrated
+  )
+  {
+    final Task task = new NoopTask(id, groupId, dataSource, 1L, 0L, null);
+    final TaskStatus status = new TaskStatus(id, taskState, 0L, null, TaskLocation.unknown());
+    handler.insert(
+        id,
+        DateTimes.of(createdTime),
+        dataSource,
+        task,
+        TaskState.RUNNING.equals(taskState),
+        status,
+        migrated ? storedType : null,
+        migrated ? groupId : null
+    );
+  }
+
   private Integer getUnmigratedTaskCount()
   {
     return handler.getConnector().retryWithHandle(

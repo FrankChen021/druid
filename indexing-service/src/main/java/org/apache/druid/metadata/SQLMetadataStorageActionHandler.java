@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -305,7 +306,10 @@ public abstract class SQLMetadataStorageActionHandler
             final Query<Map<String, Object>> query;
             switch (entry.getKey()) {
               case ACTIVE:
-                query = createActiveTaskStreamingQuery(handle, dataSource);
+                query = createActiveTaskStreamingQuery(
+                    handle,
+                    TaskStorageQueryFilter.forDataSource(dataSource)
+                );
                 tasks.addAll(query.map(taskInfoMapper).list());
                 break;
               case COMPLETE:
@@ -314,7 +318,7 @@ public abstract class SQLMetadataStorageActionHandler
                     handle,
                     completeTaskLookup.getTasksCreatedPriorTo(),
                     completeTaskLookup.getMaxTaskStatuses(),
-                    dataSource
+                    TaskStorageQueryFilter.forDataSource(dataSource)
                 );
                 tasks.addAll(query.map(taskInfoMapper).list());
                 break;
@@ -335,6 +339,15 @@ public abstract class SQLMetadataStorageActionHandler
       @Nullable String dataSource
   )
   {
+    return getTaskStatusListWithFilter(taskLookups, TaskStorageQueryFilter.forDataSource(dataSource));
+  }
+
+  @Override
+  public List<TaskIdStatus> getTaskStatusListWithFilter(
+      final Map<TaskLookupType, TaskLookup> taskLookups,
+      final TaskStorageQueryFilter filter
+  )
+  {
     boolean fetchPayload = true;
     if (taskMigrationCompleteFuture != null && taskMigrationCompleteFuture.isDone()) {
       try {
@@ -344,7 +357,7 @@ public abstract class SQLMetadataStorageActionHandler
         log.info(e, "Exception getting task migration future");
       }
     }
-    return getTaskStatusList(taskLookups, dataSource, fetchPayload);
+    return getTaskStatusListWithFilter(taskLookups, filter, fetchPayload);
   }
 
   @VisibleForTesting
@@ -354,7 +367,25 @@ public abstract class SQLMetadataStorageActionHandler
       boolean fetchPayload
   )
   {
-    ResultSetMapper<TaskIdStatus> resultSetMapper =
+    return getTaskStatusListWithFilter(
+        taskLookups,
+        TaskStorageQueryFilter.forDataSource(dataSource),
+        fetchPayload
+    );
+  }
+
+  @VisibleForTesting
+  List<TaskIdStatus> getTaskStatusListWithFilter(
+      final Map<TaskLookupType, TaskLookup> taskLookups,
+      final TaskStorageQueryFilter filter,
+      final boolean fetchPayload
+  )
+  {
+    if (filter.matchesNothing()) {
+      return List.of();
+    }
+
+    final ResultSetMapper<TaskIdStatus> resultSetMapper =
         fetchPayload ? taskStatusMapperFromPayload : taskStatusMapper;
     return getConnector().retryTransaction(
         (handle, status) -> {
@@ -363,18 +394,24 @@ public abstract class SQLMetadataStorageActionHandler
             final Query<Map<String, Object>> query;
             switch (entry.getKey()) {
               case ACTIVE:
+                if (!filter.includesActiveTasks()) {
+                  break;
+                }
                 query = fetchPayload
-                        ? createActiveTaskStreamingQuery(handle, dataSource)
-                        : createActiveTaskSummaryStreamingQuery(handle, dataSource);
+                        ? createActiveTaskStreamingQuery(handle, filter)
+                        : createActiveTaskSummaryStreamingQuery(handle, filter);
                 taskMetadataInfos.addAll(query.map(resultSetMapper).list());
                 break;
               case COMPLETE:
+                if (!filter.includesCompleteTasks()) {
+                  break;
+                }
                 CompleteTaskLookup completeTaskLookup = (CompleteTaskLookup) entry.getValue();
                 DateTime priorTo = completeTaskLookup.getTasksCreatedPriorTo();
                 Integer limit = completeTaskLookup.getMaxTaskStatuses();
                 query = fetchPayload
-                        ? createCompletedTaskStreamingQuery(handle, priorTo, limit, dataSource)
-                        : createCompletedTaskSummaryStreamingQuery(handle, priorTo, limit, dataSource);
+                        ? createCompletedTaskStreamingQuery(handle, priorTo, limit, filter)
+                        : createCompletedTaskSummaryStreamingQuery(handle, priorTo, limit, filter);
                 taskMetadataInfos.addAll(query.map(resultSetMapper).list());
                 break;
               default:
@@ -417,14 +454,14 @@ public abstract class SQLMetadataStorageActionHandler
    * Recommended for GET /tasks API
    * Uses streaming SQL query to avoid fetching too many rows at once into memory
    * @param handle db handle
-   * @param dataSource datasource to which the tasks belong. null if we don't want to filter
+   * @param filter storage-level task prefilters
    * @return Query object for TaskStatusPlus for completed tasks of interest
    */
   private Query<Map<String, Object>> createCompletedTaskSummaryStreamingQuery(
       Handle handle,
       DateTime timestamp,
       @Nullable Integer maxNumStatuses,
-      @Nullable String dataSource
+      TaskStorageQueryFilter filter
   )
   {
     String sql = StringUtils.format(
@@ -438,7 +475,7 @@ public abstract class SQLMetadataStorageActionHandler
         + "FROM "
         + "  %s "
         + "WHERE "
-        + getWhereClauseForInactiveStatusesSinceQuery(dataSource)
+        + getWhereClauseForInactiveStatusesSinceQuery(filter)
         + "ORDER BY created_date DESC",
         getEntryTable()
     );
@@ -453,10 +490,7 @@ public abstract class SQLMetadataStorageActionHandler
     if (maxNumStatuses != null) {
       query = query.bind("n", maxNumStatuses);
     }
-    if (dataSource != null) {
-      query = query.bind("ds", dataSource);
-    }
-    return query;
+    return bindTaskStorageFilter(query, filter);
   }
 
   /**
@@ -465,14 +499,14 @@ public abstract class SQLMetadataStorageActionHandler
    * For example for ingestion tasks view before migration of the new columns
    * Uses streaming SQL query to avoid fetching too many rows at once into memory
    * @param handle db handle
-   * @param dataSource datasource to which the tasks belong. null if we don't want to filter
+   * @param filter storage-level task prefilters
    * @return Query object for completed TaskInfos of interest
    */
   private Query<Map<String, Object>> createCompletedTaskStreamingQuery(
       Handle handle,
       DateTime timestamp,
       @Nullable Integer maxNumStatuses,
-      @Nullable String dataSource
+      TaskStorageQueryFilter filter
   )
   {
     String sql = StringUtils.format(
@@ -485,7 +519,7 @@ public abstract class SQLMetadataStorageActionHandler
         + "FROM "
         + "  %s "
         + "WHERE "
-        + getWhereClauseForInactiveStatusesSinceQuery(dataSource)
+        + getWhereClauseForInactiveStatusesSinceQuery(filter)
         + "ORDER BY created_date DESC",
         getEntryTable()
     );
@@ -500,21 +534,14 @@ public abstract class SQLMetadataStorageActionHandler
     if (maxNumStatuses != null) {
       query = query.bind("n", maxNumStatuses);
     }
-    if (dataSource != null) {
-      query = query.bind("ds", dataSource);
-    }
-    return query;
+    return bindTaskStorageFilter(query, filter);
   }
 
   protected abstract String decorateSqlWithLimit(String sql);
 
-  private String getWhereClauseForInactiveStatusesSinceQuery(@Nullable String datasource)
+  private String getWhereClauseForInactiveStatusesSinceQuery(final TaskStorageQueryFilter filter)
   {
-    String sql = StringUtils.format("active = FALSE AND created_date >= :start ");
-    if (datasource != null) {
-      sql += " AND datasource = :ds ";
-    }
-    return sql;
+    return "active = FALSE AND created_date >= :start " + getTaskStorageFilterSql(filter);
   }
 
   /**
@@ -523,10 +550,13 @@ public abstract class SQLMetadataStorageActionHandler
    * Recommended for GET /tasks API
    * Uses streaming SQL query to avoid fetching too many rows at once into memory
    * @param handle db handle
-   * @param dataSource datasource to which the tasks belong. null if we don't want to filter
+   * @param filter storage-level task prefilters
    * @return Query object for TaskStatusPlus for active tasks of interest
    */
-  private Query<Map<String, Object>> createActiveTaskSummaryStreamingQuery(Handle handle, @Nullable String dataSource)
+  private Query<Map<String, Object>> createActiveTaskSummaryStreamingQuery(
+      final Handle handle,
+      final TaskStorageQueryFilter filter
+  )
   {
     String sql = StringUtils.format(
         "SELECT "
@@ -539,17 +569,14 @@ public abstract class SQLMetadataStorageActionHandler
         + "FROM "
         + "  %s "
         + "WHERE "
-        + getWhereClauseForActiveStatusesQuery(dataSource)
+        + getWhereClauseForActiveStatusesQuery(filter)
         + "ORDER BY created_date",
         entryTable
     );
 
-    Query<Map<String, Object>> query = handle.createQuery(sql)
-                                             .setFetchSize(connector.getStreamingFetchSize());
-    if (dataSource != null) {
-      query = query.bind("ds", dataSource);
-    }
-    return query;
+    final Query<Map<String, Object>> query = handle.createQuery(sql)
+                                                   .setFetchSize(connector.getStreamingFetchSize());
+    return bindTaskStorageFilter(query, filter);
   }
 
   /**
@@ -558,10 +585,13 @@ public abstract class SQLMetadataStorageActionHandler
    * For example for ingestion tasks view before migration of the new columns
    * Uses streaming SQL query to avoid fetching too many rows at once into memory
    * @param handle db handle
-   * @param dataSource datasource to which the tasks belong. null if we don't want to filter
+   * @param filter storage-level task prefilters
    * @return Query object for active TaskInfos of interest
    */
-  private Query<Map<String, Object>> createActiveTaskStreamingQuery(Handle handle, @Nullable String dataSource)
+  private Query<Map<String, Object>> createActiveTaskStreamingQuery(
+      final Handle handle,
+      final TaskStorageQueryFilter filter
+  )
   {
     String sql = StringUtils.format(
         "SELECT "
@@ -573,26 +603,111 @@ public abstract class SQLMetadataStorageActionHandler
         + "FROM "
         + "  %s "
         + "WHERE "
-        + getWhereClauseForActiveStatusesQuery(dataSource)
+        + getWhereClauseForActiveStatusesQuery(filter)
         + "ORDER BY created_date",
         entryTable
     );
 
-    Query<Map<String, Object>> query = handle.createQuery(sql)
-                                             .setFetchSize(connector.getStreamingFetchSize());
-    if (dataSource != null) {
-      query = query.bind("ds", dataSource);
+    final Query<Map<String, Object>> query = handle.createQuery(sql)
+                                                   .setFetchSize(connector.getStreamingFetchSize());
+    return bindTaskStorageFilter(query, filter);
+  }
+
+  private String getWhereClauseForActiveStatusesQuery(final TaskStorageQueryFilter filter)
+  {
+    return "active = TRUE " + getTaskStorageFilterSql(filter);
+  }
+
+  private String getTaskStorageFilterSql(final TaskStorageQueryFilter filter)
+  {
+    final StringBuilder sql = new StringBuilder();
+    appendStringValues(sql, "id", "task_id_filter", filter.getTaskIds(), false);
+    appendStringValues(sql, "group_id", "group_id_filter", filter.getGroupIds(), true);
+    appendStringValues(sql, "type", "type_filter", filter.getTypes(), true);
+    appendStringValues(sql, "datasource", "datasource_filter", filter.getDataSources(), false);
+    appendStringValues(sql, "created_date", "created_time_filter", filter.getCreatedTimes(), false);
+    if (filter.getCreatedTimeLower() != null) {
+      sql.append(" AND created_date ")
+         .append(filter.isCreatedTimeLowerOpen() ? ">" : ">=")
+         .append(" :created_time_lower ");
+    }
+    if (filter.getCreatedTimeUpper() != null) {
+      sql.append(" AND created_date ")
+         .append(filter.isCreatedTimeUpperOpen() ? "<" : "<=")
+         .append(" :created_time_upper ");
+    }
+    return sql.toString();
+  }
+
+  private static void appendStringValues(
+      final StringBuilder sql,
+      final String column,
+      final String parameterPrefix,
+      @Nullable final Set<String> values,
+      final boolean includeNull
+  )
+  {
+    if (values == null) {
+      return;
+    }
+
+    sql.append(" AND ");
+    if (includeNull) {
+      sql.append('(');
+    }
+    sql.append(column);
+    if (values.size() == 1) {
+      sql.append(" = :").append(parameterPrefix).append("_0");
+    } else {
+      sql.append(" IN (");
+      for (int i = 0; i < values.size(); i++) {
+        if (i > 0) {
+          sql.append(", ");
+        }
+        sql.append(':').append(parameterPrefix).append('_').append(i);
+      }
+      sql.append(')');
+    }
+    if (includeNull) {
+      sql.append(" OR ").append(column).append(" IS NULL)");
+    }
+    sql.append(' ');
+  }
+
+  private Query<Map<String, Object>> bindTaskStorageFilter(
+      Query<Map<String, Object>> query,
+      final TaskStorageQueryFilter filter
+  )
+  {
+    query = bindStringValues(query, "task_id_filter", filter.getTaskIds());
+    query = bindStringValues(query, "group_id_filter", filter.getGroupIds());
+    query = bindStringValues(query, "type_filter", filter.getTypes());
+    query = bindStringValues(query, "datasource_filter", filter.getDataSources());
+    query = bindStringValues(query, "created_time_filter", filter.getCreatedTimes());
+    if (filter.getCreatedTimeLower() != null) {
+      query = query.bind("created_time_lower", filter.getCreatedTimeLower());
+    }
+    if (filter.getCreatedTimeUpper() != null) {
+      query = query.bind("created_time_upper", filter.getCreatedTimeUpper());
     }
     return query;
   }
 
-  private String getWhereClauseForActiveStatusesQuery(String dataSource)
+  private static Query<Map<String, Object>> bindStringValues(
+      Query<Map<String, Object>> query,
+      final String parameterPrefix,
+      @Nullable final Set<String> values
+  )
   {
-    String sql = StringUtils.format("active = TRUE ");
-    if (dataSource != null) {
-      sql += " AND datasource = :ds ";
+    if (values == null) {
+      return query;
     }
-    return sql;
+    int parameterNumber = 0;
+    for (final String value : values) {
+      query = query.bind(parameterPrefix + '_' + parameterNumber, value);
+      parameterNumber++;
+    }
+    return query;
   }
 
   private class TaskStatusMapperFromPayload implements ResultSetMapper<TaskIdStatus>

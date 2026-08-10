@@ -85,6 +85,7 @@ import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervi
 import org.apache.druid.indexing.common.task.batch.parallel.ShuffleClient;
 import org.apache.druid.indexing.overlord.SingleTaskBackgroundRunner;
 import org.apache.druid.indexing.overlord.TaskRunner;
+import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
 import org.apache.druid.indexing.seekablestream.SeekableStreamIndexTask;
 import org.apache.druid.indexing.worker.executor.ExecutorLifecycle;
 import org.apache.druid.indexing.worker.executor.ExecutorLifecycleConfig;
@@ -217,6 +218,7 @@ public class CliPeon extends GuiceRunnable
         new QueryRunnerFactoryModule(),
         new SegmentWranglerModule(),
         new JoinableFactoryModule(),
+        new NativeSystemQueryModule(),
         new IndexingServiceTaskLogsModule(properties),
         new RegexEngineModule(),
         new Module()

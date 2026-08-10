@@ -35,7 +35,8 @@ public class OverlordRedirectInfo implements RedirectInfo
 {
   private static final Set<String> LOCAL_PATHS = ImmutableSet.of(
       "/druid/indexer/v1/leader",
-      "/druid/indexer/v1/isLeader"
+      "/druid/indexer/v1/isLeader",
+      "/druid/v2/system"
   );
 
   private final DruidOverlord overlord;
