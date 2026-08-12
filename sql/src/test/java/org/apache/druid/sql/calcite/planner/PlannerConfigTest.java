@@ -24,8 +24,6 @@ import nl.jqno.equalsverifier.Warning;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
-
 public class PlannerConfigTest
 {
   @Test
@@ -56,18 +54,6 @@ public class PlannerConfigTest
                                         .build();
     Assertions.assertFalse(config.isUseLexicographicTopN());
     Assertions.assertFalse(config.isUseApproximateTopN());
-  }
-
-  @Test
-  public void testNativeSystemTablePlanningIsQueryContextControlled()
-  {
-    Assert.assertFalse(new PlannerConfig().isEnableNativeQueryForSystemTables());
-
-    final PlannerConfig config = new PlannerConfig().withOverrides(
-        Map.of(PlannerConfig.CTX_ENABLE_NATIVE_QUERY_FOR_SYSTEM_TABLES, true)
-    );
-
-    Assert.assertTrue(config.isEnableNativeQueryForSystemTables());
   }
 
   @Test

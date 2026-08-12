@@ -20,7 +20,6 @@
 package org.apache.druid.testing.embedded.query;
 
 import org.apache.druid.indexing.common.task.NoopTask;
-import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.testing.embedded.EmbeddedBroker;
 import org.apache.druid.testing.embedded.EmbeddedCoordinator;
 import org.apache.druid.testing.embedded.EmbeddedDruidCluster;
@@ -32,16 +31,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class NativeSysTasksQueryTest extends EmbeddedClusterTestBase
 {
   private static final String TASK_PREFIX = "native_sys_mvp_";
-  private static final Map<String, Object> NATIVE_QUERY_CONTEXT =
-      Map.of(PlannerConfig.CTX_ENABLE_NATIVE_QUERY_FOR_SYSTEM_TABLES, true);
-
   private final EmbeddedOverlord overlord = new EmbeddedOverlord();
   private final EmbeddedBroker broker = new EmbeddedBroker();
 
@@ -73,8 +68,7 @@ public class NativeSysTasksQueryTest extends EmbeddedClusterTestBase
         "SELECT datasource, COUNT(*) "
         + "FROM sys.tasks "
         + "WHERE task_id = 'native_sys_mvp_a_0' AND datasource = 'native_sys_a' "
-        + "GROUP BY datasource",
-        NATIVE_QUERY_CONTEXT
+        + "GROUP BY datasource"
     );
 
     final Set<String> rows = Arrays.stream(result.split("\\n")).collect(Collectors.toSet());
@@ -109,8 +103,7 @@ public class NativeSysTasksQueryTest extends EmbeddedClusterTestBase
         + "FROM tasks\n"
         + "ORDER BY\n"
         + "  (CASE \"status\" WHEN 'RUNNING' THEN 4 WHEN 'PENDING' THEN 3 WHEN 'WAITING' THEN 2 ELSE 1 END) DESC,\n"
-        + "  \"created_time\" DESC",
-        NATIVE_QUERY_CONTEXT
+        + "  \"created_time\" DESC"
     );
 
     final Set<String> taskIds = Arrays.stream(result.split("\\n"))

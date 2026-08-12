@@ -35,7 +35,7 @@ query.
 
 ## Goals
 
-- Represent `sys.tasks` and `sys.server_properties` as native Druid datasources when selected by query context.
+- Represent `sys.tasks` and `sys.server_properties` as native Druid datasources when using the native SQL engine.
 - Execute supported native query trees on the Broker over rows returned by component-local providers.
 - Make `sys.server_properties` available from every discovered Coordinator, Overlord, Broker, Historical, Indexer,
   MiddleManager, Peon, and Router process.
@@ -82,17 +82,11 @@ Marking it non-processable tells Calcite that arbitrary Scan sorting must be rep
 web-console query, Calcite produces a `WindowOperatorQuery` with Scan leaf operators and native sort operators instead
 of rejecting its non-time ordering.
 
-`SystemSchema` always registers the existing Bindable implementations so that the traditional behavior remains
-available. For a query whose context contains `enableNativeQueryForSystemTables=true`, `QueryHandler` removes the
-supported system tables from the Bindable plan and `DruidTableScanRule` supplies their native representations
-(`NativeTasksTable` and `NativeServerPropertiesTable`). When the context key is absent or false, the existing Bindable
-tables are used. The context key selects planning for one query; it is not a global planner property.
-
-For example, a client opts in with:
-
-```json
-{"enableNativeQueryForSystemTables": true}
-```
+`SystemSchema` always registers the existing Bindable implementations so that unsupported system tables retain their
+traditional behavior. When the resolved SQL engine is `native`, `QueryHandler` removes supported system tables from
+the Bindable plan and `DruidTableScanRule` supplies their native representations (`NativeTasksTable` and
+`NativeServerPropertiesTable`). The `engine` query-context key therefore selects the SQL engine and table execution
+path together. Because Druid's default SQL engine is `native`, no additional context is required for these tables.
 
 ### Generic Broker dispatch
 
@@ -186,12 +180,13 @@ The web-console Tasks query is planned as native Scan leaf operators plus a Brok
 Overlord provider returns task rows. It includes a CTE, computed status, and ordering by both a computed priority and
 `created_time`.
 
-## Per-query selection
+## Engine selection
 
-The component endpoint and suppliers are always registered. The native planner selection defaults to the traditional
-Bindable path when `enableNativeQueryForSystemTables` is absent or false. Setting it to true on one SQL request selects
-the native path for that request. There is no server-level `druid.nativeSystemQueries.enabled` property or legacy
-enablement alias.
+The component endpoint and suppliers are always registered. With the `native` SQL engine, tables that have a native
+representation use the native path and other system tables fall back to Bindable execution. Since `native` is the
+default SQL engine, supported system tables use native execution even when the query omits the `engine` context key.
+Engines without Bindable support continue to reject unsupported system tables. There is no separate native-system-table
+feature flag or server-level enablement property.
 
 ## Metrics
 
@@ -205,10 +200,9 @@ Each component endpoint emits table-specific metrics for rows it supplies:
 
 ## Simplified end-to-end tests
 
-`NativeSysTasksQueryTest` starts embedded Derby, ZooKeeper, Coordinator, Indexer, Overlord, and Broker services. Each
-native SQL request supplies
-`enableNativeQueryForSystemTables=true` in its query context. It creates five `NoopTask` records: two for
-`native_sys_a` and three for `native_sys_b`.
+`NativeSysTasksQueryTest` starts embedded Derby, ZooKeeper, Coordinator, Indexer, Overlord, and Broker services. It
+creates five `NoopTask` records: two for `native_sys_a` and three for `native_sys_b`. Its SQL requests omit the engine
+context, demonstrating that the default `native` engine selects native system-table execution.
 
 The test class contains two cases:
 
@@ -223,8 +217,7 @@ pushdown, residual native filtering, authorization, task-row adaptation, native 
 sorting, canonical result transport, and SQL formatting.
 
 `NativeSysServerPropertiesQueryTest` starts embedded Coordinator, Overlord, Broker, Historical, Indexer, and Router
-services. It adds one unique property to each service and groups a Broker SQL query over those six properties with the
-same native-planning query context. The
+services. It adds one unique property to each service and groups a Broker SQL query over those six properties. The
 expected six rows (including the Broker's custom service name) prove component registration, discovery fanout, Router's
 local endpoint handling, local property collection, provider authorization, Broker-side native aggregation, and
 residual property filtering. The test intentionally uses one query and no direct endpoint mocks; a missing component
@@ -289,24 +282,25 @@ The Broker can derive the result signature from the query toolchest, so producti
 custom `{signature, rows}` wrapper. This wire-format change is independent of multi-frame local execution: frames are
 local execution intermediates, while Smile is the Broker-to-component wire encoding.
 
-### Per-query selection
+### Engine selection
 
-The `enableNativeQueryForSystemTables` query-context key selects native system-table planning for an individual SQL
-query. It defaults to the traditional Bindable path. The row endpoint and suppliers are infrastructure registered on
-all relevant components and do not have a second server-level enablement switch.
+The existing `engine` query-context key selects the SQL execution engine. When its resolved value is `native`, a system
+table with a native representation uses native planning. A system table without a native representation remains on the
+Bindable path. The row endpoint and suppliers are infrastructure registered on all relevant components and do not have
+a second server-level enablement switch.
 
 The MVP keeps a hybrid registration and chooses between the following paths during planning:
 
 ```text
-enableNativeQueryForSystemTables = false
-  -> existing Broker-side ScannableTable execution
-
-enableNativeQueryForSystemTables = true
+engine = native and native table representation exists
   -> DruidTable -> SystemTableDataSource -> component row fanout -> Broker native execution
+
+engine = native and no native table representation exists
+  -> existing Broker-side ScannableTable execution
 ```
 
-Disabling native execution for a query selects the existing implementation during planning; it does not first produce a
-native plan and then fail during dispatch.
+This is a table-capability decision made before native planning. Once a table selects the native path, a later native
+planning failure is returned to the caller; the planner does not retry that query with Bindable execution.
 
 ### General component framework
 

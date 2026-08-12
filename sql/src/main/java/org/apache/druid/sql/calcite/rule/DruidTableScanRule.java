@@ -44,8 +44,8 @@ public class DruidTableScanRule extends RelOptRule
     final LogicalTableScan scan = call.rel(0);
     final RelOptTable table = scan.getTable();
     DruidTable druidTable = table.unwrap(DruidTable.class);
-    if (druidTable == null && plannerContext.getPlannerConfig().isEnableNativeQueryForSystemTables()) {
-      druidTable = SystemSchema.getNativeSystemTable(table);
+    if (druidTable == null) {
+      druidTable = SystemSchema.getNativeSystemTable(table, plannerContext.getEngine());
     }
     if (druidTable != null) {
       call.transformTo(

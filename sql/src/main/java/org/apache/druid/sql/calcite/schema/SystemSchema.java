@@ -79,6 +79,7 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.apache.druid.sql.calcite.table.DruidTable;
 import org.apache.druid.sql.calcite.table.RowSignatures;
@@ -140,12 +141,16 @@ public class SystemSchema extends AbstractSchema
   private static final long IS_OVERSHADOWED_TRUE = 1L;
 
   /**
-   * Returns the native representation for a supported system table, or {@code null} for a traditional system table.
-   * The schema keeps the traditional table registered so the query context can select the execution mode per query.
+   * Returns the native representation for a supported system table when using the native SQL engine, or {@code null}
+   * when the table should use its traditional implementation.
    */
   @Nullable
-  public static DruidTable getNativeSystemTable(final RelOptTable table)
+  public static DruidTable getNativeSystemTable(final RelOptTable table, final SqlEngine engine)
   {
+    if (!NativeSqlEngine.NAME.equals(engine.name())) {
+      return null;
+    }
+
     final List<String> qualifiedName = table.getQualifiedName();
     if (qualifiedName.size() < 2
         || !NamedSystemSchema.NAME.equals(qualifiedName.get(qualifiedName.size() - 2))) {

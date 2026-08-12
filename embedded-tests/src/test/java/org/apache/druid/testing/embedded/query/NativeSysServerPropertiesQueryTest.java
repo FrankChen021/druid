@@ -19,7 +19,6 @@
 
 package org.apache.druid.testing.embedded.query;
 
-import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.testing.embedded.EmbeddedBroker;
 import org.apache.druid.testing.embedded.EmbeddedCoordinator;
 import org.apache.druid.testing.embedded.EmbeddedDruidCluster;
@@ -31,8 +30,6 @@ import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
-
 public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
 {
   private static final String SERVICE_NAME = "native/mvp/broker";
@@ -42,9 +39,6 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
   private static final String HISTORICAL_PROPERTY = "native.sys.server.properties.historical";
   private static final String INDEXER_PROPERTY = "native.sys.server.properties.indexer";
   private static final String ROUTER_PROPERTY = "native.sys.server.properties.router";
-
-  private static final Map<String, Object> NATIVE_QUERY_CONTEXT =
-      Map.of(PlannerConfig.CTX_ENABLE_NATIVE_QUERY_FOR_SYSTEM_TABLES, true);
 
   private final EmbeddedCoordinator coordinator = new EmbeddedCoordinator()
       .addProperty(COORDINATOR_PROPERTY, "enabled");
@@ -86,8 +80,7 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
         + "FROM sys.server_properties "
         + "WHERE property IN ('" + COORDINATOR_PROPERTY + "', '" + OVERLORD_PROPERTY + "', '" + BROKER_PROPERTY
         + "', '" + HISTORICAL_PROPERTY + "', '" + INDEXER_PROPERTY + "', '" + ROUTER_PROPERTY + "') "
-        + "GROUP BY service_name ORDER BY service_name",
-        NATIVE_QUERY_CONTEXT
+        + "GROUP BY service_name ORDER BY service_name"
     );
 
     Assertions.assertEquals(

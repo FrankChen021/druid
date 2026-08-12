@@ -276,8 +276,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
           RelOptTable table = node.getTable();
           if ((table.unwrap(ScannableTable.class) != null || table.unwrap(ProjectableFilterableTable.class) != null)
               && table.unwrap(DruidTable.class) == null
-              && !(plannerContext.getPlannerConfig().isEnableNativeQueryForSystemTables()
-                   && SystemSchema.getNativeSystemTable(table) != null)) {
+              && SystemSchema.getNativeSystemTable(table, plannerContext.getEngine()) == null) {
             found.add(table);
             return;
           }
