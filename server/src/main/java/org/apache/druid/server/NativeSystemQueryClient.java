@@ -19,181 +19,167 @@
 
 package org.apache.druid.server;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Inject;
+import org.apache.druid.client.DirectDruidClient;
+import org.apache.druid.client.DirectDruidClientFactory;
+import org.apache.druid.client.DruidServer;
 import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.guice.annotations.EscalatedClient;
-import org.apache.druid.guice.annotations.Json;
-import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.jackson.JacksonUtils;
-import org.apache.druid.java.util.http.client.HttpClient;
-import org.apache.druid.java.util.http.client.Request;
-import org.apache.druid.java.util.http.client.response.BytesFullResponseHandler;
-import org.apache.druid.java.util.http.client.response.BytesFullResponseHolder;
+import org.apache.druid.java.util.emitter.service.ServiceEmitter;
+import org.apache.druid.query.BaseQuery;
+import org.apache.druid.query.DirectQueryProcessingPool;
+import org.apache.druid.query.FluentQueryRunner;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.QueryRunner;
+import org.apache.druid.query.QueryRunnerFactory;
+import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.SystemTableDataSource;
-import org.apache.druid.rpc.indexing.NativeSystemQueryResponse;
-import org.apache.druid.segment.column.RowSignature;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.HttpMethod;
+import org.apache.druid.server.coordination.ServerType;
+import org.apache.druid.server.security.AuthenticationResult;
 
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Fans out provider-row requests for system tables.
- *
- * <p>The Broker owns the query plan, so each component is asked for scan-only rows.  The Broker then executes the
- * original native query over the concatenated {@link org.apache.druid.query.InlineDataSource}.  This keeps grouping,
- * ordering, and window semantics centralized while still pushing provider filters to every component.</p>
- */
-public class NativeSystemQueryClient
+/** Distributes a native system-table query to its owning components through their standard {@code /druid/v2} API. */
+public class NativeSystemQueryClient implements DataSourceQueryHandler
 {
-  private static final String SYSTEM_QUERY_PATH = "/druid/v2/system";
+  private static final String SYSTEM_TABLE_TIER = "_system";
 
   private final DruidNodeDiscoveryProvider discoveryProvider;
-  private final DruidNode selfNode;
-  private final HttpClient httpClient;
-  private final ObjectMapper jsonMapper;
+  private final DirectDruidClientFactory directDruidClientFactory;
+  private final QueryRunnerFactoryConglomerate conglomerate;
+  private final QueryScheduler queryScheduler;
+  private final ServiceEmitter emitter;
+  private final Map<String, NativeSystemTableDescriptor> tableDescriptors;
 
   @Inject
   public NativeSystemQueryClient(
       final DruidNodeDiscoveryProvider discoveryProvider,
-      @Self final DruidNode selfNode,
-      @EscalatedClient final HttpClient httpClient,
-      @Json final ObjectMapper jsonMapper
+      final DirectDruidClientFactory directDruidClientFactory,
+      final QueryRunnerFactoryConglomerate conglomerate,
+      final QueryScheduler queryScheduler,
+      final ServiceEmitter emitter,
+      final Map<String, NativeSystemTableDescriptor> tableDescriptors
   )
   {
     this.discoveryProvider = discoveryProvider;
-    this.selfNode = selfNode;
-    this.httpClient = httpClient;
-    this.jsonMapper = jsonMapper;
+    this.directDruidClientFactory = directDruidClientFactory;
+    this.conglomerate = conglomerate;
+    this.queryScheduler = queryScheduler;
+    this.emitter = emitter;
+    this.tableDescriptors = tableDescriptors;
   }
 
-  /**
-   * Fetches provider rows for a system table from every component that serves it. Components that do not own the
-   * requested table return HTTP 501 and are skipped; a disabled endpoint or any other error fails the query.
-   */
-  public ListenableFuture<NativeSystemQueryResponse> run(final Query<?> query)
-  {
-    if (!(query.getDataSource() instanceof SystemTableDataSource)) {
-      return Futures.immediateFailedFuture(
-          new ISE("Only native system-table queries can be sent to the native system query client")
-      );
-    }
-
-    final Query<?> scanQuery = query.withOverriddenContext(
-        ImmutableMap.of(SystemTableDataSource.CTX_NATIVE_SYSTEM_QUERY_SCAN_ONLY, true)
-    );
-    final List<ListenableFuture<Optional<NativeSystemQueryResponse>>> responses = new ArrayList<>();
-    for (final DruidNode node : discoverNodes()) {
-      responses.add(runOnNode(node, scanQuery));
-    }
-
-    return Futures.transform(
-        Futures.allAsList(responses),
-        this::mergeResponses,
-        MoreExecutors.directExecutor()
-    );
-  }
-
-  private ListenableFuture<Optional<NativeSystemQueryResponse>> runOnNode(
-      final DruidNode node,
-      final Query<?> query
+  @Override
+  public <T> QueryRunner<T> createRunner(
+      final Query<T> query,
+      final AuthenticationResult authenticationResult
   )
   {
-    try {
-      final URL url = node.getUriToUse().resolve(SYSTEM_QUERY_PATH).toURL();
-      final Request request = new Request(HttpMethod.POST, url)
-          .addHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json")
-          .addHeader(HttpHeaders.Names.ACCEPT, "application/json")
-          .setContent(jsonMapper.writeValueAsBytes(query));
-      return Futures.transform(
-          httpClient.go(request, new BytesFullResponseHandler()),
-          response -> parseResponse(node, response),
-          MoreExecutors.directExecutor()
-      );
+    final SystemTableDataSource dataSource = (SystemTableDataSource) query.getDataSource();
+    final NativeSystemTableDescriptor descriptor = tableDescriptors.get(dataSource.getTable());
+    if (descriptor == null) {
+      throw new ISE("No routing descriptor is registered for system table[%s]", dataSource.getTable());
     }
-    catch (Exception e) {
-      return Futures.immediateFailedFuture(e);
-    }
-  }
 
-  private Optional<NativeSystemQueryResponse> parseResponse(
-      final DruidNode node,
-      final BytesFullResponseHolder response
-  )
-  {
-    if (response.getStatus().getCode() == 501) {
-      return Optional.empty();
-    }
-    if (response.getStatus().getCode() != 200) {
-      throw new ISE(
-          "Native system query on node[%s] failed with HTTP status[%s]: %s",
-          node.getHostAndPortToUse(),
-          response.getStatus().getCode(),
-          new String(response.getContent(), StandardCharsets.UTF_8)
+    final Map<String, Object> componentContext = new LinkedHashMap<>();
+    componentContext.put(SystemTableDataSource.CTX_NATIVE_SYSTEM_QUERY_COMPONENT_LOCAL, true);
+    componentContext.put(SystemTableDataSource.CTX_AUTHENTICATION_IDENTITY, authenticationResult.getIdentity());
+    if (authenticationResult.getAuthorizerName() != null) {
+      componentContext.put(
+          SystemTableDataSource.CTX_AUTHENTICATION_AUTHORIZER,
+          authenticationResult.getAuthorizerName()
       );
     }
-    return Optional.of(
-        JacksonUtils.readValue(
-            jsonMapper,
-            response.getContent(),
-            new TypeReference<NativeSystemQueryResponse>() {}
-        )
+    if (authenticationResult.getAuthenticatedBy() != null) {
+      componentContext.put(SystemTableDataSource.CTX_AUTHENTICATED_BY, authenticationResult.getAuthenticatedBy());
+    }
+    if (authenticationResult.getContext() != null) {
+      componentContext.put(SystemTableDataSource.CTX_AUTHENTICATION_CONTEXT, authenticationResult.getContext());
+    }
+    componentContext.put(
+        DirectDruidClient.QUERY_FAIL_TIME,
+        System.currentTimeMillis() + query.context().getTimeout()
+    );
+    final Query<T> distributedQuery = query.withOverriddenContext(componentContext);
+
+    final List<QueryRunner<T>> componentRunners = new ArrayList<>();
+    for (final DiscoveryDruidNode discoveryNode : discoverNodes(descriptor)) {
+      final QueryRunner<T> directClient = directDruidClientFactory.makeDirectClient(toDruidServer(discoveryNode));
+      final String componentResourceId = UUID.randomUUID().toString();
+      final String componentQueryId = SystemTableDataSource.COMPONENT_QUERY_ID_PREFIX + UUID.randomUUID();
+      componentRunners.add(
+          (queryPlus, responseContext) -> directClient.run(
+              queryPlus.withQuery(
+                  queryPlus.getQuery().withOverriddenContext(
+                      Map.of(
+                          BaseQuery.QUERY_ID,
+                          componentQueryId,
+                          QueryContexts.QUERY_RESOURCE_ID,
+                          componentResourceId
+                      )
+                  )
+              ),
+              responseContext
+          )
+      );
+    }
+    if (componentRunners.isEmpty()) {
+      throw new ISE("No component is available to serve system table[%s]", dataSource.getTable());
+    }
+
+    final Query<T> mergeQuery = distributedQuery.withOverriddenContext(
+        Map.of(QueryContexts.QUERY_RESOURCE_ID, UUID.randomUUID().toString())
+    );
+    final QueryRunnerFactory<T, Query<T>> queryRunnerFactory = conglomerate.findFactory(mergeQuery);
+    final QueryRunner<T> mergedRunner = queryRunnerFactory.mergeRunners(
+        DirectQueryProcessingPool.INSTANCE,
+        componentRunners
+    );
+    final AtomicLong cpuAccumulator = new AtomicLong();
+    final QueryRunner<T> decoratedRunner = FluentQueryRunner
+        .create(queryScheduler.wrapQueryRunner(mergedRunner), queryRunnerFactory.getToolchest())
+        .applyPreMergeDecoration()
+        .mergeResults(true)
+        .applyPostMergeDecoration()
+        .emitCPUTimeMetric(emitter, cpuAccumulator);
+
+    return (queryPlus, responseContext) -> decoratedRunner.run(
+        queryPlus.withQuery(mergeQuery),
+        responseContext
     );
   }
 
-  private NativeSystemQueryResponse mergeResponses(final List<Optional<NativeSystemQueryResponse>> responses)
+  private List<DiscoveryDruidNode> discoverNodes(final NativeSystemTableDescriptor descriptor)
   {
-    final Optional<NativeSystemQueryResponse> firstResponse = responses.stream()
-                                                                       .filter(Optional::isPresent)
-                                                                       .map(Optional::get)
-                                                                       .findFirst();
-    if (firstResponse.isEmpty()) {
-      throw new ISE("No component serves the requested native system table");
-    }
-
-    final RowSignature signature = firstResponse.get().getSignature();
-    final List<Object[]> rows = new ArrayList<>();
-    for (final Optional<NativeSystemQueryResponse> optionalResponse : responses) {
-      if (optionalResponse.isEmpty()) {
-        continue;
+    final Map<String, DiscoveryDruidNode> nodes = new LinkedHashMap<>();
+    for (final NodeRole nodeRole : descriptor.getNodeRoles()) {
+      for (final DiscoveryDruidNode node : discoveryProvider.getForNodeRole(nodeRole).getAllNodes()) {
+        nodes.putIfAbsent(node.getDruidNode().getHostAndPortToUse(), node);
       }
-      final NativeSystemQueryResponse response = optionalResponse.get();
-      if (!signature.equals(response.getSignature())) {
-        throw new ISE("Native system query response signatures do not match");
-      }
-      rows.addAll(response.getRows());
     }
-    return new NativeSystemQueryResponse(signature, rows);
+    return new ArrayList<>(nodes.values());
   }
 
-  private Collection<DruidNode> discoverNodes()
+  private static DruidServer toDruidServer(final DiscoveryDruidNode discoveryNode)
   {
-    final Map<String, DruidNode> nodes = new LinkedHashMap<>();
-    nodes.put(selfNode.getHostAndPortToUse(), selfNode);
-    // A node can advertise multiple roles.  Query it once and let its local provider report all of its roles.
-    for (final NodeRole nodeRole : NodeRole.values()) {
-      for (final DiscoveryDruidNode discoveryNode : discoveryProvider.getForNodeRole(nodeRole).getAllNodes()) {
-        final DruidNode node = discoveryNode.getDruidNode();
-        nodes.putIfAbsent(node.getHostAndPortToUse(), node);
-      }
-    }
-    return nodes.values();
+    final DruidNode node = discoveryNode.getDruidNode();
+    return new DruidServer(
+        node.getHostAndPortToUse(),
+        node.getHostAndPort(),
+        node.getHostAndTlsPort(),
+        0,
+        null,
+        ServerType.HISTORICAL,
+        SYSTEM_TABLE_TIER,
+        0
+    );
   }
 }

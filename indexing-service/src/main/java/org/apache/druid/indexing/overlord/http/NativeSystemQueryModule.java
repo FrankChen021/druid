@@ -24,16 +24,17 @@ import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.guice.Jerseys;
+import org.apache.druid.guice.DruidBinders;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.annotations.Self;
+import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.server.NativeSystemTableDescriptor;
 
 import java.util.Set;
 
 /**
- * Registers the component-side native system-table row endpoint and its data suppliers. The module has no local
- * query-engine dependencies: components return storage-prefiltered rows and the Broker executes the original native
- * query over the combined rows. The task supplier is registered only when {@link NodeRole#OVERLORD} is present.
+ * Registers native system-table routing and component-local row suppliers. The task supplier is registered only when
+ * {@link NodeRole#OVERLORD} is present.
  */
 public class NativeSystemQueryModule implements Module
 {
@@ -52,6 +53,22 @@ public class NativeSystemQueryModule implements Module
   @Override
   public void configure(final Binder binder)
   {
+    DruidBinders.dataSourceQueryHandlerBinder(binder)
+                .addBinding(SystemTableDataSource.class)
+                .to(
+                    nodeRoles.contains(NodeRole.BROKER)
+                    ? NativeSystemTableBrokerQueryHandler.class
+                    : NativeSystemTableQueryHandler.class
+                )
+                .in(LazySingleton.class);
+
+    final MapBinder<String, NativeSystemTableDescriptor> descriptorBinder =
+        MapBinder.newMapBinder(binder, String.class, NativeSystemTableDescriptor.class);
+    descriptorBinder.addBinding(NativeServerPropertiesTableSupplier.TABLE_NAME)
+                    .toInstance(new NativeSystemTableDescriptor(Set.of(NodeRole.values())));
+    descriptorBinder.addBinding(NativeTasksTableSupplier.TABLE_NAME)
+                    .toInstance(new NativeSystemTableDescriptor(Set.of(NodeRole.OVERLORD)));
+
     final MapBinder<String, NativeSystemTableDataSupplier> dataSupplierBinder =
         MapBinder.newMapBinder(binder, String.class, NativeSystemTableDataSupplier.class);
     dataSupplierBinder.addBinding(NativeServerPropertiesTableSupplier.TABLE_NAME)
@@ -62,7 +79,5 @@ public class NativeSystemQueryModule implements Module
                     .to(NativeTasksTableSupplier.class)
                     .in(LazySingleton.class);
     }
-
-    Jerseys.addResource(binder, NativeSystemQueryResource.class);
   }
 }

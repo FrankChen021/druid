@@ -32,7 +32,6 @@ import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.JoinAlgorithm;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.timeboundary.TimeBoundaryQuery;
-import org.apache.druid.server.NativeSystemQueryClient;
 import org.apache.druid.server.QueryLifecycleFactory;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.sql.SqlStatementFactory;
@@ -66,20 +65,17 @@ public class NativeSqlEngine implements SqlEngine
   private final QueryLifecycleFactory queryLifecycleFactory;
   private final ObjectMapper jsonMapper;
   private final SqlStatementFactory sqlStatementFactory;
-  private final NativeSystemQueryClient nativeSystemQueryClient;
 
   @Inject
   public NativeSqlEngine(
       final QueryLifecycleFactory queryLifecycleFactory,
       final ObjectMapper jsonMapper,
-      final SqlToolbox toolbox,
-      final NativeSystemQueryClient nativeSystemQueryClient
+      final SqlToolbox toolbox
   )
   {
     this.queryLifecycleFactory = queryLifecycleFactory;
     this.jsonMapper = jsonMapper;
     this.sqlStatementFactory = new SqlStatementFactory(toolbox.withEngine(this));
-    this.nativeSystemQueryClient = nativeSystemQueryClient;
   }
 
   @VisibleForTesting
@@ -92,7 +88,6 @@ public class NativeSqlEngine implements SqlEngine
     this.queryLifecycleFactory = queryLifecycleFactory;
     this.jsonMapper = jsonMapper;
     this.sqlStatementFactory = sqlStatementFactory;
-    this.nativeSystemQueryClient = null;
   }
 
   @Override
@@ -163,8 +158,7 @@ public class NativeSqlEngine implements SqlEngine
         queryLifecycleFactory,
         plannerContext,
         jsonMapper,
-        relRoot.fields,
-        nativeSystemQueryClient
+        relRoot.fields
     );
   }
 

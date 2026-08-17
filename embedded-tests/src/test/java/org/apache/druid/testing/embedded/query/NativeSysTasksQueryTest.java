@@ -78,10 +78,6 @@ public class NativeSysTasksQueryTest extends EmbeddedClusterTestBase
         1L,
         overlord.latchableEmitter().getLatestMetricEventValue("query/systemTasks/rowsRead").longValue()
     );
-    Assertions.assertEquals(
-        1L,
-        overlord.latchableEmitter().getLatestMetricEventValue("query/systemTasks/rowsReturned").longValue()
-    );
   }
 
   @Test
@@ -122,10 +118,6 @@ public class NativeSysTasksQueryTest extends EmbeddedClusterTestBase
     Assertions.assertEquals(
         5L,
         overlord.latchableEmitter().getLatestMetricEventValue("query/systemTasks/rowsRead").longValue()
-    );
-    Assertions.assertEquals(
-        5L,
-        overlord.latchableEmitter().getLatestMetricEventValue("query/systemTasks/rowsReturned").longValue()
     );
   }
 

@@ -17,28 +17,14 @@
  * under the License.
  */
 
-package org.apache.druid.indexing.overlord.http;
+package org.apache.druid.server;
 
-import org.apache.druid.query.filter.DimFilter;
-import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryRunner;
 import org.apache.druid.server.security.AuthenticationResult;
 
-import java.util.Collections;
-import java.util.List;
-
-/** Supplies authorized rows for one component-owned native system table. */
-public interface NativeSystemTableDataSupplier
+/** Creates a runner for a datasource whose execution is not provided by the normal segment walker. */
+public interface DataSourceQueryHandler
 {
-  RowSignature getRowSignature();
-
-  default List<NativeSystemTableFilterRule> getFilterRules()
-  {
-    return Collections.emptyList();
-  }
-
-  Iterable<Object[]> getRows(
-      List<DimFilter> extractedFilters,
-      AuthenticationResult internalAuthenticationResult,
-      AuthenticationResult originalAuthenticationResult
-  );
+  <T> QueryRunner<T> createRunner(Query<T> query, AuthenticationResult authenticationResult);
 }

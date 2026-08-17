@@ -40,7 +40,9 @@ public class SystemTableDataSource extends LeafDataSource
    * Requests a component-side system table endpoint to return provider rows without executing the query tree.
    * The Broker uses this mode when it fans a system table query out to multiple components.
    */
-  public static final String CTX_NATIVE_SYSTEM_QUERY_SCAN_ONLY = "nativeSystemQueryScanOnly";
+  /** Marks an internal Broker fanout query that must execute against rows owned by the receiving component. */
+  public static final String CTX_NATIVE_SYSTEM_QUERY_COMPONENT_LOCAL = "nativeSystemQueryComponentLocal";
+  public static final String COMPONENT_QUERY_ID_PREFIX = "native-system-component-";
 
   private final String table;
 

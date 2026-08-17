@@ -156,7 +156,7 @@ public class NativeTasksTableSupplierTest
 
   private static List<DimFilter> extract(final Query<?> query)
   {
-    final NativeTasksTableSupplier dataSupplier = new NativeTasksTableSupplier(null, null);
+    final NativeTasksTableSupplier dataSupplier = new NativeTasksTableSupplier(null, null, null);
     return NativeSystemTableFilterExtractor.extract(query, dataSupplier.getFilterRules());
   }
 

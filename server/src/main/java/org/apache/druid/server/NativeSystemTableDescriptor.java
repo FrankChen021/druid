@@ -17,39 +17,24 @@
  * under the License.
  */
 
-package org.apache.druid.rpc.indexing;
+package org.apache.druid.server;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.discovery.NodeRole;
 
-import java.util.List;
+import java.util.Set;
 
-/** Array-form results returned by a component-side native system query. */
-public class NativeSystemQueryResponse
+/** Describes which service roles contribute independent row partitions to a native system table. */
+public class NativeSystemTableDescriptor
 {
-  private final RowSignature signature;
-  private final List<Object[]> rows;
+  private final Set<NodeRole> nodeRoles;
 
-  @JsonCreator
-  public NativeSystemQueryResponse(
-      @JsonProperty("signature") final RowSignature signature,
-      @JsonProperty("rows") final List<Object[]> rows
-  )
+  public NativeSystemTableDescriptor(final Set<NodeRole> nodeRoles)
   {
-    this.signature = signature;
-    this.rows = rows;
+    this.nodeRoles = Set.copyOf(nodeRoles);
   }
 
-  @JsonProperty
-  public RowSignature getSignature()
+  public Set<NodeRole> getNodeRoles()
   {
-    return signature;
-  }
-
-  @JsonProperty
-  public List<Object[]> getRows()
-  {
-    return rows;
+    return nodeRoles;
   }
 }

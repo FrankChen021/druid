@@ -26,6 +26,7 @@ import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import com.sun.jersey.guice.spi.container.servlet.GuiceContainer;
 import org.apache.calcite.avatica.remote.ProtobufTranslation;
 import org.apache.calcite.avatica.remote.ProtobufTranslationImpl;
 import org.apache.calcite.avatica.remote.Service;
@@ -46,6 +47,7 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryToolChestWarehouse;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.initialization.jetty.HttpException;
 import org.apache.druid.server.initialization.jetty.StandardResponseHeaderFilterHolder;
@@ -58,6 +60,7 @@ import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.Authenticator;
 import org.apache.druid.server.security.AuthenticatorMapper;
 import org.apache.druid.server.security.AuthorizationUtils;
+import org.apache.druid.server.security.Escalator;
 import org.apache.druid.sql.http.SqlQuery;
 import org.apache.druid.sql.http.SqlResource;
 import org.eclipse.jetty.client.BytesRequestContent;
@@ -72,10 +75,14 @@ import org.eclipse.jetty.http.HttpMethod;
 
 import javax.annotation.Nullable;
 import javax.servlet.ServletException;
+import javax.servlet.ReadListener;
+import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response.Status;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -102,6 +109,7 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
   private static final String AVATICA_QUERY_ATTRIBUTE = "org.apache.druid.proxy.avaticaQuery";
   private static final String SQL_QUERY_ATTRIBUTE = "org.apache.druid.proxy.sqlQuery";
   private static final String OBJECTMAPPER_ATTRIBUTE = "org.apache.druid.proxy.objectMapper";
+  private static final String COMPONENT_LOCAL_ATTRIBUTE = "org.apache.druid.proxy.componentLocalSystemQuery";
 
   private static final String PROPERTY_SQL_ENABLE = "druid.router.sql.enable";
   private static final String PROPERTY_SQL_ENABLE_DEFAULT = "false";
@@ -144,6 +152,9 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
   private final ProtobufTranslation protobufTranslation;
   private final ServerConfig serverConfig;
 
+  private GuiceContainer localQueryContainer;
+  private AuthenticationResult internalAuthenticationResult;
+
   private final boolean routeSqlByStrategy;
 
   private HttpClient broadcastClient;
@@ -179,6 +190,18 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
         properties.getProperty(PROPERTY_SQL_ENABLE, PROPERTY_SQL_ENABLE_DEFAULT)
     );
     this.serverConfig = serverConfig;
+  }
+
+  @Inject(optional = true)
+  public void setLocalQueryContainer(final GuiceContainer localQueryContainer)
+  {
+    this.localQueryContainer = localQueryContainer;
+  }
+
+  @Inject
+  public void setEscalator(final Escalator escalator)
+  {
+    this.internalAuthenticationResult = escalator.createEscalatedAuthenticationResult();
   }
 
   @Override
@@ -224,8 +247,7 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
     // The Router does not have the ability to look inside SQL queries and route them intelligently, so just treat
     // them as a generic request.
     final boolean isNativeQueryEndpoint = requestURI.startsWith("/druid/v2")
-                                          && !requestURI.startsWith("/druid/v2/sql")
-                                          && !requestURI.startsWith("/druid/v2/system");
+                                          && !requestURI.startsWith("/druid/v2/sql");
     final boolean isSqlQueryEndpoint = requestURI.startsWith("/druid/v2/sql");
 
     final boolean isAvaticaJson = requestURI.startsWith("/druid/v2/sql/avatica");
@@ -256,8 +278,13 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
     } else if (isNativeQueryEndpoint && HttpMethod.POST.is(method)) {
       // query request
       try {
-        Query inputQuery = objectMapper.readValue(request.getInputStream(), Query.class);
+        final byte[] requestBytes = IOUtils.toByteArray(request.getInputStream());
+        Query inputQuery = objectMapper.readValue(requestBytes, Query.class);
         if (inputQuery != null) {
+          if (isComponentLocalSystemQuery(inputQuery)) {
+            dispatchComponentLocalQuery(request, response, requestBytes);
+            return;
+          }
           targetServer = hostFinder.pickServer(inputQuery);
           if (inputQuery.getId() == null) {
             inputQuery = inputQuery.withId(UUID.randomUUID().toString());
@@ -306,6 +333,32 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
     request.setAttribute(SCHEME_ATTRIBUTE, targetServer.getScheme());
 
     doService(request, response);
+  }
+
+  private void dispatchComponentLocalQuery(
+      final HttpServletRequest request,
+      final HttpServletResponse response,
+      final byte[] requestBytes
+  ) throws ServletException, IOException
+  {
+    request.setAttribute(COMPONENT_LOCAL_ATTRIBUTE, true);
+    final AuthenticationResult requestAuthenticationResult = AuthorizationUtils.authenticationResultFromRequest(
+        request
+    );
+    if (internalAuthenticationResult == null
+        || !internalAuthenticationResult.getIdentity().equals(requestAuthenticationResult.getIdentity())) {
+      throw new IAE("Component-local system table queries require the internal system identity");
+    }
+    if (localQueryContainer == null) {
+      throw new IAE("Router local query container is not available");
+    }
+    localQueryContainer.service(new CachedBodyRequest(request, requestBytes), response);
+  }
+
+  private static boolean isComponentLocalSystemQuery(final Query<?> query)
+  {
+    return query.getDataSource() instanceof SystemTableDataSource
+           && query.context().getBoolean(SystemTableDataSource.CTX_NATIVE_SYSTEM_QUERY_COMPONENT_LOCAL, false);
   }
 
   /**
@@ -458,8 +511,54 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
       HttpServletResponse response
   ) throws ServletException, IOException
   {
+    if (Boolean.TRUE.equals(request.getAttribute(COMPONENT_LOCAL_ATTRIBUTE))) {
+      throw new IAE("Component-local system table queries must not be proxied");
+    }
     // Just call the superclass service method. Overridden in tests.
     super.service(request, response);
+  }
+
+  private static class CachedBodyRequest extends HttpServletRequestWrapper
+  {
+    private final byte[] body;
+
+    CachedBodyRequest(final HttpServletRequest request, final byte[] body)
+    {
+      super(request);
+      this.body = body;
+    }
+
+    @Override
+    public ServletInputStream getInputStream()
+    {
+      final ByteArrayInputStream input = new ByteArrayInputStream(body);
+      return new ServletInputStream()
+      {
+        @Override
+        public boolean isFinished()
+        {
+          return input.available() == 0;
+        }
+
+        @Override
+        public boolean isReady()
+        {
+          return true;
+        }
+
+        @Override
+        public void setReadListener(final ReadListener readListener)
+        {
+          // Synchronous in-memory request body.
+        }
+
+        @Override
+        public int read()
+        {
+          return input.read();
+        }
+      };
+    }
   }
 
   @Override

@@ -22,7 +22,6 @@ package org.apache.druid.sql.calcite;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import org.apache.druid.server.NativeSystemQueryClient;
 import org.apache.druid.server.QueryLifecycleFactory;
 import org.apache.druid.sql.SqlToolbox;
 import org.apache.druid.sql.calcite.NotYetSupported.Modes;
@@ -56,11 +55,10 @@ public class CalciteSysQueryTest extends BaseCalciteQueryTest
     public BindableTestSqlEngine(
         final QueryLifecycleFactory queryLifecycleFactory,
         final ObjectMapper jsonMapper,
-        final SqlToolbox toolbox,
-        final NativeSystemQueryClient nativeSystemQueryClient
+        final SqlToolbox toolbox
     )
     {
-      super(queryLifecycleFactory, jsonMapper, toolbox, nativeSystemQueryClient);
+      super(queryLifecycleFactory, jsonMapper, toolbox);
     }
 
     @Override

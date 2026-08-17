@@ -41,7 +41,6 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 
 import javax.annotation.Nullable;
-import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -110,10 +109,11 @@ public class NativeServerPropertiesTableSupplier implements NativeSystemTableDat
   @Override
   public Iterable<Object[]> getRows(
       final List<DimFilter> extractedFilters,
-      final HttpServletRequest internalRequest,
+      final AuthenticationResult internalAuthenticationResult,
       final AuthenticationResult originalAuthenticationResult
   )
   {
+    authorizeServerRead(internalAuthenticationResult);
     authorizeServerRead(originalAuthenticationResult);
 
     String serverFilter = null;

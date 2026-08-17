@@ -22,6 +22,7 @@ package org.apache.druid.indexing.overlord.http;
 import com.google.inject.Inject;
 import org.apache.druid.indexer.TaskStatusPlus;
 import org.apache.druid.indexing.overlord.TaskQueryTool;
+import org.apache.druid.indexing.overlord.TaskMaster;
 import org.apache.druid.metadata.TaskStorageQueryFilter;
 import org.apache.druid.query.filter.BoundDimFilter;
 import org.apache.druid.query.filter.DimFilter;
@@ -38,7 +39,6 @@ import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
 
 import javax.annotation.Nullable;
-import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -81,15 +81,18 @@ public class NativeTasksTableSupplier implements NativeSystemTableDataSupplier
       .build();
 
   private final TaskQueryTool taskQueryTool;
+  private final TaskMaster taskMaster;
   private final AuthorizerMapper authorizerMapper;
 
   @Inject
   public NativeTasksTableSupplier(
       final TaskQueryTool taskQueryTool,
+      final TaskMaster taskMaster,
       final AuthorizerMapper authorizerMapper
   )
   {
     this.taskQueryTool = taskQueryTool;
+    this.taskMaster = taskMaster;
     this.authorizerMapper = authorizerMapper;
   }
 
@@ -108,10 +111,13 @@ public class NativeTasksTableSupplier implements NativeSystemTableDataSupplier
   @Override
   public Iterable<Object[]> getRows(
       final List<DimFilter> extractedFilters,
-      final HttpServletRequest internalRequest,
+      final AuthenticationResult internalAuthenticationResult,
       final AuthenticationResult originalAuthenticationResult
   )
   {
+    if (!taskMaster.getTaskRunner().isPresent()) {
+      return Collections.emptyList();
+    }
     final TaskStorageQueryFilter storageFilter = toTaskStorageQueryFilter(extractedFilters);
     final List<TaskStatusPlus> tasks = taskQueryTool.getTaskStatusPlusList(
         TaskStateLookup.ALL,
@@ -120,7 +126,7 @@ public class NativeTasksTableSupplier implements NativeSystemTableDataSupplier
         null
     );
     final Iterable<TaskStatusPlus> internallyAuthorizedTasks = AuthorizationUtils.filterAuthorizedResources(
-        internalRequest,
+        internalAuthenticationResult,
         tasks,
         task -> Collections.singletonList(
             AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply(task.getDataSource())

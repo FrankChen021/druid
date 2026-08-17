@@ -39,12 +39,14 @@ import com.google.inject.util.Providers;
 import org.apache.druid.client.indexing.IndexingService;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.DerbyTaskStorageModule;
+import org.apache.druid.guice.DruidProcessingModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.IndexingServiceModuleHelper;
 import org.apache.druid.guice.IndexingServiceTaskLogsModule;
 import org.apache.druid.guice.IndexingServiceTuningConfigModule;
 import org.apache.druid.guice.JacksonConfigProvider;
 import org.apache.druid.guice.Jerseys;
+import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
@@ -52,7 +54,11 @@ import org.apache.druid.guice.ListProvider;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.MetadataManagerModule;
 import org.apache.druid.guice.PolyBind;
+import org.apache.druid.guice.QueryRunnerFactoryModule;
+import org.apache.druid.guice.QueryableModule;
+import org.apache.druid.guice.QueryablePeonModule;
 import org.apache.druid.guice.RegexEngineModule;
+import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.SupervisorModule;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.indexing.common.RetryPolicyFactory;
@@ -121,11 +127,14 @@ import org.apache.druid.msq.guice.MSQDurableStorageModule;
 import org.apache.druid.msq.guice.MSQExternalDataSourceModule;
 import org.apache.druid.msq.guice.MSQIndexingModule;
 import org.apache.druid.query.lookup.LookupSerdeModule;
+import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.segment.incremental.RowIngestionMetersFactory;
 import org.apache.druid.segment.realtime.ChatHandlerProvider;
 import org.apache.druid.segment.realtime.appenderator.AppenderatorsManager;
 import org.apache.druid.segment.realtime.appenderator.DummyForInjectionAppenderatorsManager;
 import org.apache.druid.server.compaction.CompactionStatusTracker;
+import org.apache.druid.server.NoopQuerySegmentWalker;
+import org.apache.druid.server.ResponseContextConfig;
 import org.apache.druid.server.coordinator.CoordinatorOverlordServiceConfig;
 import org.apache.druid.server.coordinator.DruidCompactionConfig;
 import org.apache.druid.server.http.RedirectFilter;
@@ -207,12 +216,20 @@ public class CliOverlord extends ServerRunnable
     return ImmutableList.of(
         new DerbyTaskStorageModule(),
         standalone ? new MetadataManagerModule() : binder -> {},
+        new DruidProcessingModule(),
+        new QueryableModule(),
+        new QueryRunnerFactoryModule(),
+        new SegmentWranglerModule(),
+        new JoinableFactoryModule(),
+        new QueryablePeonModule(),
         new NativeSystemQueryModule(),
         new Module()
         {
           @Override
           public void configure(Binder binder)
           {
+            binder.bind(QuerySegmentWalker.class).to(NoopQuerySegmentWalker.class).in(LazySingleton.class);
+            binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
             validateCentralizedDatasourceSchemaConfig(properties);
 
             if (standalone) {

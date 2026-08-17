@@ -40,12 +40,18 @@ import org.apache.druid.guice.IndexingServiceTaskLogsModule;
 import org.apache.druid.guice.IndexingServiceTuningConfigModule;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JsonConfigProvider;
+import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.MiddleManagerServiceModule;
 import org.apache.druid.guice.PolyBind;
+import org.apache.druid.guice.QueryRunnerFactoryModule;
+import org.apache.druid.guice.QueryableModule;
+import org.apache.druid.guice.QueryablePeonModule;
 import org.apache.druid.guice.RegexEngineModule;
+import org.apache.druid.guice.RouterProcessingModule;
+import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.indexing.common.RetryPolicyFactory;
 import org.apache.druid.indexing.common.TaskStorageDirTracker;
@@ -71,12 +77,15 @@ import org.apache.druid.msq.guice.MSQDurableStorageModule;
 import org.apache.druid.msq.guice.MSQExternalDataSourceModule;
 import org.apache.druid.msq.guice.MSQIndexingModule;
 import org.apache.druid.query.DruidMetrics;
+import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.lookup.LookupSerdeModule;
 import org.apache.druid.segment.incremental.RowIngestionMetersFactory;
 import org.apache.druid.segment.realtime.ChatHandlerProvider;
 import org.apache.druid.segment.realtime.appenderator.AppenderatorsManager;
 import org.apache.druid.segment.realtime.appenderator.DummyForInjectionAppenderatorsManager;
 import org.apache.druid.server.DruidNode;
+import org.apache.druid.server.NoopQuerySegmentWalker;
+import org.apache.druid.server.ResponseContextConfig;
 import org.apache.druid.server.http.SelfDiscoveryResource;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
 import org.apache.druid.server.metrics.ServiceStatusMonitor;
@@ -117,6 +126,12 @@ public class CliMiddleManager extends ServerRunnable
   {
     return ImmutableList.of(
         new MiddleManagerServiceModule(),
+        new RouterProcessingModule(),
+        new QueryableModule(),
+        new QueryRunnerFactoryModule(),
+        new SegmentWranglerModule(),
+        new JoinableFactoryModule(),
+        new QueryablePeonModule(),
         new NativeSystemQueryModule(),
         new Module()
         {
@@ -129,6 +144,8 @@ public class CliMiddleManager extends ServerRunnable
             binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8091);
             binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(8291);
             binder.bindConstant().annotatedWith(PruneLastCompactionState.class).to(true);
+            binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
+            binder.bind(QuerySegmentWalker.class).to(NoopQuerySegmentWalker.class).in(LazySingleton.class);
 
             IndexingServiceModuleHelper.configureTaskRunnerConfigs(binder);
 
