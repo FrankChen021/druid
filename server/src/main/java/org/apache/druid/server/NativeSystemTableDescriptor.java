@@ -20,6 +20,7 @@
 package org.apache.druid.server;
 
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.segment.column.RowSignature;
 
 import java.util.Set;
 
@@ -27,14 +28,21 @@ import java.util.Set;
 public class NativeSystemTableDescriptor
 {
   private final Set<NodeRole> nodeRoles;
+  private final RowSignature rowSignature;
 
-  public NativeSystemTableDescriptor(final Set<NodeRole> nodeRoles)
+  public NativeSystemTableDescriptor(final Set<NodeRole> nodeRoles, final RowSignature rowSignature)
   {
     this.nodeRoles = Set.copyOf(nodeRoles);
+    this.rowSignature = rowSignature;
   }
 
   public Set<NodeRole> getNodeRoles()
   {
     return nodeRoles;
+  }
+
+  public RowSignature getRowSignature()
+  {
+    return rowSignature;
   }
 }

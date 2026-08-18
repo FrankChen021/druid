@@ -29,6 +29,7 @@ import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.NativeSystemTableDescriptor;
+import org.apache.druid.server.NativeSystemTableRowAuthorizer;
 
 import java.util.Set;
 
@@ -64,10 +65,27 @@ public class NativeSystemQueryModule implements Module
 
     final MapBinder<String, NativeSystemTableDescriptor> descriptorBinder =
         MapBinder.newMapBinder(binder, String.class, NativeSystemTableDescriptor.class);
+    final NativeSystemTableDescriptor serverPropertiesDescriptor = new NativeSystemTableDescriptor(
+        Set.of(NodeRole.values()),
+        NativeServerPropertiesTableSupplier.ROW_SIGNATURE
+    );
+    final NativeSystemTableDescriptor tasksDescriptor = new NativeSystemTableDescriptor(
+        Set.of(NodeRole.OVERLORD),
+        NativeTasksTableSupplier.ROW_SIGNATURE
+    );
     descriptorBinder.addBinding(NativeServerPropertiesTableSupplier.TABLE_NAME)
-                    .toInstance(new NativeSystemTableDescriptor(Set.of(NodeRole.values())));
+                    .toInstance(serverPropertiesDescriptor);
     descriptorBinder.addBinding(NativeTasksTableSupplier.TABLE_NAME)
-                    .toInstance(new NativeSystemTableDescriptor(Set.of(NodeRole.OVERLORD)));
+                    .toInstance(tasksDescriptor);
+
+    final MapBinder<String, NativeSystemTableRowAuthorizer> rowAuthorizerBinder =
+        MapBinder.newMapBinder(binder, String.class, NativeSystemTableRowAuthorizer.class);
+    rowAuthorizerBinder.addBinding(NativeServerPropertiesTableSupplier.TABLE_NAME)
+                       .to(NativeServerPropertiesTableRowAuthorizer.class)
+                       .in(LazySingleton.class);
+    rowAuthorizerBinder.addBinding(NativeTasksTableSupplier.TABLE_NAME)
+                       .to(NativeTasksTableRowAuthorizer.class)
+                       .in(LazySingleton.class);
 
     final MapBinder<String, NativeSystemTableDataSupplier> dataSupplierBinder =
         MapBinder.newMapBinder(binder, String.class, NativeSystemTableDataSupplier.class);

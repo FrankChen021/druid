@@ -24,10 +24,12 @@ import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
+import org.apache.druid.query.Druids;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.server.DataSourceQueryHandler;
 import org.apache.druid.server.LocalQuerySegmentWalker;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -37,7 +39,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/** Resolves one component-local system table and executes it through the standard local native query stack. */
+/** Resolves one component-local system table and returns its rows through the standard native Scan stack. */
 public class NativeSystemTableQueryHandler implements DataSourceQueryHandler
 {
   private final Map<String, NativeSystemTableDataSupplier> dataSuppliers;
@@ -68,6 +70,9 @@ public class NativeSystemTableQueryHandler implements DataSourceQueryHandler
     if (!query.context().getBoolean(SystemTableDataSource.CTX_NATIVE_SYSTEM_QUERY_COMPONENT_LOCAL, false)) {
       throw new IAE("System tables can only be resolved by an internal component query");
     }
+    if (!(query instanceof ScanQuery)) {
+      throw new IAE("Component-local system table queries must be scan queries");
+    }
     if (!internalAuthenticationResult.getIdentity().equals(requestAuthenticationResult.getIdentity())) {
       throw new IAE("Component-local system table queries require the internal system identity");
     }
@@ -81,15 +86,22 @@ public class NativeSystemTableQueryHandler implements DataSourceQueryHandler
     final List<Object[]> rows = new ArrayList<>();
     dataSupplier.getRows(
         NativeSystemTableFilterExtractor.extract(query, dataSupplier.getFilterRules()),
-        requestAuthenticationResult,
-        delegatedAuthenticationResult(query, requestAuthenticationResult)
+        requestAuthenticationResult
     ).forEach(rows::add);
 
-    final Query<T> resolvedQuery = query.withDataSource(
-        InlineDataSource.fromIterable(rows, dataSupplier.getRowSignature())
-    );
+    final ScanQuery resolvedQuery = Druids.ScanQueryBuilder.copy((ScanQuery) query)
+                                                     .dataSource(
+                                                         InlineDataSource.fromIterable(
+                                                             rows,
+                                                             dataSupplier.getRowSignature()
+                                                         )
+                                                     )
+                                                     .filters(null)
+                                                     .build();
+    @SuppressWarnings("unchecked")
+    final Query<T> typedResolvedQuery = (Query<T>) (Query<?>) resolvedQuery;
     final QueryRunner<T> localRunner = localQuerySegmentWalker.getQueryRunnerForIntervals(
-        resolvedQuery,
+        typedResolvedQuery,
         resolvedQuery.getIntervals()
     );
 
@@ -99,24 +111,9 @@ public class NativeSystemTableQueryHandler implements DataSourceQueryHandler
             rows.size()
         )
     );
-    return (queryPlus, responseContext) -> localRunner.run(queryPlus.withQuery(resolvedQuery), responseContext);
-  }
-
-  @SuppressWarnings("unchecked")
-  private static AuthenticationResult delegatedAuthenticationResult(
-      final Query<?> query,
-      final AuthenticationResult requestAuthenticationResult
-  )
-  {
-    final String identity = query.context().getString(SystemTableDataSource.CTX_AUTHENTICATION_IDENTITY);
-    if (identity == null) {
-      return requestAuthenticationResult;
-    }
-    return new AuthenticationResult(
-        identity,
-        query.context().getString(SystemTableDataSource.CTX_AUTHENTICATION_AUTHORIZER),
-        query.context().getString(SystemTableDataSource.CTX_AUTHENTICATED_BY),
-        (Map<String, Object>) query.context().get(SystemTableDataSource.CTX_AUTHENTICATION_CONTEXT)
+    return (queryPlus, responseContext) -> localRunner.run(
+        queryPlus.withQuery(typedResolvedQuery),
+        responseContext
     );
   }
 

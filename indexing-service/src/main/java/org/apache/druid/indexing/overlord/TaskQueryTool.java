@@ -210,7 +210,8 @@ public class TaskQueryTool
         createdTimeInterval,
         maxCompletedTasks,
         dataSource,
-        type
+        type,
+        false
     );
   }
 
@@ -227,7 +228,8 @@ public class TaskQueryTool
         createdTimeInterval,
         maxCompletedTasks,
         storageFilter.getSingleDataSource(),
-        storageFilter.getSingleType()
+        storageFilter.getSingleType(),
+        true
     );
   }
 
@@ -237,7 +239,8 @@ public class TaskQueryTool
       @Nullable final String createdTimeInterval,
       @Nullable final Integer maxCompletedTasks,
       @Nullable final String runnerDataSource,
-      @Nullable final String runnerType
+      @Nullable final String runnerType,
+      final boolean useStorageFilter
   )
   {
     Optional<TaskRunner> taskRunnerOptional = taskMaster.getTaskRunner();
@@ -265,7 +268,8 @@ public class TaskQueryTool
         storageFilter,
         createdTimeDuration,
         maxCompletedTasks,
-        runnerType
+        runnerType,
+        useStorageFilter
     );
     final Map<String, ? extends TaskRunnerWorkItem> runnerWorkItems = getTaskRunnerWorkItems(
         taskRunner,
@@ -331,7 +335,8 @@ public class TaskQueryTool
       TaskStorageQueryFilter storageFilter,
       Duration createdTimeDuration,
       @Nullable Integer maxCompletedTasks,
-      @Nullable String exactTypeFilter
+      @Nullable String exactTypeFilter,
+      boolean useStorageFilter
   )
   {
     final Map<TaskLookupType, TaskLookup> taskLookups = new HashMap<>();
@@ -365,8 +370,15 @@ public class TaskQueryTool
       taskLookups.remove(TaskLookupType.COMPLETE);
     }
 
-    final Stream<TaskStatusPlus> taskStatusPlusStream
-        = storage.getTaskStatusPlusListWithFilter(taskLookups, storageFilter).stream();
+    final Stream<TaskStatusPlus> taskStatusPlusStream = useStorageFilter
+                                                        ? storage.getTaskStatusPlusListWithFilter(
+                                                            taskLookups,
+                                                            storageFilter
+                                                        ).stream()
+                                                        : storage.getTaskStatusPlusList(
+                                                            taskLookups,
+                                                            storageFilter.getSingleDataSource()
+                                                        ).stream();
     if (exactTypeFilter != null) {
       return taskStatusPlusStream.filter(
           statusPlus -> exactTypeFilter.equals(statusPlus == null ? null : statusPlus.getType())

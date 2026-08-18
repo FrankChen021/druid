@@ -25,8 +25,8 @@ Status: Implemented prototype
 
 The current Bindable system tables fetch rows from components and perform SQL operations on the Broker. This design
 keeps Calcite on the Broker and uses the standard `/druid/v2` native-query endpoint on every Druid component.
-Component-local suppliers resolve authorized rows, and the normal native query stack applies filters, projections,
-and partial aggregation before standard native results return to the Broker for merging and finalization.
+Component-local suppliers resolve storage-prefiltered rows and return standard native Scan results. The Broker applies
+the original user's row authorization, then executes the original native query over the authorized combined rows.
 
 The implementation uses a generic datasource query-handler registry rather than a system-specific HTTP resource or
 response envelope. `sys.tasks` and `sys.server_properties` are the first suppliers. Supported native GroupBy, Scan,
@@ -36,7 +36,7 @@ and result-merging machinery as other native datasources.
 ## Goals
 
 - Represent `sys.tasks` and `sys.server_properties` as native Druid datasources when using the native SQL engine.
-- Execute supported native query trees on components and merge their native results on the Broker.
+- Push safe filters into component storage, transport rows with native Scan, and execute the original query on the Broker.
 - Make `sys.server_properties` available from every discovered Coordinator, Overlord, Broker, Historical, Indexer,
   MiddleManager, Peon, and Router process.
 - Keep `sys.tasks` owned by Overlord while using the same endpoint and provider framework.
@@ -63,10 +63,10 @@ SQL client
   -> NativeSystemQueryClient fanout POST /druid/v2 to discovered components
   -> standard component QueryResource and QueryLifecycle
   -> component-local provider storage lookup with supported native predicates
-  -> internal-caller and original-user authorization
-  -> component native execution over a local InlineDataSource
-  -> standard native partial results
-  -> Broker native merge and finalization
+  -> internal-caller authorization and native Scan over a local InlineDataSource
+  -> standard native Scan results
+  -> Broker original-user row authorization
+  -> Broker execution of the original native query over authorized combined rows
   -> SQL result coercion and formatting
 ```
 
@@ -92,16 +92,23 @@ path together. Because Druid's default SQL engine is `native`, no additional con
 
 `QueryLifecycle` selects a `DataSourceQueryHandler` by datasource class. On the Broker,
 `NativeSystemQueryClient` discovers only the node roles registered for the requested table and creates standard
-`DirectDruidClient` runners for those components. It adds an internal component-local marker, the original SQL user's
-authentication information, a deadline, and distinct component query and resource identifiers. The normal query
-factory and toolchest merge component results and finalize them on the Broker.
+`DirectDruidClient` runners for those components. It creates an unbounded compacted-list Scan carrying the original
+query's filters for provider extraction, plus an internal component-local marker, deadline, and distinct component
+query and resource identifiers. After collecting Scan rows, the Broker applies a table-specific row authorizer using
+the original in-process `AuthenticationResult`, replaces the system datasource with an `InlineDataSource`, and runs
+the original query locally.
+
+Authentication context is deliberately not serialized into query context. Authenticator extensions may attach live,
+non-JSON objects such as LDAP `SearchResult` instances, and losing those objects can change authorization decisions.
+Keeping original-user authorization on the Broker preserves the Bindable path's semantics without inventing a second
+authentication serialization protocol.
 
 There is no `NativeQueryMaker` table-name branch, custom HTTP client, or custom response envelope. `NativeQueryMaker`
 consumes the final `QueryLifecycle` result exactly as it does for another native datasource.
 
 ### Provider registry and component execution
 
-`NativeSystemTableDataSupplier` supplies a row signature, declarative filter-pushdown rules, and authorized rows for one
+`NativeSystemTableDataSupplier` supplies a row signature, declarative filter-pushdown rules, and internally authorized rows for one
 system table. `NativeSystemQueryModule` registers the `server_properties` supplier on every component and the `tasks`
 supplier only on Overlord, which remains the owner of task metadata. A future component-owned table adds a supplier,
 routing descriptor, and map binding; it does not require a new Jersey resource, RPC method, client method, or Broker
@@ -110,8 +117,8 @@ query-maker branch.
 The generic `NativeSystemTableFilterExtractor` continues to use Druid's existing `DimFilter` model. It walks top-level
 `AND` conjuncts in Scan and GroupBy filters and in Window Scan leaves, selects conjuncts accepted by the provider's
 rules, and passes the original `DimFilter` objects to the provider. It does not introduce another filter AST, descend
-into `OR` or `NOT`, or remove anything from the native query. The complete native filter therefore remains the
-correctness filter after row materialization.
+into `OR` or `NOT`, or remove anything from the original native query. The complete native filter therefore remains
+the correctness filter after Broker-side row materialization and authorization.
 
 `NativeTasksTableSupplier` declares rules for exact string values (equality and `IN`) on `task_id`, `group_id`, `type`,
 `datasource`, `created_time`, and `status`, plus lexicographic ranges on `created_time`. It translates the extracted
@@ -131,7 +138,7 @@ The task metadata columns provide the following safe prefilters:
 
 Exact `SUCCESS` versus `FAILED` remains residual because it is stored in the serialized status payload rather than a
 portable indexed column. Runner-derived fields and payload-derived fields also remain residual. Every extracted native
-filter stays on the native query, so storage pushdown is an optimization and the component native engine remains the
+filter stays on the original query, so storage pushdown is an optimization and Broker native execution remains the
 final correctness filter. This is storage-level pushdown rather than merely applying the filter after all task rows
 reach the Overlord.
 
@@ -139,17 +146,17 @@ reach the Overlord.
 constraints to its own node, reads the component's injected `Properties`, applies the same hidden-property filtering as
 `/status/properties`, and reports its own node roles. The Broker discovers all node roles, deduplicates nodes by host
 and port, and fans out the same filtered request. Property and node-role predicates remain residual native filters
-after provider rows are materialized. The provider performs the same `STATE READ` authorization check as the existing
-Bindable table before exposing server information. This avoids a loopback HTTP request for every component while
-preserving the established property visibility rules.
+after provider rows are materialized. The component provider checks the internal caller; the Broker row authorizer
+performs the original user's `STATE READ` check before evaluating the original query. This avoids a loopback HTTP
+request for every component while preserving the established property visibility rules.
 
 The standard `/druid/v2` endpoint handles both ordinary and system-table native queries. For a component-local request:
 
 1. `QueryLifecycle` selects the registered system-table handler;
-2. reconstructs the original SQL authentication result from reserved context fields;
-3. asks the supplier for rows authorized for both the internal caller and original SQL user;
-4. replaces the system datasource with a local `InlineDataSource`; and
-5. executes the unchanged native query locally and returns its standard result stream.
+2. asks the supplier for storage-prefiltered rows authorized for the internal caller;
+3. replaces the system datasource of the component Scan with a local `InlineDataSource`;
+4. clears the transport filter, since it has only carried provider pushdown candidates; and
+5. executes the Scan locally and returns its standard result stream.
 
 A component request without both the internal marker and escalated service identity is rejected. The Router recognizes
 only such authenticated internal requests for local `/druid/v2` execution; ordinary client requests continue to be
@@ -157,7 +164,7 @@ forwarded to a Broker. The Broker handler checks the marker before deciding betw
 marked request that reaches a Broker cannot recursively fan out. Component query-id prefixes also keep cancellation
 requests local on leader-elected management services.
 
-Authorization occurs before native filtering, expressions, sorting, and aggregation.
+On the Broker, original-user row authorization occurs before residual filtering, expressions, sorting, and aggregation.
 
 ## Supported query examples
 
@@ -185,8 +192,8 @@ feature flag or server-level enablement property.
 
 Each component handler emits a table-specific metric for rows its supplier reads:
 
-- `query/systemTasks/rowsRead`: authorized task rows supplied by Overlord; and
-- `query/systemServerProperties/rowsRead`: authorized server-property rows supplied to the native engine.
+- `query/systemTasks/rowsRead`: internally authorized task rows supplied by Overlord; and
+- `query/systemServerProperties/rowsRead`: internally authorized server-property rows supplied to native Scan.
 
 Standard query lifecycle metrics describe native execution and returned results; the custom transport-specific
 `rowsReturned` metric is removed with the custom endpoint.
@@ -206,21 +213,21 @@ The test class contains two cases:
    `rowsRead = 5`.
 
 Together they prove SQL planning, standard `/druid/v2` routing, supplier lookup, task metadata filter pushdown, residual
-native filtering, authorization, task-row adaptation, native aggregation, native Scan/operator sorting, standard result
+native filtering, authorization, task-row adaptation, Broker native aggregation, native Scan/operator sorting, standard result
 transport, and SQL formatting.
 
 `NativeSysServerPropertiesQueryTest` starts embedded Coordinator, Overlord, Broker, Historical, Indexer, and Router
 services. It adds one unique property to each service and groups a Broker SQL query over those six properties. The
 expected six rows (including the Broker's custom service name) prove component registration, discovery fanout, Router's
-safe local endpoint handling, local property collection, supplier authorization, component partial aggregation,
-Broker merge, and residual property filtering. The test intentionally uses one query and no direct endpoint mocks; a
+safe local endpoint handling, local property collection, Broker row authorization, native Scan transport,
+Broker aggregation, and residual property filtering. The test intentionally uses one query and no direct endpoint mocks; a
 missing component response changes the grouped result and fails the test.
 
 ## Production improvements
 
 The implementation proves that the Broker can plan the two supported system tables as native queries, that Overlord can
-provide task-owned rows with metadata pushdown, and that components can execute native queries before the Broker merges
-their standard results. Production work must complete bounded operator execution and resource sizing rather than
+provide task-owned rows with metadata pushdown, and that components can serve standard native Scan results before the
+Broker authorizes rows and executes the original query. Production work must complete bounded operator execution and resource sizing rather than
 compensate with a larger heap, larger fixed frame, redirect retries, or partial results.
 
 ### Bounded multi-frame Window execution
@@ -256,10 +263,10 @@ of the complete result.
 
 ### Standard native-query wire transport
 
-Broker-to-component requests now use `DirectDruidClient` and `/druid/v2`, including Jackson Smile, lazy `Sequence`
-consumption, response context, scatter-gather accounting, deadlines, cancellation identifiers, native error handling,
-and query-toolchest result merging. There is no custom `{signature, rows}` wrapper and no fully buffered custom HTTP
-response.
+Broker-to-component requests now use `DirectDruidClient` and `/druid/v2`, including Jackson Smile, standard Scan
+results, response context, deadlines, cancellation identifiers, and native error handling. There is no custom
+`{signature, rows}` wrapper or custom HTTP response. The Broker currently collects component Scan rows before building
+the authorized `InlineDataSource`; production work should make this stage bounded or spillable.
 
 Production validation must still cover cancellation and backpressure on every newly query-capable management process,
 rolling upgrades, response-size limits, and cleanup when the Broker stops consuming a component response. Frames remain
@@ -276,7 +283,7 @@ The MVP keeps a hybrid registration and chooses between the following paths duri
 
 ```text
 engine = native and native table representation exists
-  -> DruidTable -> SystemTableDataSource -> component native execution -> Broker merge
+  -> DruidTable -> SystemTableDataSource -> component Scan -> Broker authorization and native execution
 
 engine = native and no native table representation exists
   -> existing Broker-side ScannableTable execution
@@ -291,7 +298,7 @@ Before enabling additional system tables in production, the generic framework sh
 
 - provider registries and service-aware routing for each component that owns system-table data;
 - a strict allowlist of supported datasource and query types;
-- authorization of both the internal component caller and the original SQL user;
+- internal-caller authorization on components and table-specific original-user row authorization on the Broker;
 - verified query lifecycle, cancellation, timeout, metrics, logging, and resource accounting on every component role;
 - typed provider-level predicate and limit pushdown into component storage APIs where supported; and
 - rolling-upgrade behavior and compatibility tests when Brokers and owning components run different versions.

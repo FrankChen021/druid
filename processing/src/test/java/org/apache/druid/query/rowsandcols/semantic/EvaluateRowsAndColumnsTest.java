@@ -20,8 +20,8 @@
 package org.apache.druid.query.rowsandcols.semantic;
 
 import com.google.common.collect.Lists;
-import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.ResourceLimitExceededException;
+import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.operator.OffsetLimit;
 import org.apache.druid.query.operator.window.RowsAndColumnsHelper;
 import org.apache.druid.query.rowsandcols.LazilyDecoratedRowsAndColumns;

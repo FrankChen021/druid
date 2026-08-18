@@ -62,7 +62,7 @@ public class NativeServerPropertiesTableSupplier implements NativeSystemTableDat
   private static final NativeSystemTableFilterRule SERVICE_NAME_FILTER_RULE =
       NativeSystemTableFilterRule.exactString("service_name");
 
-  private static final RowSignature ROW_SIGNATURE = RowSignature
+  public static final RowSignature ROW_SIGNATURE = RowSignature
       .builder()
       .add("server", ColumnType.STRING)
       .add("service_name", ColumnType.STRING)
@@ -109,12 +109,10 @@ public class NativeServerPropertiesTableSupplier implements NativeSystemTableDat
   @Override
   public Iterable<Object[]> getRows(
       final List<DimFilter> extractedFilters,
-      final AuthenticationResult internalAuthenticationResult,
-      final AuthenticationResult originalAuthenticationResult
+      final AuthenticationResult internalAuthenticationResult
   )
   {
     authorizeServerRead(internalAuthenticationResult);
-    authorizeServerRead(originalAuthenticationResult);
 
     String serverFilter = null;
     String serviceNameFilter = null;

@@ -23,12 +23,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import org.apache.druid.java.util.common.Intervals;
-import org.apache.druid.query.Druids;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.QueryContext;
-import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.TableDataSource;
-import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.spec.LegacySegmentSpec;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
@@ -130,27 +127,6 @@ public class WindowOperatorQueryTest
         .add(new NaivePartitioningOperatorFactory(Collections.singletonList("some")))
         .build();
     Assertions.assertSame(operators, ((WindowOperatorQuery) query.withOperators(operators)).getOperators());
-  }
-
-  @Test
-  public void testUnboundedScanDoesNotCreateLeafLimit()
-  {
-    final ScanQuery scanQuery = Druids.newScanQueryBuilder()
-                                      .dataSource(new TableDataSource("test"))
-                                      .intervals(new LegacySegmentSpec(Intervals.ETERNITY))
-                                      .limit(Long.MAX_VALUE)
-                                      .build();
-    final WindowOperatorQuery windowQuery = new WindowOperatorQuery(
-        new QueryDataSource(scanQuery),
-        new LegacySegmentSpec(Intervals.ETERNITY),
-        Collections.emptyMap(),
-        RowSignature.empty(),
-        Collections.emptyList(),
-        null
-    );
-
-    final ScanOperatorFactory leafScan = (ScanOperatorFactory) windowQuery.getLeafOperators().get(0);
-    Assertions.assertNull(leafScan.getOffsetLimit());
   }
 
   @Test

@@ -21,8 +21,8 @@ package org.apache.druid.indexing.overlord.http;
 
 import com.google.inject.Inject;
 import org.apache.druid.indexer.TaskStatusPlus;
-import org.apache.druid.indexing.overlord.TaskQueryTool;
 import org.apache.druid.indexing.overlord.TaskMaster;
+import org.apache.druid.indexing.overlord.TaskQueryTool;
 import org.apache.druid.metadata.TaskStorageQueryFilter;
 import org.apache.druid.query.filter.BoundDimFilter;
 import org.apache.druid.query.filter.DimFilter;
@@ -62,7 +62,7 @@ public class NativeTasksTableSupplier implements NativeSystemTableDataSupplier
       NativeSystemTableFilterRule.stringValues("status")
   );
 
-  private static final RowSignature ROW_SIGNATURE = RowSignature
+  public static final RowSignature ROW_SIGNATURE = RowSignature
       .builder()
       .add("task_id", ColumnType.STRING)
       .add("group_id", ColumnType.STRING)
@@ -111,8 +111,7 @@ public class NativeTasksTableSupplier implements NativeSystemTableDataSupplier
   @Override
   public Iterable<Object[]> getRows(
       final List<DimFilter> extractedFilters,
-      final AuthenticationResult internalAuthenticationResult,
-      final AuthenticationResult originalAuthenticationResult
+      final AuthenticationResult internalAuthenticationResult
   )
   {
     if (!taskMaster.getTaskRunner().isPresent()) {
@@ -125,7 +124,7 @@ public class NativeTasksTableSupplier implements NativeSystemTableDataSupplier
         null,
         null
     );
-    final Iterable<TaskStatusPlus> internallyAuthorizedTasks = AuthorizationUtils.filterAuthorizedResources(
+    final Iterable<TaskStatusPlus> authorizedTasks = AuthorizationUtils.filterAuthorizedResources(
         internalAuthenticationResult,
         tasks,
         task -> Collections.singletonList(
@@ -133,11 +132,6 @@ public class NativeTasksTableSupplier implements NativeSystemTableDataSupplier
         ),
         authorizerMapper
     );
-    final Iterable<TaskStatusPlus> authorizedTasks = filterAuthorized(
-        internallyAuthorizedTasks,
-        originalAuthenticationResult
-    );
-
     return StreamSupport.stream(authorizedTasks.spliterator(), false)
                         .map(NativeTasksTableSupplier::taskToRow)
                         .collect(Collectors.toList());
@@ -225,21 +219,6 @@ public class NativeTasksTableSupplier implements NativeSystemTableDataSupplier
       }
       return values;
     }
-  }
-
-  private Iterable<TaskStatusPlus> filterAuthorized(
-      final Iterable<TaskStatusPlus> tasks,
-      final AuthenticationResult authenticationResult
-  )
-  {
-    return AuthorizationUtils.filterAuthorizedResources(
-        authenticationResult,
-        tasks,
-        task -> Collections.singletonList(
-            AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply(task.getDataSource())
-        ),
-        authorizerMapper
-    );
   }
 
   private static Object[] taskToRow(final TaskStatusPlus task)
