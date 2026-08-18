@@ -559,6 +559,18 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
         }
       };
     }
+
+    @Override
+    public String getServletPath()
+    {
+      return "";
+    }
+
+    @Override
+    public String getPathInfo()
+    {
+      return getRequestURI();
+    }
   }
 
   @Override

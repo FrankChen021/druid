@@ -27,6 +27,7 @@ import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.guice.BrokerProcessingModule;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.JsonConfigProvider;
@@ -35,7 +36,6 @@ import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
-import org.apache.druid.guice.RouterProcessingModule;
 import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.http.JettyHttpClientModule;
 import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
@@ -92,7 +92,7 @@ public class CliRouter extends ServerRunnable
   protected List<? extends Module> getModules()
   {
     return ImmutableList.of(
-        new RouterProcessingModule(),
+        new BrokerProcessingModule(),
         new QueryableModule(),
         new QueryRunnerFactoryModule(),
         new SegmentWranglerModule(),

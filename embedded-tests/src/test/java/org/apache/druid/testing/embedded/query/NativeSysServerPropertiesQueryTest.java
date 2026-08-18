@@ -64,6 +64,7 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
   {
     return EmbeddedDruidCluster.withEmbeddedDerbyAndZookeeper()
                                .useLatchableEmitter()
+                               .addCommonProperty("druid.centralizedDatasourceSchema.enabled", "true")
                                .addServer(coordinator)
                                .addServer(overlord)
                                .addServer(broker)

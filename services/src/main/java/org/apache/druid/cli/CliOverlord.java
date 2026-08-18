@@ -213,23 +213,28 @@ public class CliOverlord extends ServerRunnable
 
   protected List<? extends Module> getModules(final boolean standalone)
   {
-    return ImmutableList.of(
-        new DerbyTaskStorageModule(),
-        standalone ? new MetadataManagerModule() : binder -> {},
-        new DruidProcessingModule(),
-        new QueryableModule(),
-        new QueryRunnerFactoryModule(),
-        new SegmentWranglerModule(),
-        new JoinableFactoryModule(),
-        new QueryablePeonModule(),
-        new NativeSystemQueryModule(),
+    final ImmutableList.Builder<Module> modules = ImmutableList.builder();
+    modules.add(new DerbyTaskStorageModule());
+    modules.add(standalone ? new MetadataManagerModule() : binder -> {});
+    if (standalone) {
+      modules.add(new DruidProcessingModule());
+      modules.add(new QueryableModule());
+      modules.add(new QueryRunnerFactoryModule());
+      modules.add(new SegmentWranglerModule());
+      modules.add(new JoinableFactoryModule());
+      modules.add(new QueryablePeonModule());
+      modules.add(new NativeSystemQueryModule());
+    }
+    modules.add(
         new Module()
         {
           @Override
           public void configure(Binder binder)
           {
-            binder.bind(QuerySegmentWalker.class).to(NoopQuerySegmentWalker.class).in(LazySingleton.class);
-            binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
+            if (standalone) {
+              binder.bind(QuerySegmentWalker.class).to(NoopQuerySegmentWalker.class).in(LazySingleton.class);
+              binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
+            }
             validateCentralizedDatasourceSchemaConfig(properties);
 
             if (standalone) {
@@ -535,6 +540,7 @@ public class CliOverlord extends ServerRunnable
         new MSQExternalDataSourceModule(),
         new RegexEngineModule()
     );
+    return modules.build();
   }
 
   /**

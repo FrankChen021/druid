@@ -33,6 +33,7 @@ import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
+import com.google.inject.util.Modules;
 import com.google.inject.util.Providers;
 import org.apache.druid.client.CoordinatorSegmentWatcherConfig;
 import org.apache.druid.client.CoordinatorServerView;
@@ -41,6 +42,7 @@ import org.apache.druid.client.HttpServerInventoryViewResource;
 import org.apache.druid.client.coordinator.Coordinator;
 import org.apache.druid.discovery.DruidLeaderSelector;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.guice.BrokerProcessingModule;
 import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.JsonConfigProvider;
@@ -54,7 +56,6 @@ import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.QueryablePeonModule;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.RegexEngineModule;
-import org.apache.druid.guice.RouterProcessingModule;
 import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.SegmentSchemaCacheModule;
 import org.apache.druid.guice.SupervisorCleanupModule;
@@ -184,22 +185,18 @@ public class CliCoordinator extends ServerRunnable
     modules.add(JettyHttpClientModule.global());
     modules.add(new MetadataManagerModule());
 
-    // Coordinator-as-Overlord installs the shared module from CliOverlord below, including the tasks provider.
-    if (!beOverlord) {
-      modules.add(new NativeSystemQueryModule());
-    }
+    modules.add(new NativeSystemQueryModule());
 
+    modules.add(new BrokerProcessingModule());
+    modules.add(new QueryableModule());
     if (isSegmentSchemaCacheEnabled) {
       validateCentralizedDatasourceSchemaConfig(properties);
-      modules.add(new SegmentSchemaCacheModule());
-      modules.add(new QueryableModule());
+      modules.add(Modules.override(new QueryRunnerFactoryModule()).with(new SegmentSchemaCacheModule()));
     } else {
-      modules.add(new RouterProcessingModule());
-      modules.add(new QueryableModule());
       modules.add(new QueryRunnerFactoryModule());
-      modules.add(new SegmentWranglerModule());
-      modules.add(new JoinableFactoryModule());
     }
+    modules.add(new SegmentWranglerModule());
+    modules.add(new JoinableFactoryModule());
     modules.add(new QueryablePeonModule());
 
     modules.add(
@@ -215,8 +212,8 @@ public class CliCoordinator extends ServerRunnable
             binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(8281);
 
             binder.bind(MetadataStorage.class).toProvider(MetadataStorageProvider.class);
+            binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
             if (!isSegmentSchemaCacheEnabled) {
-              binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
               binder.bind(QuerySegmentWalker.class).to(NoopQuerySegmentWalker.class).in(LazySingleton.class);
             }
 
