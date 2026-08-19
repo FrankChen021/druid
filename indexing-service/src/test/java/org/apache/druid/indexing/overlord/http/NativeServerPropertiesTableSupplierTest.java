@@ -100,7 +100,7 @@ public class NativeServerPropertiesTableSupplierTest
   @Test
   public void testRejectsUnauthorizedRequest()
   {
-    final Authorizer denyAll = (authenticationResult, resource, action) -> new Access(false);
+    final Authorizer denyAll = (authenticationResult, resource, action) -> Access.DENIED;
     final AuthorizerMapper authorizerMapper = new AuthorizerMapper(null)
     {
       @Override
@@ -138,7 +138,7 @@ public class NativeServerPropertiesTableSupplierTest
       @Override
       public Authorizer getAuthorizer(final String name)
       {
-        return (authenticationResult, resource, action) -> new Access(true);
+        return (authenticationResult, resource, action) -> Access.OK;
       }
     };
   }
