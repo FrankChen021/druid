@@ -39,6 +39,7 @@ import org.apache.druid.guice.IndexingServiceModuleHelper;
 import org.apache.druid.guice.IndexingServiceTaskLogsModule;
 import org.apache.druid.guice.IndexingServiceTuningConfigModule;
 import org.apache.druid.guice.Jerseys;
+import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
@@ -47,6 +48,7 @@ import org.apache.druid.guice.MiddleManagerServiceModule;
 import org.apache.druid.guice.PolyBind;
 import org.apache.druid.guice.QueryablePeonModule;
 import org.apache.druid.guice.RegexEngineModule;
+import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.indexing.common.RetryPolicyFactory;
 import org.apache.druid.indexing.common.TaskStorageDirTracker;
@@ -123,6 +125,8 @@ public class CliMiddleManager extends ServerRunnable
     return ImmutableList.of(
         new MiddleManagerServiceModule(),
         new NativeSystemQueryComponentModule(),
+        new SegmentWranglerModule(),
+        new JoinableFactoryModule(),
         new QueryablePeonModule(),
         new NativeSystemQueryModule(),
         new Module()
