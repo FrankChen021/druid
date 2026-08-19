@@ -84,7 +84,6 @@ import org.apache.druid.segment.realtime.ChatHandlerProvider;
 import org.apache.druid.server.ClientQuerySegmentWalker;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.LocalQuerySegmentWalker;
-import org.apache.druid.server.NativeSystemQueryClient;
 import org.apache.druid.server.QueryLifecycle;
 import org.apache.druid.server.QueryLifecycleFactory;
 import org.apache.druid.server.QueryStackTests;
@@ -138,8 +137,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
-
-import static org.mockito.Mockito.mock;
 
 /**
  * Builds the infrastructure needed to run Calcite tests. Building splits into
@@ -1165,7 +1162,6 @@ public class SqlTestFramework
     @Override
     public void configure(Binder binder)
     {
-      binder.bind(NativeSystemQueryClient.class).toInstance(mock(NativeSystemQueryClient.class));
     }
   }
 
