@@ -137,6 +137,8 @@ jobs:
         if: ${{ failure() || inputs.artifact_prefix != '' }}
         with:
           name: "${{ inputs.artifact_prefix }}-${{ env.HASH }}"
+          retention-days: 1
+          compression-level: 0
           path: |
             **/*.hprof
             **/hs_err_pid*
