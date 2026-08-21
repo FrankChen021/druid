@@ -1,0 +1,77 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: "Docker Image Build Benchmark"
+on:
+  pull_request:
+    paths:
+      - '.dockerignore'
+      - 'distribution/**'
+      - '.github/scripts/run_docker-tests'
+      - '.github/workflows/docker-tests.yml'
+      - '.github/workflows/docker-image-build-benchmark.yml'
+
+jobs:
+  image-build:
+    name: "Build image (${{ matrix.mode }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [source, host]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: 25
+          cache: 'maven'
+
+      - name: Build distribution on host
+        if: ${{ matrix.mode == 'host' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+          build_start_epoch=$(date +%s)
+          mvn -B -ff -q \
+            -pl distribution -am \
+            install \
+            -Pdist,bundle-contrib-exts,skip-static-checks,skip-tests \
+            -Dmaven.javadoc.skip=true -T1C
+          build_end_epoch=$(date +%s)
+          host_build_seconds=$((build_end_epoch - build_start_epoch))
+          echo "Host distribution build: ${host_build_seconds}s"
+          echo "Host distribution build: ${host_build_seconds}s" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build Docker image
+        env:
+          BUILD_FROM_SOURCE: ${{ matrix.mode == 'source' && 'true' || 'false' }}
+        run: |
+          image_build_start_epoch=$(date +%s)
+          DOCKER_BUILDKIT=1 docker build \
+            --build-arg BUILD_FROM_SOURCE="$BUILD_FROM_SOURCE" \
+            -t apache/druid:docker-image-build-benchmark \
+            -f distribution/docker/Dockerfile .
+          image_build_end_epoch=$(date +%s)
+          image_build_seconds=$((image_build_end_epoch - image_build_start_epoch))
+          echo "Docker image build (${BUILD_FROM_SOURCE}): ${image_build_seconds}s"
+          {
+            echo "### Docker image build benchmark"
+            echo "- Mode: ${BUILD_FROM_SOURCE}"
+            echo "- Docker image build: ${image_build_seconds}s"
+          } >> "$GITHUB_STEP_SUMMARY"
