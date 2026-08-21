@@ -38,6 +38,7 @@ jobs:
     uses: ./.github/workflows/worker.yml
     with:
       script: .github/scripts/validate-dist
+      artifact_prefix: "distribution-for-docker"
       key: "validate-dist"
 
   reporting-jacoco-coverage-failures:
