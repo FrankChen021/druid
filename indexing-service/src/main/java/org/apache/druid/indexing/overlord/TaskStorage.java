@@ -27,6 +27,7 @@ import org.apache.druid.indexing.common.TaskLock;
 import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.metadata.TaskLookup;
 import org.apache.druid.metadata.TaskLookup.TaskLookupType;
+import org.apache.druid.metadata.TaskStorageQueryFilter;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -161,6 +162,21 @@ public interface TaskStorage
       Map<TaskLookupType, TaskLookup> taskLookups,
       @Nullable String datasource
   );
+
+  /**
+   * Returns task statuses with storage-level prefilters. Implementations that do not support the richer filters may
+   * use the single-datasource filter and return a superset for residual filtering.
+   */
+  default List<TaskStatusPlus> getTaskStatusPlusListWithFilter(
+      final Map<TaskLookupType, TaskLookup> taskLookups,
+      final TaskStorageQueryFilter filter
+  )
+  {
+    if (filter.matchesNothing()) {
+      return Collections.emptyList();
+    }
+    return getTaskStatusPlusList(taskLookups, filter.getSingleDataSource());
+  }
 
   /**
    * Returns a list of tasks stored in the storage facility as {@link TaskInfo}. No

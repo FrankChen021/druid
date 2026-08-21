@@ -58,6 +58,7 @@ import org.apache.druid.indexer.report.TaskReportFileWriter;
 import org.apache.druid.indexing.common.MultipleFileTaskReportFileWriter;
 import org.apache.druid.indexing.overlord.TaskRunner;
 import org.apache.druid.indexing.overlord.ThreadingTaskRunner;
+import org.apache.druid.indexing.system.NativeTasksSystemQueryModule;
 import org.apache.druid.indexing.worker.Worker;
 import org.apache.druid.indexing.worker.WorkerTaskManager;
 import org.apache.druid.indexing.worker.config.WorkerConfig;
@@ -83,6 +84,7 @@ import org.apache.druid.server.http.SelfDiscoveryResource;
 import org.apache.druid.server.initialization.jetty.CliIndexerServerModule;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
 import org.apache.druid.server.metrics.IndexerTaskCountStatsProvider;
+import org.apache.druid.server.system.NativeSystemQueryModule;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
 import org.eclipse.jetty.server.Server;
 
@@ -129,6 +131,8 @@ public class CliIndexer extends ServerRunnable
         new QueryRunnerFactoryModule(),
         new SegmentWranglerModule(),
         new JoinableFactoryModule(),
+        new NativeSystemQueryModule(),
+        new NativeTasksSystemQueryModule(),
         new IndexerServiceModule(),
         new Module()
         {

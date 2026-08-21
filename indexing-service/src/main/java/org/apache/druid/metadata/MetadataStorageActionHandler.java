@@ -129,6 +129,21 @@ public interface MetadataStorageActionHandler
       @Nullable String datasource
   );
 
+  /**
+   * Returns task statuses with storage-level prefilters. Implementations that do not support the richer filters may
+   * use the single-datasource filter and return a superset for residual filtering.
+   */
+  default List<TaskIdStatus> getTaskStatusListWithFilter(
+      final Map<TaskLookupType, TaskLookup> taskLookups,
+      final TaskStorageQueryFilter filter
+  )
+  {
+    if (filter.matchesNothing()) {
+      return Collections.emptyList();
+    }
+    return getTaskStatusList(taskLookups, filter.getSingleDataSource());
+  }
+
   default List<TaskInfo> getTaskInfos(
       TaskLookup taskLookup,
       @Nullable String datasource

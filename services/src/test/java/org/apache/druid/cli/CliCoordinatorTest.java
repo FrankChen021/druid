@@ -91,6 +91,16 @@ public class CliCoordinatorTest
     );
   }
 
+  @Test
+  public void testCoordinatorAsOverlordWithCentralizedDatasourceSchema()
+  {
+    final Properties properties = new Properties();
+    properties.setProperty("druid.coordinator.asOverlord.enabled", "true");
+    properties.setProperty("druid.centralizedDatasourceSchema.enabled", "true");
+
+    Assert.assertNotNull(makeCoordinatorInjector(properties));
+  }
+
   private static boolean hasCoordinatorQosFilter(Set<JettyBindings.QosFilterHolder> qosFilters)
   {
     return qosFilters.stream()
@@ -116,6 +126,6 @@ public class CliCoordinatorTest
 
     final CliCoordinator coordinator = new CliCoordinator();
     baseInjector.injectMembers(coordinator);
-    return coordinator.makeInjector(Set.of(NodeRole.COORDINATOR));
+    return coordinator.makeInjector(coordinator.getNodeRoles(props));
   }
 }

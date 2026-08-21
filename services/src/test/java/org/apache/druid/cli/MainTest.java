@@ -21,7 +21,9 @@ package org.apache.druid.cli;
 
 import com.google.inject.Injector;
 import org.apache.druid.guice.GuiceInjectors;
+import org.apache.druid.server.QueryResource;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -50,5 +52,19 @@ public class MainTest
     final Injector injector = GuiceInjectors.makeStartupInjector();
     injector.injectMembers(runnable);
     Assertions.assertNotNull(runnable.makeInjector(runnable.getNodeRoles(new Properties())));
+  }
+
+  @Test
+  public void testMiddleManagerQueryResourceInjection()
+  {
+    final CliMiddleManager middleManager = new CliMiddleManager();
+    final Injector injector = GuiceInjectors.makeStartupInjector();
+    injector.injectMembers(middleManager);
+
+    final Injector middleManagerInjector = middleManager.makeInjector(
+        middleManager.getNodeRoles(new Properties())
+    );
+
+    Assertions.assertNotNull(middleManagerInjector.getInstance(QueryResource.class));
   }
 }

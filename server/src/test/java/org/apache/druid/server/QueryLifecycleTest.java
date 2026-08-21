@@ -30,6 +30,7 @@ import com.google.inject.testing.fieldbinder.Bind;
 import com.google.inject.testing.fieldbinder.BoundFieldModule;
 import org.apache.druid.client.BrokerViewOfBrokerConfig;
 import org.apache.druid.error.DruidException;
+import org.apache.druid.guice.DruidBinders;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
@@ -159,7 +160,10 @@ public class QueryLifecycleTest
 
     injector = Guice.createInjector(
         BoundFieldModule.of(this),
-        binder -> binder.bindScope(LazySingleton.class, Scopes.SINGLETON)
+        binder -> {
+          binder.bindScope(LazySingleton.class, Scopes.SINGLETON);
+          DruidBinders.dataSourceQueryHandlerBinder(binder);
+        }
     );
   }
 

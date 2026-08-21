@@ -27,20 +27,25 @@ import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.guice.BrokerProcessingModule;
 import org.apache.druid.guice.Jerseys;
+import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
-import org.apache.druid.guice.RouterProcessingModule;
+import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.http.JettyHttpClientModule;
+import org.apache.druid.indexing.system.NativeTasksSystemQueryModule;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.lookup.LookupSerdeModule;
 import org.apache.druid.server.AsyncQueryForwardingServlet;
 import org.apache.druid.server.NoopQuerySegmentWalker;
+import org.apache.druid.server.QueryResource;
+import org.apache.druid.server.ResponseContextConfig;
 import org.apache.druid.server.http.RouterResource;
 import org.apache.druid.server.http.SelfDiscoveryResource;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
@@ -54,6 +59,7 @@ import org.apache.druid.server.router.TieredBrokerConfig;
 import org.apache.druid.server.router.TieredBrokerHostSelector;
 import org.apache.druid.server.router.TieredBrokerSelectorStrategiesProvider;
 import org.apache.druid.server.router.TieredBrokerSelectorStrategy;
+import org.apache.druid.server.system.NativeSystemQueryModule;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
 import org.eclipse.jetty.server.Server;
 
@@ -87,15 +93,20 @@ public class CliRouter extends ServerRunnable
   protected List<? extends Module> getModules()
   {
     return ImmutableList.of(
-        new RouterProcessingModule(),
+        new BrokerProcessingModule(),
         new QueryableModule(),
         new QueryRunnerFactoryModule(),
+        new SegmentWranglerModule(),
+        new JoinableFactoryModule(),
+        new NativeSystemQueryModule(),
+        new NativeTasksSystemQueryModule(),
         new JettyHttpClientModule("druid.router.http", Router.class),
         JettyHttpClientModule.global(),
         binder -> {
           binder.bindConstant().annotatedWith(Names.named("serviceName")).to("druid/router");
           binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8888);
           binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(9088);
+          binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
 
           JsonConfigProvider.bind(binder, "druid.router", TieredBrokerConfig.class);
           JsonConfigProvider.bind(binder, "druid.router.avatica.balancer", AvaticaConnectionBalancer.class);
@@ -116,8 +127,10 @@ public class CliRouter extends ServerRunnable
           binder.bind(JettyServerInitializer.class).to(RouterJettyServerInitializer.class).in(LazySingleton.class);
 
           Jerseys.addResource(binder, RouterResource.class);
+          Jerseys.addResource(binder, QueryResource.class);
 
           LifecycleModule.register(binder, RouterResource.class);
+          LifecycleModule.register(binder, QueryResource.class);
           LifecycleModule.register(binder, Server.class);
 
           bindAnnouncer(binder, DiscoverySideEffectsProvider.create());

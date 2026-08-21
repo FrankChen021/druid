@@ -30,7 +30,6 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.UOE;
-import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.Query;
@@ -52,6 +51,7 @@ import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.rel.CannotBuildQueryException;
 import org.apache.druid.sql.calcite.rel.DruidQuery;
 import org.apache.druid.sql.hook.DruidHook;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
@@ -208,7 +208,21 @@ public class NativeQueryMaker implements QueryMaker
       final List<RelDataType> newTypes
   )
   {
-    final List<String> originalFields = toolChest.resultArraySignature(query).getColumnNames();
+    return mapArrayResultSequence(
+        new QueryResponse<>(toolChest.resultsAsArrays(query, results.getResults()), results.getResponseContext()),
+        toolChest.resultArraySignature(query).getColumnNames(),
+        newFields,
+        newTypes
+    );
+  }
+
+  private QueryResponse<Object[]> mapArrayResultSequence(
+      final QueryResponse<Object[]> results,
+      final List<String> originalFields,
+      final List<String> newFields,
+      final List<RelDataType> newTypes
+  )
+  {
 
     // Build hash map for looking up original field positions, in case the number of fields is super high.
     final Object2IntMap<String> originalFieldsLookup = new Object2IntOpenHashMap<>();
@@ -233,11 +247,10 @@ public class NativeQueryMaker implements QueryMaker
       mapping[i] = idx;
     }
 
-    final Sequence<Object[]> sequence = toolChest.resultsAsArrays(query, results.getResults());
     final SqlResults.Context sqlResultsContext = SqlResults.Context.fromPlannerContext(plannerContext);
     return new QueryResponse<>(
         Sequences.map(
-            sequence,
+            results.getResults(),
             array -> {
               final Object[] newArray = new Object[mapping.length];
               for (int i = 0; i < mapping.length; i++) {

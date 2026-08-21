@@ -490,7 +490,6 @@ public class PlannerConfig
           String.valueOf(requireTimeCondition)
       );
     }
-
     PlannerConfig newConfig = PlannerConfig.builder().withOverrides(overrides).build();
     if (!equals(newConfig)) {
       throw DruidException.defensive(

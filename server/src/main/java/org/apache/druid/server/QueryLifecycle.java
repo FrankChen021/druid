@@ -34,6 +34,7 @@ import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.query.BaseQuery;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.GenericQueryMetricsFactory;
 import org.apache.druid.query.Query;
@@ -41,6 +42,7 @@ import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryPlus;
+import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.QueryTimeoutException;
@@ -62,6 +64,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -99,6 +102,7 @@ public class QueryLifecycle
   private final AuthConfig authConfig;
   private final PolicyEnforcer policyEnforcer;
   private final QueryConfigSnapshot configSnapshot;
+  private final Map<Class<? extends DataSource>, DataSourceQueryHandler> dataSourceQueryHandlers;
   private final long startMs;
   private final long startNs;
 
@@ -124,6 +128,7 @@ public class QueryLifecycle
       final AuthConfig authConfig,
       final PolicyEnforcer policyEnforcer,
       final QueryConfigSnapshot configSnapshot,
+      final Map<Class<? extends DataSource>, DataSourceQueryHandler> dataSourceQueryHandlers,
       final long startMs,
       final long startNs
   )
@@ -137,8 +142,39 @@ public class QueryLifecycle
     this.authConfig = authConfig;
     this.policyEnforcer = policyEnforcer;
     this.configSnapshot = configSnapshot;
+    this.dataSourceQueryHandlers = dataSourceQueryHandlers;
     this.startMs = startMs;
     this.startNs = startNs;
+  }
+
+  public QueryLifecycle(
+      final QueryRunnerFactoryConglomerate conglomerate,
+      final QuerySegmentWalker texasRanger,
+      final GenericQueryMetricsFactory queryMetricsFactory,
+      final ServiceEmitter emitter,
+      final RequestLogger requestLogger,
+      final AuthorizerMapper authorizerMapper,
+      final AuthConfig authConfig,
+      final PolicyEnforcer policyEnforcer,
+      final QueryConfigSnapshot configSnapshot,
+      final long startMs,
+      final long startNs
+  )
+  {
+    this(
+        conglomerate,
+        texasRanger,
+        queryMetricsFactory,
+        emitter,
+        requestLogger,
+        authorizerMapper,
+        authConfig,
+        policyEnforcer,
+        configSnapshot,
+        Collections.emptyMap(),
+        startMs,
+        startNs
+    );
   }
 
   /**
@@ -420,9 +456,17 @@ public class QueryLifecycle
     final ResponseContext responseContext = DirectDruidClient.makeResponseContextForQuery();
 
     @SuppressWarnings("unchecked")
-    final Sequence<T> res = QueryPlus.wrap((Query<T>) baseQuery)
-                                     .withIdentity(authenticationResult.getIdentity())
-                                     .run(texasRanger, responseContext);
+    final Query<T> query = (Query<T>) baseQuery;
+    final DataSourceQueryHandler dataSourceQueryHandler = dataSourceQueryHandlers.get(
+        query.getDataSource().getClass()
+    );
+    final QueryRunner<T> queryRunner = dataSourceQueryHandler == null
+                                       ? query.getRunner(texasRanger)
+                                       : dataSourceQueryHandler.createRunner(query, authenticationResult);
+    final Sequence<T> res = queryRunner.run(
+        QueryPlus.wrap(query).withIdentity(authenticationResult.getIdentity()),
+        responseContext
+    );
 
     return new QueryResponse<>(res == null ? Sequences.empty() : res, responseContext);
   }

@@ -33,6 +33,7 @@ import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
+import com.google.inject.util.Modules;
 import com.google.inject.util.Providers;
 import org.apache.druid.client.CoordinatorSegmentWatcherConfig;
 import org.apache.druid.client.CoordinatorServerView;
@@ -41,7 +42,9 @@ import org.apache.druid.client.HttpServerInventoryViewResource;
 import org.apache.druid.client.coordinator.Coordinator;
 import org.apache.druid.discovery.DruidLeaderSelector;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.guice.BrokerProcessingModule;
 import org.apache.druid.guice.Jerseys;
+import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.JsonConfigurator;
 import org.apache.druid.guice.LazySingleton;
@@ -49,12 +52,16 @@ import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.MetadataConfigModule;
 import org.apache.druid.guice.MetadataManagerModule;
+import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
+import org.apache.druid.guice.QueryablePeonModule;
 import org.apache.druid.guice.RegexEngineModule;
 import org.apache.druid.guice.SegmentSchemaCacheModule;
+import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.SupervisorCleanupModule;
 import org.apache.druid.guice.annotations.EscalatedGlobal;
 import org.apache.druid.guice.http.JettyHttpClientModule;
+import org.apache.druid.indexing.system.NativeTasksSystemQueryModule;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -69,9 +76,12 @@ import org.apache.druid.metadata.MetadataStorageProvider;
 import org.apache.druid.msq.guice.MSQDurableStorageModule;
 import org.apache.druid.msq.guice.MSQExternalDataSourceModule;
 import org.apache.druid.msq.guice.MSQIndexingModule;
+import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.lookup.LookupSerdeModule;
 import org.apache.druid.segment.metadata.CoordinatorSegmentMetadataCache;
 import org.apache.druid.segment.metadata.SegmentMetadataCacheConfig;
+import org.apache.druid.server.NoopQuerySegmentWalker;
+import org.apache.druid.server.ResponseContextConfig;
 import org.apache.druid.server.compaction.CompactionStatusTracker;
 import org.apache.druid.server.coordinator.CloneStatusManager;
 import org.apache.druid.server.coordinator.CoordinatorConfigManager;
@@ -113,6 +123,7 @@ import org.apache.druid.server.lookup.cache.LookupCoordinatorManager;
 import org.apache.druid.server.lookup.cache.LookupCoordinatorManagerConfig;
 import org.apache.druid.server.metrics.ServiceStatusMonitor;
 import org.apache.druid.server.router.TieredBrokerConfig;
+import org.apache.druid.server.system.NativeSystemQueryModule;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
 import org.eclipse.jetty.server.Server;
 import org.joda.time.Duration;
@@ -175,11 +186,20 @@ public class CliCoordinator extends ServerRunnable
     modules.add(JettyHttpClientModule.global());
     modules.add(new MetadataManagerModule());
 
+    modules.add(new NativeSystemQueryModule());
+    modules.add(new NativeTasksSystemQueryModule());
+
+    modules.add(new BrokerProcessingModule());
+    modules.add(new QueryableModule());
     if (isSegmentSchemaCacheEnabled) {
       validateCentralizedDatasourceSchemaConfig(properties);
-      modules.add(new SegmentSchemaCacheModule());
-      modules.add(new QueryableModule());
+      modules.add(Modules.override(new QueryRunnerFactoryModule()).with(new SegmentSchemaCacheModule()));
+    } else {
+      modules.add(new QueryRunnerFactoryModule());
     }
+    modules.add(new SegmentWranglerModule());
+    modules.add(new JoinableFactoryModule());
+    modules.add(new QueryablePeonModule());
 
     modules.add(
         new Module()
@@ -194,6 +214,10 @@ public class CliCoordinator extends ServerRunnable
             binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(8281);
 
             binder.bind(MetadataStorage.class).toProvider(MetadataStorageProvider.class);
+            binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
+            if (!isSegmentSchemaCacheEnabled) {
+              binder.bind(QuerySegmentWalker.class).to(NoopQuerySegmentWalker.class).in(LazySingleton.class);
+            }
 
             JsonConfigProvider.bind(binder, "druid.manager.lookups", LookupCoordinatorManagerConfig.class);
             JsonConfigProvider.bind(binder, "druid.coordinator", CoordinatorRunConfig.class);

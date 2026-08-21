@@ -77,6 +77,7 @@ import org.apache.druid.sql.calcite.rel.logical.DruidLogicalConvention;
 import org.apache.druid.sql.calcite.rel.logical.DruidLogicalNode;
 import org.apache.druid.sql.calcite.run.EngineFeature;
 import org.apache.druid.sql.calcite.run.QueryMaker;
+import org.apache.druid.sql.calcite.schema.SystemSchema;
 import org.apache.druid.sql.calcite.table.DruidTable;
 import org.apache.druid.sql.hook.DruidHook;
 import org.apache.druid.utils.Throwables;
@@ -184,7 +185,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
   public PlannerResult plan()
   {
     prepare();
-    final Set<RelOptTable> bindableTables = getBindableTables(rootQueryRel.rel);
+    final Set<RelOptTable> bindableTables = getBindableTables(rootQueryRel.rel, handlerContext.plannerContext());
 
     // the planner's type factory is not available until after parsing
     rexBuilder = new RexBuilder(handlerContext.planner().getTypeFactory());
@@ -259,7 +260,10 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
     );
   }
 
-  private static Set<RelOptTable> getBindableTables(final RelNode relNode)
+  private static Set<RelOptTable> getBindableTables(
+      final RelNode relNode,
+      final PlannerContext plannerContext
+  )
   {
     class HasBindableVisitor extends RelVisitor
     {
@@ -271,7 +275,8 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
         if (node instanceof TableScan) {
           RelOptTable table = node.getTable();
           if ((table.unwrap(ScannableTable.class) != null || table.unwrap(ProjectableFilterableTable.class) != null)
-              && table.unwrap(DruidTable.class) == null) {
+              && table.unwrap(DruidTable.class) == null
+              && SystemSchema.getNativeSystemTable(table, plannerContext.getEngine()) == null) {
             found.add(table);
             return;
           }

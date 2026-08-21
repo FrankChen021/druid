@@ -47,6 +47,7 @@ public class CoordinatorRedirectInfoTest
     Assert.assertTrue(coordinatorRedirectInfo.doLocal(null));
     Assert.assertTrue(coordinatorRedirectInfo.doLocal("/druid/coordinator/v1/leader"));
     Assert.assertTrue(coordinatorRedirectInfo.doLocal("/druid/coordinator/v1/isLeader"));
+    Assert.assertTrue(coordinatorRedirectInfo.doLocal("/druid/v2"));
     Assert.assertTrue(coordinatorRedirectInfo.doLocal("/druid/coordinator/v1/other/path"));
     EasyMock.verify(druidCoordinator);
   }
@@ -59,6 +60,7 @@ public class CoordinatorRedirectInfoTest
     Assert.assertFalse(coordinatorRedirectInfo.doLocal(null));
     Assert.assertTrue(coordinatorRedirectInfo.doLocal("/druid/coordinator/v1/leader"));
     Assert.assertTrue(coordinatorRedirectInfo.doLocal("/druid/coordinator/v1/isLeader"));
+    Assert.assertTrue(coordinatorRedirectInfo.doLocal("/druid/v2"));
     Assert.assertFalse(coordinatorRedirectInfo.doLocal("/druid/coordinator/v1/other/path"));
     EasyMock.verify(druidCoordinator);
   }

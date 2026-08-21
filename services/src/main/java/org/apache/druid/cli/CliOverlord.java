@@ -39,12 +39,14 @@ import com.google.inject.util.Providers;
 import org.apache.druid.client.indexing.IndexingService;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.DerbyTaskStorageModule;
+import org.apache.druid.guice.DruidProcessingModule;
 import org.apache.druid.guice.IndexingServiceInputSourceModule;
 import org.apache.druid.guice.IndexingServiceModuleHelper;
 import org.apache.druid.guice.IndexingServiceTaskLogsModule;
 import org.apache.druid.guice.IndexingServiceTuningConfigModule;
 import org.apache.druid.guice.JacksonConfigProvider;
 import org.apache.druid.guice.Jerseys;
+import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
@@ -52,7 +54,11 @@ import org.apache.druid.guice.ListProvider;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.MetadataManagerModule;
 import org.apache.druid.guice.PolyBind;
+import org.apache.druid.guice.QueryRunnerFactoryModule;
+import org.apache.druid.guice.QueryableModule;
+import org.apache.druid.guice.QueryablePeonModule;
 import org.apache.druid.guice.RegexEngineModule;
+import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.SupervisorModule;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.indexing.common.RetryPolicyFactory;
@@ -110,6 +116,7 @@ import org.apache.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorManager;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorResource;
 import org.apache.druid.indexing.scheduledbatch.ScheduledBatchTaskManager;
+import org.apache.druid.indexing.system.NativeTasksSystemQueryModule;
 import org.apache.druid.indexing.worker.config.WorkerConfig;
 import org.apache.druid.indexing.worker.shuffle.DeepStorageIntermediaryDataManager;
 import org.apache.druid.indexing.worker.shuffle.IntermediaryDataManager;
@@ -119,11 +126,14 @@ import org.apache.druid.metadata.input.InputSourceModule;
 import org.apache.druid.msq.guice.MSQDurableStorageModule;
 import org.apache.druid.msq.guice.MSQExternalDataSourceModule;
 import org.apache.druid.msq.guice.MSQIndexingModule;
+import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.lookup.LookupSerdeModule;
 import org.apache.druid.segment.incremental.RowIngestionMetersFactory;
 import org.apache.druid.segment.realtime.ChatHandlerProvider;
 import org.apache.druid.segment.realtime.appenderator.AppenderatorsManager;
 import org.apache.druid.segment.realtime.appenderator.DummyForInjectionAppenderatorsManager;
+import org.apache.druid.server.NoopQuerySegmentWalker;
+import org.apache.druid.server.ResponseContextConfig;
 import org.apache.druid.server.compaction.CompactionStatusTracker;
 import org.apache.druid.server.coordinator.CoordinatorOverlordServiceConfig;
 import org.apache.druid.server.coordinator.DruidCompactionConfig;
@@ -142,6 +152,7 @@ import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationUtils;
 import org.apache.druid.server.security.Authenticator;
 import org.apache.druid.server.security.AuthenticatorMapper;
+import org.apache.druid.server.system.NativeSystemQueryModule;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
 import org.apache.druid.tasklogs.TaskLogStreamer;
 import org.apache.druid.tasklogs.TaskLogs;
@@ -203,14 +214,29 @@ public class CliOverlord extends ServerRunnable
 
   protected List<? extends Module> getModules(final boolean standalone)
   {
-    return ImmutableList.of(
-        new DerbyTaskStorageModule(),
-        standalone ? new MetadataManagerModule() : binder -> {},
+    final ImmutableList.Builder<Module> modules = ImmutableList.builder();
+    modules.add(new DerbyTaskStorageModule());
+    modules.add(standalone ? new MetadataManagerModule() : binder -> {});
+    if (standalone) {
+      modules.add(new DruidProcessingModule());
+      modules.add(new QueryableModule());
+      modules.add(new QueryRunnerFactoryModule());
+      modules.add(new SegmentWranglerModule());
+      modules.add(new JoinableFactoryModule());
+      modules.add(new QueryablePeonModule());
+      modules.add(new NativeSystemQueryModule());
+      modules.add(new NativeTasksSystemQueryModule());
+    }
+    modules.add(
         new Module()
         {
           @Override
           public void configure(Binder binder)
           {
+            if (standalone) {
+              binder.bind(QuerySegmentWalker.class).to(NoopQuerySegmentWalker.class).in(LazySingleton.class);
+              binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(true));
+            }
             validateCentralizedDatasourceSchemaConfig(properties);
 
             if (standalone) {
@@ -516,6 +542,7 @@ public class CliOverlord extends ServerRunnable
         new MSQExternalDataSourceModule(),
         new RegexEngineModule()
     );
+    return modules.build();
   }
 
   /**
