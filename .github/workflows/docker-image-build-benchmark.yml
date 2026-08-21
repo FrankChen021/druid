@@ -49,7 +49,6 @@ jobs:
           sudo apt-get install -y python3-yaml
           build_start_epoch=$(date +%s)
           mvn -B -ff -q \
-            -pl distribution -am \
             install \
             -Pdist,bundle-contrib-exts,skip-static-checks,skip-tests \
             -Dmaven.javadoc.skip=true -T1C
