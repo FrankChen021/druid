@@ -39,6 +39,8 @@ jobs:
     with:
       script: .github/scripts/validate-dist
       artifact_prefix: "distribution-for-docker"
+      artifact_retention_days: 1
+      artifact_compression_level: 0
       key: "validate-dist"
 
   reporting-jacoco-coverage-failures:

@@ -34,6 +34,16 @@ on:
         required: false
         type: string
         description: "Prefix for the artifact name"
+      artifact_retention_days:
+        required: false
+        type: number
+        default: 0
+        description: "Artifact retention period in days; 0 uses the repository default"
+      artifact_compression_level:
+        required: false
+        type: number
+        default: 6
+        description: "Artifact compression level"
       artifacts_to_download:
         required: false
         type: string
@@ -137,8 +147,8 @@ jobs:
         if: ${{ failure() || inputs.artifact_prefix != '' }}
         with:
           name: "${{ inputs.artifact_prefix }}-${{ env.HASH }}"
-          retention-days: 1
-          compression-level: 0
+          retention-days: ${{ inputs.artifact_retention_days }}
+          compression-level: ${{ inputs.artifact_compression_level }}
           path: |
             **/*.hprof
             **/hs_err_pid*
