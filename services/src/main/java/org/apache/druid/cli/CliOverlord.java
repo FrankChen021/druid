@@ -107,7 +107,6 @@ import org.apache.druid.indexing.overlord.duty.TaskLogAutoCleanerConfig;
 import org.apache.druid.indexing.overlord.duty.UnusedSegmentsKiller;
 import org.apache.druid.indexing.overlord.hrtr.HttpRemoteTaskRunnerFactory;
 import org.apache.druid.indexing.overlord.hrtr.HttpRemoteTaskRunnerResource;
-import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
 import org.apache.druid.indexing.overlord.http.OverlordCompactionResource;
 import org.apache.druid.indexing.overlord.http.OverlordDataSourcesResource;
 import org.apache.druid.indexing.overlord.http.OverlordRedirectInfo;
@@ -117,6 +116,7 @@ import org.apache.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorManager;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorResource;
 import org.apache.druid.indexing.scheduledbatch.ScheduledBatchTaskManager;
+import org.apache.druid.indexing.system.NativeTasksSystemQueryModule;
 import org.apache.druid.indexing.worker.config.WorkerConfig;
 import org.apache.druid.indexing.worker.shuffle.DeepStorageIntermediaryDataManager;
 import org.apache.druid.indexing.worker.shuffle.IntermediaryDataManager;
@@ -152,6 +152,7 @@ import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationUtils;
 import org.apache.druid.server.security.Authenticator;
 import org.apache.druid.server.security.AuthenticatorMapper;
+import org.apache.druid.server.system.NativeSystemQueryModule;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
 import org.apache.druid.tasklogs.TaskLogStreamer;
 import org.apache.druid.tasklogs.TaskLogs;
@@ -224,6 +225,7 @@ public class CliOverlord extends ServerRunnable
       modules.add(new JoinableFactoryModule());
       modules.add(new QueryablePeonModule());
       modules.add(new NativeSystemQueryModule());
+      modules.add(new NativeTasksSystemQueryModule());
     }
     modules.add(
         new Module()

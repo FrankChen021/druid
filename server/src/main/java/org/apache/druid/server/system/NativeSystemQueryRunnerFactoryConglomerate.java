@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.indexing.overlord.http;
+package org.apache.druid.server.system;
 
 import com.google.inject.Inject;
 import org.apache.druid.java.util.common.ISE;

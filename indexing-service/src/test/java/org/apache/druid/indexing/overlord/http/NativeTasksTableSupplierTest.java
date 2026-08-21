@@ -38,6 +38,7 @@ import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.spec.LegacySegmentSpec;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.server.system.NativeSystemTableFilterExtractor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

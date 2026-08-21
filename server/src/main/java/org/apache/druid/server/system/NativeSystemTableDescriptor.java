@@ -17,27 +17,32 @@
  * under the License.
  */
 
-package org.apache.druid.indexing.overlord.http;
+package org.apache.druid.server.system;
 
-import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.server.security.AuthenticationResult;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.Set;
 
-/** Supplies storage-prefiltered rows authorized for the internal caller of one native system table. */
-public interface NativeSystemTableDataSupplier
+/** Describes which service roles contribute independent row partitions to a native system table. */
+public class NativeSystemTableDescriptor
 {
-  RowSignature getRowSignature();
+  private final Set<NodeRole> nodeRoles;
+  private final RowSignature rowSignature;
 
-  default List<NativeSystemTableFilterRule> getFilterRules()
+  public NativeSystemTableDescriptor(final Set<NodeRole> nodeRoles, final RowSignature rowSignature)
   {
-    return Collections.emptyList();
+    this.nodeRoles = Set.copyOf(nodeRoles);
+    this.rowSignature = rowSignature;
   }
 
-  Iterable<Object[]> getRows(
-      List<DimFilter> extractedFilters,
-      AuthenticationResult internalAuthenticationResult
-  );
+  public Set<NodeRole> getNodeRoles()
+  {
+    return nodeRoles;
+  }
+
+  public RowSignature getRowSignature()
+  {
+    return rowSignature;
+  }
 }

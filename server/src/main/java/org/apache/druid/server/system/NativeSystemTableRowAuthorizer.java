@@ -17,32 +17,12 @@
  * under the License.
  */
 
-package org.apache.druid.server;
+package org.apache.druid.server.system;
 
-import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.server.security.AuthenticationResult;
 
-import java.util.Set;
-
-/** Describes which service roles contribute independent row partitions to a native system table. */
-public class NativeSystemTableDescriptor
+/** Applies the requesting user's authorization to component-supplied system-table rows on the Broker. */
+public interface NativeSystemTableRowAuthorizer
 {
-  private final Set<NodeRole> nodeRoles;
-  private final RowSignature rowSignature;
-
-  public NativeSystemTableDescriptor(final Set<NodeRole> nodeRoles, final RowSignature rowSignature)
-  {
-    this.nodeRoles = Set.copyOf(nodeRoles);
-    this.rowSignature = rowSignature;
-  }
-
-  public Set<NodeRole> getNodeRoles()
-  {
-    return nodeRoles;
-  }
-
-  public RowSignature getRowSignature()
-  {
-    return rowSignature;
-  }
+  Iterable<Object[]> filterAuthorizedRows(Iterable<Object[]> rows, AuthenticationResult authenticationResult);
 }

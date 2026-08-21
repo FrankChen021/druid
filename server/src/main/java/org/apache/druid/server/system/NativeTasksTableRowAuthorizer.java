@@ -17,10 +17,9 @@
  * under the License.
  */
 
-package org.apache.druid.indexing.overlord.http;
+package org.apache.druid.server.system;
 
 import com.google.inject.Inject;
-import org.apache.druid.server.NativeSystemTableRowAuthorizer;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.AuthorizerMapper;

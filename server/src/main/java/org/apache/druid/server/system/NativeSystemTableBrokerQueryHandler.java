@@ -17,14 +17,13 @@
  * under the License.
  */
 
-package org.apache.druid.indexing.overlord.http;
+package org.apache.druid.server.system;
 
 import com.google.inject.Inject;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.DataSourceQueryHandler;
-import org.apache.druid.server.NativeSystemQueryClient;
 import org.apache.druid.server.security.AuthenticationResult;
 
 /** Separates original Broker fanout from component-local requests received through the Broker's native endpoint. */

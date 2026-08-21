@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server;
+package org.apache.druid.server.system;
 
 import com.google.inject.Inject;
 import org.apache.druid.client.DirectDruidClient;
@@ -42,6 +42,9 @@ import org.apache.druid.query.operator.ScanOperatorFactory;
 import org.apache.druid.query.operator.WindowOperatorQuery;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
+import org.apache.druid.server.DataSourceQueryHandler;
+import org.apache.druid.server.DruidNode;
+import org.apache.druid.server.LocalQuerySegmentWalker;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.security.AuthenticationResult;
 

@@ -58,8 +58,7 @@ import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervi
 import org.apache.druid.indexing.common.task.batch.parallel.ShuffleClient;
 import org.apache.druid.indexing.overlord.ForkingTaskRunner;
 import org.apache.druid.indexing.overlord.TaskRunner;
-import org.apache.druid.indexing.overlord.http.NativeSystemQueryComponentModule;
-import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
+import org.apache.druid.indexing.system.NativeTasksSystemQueryModule;
 import org.apache.druid.indexing.worker.Worker;
 import org.apache.druid.indexing.worker.WorkerTaskManager;
 import org.apache.druid.indexing.worker.config.WorkerConfig;
@@ -88,6 +87,8 @@ import org.apache.druid.server.http.SelfDiscoveryResource;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
 import org.apache.druid.server.metrics.ServiceStatusMonitor;
 import org.apache.druid.server.metrics.WorkerTaskCountStatsProvider;
+import org.apache.druid.server.system.NativeSystemQueryComponentModule;
+import org.apache.druid.server.system.NativeSystemQueryModule;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
 import org.apache.druid.timeline.PruneLastCompactionState;
 import org.eclipse.jetty.server.Server;
@@ -129,6 +130,7 @@ public class CliMiddleManager extends ServerRunnable
         new JoinableFactoryModule(),
         new QueryablePeonModule(),
         new NativeSystemQueryModule(),
+        new NativeTasksSystemQueryModule(),
         new Module()
         {
           @Override

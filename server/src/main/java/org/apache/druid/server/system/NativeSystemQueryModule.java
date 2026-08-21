@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.indexing.overlord.http;
+package org.apache.druid.server.system;
 
 import com.google.inject.Binder;
 import com.google.inject.Inject;
@@ -28,14 +28,14 @@ import org.apache.druid.guice.DruidBinders;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.query.SystemTableDataSource;
-import org.apache.druid.server.NativeSystemTableDescriptor;
-import org.apache.druid.server.NativeSystemTableRowAuthorizer;
 
 import java.util.Set;
 
 /**
- * Registers native system-table routing and component-local row suppliers. The task supplier is registered only when
- * {@link NodeRole#OVERLORD} is present.
+ * Registers native system-table routing and the component-local server-properties supplier.
+ *
+ * <p>Table-specific integrations, such as the task supplier in indexing-service, contribute their own entries to the
+ * native system-table multibinders.</p>
  */
 public class NativeSystemQueryModule implements Module
 {
@@ -69,22 +69,13 @@ public class NativeSystemQueryModule implements Module
         Set.of(NodeRole.values()),
         NativeServerPropertiesTableSupplier.ROW_SIGNATURE
     );
-    final NativeSystemTableDescriptor tasksDescriptor = new NativeSystemTableDescriptor(
-        Set.of(NodeRole.OVERLORD),
-        NativeTasksTableSupplier.ROW_SIGNATURE
-    );
     descriptorBinder.addBinding(NativeServerPropertiesTableSupplier.TABLE_NAME)
                     .toInstance(serverPropertiesDescriptor);
-    descriptorBinder.addBinding(NativeTasksTableSupplier.TABLE_NAME)
-                    .toInstance(tasksDescriptor);
 
     final MapBinder<String, NativeSystemTableRowAuthorizer> rowAuthorizerBinder =
         MapBinder.newMapBinder(binder, String.class, NativeSystemTableRowAuthorizer.class);
     rowAuthorizerBinder.addBinding(NativeServerPropertiesTableSupplier.TABLE_NAME)
                        .to(NativeServerPropertiesTableRowAuthorizer.class)
-                       .in(LazySingleton.class);
-    rowAuthorizerBinder.addBinding(NativeTasksTableSupplier.TABLE_NAME)
-                       .to(NativeTasksTableRowAuthorizer.class)
                        .in(LazySingleton.class);
 
     final MapBinder<String, NativeSystemTableDataSupplier> dataSupplierBinder =
@@ -92,10 +83,5 @@ public class NativeSystemQueryModule implements Module
     dataSupplierBinder.addBinding(NativeServerPropertiesTableSupplier.TABLE_NAME)
                   .to(NativeServerPropertiesTableSupplier.class)
                   .in(LazySingleton.class);
-    if (nodeRoles.contains(NodeRole.OVERLORD)) {
-      dataSupplierBinder.addBinding(NativeTasksTableSupplier.TABLE_NAME)
-                    .to(NativeTasksTableSupplier.class)
-                    .in(LazySingleton.class);
-    }
   }
 }

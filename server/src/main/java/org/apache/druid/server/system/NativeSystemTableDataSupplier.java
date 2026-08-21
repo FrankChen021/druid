@@ -17,12 +17,27 @@
  * under the License.
  */
 
-package org.apache.druid.server;
+package org.apache.druid.server.system;
 
+import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.AuthenticationResult;
 
-/** Applies the requesting user's authorization to component-supplied system-table rows on the Broker. */
-public interface NativeSystemTableRowAuthorizer
+import java.util.Collections;
+import java.util.List;
+
+/** Supplies storage-prefiltered rows authorized for the internal caller of one native system table. */
+public interface NativeSystemTableDataSupplier
 {
-  Iterable<Object[]> filterAuthorizedRows(Iterable<Object[]> rows, AuthenticationResult authenticationResult);
+  RowSignature getRowSignature();
+
+  default List<NativeSystemTableFilterRule> getFilterRules()
+  {
+    return Collections.emptyList();
+  }
+
+  Iterable<Object[]> getRows(
+      List<DimFilter> extractedFilters,
+      AuthenticationResult internalAuthenticationResult
+  );
 }

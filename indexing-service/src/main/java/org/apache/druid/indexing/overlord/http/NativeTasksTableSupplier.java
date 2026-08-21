@@ -37,6 +37,8 @@ import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.server.system.NativeSystemTableDataSupplier;
+import org.apache.druid.server.system.NativeSystemTableFilterRule;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;

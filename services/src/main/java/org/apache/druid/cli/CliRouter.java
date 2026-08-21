@@ -38,7 +38,7 @@ import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.http.JettyHttpClientModule;
-import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
+import org.apache.druid.indexing.system.NativeTasksSystemQueryModule;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.lookup.LookupSerdeModule;
@@ -59,6 +59,7 @@ import org.apache.druid.server.router.TieredBrokerConfig;
 import org.apache.druid.server.router.TieredBrokerHostSelector;
 import org.apache.druid.server.router.TieredBrokerSelectorStrategiesProvider;
 import org.apache.druid.server.router.TieredBrokerSelectorStrategy;
+import org.apache.druid.server.system.NativeSystemQueryModule;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
 import org.eclipse.jetty.server.Server;
 
@@ -98,6 +99,7 @@ public class CliRouter extends ServerRunnable
         new SegmentWranglerModule(),
         new JoinableFactoryModule(),
         new NativeSystemQueryModule(),
+        new NativeTasksSystemQueryModule(),
         new JettyHttpClientModule("druid.router.http", Router.class),
         JettyHttpClientModule.global(),
         binder -> {

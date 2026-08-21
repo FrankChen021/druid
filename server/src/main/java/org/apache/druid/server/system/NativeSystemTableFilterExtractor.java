@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.indexing.overlord.http;
+package org.apache.druid.server.system;
 
 import org.apache.druid.query.Query;
 import org.apache.druid.query.filter.AndDimFilter;

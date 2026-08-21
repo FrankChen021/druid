@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.indexing.overlord.http;
+package org.apache.druid.server.system;
 
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;

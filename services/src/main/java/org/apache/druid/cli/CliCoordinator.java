@@ -61,7 +61,7 @@ import org.apache.druid.guice.SegmentWranglerModule;
 import org.apache.druid.guice.SupervisorCleanupModule;
 import org.apache.druid.guice.annotations.EscalatedGlobal;
 import org.apache.druid.guice.http.JettyHttpClientModule;
-import org.apache.druid.indexing.overlord.http.NativeSystemQueryModule;
+import org.apache.druid.indexing.system.NativeTasksSystemQueryModule;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -123,6 +123,7 @@ import org.apache.druid.server.lookup.cache.LookupCoordinatorManager;
 import org.apache.druid.server.lookup.cache.LookupCoordinatorManagerConfig;
 import org.apache.druid.server.metrics.ServiceStatusMonitor;
 import org.apache.druid.server.router.TieredBrokerConfig;
+import org.apache.druid.server.system.NativeSystemQueryModule;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
 import org.eclipse.jetty.server.Server;
 import org.joda.time.Duration;
@@ -186,6 +187,7 @@ public class CliCoordinator extends ServerRunnable
     modules.add(new MetadataManagerModule());
 
     modules.add(new NativeSystemQueryModule());
+    modules.add(new NativeTasksSystemQueryModule());
 
     modules.add(new BrokerProcessingModule());
     modules.add(new QueryableModule());
