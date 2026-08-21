@@ -52,7 +52,6 @@ jobs:
             -pl distribution -am \
             install \
             -Pdist,bundle-contrib-exts,skip-static-checks,skip-tests \
-            -Dmaven.test.skip=true \
             -Dmaven.javadoc.skip=true -T1C
           build_end_epoch=$(date +%s)
           host_build_seconds=$((build_end_epoch - build_start_epoch))
