@@ -40,6 +40,7 @@ RUN --mount=type=cache,target=/root/.m2,sharing=locked if [ "$BUILD_FROM_SOURCE"
       install \
       -Pdist,bundle-contrib-exts \
       -Pskip-static-checks,skip-tests \
+      -Dmaven.test.skip=true \
       -Dmaven.javadoc.skip=true -T1C \
       ; fi
 
