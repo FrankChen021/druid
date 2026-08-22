@@ -36,7 +36,7 @@ target
 _site
 dependency-reduced-pom.xml
 
-# Allow the host-built distribution benchmark to pass its binary tarball into
+# Allow the host-built distribution to pass its binary tarball into
 # the Docker build while continuing to exclude all other build output.
 !distribution/target/
 !distribution/target/apache-druid-*-bin.tar.gz
