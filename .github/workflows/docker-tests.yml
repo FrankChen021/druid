@@ -32,7 +32,7 @@ jobs:
           java-version: 25
           cache: 'maven'
       - name: Build the Druid distribution
-        run: .github/scripts/validate-dist
+        run: .github/scripts/build-dist
       - name: Build the Docker image
         run: |
           DOCKER_BUILDKIT=1 docker build \
