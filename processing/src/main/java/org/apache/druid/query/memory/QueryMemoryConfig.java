@@ -259,7 +259,7 @@ public class QueryMemoryConfig
 
   private static long parseSetting(final HumanReadableBytes value, final String propertyName)
   {
-    if (value.equals(AUTOMATIC_BYTES)) {
+    if (AUTOMATIC_BYTES.equals(value)) {
       return -1;
     }
     final long bytes = value.getBytes();
