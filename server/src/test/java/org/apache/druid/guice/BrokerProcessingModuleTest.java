@@ -30,6 +30,7 @@ import org.apache.druid.client.cache.CachePopulatorStats;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.query.BrokerParallelMergeConfig;
 import org.apache.druid.query.DruidProcessingConfig;
+import org.apache.druid.query.memory.QueryMemoryConfig;
 import org.apache.druid.utils.JvmUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -83,6 +84,33 @@ public class BrokerProcessingModuleTest
     BrokerParallelMergeConfig config = injector.getInstance(BrokerParallelMergeConfig.class);
     BrokerProcessingModule module = new BrokerProcessingModule();
     module.getMergeProcessingPoolProvider(config);
+  }
+
+  @Test
+  public void testQueryMemoryConfigIsBound()
+  {
+    Assertions.assertNotNull(injector.getInstance(QueryMemoryConfig.class));
+  }
+
+  @Test
+  public void testQueryMemoryConfigPropertiesAreLoaded()
+  {
+    final Properties props = new Properties();
+    props.setProperty("druid.processing.memory.mode", "ffm");
+    props.setProperty("druid.processing.memory.maxBytes", "64MiB");
+    props.setProperty("druid.processing.memory.processLimit", "auto");
+    props.setProperty("druid.processing.memory.systemReserve", "auto");
+    props.setProperty("druid.processing.memory.maxPerQuery", "auto");
+    props.setProperty("druid.processing.memory.minimumPerQuery", "8MiB");
+    props.setProperty("druid.processing.memory.allocationTimeout", "PT2S");
+
+    final QueryMemoryConfig config = makeInjector(props).getInstance(QueryMemoryConfig.class);
+
+    Assertions.assertEquals(QueryMemoryConfig.Mode.FFM, config.getMode());
+    Assertions.assertEquals(64L * 1024 * 1024, config.getMaxBytes());
+    Assertions.assertEquals(64L * 1024 * 1024, config.getMaxPerQueryBytes());
+    Assertions.assertEquals(8L * 1024 * 1024, config.getMinimumPerQueryBytes());
+    Assertions.assertEquals(2_000, config.getAllocationTimeout().toStandardDuration().getMillis());
   }
 
   @Test

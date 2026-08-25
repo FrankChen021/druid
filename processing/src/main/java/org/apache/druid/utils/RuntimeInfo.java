@@ -27,6 +27,8 @@ import java.lang.reflect.InvocationTargetException;
 @LazySingleton
 public class RuntimeInfo
 {
+  private static final ProcessMemoryDetector PROCESS_MEMORY_DETECTOR = new ProcessMemoryDetector();
+
   public int getAvailableProcessors()
   {
     return Runtime.getRuntime().availableProcessors();
@@ -71,5 +73,23 @@ public class RuntimeInfo
     catch (IllegalAccessException e) {
       throw new UnsupportedOperationException("public method, shouldn't throw this", e);
     }
+  }
+
+  /**
+   * Returns the smallest memory limit visible to this process. The value is container-aware when the process is
+   * running under cgroup v1 or v2, and falls back to the process address-space limit or the JVM operating-system view.
+   */
+  public ProcessMemoryLimit getProcessMemoryLimit()
+  {
+    return PROCESS_MEMORY_DETECTOR.detect();
+  }
+
+  /**
+   * Returns the process/container memory limit in bytes, or {@link ProcessMemoryLimit#UNKNOWN_BYTES} when no usable
+   * limit can be detected.
+   */
+  public long getProcessMemoryLimitBytes()
+  {
+    return getProcessMemoryLimit().bytes();
   }
 }

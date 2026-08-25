@@ -49,6 +49,7 @@ import org.apache.druid.query.PrioritizedExecutorService;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByResourcesReservationPool;
+import org.apache.druid.query.memory.QueryMemoryConfig;
 import org.apache.druid.server.metrics.MetricsModule;
 import org.apache.druid.utils.RuntimeInfo;
 
@@ -122,6 +123,7 @@ public class DruidProcessingModule implements Module
   public static void registerConfigsAndMonitor(Binder binder)
   {
     JsonConfigProvider.bind(binder, PROCESSING_PROPERTY_PREFIX, DruidProcessingConfig.class);
+    JsonConfigProvider.bind(binder, PROCESSING_PROPERTY_PREFIX + ".memory", QueryMemoryConfig.class);
     MetricsModule.register(binder, ExecutorServiceMonitor.class);
   }
 
