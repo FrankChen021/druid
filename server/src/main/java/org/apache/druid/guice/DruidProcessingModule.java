@@ -50,6 +50,7 @@ import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByResourcesReservationPool;
 import org.apache.druid.query.memory.QueryMemoryConfig;
+import org.apache.druid.query.memory.QueryMemoryManager;
 import org.apache.druid.server.metrics.MetricsModule;
 import org.apache.druid.utils.RuntimeInfo;
 
@@ -118,6 +119,13 @@ public class DruidProcessingModule implements Module
   )
   {
     return new GroupByResourcesReservationPool(mergeBufferPool, groupByQueryConfig);
+  }
+
+  @Provides
+  @LazySingleton
+  public QueryMemoryManager getQueryMemoryManager(QueryMemoryConfig queryMemoryConfig)
+  {
+    return new QueryMemoryManager(queryMemoryConfig);
   }
 
   public static void registerConfigsAndMonitor(Binder binder)

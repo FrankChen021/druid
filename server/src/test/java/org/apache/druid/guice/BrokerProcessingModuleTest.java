@@ -31,6 +31,7 @@ import org.apache.druid.initialization.Initialization;
 import org.apache.druid.query.BrokerParallelMergeConfig;
 import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.memory.QueryMemoryConfig;
+import org.apache.druid.query.memory.QueryMemoryManager;
 import org.apache.druid.utils.JvmUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -90,6 +91,7 @@ public class BrokerProcessingModuleTest
   public void testQueryMemoryConfigIsBound()
   {
     Assertions.assertNotNull(injector.getInstance(QueryMemoryConfig.class));
+    Assertions.assertNotNull(injector.getInstance(QueryMemoryManager.class));
   }
 
   @Test
