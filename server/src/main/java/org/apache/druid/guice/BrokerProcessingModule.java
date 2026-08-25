@@ -29,6 +29,7 @@ import org.apache.druid.client.cache.CachePopulator;
 import org.apache.druid.client.cache.CachePopulatorStats;
 import org.apache.druid.collections.BlockingPool;
 import org.apache.druid.collections.DefaultBlockingPool;
+import org.apache.druid.collections.DummyBlockingPool;
 import org.apache.druid.collections.NonBlockingPool;
 import org.apache.druid.collections.StupidPool;
 import org.apache.druid.guice.annotations.Global;
@@ -44,6 +45,8 @@ import org.apache.druid.query.ForwardingQueryProcessingPool;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByResourcesReservationPool;
+import org.apache.druid.query.memory.QueryMemoryConfig;
+import org.apache.druid.query.memory.QueryMemoryManager;
 import org.apache.druid.utils.RuntimeInfo;
 
 import java.nio.ByteBuffer;
@@ -104,7 +107,24 @@ public class BrokerProcessingModule implements Module
   @Provides
   @LazySingleton
   @Merging
+  public BlockingPool<ByteBuffer> getMergeBufferPool(
+      DruidProcessingConfig config,
+      RuntimeInfo runtimeInfo,
+      QueryMemoryConfig queryMemoryConfig
+  )
+  {
+    if (queryMemoryConfig.getMode() == QueryMemoryConfig.Mode.FFM) {
+      return DummyBlockingPool.instance();
+    }
+    return createMergeBufferPool(config, runtimeInfo);
+  }
+
   public BlockingPool<ByteBuffer> getMergeBufferPool(DruidProcessingConfig config, RuntimeInfo runtimeInfo)
+  {
+    return createMergeBufferPool(config, runtimeInfo);
+  }
+
+  private BlockingPool<ByteBuffer> createMergeBufferPool(DruidProcessingConfig config, RuntimeInfo runtimeInfo)
   {
     verifyDirectMemory(config, runtimeInfo);
     return new DefaultBlockingPool<>(
@@ -119,6 +139,21 @@ public class BrokerProcessingModule implements Module
   @Merging
   public GroupByResourcesReservationPool getGroupByResourcesReservationPool(
       @Merging BlockingPool<ByteBuffer> mergeBufferPool,
+      GroupByQueryConfig groupByQueryConfig,
+      QueryMemoryManager queryMemoryManager,
+      DruidProcessingConfig processingConfig
+  )
+  {
+    return new GroupByResourcesReservationPool(
+        mergeBufferPool,
+        groupByQueryConfig,
+        queryMemoryManager,
+        processingConfig
+    );
+  }
+
+  public GroupByResourcesReservationPool getGroupByResourcesReservationPool(
+      BlockingPool<ByteBuffer> mergeBufferPool,
       GroupByQueryConfig groupByQueryConfig
   )
   {

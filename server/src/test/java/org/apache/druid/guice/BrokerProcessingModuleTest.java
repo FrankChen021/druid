@@ -117,6 +117,14 @@ public class BrokerProcessingModuleTest
     Assertions.assertEquals(64L * 1024 * 1024, config.getMaxPerQueryBytes());
     Assertions.assertEquals(8L * 1024 * 1024, config.getMinimumPerQueryBytes());
     Assertions.assertEquals(2_000, config.getAllocationTimeout().toStandardDuration().getMillis());
+    Assertions.assertEquals(
+        0,
+        target.getMergeBufferPool(
+            configuredInjector.getInstance(DruidProcessingConfig.class),
+            JvmUtils.getRuntimeInfo(),
+            config
+        ).maxSize()
+    );
 
     final QueryMemoryManager manager = configuredInjector.getInstance(QueryMemoryManager.class);
     final QueryMemoryAccount account = manager.openAccount("ffm-test");

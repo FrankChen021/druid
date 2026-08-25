@@ -30,14 +30,18 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.dimension.DimensionSpec;
+import org.apache.druid.query.memory.MemoryLease;
+import org.apache.druid.query.memory.QueryMemoryAccount;
 import org.apache.druid.segment.Segment;
 
 import javax.annotation.Nullable;
 import java.io.Closeable;
+import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
@@ -134,6 +138,14 @@ public class GroupByQueryResources implements Closeable
 
   private final Deque<ByteBuffer> mergingQueryRunnerMergeBuffers = new ArrayDeque<>();
 
+  @Nullable
+  private final MemoryLease mergeBufferLease;
+
+  @Nullable
+  private final QueryMemoryAccount queryMemoryAccount;
+
+  private final AtomicBoolean closed = new AtomicBoolean();
+
   public GroupByQueryResources(
       @Nullable List<ReferenceCountingResourceHolder<ByteBuffer>> toolchestMergeBuffersHolders,
       @Nullable List<ReferenceCountingResourceHolder<ByteBuffer>> mergingQueryRunnerMergeBuffersHolders
@@ -146,6 +158,58 @@ public class GroupByQueryResources implements Closeable
     this.mergingQueryRunnerMergeBuffersHolders = mergingQueryRunnerMergeBuffersHolders;
     if (mergingQueryRunnerMergeBuffersHolders != null) {
       mergingQueryRunnerMergeBuffersHolders.forEach(holder -> mergingQueryRunnerMergeBuffers.add(holder.get()));
+    }
+    this.mergeBufferLease = null;
+    this.queryMemoryAccount = null;
+  }
+
+  /**
+   * Creates query resources backed by one FFM lease. Each logical merge buffer is a view over a disjoint slice of the
+   * lease, so the query is charged once while the existing GroupBy operators continue to consume ByteBuffers.
+   */
+  public GroupByQueryResources(
+      @Nullable MemoryLease mergeBufferLease,
+      @Nullable QueryMemoryAccount queryMemoryAccount,
+      int toolchestMergeBufferNum,
+      int mergingQueryRunnerMergeBufferNum,
+      int mergeBufferSize
+  )
+  {
+    if (toolchestMergeBufferNum < 0 || mergingQueryRunnerMergeBufferNum < 0) {
+      throw new IllegalArgumentException("Merge buffer counts must not be negative");
+    }
+    if (mergeBufferLease == null && toolchestMergeBufferNum + mergingQueryRunnerMergeBufferNum > 0) {
+      throw new IllegalArgumentException("A merge buffer lease is required for non-empty FFM resources");
+    }
+    if (mergeBufferLease != null && mergeBufferSize <= 0) {
+      throw new IllegalArgumentException("mergeBufferSize must be greater than zero");
+    }
+
+    this.toolchestMergeBuffersHolders = null;
+    this.mergingQueryRunnerMergeBuffersHolders = null;
+    this.mergeBufferLease = mergeBufferLease;
+    this.queryMemoryAccount = queryMemoryAccount;
+
+    final int totalMergeBufferNum = toolchestMergeBufferNum + mergingQueryRunnerMergeBufferNum;
+    if (mergeBufferLease != null) {
+      final long requiredBytes = (long) totalMergeBufferNum * mergeBufferSize;
+      final MemorySegment segment = mergeBufferLease.segment();
+      if (segment.equals(MemorySegment.NULL) || segment.byteSize() < requiredBytes) {
+        throw new IllegalArgumentException(
+            "The merge buffer lease is smaller than the requested GroupBy resources"
+        );
+      }
+      for (int i = 0; i < toolchestMergeBufferNum; i++) {
+        toolchestMergeBuffers.add(
+            segment.asSlice((long) i * mergeBufferSize, mergeBufferSize).asByteBuffer()
+        );
+      }
+      for (int i = 0; i < mergingQueryRunnerMergeBufferNum; i++) {
+        final int bufferIndex = toolchestMergeBufferNum + i;
+        mergingQueryRunnerMergeBuffers.add(
+            segment.asSlice((long) bufferIndex * mergeBufferSize, mergeBufferSize).asByteBuffer()
+        );
+      }
     }
   }
 
@@ -210,6 +274,10 @@ public class GroupByQueryResources implements Closeable
   @Override
   public void close()
   {
+    if (!closed.compareAndSet(false, true)) {
+      return;
+    }
+
     if (toolchestMergeBuffersHolders != null) {
       if (toolchestMergeBuffers.size() != toolchestMergeBuffersHolders.size()) {
         log.warn(
@@ -228,6 +296,17 @@ public class GroupByQueryResources implements Closeable
         );
       }
       mergingQueryRunnerMergeBuffersHolders.forEach(ReferenceCountingResourceHolder::close);
+    }
+
+    try {
+      if (mergeBufferLease != null) {
+        mergeBufferLease.close();
+      }
+    }
+    finally {
+      if (queryMemoryAccount != null) {
+        queryMemoryAccount.close();
+      }
     }
   }
 }

@@ -32,6 +32,7 @@ import org.apache.druid.client.cache.CachePopulatorStats;
 import org.apache.druid.client.cache.ForegroundCachePopulator;
 import org.apache.druid.collections.BlockingPool;
 import org.apache.druid.collections.DefaultBlockingPool;
+import org.apache.druid.collections.DummyBlockingPool;
 import org.apache.druid.collections.NonBlockingPool;
 import org.apache.druid.collections.StupidPool;
 import org.apache.druid.guice.annotations.Global;
@@ -105,6 +106,17 @@ public class DruidProcessingModule implements Module
   @Provides
   @LazySingleton
   @Merging
+  public BlockingPool<ByteBuffer> getMergeBufferPool(
+      DruidProcessingConfig config,
+      RuntimeInfo runtimeInfo,
+      QueryMemoryConfig queryMemoryConfig
+  )
+  {
+    return queryMemoryConfig.getMode() == QueryMemoryConfig.Mode.FFM
+           ? DummyBlockingPool.instance()
+           : createMergeBufferPool(config, runtimeInfo);
+  }
+
   public BlockingPool<ByteBuffer> getMergeBufferPool(DruidProcessingConfig config, RuntimeInfo runtimeInfo)
   {
     return createMergeBufferPool(config, runtimeInfo);
@@ -115,6 +127,21 @@ public class DruidProcessingModule implements Module
   @Merging
   public GroupByResourcesReservationPool getGroupByResourcesReservationPool(
       @Merging BlockingPool<ByteBuffer> mergeBufferPool,
+      GroupByQueryConfig groupByQueryConfig,
+      QueryMemoryManager queryMemoryManager,
+      DruidProcessingConfig processingConfig
+  )
+  {
+    return new GroupByResourcesReservationPool(
+        mergeBufferPool,
+        groupByQueryConfig,
+        queryMemoryManager,
+        processingConfig
+    );
+  }
+
+  public GroupByResourcesReservationPool getGroupByResourcesReservationPool(
+      BlockingPool<ByteBuffer> mergeBufferPool,
       GroupByQueryConfig groupByQueryConfig
   )
   {

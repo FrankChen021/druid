@@ -23,12 +23,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.collections.BlockingPool;
 import org.apache.druid.collections.DefaultBlockingPool;
+import org.apache.druid.collections.DummyBlockingPool;
+import org.apache.druid.collections.ResourceHolder;
 import org.apache.druid.error.DruidException;
+import org.apache.druid.java.util.common.HumanReadableBytes;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.QueryResourceId;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
+import org.apache.druid.query.memory.QueryMemoryConfig;
+import org.apache.druid.query.memory.QueryMemoryManager;
+import org.apache.druid.utils.ProcessMemoryLimit;
+import org.apache.druid.utils.RuntimeInfo;
+import org.joda.time.Period;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -257,5 +265,87 @@ public class GroupByResourcesReservationPoolTest
     Assertions.assertNotNull(newResources);
 
     Assertions.assertNotSame(oldResources, newResources);
+  }
+
+  @Test
+  public void testFfmResourcesUseOneQueryMemoryLease()
+  {
+    final int mergeBufferSize = 256;
+    final QueryMemoryManager queryMemoryManager = new QueryMemoryManager(
+        new QueryMemoryConfig(
+            "ffm",
+            new HumanReadableBytes("1MiB"),
+            new HumanReadableBytes("1GiB"),
+            HumanReadableBytes.ZERO,
+            new HumanReadableBytes("1MiB"),
+            new HumanReadableBytes("1KiB"),
+            Period.seconds(1),
+            new TestRuntimeInfo()
+        )
+    );
+    final DruidProcessingConfigForTest processingConfig = new DruidProcessingConfigForTest(mergeBufferSize);
+    final GroupByResourcesReservationPool resourcesPool = new GroupByResourcesReservationPool(
+        DummyBlockingPool.instance(),
+        CONFIG,
+        queryMemoryManager,
+        processingConfig
+    );
+    final QueryResourceId queryResourceId = new QueryResourceId("ffm-query");
+
+    resourcesPool.reserve(
+        queryResourceId,
+        QUERY,
+        true,
+        new GroupByStatsProvider.PerQueryStats()
+    );
+
+    final GroupByQueryResources resources = resourcesPool.fetch(queryResourceId);
+    Assertions.assertNotNull(resources);
+    Assertions.assertEquals(1, resources.getNumMergingQueryRunnerMergeBuffers());
+    final ResourceHolder<ByteBuffer> mergeBufferHolder = resources.getMergingQueryRunnerMergeBuffer();
+    Assertions.assertEquals(mergeBufferSize, mergeBufferHolder.get().capacity());
+    Assertions.assertTrue(mergeBufferHolder.get().isDirect());
+    mergeBufferHolder.close();
+
+    resourcesPool.clean(queryResourceId);
+    Assertions.assertEquals(0, queryMemoryManager.getCurrentBytes());
+    Assertions.assertEquals(0, queryMemoryManager.getActiveAccountCount());
+  }
+
+  private static class DruidProcessingConfigForTest extends org.apache.druid.query.DruidProcessingConfig
+  {
+    private final int mergeBufferSize;
+
+    DruidProcessingConfigForTest(final int mergeBufferSize)
+    {
+      this.mergeBufferSize = mergeBufferSize;
+    }
+
+    @Override
+    public int intermediateComputeSizeBytes()
+    {
+      return mergeBufferSize;
+    }
+  }
+
+  private static class TestRuntimeInfo extends RuntimeInfo
+  {
+    @Override
+    public ProcessMemoryLimit getProcessMemoryLimit()
+    {
+      return new ProcessMemoryLimit(1L << 30, ProcessMemoryLimit.Source.CGROUP_V2);
+    }
+
+    @Override
+    public long getMaxHeapSizeBytes()
+    {
+      return 1L << 20;
+    }
+
+    @Override
+    public long getDirectMemorySizeBytes()
+    {
+      return 1L << 20;
+    }
   }
 }

@@ -42,6 +42,8 @@ import org.apache.druid.query.NoopQueryProcessingPool;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByResourcesReservationPool;
+import org.apache.druid.query.memory.QueryMemoryConfig;
+import org.apache.druid.query.memory.QueryMemoryManager;
 import org.apache.druid.utils.RuntimeInfo;
 
 import java.nio.ByteBuffer;
@@ -118,6 +120,19 @@ public class PeonProcessingModule implements Module
   @Provides
   @LazySingleton
   @Merging
+  public BlockingPool<ByteBuffer> getMergeBufferPool(
+      Task task,
+      DruidProcessingConfig config,
+      RuntimeInfo runtimeInfo,
+      QueryMemoryConfig queryMemoryConfig
+  )
+  {
+    if (queryMemoryConfig.getMode() == QueryMemoryConfig.Mode.FFM) {
+      return DummyBlockingPool.instance();
+    }
+    return getMergeBufferPool(task, config, runtimeInfo);
+  }
+
   public BlockingPool<ByteBuffer> getMergeBufferPool(Task task, DruidProcessingConfig config, RuntimeInfo runtimeInfo)
   {
     if (task.getPeonProcessingModuleConfig().hasMergeBuffers()) {
@@ -140,6 +155,21 @@ public class PeonProcessingModule implements Module
   @Merging
   public GroupByResourcesReservationPool getGroupByResourcesReservationPool(
       @Merging BlockingPool<ByteBuffer> mergeBufferPool,
+      GroupByQueryConfig groupByQueryConfig,
+      QueryMemoryManager queryMemoryManager,
+      DruidProcessingConfig processingConfig
+  )
+  {
+    return new GroupByResourcesReservationPool(
+        mergeBufferPool,
+        groupByQueryConfig,
+        queryMemoryManager,
+        processingConfig
+    );
+  }
+
+  public GroupByResourcesReservationPool getGroupByResourcesReservationPool(
+      BlockingPool<ByteBuffer> mergeBufferPool,
       GroupByQueryConfig groupByQueryConfig
   )
   {

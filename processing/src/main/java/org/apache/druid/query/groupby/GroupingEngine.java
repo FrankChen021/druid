@@ -74,6 +74,9 @@ import org.apache.druid.query.groupby.epinephelinae.vector.VectorGroupByEngine;
 import org.apache.druid.query.groupby.orderby.DefaultLimitSpec;
 import org.apache.druid.query.groupby.orderby.LimitSpec;
 import org.apache.druid.query.groupby.orderby.NoopLimitSpec;
+import org.apache.druid.query.memory.MemoryLease;
+import org.apache.druid.query.memory.MemoryPurpose;
+import org.apache.druid.query.memory.QueryMemoryAccount;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
 import org.apache.druid.segment.AsyncCursorHolder;
 import org.apache.druid.segment.ColumnInspector;
@@ -94,6 +97,7 @@ import org.joda.time.DateTime;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
+import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -198,6 +202,77 @@ public class GroupingEngine
             mergeBufferHolders.subList(requiredMergeBufferNumForToolchestMerge, requiredMergeBufferNum)
         );
       }
+    }
+  }
+
+  /**
+   * Initializes GroupBy merge resources from the query memory manager. The manager owns one contiguous lease, while
+   * GroupBy continues to receive the same number of ByteBuffer views used by the legacy path.
+   */
+  public static GroupByQueryResources prepareResource(
+      GroupByQuery query,
+      QueryMemoryAccount queryMemoryAccount,
+      int mergeBufferSize,
+      boolean usesGroupByMergingQueryRunner,
+      GroupByQueryConfig groupByQueryConfig,
+      long allocationTimeoutMillis
+  )
+  {
+    final int requiredMergeBufferNumForToolchestMerge =
+        GroupByQueryResources.countRequiredMergeBufferNumForToolchestMerge(query);
+
+    final int requiredMergeBufferNumForMergingQueryRunner =
+        usesGroupByMergingQueryRunner
+        ? GroupByQueryResources.countRequiredMergeBufferNumForMergingQueryRunner(groupByQueryConfig, query)
+        : 0;
+
+    final int requiredMergeBufferNum =
+        requiredMergeBufferNumForToolchestMerge + requiredMergeBufferNumForMergingQueryRunner;
+
+    if (requiredMergeBufferNum == 0) {
+      return new GroupByQueryResources(
+          null,
+          queryMemoryAccount,
+          requiredMergeBufferNumForToolchestMerge,
+          requiredMergeBufferNumForMergingQueryRunner,
+          mergeBufferSize
+      );
+    }
+    if (mergeBufferSize <= 0) {
+      throw new ResourceLimitExceededException("GroupBy merge buffer size must be greater than zero");
+    }
+
+    final long requiredBytes;
+    try {
+      requiredBytes = Math.multiplyExact((long) requiredMergeBufferNum, mergeBufferSize);
+    }
+    catch (ArithmeticException e) {
+      throw new ResourceLimitExceededException("GroupBy merge buffer request is too large");
+    }
+
+    final MemoryLease mergeBufferLease = queryMemoryAccount.acquireMinimum(
+        requiredBytes,
+        MemoryPurpose.GROUP_BY_MERGE,
+        allocationTimeoutMillis
+    );
+    try {
+      final MemorySegment segment = mergeBufferLease.segment();
+      if (segment.equals(MemorySegment.NULL) || segment.byteSize() < requiredBytes) {
+        throw new ResourceLimitExceededException(
+            "Query memory manager did not provide a physical GroupBy merge buffer allocation"
+        );
+      }
+      return new GroupByQueryResources(
+          mergeBufferLease,
+          queryMemoryAccount,
+          requiredMergeBufferNumForToolchestMerge,
+          requiredMergeBufferNumForMergingQueryRunner,
+          mergeBufferSize
+      );
+    }
+    catch (Throwable t) {
+      mergeBufferLease.close();
+      throw t;
     }
   }
 

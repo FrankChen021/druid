@@ -22,7 +22,10 @@ package org.apache.druid.query.groupby;
 import org.apache.druid.collections.BlockingPool;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.guice.annotations.Merging;
+import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.QueryResourceId;
+import org.apache.druid.query.memory.QueryMemoryAccount;
+import org.apache.druid.query.memory.QueryMemoryManager;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -98,14 +101,41 @@ public class GroupByResourcesReservationPool
    */
   private final GroupByQueryConfig groupByQueryConfig;
 
-  @Inject
+  @Nullable
+  private final QueryMemoryManager queryMemoryManager;
+
+  private final int mergeBufferSize;
+
   public GroupByResourcesReservationPool(
       @Merging BlockingPool<ByteBuffer> mergeBufferPool,
       GroupByQueryConfig groupByQueryConfig
   )
   {
+    this(mergeBufferPool, groupByQueryConfig, null, 0);
+  }
+
+  @Inject
+  public GroupByResourcesReservationPool(
+      @Merging BlockingPool<ByteBuffer> mergeBufferPool,
+      GroupByQueryConfig groupByQueryConfig,
+      QueryMemoryManager queryMemoryManager,
+      DruidProcessingConfig processingConfig
+  )
+  {
+    this(mergeBufferPool, groupByQueryConfig, queryMemoryManager, processingConfig.intermediateComputeSizeBytes());
+  }
+
+  private GroupByResourcesReservationPool(
+      BlockingPool<ByteBuffer> mergeBufferPool,
+      GroupByQueryConfig groupByQueryConfig,
+      @Nullable QueryMemoryManager queryMemoryManager,
+      int mergeBufferSize
+  )
+  {
     this.mergeBufferPool = mergeBufferPool;
     this.groupByQueryConfig = groupByQueryConfig;
+    this.queryMemoryManager = queryMemoryManager;
+    this.mergeBufferSize = mergeBufferSize;
   }
 
   /**
@@ -138,12 +168,31 @@ public class GroupByResourcesReservationPool
     }
 
     GroupByQueryResources resources;
+    QueryMemoryAccount queryMemoryAccount = null;
     try {
       // We have reserved a spot in the map. Now begin the blocking call.
-      resources = GroupingEngine.prepareResource(groupByQuery, mergeBufferPool, willMergeRunner, groupByQueryConfig);
+      if (queryMemoryManager != null && queryMemoryManager.isFfmMode()) {
+        queryMemoryAccount = queryMemoryManager.openAccount(queryResourceId);
+        final long timeoutMillis = groupByQuery.context().hasTimeout()
+                                   ? groupByQuery.context().getTimeout()
+                                   : queryMemoryManager.getDefaultAllocationTimeoutMillis();
+        resources = GroupingEngine.prepareResource(
+            groupByQuery,
+            queryMemoryAccount,
+            mergeBufferSize,
+            willMergeRunner,
+            groupByQueryConfig,
+            timeoutMillis
+        );
+      } else {
+        resources = GroupingEngine.prepareResource(groupByQuery, mergeBufferPool, willMergeRunner, groupByQueryConfig);
+      }
     }
     catch (Throwable t) {
       // Unable to allocate the resources, perform cleanup and rethrow the exception
+      if (queryMemoryAccount != null) {
+        queryMemoryAccount.close();
+      }
       pool.remove(queryResourceId);
       throw t;
     }

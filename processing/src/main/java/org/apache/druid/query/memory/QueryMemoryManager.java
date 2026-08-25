@@ -57,6 +57,7 @@ public class QueryMemoryManager
   private final long maxBytes;
   private final long maxPerQueryBytes;
   private final long defaultAllocationTimeoutMillis;
+  private final QueryMemoryConfig.Mode mode;
   private final NativeMemoryAllocator allocator;
   private final ReentrantLock lock = new ReentrantLock();
   private final Condition capacityChanged = lock.newCondition();
@@ -73,6 +74,7 @@ public class QueryMemoryManager
         config.getMaxBytes(),
         config.getMaxPerQueryBytes(),
         config.getAllocationTimeout().toStandardDuration().getMillis(),
+        config.getMode(),
         createAllocator(config.getMode())
     );
   }
@@ -83,13 +85,36 @@ public class QueryMemoryManager
       final long defaultAllocationTimeoutMillis
   )
   {
-    this(maxBytes, maxPerQueryBytes, defaultAllocationTimeoutMillis, new NoopNativeMemoryAllocator());
+    this(
+        maxBytes,
+        maxPerQueryBytes,
+        defaultAllocationTimeoutMillis,
+        QueryMemoryConfig.Mode.LEGACY,
+        new NoopNativeMemoryAllocator()
+    );
   }
 
   QueryMemoryManager(
       final long maxBytes,
       final long maxPerQueryBytes,
       final long defaultAllocationTimeoutMillis,
+      final NativeMemoryAllocator allocator
+  )
+  {
+    this(
+        maxBytes,
+        maxPerQueryBytes,
+        defaultAllocationTimeoutMillis,
+        allocator instanceof FfmNativeMemoryAllocator ? QueryMemoryConfig.Mode.FFM : QueryMemoryConfig.Mode.LEGACY,
+        allocator
+    );
+  }
+
+  QueryMemoryManager(
+      final long maxBytes,
+      final long maxPerQueryBytes,
+      final long defaultAllocationTimeoutMillis,
+      final QueryMemoryConfig.Mode mode,
       final NativeMemoryAllocator allocator
   )
   {
@@ -105,6 +130,7 @@ public class QueryMemoryManager
     this.maxBytes = maxBytes;
     this.maxPerQueryBytes = maxPerQueryBytes;
     this.defaultAllocationTimeoutMillis = defaultAllocationTimeoutMillis;
+    this.mode = Objects.requireNonNull(mode, "mode");
     this.allocator = Objects.requireNonNull(allocator, "allocator");
   }
 
@@ -210,6 +236,11 @@ public class QueryMemoryManager
   public long getDefaultAllocationTimeoutMillis()
   {
     return defaultAllocationTimeoutMillis;
+  }
+
+  public boolean isFfmMode()
+  {
+    return mode == QueryMemoryConfig.Mode.FFM;
   }
 
   private Optional<MemoryLease> tryAcquire(

@@ -34,6 +34,7 @@ import org.apache.druid.query.NoopQueryProcessingPool;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByResourcesReservationPool;
+import org.apache.druid.query.memory.QueryMemoryManager;
 
 import java.nio.ByteBuffer;
 
@@ -96,6 +97,21 @@ public class RouterProcessingModule implements Module
   @Merging
   public GroupByResourcesReservationPool getGroupByResourcesReservationPool(
       @Merging BlockingPool<ByteBuffer> mergeBufferPool,
+      GroupByQueryConfig groupByQueryConfig,
+      QueryMemoryManager queryMemoryManager,
+      DruidProcessingConfig processingConfig
+  )
+  {
+    return new GroupByResourcesReservationPool(
+        mergeBufferPool,
+        groupByQueryConfig,
+        queryMemoryManager,
+        processingConfig
+    );
+  }
+
+  public GroupByResourcesReservationPool getGroupByResourcesReservationPool(
+      BlockingPool<ByteBuffer> mergeBufferPool,
       GroupByQueryConfig groupByQueryConfig
   )
   {
