@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.memory;
 
+import org.apache.druid.java.util.common.concurrent.Execs;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +28,6 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -85,7 +85,7 @@ public class QueryMemoryManagerTest
     final QueryMemoryAccount firstWaiter = manager.openAccount("first-waiter");
     final QueryMemoryAccount secondWaiter = manager.openAccount("second-waiter");
     final MemoryLease heldLease = holder.acquireMinimum(80, MemoryPurpose.GROUP_BY_MERGE, 0);
-    final ExecutorService executor = Executors.newFixedThreadPool(2);
+    final ExecutorService executor = Execs.multiThreaded(2, "query-memory-fifo-%d");
 
     try {
       final Future<MemoryLease> firstFuture = executor.submit(
@@ -158,7 +158,7 @@ public class QueryMemoryManagerTest
     );
     Assertions.assertEquals(QueryMemoryException.Reason.TIMEOUT, timeout.getReason());
 
-    final ExecutorService executor = Executors.newSingleThreadExecutor();
+    final ExecutorService executor = Execs.singleThreaded("query-memory-interruption");
     try {
       final Future<MemoryLease> future = executor.submit(
           () -> canceled.acquireMinimum(1, MemoryPurpose.OTHER, 5_000)
@@ -296,7 +296,7 @@ public class QueryMemoryManagerTest
     };
     final QueryMemoryManager manager = new QueryMemoryManager(100, 100, 1_000, blockingAllocator);
     final QueryMemoryAccount account = manager.openAccount("canceled");
-    final ExecutorService executor = Executors.newSingleThreadExecutor();
+    final ExecutorService executor = Execs.singleThreaded("query-memory-cancellation");
 
     try {
       final Future<MemoryLease> future = executor.submit(

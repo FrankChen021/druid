@@ -176,7 +176,12 @@ public class ProcessMemoryDetector
   {
     final List<Path> candidates = new ArrayList<>();
     if (cgroupPath.isPresent()) {
-      final String relativePath = cgroupPath.get().replaceFirst("^/+", "");
+      final String cgroupPathValue = cgroupPath.get();
+      int firstNonSlash = 0;
+      while (firstNonSlash < cgroupPathValue.length() && cgroupPathValue.charAt(firstNonSlash) == '/') {
+        firstNonSlash++;
+      }
+      final String relativePath = cgroupPathValue.substring(firstNonSlash);
       if (!relativePath.isEmpty()) {
         candidates.add(cgroupRoot.resolve(relativePath).resolve(fileName));
         if (versionOne) {
