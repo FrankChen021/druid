@@ -57,6 +57,7 @@ public class QueryMemoryManager
   private final long maxBytes;
   private final long maxPerQueryBytes;
   private final long defaultAllocationTimeoutMillis;
+  private final NativeMemoryAllocator allocator;
   private final ReentrantLock lock = new ReentrantLock();
   private final Condition capacityChanged = lock.newCondition();
   private final Map<String, AccountImpl> accounts = new HashMap<>();
@@ -71,7 +72,8 @@ public class QueryMemoryManager
     this(
         config.getMaxBytes(),
         config.getMaxPerQueryBytes(),
-        config.getAllocationTimeout().toStandardDuration().getMillis()
+        config.getAllocationTimeout().toStandardDuration().getMillis(),
+        createAllocator(config.getMode())
     );
   }
 
@@ -79,6 +81,16 @@ public class QueryMemoryManager
       final long maxBytes,
       final long maxPerQueryBytes,
       final long defaultAllocationTimeoutMillis
+  )
+  {
+    this(maxBytes, maxPerQueryBytes, defaultAllocationTimeoutMillis, new NoopNativeMemoryAllocator());
+  }
+
+  QueryMemoryManager(
+      final long maxBytes,
+      final long maxPerQueryBytes,
+      final long defaultAllocationTimeoutMillis,
+      final NativeMemoryAllocator allocator
   )
   {
     if (maxBytes < 0) {
@@ -93,6 +105,14 @@ public class QueryMemoryManager
     this.maxBytes = maxBytes;
     this.maxPerQueryBytes = maxPerQueryBytes;
     this.defaultAllocationTimeoutMillis = defaultAllocationTimeoutMillis;
+    this.allocator = Objects.requireNonNull(allocator, "allocator");
+  }
+
+  private static NativeMemoryAllocator createAllocator(final QueryMemoryConfig.Mode mode)
+  {
+    return mode == QueryMemoryConfig.Mode.FFM
+           ? new FfmNativeMemoryAllocator()
+           : new NoopNativeMemoryAllocator();
   }
 
   /** Opens the unique memory account for a query resource id. */
@@ -199,6 +219,7 @@ public class QueryMemoryManager
   {
     for (int attempt = 0; attempt < 2; attempt++) {
       final long reclaimTarget;
+      final MemoryLeaseImpl reservedLease;
       lock.lock();
       try {
         ensureCanAcquireLocked(account);
@@ -208,16 +229,18 @@ public class QueryMemoryManager
           return Optional.empty();
         }
 
-        final MemoryLeaseImpl lease = reserveLocked(account, request, true);
-        if (lease != null) {
-          return Optional.of(lease);
-        }
-        reclaimTarget = request.minimumBytes() - availableForAccountLocked(account);
+        reservedLease = reserveLocked(account, request, true);
+        reclaimTarget = reservedLease == null
+                        ? request.minimumBytes() - availableForAccountLocked(account)
+                        : 0;
       }
       finally {
         lock.unlock();
       }
 
+      if (reservedLease != null) {
+        return Optional.of(materialize(reservedLease));
+      }
       if (attempt == 1 || reclaimTarget <= 0) {
         return Optional.empty();
       }
@@ -259,85 +282,142 @@ public class QueryMemoryManager
 
     final long deadlineNanos = deadlineNanos(timeoutMillis);
     final long reclaimTarget;
+    final MemoryLeaseImpl immediateLease;
     lock.lock();
     try {
       ensureCanAcquireLocked(account);
       if (pendingRequests.isEmpty()) {
-        final MemoryLeaseImpl lease = reserveLocked(account, request, false);
-        if (lease != null) {
-          return lease;
-        }
+        immediateLease = reserveLocked(account, request, false);
+      } else {
+        immediateLease = null;
       }
-      reclaimTarget = request.minimumBytes() - availableForAccountLocked(account);
+      reclaimTarget = immediateLease == null
+                      ? request.minimumBytes() - availableForAccountLocked(account)
+                      : 0;
     }
     finally {
       lock.unlock();
+    }
+
+    if (immediateLease != null) {
+      return materialize(immediateLease);
     }
 
     if (reclaimTarget > 0) {
       reclaim(account, reclaimTarget);
     }
 
+    MemoryLeaseImpl acquiredLease = null;
     lock.lock();
     try {
       ensureCanAcquireLocked(account);
       if (pendingRequests.isEmpty()) {
-        final MemoryLeaseImpl lease = reserveLocked(account, request, false);
-        if (lease != null) {
-          return lease;
-        }
+        acquiredLease = reserveLocked(account, request, false);
       }
 
-      final PendingRequest pending = new PendingRequest(account);
-      pendingRequests.addLast(pending);
-      try {
-        while (true) {
-          ensureCanAcquireLocked(account);
-          if (pendingRequests.peekFirst() == pending) {
-            final MemoryLeaseImpl headLease = reserveLocked(account, request, false);
-            if (headLease != null) {
-              pendingRequests.removeFirst();
-              capacityChanged.signalAll();
-              return headLease;
+      if (acquiredLease == null) {
+        final PendingRequest pending = new PendingRequest(account);
+        pendingRequests.addLast(pending);
+        try {
+          while (acquiredLease == null) {
+            ensureCanAcquireLocked(account);
+            if (pendingRequests.peekFirst() == pending) {
+              acquiredLease = reserveLocked(account, request, false);
+              if (acquiredLease != null) {
+                pendingRequests.removeFirst();
+                capacityChanged.signalAll();
+                break;
+              }
             }
-          }
 
-          final long remainingNanos = deadlineNanos == Long.MAX_VALUE
-                                      ? Long.MAX_VALUE
-                                      : deadlineNanos - System.nanoTime();
-          if (remainingNanos <= 0) {
-            throw new QueryMemoryException(
-                QueryMemoryException.Reason.TIMEOUT,
-                StringUtils.format(
-                    "Timed out waiting for %,d bytes of query memory for query[%s]",
-                    request.minimumBytes(),
-                    account.queryId
-                )
-            );
-          }
-          try {
-            if (remainingNanos == Long.MAX_VALUE) {
-              capacityChanged.await();
-            } else {
-              capacityChanged.awaitNanos(remainingNanos);
+            final long remainingNanos = deadlineNanos == Long.MAX_VALUE
+                                        ? Long.MAX_VALUE
+                                        : deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0) {
+              throw new QueryMemoryException(
+                  QueryMemoryException.Reason.TIMEOUT,
+                  StringUtils.format(
+                      "Timed out waiting for %,d bytes of query memory for query[%s]",
+                      request.minimumBytes(),
+                      account.queryId
+                  )
+              );
             }
-          }
-          catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new QueryMemoryException(
-                QueryMemoryException.Reason.INTERRUPTED,
-                StringUtils.format("Interrupted while waiting for query memory for query[%s]", account.queryId)
-            );
+            try {
+              if (remainingNanos == Long.MAX_VALUE) {
+                capacityChanged.await();
+              } else {
+                capacityChanged.awaitNanos(remainingNanos);
+              }
+            }
+            catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              throw new QueryMemoryException(
+                  QueryMemoryException.Reason.INTERRUPTED,
+                  StringUtils.format("Interrupted while waiting for query memory for query[%s]", account.queryId)
+              );
+            }
           }
         }
-      }
-      finally {
-        pendingRequests.remove(pending);
-        capacityChanged.signalAll();
+        finally {
+          pendingRequests.remove(pending);
+          capacityChanged.signalAll();
+        }
       }
     }
     finally {
       lock.unlock();
+    }
+
+    return materialize(acquiredLease);
+  }
+
+  private MemoryLease materialize(final MemoryLeaseImpl lease)
+  {
+    final NativeMemoryAllocation allocation;
+    try {
+      allocation = Objects.requireNonNull(allocator.allocate(lease.size), "allocator returned null");
+    }
+    catch (OutOfMemoryError | RuntimeException e) {
+      lease.close();
+      log.warn(e, "Unable to allocate %,d bytes of native query memory", lease.size);
+      throw new QueryMemoryException(
+          QueryMemoryException.Reason.PHYSICAL_ALLOCATION_FAILED,
+          StringUtils.format("Unable to allocate %,d bytes of native query memory", lease.size)
+      );
+    }
+
+    final boolean canceled;
+    synchronized (lease) {
+      lock.lock();
+      try {
+        canceled = lease.closed.get() || lease.account.cancelling;
+        if (!canceled) {
+          lease.allocation = allocation;
+        }
+      }
+      finally {
+        lock.unlock();
+      }
+    }
+    if (canceled) {
+      closeAllocationAfterCancellation(allocation);
+      lease.close();
+      throw new QueryMemoryException(
+          QueryMemoryException.Reason.CANCELED,
+          StringUtils.format("Query memory account[%s] was canceled during allocation", lease.account.queryId)
+      );
+    }
+    return lease;
+  }
+
+  private void closeAllocationAfterCancellation(final NativeMemoryAllocation allocation)
+  {
+    try {
+      allocation.close();
+    }
+    catch (RuntimeException | Error e) {
+      log.warn(e, "Failed to close a canceled query-memory allocation");
     }
   }
 
@@ -639,6 +719,7 @@ public class QueryMemoryManager
     private final long size;
     private final MemoryPurpose purpose;
     private final AtomicBoolean closed = new AtomicBoolean();
+    private NativeMemoryAllocation allocation;
 
     private MemoryLeaseImpl(final AccountImpl account, final long size, final MemoryPurpose purpose)
     {
@@ -650,7 +731,9 @@ public class QueryMemoryManager
     @Override
     public MemorySegment segment()
     {
-      return MemorySegment.NULL;
+      synchronized (this) {
+        return allocation == null ? MemorySegment.NULL : allocation.segment();
+      }
     }
 
     @Override
@@ -669,7 +752,19 @@ public class QueryMemoryManager
     public void close()
     {
       if (closed.compareAndSet(false, true)) {
-        release(this);
+        final NativeMemoryAllocation allocationToClose;
+        synchronized (this) {
+          allocationToClose = allocation;
+          allocation = null;
+        }
+        try {
+          if (allocationToClose != null) {
+            allocationToClose.close();
+          }
+        }
+        finally {
+          release(this);
+        }
       }
     }
   }

@@ -19,34 +19,9 @@
 
 package org.apache.druid.query.memory;
 
-import org.apache.druid.query.ResourceLimitExceededException;
-
-import java.util.Objects;
-
-/** Structured resource-limit failure raised by the query-memory manager. */
-public class QueryMemoryException extends ResourceLimitExceededException
+/** Creates explicitly closeable physical allocations after the manager has charged the requested bytes. */
+@FunctionalInterface
+public interface NativeMemoryAllocator
 {
-  public enum Reason
-  {
-    NODE_LIMIT,
-    QUERY_LIMIT,
-    TIMEOUT,
-    INTERRUPTED,
-    CANCELED,
-    PHYSICAL_ALLOCATION_FAILED,
-    INVALID_REQUEST
-  }
-
-  private final Reason reason;
-
-  public QueryMemoryException(final Reason reason, final String message)
-  {
-    super(message);
-    this.reason = Objects.requireNonNull(reason, "reason");
-  }
-
-  public Reason getReason()
-  {
-    return reason;
-  }
+  NativeMemoryAllocation allocate(long bytes);
 }

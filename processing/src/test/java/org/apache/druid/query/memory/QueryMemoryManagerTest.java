@@ -22,7 +22,9 @@ package org.apache.druid.query.memory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.foreign.MemorySegment;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -229,6 +231,97 @@ public class QueryMemoryManagerTest
     );
     Assertions.assertEquals(QueryMemoryException.Reason.INVALID_REQUEST, invalid.getReason());
     account.close();
+  }
+
+  @Test
+  public void testFfmLeaseOwnsCloseableSharedSegment()
+  {
+    final QueryMemoryManager manager = new QueryMemoryManager(
+        1 << 20,
+        1 << 20,
+        1_000,
+        new FfmNativeMemoryAllocator()
+    );
+    final QueryMemoryAccount account = manager.openAccount("ffm");
+    final MemoryLease lease = account.acquireMinimum(4_096, MemoryPurpose.FRAME, 0);
+    final MemorySegment segment = lease.segment();
+
+    Assertions.assertEquals(4_096, segment.byteSize());
+    Assertions.assertTrue(segment.scope().isAlive());
+    lease.close();
+    Assertions.assertFalse(segment.scope().isAlive());
+    Assertions.assertEquals(0, manager.getCurrentBytes());
+    account.close();
+  }
+
+  @Test
+  public void testPhysicalAllocationFailureRollsBackAccounting()
+  {
+    final QueryMemoryManager manager = new QueryMemoryManager(
+        100,
+        100,
+        1_000,
+        bytes -> {
+          throw new OutOfMemoryError("test allocation failure");
+        }
+    );
+    final QueryMemoryAccount account = manager.openAccount("oom");
+
+    final QueryMemoryException failure = Assertions.assertThrows(
+        QueryMemoryException.class,
+        () -> account.acquireMinimum(40, MemoryPurpose.OTHER, 0)
+    );
+    Assertions.assertEquals(QueryMemoryException.Reason.PHYSICAL_ALLOCATION_FAILED, failure.getReason());
+    Assertions.assertEquals(0, manager.getCurrentBytes());
+    Assertions.assertEquals(0, account.currentBytes());
+    account.close();
+  }
+
+  @Test
+  public void testCancellationDuringPhysicalAllocationReleasesReservation()
+      throws Exception
+  {
+    final CountDownLatch allocationStarted = new CountDownLatch(1);
+    final CountDownLatch allocationMayFinish = new CountDownLatch(1);
+    final NativeMemoryAllocator blockingAllocator = bytes -> {
+      allocationStarted.countDown();
+      try {
+        allocationMayFinish.await();
+      }
+      catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException("allocation interrupted", e);
+      }
+      return new FfmNativeMemoryAllocator().allocate(bytes);
+    };
+    final QueryMemoryManager manager = new QueryMemoryManager(100, 100, 1_000, blockingAllocator);
+    final QueryMemoryAccount account = manager.openAccount("canceled");
+    final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    try {
+      final Future<MemoryLease> future = executor.submit(
+          () -> account.acquireMinimum(40, MemoryPurpose.OTHER, 5_000)
+      );
+      Assertions.assertTrue(allocationStarted.await(2, TimeUnit.SECONDS));
+      account.cancel();
+      allocationMayFinish.countDown();
+
+      final ExecutionException executionException = Assertions.assertThrows(
+          ExecutionException.class,
+          () -> future.get(2, TimeUnit.SECONDS)
+      );
+      Assertions.assertInstanceOf(QueryMemoryException.class, executionException.getCause());
+      Assertions.assertEquals(
+          QueryMemoryException.Reason.CANCELED,
+          ((QueryMemoryException) executionException.getCause()).getReason()
+      );
+      Assertions.assertEquals(0, manager.getCurrentBytes());
+    }
+    finally {
+      allocationMayFinish.countDown();
+      executor.shutdownNow();
+      account.close();
+    }
   }
 
   private static void waitForPendingRequests(final QueryMemoryManager manager, final int expected)

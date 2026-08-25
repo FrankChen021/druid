@@ -30,6 +30,9 @@ import org.apache.druid.client.cache.CachePopulatorStats;
 import org.apache.druid.initialization.Initialization;
 import org.apache.druid.query.BrokerParallelMergeConfig;
 import org.apache.druid.query.DruidProcessingConfig;
+import org.apache.druid.query.memory.MemoryLease;
+import org.apache.druid.query.memory.MemoryPurpose;
+import org.apache.druid.query.memory.QueryMemoryAccount;
 import org.apache.druid.query.memory.QueryMemoryConfig;
 import org.apache.druid.query.memory.QueryMemoryManager;
 import org.apache.druid.utils.JvmUtils;
@@ -106,13 +109,21 @@ public class BrokerProcessingModuleTest
     props.setProperty("druid.processing.memory.minimumPerQuery", "8MiB");
     props.setProperty("druid.processing.memory.allocationTimeout", "PT2S");
 
-    final QueryMemoryConfig config = makeInjector(props).getInstance(QueryMemoryConfig.class);
+    final Injector configuredInjector = makeInjector(props);
+    final QueryMemoryConfig config = configuredInjector.getInstance(QueryMemoryConfig.class);
 
     Assertions.assertEquals(QueryMemoryConfig.Mode.FFM, config.getMode());
     Assertions.assertEquals(64L * 1024 * 1024, config.getMaxBytes());
     Assertions.assertEquals(64L * 1024 * 1024, config.getMaxPerQueryBytes());
     Assertions.assertEquals(8L * 1024 * 1024, config.getMinimumPerQueryBytes());
     Assertions.assertEquals(2_000, config.getAllocationTimeout().toStandardDuration().getMillis());
+
+    final QueryMemoryManager manager = configuredInjector.getInstance(QueryMemoryManager.class);
+    final QueryMemoryAccount account = manager.openAccount("ffm-test");
+    final MemoryLease lease = account.acquireMinimum(4_096, MemoryPurpose.FRAME, 0);
+    Assertions.assertEquals(4_096, lease.segment().byteSize());
+    lease.close();
+    account.close();
   }
 
   @Test

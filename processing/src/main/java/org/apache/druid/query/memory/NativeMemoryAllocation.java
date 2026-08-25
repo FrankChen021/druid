@@ -19,34 +19,13 @@
 
 package org.apache.druid.query.memory;
 
-import org.apache.druid.query.ResourceLimitExceededException;
+import java.lang.foreign.MemorySegment;
 
-import java.util.Objects;
-
-/** Structured resource-limit failure raised by the query-memory manager. */
-public class QueryMemoryException extends ResourceLimitExceededException
+/** A physical native-memory allocation owned by a {@link MemoryLease}. */
+public interface NativeMemoryAllocation extends AutoCloseable
 {
-  public enum Reason
-  {
-    NODE_LIMIT,
-    QUERY_LIMIT,
-    TIMEOUT,
-    INTERRUPTED,
-    CANCELED,
-    PHYSICAL_ALLOCATION_FAILED,
-    INVALID_REQUEST
-  }
+  MemorySegment segment();
 
-  private final Reason reason;
-
-  public QueryMemoryException(final Reason reason, final String message)
-  {
-    super(message);
-    this.reason = Objects.requireNonNull(reason, "reason");
-  }
-
-  public Reason getReason()
-  {
-    return reason;
-  }
+  @Override
+  void close();
 }

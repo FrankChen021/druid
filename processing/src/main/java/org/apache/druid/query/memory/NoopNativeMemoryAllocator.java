@@ -19,34 +19,32 @@
 
 package org.apache.druid.query.memory;
 
-import org.apache.druid.query.ResourceLimitExceededException;
+import java.lang.foreign.MemorySegment;
 
-import java.util.Objects;
-
-/** Structured resource-limit failure raised by the query-memory manager. */
-public class QueryMemoryException extends ResourceLimitExceededException
+/** Keeps ACCOUNTED and LEGACY modes accounting-only until their operators are migrated. */
+class NoopNativeMemoryAllocator implements NativeMemoryAllocator
 {
-  public enum Reason
+  @Override
+  public NativeMemoryAllocation allocate(final long bytes)
   {
-    NODE_LIMIT,
-    QUERY_LIMIT,
-    TIMEOUT,
-    INTERRUPTED,
-    CANCELED,
-    PHYSICAL_ALLOCATION_FAILED,
-    INVALID_REQUEST
+    if (bytes < 0) {
+      throw new IllegalArgumentException("bytes must not be negative");
+    }
+    return new NoopNativeMemoryAllocation();
   }
 
-  private final Reason reason;
-
-  public QueryMemoryException(final Reason reason, final String message)
+  private static class NoopNativeMemoryAllocation implements NativeMemoryAllocation
   {
-    super(message);
-    this.reason = Objects.requireNonNull(reason, "reason");
-  }
+    @Override
+    public MemorySegment segment()
+    {
+      return MemorySegment.NULL;
+    }
 
-  public Reason getReason()
-  {
-    return reason;
+    @Override
+    public void close()
+    {
+      // Accounting-only leases have no physical allocation to release.
+    }
   }
 }
