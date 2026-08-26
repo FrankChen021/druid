@@ -248,36 +248,42 @@ public class QueryMemoryManager
       final MemoryRequest request
   )
   {
-    for (int attempt = 0; attempt < 2; attempt++) {
-      final long reclaimTarget;
-      final MemoryLeaseImpl reservedLease;
-      lock.lock();
-      try {
-        ensureCanAcquireLocked(account);
-        if (request.minimumBytes() > maxBytes
-            || request.minimumBytes() > maxPerQueryBytes
-            || !pendingRequests.isEmpty()) {
-          return Optional.empty();
-        }
-
-        reservedLease = reserveLocked(account, request, true);
-        reclaimTarget = reservedLease == null
-                        ? request.minimumBytes() - availableForAccountLocked(account)
-                        : 0;
-      }
-      finally {
-        lock.unlock();
-      }
-
-      if (reservedLease != null) {
-        return Optional.of(materialize(reservedLease));
-      }
-      if (attempt == 1 || reclaimTarget <= 0) {
-        return Optional.empty();
-      }
-      reclaim(account, reclaimTarget);
+    final ElasticReservation initialReservation = reserveElastic(account, request);
+    if (initialReservation.lease != null) {
+      return Optional.of(materialize(initialReservation.lease));
     }
-    return Optional.empty();
+    if (initialReservation.reclaimTarget <= 0) {
+      return Optional.empty();
+    }
+
+    reclaim(account, initialReservation.reclaimTarget);
+
+    final ElasticReservation retryReservation = reserveElastic(account, request);
+    return retryReservation.lease == null
+           ? Optional.empty()
+           : Optional.of(materialize(retryReservation.lease));
+  }
+
+  private ElasticReservation reserveElastic(final AccountImpl account, final MemoryRequest request)
+  {
+    lock.lock();
+    try {
+      ensureCanAcquireLocked(account);
+      if (request.minimumBytes() > maxBytes
+          || request.minimumBytes() > maxPerQueryBytes
+          || !pendingRequests.isEmpty()) {
+        return new ElasticReservation(null, 0);
+      }
+
+      final MemoryLeaseImpl reservedLease = reserveLocked(account, request, true);
+      final long reclaimTarget = reservedLease == null
+                                 ? request.minimumBytes() - availableForAccountLocked(account)
+                                 : 0;
+      return new ElasticReservation(reservedLease, reclaimTarget);
+    }
+    finally {
+      lock.unlock();
+    }
   }
 
   private MemoryLease acquireMinimum(
@@ -378,7 +384,10 @@ public class QueryMemoryManager
               if (remainingNanos == Long.MAX_VALUE) {
                 capacityChanged.await();
               } else {
-                capacityChanged.awaitNanos(remainingNanos);
+                // Re-enter the loop after a timed wait so the deadline is evaluated consistently.
+                if (capacityChanged.awaitNanos(remainingNanos) <= 0) {
+                  continue;
+                }
               }
             }
             catch (InterruptedException e) {
@@ -631,6 +640,18 @@ public class QueryMemoryManager
     private PendingRequest(final AccountImpl account)
     {
       this.account = account;
+    }
+  }
+
+  private class ElasticReservation
+  {
+    private final MemoryLeaseImpl lease;
+    private final long reclaimTarget;
+
+    private ElasticReservation(final MemoryLeaseImpl lease, final long reclaimTarget)
+    {
+      this.lease = lease;
+      this.reclaimTarget = reclaimTarget;
     }
   }
 

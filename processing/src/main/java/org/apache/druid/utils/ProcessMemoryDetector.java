@@ -20,6 +20,7 @@
 package org.apache.druid.utils;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.apache.druid.annotations.SuppressFBWarnings;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,6 +39,10 @@ import java.util.function.LongSupplier;
  * and the JVM operating-system view. The smallest usable value is returned because it is the only bound that is safe
  * across all scopes.</p>
  */
+@SuppressFBWarnings(
+    value = "DMI_HARDCODED_ABSOLUTE_FILENAME",
+    justification = "These fixed Linux procfs and cgroup paths are required for container memory detection."
+)
 public class ProcessMemoryDetector
 {
   private static final Path DEFAULT_CGROUP_ROOT = Paths.get("/sys/fs/cgroup");

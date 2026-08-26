@@ -27,5 +27,7 @@ public interface MemoryReclaimer
    * Attempts to release at least {@code targetBytes} and returns the number of bytes actually released.
    * Implementations must not acquire more query memory while reclaiming.
    */
+  // The target is consumed by concrete reclaimers; the interface declaration has no implementation body.
+  // codeql[java/unused-parameter]
   long reclaim(long targetBytes);
 }

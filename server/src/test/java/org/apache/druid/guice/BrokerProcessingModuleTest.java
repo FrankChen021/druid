@@ -36,6 +36,7 @@ import org.apache.druid.query.memory.QueryMemoryAccount;
 import org.apache.druid.query.memory.QueryMemoryConfig;
 import org.apache.druid.query.memory.QueryMemoryManager;
 import org.apache.druid.utils.JvmUtils;
+import org.apache.druid.utils.RuntimeInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
@@ -121,7 +122,7 @@ public class BrokerProcessingModuleTest
         0,
         target.getMergeBufferPool(
             configuredInjector.getInstance(DruidProcessingConfig.class),
-            JvmUtils.getRuntimeInfo(),
+            configuredInjector.getInstance(RuntimeInfo.class),
             config
         ).maxSize()
     );
