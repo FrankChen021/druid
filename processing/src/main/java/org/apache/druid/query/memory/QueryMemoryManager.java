@@ -643,7 +643,7 @@ public class QueryMemoryManager
     }
   }
 
-  private class ElasticReservation
+  private static class ElasticReservation
   {
     private final MemoryLeaseImpl lease;
     private final long reclaimTarget;
