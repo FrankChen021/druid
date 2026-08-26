@@ -33,6 +33,7 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.QueryResourceId;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.memory.QueryMemoryConfig;
+import org.apache.druid.query.memory.QueryMemoryException;
 import org.apache.druid.query.memory.QueryMemoryManager;
 import org.apache.druid.utils.ProcessMemoryLimit;
 import org.apache.druid.utils.RuntimeInfo;
@@ -310,6 +311,46 @@ public class GroupByResourcesReservationPoolTest
     resourcesPool.clean(queryResourceId);
     Assertions.assertEquals(0, queryMemoryManager.getCurrentBytes());
     Assertions.assertEquals(0, queryMemoryManager.getActiveAccountCount());
+  }
+
+  @Test
+  public void testFfmAllocationFailureClosesQueryMemoryAccount()
+  {
+    final QueryMemoryManager queryMemoryManager = new QueryMemoryManager(
+        new QueryMemoryConfig(
+            "ffm",
+            HumanReadableBytes.valueOf(128),
+            new HumanReadableBytes("1GiB"),
+            HumanReadableBytes.ZERO,
+            HumanReadableBytes.valueOf(128),
+            new HumanReadableBytes("1KiB"),
+            Period.seconds(1),
+            new TestRuntimeInfo()
+        )
+    );
+    final DruidProcessingConfigForTest processingConfig = new DruidProcessingConfigForTest(256);
+    final GroupByResourcesReservationPool resourcesPool = new GroupByResourcesReservationPool(
+        DummyBlockingPool.instance(),
+        CONFIG,
+        queryMemoryManager,
+        processingConfig
+    );
+    final QueryResourceId queryResourceId = new QueryResourceId("ffm-failure");
+
+    final QueryMemoryException failure = Assertions.assertThrows(
+        QueryMemoryException.class,
+        () -> resourcesPool.reserve(
+            queryResourceId,
+            QUERY,
+            true,
+            new GroupByStatsProvider.PerQueryStats()
+        )
+    );
+
+    Assertions.assertEquals(QueryMemoryException.Reason.QUERY_LIMIT, failure.getReason());
+    Assertions.assertEquals(0, queryMemoryManager.getCurrentBytes());
+    Assertions.assertEquals(0, queryMemoryManager.getActiveAccountCount());
+    Assertions.assertNull(resourcesPool.fetch(queryResourceId));
   }
 
   private static class DruidProcessingConfigForTest extends org.apache.druid.query.DruidProcessingConfig

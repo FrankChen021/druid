@@ -30,6 +30,7 @@ import org.apache.druid.query.memory.QueryMemoryManager;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -91,27 +92,21 @@ public class GroupByResourcesReservationPool
    */
   private final ConcurrentHashMap<QueryResourceId, AtomicReference<GroupByQueryResources>> pool = new ConcurrentHashMap<>();
 
-  /**
-   * Buffer pool from where the merge buffers are picked and reserved
-   */
-  private final BlockingPool<ByteBuffer> mergeBufferPool;
+  /** Prepares query resources using either the legacy buffer pool or query-memory accounting. */
+  private final GroupByResourcesAllocator resourcesAllocator;
 
-  /**
-   * Group by query config of the server
-   */
+  /** Group by query config of the server. */
   private final GroupByQueryConfig groupByQueryConfig;
-
-  @Nullable
-  private final QueryMemoryManager queryMemoryManager;
-
-  private final int mergeBufferSize;
 
   public GroupByResourcesReservationPool(
       @Merging BlockingPool<ByteBuffer> mergeBufferPool,
       GroupByQueryConfig groupByQueryConfig
   )
   {
-    this(mergeBufferPool, groupByQueryConfig, null, 0);
+    this(
+        new BlockingPoolGroupByResourcesAllocator(mergeBufferPool),
+        groupByQueryConfig
+    );
   }
 
   @Inject
@@ -122,20 +117,34 @@ public class GroupByResourcesReservationPool
       DruidProcessingConfig processingConfig
   )
   {
-    this(mergeBufferPool, groupByQueryConfig, queryMemoryManager, processingConfig.intermediateComputeSizeBytes());
+    this(
+        createResourcesAllocator(
+            mergeBufferPool,
+            queryMemoryManager,
+            processingConfig.intermediateComputeSizeBytes()
+        ),
+        groupByQueryConfig
+    );
   }
 
   private GroupByResourcesReservationPool(
+      GroupByResourcesAllocator resourcesAllocator,
+      GroupByQueryConfig groupByQueryConfig
+  )
+  {
+    this.resourcesAllocator = Objects.requireNonNull(resourcesAllocator, "resourcesAllocator");
+    this.groupByQueryConfig = Objects.requireNonNull(groupByQueryConfig, "groupByQueryConfig");
+  }
+
+  private static GroupByResourcesAllocator createResourcesAllocator(
       BlockingPool<ByteBuffer> mergeBufferPool,
-      GroupByQueryConfig groupByQueryConfig,
-      @Nullable QueryMemoryManager queryMemoryManager,
+      QueryMemoryManager queryMemoryManager,
       int mergeBufferSize
   )
   {
-    this.mergeBufferPool = mergeBufferPool;
-    this.groupByQueryConfig = groupByQueryConfig;
-    this.queryMemoryManager = queryMemoryManager;
-    this.mergeBufferSize = mergeBufferSize;
+    return queryMemoryManager.isFfmMode()
+           ? new QueryMemoryGroupByResourcesAllocator(queryMemoryManager, mergeBufferSize)
+           : new BlockingPoolGroupByResourcesAllocator(mergeBufferPool);
   }
 
   /**
@@ -167,32 +176,18 @@ public class GroupByResourcesReservationPool
       throw DruidException.defensive("Resource with the given identifier [%s] is already present", queryResourceId);
     }
 
-    GroupByQueryResources resources;
-    QueryMemoryAccount queryMemoryAccount = null;
+    final GroupByQueryResources resources;
     try {
       // We have reserved a spot in the map. Now begin the blocking call.
-      if (queryMemoryManager != null && queryMemoryManager.isFfmMode()) {
-        queryMemoryAccount = queryMemoryManager.openAccount(queryResourceId);
-        final long timeoutMillis = groupByQuery.context().hasTimeout()
-                                   ? groupByQuery.context().getTimeout()
-                                   : queryMemoryManager.getDefaultAllocationTimeoutMillis();
-        resources = GroupingEngine.prepareResource(
-            groupByQuery,
-            queryMemoryAccount,
-            mergeBufferSize,
-            willMergeRunner,
-            groupByQueryConfig,
-            timeoutMillis
-        );
-      } else {
-        resources = GroupingEngine.prepareResource(groupByQuery, mergeBufferPool, willMergeRunner, groupByQueryConfig);
-      }
+      resources = resourcesAllocator.prepareResource(
+          queryResourceId,
+          groupByQuery,
+          willMergeRunner,
+          groupByQueryConfig
+      );
     }
     catch (Throwable t) {
       // Unable to allocate the resources, perform cleanup and rethrow the exception
-      if (queryMemoryAccount != null) {
-        queryMemoryAccount.close();
-      }
       pool.remove(queryResourceId);
       throw t;
     }
@@ -241,6 +236,72 @@ public class GroupByResourcesReservationPool
         );
       }
       resource.close();
+    }
+  }
+
+  private static final class BlockingPoolGroupByResourcesAllocator implements GroupByResourcesAllocator
+  {
+    private final BlockingPool<ByteBuffer> mergeBufferPool;
+
+    private BlockingPoolGroupByResourcesAllocator(BlockingPool<ByteBuffer> mergeBufferPool)
+    {
+      this.mergeBufferPool = mergeBufferPool;
+    }
+
+    @Override
+    public GroupByQueryResources prepareResource(
+        QueryResourceId queryResourceId,
+        GroupByQuery groupByQuery,
+        boolean willMergeRunner,
+        GroupByQueryConfig groupByQueryConfig
+    )
+    {
+      return GroupingEngine.prepareResource(
+          groupByQuery,
+          mergeBufferPool,
+          willMergeRunner,
+          groupByQueryConfig
+      );
+    }
+  }
+
+  private static final class QueryMemoryGroupByResourcesAllocator implements GroupByResourcesAllocator
+  {
+    private final QueryMemoryManager queryMemoryManager;
+    private final int mergeBufferSize;
+
+    private QueryMemoryGroupByResourcesAllocator(QueryMemoryManager queryMemoryManager, int mergeBufferSize)
+    {
+      this.queryMemoryManager = queryMemoryManager;
+      this.mergeBufferSize = mergeBufferSize;
+    }
+
+    @Override
+    public GroupByQueryResources prepareResource(
+        QueryResourceId queryResourceId,
+        GroupByQuery groupByQuery,
+        boolean willMergeRunner,
+        GroupByQueryConfig groupByQueryConfig
+    )
+    {
+      final QueryMemoryAccount queryMemoryAccount = queryMemoryManager.openAccount(queryResourceId);
+      try {
+        final long timeoutMillis = groupByQuery.context().hasTimeout()
+                                   ? groupByQuery.context().getTimeout()
+                                   : queryMemoryManager.getDefaultAllocationTimeoutMillis();
+        return GroupingEngine.prepareResource(
+            groupByQuery,
+            queryMemoryAccount,
+            mergeBufferSize,
+            willMergeRunner,
+            groupByQueryConfig,
+            timeoutMillis
+        );
+      }
+      catch (Throwable t) {
+        queryMemoryAccount.close();
+        throw t;
+      }
     }
   }
 }
