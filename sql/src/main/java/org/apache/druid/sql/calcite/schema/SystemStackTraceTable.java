@@ -24,19 +24,15 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.druid.server.system.table.StackTraceTableDescriptor;
-import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 
 /** Metadata representation of the native-query-only {@code sys.stack_trace} table. */
 public class SystemStackTraceTable extends AbstractTable implements NativeSystemTable
 {
-  public static final String TABLE_NAME = StackTraceTableDescriptor.TABLE_NAME;
-  static final RowSignature ROW_SIGNATURE = StackTraceTableDescriptor.ROW_SIGNATURE;
-
   @Override
   public RelDataType getRowType(final RelDataTypeFactory typeFactory)
   {
-    return RowSignatures.toRelDataType(ROW_SIGNATURE, typeFactory);
+    return RowSignatures.toRelDataType(StackTraceTableDescriptor.ROW_SIGNATURE, typeFactory);
   }
 
   @Override
