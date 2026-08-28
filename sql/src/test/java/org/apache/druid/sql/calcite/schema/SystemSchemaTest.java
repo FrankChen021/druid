@@ -107,6 +107,7 @@ import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.SupervisorTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.run.SqlEngine;
@@ -1604,7 +1605,7 @@ public class SystemSchemaTest extends CalciteTestBase
     );
 
     // Verify value types.
-    verifyTypes(rows, SystemSchema.SUPERVISOR_SIGNATURE);
+    verifyTypes(rows, SupervisorTableDescriptor.ROW_SIGNATURE);
   }
 
   @Test
@@ -1657,7 +1658,7 @@ public class SystemSchemaTest extends CalciteTestBase
     // TODO: If needed, verify the first row here
 
     // TODO: Verify value types.
-    // verifyTypes(rows, SystemSchema.SUPERVISOR_SIGNATURE);
+    // verifyTypes(rows, SupervisorTableDescriptor.ROW_SIGNATURE);
   }
 
   @Test

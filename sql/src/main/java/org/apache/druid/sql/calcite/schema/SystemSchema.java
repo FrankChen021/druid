@@ -74,6 +74,7 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.SupervisorTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
@@ -107,7 +108,7 @@ public class SystemSchema extends AbstractTableSchema
   public static final String SEGMENTS_TABLE = "segments";
   public static final String SERVERS_TABLE = "servers";
   public static final String SERVER_SEGMENTS_TABLE = "server_segments";
-  public static final String SUPERVISOR_TABLE = "supervisors";
+  public static final String SUPERVISOR_TABLE = SupervisorTableDescriptor.TABLE_NAME;
   public static final String QUERIES_TABLE = "queries";
 
   private static final Function<SegmentStatusInCluster, Iterable<ResourceAction>>
@@ -225,19 +226,6 @@ public class SystemSchema extends AbstractTableSchema
       .add("segment_id", ColumnType.STRING)
       .build();
 
-  static final RowSignature SUPERVISOR_SIGNATURE = RowSignature
-      .builder()
-      .add("supervisor_id", ColumnType.STRING)
-      .add("datasource", ColumnType.STRING)
-      .add("state", ColumnType.STRING)
-      .add("detailed_state", ColumnType.STRING)
-      .add("healthy", ColumnType.LONG)
-      .add("type", ColumnType.STRING)
-      .add("source", ColumnType.STRING)
-      .add("suspended", ColumnType.LONG)
-      .add("spec", ColumnType.STRING)
-      .build();
-
   static final RowSignature QUERIES_SIGNATURE = RowSignature
       .builder()
       .add("id", ColumnType.STRING)
@@ -331,7 +319,11 @@ public class SystemSchema extends AbstractTableSchema
       );
       case SERVER_SEGMENTS_TABLE -> new ServerSegmentsTable(serverView, authorizerMapper, authenticationResult);
       case TaskTableDescriptor.TABLE_NAME -> new TasksTable(overlordClient, authorizerMapper, authenticationResult);
-      case SUPERVISOR_TABLE -> new SupervisorsTable(overlordClient, authorizerMapper, authenticationResult);
+      case SupervisorTableDescriptor.TABLE_NAME -> new SupervisorsTable(
+          overlordClient,
+          authorizerMapper,
+          authenticationResult
+      );
       case SystemServerPropertiesTable.TABLE_NAME -> new SystemServerPropertiesTable(
           druidNodeDiscoveryProvider,
           authorizerMapper,
@@ -1084,9 +1076,9 @@ public class SystemSchema extends AbstractTableSchema
   }
 
   /**
-   * This table contains a row per supervisor task.
+   * This table contains a row per supervisor.
    */
-  static class SupervisorsTable extends AbstractTable implements ScannableTable
+  static class SupervisorsTable extends AbstractTable implements ScannableTable, NativeSystemTable
   {
     private final OverlordClient overlordClient;
     private final AuthorizerMapper authorizerMapper;
@@ -1107,13 +1099,19 @@ public class SystemSchema extends AbstractTableSchema
     @Override
     public RelDataType getRowType(RelDataTypeFactory typeFactory)
     {
-      return RowSignatures.toRelDataType(SUPERVISOR_SIGNATURE, typeFactory);
+      return RowSignatures.toRelDataType(SupervisorTableDescriptor.ROW_SIGNATURE, typeFactory);
     }
 
     @Override
     public TableType getJdbcTableType()
     {
       return TableType.SYSTEM_TABLE;
+    }
+
+    @Override
+    public DruidTable asNativeTable()
+    {
+      return new NativeSupervisorsTable();
     }
 
     @Override

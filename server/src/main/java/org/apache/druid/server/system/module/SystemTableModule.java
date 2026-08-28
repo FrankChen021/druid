@@ -27,6 +27,7 @@ import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
+import org.apache.druid.server.system.table.SupervisorTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
@@ -34,8 +35,8 @@ import org.apache.druid.server.system.table.TaskTableDescriptor;
 /**
  * Registers native system-table routing and the node-local server-properties supplier.
  *
- * <p>Table-specific integrations, such as the task supplier in indexing-service, contribute their own entries to the
- * native system-table multibinders.</p>
+ * <p>Table-specific integrations in indexing-service, such as the task and supervisor providers, contribute their
+ * own entries to the native system-table multibinders.</p>
  */
 public class SystemTableModule implements Module
 {
@@ -52,6 +53,8 @@ public class SystemTableModule implements Module
                     .toInstance(new ServerPropertiesTableDescriptor());
     descriptorBinder.addBinding(TaskTableDescriptor.TABLE_NAME)
                     .toInstance(new TaskTableDescriptor());
+    descriptorBinder.addBinding(SupervisorTableDescriptor.TABLE_NAME)
+                    .toInstance(new SupervisorTableDescriptor());
 
     final MapBinder<String, SystemTableDataProvider> dataProviderBinder = MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class);
     dataProviderBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)

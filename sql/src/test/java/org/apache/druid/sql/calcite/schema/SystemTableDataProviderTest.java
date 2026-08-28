@@ -42,6 +42,12 @@ public class SystemTableDataProviderTest
     Assertions.assertFalse(tasks.isBroadcast());
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, tasks.getJdbcTableType());
 
+    final NativeSupervisorsTable supervisors = new NativeSupervisorsTable();
+    Assertions.assertEquals("supervisors", ((SystemTableDataSource) supervisors.getDataSource()).getTable());
+    Assertions.assertFalse(supervisors.isJoinable());
+    Assertions.assertFalse(supervisors.isBroadcast());
+    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, supervisors.getJdbcTableType());
+
     final NativeServerPropertiesTable serverProperties = new NativeServerPropertiesTable();
     Assertions.assertEquals(
         "server_properties",
