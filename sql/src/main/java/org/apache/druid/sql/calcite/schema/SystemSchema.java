@@ -357,6 +357,7 @@ public class SystemSchema extends AbstractTableSchema
           jsonMapper,
           authenticationResult
       );
+      case SystemStackTraceTable.TABLE_NAME -> new SystemStackTraceTable();
       case QUERIES_TABLE -> new QueriesTable(
           sqlEngineRegistryProvider,
           jsonMapper,
