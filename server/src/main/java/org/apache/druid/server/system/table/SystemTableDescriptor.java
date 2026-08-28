@@ -20,6 +20,7 @@
 package org.apache.druid.server.system.table;
 
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.query.Query;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.DruidNode;
 
@@ -45,6 +46,13 @@ public interface SystemTableDescriptor
   RowSignature getRowSignature();
 
   SystemTableRowAuthorizer getRowAuthorizer();
+
+  /**
+   * Validates query properties that must be checked before a native system-table query is routed to nodes.
+   */
+  default void validateQuery(final Query<?> query)
+  {
+  }
 
   /** Whether an empty discovery result represents an empty table instead of unavailable infrastructure. */
   default boolean isEmptyDiscoveryAllowed()
