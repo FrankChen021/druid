@@ -21,7 +21,6 @@ package org.apache.druid.indexing.overlord.supervisor;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -235,42 +234,7 @@ public class SupervisorResource
           if (includeFull || includeState || includeSystem) {
             List<SupervisorStatus> allStates = authorizedSupervisorIds
                 .stream()
-                .map(x -> {
-                  Optional<SupervisorStateManager.State> theState =
-                      manager.getSupervisorState(x);
-                  SupervisorStatus.Builder theBuilder = new SupervisorStatus.Builder();
-                  theBuilder.withId(x);
-                  if (theState.isPresent()) {
-                    theBuilder.withState(theState.get().getBasicState().toString())
-                              .withDetailedState(theState.get().toString())
-                              .withHealthy(theState.get().isHealthy());
-                  }
-                  Optional<SupervisorSpec> theSpec = manager.getSupervisorSpec(x);
-                  if (theSpec.isPresent()) {
-                    final SupervisorSpec spec = theSpec.get();
-                    theBuilder.withDataSource(spec.getDataSources().stream().findFirst().orElse(null));
-                    if (includeFull) {
-                      theBuilder.withSpec(spec);
-                    }
-                    if (includeSystem) {
-                      try {
-                        // serializing SupervisorSpec here, so that callers of `druid/indexer/v1/supervisor?system`
-                        // which are outside the overlord process can deserialize the response and get a json
-                        // payload of SupervisorSpec object when they don't have guice bindings for all the fields
-                        // for example, broker does not have bindings for all fields of `KafkaSupervisorSpec` or
-                        // `KinesisSupervisorSpec`
-                        theBuilder.withSpecString(objectMapper.writeValueAsString(spec));
-                      }
-                      catch (JsonProcessingException e) {
-                        throw new RuntimeException(e);
-                      }
-                      theBuilder.withType(spec.getType())
-                                .withSource(spec.getSource())
-                                .withSuspended(spec.isSuspended());
-                    }
-                  }
-                  return theBuilder.build();
-                })
+                .map(x -> SupervisorStatusMapper.toStatus(objectMapper, manager, x, includeFull, includeSystem))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
             return Response.ok(allStates).build();

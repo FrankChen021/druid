@@ -110,6 +110,7 @@ import org.apache.druid.indexing.overlord.sampler.SamplerModule;
 import org.apache.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorManager;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorResource;
+import org.apache.druid.indexing.overlord.supervisor.SupervisorsTableDataProvider;
 import org.apache.druid.indexing.overlord.task.TasksTableDataProvider;
 import org.apache.druid.indexing.scheduledbatch.ScheduledBatchTaskManager;
 import org.apache.druid.indexing.worker.config.WorkerConfig;
@@ -144,6 +145,7 @@ import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationUtils;
 import org.apache.druid.server.security.Authenticator;
 import org.apache.druid.server.security.AuthenticatorMapper;
+import org.apache.druid.server.system.table.SupervisorTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
@@ -226,6 +228,9 @@ public class CliOverlord extends ServerRunnable
             );
             dataProviderBinder.addBinding(TaskTableDescriptor.TABLE_NAME)
                               .to(TasksTableDataProvider.class)
+                              .in(LazySingleton.class);
+            dataProviderBinder.addBinding(SupervisorTableDescriptor.TABLE_NAME)
+                              .to(SupervisorsTableDataProvider.class)
                               .in(LazySingleton.class);
 
             validateCentralizedDatasourceSchemaConfig(properties);
