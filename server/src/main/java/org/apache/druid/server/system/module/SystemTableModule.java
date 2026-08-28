@@ -28,7 +28,7 @@ import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.StackTraceTableDescriptor;
-import org.apache.druid.server.system.table.SystemStackTraceTableDataProvider;
+import org.apache.druid.server.system.table.StackTraceTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
@@ -62,7 +62,7 @@ public class SystemTableModule implements Module
                       .to(ServerPropertiesTableDataProvider.class)
                       .in(LazySingleton.class);
     dataProviderBinder.addBinding(StackTraceTableDescriptor.TABLE_NAME)
-                      .to(SystemStackTraceTableDataProvider.class)
+                      .to(StackTraceTableDataProvider.class)
                       .in(LazySingleton.class);
   }
 }

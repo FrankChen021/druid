@@ -21,7 +21,7 @@ package org.apache.druid.testing.embedded.schema;
 
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.QueryContexts;
-import org.apache.druid.server.system.table.SystemStackTraceTableDataProvider;
+import org.apache.druid.server.system.table.StackTraceTableDataProvider;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.testing.embedded.EmbeddedBroker;
@@ -137,7 +137,7 @@ public class SystemStackTraceTableTest extends EmbeddedClusterTestBase
   {
     final String brokerHost = StringUtils.format("localhost:%s", BROKER_PORT);
     final Map<String, Object> queryContext = new HashMap<>(nativeQueryContext(plannerStrategy));
-    queryContext.put(SystemStackTraceTableDataProvider.MAX_STACK_TRACE_FRAME_DEPTH_KEY, 10.9);
+    queryContext.put(StackTraceTableDataProvider.MAX_STACK_TRACE_FRAME_DEPTH_KEY, 10.9);
 
     final String result = cluster.runSql(
         "SELECT stack FROM sys.stack_trace WHERE server = '%s' LIMIT 1",

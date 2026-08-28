@@ -21,7 +21,7 @@ package org.apache.druid.server;
 
 import org.apache.druid.error.DruidException;
 import org.apache.druid.query.BadQueryContextException;
-import org.apache.druid.server.system.table.SystemStackTraceTableDataProvider;
+import org.apache.druid.server.system.table.StackTraceTableDataProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -29,18 +29,18 @@ import java.lang.Thread.State;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-public class SystemStackTraceTableDataProviderCollectionTest
+public class StackTraceTableDataProviderCollectionTest
 {
   @Test
   public void testCollectsCurrentThreadWithoutThreadInfoTruncation()
   {
-    final SystemStackTraceTableDataProvider.ThreadStackTraceResponse response =
-        SystemStackTraceTableDataProvider.collect();
+    final StackTraceTableDataProvider.ThreadStackTraceResponse response =
+        StackTraceTableDataProvider.collect();
     Assertions.assertNotNull(response.getCollectedAt());
     Assertions.assertFalse(response.getThreads().isEmpty());
 
     final long currentThreadId = Thread.currentThread().threadId();
-    final SystemStackTraceTableDataProvider.ThreadStackTrace currentThread = response.getThreads()
+    final StackTraceTableDataProvider.ThreadStackTrace currentThread = response.getThreads()
                                                                        .stream()
                                                                        .filter(thread -> thread.getThreadId() == currentThreadId)
                                                                        .findFirst()
@@ -59,8 +59,8 @@ public class SystemStackTraceTableDataProviderCollectionTest
   @Test
   public void testCollectUsesConfiguredMaxDepth()
   {
-    final SystemStackTraceTableDataProvider.ThreadStackTraceResponse response =
-        SystemStackTraceTableDataProvider.collect(10);
+    final StackTraceTableDataProvider.ThreadStackTraceResponse response =
+        StackTraceTableDataProvider.collect(10);
     Assertions.assertTrue(
         response.getThreads()
                 .stream()
@@ -76,19 +76,19 @@ public class SystemStackTraceTableDataProviderCollectionTest
   @Test
   public void testQueryContextDepthConversionAndValidation()
   {
-    Assertions.assertEquals(10, SystemStackTraceTableDataProvider.getMaxStackTraceFrameDepth(10.9));
-    Assertions.assertEquals(10, SystemStackTraceTableDataProvider.getMaxStackTraceFrameDepth("10.00"));
+    Assertions.assertEquals(10, StackTraceTableDataProvider.getMaxStackTraceFrameDepth(10.9));
+    Assertions.assertEquals(10, StackTraceTableDataProvider.getMaxStackTraceFrameDepth("10.00"));
     Assertions.assertEquals(
-        SystemStackTraceTableDataProvider.DEFAULT_MAX_STACK_TRACE_FRAME_DEPTH,
-        SystemStackTraceTableDataProvider.getMaxStackTraceFrameDepth(null)
+        StackTraceTableDataProvider.DEFAULT_MAX_STACK_TRACE_FRAME_DEPTH,
+        StackTraceTableDataProvider.getMaxStackTraceFrameDepth(null)
     );
     Assertions.assertThrows(
         DruidException.class,
-        () -> SystemStackTraceTableDataProvider.getMaxStackTraceFrameDepth(9)
+        () -> StackTraceTableDataProvider.getMaxStackTraceFrameDepth(9)
     );
     Assertions.assertThrows(
         BadQueryContextException.class,
-        () -> SystemStackTraceTableDataProvider.getMaxStackTraceFrameDepth("10.5")
+        () -> StackTraceTableDataProvider.getMaxStackTraceFrameDepth("10.5")
     );
   }
 
@@ -120,8 +120,8 @@ public class SystemStackTraceTableDataProviderCollectionTest
         Thread.yield();
       }
 
-      final SystemStackTraceTableDataProvider.ThreadStackTrace thread =
-          SystemStackTraceTableDataProvider.collect()
+      final StackTraceTableDataProvider.ThreadStackTrace thread =
+          StackTraceTableDataProvider.collect()
                                             .getThreads()
                                             .stream()
                                             .filter(stackTrace -> stackTrace.getThreadId() == waitingThread.threadId())
