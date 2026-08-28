@@ -74,6 +74,7 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.StackTraceTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
@@ -339,7 +340,7 @@ public class SystemSchema extends AbstractTableSchema
           jsonMapper,
           authenticationResult
       );
-      case SystemStackTraceTable.TABLE_NAME -> new SystemStackTraceTable();
+      case StackTraceTableDescriptor.TABLE_NAME -> new SystemStackTraceTable();
       case QUERIES_TABLE -> new QueriesTable(
           sqlEngineRegistryProvider,
           jsonMapper,
