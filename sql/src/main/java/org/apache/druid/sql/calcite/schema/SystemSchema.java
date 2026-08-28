@@ -108,7 +108,6 @@ public class SystemSchema extends AbstractTableSchema
   public static final String SEGMENTS_TABLE = "segments";
   public static final String SERVERS_TABLE = "servers";
   public static final String SERVER_SEGMENTS_TABLE = "server_segments";
-  public static final String SUPERVISOR_TABLE = SupervisorTableDescriptor.TABLE_NAME;
   public static final String QUERIES_TABLE = "queries";
 
   private static final Function<SegmentStatusInCluster, Iterable<ResourceAction>>
