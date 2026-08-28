@@ -576,12 +576,28 @@ public class SystemSchemaTest extends CalciteTestBase
     );
 
     Assertions.assertEquals(
-        ImmutableSet.of("segments", "servers", "server_segments", "tasks", "supervisors", "server_properties"),
+        ImmutableSet.of(
+            "segments",
+            "servers",
+            "server_segments",
+            "tasks",
+            "supervisors",
+            "server_properties",
+            "stack_trace"
+        ),
         schema.getTableNames()
     );
 
     Assertions.assertEquals(
-        ImmutableSet.of("segments", "servers", "server_segments", "tasks", "supervisors", "server_properties"),
+        ImmutableSet.of(
+            "segments",
+            "servers",
+            "server_segments",
+            "tasks",
+            "supervisors",
+            "server_properties",
+            "stack_trace"
+        ),
         schema.tables().getNames(LikePattern.any())
     );
 
@@ -611,6 +627,12 @@ public class SystemSchemaTest extends CalciteTestBase
     final RelDataType propertiesRowType = propertiesTable.getRowType(new JavaTypeFactoryImpl());
     final List<RelDataTypeField> propertiesFields = propertiesRowType.getFieldList();
     Assertions.assertEquals(6, propertiesFields.size());
+
+    final SystemStackTraceTable stackTraceTable = (SystemStackTraceTable) schema.tables()
+                                                                               .get("stack_trace");
+    final RelDataType stackTraceRowType = stackTraceTable.getRowType(new JavaTypeFactoryImpl());
+    Assertions.assertEquals(17, stackTraceRowType.getFieldCount());
+    Assertions.assertEquals("stack", stackTraceRowType.getFieldList().get(15).getName());
   }
 
   @Test

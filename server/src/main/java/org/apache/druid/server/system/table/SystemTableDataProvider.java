@@ -25,6 +25,7 @@ import org.apache.druid.server.security.AuthenticationResult;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Supplies storage-prefiltered rows authorized for the internal caller of one native system table.
@@ -42,4 +43,17 @@ public interface SystemTableDataProvider
       @NotNull List<DimFilter> filters,
       AuthenticationResult internalAuthenticationResult
   );
+
+  /**
+   * Supplies rows with access to the query context. Providers that do not use query-context values can keep the
+   * two-argument implementation above; providers with request-scoped options can override this method.
+   */
+  default Iterable<Object[]> getRows(
+      @NotNull final List<DimFilter> filters,
+      final AuthenticationResult internalAuthenticationResult,
+      @NotNull final Map<String, Object> queryContext
+  )
+  {
+    return getRows(filters, internalAuthenticationResult);
+  }
 }

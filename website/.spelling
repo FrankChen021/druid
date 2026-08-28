@@ -2616,6 +2616,18 @@ SRE
 reachability
 ownership_mismatch
 giveup
+jstack
+STACK_TRACE
+collected_at
+thread_id
+thread_name
+thread_state
+cpu_time_ns
+user_cpu_time_ns
+lock_name
+lock_owner_id
+lock_owner_name
+is_deadlocked
 
 - ../docs/development/extensions-contrib/spectator-histogram.md
 SpectatorHistogram

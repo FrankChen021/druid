@@ -170,6 +170,7 @@ execution:
 |-----|--------------|
 |[`sys.tasks`](#tasks-table)|The Overlord that owns task state. Supported filters are pushed into task storage when the configured task storage implementation supports filter pushdown.|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Filters on `server` and `service_name` can avoid reading properties from nodes that don't match.|
+|[`sys.stack_trace`](#stack_trace-table)|A live snapshot of Java platform threads from Druid server processes. The `server` filter is required and is pushed to nodes before the snapshot is collected.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
 aggregations, sorting, and result processing. A system table that doesn't advertise native query support continues to
@@ -385,6 +386,70 @@ For example, to retrieve properties for a specific server, use the query
 
 ```sql
 SELECT * FROM sys.server_properties WHERE server='192.168.1.1:8081'
+```
+
+### STACK_TRACE table
+
+The `stack_trace` table exposes an on-demand snapshot of the live Java platform threads in Druid server processes. It is
+available only through native system-table execution, so set `useNativeQueryForSystemTables` to `true` and use the
+`native` SQL engine. Virtual threads are not included. The query must contain an equality or `IN` filter on `server`,
+whose value is the server's `host:port` address and aligns with `sys.servers.server`.
+
+The table requires `STATE READ` authorization. Because a stack trace can expose implementation and request details,
+grant access only to trusted operators.
+
+|Column|Type|Notes|
+|------|-----|-----|
+|server|VARCHAR|Host and port of the server, in the form `host:port`; aligns with `sys.servers.server`|
+|service_name|VARCHAR|Service name of the server, as defined by `druid.service`|
+|node_roles|VARCHAR|Comma-separated, lexicographically sorted list of roles announced by the process. A process with multiple roles is represented as, for example, `coordinator,overlord`|
+|collected_at|VARCHAR|UTC ISO-8601 timestamp recorded when collection of the server snapshot begins. All successful thread rows from one server snapshot have the same value|
+|thread_id|BIGINT|JVM thread identifier, unique while the platform thread exists|
+|thread_name|VARCHAR|JVM thread name|
+|thread_state|VARCHAR|JVM state of the platform thread, such as `RUNNABLE`, `BLOCKED`, `WAITING`, or `TIMED_WAITING`|
+|daemon|BIGINT|Boolean represented as long type where 1 = true and 0 = false|
+|priority|BIGINT|JVM thread priority|
+|cpu_time_ns|BIGINT|Cumulative thread CPU time in nanoseconds at collection time. Null when unavailable or disabled|
+|user_cpu_time_ns|BIGINT|Cumulative thread user CPU time in nanoseconds at collection time. Null when unavailable or disabled|
+|lock_name|VARCHAR|Name of the object or synchronizer on which the thread is blocked or waiting, when available; otherwise null|
+|lock_owner_id|BIGINT|Identifier of the thread owning the lock, when available|
+|lock_owner_name|VARCHAR|Name of the thread owning the lock, when available|
+|is_deadlocked|BIGINT|Boolean represented as long type where 1 = the JVM reports the thread as part of a deadlock and 0 = it is not reported as deadlocked|
+|stack|VARCHAR|One jstack-style string containing the thread header, up to `maxStackTraceFrameDepth` stack frames, and lock or synchronizer annotations. The default is 100 frames. Unlike `ThreadInfo.toString()`, the value is not truncated to eight frames|
+|error_message|VARCHAR|Describes why the snapshot could not be retrieved, such as an HTTP or connection error. Null for successful thread rows|
+
+The `cpu_time_ns` and `user_cpu_time_ns` values are nullable. Do not assume that either value is present, because
+availability depends on JVM support and configuration, and a thread can terminate while its snapshot is being collected.
+
+For example, to inspect threads and cumulative CPU time on one Broker:
+
+```sql
+SELECT thread_name, thread_state, cpu_time_ns, user_cpu_time_ns, stack
+FROM sys.stack_trace
+WHERE server = '192.168.1.1:8082'
+```
+
+To select more than one server, use `IN`:
+
+```sql
+SELECT server, service_name, thread_name, stack
+FROM sys.stack_trace
+WHERE server IN ('192.168.1.1:8081', '192.168.1.1:8082')
+```
+
+Use the `maxStackTraceFrameDepth` query context to control the maximum number of frames returned for each thread. It
+defaults to 100 and accepts values from 10 through 1000. Numeric values use their truncated integer value when Druid
+converts the query context, while quoted values are parsed as integers; values outside the range or values that cannot
+be parsed as integers are rejected.
+
+```json
+{
+  "query": "SELECT thread_name, stack FROM sys.stack_trace WHERE server = '192.168.1.1:8082'",
+  "context": {
+    "useNativeQueryForSystemTables": true,
+    "maxStackTraceFrameDepth": 250
+  }
+}
 ```
 
 ### QUERIES table

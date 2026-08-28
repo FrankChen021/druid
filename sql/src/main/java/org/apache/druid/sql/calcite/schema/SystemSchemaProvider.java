@@ -32,6 +32,7 @@ import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.server.system.table.StackTraceTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.http.SqlEngineRegistry;
@@ -98,6 +99,7 @@ public class SystemSchemaProvider implements SchemaProvider
     allTableNames.add(TaskTableDescriptor.TABLE_NAME);
     allTableNames.add(SystemSchema.SUPERVISOR_TABLE);
     allTableNames.add(SystemServerPropertiesTable.TABLE_NAME);
+    allTableNames.add(StackTraceTableDescriptor.TABLE_NAME);
 
     if (plannerConfig.isEnableSysQueriesTable()) {
       allTableNames.add(SystemSchema.QUERIES_TABLE);
