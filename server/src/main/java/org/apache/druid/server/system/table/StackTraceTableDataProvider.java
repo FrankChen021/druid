@@ -57,7 +57,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Native row supplier for {@code sys.stack_trace}. */
-public class SystemStackTraceTableDataProvider implements SystemTableDataProvider
+public class StackTraceTableDataProvider implements SystemTableDataProvider
 {
   private static final List<SystemTablePushdownFilter> PUSHDOWN_FILTERS = List.of(
       new SystemTablePushdownFilter("server", null),
@@ -69,7 +69,7 @@ public class SystemStackTraceTableDataProvider implements SystemTableDataProvide
   private final AuthorizerMapper authorizerMapper;
 
   @Inject
-  public SystemStackTraceTableDataProvider(
+  public StackTraceTableDataProvider(
       @Self final DruidNode selfNode,
       @Self final Set<NodeRole> selfNodeRoles,
       final AuthorizerMapper authorizerMapper
@@ -164,7 +164,7 @@ public class SystemStackTraceTableDataProvider implements SystemTableDataProvide
   )
   {
     return filters.stream()
-                  .filter(SystemStackTraceTableDataProvider::isStringValuesFilter)
+                  .filter(StackTraceTableDataProvider::isStringValuesFilter)
                   .filter(filter -> column.equals(SystemTablePushdownFilter.getStringValuesColumn(filter)))
                   .allMatch(filter -> SystemTablePushdownFilter.getStringValues(filter).contains(value));
   }
