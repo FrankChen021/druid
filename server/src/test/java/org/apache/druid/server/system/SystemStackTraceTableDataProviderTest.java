@@ -31,7 +31,7 @@ import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
-import org.apache.druid.server.system.table.StackTraceTableDataProvider;
+import org.apache.druid.server.system.table.SystemStackTraceTableDataProvider;
 import org.apache.druid.server.system.table.SystemTablePushdownFilter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class StackTraceTableDataProviderTest
+public class SystemStackTraceTableDataProviderTest
 {
   private static final AuthenticationResult AUTHENTICATION_RESULT =
       new AuthenticationResult("test-user", AuthConfig.ALLOW_ALL_NAME, null, null);
@@ -50,7 +50,7 @@ public class StackTraceTableDataProviderTest
   @Test
   public void testAdvertisesServerAndServiceNamePushdownFilters()
   {
-    final StackTraceTableDataProvider provider = provider(allowAllAuthorizerMapper());
+    final SystemStackTraceTableDataProvider provider = provider(allowAllAuthorizerMapper());
 
     Assertions.assertEquals(
         List.of(
@@ -64,7 +64,7 @@ public class StackTraceTableDataProviderTest
   @Test
   public void testReturnsStackRowsWithNodeMetadata()
   {
-    final StackTraceTableDataProvider provider = provider(allowAllAuthorizerMapper());
+    final SystemStackTraceTableDataProvider provider = provider(allowAllAuthorizerMapper());
     final List<Object[]> rows = toRows(provider.getRows(Collections.emptyList(), AUTHENTICATION_RESULT));
 
     Assertions.assertFalse(rows.isEmpty());
@@ -83,7 +83,7 @@ public class StackTraceTableDataProviderTest
   @Test
   public void testAppliesServerServiceNameAndInFilters()
   {
-    final StackTraceTableDataProvider provider = provider(allowAllAuthorizerMapper());
+    final SystemStackTraceTableDataProvider provider = provider(allowAllAuthorizerMapper());
     final DimFilter wrongServer = new SelectorDimFilter("server", "other:8080", null);
     final DimFilter wrongService = new SelectorDimFilter("service_name", "broker", null);
 
@@ -102,7 +102,7 @@ public class StackTraceTableDataProviderTest
   @Test
   public void testUsesMaxStackTraceFrameDepthFromQueryContext()
   {
-    final StackTraceTableDataProvider provider = provider(allowAllAuthorizerMapper());
+    final SystemStackTraceTableDataProvider provider = provider(allowAllAuthorizerMapper());
     final List<Object[]> rows = toRows(
         provider.getRows(
             Collections.emptyList(),
@@ -120,7 +120,7 @@ public class StackTraceTableDataProviderTest
   @Test
   public void testRejectsInvalidMaxStackTraceFrameDepth()
   {
-    final StackTraceTableDataProvider provider = provider(allowAllAuthorizerMapper());
+    final SystemStackTraceTableDataProvider provider = provider(allowAllAuthorizerMapper());
 
     Assertions.assertThrows(
         DruidException.class,
@@ -136,7 +136,7 @@ public class StackTraceTableDataProviderTest
   public void testRejectsUnauthorizedRequest()
   {
     final Authorizer denyAll = (authenticationResult, resource, action) -> Access.DENIED;
-    final StackTraceTableDataProvider provider = provider(new AuthorizerMapper(null)
+    final SystemStackTraceTableDataProvider provider = provider(new AuthorizerMapper(null)
     {
       @Override
       public Authorizer getAuthorizer(final String name)
@@ -151,9 +151,9 @@ public class StackTraceTableDataProviderTest
     );
   }
 
-  private static StackTraceTableDataProvider provider(final AuthorizerMapper authorizerMapper)
+  private static SystemStackTraceTableDataProvider provider(final AuthorizerMapper authorizerMapper)
   {
-    return new StackTraceTableDataProvider(
+    return new SystemStackTraceTableDataProvider(
         new DruidNode("coordinator", "localhost", false, 8080, null, true, false),
         Set.of(NodeRole.COORDINATOR, NodeRole.OVERLORD),
         authorizerMapper

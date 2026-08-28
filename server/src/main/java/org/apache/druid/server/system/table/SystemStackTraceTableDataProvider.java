@@ -17,15 +17,30 @@
  * under the License.
  */
 
-package org.apache.druid.server;
+package org.apache.druid.server.system.table;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.error.InvalidInput;
+import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.query.filter.EqualityFilter;
+import org.apache.druid.query.filter.InDimFilter;
+import org.apache.druid.query.filter.OrDimFilter;
+import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.query.filter.TypedInFilter;
+import org.apache.druid.server.DruidNode;
+import org.apache.druid.server.security.Action;
+import org.apache.druid.server.security.AuthenticationResult;
+import org.apache.druid.server.security.AuthorizationResult;
+import org.apache.druid.server.security.AuthorizationUtils;
+import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.server.security.ForbiddenException;
+import org.apache.druid.server.security.Resource;
+import org.apache.druid.server.security.ResourceAction;
 
 import javax.annotation.Nullable;
 import java.lang.management.LockInfo;
@@ -37,26 +52,143 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-/**
- * Collects a live snapshot of the Java platform threads running in the current Druid process.
- *
- * <p>This class intentionally has no instance state. A new collector can be created for each request.
- */
-public class StackTraceCollector
+/** Native row supplier for {@code sys.stack_trace}. */
+public class SystemStackTraceTableDataProvider implements SystemTableDataProvider
 {
+  private static final List<SystemTablePushdownFilter> PUSHDOWN_FILTERS = List.of(
+      new SystemTablePushdownFilter("server", null),
+      new SystemTablePushdownFilter("service_name", null)
+  );
+
+  private final DruidNode selfNode;
+  private final Set<NodeRole> selfNodeRoles;
+  private final AuthorizerMapper authorizerMapper;
+
+  @Inject
+  public SystemStackTraceTableDataProvider(
+      @Self final DruidNode selfNode,
+      @Self final Set<NodeRole> selfNodeRoles,
+      final AuthorizerMapper authorizerMapper
+  )
+  {
+    this.selfNode = selfNode;
+    this.selfNodeRoles = selfNodeRoles;
+    this.authorizerMapper = authorizerMapper;
+  }
+
+  @Override
+  public List<SystemTablePushdownFilter> getPushdownFilters()
+  {
+    return PUSHDOWN_FILTERS;
+  }
+
+  @Override
+  public Iterable<Object[]> getRows(
+      final List<DimFilter> filters,
+      final AuthenticationResult internalAuthenticationResult
+  )
+  {
+    return getRows(filters, internalAuthenticationResult, Collections.emptyMap());
+  }
+
+  @Override
+  public Iterable<Object[]> getRows(
+      final List<DimFilter> filters,
+      final AuthenticationResult internalAuthenticationResult,
+      final Map<String, Object> queryContext
+  )
+  {
+    authorizeStackTraceRead(internalAuthenticationResult);
+
+    final String server = selfNode.getHostAndPortToUse();
+    if (!matchesNode(filters, "server", server)
+        || !matchesNode(filters, "service_name", selfNode.getServiceName())) {
+      return Collections.emptyList();
+    }
+
+    final int maxStackTraceFrameDepth = getMaxStackTraceFrameDepth(
+        queryContext.get(MAX_STACK_TRACE_FRAME_DEPTH_KEY)
+    );
+    final ThreadStackTraceResponse response = collect(maxStackTraceFrameDepth);
+    final String nodeRoles = selfNodeRoles.stream()
+                                          .map(NodeRole::getJsonName)
+                                          .sorted()
+                                          .collect(Collectors.joining(","));
+
+    return response.getThreads()
+                   .stream()
+                   .map(thread -> new Object[]{
+                       server,
+                       selfNode.getServiceName(),
+                       nodeRoles,
+                       response.getCollectedAt(),
+                       thread.getThreadId(),
+                       thread.getThreadName(),
+                       thread.getThreadState(),
+                       thread.isDaemon() ? 1L : 0L,
+                       (long) thread.getPriority(),
+                       thread.getCpuTimeNs(),
+                       thread.getUserCpuTimeNs(),
+                       thread.getLockName(),
+                       thread.getLockOwnerId(),
+                       thread.getLockOwnerName(),
+                       thread.isDeadlocked() ? 1L : 0L,
+                       thread.getStackTrace(),
+                       null
+                   })
+                   .collect(Collectors.toList());
+  }
+
+  private void authorizeStackTraceRead(final AuthenticationResult authenticationResult)
+  {
+    final AuthorizationResult authorizationResult = AuthorizationUtils.authorizeAllResourceActions(
+        authenticationResult,
+        Collections.singletonList(new ResourceAction(Resource.STATE_RESOURCE, Action.READ)),
+        authorizerMapper
+    );
+    if (!authorizationResult.allowAccessWithNoRestriction()) {
+      throw new ForbiddenException(
+          "Insufficient permission to view stack traces: " + authorizationResult.getErrorMessage()
+      );
+    }
+  }
+
+  private static boolean matchesNode(
+      final List<DimFilter> filters,
+      final String column,
+      final String value
+  )
+  {
+    return filters.stream()
+                  .filter(SystemStackTraceTableDataProvider::isStringValuesFilter)
+                  .filter(filter -> column.equals(SystemTablePushdownFilter.getStringValuesColumn(filter)))
+                  .allMatch(filter -> SystemTablePushdownFilter.getStringValues(filter).contains(value));
+  }
+
+  private static boolean isStringValuesFilter(final DimFilter filter)
+  {
+    return filter instanceof SelectorDimFilter
+           || filter instanceof EqualityFilter
+           || filter instanceof InDimFilter
+           || filter instanceof TypedInFilter
+           || filter instanceof OrDimFilter;
+  }
+
   public static final String MAX_STACK_TRACE_FRAME_DEPTH_KEY = "maxStackTraceFrameDepth";
   public static final int MIN_ALLOWED_STACK_TRACE_FRAME_DEPTH = 10;
   public static final int DEFAULT_MAX_STACK_TRACE_FRAME_DEPTH = 100;
   public static final int MAX_ALLOWED_STACK_TRACE_FRAME_DEPTH = 1000;
 
-  public ThreadStackTraceResponse collect()
+  public static ThreadStackTraceResponse collect()
   {
     return collect(DEFAULT_MAX_STACK_TRACE_FRAME_DEPTH);
   }
 
-  public ThreadStackTraceResponse collect(final int maxStackTraceFrameDepth)
+  public static ThreadStackTraceResponse collect(final int maxStackTraceFrameDepth)
   {
     validateMaxStackTraceFrameDepth(maxStackTraceFrameDepth);
     final String collectedAt = DateTimes.nowUtc().toString();
@@ -268,36 +400,31 @@ public class StackTraceCollector
     }
   }
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   public static class ThreadStackTraceResponse
   {
     private final String collectedAt;
     private final List<ThreadStackTrace> threads;
 
-    @JsonCreator
     public ThreadStackTraceResponse(
-        @JsonProperty("collectedAt") final String collectedAt,
-        @JsonProperty("threads") final List<ThreadStackTrace> threads
+        final String collectedAt,
+        final List<ThreadStackTrace> threads
     )
     {
       this.collectedAt = collectedAt;
       this.threads = threads == null ? ImmutableList.of() : ImmutableList.copyOf(threads);
     }
 
-    @JsonProperty
     public String getCollectedAt()
     {
       return collectedAt;
     }
 
-    @JsonProperty
     public List<ThreadStackTrace> getThreads()
     {
       return threads;
     }
   }
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   public static class ThreadStackTrace
   {
     private final long threadId;
@@ -318,20 +445,19 @@ public class StackTraceCollector
     private final boolean deadlocked;
     private final String stackTrace;
 
-    @JsonCreator
     public ThreadStackTrace(
-        @JsonProperty("threadId") final long threadId,
-        @JsonProperty("threadName") final String threadName,
-        @JsonProperty("threadState") final String threadState,
-        @JsonProperty("daemon") final boolean daemon,
-        @JsonProperty("priority") final int priority,
-        @JsonProperty("cpuTimeNs") @Nullable final Long cpuTimeNs,
-        @JsonProperty("userCpuTimeNs") @Nullable final Long userCpuTimeNs,
-        @JsonProperty("lockName") @Nullable final String lockName,
-        @JsonProperty("lockOwnerId") @Nullable final Long lockOwnerId,
-        @JsonProperty("lockOwnerName") @Nullable final String lockOwnerName,
-        @JsonProperty("deadlocked") final boolean deadlocked,
-        @JsonProperty("stackTrace") final String stackTrace
+        final long threadId,
+        final String threadName,
+        final String threadState,
+        final boolean daemon,
+        final int priority,
+        @Nullable final Long cpuTimeNs,
+        @Nullable final Long userCpuTimeNs,
+        @Nullable final String lockName,
+        @Nullable final Long lockOwnerId,
+        @Nullable final String lockOwnerName,
+        final boolean deadlocked,
+        final String stackTrace
     )
     {
       this.threadId = threadId;
@@ -348,78 +474,66 @@ public class StackTraceCollector
       this.stackTrace = stackTrace;
     }
 
-    @JsonProperty
     public long getThreadId()
     {
       return threadId;
     }
 
-    @JsonProperty
     public String getThreadName()
     {
       return threadName;
     }
 
-    @JsonProperty
     public String getThreadState()
     {
       return threadState;
     }
 
-    @JsonProperty
     public boolean isDaemon()
     {
       return daemon;
     }
 
-    @JsonProperty
     public int getPriority()
     {
       return priority;
     }
 
     @Nullable
-    @JsonProperty
     public Long getCpuTimeNs()
     {
       return cpuTimeNs;
     }
 
     @Nullable
-    @JsonProperty
     public Long getUserCpuTimeNs()
     {
       return userCpuTimeNs;
     }
 
     @Nullable
-    @JsonProperty
     public String getLockName()
     {
       return lockName;
     }
 
     @Nullable
-    @JsonProperty
     public Long getLockOwnerId()
     {
       return lockOwnerId;
     }
 
     @Nullable
-    @JsonProperty
     public String getLockOwnerName()
     {
       return lockOwnerName;
     }
 
-    @JsonProperty
     public boolean isDeadlocked()
     {
       return deadlocked;
     }
 
-    @JsonProperty
     public String getStackTrace()
     {
       return stackTrace;
