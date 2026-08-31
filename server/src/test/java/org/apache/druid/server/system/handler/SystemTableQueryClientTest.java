@@ -89,6 +89,7 @@ import org.joda.time.Duration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
@@ -349,24 +350,19 @@ public class SystemTableQueryClientTest
     final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
     final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
     final SystemTableQueryHandler localQueryHandler = Mockito.mock(SystemTableQueryHandler.class);
-    final AuthenticationResult escalatedAuthenticationResult =
-        new AuthenticationResult("system", "allow", "system", null);
     final Escalator escalator = Mockito.mock(Escalator.class);
-    Mockito.when(escalator.createEscalatedAuthenticationResult()).thenReturn(escalatedAuthenticationResult);
-    Mockito.doAnswer(
-        ignored -> (QueryRunner<ScanResultValue>) (queryPlus, responseContext) -> Sequences.simple(
-            List.of(
-                new ScanResultValue(
-                    null,
-                    descriptor.getRowSignature().getColumnNames(),
-                    List.of((Object) new Object[descriptor.getRowSignature().size()])
-                )
-            )
-        )
-    ).when(localQueryHandler).createRunner(
-        ArgumentMatchers.any(),
-        Mockito.same(escalatedAuthenticationResult),
-        Mockito.eq(true)
+    Mockito.when(escalator.createEscalatedAuthenticationResult()).thenReturn(
+        new AuthenticationResult("system", "allow", "system", null)
+    );
+    Mockito.when(localQueryHandler.resolveDataSource(ArgumentMatchers.any(), Mockito.same(AUTHENTICATION_RESULT)))
+           .thenReturn(
+               InlineDataSource.fromIterable(
+                   Collections.singletonList(new Object[]{"foo", 1L}),
+                   RowSignature.builder()
+                               .add("datasource", ColumnType.STRING)
+                               .add("size", ColumnType.LONG)
+                               .build()
+               )
     );
 
     final QuerySegmentWalker querySegmentWalker = Mockito.mock(QuerySegmentWalker.class);
@@ -383,7 +379,12 @@ public class SystemTableQueryClientTest
         escalator,
         nonMatchingSelfNode()
     );
-    final ScanQuery query = query(descriptor, Collections.emptyMap());
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                 .dataSource(new SystemTableDataSource(descriptor.getTableName()))
+                                 .eternityInterval()
+                                 .columns(List.of("datasource", "size"))
+                                 .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                 .build();
 
     final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT, false)
                                                 .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
@@ -392,10 +393,13 @@ public class SystemTableQueryClientTest
     Assertions.assertEquals(1, results.size());
     Assertions.assertEquals(1, ((List<?>) results.get(0).getEvents()).size());
     Mockito.verifyNoInteractions(nodeLocator, directClientFactory);
-    Mockito.verify(localQueryHandler).createRunner(
+    final ArgumentCaptor<ScanQuery> localQuery = ArgumentCaptor.forClass(ScanQuery.class);
+    Mockito.verify(localQueryHandler).resolveDataSource(localQuery.capture(), Mockito.same(AUTHENTICATION_RESULT));
+    Assertions.assertEquals(List.of("datasource", "size"), localQuery.getValue().getColumns());
+    Mockito.verify(localQueryHandler, Mockito.never()).createRunner(
         ArgumentMatchers.any(),
-        Mockito.same(escalatedAuthenticationResult),
-        Mockito.eq(true)
+        ArgumentMatchers.any(),
+        ArgumentMatchers.anyBoolean()
     );
   }
 

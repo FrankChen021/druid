@@ -216,6 +216,9 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
     }
 
     final ScanQuery nodeQuery = makeNodeQuery(dataSource, descriptor, owningQuery);
+    if (descriptor.getRoutingMode() == SystemTableRoutingMode.LOCAL_ONLY) {
+      return localQueryHandler.resolveDataSource(nodeQuery, authenticationResult);
+    }
     final List<QueryRunner<ScanResultValue>> nodeRunners = makeNodeRunners(
         nodeQuery,
         descriptor,
@@ -270,7 +273,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
                  .limit(Long.MAX_VALUE)
                  .filters(nodeFilter)
                  .virtualColumns(nodeVirtualColumns(dataSource, owningQuery, nodeFilter))
-                 .columns(descriptor.getRowSignature())
+                 .columns(nodeColumns(dataSource, descriptor, owningQuery))
                  .context(nodeContext)
                  .build();
   }
@@ -282,11 +285,6 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
   )
   {
     final List<QueryRunner<ScanResultValue>> nodeRunners = new ArrayList<>();
-    if (descriptor.getRoutingMode() == SystemTableRoutingMode.LOCAL_ONLY) {
-      nodeRunners.add((queryPlus, responseContext) -> runLocalNodeQuery(nodeQuery, queryPlus, responseContext));
-      return nodeRunners;
-    }
-
     for (final SystemTableNode node : nodeLocator.locate(descriptor, nodeQuery)) {
       nodeRunners.add(
           (queryPlus, responseContext) -> recoverNodeFailure(
@@ -308,30 +306,6 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
       );
     }
     return nodeRunners;
-  }
-
-  private Sequence<ScanResultValue> runLocalNodeQuery(
-      final ScanQuery nodeQuery,
-      final QueryPlus<ScanResultValue> queryPlus,
-      final ResponseContext responseContext
-  )
-  {
-    final String nodeResourceId = UUID.randomUUID().toString();
-    final String nodeQueryId = SystemTableDataSource.NODE_QUERY_ID_PREFIX + UUID.randomUUID();
-    final ScanQuery subNativeQuery = nodeQuery.withOverriddenContext(
-        Map.of(
-            BaseQuery.QUERY_ID,
-            nodeQueryId,
-            QueryContexts.QUERY_RESOURCE_ID,
-            nodeResourceId
-        )
-    );
-    final QueryRunner<ScanResultValue> localRunner = localQueryHandler.createRunner(
-        subNativeQuery,
-        escalatedAuthenticationResult,
-        true
-    );
-    return localRunner.run(queryPlus.withQuery(subNativeQuery), responseContext);
   }
 
   private Sequence<ScanResultValue> runNodeQuery(
@@ -859,6 +833,27 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
 
   private record NodeQuerySequence(SystemTableNode node, Sequence<ScanResultValue> sequence)
   {
+  }
+
+  private static List<String> nodeColumns(
+      final SystemTableDataSource dataSource,
+      final SystemTableDescriptor descriptor,
+      final Query<?> query
+  )
+  {
+    if (descriptor.getRoutingMode() != SystemTableRoutingMode.LOCAL_ONLY
+        || !dataSource.equals(query.getDataSource())
+        || query.getRequiredColumns() == null) {
+      return descriptor.getRowSignature().getColumnNames();
+    }
+
+    final List<String> columns = descriptor.getRowSignature()
+                                           .getColumnNames()
+                                           .stream()
+                                           .filter(query.getRequiredColumns()::contains)
+                                           .toList();
+    // A count-only query still needs one physical column so the inline cursor retains the source row cardinality.
+    return columns.isEmpty() ? List.of(descriptor.getRowSignature().getColumnName(0)) : columns;
   }
 
   @Nullable

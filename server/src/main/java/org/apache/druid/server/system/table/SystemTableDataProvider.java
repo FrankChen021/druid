@@ -23,6 +23,7 @@ import jakarta.validation.constraints.NotNull;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.server.security.AuthenticationResult;
 
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 
@@ -42,4 +43,30 @@ public interface SystemTableDataProvider
       @NotNull List<DimFilter> filters,
       AuthenticationResult internalAuthenticationResult
   );
+
+  /**
+   * Returns full-width rows before any type conversion that can be deferred until column projection. Providers whose
+   * rows already match the descriptor signature can use the default implementation.
+   */
+  default Iterable<Object[]> getRawRows(
+      @NotNull final List<DimFilter> filters,
+      final AuthenticationResult internalAuthenticationResult
+  )
+  {
+    return getRows(filters, internalAuthenticationResult);
+  }
+
+  /** Projects one authorized raw row into the columns requested by the native query. */
+  default Object[] projectRow(final Object[] row, @Nullable final int[] projects)
+  {
+    if (projects == null) {
+      return row;
+    }
+
+    final Object[] projectedRow = new Object[projects.length];
+    for (int i = 0; i < projects.length; i++) {
+      projectedRow[i] = row[projects[i]];
+    }
+    return projectedRow;
+  }
 }
