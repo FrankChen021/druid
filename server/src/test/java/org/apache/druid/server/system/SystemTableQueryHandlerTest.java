@@ -21,6 +21,7 @@ package org.apache.druid.server.system;
 
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.SystemTableDataSource;
@@ -144,6 +145,101 @@ public class SystemTableQueryHandlerTest
         ),
         result.get(0).getEvents()
     );
+  }
+
+  @Test
+  public void testDirectResolutionAuthorizesRawRowsBeforeProjection()
+  {
+    final AtomicInteger getRawRowsCalls = new AtomicInteger();
+    final AtomicInteger projectRowCalls = new AtomicInteger();
+    final AtomicInteger authorizationCalls = new AtomicInteger();
+    final SystemTableDataProvider supplier = new SystemTableDataProvider()
+    {
+      @Override
+      public Iterable<Object[]> getRows(
+          final List<DimFilter> filters,
+          final AuthenticationResult authenticationResult
+      )
+      {
+        throw new AssertionError("Direct resolution must use raw rows");
+      }
+
+      @Override
+      public Iterable<Object[]> getRawRows(
+          final List<DimFilter> filters,
+          final AuthenticationResult authenticationResult
+      )
+      {
+        getRawRowsCalls.incrementAndGet();
+        return List.of(
+            new Object[]{"task-a", 10L},
+            new Object[]{"task-b", 20L}
+        );
+      }
+
+      @Override
+      public Object[] projectRow(final Object[] row, final int[] projects)
+      {
+        projectRowCalls.incrementAndGet();
+        return SystemTableDataProvider.super.projectRow(row, projects);
+      }
+    };
+    final SystemTableDescriptor descriptor = new SystemTableDescriptor()
+    {
+      @Override
+      public String getTableName()
+      {
+        return "test";
+      }
+
+      @Override
+      public Set<NodeRole> getNodeRoles()
+      {
+        return Set.of();
+      }
+
+      @Override
+      public RowSignature getRowSignature()
+      {
+        return ROW_SIGNATURE;
+      }
+
+      @Override
+      public SystemTableRowAuthorizer getRowAuthorizer()
+      {
+        return (rows, authenticationResult, authorizerMapper) -> {
+          authorizationCalls.incrementAndGet();
+          return () -> java.util.stream.StreamSupport.stream(rows.spliterator(), false)
+                                                    .filter(row -> "task-b".equals(row[0]))
+                                                    .iterator();
+        };
+      }
+    };
+    final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Map.of("test", supplier),
+        Map.of("test", descriptor),
+        new ScanQueryEngine(),
+        new AuthorizerMapper(Map.of())
+    );
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                  .dataSource(new SystemTableDataSource("test"))
+                                  .eternityInterval()
+                                  .columns(List.of("duration"))
+                                  .build();
+
+    final InlineDataSource inlineDataSource = handler.resolveDataSource(
+        query,
+        new AuthenticationResult("alice", "allow", "external", null)
+    );
+
+    Assertions.assertEquals(List.of("duration"), inlineDataSource.getRowSignature().getColumnNames());
+    Assertions.assertEquals(0, getRawRowsCalls.get());
+    Assertions.assertEquals(0, projectRowCalls.get());
+    Assertions.assertEquals(1, authorizationCalls.get());
+    final List<Object[]> rows = inlineDataSource.getRowsAsList();
+    Assertions.assertEquals(1, getRawRowsCalls.get());
+    Assertions.assertEquals(1, projectRowCalls.get());
+    Assertions.assertArrayEquals(new Object[]{20L}, rows.get(0));
   }
 
 }

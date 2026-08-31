@@ -107,12 +107,27 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
   )
   {
     return Iterables.transform(
-        Iterables.filter(
-            getRawRows(segmentMetadataCacheProvider.get(), metadataView, getDataSourceFilter(filters)),
-            Objects::nonNull
-        ),
+        getRawRows(filters, internalAuthenticationResult),
         row -> projectRow(row, null, jsonMapper)
     );
+  }
+
+  @Override
+  public Iterable<Object[]> getRawRows(
+      final List<DimFilter> filters,
+      final AuthenticationResult internalAuthenticationResult
+  )
+  {
+    return Iterables.filter(
+        getRawRows(segmentMetadataCacheProvider.get(), metadataView, getDataSourceFilter(filters)),
+        Objects::nonNull
+    );
+  }
+
+  @Override
+  public Object[] projectRow(final Object[] row, @Nullable final int[] projects)
+  {
+    return projectRow(row, projects, jsonMapper);
   }
 
   /** Returns the unprojected rows shared by the native provider and the Bindable system-table implementation. */

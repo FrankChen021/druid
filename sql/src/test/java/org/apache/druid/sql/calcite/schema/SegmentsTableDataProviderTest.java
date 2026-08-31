@@ -87,6 +87,28 @@ public class SegmentsTableDataProviderTest
     Assertions.assertEquals("[\"metric1\"]", row[16]);
   }
 
+  @Test
+  public void testProjectionSkipsUnrequestedJsonColumns() throws Exception
+  {
+    final ObjectMapper mapper = Mockito.mock(ObjectMapper.class);
+    final SegmentsTableDataProvider provider = new SegmentsTableDataProvider(
+        () -> Mockito.mock(BrokerSegmentMetadataCache.class),
+        Mockito.mock(MetadataSegmentView.class),
+        mapper
+    );
+    final Object[] rawRow = new Object[SegmentsTableDescriptor.ROW_SIGNATURE.size()];
+    rawRow[SegmentsTableDescriptor.ROW_SIGNATURE.indexOf("datasource")] = "foo";
+    rawRow[SegmentsTableDescriptor.ROW_SIGNATURE.indexOf("dimensions")] = List.of("unused");
+
+    final Object[] projectedRow = provider.projectRow(
+        rawRow,
+        new int[]{SegmentsTableDescriptor.ROW_SIGNATURE.indexOf("datasource")}
+    );
+
+    Assertions.assertArrayEquals(new Object[]{"foo"}, projectedRow);
+    Mockito.verify(mapper, Mockito.never()).writeValueAsString(Mockito.any());
+  }
+
   private static List<Object[]> toRows(final Iterable<Object[]> rows)
   {
     final List<Object[]> result = new java.util.ArrayList<>();
