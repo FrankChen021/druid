@@ -24,10 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.inject.Provider;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.DefaultEnumerable;
 import org.apache.calcite.linq4j.Enumerable;
@@ -62,8 +59,6 @@ import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.column.ValueType;
-import org.apache.druid.segment.metadata.AvailableSegmentMetadata;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -74,6 +69,7 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.SegmentsTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
@@ -85,8 +81,6 @@ import org.apache.druid.sql.http.GetQueriesResponse;
 import org.apache.druid.sql.http.QueryInfo;
 import org.apache.druid.sql.http.SqlEngineRegistry;
 import org.apache.druid.timeline.DataSegment;
-import org.apache.druid.timeline.SegmentId;
-import org.apache.druid.timeline.SegmentStatusInCluster;
 
 import javax.annotation.Nullable;
 import java.io.Closeable;
@@ -94,7 +88,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -104,37 +97,16 @@ import java.util.stream.IntStream;
 
 public class SystemSchema extends AbstractTableSchema
 {
-  public static final String SEGMENTS_TABLE = "segments";
+  public static final String SEGMENTS_TABLE = SegmentsTableDescriptor.TABLE_NAME;
   public static final String SERVERS_TABLE = "servers";
   public static final String SERVER_SEGMENTS_TABLE = "server_segments";
   public static final String SUPERVISOR_TABLE = "supervisors";
   public static final String QUERIES_TABLE = "queries";
 
-  private static final Function<SegmentStatusInCluster, Iterable<ResourceAction>>
-      SEGMENT_STATUS_IN_CLUSTER_RA_GENERATOR = segment ->
-      Collections.singletonList(AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply(
-          segment.getDataSegment().getDataSource())
-      );
-
   private static final Function<DataSegment, Iterable<ResourceAction>> SEGMENT_RA_GENERATOR =
       segment -> Collections.singletonList(AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply(
           segment.getDataSource())
       );
-
-  private static final long REPLICATION_FACTOR_UNKNOWN = -1L;
-
-  /**
-   * Booleans constants represented as long type,
-   * where 1 = true and 0 = false to make it easy to count number of segments
-   * which are published, available etc.
-   */
-  private static final long IS_ACTIVE_FALSE = 0L;
-  private static final long IS_ACTIVE_TRUE = 1L;
-  private static final long IS_PUBLISHED_FALSE = 0L;
-  private static final long IS_PUBLISHED_TRUE = 1L;
-  private static final long IS_AVAILABLE_TRUE = 1L;
-  private static final long IS_OVERSHADOWED_FALSE = 0L;
-  private static final long IS_OVERSHADOWED_TRUE = 1L;
 
   public static boolean canUseNativeSystemTable(
       final RelOptTable table,
@@ -157,47 +129,7 @@ public class SystemSchema extends AbstractTableSchema
     return nativeSystemTable == null ? null : nativeSystemTable.asNativeTable();
   }
 
-  static final RowSignature SEGMENTS_SIGNATURE = RowSignature
-      .builder()
-      .add("segment_id", ColumnType.STRING)
-      .add("datasource", ColumnType.STRING)
-      .add("start", ColumnType.STRING)
-      .add("end", ColumnType.STRING)
-      .add("size", ColumnType.LONG)
-      .add("version", ColumnType.STRING)
-      .add("partition_num", ColumnType.LONG)
-      .add("num_replicas", ColumnType.LONG)
-      .add("num_rows", ColumnType.LONG)
-      .add("is_active", ColumnType.LONG)
-      .add("is_published", ColumnType.LONG)
-      .add("is_available", ColumnType.LONG)
-      .add("is_realtime", ColumnType.LONG)
-      .add("is_overshadowed", ColumnType.LONG)
-      .add("shard_spec", ColumnType.STRING)
-      .add("dimensions", ColumnType.STRING)
-      .add("metrics", ColumnType.STRING)
-      .add("projections", ColumnType.STRING)
-      .add("last_compaction_state", ColumnType.STRING)
-      .add("replication_factor", ColumnType.LONG)
-      .build();
-
-  /**
-   * List of [0..n) where n is the size of {@link #SEGMENTS_SIGNATURE}.
-   */
-  private static final int[] SEGMENTS_PROJECT_ALL = IntStream.range(0, SEGMENTS_SIGNATURE.size()).toArray();
-
-  /**
-   * Fields in {@link #SEGMENTS_SIGNATURE} that are serialized with {@link ObjectMapper#writeValueAsString(Object)}.
-   */
-  private static final IntSet SEGMENTS_JSON_FIELDS = new IntOpenHashSet(
-      new int[]{
-          SEGMENTS_SIGNATURE.indexOf("shard_spec"),
-          SEGMENTS_SIGNATURE.indexOf("dimensions"),
-          SEGMENTS_SIGNATURE.indexOf("metrics"),
-          SEGMENTS_SIGNATURE.indexOf("projections"),
-          SEGMENTS_SIGNATURE.indexOf("last_compaction_state")
-      }
-  );
+  static final RowSignature SEGMENTS_SIGNATURE = SegmentsTableDescriptor.ROW_SIGNATURE;
 
   static final RowSignature SERVERS_SIGNATURE = RowSignature
       .builder()
@@ -389,7 +321,7 @@ public class SystemSchema extends AbstractTableSchema
   /**
    * This table contains row per segment from metadata store as well as served segments.
    */
-  static class SegmentsTable extends AbstractTable implements ProjectableFilterableTable
+  static class SegmentsTable extends AbstractTable implements ProjectableFilterableTable, NativeSystemTable
   {
     private static final int DATASOURCE_COLUMN = SEGMENTS_SIGNATURE.indexOf("datasource");
 
@@ -427,170 +359,33 @@ public class SystemSchema extends AbstractTableSchema
     }
 
     @Override
+    public DruidTable asNativeTable()
+    {
+      return new NativeSegmentsTable();
+    }
+
+    @Override
     public Enumerable<Object[]> scan(
         final DataContext root,
         final List<RexNode> filters,
         @Nullable final int[] projects
     )
     {
-      // Best-effort push-down of a `datasource` equality/IN filter so we scan only the matching
-      // datasources instead of every segment in the cluster. Null => no usable filter => full scan.
-      // The filters are intentionally left in the list, so Calcite still applies them and correctness
-      // holds even if this extraction is conservative or over-broad.
       final Set<String> dataSourceFilter = getDataSourceFilter(filters);
-
-      // Keep track of which segments we emitted from the publishedSegments iterator, so we don't emit them again
-      // from the availableSegments iterator. When a datasource filter is pushed down we only emit the matching
-      // datasources' segments, so avoid pre-sizing to the whole-cluster segment count (a huge, wasted allocation).
-      final Set<SegmentId> segmentsAlreadySeen =
-          dataSourceFilter == null
-          ? Sets.newHashSetWithExpectedSize(segmentMetadataCache.getTotalSegments())
-          : new HashSet<>();
-
-      // Get segments from metadata segment cache (if enabled in SQL planner config), else directly from
-      // Coordinator. This may include both published and realtime segments.
-      final Iterator<SegmentStatusInCluster> metadataStoreSegments = metadataView.getSegments(dataSourceFilter);
-      final FluentIterable<Object[]> publishedSegments = FluentIterable
-          .from(() -> getAuthorizedPublishedSegments(metadataStoreSegments))
-          .transform(val -> {
-            final DataSegment segment = val.getDataSegment();
-            final AvailableSegmentMetadata availableSegmentMetadata =
-                segmentMetadataCache.getAvailableSegmentMetadata(segment.getDataSource(), segment.getId());
-            segmentsAlreadySeen.add(segment.getId());
-
-            long numReplicas = 0L, isAvailable = 0L;
-            if (availableSegmentMetadata != null) {
-              numReplicas = availableSegmentMetadata.getNumReplicas();
-              isAvailable = availableSegmentMetadata.getNumReplicas() > 0 ? IS_AVAILABLE_TRUE : IS_ACTIVE_FALSE;
-            }
-
-            final long numRows;
-            if (segment.getTotalRows() != null) {
-              // the recent version of DataSegment stores numRows
-              numRows = segment.getTotalRows().longValue();
-            } else if (val.getNumRows() != null) {
-              // If druid.centralizedDatasourceSchema.enabled is set on the Coordinator, SegmentMetadataCache on the
-              // broker might have outdated or no information regarding numRows and rowSignature for a segment.
-              // In that case, we should use {@code numRows} from the segment polled from the coordinator.
-              numRows = val.getNumRows();
-            } else if (availableSegmentMetadata != null) {
-              numRows = availableSegmentMetadata.getNumRows();
-            } else {
-              numRows = 0L;
-            }
-
-            long isRealtime = val.isRealtime() ? 1 : 0;
-
-            // set of segments returned from Coordinator include published and realtime segments
-            // so realtime segments are not published and vice versa
-            boolean isPublished = !val.isRealtime();
-
-            // is_active is true for published segments that are not overshadowed or else they should be realtime
-            boolean isActive = isPublished ? !val.isOvershadowed() : val.isRealtime();
-
-            return new Object[]{
-                segment.getId(),
-                segment.getDataSource(),
-                segment.getInterval().getStart(),
-                segment.getInterval().getEnd(),
-                segment.getSize(),
-                segment.getVersion(),
-                (long) segment.getShardSpec().getPartitionNum(),
-                numReplicas,
-                numRows,
-                isActive ? IS_ACTIVE_TRUE : IS_ACTIVE_FALSE,
-                isPublished ? IS_PUBLISHED_TRUE : IS_PUBLISHED_FALSE,
-                isAvailable,
-                isRealtime,
-                val.isOvershadowed() ? IS_OVERSHADOWED_TRUE : IS_OVERSHADOWED_FALSE,
-                segment.getShardSpec(),
-                segment.getDimensions(),
-                segment.getMetrics(),
-                segment.getProjections(),
-                segment.getLastCompactionState(),
-                // If the segment is unpublished, we won't have this information yet.
-                // If the value is null, the load rules might have not evaluated yet, and we don't know the replication factor.
-                // This should be automatically updated in the next Coordinator poll.
-                val.getReplicationFactor() == null ? REPLICATION_FACTOR_UNKNOWN : (long) val.getReplicationFactor()
-            };
-          });
-
-      // If druid.centralizedDatasourceSchema.enabled is set on the Coordinator, all the segments in this loop
-      // would be covered in the previous iteration since Coordinator would return realtime segments as well.
-      final FluentIterable<Object[]> availableSegments = FluentIterable
-          .from(() -> getAuthorizedAvailableSegments(segmentMetadataCache.iterateSegmentMetadata(dataSourceFilter)))
-          .transform(val -> {
-            final DataSegment segment = val.getSegment();
-            if (segmentsAlreadySeen.contains(segment.getId())) {
-              return null;
-            }
-            return new Object[]{
-                segment.getId(),
-                segment.getDataSource(),
-                segment.getInterval().getStart(),
-                segment.getInterval().getEnd(),
-                segment.getSize(),
-                segment.getVersion(),
-                (long) segment.getShardSpec().getPartitionNum(),
-                val.getNumReplicas(),
-                segment.getTotalRows() != null ? segment.getTotalRows() : val.getNumRows(),
-                // is_active is true for unpublished segments iff they are realtime
-                val.isRealtime() /* is_active */,
-                // is_published is false for unpublished segments
-                IS_PUBLISHED_FALSE,
-                // is_available is assumed to be always true for segments announced by historicals or realtime tasks
-                IS_AVAILABLE_TRUE,
-                val.isRealtime(),
-                IS_OVERSHADOWED_FALSE,
-                // there is an assumption here that unpublished segments are never overshadowed
-                segment.getShardSpec(),
-                segment.getDimensions(),
-                segment.getMetrics(),
-                segment.getProjections(),
-                null, // unpublished segments from realtime tasks will not be compacted yet
-                REPLICATION_FACTOR_UNKNOWN // If the segment is unpublished, we won't have this information yet.
-            };
-          });
-
-      final Iterable<Object[]> allSegments = Iterables.unmodifiableIterable(
-          Iterables.concat(publishedSegments, availableSegments)
+      final Iterable<Object[]> authorizedRows = AuthorizationUtils.filterAuthorizedResources(
+          authenticationResult,
+          Iterables.filter(
+              SegmentsTableDataProvider.getRawRows(segmentMetadataCache, metadataView, dataSourceFilter),
+              Objects::nonNull
+          ),
+          row -> Collections.singletonList(
+              AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply((String) row[DATASOURCE_COLUMN])
+          ),
+          authorizerMapper
       );
-
-      return Linq4j.asEnumerable(allSegments)
+      return Linq4j.asEnumerable(authorizedRows)
                    .where(Objects::nonNull)
-                   .select(row -> projectSegmentsRow(row, projects, jsonMapper));
-    }
-
-    private Iterator<SegmentStatusInCluster> getAuthorizedPublishedSegments(Iterator<SegmentStatusInCluster> it)
-    {
-      final Iterable<SegmentStatusInCluster> authorizedSegments = AuthorizationUtils
-          .filterAuthorizedResources(
-              authenticationResult,
-              () -> it,
-              SEGMENT_STATUS_IN_CLUSTER_RA_GENERATOR,
-              authorizerMapper
-          );
-      return authorizedSegments.iterator();
-    }
-
-    private Iterator<AvailableSegmentMetadata> getAuthorizedAvailableSegments(
-        Iterator<AvailableSegmentMetadata> availableSegmentEntries
-    )
-    {
-      Function<AvailableSegmentMetadata, Iterable<ResourceAction>> raGenerator = segment ->
-          Collections.singletonList(
-              AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply(segment.getSegment().getDataSource())
-          );
-
-      final Iterable<AvailableSegmentMetadata> authorizedSegments =
-          AuthorizationUtils.filterAuthorizedResources(
-              authenticationResult,
-              () -> availableSegmentEntries,
-              raGenerator,
-              authorizerMapper
-          );
-
-      return authorizedSegments.iterator();
+                   .select(row -> SegmentsTableDataProvider.projectRow(row, projects, jsonMapper));
     }
 
     /**
@@ -607,47 +402,6 @@ public class SystemSchema extends AbstractTableSchema
       return SystemSchemaFilters.extractColumnValues(filters, DATASOURCE_COLUMN);
     }
 
-    private static class PartialSegmentData
-    {
-      private final long isAvailable;
-      private final long isRealtime;
-      private final long numReplicas;
-      private final long numRows;
-
-      public PartialSegmentData(
-          final long isAvailable,
-          final long isRealtime,
-          final long numReplicas,
-          final long numRows
-      )
-
-      {
-        this.isAvailable = isAvailable;
-        this.isRealtime = isRealtime;
-        this.numReplicas = numReplicas;
-        this.numRows = numRows;
-      }
-
-      public long isAvailable()
-      {
-        return isAvailable;
-      }
-
-      public long isRealtime()
-      {
-        return isRealtime;
-      }
-
-      public long getNumReplicas()
-      {
-        return numReplicas;
-      }
-
-      public long getNumRows()
-      {
-        return numRows;
-      }
-    }
   }
 
   /**
@@ -1272,46 +1026,6 @@ public class SystemSchema extends AbstractTableSchema
                  .flatMap(nodeRole -> druidNodeDiscoveryProvider.getForNodeRole(nodeRole).getAllNodes().stream())
                  .collect(Collectors.toList())
                  .iterator();
-  }
-
-  /**
-   * Project a row using "projects" from {@link SegmentsTable#scan(DataContext, List, int[])}.
-   * <p>
-   * Also, fix up types so {@link ColumnType#STRING} are transformed to Strings if they aren't yet. This defers
-   * computation of {@link ObjectMapper#writeValueAsString(Object)} or {@link Object#toString()} until we know we
-   * actually need it.
-   */
-  private static Object[] projectSegmentsRow(
-      final Object[] row,
-      @Nullable final int[] projects,
-      final ObjectMapper jsonMapper
-  )
-  {
-    final int[] nonNullProjects = projects == null ? SEGMENTS_PROJECT_ALL : projects;
-    final Object[] projectedRow = new Object[nonNullProjects.length];
-
-    for (int i = 0; i < nonNullProjects.length; i++) {
-      final Object o = row[nonNullProjects[i]];
-
-      if (SEGMENTS_SIGNATURE.getColumnType(nonNullProjects[i]).get().is(ValueType.STRING)
-          && o != null
-          && !(o instanceof String)) {
-        // Delay calling toString() or ObjectMapper#writeValueAsString() until we know we actually need this field.
-        if (SEGMENTS_JSON_FIELDS.contains(nonNullProjects[i])) {
-          try {
-            projectedRow[i] = jsonMapper.writeValueAsString(o);
-          }
-          catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-          }
-        } else {
-          projectedRow[i] = o.toString();
-        }
-      } else {
-        projectedRow[i] = o;
-      }
-    }
-    return projectedRow;
   }
 
   /**

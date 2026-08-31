@@ -36,6 +36,12 @@ public class SystemTableDataProviderTest
   @Test
   public void testNativeTablesExposeSystemMetadata()
   {
+    final NativeSegmentsTable segments = new NativeSegmentsTable();
+    Assertions.assertEquals("segments", ((SystemTableDataSource) segments.getDataSource()).getTable());
+    Assertions.assertFalse(segments.isJoinable());
+    Assertions.assertFalse(segments.isBroadcast());
+    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, segments.getJdbcTableType());
+
     final NativeTasksTable tasks = new NativeTasksTable();
     Assertions.assertEquals("tasks", ((SystemTableDataSource) tasks.getDataSource()).getTable());
     Assertions.assertFalse(tasks.isJoinable());

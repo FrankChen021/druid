@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.multibindings.MapBinder;
 import com.google.inject.name.Names;
 import org.apache.druid.client.BrokerSegmentWatcherConfig;
 import org.apache.druid.client.BrokerServerView;
@@ -81,7 +82,10 @@ import org.apache.druid.server.http.SelfDiscoveryResource;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
 import org.apache.druid.server.metrics.SubqueryCountStatsProvider;
 import org.apache.druid.server.router.TieredBrokerConfig;
+import org.apache.druid.server.system.table.SegmentsTableDescriptor;
+import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.sql.calcite.schema.MetadataSegmentView;
+import org.apache.druid.sql.calcite.schema.SegmentsTableDataProvider;
 import org.apache.druid.sql.guice.SqlModule;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
 import org.apache.druid.timeline.PruneLoadSpec;
@@ -125,6 +129,11 @@ public class CliBroker extends ServerRunnable
         new BrokerServiceModule(),
         binder -> {
           validateCentralizedDatasourceSchemaConfig(getProperties());
+
+          MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class)
+                   .addBinding(SegmentsTableDescriptor.TABLE_NAME)
+                   .to(SegmentsTableDataProvider.class)
+                   .in(LazySingleton.class);
 
           binder.bindConstant().annotatedWith(Names.named("serviceName")).to(
               TieredBrokerConfig.DEFAULT_BROKER_SERVICE_NAME

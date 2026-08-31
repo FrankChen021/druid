@@ -168,6 +168,7 @@ execution:
 
 |Table|Source of rows|
 |-----|--------------|
+|[`sys.segments`](#segments-table)|The Broker that receives the SQL query. It combines that Broker's segment metadata cache with its Coordinator metadata view, and exact `datasource` equality/`IN` filters are pushed into the local scan. Native execution does not fan out to other Brokers.|
 |[`sys.tasks`](#tasks-table)|The Overlord that owns task state. Supported filters are pushed into task storage when the configured task storage implementation supports filter pushdown.|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Filters on `server` and `service_name` can avoid reading properties from nodes that don't match.|
 
