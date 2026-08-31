@@ -282,6 +282,11 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
   )
   {
     final List<QueryRunner<ScanResultValue>> nodeRunners = new ArrayList<>();
+    if (descriptor.getRoutingMode() == SystemTableRoutingMode.LOCAL_ONLY) {
+      nodeRunners.add((queryPlus, responseContext) -> runLocalNodeQuery(nodeQuery, queryPlus, responseContext));
+      return nodeRunners;
+    }
+
     for (final SystemTableNode node : nodeLocator.locate(descriptor, nodeQuery)) {
       nodeRunners.add(
           (queryPlus, responseContext) -> recoverNodeFailure(
@@ -303,6 +308,30 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
       );
     }
     return nodeRunners;
+  }
+
+  private Sequence<ScanResultValue> runLocalNodeQuery(
+      final ScanQuery nodeQuery,
+      final QueryPlus<ScanResultValue> queryPlus,
+      final ResponseContext responseContext
+  )
+  {
+    final String nodeResourceId = UUID.randomUUID().toString();
+    final String nodeQueryId = SystemTableDataSource.NODE_QUERY_ID_PREFIX + UUID.randomUUID();
+    final ScanQuery subNativeQuery = nodeQuery.withOverriddenContext(
+        Map.of(
+            BaseQuery.QUERY_ID,
+            nodeQueryId,
+            QueryContexts.QUERY_RESOURCE_ID,
+            nodeResourceId
+        )
+    );
+    final QueryRunner<ScanResultValue> localRunner = localQueryHandler.createRunner(
+        subNativeQuery,
+        escalatedAuthenticationResult,
+        true
+    );
+    return localRunner.run(queryPlus.withQuery(subNativeQuery), responseContext);
   }
 
   private Sequence<ScanResultValue> runNodeQuery(

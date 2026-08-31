@@ -24,8 +24,10 @@ import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.server.system.handler.SystemTableQueryResource;
+import org.apache.druid.server.system.table.SegmentsTableDescriptor;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
+import org.apache.druid.sql.calcite.schema.SegmentsTableDataProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -75,6 +77,20 @@ public class MainTest
     Assertions.assertTrue(
         systemTableDataProviders(middleManagerInjector).containsKey(ServerPropertiesTableDescriptor.TABLE_NAME)
     );
+  }
+
+  @Test
+  public void testBrokerNativeSegmentsProviderInjection()
+  {
+    final CliBroker broker = new CliBroker();
+    final Injector injector = GuiceInjectors.makeStartupInjector();
+    injector.injectMembers(broker);
+
+    final Injector brokerInjector = broker.makeInjector(broker.getNodeRoles(new Properties()));
+    final SystemTableDataProvider provider = systemTableDataProviders(brokerInjector)
+        .get(SegmentsTableDescriptor.TABLE_NAME);
+
+    Assertions.assertInstanceOf(SegmentsTableDataProvider.class, provider);
   }
 
   private static Map<String, SystemTableDataProvider> systemTableDataProviders(final Injector injector)
