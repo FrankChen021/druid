@@ -28,6 +28,8 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import org.apache.druid.query.BatchedInlineDataSource;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.InDimFilter;
@@ -40,6 +42,7 @@ import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.system.table.SegmentsTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTablePushdownFilter;
+import org.apache.druid.server.system.table.SystemTableQueryRequest;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.SegmentStatusInCluster;
@@ -49,6 +52,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
@@ -98,6 +102,23 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
   public List<SystemTablePushdownFilter> getPushdownFilters()
   {
     return PUSHDOWN_FILTERS;
+  }
+
+  @Override
+  public Optional<DataSource> getAuthorizedDataSource(
+      final SystemTableQueryRequest request,
+      final Iterable<Object[]> authorizedRows
+  )
+  {
+    final int[] projects = request.columns()
+                                  .stream()
+                                  .mapToInt(SegmentsTableDescriptor.ROW_SIGNATURE::indexOf)
+                                  .toArray();
+    final Iterable<Object[]> projectedRows = Iterables.transform(
+        authorizedRows,
+        row -> projectRow(row, projects, jsonMapper)
+    );
+    return Optional.of(new BatchedInlineDataSource(projectedRows, request.rowSignature()));
   }
 
   @Override

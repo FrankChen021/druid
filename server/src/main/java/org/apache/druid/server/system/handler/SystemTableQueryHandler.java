@@ -26,6 +26,7 @@ import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.Query;
@@ -44,6 +45,7 @@ import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTablePushdownFilter;
+import org.apache.druid.server.system.table.SystemTableQueryRequest;
 
 import java.util.List;
 import java.util.Map;
@@ -120,7 +122,7 @@ public class SystemTableQueryHandler implements DataSourceQueryHandler
   }
 
   /** Resolves a local system table directly to lazily projected, user-authorized inline rows. */
-  public InlineDataSource resolveDataSource(
+  public DataSource resolveDataSource(
       final ScanQuery query,
       final AuthenticationResult requestAuthenticationResult
   )
@@ -141,15 +143,27 @@ public class SystemTableQueryHandler implements DataSourceQueryHandler
       signatureBuilder.add(column, descriptor.getRowSignature().getColumnType(columnNumber).orElse(null));
     }
 
+    final RowSignature projectedSignature = signatureBuilder.build();
     final Iterable<Object[]> authorizedRows = getAuthorizedRows(
         dataSupplier,
         descriptor,
         query,
         requestAuthenticationResult
     );
+    final DataSource authorizedDataSource = dataSupplier.getAuthorizedDataSource(
+        new SystemTableQueryRequest(
+            columns,
+            projectedSignature
+        ),
+        authorizedRows
+    ).orElse(null);
+    if (authorizedDataSource != null) {
+      return authorizedDataSource;
+    }
+
     return InlineDataSource.fromIterable(
         Iterables.transform(authorizedRows, row -> dataSupplier.projectRow(row, projects)),
-        signatureBuilder.build()
+        projectedSignature
     );
   }
 
