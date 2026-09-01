@@ -23,11 +23,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Provider;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
+import org.apache.druid.query.BatchedInlineDataSource;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.system.table.SegmentsTableDescriptor;
+import org.apache.druid.server.system.table.SystemTableQueryRequest;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.junit.jupiter.api.Assertions;
@@ -106,6 +111,39 @@ public class SegmentsTableDataProviderTest
     );
 
     Assertions.assertArrayEquals(new Object[]{"foo"}, projectedRow);
+    Mockito.verify(mapper, Mockito.never()).writeValueAsString(Mockito.any());
+  }
+
+  @Test
+  public void testAuthorizedDataSourceProjectsRowsIntoBatches() throws Exception
+  {
+    final ObjectMapper mapper = Mockito.mock(ObjectMapper.class);
+    final SegmentsTableDataProvider provider = new SegmentsTableDataProvider(
+        () -> Mockito.mock(BrokerSegmentMetadataCache.class),
+        Mockito.mock(MetadataSegmentView.class),
+        mapper
+    );
+    final Object[] rawRow = new Object[SegmentsTableDescriptor.ROW_SIGNATURE.size()];
+    rawRow[SegmentsTableDescriptor.ROW_SIGNATURE.indexOf("datasource")] = "foo";
+    rawRow[SegmentsTableDescriptor.ROW_SIGNATURE.indexOf("dimensions")] = List.of("unused");
+    final RowSignature projectedSignature = RowSignature.builder()
+                                                        .add("datasource", ColumnType.STRING)
+                                                        .build();
+
+    final DataSource dataSource = provider.getAuthorizedDataSource(
+        new SystemTableQueryRequest(
+            List.of("datasource"),
+            projectedSignature
+        ),
+        List.<Object[]>of(rawRow)
+    ).orElseThrow();
+
+    final BatchedInlineDataSource batchedDataSource = Assertions.assertInstanceOf(
+        BatchedInlineDataSource.class,
+        dataSource
+    );
+    Assertions.assertEquals(projectedSignature, batchedDataSource.getRowSignature());
+    Assertions.assertArrayEquals(new Object[]{"foo"}, batchedDataSource.getRows().iterator().next());
     Mockito.verify(mapper, Mockito.never()).writeValueAsString(Mockito.any());
   }
 

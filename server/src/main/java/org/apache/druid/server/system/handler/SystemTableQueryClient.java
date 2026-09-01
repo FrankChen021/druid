@@ -202,7 +202,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
     return dataSource.withChildren(resolvedChildren);
   }
 
-  private InlineDataSource resolveSystemTableDataSource(
+  private DataSource resolveSystemTableDataSource(
       final SystemTableDataSource dataSource,
       final Query<?> owningQuery,
       final AuthenticationResult authenticationResult,

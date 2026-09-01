@@ -20,12 +20,14 @@
 package org.apache.druid.server.system.table;
 
 import jakarta.validation.constraints.NotNull;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.server.security.AuthenticationResult;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Supplies storage-prefiltered rows authorized for the internal caller of one native system table.
@@ -37,6 +39,19 @@ public interface SystemTableDataProvider
   default List<SystemTablePushdownFilter> getPushdownFilters()
   {
     return Collections.emptyList();
+  }
+
+  /**
+   * Returns a query-local datasource over the framework-authorized raw rows, or empty to use the inline-row fallback.
+   * Implementations must derive the returned datasource solely from {@code authorizedRows}; authorization and storage
+   * filter pushdown have already been applied by the framework.
+   */
+  default Optional<DataSource> getAuthorizedDataSource(
+      final SystemTableQueryRequest request,
+      final Iterable<Object[]> authorizedRows
+  )
+  {
+    return Optional.empty();
   }
 
   Iterable<Object[]> getRows(
