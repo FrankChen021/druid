@@ -159,12 +159,12 @@ public class ServersTableDataProviderTest
   }
 
   @Test
-  public void testDescriptorRoutesToCoordinatorLeader()
+  public void testDescriptorRunsLocallyOnBroker()
   {
     final ServersTableDescriptor descriptor = new ServersTableDescriptor();
 
-    Assertions.assertEquals(Set.of(NodeRole.COORDINATOR), descriptor.getNodeRoles());
-    Assertions.assertEquals(SystemTableRoutingMode.LEADER_ONLY, descriptor.getRoutingMode());
+    Assertions.assertEquals(Set.of(NodeRole.BROKER), descriptor.getNodeRoles());
+    Assertions.assertEquals(SystemTableRoutingMode.LOCAL, descriptor.getRoutingMode());
     Assertions.assertEquals(ColumnType.NESTED_DATA, descriptor.getRowSignature().getColumnType(13).orElseThrow());
   }
 
