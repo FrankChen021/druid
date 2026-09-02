@@ -896,7 +896,6 @@ public class SystemSchemaTest extends CalciteTestBase
                                                          authMapper,
                                                          overlordClient,
                                                          coordinatorClient,
-                                                         MAPPER,
                                                          createAuthResult(Users.SUPER)
                                                      )
                                                      .createMock();
@@ -1135,7 +1134,7 @@ public class SystemSchemaTest extends CalciteTestBase
             startTimeStr,
             version,
             buildRevision,
-            "{\"brokerKey\":\"brokerValue\",\"brokerKey2\":\"brokerValue2\"}",
+            ImmutableMap.of("brokerKey", "brokerValue", "brokerKey2", "brokerValue2"),
             availableProcessors,
             totalMemory
         )
@@ -1175,7 +1174,7 @@ public class SystemSchemaTest extends CalciteTestBase
             startTimeStr,
             version,
             buildRevision,
-            "{\"overlordKey\":\"overlordValue\"}",
+            ImmutableMap.of("overlordKey", "overlordValue"),
             availableProcessors,
             totalMemory
         )
@@ -1319,7 +1318,7 @@ public class SystemSchemaTest extends CalciteTestBase
       String startTime,
       String version,
       String buildRevision,
-      String labels,
+      @Nullable Map<String, String> labels,
       long availableProcessors,
       long totalMemory
   )
@@ -2522,6 +2521,9 @@ public class SystemSchemaTest extends CalciteTestBase
             break;
           case STRING:
             expectedClass = String.class;
+            break;
+          case COMPLEX:
+            expectedClass = Object.class;
             break;
           default:
             throw new IAE("Don't know what class to expect for valueType[%s]", columnType);

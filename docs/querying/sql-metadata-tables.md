@@ -170,6 +170,7 @@ execution:
 |-----|--------------|
 |[`sys.tasks`](#tasks-table)|The Overlord that owns task state. Supported filters are pushed into task storage when the configured task storage implementation supports filter pushdown.|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Filters on `server` and `service_name` can avoid reading properties from nodes that don't match.|
+|[`sys.servers`](#servers-table)|The current Coordinator leader's discovered-cluster view of Druid servers.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
 aggregations, sorting, and result processing. A system table that doesn't advertise native query support continues to
@@ -286,7 +287,7 @@ Servers table lists all discovered servers in the cluster.
 |start_time|STRING|Timestamp in ISO8601 format when the server was announced in the cluster|
 |version|VARCHAR|Druid version running on the server|
 |build_revision|VARCHAR|The git commit of the build that produced the server binary|
-|labels|VARCHAR|Labels for the server configured using the property [`druid.labels`](../configuration/index.md)|
+|labels|JSON|Labels for the server configured using the property [`druid.labels`](../configuration/index.md)|
 |available_processors|BIGINT|Total number of CPU processors available to the server|
 |total_memory|BIGINT|Total memory in bytes available to the server|
 

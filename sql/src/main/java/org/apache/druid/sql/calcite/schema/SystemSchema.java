@@ -56,7 +56,6 @@ import org.apache.druid.indexer.TaskStatusPlus;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorStatus;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.rpc.indexing.OverlordClient;
@@ -74,6 +73,7 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
@@ -199,25 +199,7 @@ public class SystemSchema extends AbstractTableSchema
       }
   );
 
-  static final RowSignature SERVERS_SIGNATURE = RowSignature
-      .builder()
-      .add("server", ColumnType.STRING)
-      .add("host", ColumnType.STRING)
-      .add("plaintext_port", ColumnType.LONG)
-      .add("tls_port", ColumnType.LONG)
-      .add("server_type", ColumnType.STRING)
-      .add("tier", ColumnType.STRING)
-      .add("curr_size", ColumnType.LONG)
-      .add("max_size", ColumnType.LONG)
-      .add("storage_size", ColumnType.LONG)
-      .add("is_leader", ColumnType.LONG)
-      .add("start_time", ColumnType.STRING)
-      .add("version", ColumnType.STRING)
-      .add("build_revision", ColumnType.STRING)
-      .add("labels", ColumnType.STRING)
-      .add("available_processors", ColumnType.LONG)
-      .add("total_memory", ColumnType.LONG)
-      .build();
+  static final RowSignature SERVERS_SIGNATURE = ServersTableDescriptor.ROW_SIGNATURE;
 
   static final RowSignature SERVER_SEGMENTS_SIGNATURE = RowSignature
       .builder()
@@ -326,7 +308,6 @@ public class SystemSchema extends AbstractTableSchema
           authorizerMapper,
           overlordClient,
           coordinatorClient,
-          jsonMapper,
           authenticationResult
       );
       case SERVER_SEGMENTS_TABLE -> new ServerSegmentsTable(serverView, authorizerMapper, authenticationResult);
@@ -654,7 +635,7 @@ public class SystemSchema extends AbstractTableSchema
    * This table contains row per server. It contains all the discovered servers in Druid cluster.
    * Some columns like tier and size are only applicable to historical nodes which contain segments.
    */
-  static class ServersTable extends AbstractTable implements ScannableTable
+  static class ServersTable extends AbstractTable implements ScannableTable, NativeSystemTable
   {
     // This is used for maxSize and currentSize when they are unknown.
     // The unknown size doesn't have to be 0, it's better to be null.
@@ -668,7 +649,6 @@ public class SystemSchema extends AbstractTableSchema
     private final FilteredServerInventoryView serverInventoryView;
     private final OverlordClient overlordClient;
     private final CoordinatorClient coordinatorClient;
-    private final ObjectMapper jsonMapper;
     private final AuthenticationResult authenticationResult;
 
     public ServersTable(
@@ -677,7 +657,6 @@ public class SystemSchema extends AbstractTableSchema
         AuthorizerMapper authorizerMapper,
         OverlordClient overlordClient,
         CoordinatorClient coordinatorClient,
-        ObjectMapper jsonMapper,
         AuthenticationResult authenticationResult
     )
     {
@@ -686,7 +665,6 @@ public class SystemSchema extends AbstractTableSchema
       this.serverInventoryView = serverInventoryView;
       this.overlordClient = overlordClient;
       this.coordinatorClient = coordinatorClient;
-      this.jsonMapper = jsonMapper;
       this.authenticationResult = authenticationResult;
     }
 
@@ -700,6 +678,12 @@ public class SystemSchema extends AbstractTableSchema
     public TableType getJdbcTableType()
     {
       return TableType.SYSTEM_TABLE;
+    }
+
+    @Override
+    public DruidTable asNativeTable()
+    {
+      return new NativeServersTable();
     }
 
     @Override
@@ -788,7 +772,7 @@ public class SystemSchema extends AbstractTableSchema
           toStringOrNull(discoveryDruidNode.getStartTime()),
           node.getVersion(),
           node.getBuildRevision(),
-          node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
+          node.getLabels(),
           (long) discoveryDruidNode.getAvailableProcessors(),
           discoveryDruidNode.getTotalMemory()
       };
@@ -817,7 +801,7 @@ public class SystemSchema extends AbstractTableSchema
           toStringOrNull(discoveryDruidNode.getStartTime()),
           node.getVersion(),
           node.getBuildRevision(),
-          node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
+          node.getLabels(),
           (long) discoveryDruidNode.getAvailableProcessors(),
           discoveryDruidNode.getTotalMemory()
       };
@@ -858,7 +842,7 @@ public class SystemSchema extends AbstractTableSchema
           toStringOrNull(discoveryDruidNode.getStartTime()),
           node.getVersion(),
           node.getBuildRevision(),
-          node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
+          node.getLabels(),
           (long) discoveryDruidNode.getAvailableProcessors(),
           discoveryDruidNode.getTotalMemory()
       };
