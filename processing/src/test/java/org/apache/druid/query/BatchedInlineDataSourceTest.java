@@ -33,17 +33,19 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class BatchedInlineDataSourceTest
 {
   @Test
   public void testVectorCursorLoadsMultipleBatches()
   {
+    final int batchSize = QueryContexts.DEFAULT_VECTOR_SIZE;
     final RowSignature signature = RowSignature.builder()
                                                .add("value", ColumnType.LONG)
                                                .build();
     final List<Object[]> rows = new ArrayList<>();
-    for (int i = 0; i < BatchedInlineDataSource.BATCH_SIZE + 1; i++) {
+    for (int i = 0; i < batchSize + 1; i++) {
       rows.add(new Object[]{(long) i});
     }
 
@@ -52,17 +54,17 @@ public class BatchedInlineDataSourceTest
       Assertions.assertTrue(cursorHolder.canVectorize());
       final VectorCursor cursor = cursorHolder.asVectorCursor();
       final VectorValueSelector selector = cursor.getColumnSelectorFactory().makeValueSelector("value");
-      Assertions.assertEquals(BatchedInlineDataSource.BATCH_SIZE, cursor.getCurrentVectorSize());
+      Assertions.assertEquals(batchSize, cursor.getCurrentVectorSize());
       Assertions.assertEquals(0L, selector.getLongVector()[0]);
       Assertions.assertEquals(
-          BatchedInlineDataSource.BATCH_SIZE - 1L,
-          selector.getLongVector()[BatchedInlineDataSource.BATCH_SIZE - 1]
+          batchSize - 1L,
+          selector.getLongVector()[batchSize - 1]
       );
 
       cursor.advance();
 
       Assertions.assertEquals(1, cursor.getCurrentVectorSize());
-      Assertions.assertEquals(BatchedInlineDataSource.BATCH_SIZE, selector.getLongVector()[0]);
+      Assertions.assertEquals(batchSize, selector.getLongVector()[0]);
       cursor.advance();
       Assertions.assertTrue(cursor.isDone());
     }
@@ -81,6 +83,39 @@ public class BatchedInlineDataSourceTest
     try (final CursorHolder cursorHolder = cursorFactory.makeCursorHolder(CursorBuildSpec.FULL_SCAN)) {
       Assertions.assertFalse(cursorHolder.canVectorize());
       Assertions.assertNotNull(cursorHolder.asCursor());
+    }
+  }
+
+  @Test
+  public void testUsesConfiguredVectorSize()
+  {
+    final RowSignature signature = RowSignature.builder()
+                                               .add("value", ColumnType.LONG)
+                                               .build();
+    final CursorFactory cursorFactory = makeCursorFactory(
+        new BatchedInlineDataSource(
+            List.of(
+                new Object[]{1L},
+                new Object[]{2L},
+                new Object[]{3L},
+                new Object[]{4L},
+                new Object[]{5L}
+            ),
+            signature
+        )
+    );
+    final CursorBuildSpec spec = CursorBuildSpec.builder()
+                                                .setQueryContext(
+                                                    QueryContext.of(Map.of(QueryContexts.VECTOR_SIZE_KEY, 4))
+                                                )
+                                                .build();
+
+    try (final CursorHolder cursorHolder = cursorFactory.makeCursorHolder(spec)) {
+      final VectorCursor cursor = cursorHolder.asVectorCursor();
+      Assertions.assertEquals(4, cursor.getMaxVectorSize());
+      Assertions.assertEquals(4, cursor.getCurrentVectorSize());
+      cursor.advance();
+      Assertions.assertEquals(1, cursor.getCurrentVectorSize());
     }
   }
 
