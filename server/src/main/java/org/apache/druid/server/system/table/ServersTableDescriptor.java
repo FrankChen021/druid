@@ -56,7 +56,7 @@ public class ServersTableDescriptor implements SystemTableDescriptor
       .add("total_memory", ColumnType.LONG)
       .build();
 
-  private static final Set<NodeRole> NODE_ROLES = Set.of(NodeRole.COORDINATOR);
+  private static final Set<NodeRole> NODE_ROLES = Set.of(NodeRole.BROKER);
   private static final SystemTableRowAuthorizer ROW_AUTHORIZER = (rows, authenticationResult, authorizerMapper) -> {
     final AuthorizationResult authorizationResult = AuthorizationUtils.authorizeAllResourceActions(
         authenticationResult,
@@ -84,7 +84,7 @@ public class ServersTableDescriptor implements SystemTableDescriptor
   @Override
   public SystemTableRoutingMode getRoutingMode()
   {
-    return SystemTableRoutingMode.LEADER_ONLY;
+    return SystemTableRoutingMode.LOCAL;
   }
 
   @Override

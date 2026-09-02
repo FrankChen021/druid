@@ -68,7 +68,11 @@ public class SystemTableNodeLocator
 
   List<SystemTableNode> locate(final SystemTableDescriptor descriptor, final Query<?> query)
   {
-    if (descriptor.getRoutingMode() == SystemTableRoutingMode.ALL_NODES) {
+    final SystemTableRoutingMode routingMode = descriptor.getRoutingMode();
+    if (routingMode == SystemTableRoutingMode.LOCAL) {
+      throw new ISE("Local system-table routing does not select a remote node");
+    }
+    if (routingMode == SystemTableRoutingMode.ALL_NODES) {
       return discoverAllNodes(descriptor);
     }
 
