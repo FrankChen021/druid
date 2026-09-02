@@ -107,6 +107,7 @@ import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.run.SqlEngine;
@@ -1283,7 +1284,7 @@ public class SystemSchemaTest extends CalciteTestBase
     }
 
     // Verify value types.
-    verifyTypes(rows, SystemSchema.SERVERS_SIGNATURE);
+    verifyTypes(rows, ServersTableDescriptor.ROW_SIGNATURE);
   }
 
   private DruidServer mockDataServer(String name, long currentSize, long maxSize, String tier)

@@ -199,8 +199,6 @@ public class SystemSchema extends AbstractTableSchema
       }
   );
 
-  static final RowSignature SERVERS_SIGNATURE = ServersTableDescriptor.ROW_SIGNATURE;
-
   static final RowSignature SERVER_SEGMENTS_SIGNATURE = RowSignature
       .builder()
       .add("server", ColumnType.STRING)
@@ -671,7 +669,7 @@ public class SystemSchema extends AbstractTableSchema
     @Override
     public RelDataType getRowType(RelDataTypeFactory typeFactory)
     {
-      return RowSignatures.toRelDataType(SERVERS_SIGNATURE, typeFactory);
+      return RowSignatures.toRelDataType(ServersTableDescriptor.ROW_SIGNATURE, typeFactory);
     }
 
     @Override
