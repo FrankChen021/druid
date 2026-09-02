@@ -67,8 +67,6 @@ import java.util.Set;
  */
 public class BatchedInlineDataSource extends LeafDataSource
 {
-  static final int BATCH_SIZE = 1_024;
-
   private final Iterable<Object[]> rows;
   private final RowSignature signature;
 
@@ -270,7 +268,7 @@ public class BatchedInlineDataSource extends LeafDataSource
         final CursorBuildSpec spec
     )
     {
-      this.offset = new BatchOffset(rows, signature);
+      this.offset = new BatchOffset(rows, signature, spec.getQueryContext().getVectorSize());
       this.selectorFactory = new BatchVectorColumnSelectorFactory(offset, signature, spec.getVirtualColumns());
     }
 
@@ -302,7 +300,7 @@ public class BatchedInlineDataSource extends LeafDataSource
     @Override
     public int getMaxVectorSize()
     {
-      return BATCH_SIZE;
+      return offset.getMaxVectorSize();
     }
 
     @Override
@@ -316,6 +314,7 @@ public class BatchedInlineDataSource extends LeafDataSource
   {
     private final Iterable<Object[]> rows;
     private final RowSignature signature;
+    private final int batchSize;
     private final long[][] longColumns;
     private final Object[][] objectColumns;
     private final boolean[][] nullColumns;
@@ -324,20 +323,21 @@ public class BatchedInlineDataSource extends LeafDataSource
     private int currentSize;
     private int id;
 
-    BatchOffset(final Iterable<Object[]> rows, final RowSignature signature)
+    BatchOffset(final Iterable<Object[]> rows, final RowSignature signature, final int batchSize)
     {
       this.rows = rows;
       this.signature = signature;
+      this.batchSize = batchSize;
       this.longColumns = new long[signature.size()][];
       this.objectColumns = new Object[signature.size()][];
       this.nullColumns = new boolean[signature.size()][];
       for (int i = 0; i < signature.size(); i++) {
         final ColumnType type = signature.getColumnType(i).orElse(null);
         if (ColumnType.LONG.equals(type)) {
-          longColumns[i] = new long[BATCH_SIZE];
-          nullColumns[i] = new boolean[BATCH_SIZE];
+          longColumns[i] = new long[batchSize];
+          nullColumns[i] = new boolean[batchSize];
         } else {
-          objectColumns[i] = new Object[BATCH_SIZE];
+          objectColumns[i] = new Object[batchSize];
         }
       }
       reset();
@@ -378,7 +378,7 @@ public class BatchedInlineDataSource extends LeafDataSource
     private void loadBatch()
     {
       int rowNumber = 0;
-      while (rowNumber < BATCH_SIZE && iterator.hasNext()) {
+      while (rowNumber < batchSize && iterator.hasNext()) {
         final Object[] row = iterator.next();
         for (int column = 0; column < signature.size(); column++) {
           if (longColumns[column] != null) {
@@ -410,7 +410,7 @@ public class BatchedInlineDataSource extends LeafDataSource
     @Override
     public int getMaxVectorSize()
     {
-      return BATCH_SIZE;
+      return batchSize;
     }
 
     @Override
@@ -543,8 +543,8 @@ public class BatchedInlineDataSource extends LeafDataSource
     private final ReadableVectorInspector inspector;
     private final long[] longs;
     private final boolean[] nulls;
-    private final float[] floats = new float[BATCH_SIZE];
-    private final double[] doubles = new double[BATCH_SIZE];
+    private final float[] floats;
+    private final double[] doubles;
     private int floatId = ReadableVectorInspector.NULL_ID;
     private int doubleId = ReadableVectorInspector.NULL_ID;
 
@@ -557,6 +557,8 @@ public class BatchedInlineDataSource extends LeafDataSource
       this.inspector = inspector;
       this.longs = longs;
       this.nulls = nulls;
+      this.floats = new float[inspector.getMaxVectorSize()];
+      this.doubles = new double[inspector.getMaxVectorSize()];
     }
 
     @Override
@@ -642,7 +644,7 @@ public class BatchedInlineDataSource extends LeafDataSource
   {
     private final ReadableVectorInspector inspector;
     private final Object[] objects;
-    private final int[] ids = new int[BATCH_SIZE];
+    private final int[] ids;
     private final Map<String, Integer> valueToId = new HashMap<>();
     private final List<String> idToValue = new ArrayList<>();
     private int vectorId = ReadableVectorInspector.NULL_ID;
@@ -651,6 +653,7 @@ public class BatchedInlineDataSource extends LeafDataSource
     {
       this.inspector = inspector;
       this.objects = objects;
+      this.ids = new int[inspector.getMaxVectorSize()];
     }
 
     @Override

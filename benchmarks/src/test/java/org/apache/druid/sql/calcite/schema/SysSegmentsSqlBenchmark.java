@@ -30,13 +30,8 @@ import org.apache.druid.client.InternalQueryConfig;
 import org.apache.druid.client.TimelineServerView;
 import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.client.coordinator.NoopCoordinatorClient;
-import org.apache.druid.frame.allocation.ArenaMemoryAllocatorFactory;
-import org.apache.druid.frame.segment.FrameCursorUtils;
-import org.apache.druid.frame.write.FrameWriterFactory;
-import org.apache.druid.frame.write.FrameWriters;
 import org.apache.druid.java.util.common.CloseableIterators;
 import org.apache.druid.java.util.common.Intervals;
-import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.io.Closer;
@@ -45,19 +40,13 @@ import org.apache.druid.query.BatchedInlineDataSource;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.DefaultGenericQueryMetricsFactory;
 import org.apache.druid.query.DefaultQueryConfig;
-import org.apache.druid.query.FrameBasedInlineDataSource;
-import org.apache.druid.query.FrameSignaturePair;
 import org.apache.druid.query.InlineDataSource;
-import org.apache.druid.query.IterableRowsCursorHelper;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
-import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryEngine;
 import org.apache.druid.rpc.indexing.NoopOverlordClient;
-import org.apache.druid.segment.Cursor;
-import org.apache.druid.segment.FrameBasedInlineSegmentWrangler;
 import org.apache.druid.segment.InlineSegmentWrangler;
 import org.apache.druid.segment.MapSegmentWrangler;
 import org.apache.druid.segment.join.JoinableFactory;
@@ -99,7 +88,6 @@ import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.SegmentStatusInCluster;
 import org.apache.druid.timeline.partition.LinearShardSpec;
-import org.apache.druid.utils.CloseableUtils;
 import org.easymock.EasyMock;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -119,7 +107,6 @@ import org.openjdk.jmh.infra.Blackhole;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -150,9 +137,6 @@ public class SysSegmentsSqlBenchmark
   private static final String BINDABLE = "bindable";
   private static final String NATIVE_ROW = "nativeRow";
   private static final String NATIVE_PROVIDER = "nativeProvider";
-  private static final String NATIVE_BATCHED = "nativeBatched";
-  private static final String NATIVE_FRAME_BUILD = "nativeFrameBuild";
-  private static final String NATIVE_FRAME_CACHED = "nativeFrameCached";
   private static final String SQL = "SELECT\n"
                                     + "datasource,\n"
                                     + "COUNT(*) FILTER (WHERE is_active = 1) AS num_segments,\n"
@@ -193,14 +177,11 @@ public class SysSegmentsSqlBenchmark
   private PlannerFactory plannerFactory;
   private SqlEngine rowEngine;
   private SqlEngine providerEngine;
-  private SqlEngine batchedEngine;
-  private SqlEngine frameBuildEngine;
-  private SqlEngine frameCachedEngine;
 
   @State(Scope.Thread)
   public static class ExecutionState
   {
-    @Param({BINDABLE, NATIVE_ROW, NATIVE_PROVIDER, NATIVE_BATCHED, NATIVE_FRAME_BUILD, NATIVE_FRAME_CACHED})
+    @Param({BINDABLE, NATIVE_ROW, NATIVE_PROVIDER})
     private String executionPath;
     private PreparedQuery preparedQuery;
 
@@ -253,104 +234,6 @@ public class SysSegmentsSqlBenchmark
           new NoopCoordinatorClient(),
           CentralizedDatasourceSchemaConfig.create()
       );
-    }
-  }
-
-  private static class FrameSystemTableQueryHandler extends SystemTableQueryHandler
-  {
-    private final SystemTableQueryHandler rowHandler;
-    private final Map<FrameCacheKey, FrameBasedInlineDataSource> frameCache;
-
-    /**
-     * Benchmark-only cache key. The benchmark uses immutable segment metadata and a fixed authorization setup;
-     * production use would additionally require a versioned metadata snapshot and bounded cache lifecycle.
-     */
-    private record FrameCacheKey(
-        List<String> columns,
-        DimFilter filter,
-        String identity,
-        String authorizerName
-    )
-    {
-    }
-
-    FrameSystemTableQueryHandler(final SystemTableQueryHandler rowHandler, final boolean cacheFrames)
-    {
-      super(Map.of(), Map.of(), new ScanQueryEngine(), AuthTestUtils.TEST_AUTHORIZER_MAPPER);
-      this.rowHandler = rowHandler;
-      this.frameCache = cacheFrames ? new HashMap<>() : null;
-    }
-
-    @Override
-    public DataSource resolveDataSource(
-        final ScanQuery query,
-        final AuthenticationResult requestAuthenticationResult
-    )
-    {
-      if (frameCache == null) {
-        return makeFrameDataSource(query, requestAuthenticationResult);
-      }
-      final FrameCacheKey cacheKey = new FrameCacheKey(
-          List.copyOf(query.getColumns()),
-          query.getFilter(),
-          requestAuthenticationResult.getIdentity(),
-          requestAuthenticationResult.getAuthorizerName()
-      );
-      return frameCache.computeIfAbsent(cacheKey, ignored -> makeFrameDataSource(query, requestAuthenticationResult));
-    }
-
-    private FrameBasedInlineDataSource makeFrameDataSource(
-        final ScanQuery query,
-        final AuthenticationResult requestAuthenticationResult
-    )
-    {
-      final InlineDataSource inlineDataSource = (InlineDataSource) rowHandler.resolveDataSource(
-          query,
-          requestAuthenticationResult
-      );
-      final Pair<Cursor, java.io.Closeable> cursorAndCloseable = IterableRowsCursorHelper.getCursorFromIterable(
-          inlineDataSource.getRows(),
-          inlineDataSource.getRowSignature()
-      );
-      final FrameWriterFactory frameWriterFactory = FrameWriters.makeColumnBasedFrameWriterFactory(
-          ArenaMemoryAllocatorFactory.makeDefault(),
-          inlineDataSource.getRowSignature(),
-          List.of()
-      );
-      try {
-        final List<FrameSignaturePair> frames = FrameCursorUtils.cursorToFramesSequence(
-            cursorAndCloseable.lhs,
-            frameWriterFactory
-        ).map(frame -> new FrameSignaturePair(frame, inlineDataSource.getRowSignature())).toList();
-        return new FrameBasedInlineDataSource(frames, inlineDataSource.getRowSignature());
-      }
-      finally {
-        CloseableUtils.closeAndWrapExceptions(cursorAndCloseable.rhs);
-      }
-    }
-  }
-
-  private static class BatchedSystemTableQueryHandler extends SystemTableQueryHandler
-  {
-    private final SystemTableQueryHandler rowHandler;
-
-    BatchedSystemTableQueryHandler(final SystemTableQueryHandler rowHandler)
-    {
-      super(Map.of(), Map.of(), new ScanQueryEngine(), AuthTestUtils.TEST_AUTHORIZER_MAPPER);
-      this.rowHandler = rowHandler;
-    }
-
-    @Override
-    public DataSource resolveDataSource(
-        final ScanQuery query,
-        final AuthenticationResult requestAuthenticationResult
-    )
-    {
-      final InlineDataSource inlineDataSource = (InlineDataSource) rowHandler.resolveDataSource(
-          query,
-          requestAuthenticationResult
-      );
-      return new BatchedInlineDataSource(inlineDataSource.getRows(), inlineDataSource.getRowSignature());
     }
   }
 
@@ -437,8 +320,6 @@ public class SysSegmentsSqlBenchmark
                 Map.of(
                     InlineDataSource.class,
                     new InlineSegmentWrangler(),
-                    FrameBasedInlineDataSource.class,
-                    new FrameBasedInlineSegmentWrangler(),
                     BatchedInlineDataSource.class,
                     new BatchedInlineDataSource.Wrangler()
                 )
@@ -464,24 +345,6 @@ public class SysSegmentsSqlBenchmark
     );
     rowEngine = makeEngine(conglomerate, walker, descriptor, rowQueryHandler);
     providerEngine = makeEngine(conglomerate, walker, descriptor, providerQueryHandler);
-    batchedEngine = makeEngine(
-        conglomerate,
-        walker,
-        descriptor,
-        new BatchedSystemTableQueryHandler(rowQueryHandler)
-    );
-    frameBuildEngine = makeEngine(
-        conglomerate,
-        walker,
-        descriptor,
-        new FrameSystemTableQueryHandler(rowQueryHandler, false)
-    );
-    frameCachedEngine = makeEngine(
-        conglomerate,
-        walker,
-        descriptor,
-        new FrameSystemTableQueryHandler(rowQueryHandler, true)
-    );
 
     final PlannerConfig plannerConfig = new PlannerConfig();
     final TimelineServerView timelineServerView = new TestTimelineServerView(Collections.emptyList());
@@ -536,8 +399,7 @@ public class SysSegmentsSqlBenchmark
     );
 
     final List<Object[]> bindableResults = runQuery(BINDABLE);
-    for (final String executionPath :
-        List.of(NATIVE_ROW, NATIVE_PROVIDER, NATIVE_BATCHED, NATIVE_FRAME_BUILD, NATIVE_FRAME_CACHED)) {
+    for (final String executionPath : List.of(NATIVE_ROW, NATIVE_PROVIDER)) {
       final List<Object[]> nativeResults = runQuery(executionPath);
       if (bindableResults.size() != NUM_DATASOURCES || !rowsEqual(bindableResults, nativeResults)) {
         throw new IllegalStateException("Bindable and native benchmark results do not match for " + executionPath);
@@ -631,18 +493,6 @@ public class SysSegmentsSqlBenchmark
         engine = providerEngine;
         context = NATIVE_CONTEXT;
         break;
-      case NATIVE_BATCHED:
-        engine = batchedEngine;
-        context = NATIVE_CONTEXT;
-        break;
-      case NATIVE_FRAME_BUILD:
-        engine = frameBuildEngine;
-        context = NATIVE_CONTEXT;
-        break;
-      case NATIVE_FRAME_CACHED:
-        engine = frameCachedEngine;
-        context = NATIVE_CONTEXT;
-        break;
       default:
         throw new IllegalArgumentException("Unknown execution path " + executionPath);
     }
@@ -680,24 +530,6 @@ public class SysSegmentsSqlBenchmark
   public void queryNativeProvider(final Blackhole blackhole)
   {
     blackhole.consume(runQuery(NATIVE_PROVIDER));
-  }
-
-  @Benchmark
-  public void queryNativeBatched(final Blackhole blackhole)
-  {
-    blackhole.consume(runQuery(NATIVE_BATCHED));
-  }
-
-  @Benchmark
-  public void queryNativeFrameBuild(final Blackhole blackhole)
-  {
-    blackhole.consume(runQuery(NATIVE_FRAME_BUILD));
-  }
-
-  @Benchmark
-  public void queryNativeFrameCached(final Blackhole blackhole)
-  {
-    blackhole.consume(runQuery(NATIVE_FRAME_CACHED));
   }
 
   @Benchmark
