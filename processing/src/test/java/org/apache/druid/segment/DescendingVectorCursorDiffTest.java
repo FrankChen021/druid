@@ -183,7 +183,9 @@ public class DescendingVectorCursorDiffTest extends InitializedNullHandlingTest
                              .setVirtualColumns(virtualColumns)
                              .setFilter(filterEntry.getValue())
                              .setQueryContext(
-                                 QueryContext.of(ImmutableMap.of(QueryContextParameters.VECTOR_SIZE.getName(), vectorSize))
+                                 new QueryContext(
+                                     QueryContext.of(QueryContextParameters.VECTOR_SIZE, vectorSize)
+                                 )
                              )
                              .build();
 

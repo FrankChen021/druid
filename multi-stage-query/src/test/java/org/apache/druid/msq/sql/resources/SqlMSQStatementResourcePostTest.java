@@ -44,6 +44,7 @@ import org.apache.druid.msq.test.MSQTestOverlordServiceClient;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.ExecutionMode;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.server.initialization.ServerConfig;
@@ -175,7 +176,7 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
             false,
             false,
             false,
-            ImmutableMap.of(QueryContextParameters.EXECUTION_MODE.getName(), ExecutionMode.SYNC.name()),
+            QueryContext.of(QueryContextParameters.EXECUTION_MODE, ExecutionMode.SYNC),
             null
         ), SqlStatementResourceTest.makeOkRequest()),
         "The sql statement api currently does not support the provided execution mode [SYNC]. "

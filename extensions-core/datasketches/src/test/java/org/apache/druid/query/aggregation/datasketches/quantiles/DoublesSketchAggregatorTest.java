@@ -20,7 +20,6 @@
 package org.apache.druid.query.aggregation.datasketches.quantiles;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.data.input.ColumnsFilter;
 import org.apache.druid.data.input.InputRowSchema;
 import org.apache.druid.data.input.impl.DelimitedInputFormat;
@@ -31,6 +30,8 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.aggregation.AggregationTestHelper;
 import org.apache.druid.query.aggregation.AggregatorFactory;
@@ -73,11 +74,15 @@ public class DoublesSketchAggregatorTest extends InitializedNullHandlingTest
         module.getJacksonModules(),
         config,
         tempFolder
-    ).withQueryContext(ImmutableMap.of(QueryContextParameters.VECTORIZE.getName(), vectorize));
+    ).withQueryContext(
+        QueryContext.of(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.fromString(vectorize))
+    );
     timeSeriesHelper = AggregationTestHelper.createTimeseriesQueryAggregationTestHelperWithTempDir(
         module.getJacksonModules(),
         tempFolder
-    ).withQueryContext(ImmutableMap.of(QueryContextParameters.VECTORIZE.getName(), vectorize));
+    ).withQueryContext(
+        QueryContext.of(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.fromString(vectorize))
+    );
   }
 
   public static Collection<?> constructorFeeder()

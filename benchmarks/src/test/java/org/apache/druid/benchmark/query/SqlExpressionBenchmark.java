@@ -20,8 +20,8 @@
 package org.apache.druid.benchmark.query;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.math.expr.ExpressionProcessing;
+import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.openjdk.jmh.annotations.Fork;
@@ -295,11 +295,11 @@ public class SqlExpressionBenchmark extends SqlBaseQueryBenchmark
   @Override
   protected Map<String, Object> getContext()
   {
-    final Map<String, Object> context = ImmutableMap.of(
-        QueryContextParameters.VECTORIZE.getName(), vectorize,
-        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), vectorize,
-        GroupByQueryConfig.CTX_KEY_DEFER_EXPRESSION_DIMENSIONS, deferExpressionDimensions
-    );
+    final Map<String, Object> context = new QueryContextBuilder()
+        .put(QueryContextParameters.VECTORIZE, vectorizeContext)
+        .put(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS, vectorizeContext)
+        .put(GroupByQueryConfig.CTX_KEY_DEFER_EXPRESSION_DIMENSIONS, deferExpressionDimensions)
+        .build();
     return context;
   }
 }

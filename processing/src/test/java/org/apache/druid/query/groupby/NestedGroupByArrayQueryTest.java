@@ -20,7 +20,6 @@
 package org.apache.druid.query.groupby;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.guice.BuiltInTypesModule;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
@@ -28,6 +27,7 @@ import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.NestedDataTestUtils;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.aggregation.AggregationTestHelper;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.context.QueryContextParameters;
@@ -92,9 +92,11 @@ public class NestedGroupByArrayQueryTest
 
   public Map<String, Object> getContext()
   {
-    return ImmutableMap.of(
-        QueryContextParameters.VECTORIZE.getName(), vectorize.toString(),
-        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), vectorize.toString()
+    return QueryContext.of(
+        QueryContextParameters.VECTORIZE,
+        vectorize,
+        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+        vectorize
     );
   }
   public static Collection<?> constructorFeeder()

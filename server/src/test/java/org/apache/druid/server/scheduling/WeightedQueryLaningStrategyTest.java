@@ -25,6 +25,7 @@ import org.apache.druid.client.SegmentServerSelector;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
@@ -135,7 +136,7 @@ public class WeightedQueryLaningStrategyTest
   {
     WeightedQueryLaningStrategy strategy = newStrategy(null, null, 10000, null);
     TimeseriesQuery query = queryBuilder
-        .context(Map.of(QueryContextParameters.LANE.getName(), "custom"))
+        .context(QueryContext.of(QueryContextParameters.LANE, "custom"))
         .build();
     Optional<String> lane = strategy.computeLane(QueryPlus.wrap(query), Set.of());
     Assertions.assertTrue(lane.isPresent());

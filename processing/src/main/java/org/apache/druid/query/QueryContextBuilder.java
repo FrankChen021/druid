@@ -21,6 +21,7 @@ package org.apache.druid.query;
 
 import org.apache.druid.query.context.QueryContextParameter;
 
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -46,7 +47,7 @@ public final class QueryContextBuilder
   /**
    * Adds a context value using a typed parameter descriptor.
    */
-  public <V> QueryContextBuilder put(final QueryContextParameter<V> parameter, final V value)
+  public <V> QueryContextBuilder put(final QueryContextParameter<V> parameter, @Nullable final V value)
   {
     return put(parameter.getName(), parameter.validate(value));
   }

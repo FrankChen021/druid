@@ -41,6 +41,7 @@ import org.apache.druid.query.DirectQueryProcessingPool;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.MetricsEmittingQueryRunner;
 import org.apache.druid.query.Order;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerTestHelper;
@@ -819,7 +820,7 @@ public class ScanQueryRunnerTest extends InitializedNullHandlingTest
     ScanQuery query = newTestQuery()
         .intervals(I_0112_0114)
         .virtualColumns(EXPR_COLUMN)
-        .context(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 1))
+        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 1L))
         .build();
     ResponseContext responseContext = DefaultResponseContext.createEmpty();
     final long timeoutAt = System.currentTimeMillis();
@@ -841,7 +842,7 @@ public class ScanQueryRunnerTest extends InitializedNullHandlingTest
     ScanQuery query = newTestQuery()
         .intervals(I_0112_0114)
         .virtualColumns(EXPR_COLUMN)
-        .context(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 1))
+        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 1L))
         .build();
     try {
       FACTORY.mergeRunners(
@@ -871,7 +872,7 @@ public class ScanQueryRunnerTest extends InitializedNullHandlingTest
     ScanQuery query = newTestQuery()
         .intervals(I_0112_0114)
         .virtualColumns(EXPR_COLUMN)
-        .context(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 0))
+        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 0L))
         .build();
 
     Iterable<ScanResultValue> results = FACTORY.mergeRunners(

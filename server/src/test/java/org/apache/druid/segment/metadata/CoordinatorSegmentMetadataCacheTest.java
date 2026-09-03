@@ -47,6 +47,7 @@ import org.apache.druid.metadata.SegmentsMetadataManager;
 import org.apache.druid.metadata.SegmentsMetadataManagerConfig;
 import org.apache.druid.metadata.TestDerbyConnector;
 import org.apache.druid.query.DruidMetrics;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.TableDataSource;
@@ -1045,9 +1046,11 @@ public class CoordinatorSegmentMetadataCacheTest extends CoordinatorSegmentMetad
         segmentsMetadataManagerConfigSupplier
     );
 
-    Map<String, Object> queryContext = ImmutableMap.of(
-        QueryContextParameters.PRIORITY.getName(), 5,
-        QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), false
+    Map<String, Object> queryContext = QueryContext.of(
+        QueryContextParameters.PRIORITY,
+        5,
+        QueryContextParameters.ENABLE_PARALLEL_MERGE,
+        false
     );
 
     DataSegment segment = newSegment("test", 0);
@@ -2231,9 +2234,11 @@ public class CoordinatorSegmentMetadataCacheTest extends CoordinatorSegmentMetad
         segmentsMetadataManagerConfigSupplier
     );
 
-    Map<String, Object> queryContext = ImmutableMap.of(
-        QueryContextParameters.PRIORITY.getName(), 5,
-        QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), false
+    Map<String, Object> queryContext = QueryContext.of(
+        QueryContextParameters.PRIORITY,
+        5,
+        QueryContextParameters.ENABLE_PARALLEL_MERGE,
+        false
     );
 
     DataSegment segment = newSegment("test", 0);

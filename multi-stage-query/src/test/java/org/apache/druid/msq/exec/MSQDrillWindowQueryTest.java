@@ -19,7 +19,6 @@
 
 package org.apache.druid.msq.exec;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.msq.exec.MSQDrillWindowQueryTest.DrillWindowQueryMSQComponentSupplier;
 import org.apache.druid.msq.sql.MSQTaskSqlEngine;
 import org.apache.druid.msq.test.AbstractMSQComponentSupplierDelegate;
@@ -27,6 +26,7 @@ import org.apache.druid.msq.test.ExtractResultsFactory;
 import org.apache.druid.msq.test.MSQTestOverlordServiceClient;
 import org.apache.druid.msq.test.VerifyMSQSupportedNativeQueriesPredicate;
 import org.apache.druid.msq.util.MultiStageQueryContext;
+import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.sql.calcite.DrillWindowQueryTest;
 import org.apache.druid.sql.calcite.QueryTestBuilder;
@@ -41,11 +41,11 @@ import java.util.Map;
 @SqlTestFrameworkConfig.ComponentSupplier(DrillWindowQueryMSQComponentSupplier.class)
 public class MSQDrillWindowQueryTest extends DrillWindowQueryTest
 {
-  private final Map<String, Object> queryContext = new HashMap<>(ImmutableMap.of(
-      PlannerCaptureHook.NEED_CAPTURE_HOOK, true,
-      QueryContextParameters.DEBUG.getName(), true,
-      MultiStageQueryContext.CTX_MAX_NUM_TASKS, 5
-  ));
+  private final Map<String, Object> queryContext = new HashMap<>(new QueryContextBuilder()
+      .put(PlannerCaptureHook.NEED_CAPTURE_HOOK, true)
+      .put(QueryContextParameters.DEBUG, true)
+      .put(MultiStageQueryContext.CTX_MAX_NUM_TASKS, 5)
+      .build());
 
   public static class DrillWindowQueryMSQComponentSupplier extends AbstractMSQComponentSupplierDelegate
   {

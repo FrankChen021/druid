@@ -55,14 +55,14 @@ public class TimeBoundaryQueryTest
                                           .dataSource("foo")
                                           .intervals("2013/2014")
                                           .context(
-                                              ImmutableMap.of(
-                                                  QueryContextParameters.PRIORITY.getName(),
+                                              QueryContext.of(
+                                                  QueryContextParameters.PRIORITY,
                                                   1,
-                                                  QueryContextParameters.USE_CACHE.getName(),
+                                                  QueryContextParameters.USE_CACHE,
                                                   true,
-                                                  QueryContextParameters.POPULATE_CACHE.getName(),
+                                                  QueryContextParameters.POPULATE_CACHE,
                                                   true,
-                                                  QueryContextParameters.FINALIZE.getName(),
+                                                  QueryContextParameters.FINALIZE,
                                                   true
                                               )
                                           ).build();

@@ -3085,8 +3085,11 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
 
     CursorBuildSpec p1Spec = CursorBuildSpec.builder()
                                             .setQueryContext(
-                                                QueryContext.of(
-                                                    ImmutableMap.of(QueryContextParameters.USE_PROJECTION.getName(), "a_hourly_c_sum")
+                                                new QueryContext(
+                                                    QueryContext.of(
+                                                        QueryContextParameters.USE_PROJECTION,
+                                                        "a_hourly_c_sum"
+                                                    )
                                                 )
                                             )
                                             .setPhysicalColumns(Set.of("c", ColumnHolder.TIME_COLUMN_NAME))
@@ -3104,8 +3107,8 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
                                             .build();
     CursorBuildSpec p2Spec = CursorBuildSpec.builder()
                                             .setQueryContext(
-                                                QueryContext.of(
-                                                    ImmutableMap.of(QueryContextParameters.USE_PROJECTION.getName(), "a_c_sum")
+                                                new QueryContext(
+                                                    QueryContext.of(QueryContextParameters.USE_PROJECTION, "a_c_sum")
                                                 )
                                             )
                                             .setPhysicalColumns(Set.of("a", "c"))

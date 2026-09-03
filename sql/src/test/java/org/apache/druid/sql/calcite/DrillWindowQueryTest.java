@@ -21,7 +21,6 @@ package org.apache.druid.sql.calcite;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
@@ -29,6 +28,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.druid.java.util.common.Numbers;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.parsers.TimestampParser;
+import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
@@ -401,10 +401,10 @@ public class DrillWindowQueryTest extends BaseCalciteQueryTest
 
   protected Map<String, Object> getQueryContext()
   {
-    return ImmutableMap.of(
-        PlannerCaptureHook.NEED_CAPTURE_HOOK, true,
-        QueryContextParameters.DEBUG.getName(), true
-    );
+    return new QueryContextBuilder()
+        .put(PlannerCaptureHook.NEED_CAPTURE_HOOK, true)
+        .put(QueryContextParameters.DEBUG, true)
+        .build();
   }
 
   // testcases_start

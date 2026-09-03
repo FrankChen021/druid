@@ -64,7 +64,7 @@ public class QueryContextsTest
     Query<?> query = new TestQuery(
         new TableDataSource("test"),
         new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.of("0/100"))),
-        ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 1000)
+        QueryContext.of(QueryContextParameters.TIMEOUT, 1000L)
     );
     Assertions.assertEquals(1000, query.context().getTimeout());
 
@@ -78,7 +78,7 @@ public class QueryContextsTest
     Query<?> query = new TestQuery(
         new TableDataSource("test"),
         new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.of("0/100"))),
-        ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 1000)
+        QueryContext.of(QueryContextParameters.TIMEOUT, 1000L)
     );
 
     BadQueryContextException ex = Assertions.assertThrows(
@@ -94,7 +94,7 @@ public class QueryContextsTest
     Query<?> query = new TestQuery(
         new TableDataSource("test"),
         new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.of("0/100"))),
-        ImmutableMap.of(QueryContextParameters.MAX_SCATTER_GATHER_BYTES.getName(), 1000)
+        QueryContext.of(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, 1000L)
     );
 
     BadQueryContextException ex = Assertions.assertThrows(
@@ -110,7 +110,7 @@ public class QueryContextsTest
     Query<?> query = new TestQuery(
         new TableDataSource("test"),
         new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.of("0/100"))),
-        ImmutableMap.of(QueryContextParameters.SECONDARY_PARTITION_PRUNING.getName(), false)
+        QueryContext.of(QueryContextParameters.SECONDARY_PARTITION_PRUNING, false)
     );
     Assertions.assertFalse(query.context().isSecondaryPartitionPruningEnabled());
   }
@@ -160,28 +160,28 @@ public class QueryContextsTest
         QueryContexts.DEFAULT_CATALOG_VALIDATION_ENABLED,
         QueryContext.empty().isCatalogValidationEnabled()
     );
-    Assertions.assertTrue(QueryContext.of(ImmutableMap.of(
-        QueryContextParameters.CATALOG_VALIDATION_ENABLED.getName(),
-        true
-    )).isCatalogValidationEnabled());
-    Assertions.assertFalse(QueryContext.of(ImmutableMap.of(
-        QueryContextParameters.CATALOG_VALIDATION_ENABLED.getName(),
-        false
-    )).isCatalogValidationEnabled());
+    Assertions.assertTrue(
+        new QueryContext(QueryContext.of(QueryContextParameters.CATALOG_VALIDATION_ENABLED, true))
+            .isCatalogValidationEnabled()
+    );
+    Assertions.assertFalse(
+        new QueryContext(QueryContext.of(QueryContextParameters.CATALOG_VALIDATION_ENABLED, false))
+            .isCatalogValidationEnabled()
+    );
   }
 
   @Test
   public void testGetEnableJoinLeftScanDirect()
   {
     Assertions.assertFalse(QueryContext.empty().getEnableJoinLeftScanDirect());
-    Assertions.assertTrue(QueryContext.of(ImmutableMap.of(
-        QueryContextParameters.ENABLE_JOIN_LEFT_SCAN_DIRECT.getName(),
-        true
-    )).getEnableJoinLeftScanDirect());
-    Assertions.assertFalse(QueryContext.of(ImmutableMap.of(
-        QueryContextParameters.ENABLE_JOIN_LEFT_SCAN_DIRECT.getName(),
-        false
-    )).getEnableJoinLeftScanDirect());
+    Assertions.assertTrue(
+        new QueryContext(QueryContext.of(QueryContextParameters.ENABLE_JOIN_LEFT_SCAN_DIRECT, true))
+            .getEnableJoinLeftScanDirect()
+    );
+    Assertions.assertFalse(
+        new QueryContext(QueryContext.of(QueryContextParameters.ENABLE_JOIN_LEFT_SCAN_DIRECT, false))
+            .getEnableJoinLeftScanDirect()
+    );
   }
 
   @Test

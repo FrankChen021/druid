@@ -20,12 +20,12 @@
 package org.apache.druid.query.groupby;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.aggregation.AggregationTestHelper;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.SerializablePairLongString;
@@ -116,9 +116,11 @@ public class ComplexDimensionGroupByQueryTest
 
   public Map<String, Object> getContext()
   {
-    return ImmutableMap.of(
-        QueryContextParameters.VECTORIZE.getName(), vectorize.toString(),
-        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), "true"
+    return QueryContext.of(
+        QueryContextParameters.VECTORIZE,
+        vectorize,
+        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+        QueryContexts.Vectorize.TRUE
     );
   }
 

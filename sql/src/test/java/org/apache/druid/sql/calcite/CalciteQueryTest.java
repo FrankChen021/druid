@@ -45,6 +45,7 @@ import org.apache.druid.query.LookupDataSource;
 import org.apache.druid.query.OperatorFactoryBuilders;
 import org.apache.druid.query.Order;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.TableDataSource;
@@ -5928,9 +5929,11 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
         + "GROUP BY dim1",
         QueryContexts.override(
             QUERY_CONTEXT_DEFAULT,
-            ImmutableMap.of(
-                QueryContextParameters.IN_FUNCTION_THRESHOLD.getName(), 20,
-                QueryContextParameters.IN_SUBQUERY_THRESHOLD.getName(), 20
+            QueryContext.of(
+                QueryContextParameters.IN_FUNCTION_THRESHOLD,
+                20,
+                QueryContextParameters.IN_SUBQUERY_THRESHOLD,
+                20
             )
         ),
         ImmutableList.of(
@@ -8112,7 +8115,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
 
       testQuery(
           PLANNER_CONFIG_MAX_NUMERIC_IN_FILTER,
-          ImmutableMap.of(QueryContextParameters.MAX_NUMERIC_IN_FILTERS.getName(), 20000),
+          QueryContext.of(QueryContextParameters.MAX_NUMERIC_IN_FILTERS, 20000),
           "SELECT COUNT(*)\n"
               + "FROM druid.numfoo\n"
               + "WHERE dim6 IN (\n"
@@ -15958,8 +15961,9 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                 + "GROUP BY FLOOR(__time TO DAY)"
         )
         .queryContext(
-            ImmutableMap.of(
-                QueryContextParameters.DEBUG.getName(), true
+            QueryContext.of(
+                QueryContextParameters.DEBUG,
+                true
             )
         )
         .expectedQuery(
@@ -16057,8 +16061,9 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
             + "left join compare0 on main.pickup is not distinct from compare0.pickup "
         )
         .queryContext(
-            ImmutableMap.of(
-                QueryContextParameters.DEBUG.getName(), true
+            QueryContext.of(
+                QueryContextParameters.DEBUG,
+                true
             )
         )
         .expectedResults(

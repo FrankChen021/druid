@@ -384,7 +384,7 @@ public class ControllerHolderTest
       @Override
       public QueryContext getQueryContext()
       {
-        return QueryContext.of(Map.of(QueryContextParameters.TIMEOUT.getName(), 1));
+        return new QueryContext(QueryContext.of(QueryContextParameters.TIMEOUT, 1L));
       }
 
       @Override

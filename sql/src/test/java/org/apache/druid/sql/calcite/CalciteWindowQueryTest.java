@@ -29,6 +29,8 @@ import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.RE;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.operator.OperatorFactory;
 import org.apache.druid.query.operator.WindowOperatorQuery;
@@ -69,9 +71,11 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
 
   private static final ObjectMapper YAML_JACKSON = new DefaultObjectMapper(new YAMLFactory(), "tests");
 
-  private static final Map<String, Object> DEFAULT_QUERY_CONTEXT = ImmutableMap.of(
-      QueryContextParameters.DEBUG.getName(), true,
-      QueryContextParameters.SQL_STRINGIFY_ARRAYS.getName(), false
+  private static final Map<String, Object> DEFAULT_QUERY_CONTEXT = QueryContext.of(
+      QueryContextParameters.DEBUG,
+      true,
+      QueryContextParameters.SQL_STRINGIFY_ARRAYS,
+      false
   );
 
   private static final Map<String, Object> DEFAULT_QUERY_CONTEXT_WITH_SUBQUERY_BYTES =
@@ -312,11 +316,11 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
                  + "from wikipedia\n"
                  + "where countryName in ('Austria', 'Republic of Korea') and cityName is not null\n"
                  + "order by 1, 2, 3")
-            .queryContext(ImmutableMap.of(
-                QueryContextParameters.DEBUG.getName(), true,
-                QueryContextParameters.SQL_STRINGIFY_ARRAYS.getName(), false,
-                PlannerContext.CTX_ENABLE_RAC_TRANSFER_OVER_WIRE, true
-            ))
+            .queryContext(new QueryContextBuilder()
+                .put(QueryContextParameters.DEBUG, true)
+                .put(QueryContextParameters.SQL_STRINGIFY_ARRAYS, false)
+                .put(PlannerContext.CTX_ENABLE_RAC_TRANSFER_OVER_WIRE, true)
+                .build())
             .run()
     );
 

@@ -57,6 +57,7 @@ import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryCapacityExceededException;
+import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.QueryException;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QueryTimeoutException;
@@ -1483,12 +1484,10 @@ public class SqlResourceTest extends CalciteTestBase
   @Test
   public void testExplainCountStar() throws Exception
   {
-    Map<String, Object> queryContext = ImmutableMap.of(
-        QueryContextParameters.SQL_QUERY_ID.getName(),
-        DUMMY_SQL_QUERY_ID,
-        PlannerConfig.CTX_KEY_USE_NATIVE_QUERY_EXPLAIN,
-        "false"
-    );
+    Map<String, Object> queryContext = new QueryContextBuilder()
+        .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_QUERY_ID)
+        .put(PlannerConfig.CTX_KEY_USE_NATIVE_QUERY_EXPLAIN, "false")
+        .build();
     final List<Map<String, Object>> rows = doPost(
         new SqlQuery(
             "EXPLAIN PLAN FOR SELECT COUNT(*) AS cnt FROM druid.foo",
@@ -1901,12 +1900,10 @@ public class SqlResourceTest extends CalciteTestBase
   public void testQueryTimeoutException() throws Exception
   {
     final String sqlQueryId = "timeoutTest";
-    Map<String, Object> queryContext = ImmutableMap.of(
-        QueryContextParameters.TIMEOUT.getName(),
-        1,
-        BaseQuery.SQL_QUERY_ID,
-        sqlQueryId
-    );
+    Map<String, Object> queryContext = new QueryContextBuilder()
+        .put(QueryContextParameters.TIMEOUT, 1L)
+        .put(BaseQuery.SQL_QUERY_ID, sqlQueryId)
+        .build();
 
     ErrorResponse exception = postSyncForException(
         new SqlQuery(

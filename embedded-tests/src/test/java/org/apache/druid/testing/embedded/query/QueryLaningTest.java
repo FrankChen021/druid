@@ -20,6 +20,7 @@
 package org.apache.druid.testing.embedded.query;
 
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.http.ClientSqlQuery;
 import org.apache.druid.sql.http.ResultFormat;
@@ -89,7 +90,7 @@ public class QueryLaningTest extends QueryTestBase
         false,
         false,
         false,
-        Map.of(QueryContextParameters.LANE.getName(), lane),
+        QueryContext.of(QueryContextParameters.LANE, lane),
         null
     );
   }

@@ -798,11 +798,7 @@ public abstract class BaseFilterTest extends InitializedNullHandlingTest
     return CursorBuildSpec.builder()
                           .setFilter(filter)
                           .setVirtualColumns(virtualColumns)
-                          .setQueryContext(
-                              QueryContext.of(
-                                  ImmutableMap.of(QueryContextParameters.VECTOR_SIZE.getName(), 3)
-                              )
-                          )
+                          .setQueryContext(new QueryContext(QueryContext.of(QueryContextParameters.VECTOR_SIZE, 3)))
                           .build();
   }
 

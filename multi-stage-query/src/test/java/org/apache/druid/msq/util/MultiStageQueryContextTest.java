@@ -33,6 +33,7 @@ import org.apache.druid.msq.indexing.destination.MSQSelectDestination;
 import org.apache.druid.msq.kernel.WorkerAssignmentStrategy;
 import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.IndexSpec;
 import org.apache.druid.segment.column.StringEncodingStrategy;
@@ -426,10 +427,10 @@ public class MultiStageQueryContextTest
   public void testDartSelectDestination()
   {
     final QueryContext context = QueryContext.of(
-        ImmutableMap.of(
-            QueryContextParameters.DART_QUERY_ID.getName(), "test",
-            MultiStageQueryContext.CTX_SELECT_DESTINATION, "durablestorage"
-        )
+        new QueryContextBuilder()
+            .put(QueryContextParameters.DART_QUERY_ID, "test")
+            .put(MultiStageQueryContext.CTX_SELECT_DESTINATION, "durablestorage")
+            .build()
     );
 
     Assertions.assertEquals(
@@ -507,7 +508,7 @@ public class MultiStageQueryContextTest
   {
     final long timeoutMs = 60_000;
     final QueryContext context = MultiStageQueryContext.withCommonContext(
-        QueryContext.of(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), timeoutMs))
+        new QueryContext(QueryContext.of(QueryContextParameters.TIMEOUT, timeoutMs))
     );
 
     Assertions.assertTrue(context.containsKey(MultiStageQueryContext.CTX_START_TIME));

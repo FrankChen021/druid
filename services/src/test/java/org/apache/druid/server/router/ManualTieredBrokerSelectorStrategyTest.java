@@ -21,10 +21,10 @@ package org.apache.druid.server.router;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
@@ -119,7 +119,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), Names.INVALID_BROKER))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.INVALID_BROKER))
                 .build()
         )
     );
@@ -128,7 +128,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), Names.BROKER_SVC_HOT))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_HOT))
                 .build()
         )
     );
@@ -137,7 +137,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), Names.BROKER_SVC_COLD))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_COLD))
                 .build()
         )
     );
@@ -158,7 +158,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), Names.INVALID_BROKER))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.INVALID_BROKER))
                 .build()
         )
     );
@@ -167,7 +167,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), Names.BROKER_SVC_HOT))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_HOT))
                 .build()
         )
     );
@@ -188,7 +188,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), Names.INVALID_BROKER))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.INVALID_BROKER))
                 .build()
         )
     );
@@ -197,7 +197,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), Names.BROKER_SVC_HOT))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_HOT))
                 .build()
         )
     );
@@ -218,7 +218,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             createSqlQueryWithContext(
-                ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), Names.INVALID_BROKER)
+                QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.INVALID_BROKER)
             )
         )
     );
@@ -227,7 +227,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             createSqlQueryWithContext(
-                ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), Names.BROKER_SVC_HOT)
+                QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_HOT)
             )
         )
     );
@@ -236,7 +236,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             createSqlQueryWithContext(
-                ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), Names.BROKER_SVC_COLD)
+                QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_COLD)
             )
         )
     );

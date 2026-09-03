@@ -20,7 +20,6 @@
 package org.apache.druid.segment;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.ListBasedInputRow;
@@ -216,7 +215,14 @@ public class QueryableIndexCursorHolderTest
                                                          new LongSumAggregatorFactory("c_sum", "c")
                                                      )
                                                  )
-                                                 .setQueryContext(QueryContext.of(ImmutableMap.of(QueryContextParameters.FORCE_PROJECTIONS.getName(), true)))
+                                                 .setQueryContext(
+                                                     new QueryContext(
+                                                         QueryContext.of(
+                                                             QueryContextParameters.FORCE_PROJECTIONS,
+                                                             true
+                                                         )
+                                                     )
+                                                 )
                                                  .build();
       final CursorFactory cursorFactory = new QueryableIndexCursorFactory(index);
 

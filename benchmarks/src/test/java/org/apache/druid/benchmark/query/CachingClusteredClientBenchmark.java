@@ -63,6 +63,7 @@ import org.apache.druid.query.Druids;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
 import org.apache.druid.query.FluentQueryRunner;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
@@ -381,11 +382,11 @@ public class CachingClusteredClientBenchmark
                        .aggregators(new LongSumAggregatorFactory("sumLongSequential", "sumLongSequential"))
                        .granularity(Granularity.fromString(queryGranularity))
                        .context(
-                           ImmutableMap.of(
-                               BaseQuery.QUERY_ID, "BenchmarkQuery",
-                               QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), parallelCombine,
-                               QueryContextParameters.PARALLEL_MERGE_PARALLELISM.getName(), parallelism
-                           )
+                           new QueryContextBuilder()
+                               .put(BaseQuery.QUERY_ID, "BenchmarkQuery")
+                               .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
+                               .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
+                               .build()
                        )
                        .build();
 
@@ -412,11 +413,11 @@ public class CachingClusteredClientBenchmark
         .metric("sumLongSequential")
         .threshold(10_000) // we are primarily measuring 'broker' merge time, so collect a significant number of results
         .context(
-            ImmutableMap.of(
-                BaseQuery.QUERY_ID, "BenchmarkQuery",
-                QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), parallelCombine,
-                QueryContextParameters.PARALLEL_MERGE_PARALLELISM.getName(), parallelism
-            )
+            new QueryContextBuilder()
+                .put(BaseQuery.QUERY_ID, "BenchmarkQuery")
+                .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
+                .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
+                .build()
         )
         .build();
 
@@ -445,11 +446,11 @@ public class CachingClusteredClientBenchmark
         .setAggregatorSpecs(new LongSumAggregatorFactory("sumLongSequential", "sumLongSequential"))
         .setGranularity(Granularity.fromString(queryGranularity))
         .setContext(
-            ImmutableMap.of(
-                BaseQuery.QUERY_ID, "BenchmarkQuery",
-                QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), parallelCombine,
-                QueryContextParameters.PARALLEL_MERGE_PARALLELISM.getName(), parallelism
-            )
+            new QueryContextBuilder()
+                .put(BaseQuery.QUERY_ID, "BenchmarkQuery")
+                .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
+                .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
+                .build()
         )
         .build();
 

@@ -70,6 +70,7 @@ import org.apache.druid.query.FinalizeResultsQueryRunner;
 import org.apache.druid.query.FluentQueryRunner;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.Result;
@@ -171,9 +172,7 @@ import java.util.stream.IntStream;
 @MethodSource("constructorFeeder")
 public class CachingClusteredClientTest
 {
-  private static final ImmutableMap<String, Object> CONTEXT = ImmutableMap.of(
-      QueryContextParameters.FINALIZE.getName(), false
-  );
+  private static final Map<String, Object> CONTEXT = QueryContext.of(QueryContextParameters.FINALIZE, false);
   private static final MultipleIntervalSegmentSpec SEG_SPEC = new MultipleIntervalSegmentSpec(ImmutableList.of());
   private static final String DATA_SOURCE = "test";
   private static final ObjectMapper JSON_MAPPER = CachingClusteredClientTestUtils.createObjectMapper();
@@ -3139,7 +3138,12 @@ public class CachingClusteredClientTest
     final TimeBoundaryQuery queryInclude = Druids.newTimeBoundaryQueryBuilder()
             .dataSource(DATA_SOURCE)
             .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(queryInterval)))
-            .context(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "include"))
+            .context(
+                QueryContext.of(
+                    QueryContextParameters.REALTIME_SEGMENTS_MODE,
+                    QueryContexts.RealtimeSegmentsMode.INCLUDE
+                )
+            )
             .randomQueryId()
             .build();
 
@@ -3147,7 +3151,12 @@ public class CachingClusteredClientTest
     final TimeBoundaryQuery queryExclusive = Druids.newTimeBoundaryQueryBuilder()
             .dataSource(DATA_SOURCE)
             .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(queryInterval)))
-            .context(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "exclusive"))
+            .context(
+                QueryContext.of(
+                    QueryContextParameters.REALTIME_SEGMENTS_MODE,
+                    QueryContexts.RealtimeSegmentsMode.EXCLUSIVE
+                )
+            )
             .randomQueryId()
             .build();
 
@@ -3155,7 +3164,7 @@ public class CachingClusteredClientTest
     final TimeBoundaryQuery queryLegacyTrue = Druids.newTimeBoundaryQueryBuilder()
             .dataSource(DATA_SOURCE)
             .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(queryInterval)))
-            .context(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_ONLY.getName(), true))
+            .context(QueryContext.of(QueryContextParameters.REALTIME_SEGMENTS_ONLY, true))
             .randomQueryId()
             .build();
 
@@ -3204,7 +3213,12 @@ public class CachingClusteredClientTest
     final TimeBoundaryQuery queryExclude = Druids.newTimeBoundaryQueryBuilder()
             .dataSource(DATA_SOURCE)
             .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(queryInterval)))
-            .context(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "exclude"))
+            .context(
+                QueryContext.of(
+                    QueryContextParameters.REALTIME_SEGMENTS_MODE,
+                    QueryContexts.RealtimeSegmentsMode.EXCLUDE
+                )
+            )
             .randomQueryId()
             .build();
 
@@ -3212,7 +3226,12 @@ public class CachingClusteredClientTest
     final TimeBoundaryQuery queryInclude = Druids.newTimeBoundaryQueryBuilder()
             .dataSource(DATA_SOURCE)
             .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(queryInterval)))
-            .context(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "include"))
+            .context(
+                QueryContext.of(
+                    QueryContextParameters.REALTIME_SEGMENTS_MODE,
+                    QueryContexts.RealtimeSegmentsMode.INCLUDE
+                )
+            )
             .randomQueryId()
             .build();
 

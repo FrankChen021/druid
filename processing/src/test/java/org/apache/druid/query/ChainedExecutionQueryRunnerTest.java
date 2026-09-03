@@ -272,7 +272,10 @@ public class ChainedExecutionQueryRunnerTest
                                   .dataSource("test")
                                   .intervals("2014/2015")
                                   .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
-                                  .context(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 100, "queryId", "test"))
+                                  .context(new QueryContextBuilder()
+                                      .put(QueryContextParameters.TIMEOUT, 100L)
+                                      .put("queryId", "test")
+                                      .build())
                                   .build();
     final Sequence seq = chainedRunner.run(QueryPlus.wrap(query));
 
@@ -341,7 +344,12 @@ public class ChainedExecutionQueryRunnerTest
         .dataSource("test")
         .intervals("2014/2015")
         .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
-        .context(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 100, "queryId", "test"))
+        .context(
+            new QueryContextBuilder()
+                .put(QueryContextParameters.TIMEOUT, 100L)
+                .put("queryId", "test")
+                .build()
+        )
         .build();
     List<QueryRunner<Result<TimeseriesResultValue>>> runners = Arrays.asList(
         Mockito.mock(QueryRunner.class),
@@ -394,9 +402,11 @@ public class ChainedExecutionQueryRunnerTest
                                   .intervals("2014/2015")
                                   .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
                                   .context(
-                                      ImmutableMap.of(
-                                          QueryContextParameters.PER_SEGMENT_TIMEOUT.getName(), 100L,
-                                          QueryContextParameters.TIMEOUT.getName(), 5_000L
+                                      QueryContext.of(
+                                          QueryContextParameters.PER_SEGMENT_TIMEOUT,
+                                          100L,
+                                          QueryContextParameters.TIMEOUT,
+                                          5_000L
                                       )
                                   )
                                   .queryId("test")
@@ -452,9 +462,11 @@ public class ChainedExecutionQueryRunnerTest
                                       .dataSource("test")
                                       .intervals("2014/2015")
                                       .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
-                                      .context(ImmutableMap.of(
-                                          QueryContextParameters.TIMEOUT.getName(), 300_000L,
-                                          QueryContextParameters.PER_SEGMENT_TIMEOUT.getName(), 1_000L
+                                      .context(QueryContext.of(
+                                          QueryContextParameters.TIMEOUT,
+                                          300_000L,
+                                          QueryContextParameters.PER_SEGMENT_TIMEOUT,
+                                          1_000L
                                       ))
                                       .queryId("slow")
                                       .build();
@@ -463,9 +475,11 @@ public class ChainedExecutionQueryRunnerTest
                                       .dataSource("test")
                                       .intervals("2014/2015")
                                       .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
-                                      .context(ImmutableMap.of(
-                                          QueryContextParameters.TIMEOUT.getName(), 5_000L,
-                                          QueryContextParameters.PER_SEGMENT_TIMEOUT.getName(), 3_000L
+                                      .context(QueryContext.of(
+                                          QueryContextParameters.TIMEOUT,
+                                          5_000L,
+                                          QueryContextParameters.PER_SEGMENT_TIMEOUT,
+                                          3_000L
                                       ))
                                       .queryId("fast")
                                       .build();

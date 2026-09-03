@@ -440,7 +440,9 @@ public class QueryContexts
     }
 
     try {
-      if (value instanceof String) {
+      if (clazz.isInstance(value)) {
+        return clazz.cast(value);
+      } else if (value instanceof String) {
         return Enum.valueOf(clazz, StringUtils.toUpperCase((String) value));
       } else if (value instanceof Boolean) {
         return Enum.valueOf(clazz, StringUtils.toUpperCase(String.valueOf(value)));

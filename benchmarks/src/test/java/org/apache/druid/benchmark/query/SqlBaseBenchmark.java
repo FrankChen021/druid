@@ -45,6 +45,7 @@ import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.math.expr.ExpressionProcessing;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.aggregation.datasketches.hll.HllSketchModule;
@@ -228,9 +229,11 @@ public class SqlBaseBenchmark
 
   protected Map<String, Object> getContext()
   {
-    final Map<String, Object> context = ImmutableMap.of(
-        QueryContextParameters.VECTORIZE.getName(), vectorize,
-        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), vectorize
+    final Map<String, Object> context = QueryContext.of(
+        QueryContextParameters.VECTORIZE,
+        vectorizeContext,
+        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+        vectorizeContext
     );
     return context;
   }

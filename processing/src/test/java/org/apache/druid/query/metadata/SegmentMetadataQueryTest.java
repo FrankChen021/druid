@@ -42,6 +42,7 @@ import org.apache.druid.query.JoinAlgorithm;
 import org.apache.druid.query.JoinDataSource;
 import org.apache.druid.query.LookupDataSource;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
@@ -1101,8 +1102,8 @@ public class SegmentMetadataQueryTest extends InitializedNullHandlingTest
 
     TestHelper.assertExpectedObjects(
         ImmutableList.of(bySegmentResult, bySegmentResult),
-        myRunner.run(QueryPlus.wrap(testQuery.withOverriddenContext(ImmutableMap.of(
-            QueryContextParameters.BY_SEGMENT.getName(),
+        myRunner.run(QueryPlus.wrap(testQuery.withOverriddenContext(QueryContext.of(
+            QueryContextParameters.BY_SEGMENT,
             true
         )))),
         "failed SegmentMetadata bySegment query"

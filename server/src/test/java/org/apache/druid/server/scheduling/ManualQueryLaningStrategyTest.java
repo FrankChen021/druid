@@ -26,6 +26,7 @@ import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.context.QueryContextParameters;
@@ -149,7 +150,7 @@ public class ManualQueryLaningStrategyTest
   public void testPreservesManualLaneFromContextThatArentInMapAndIgnoresThem()
   {
     final String someLane = "some-lane";
-    TimeseriesQuery query = queryBuilder.context(ImmutableMap.of(QueryContextParameters.LANE.getName(), someLane)).build();
+    TimeseriesQuery query = queryBuilder.context(QueryContext.of(QueryContextParameters.LANE, someLane)).build();
     Assertions.assertEquals(
         someLane,
         exactStrategy.computeLane(QueryPlus.wrap(query), ImmutableSet.of()).get()
@@ -164,7 +165,7 @@ public class ManualQueryLaningStrategyTest
   public void testPreservesManualLaneFromContext()
   {
     final String someLane = "ten";
-    TimeseriesQuery query = queryBuilder.context(ImmutableMap.of(QueryContextParameters.LANE.getName(), someLane)).build();
+    TimeseriesQuery query = queryBuilder.context(QueryContext.of(QueryContextParameters.LANE, someLane)).build();
     Assertions.assertEquals(
         someLane,
         exactStrategy.computeLane(QueryPlus.wrap(query), ImmutableSet.of()).get()

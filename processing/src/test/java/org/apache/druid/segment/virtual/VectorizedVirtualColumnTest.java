@@ -27,6 +27,8 @@ import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.aggregation.AggregationTestHelper;
@@ -61,29 +63,29 @@ public class VectorizedVirtualColumnTest
   private static final String ALWAYS_TWO = "two";
   private static final String COUNT = "count";
   private static final Map<String, Object> CONTEXT_USE_DEFAULTS = ImmutableMap.of();
-  private static final Map<String, Object> CONTEXT_VECTORIZE_FORCE = ImmutableMap.of(
-      QueryContextParameters.VECTORIZE.getName(),
-      "force",
-      QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(),
-      "force"
+  private static final Map<String, Object> CONTEXT_VECTORIZE_FORCE = QueryContext.of(
+      QueryContextParameters.VECTORIZE,
+      QueryContexts.Vectorize.FORCE,
+      QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+      QueryContexts.Vectorize.FORCE
   );
-  private static final Map<String, Object> CONTEXT_VECTORIZE_TRUE_VIRTUAL_FORCE = ImmutableMap.of(
-      QueryContextParameters.VECTORIZE.getName(),
-      "true",
-      QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(),
-      "force"
+  private static final Map<String, Object> CONTEXT_VECTORIZE_TRUE_VIRTUAL_FORCE = QueryContext.of(
+      QueryContextParameters.VECTORIZE,
+      QueryContexts.Vectorize.TRUE,
+      QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+      QueryContexts.Vectorize.FORCE
   );
-  private static final Map<String, Object> CONTEXT_CONTRADICTION_VECTORIZE_FALSE_VIRTUAL_FORCE = ImmutableMap.of(
-      QueryContextParameters.VECTORIZE.getName(),
-      "false",
-      QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(),
-      "force"
+  private static final Map<String, Object> CONTEXT_CONTRADICTION_VECTORIZE_FALSE_VIRTUAL_FORCE = QueryContext.of(
+      QueryContextParameters.VECTORIZE,
+      QueryContexts.Vectorize.FALSE,
+      QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+      QueryContexts.Vectorize.FORCE
   );
-  private static final Map<String, Object> CONTEXT_CONTRADICTION_VECTORIZE_FORCE_VIRTUAL_FALSE = ImmutableMap.of(
-      QueryContextParameters.VECTORIZE.getName(),
-      "force",
-      QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(),
-      "false"
+  private static final Map<String, Object> CONTEXT_CONTRADICTION_VECTORIZE_FORCE_VIRTUAL_FALSE = QueryContext.of(
+      QueryContextParameters.VECTORIZE,
+      QueryContexts.Vectorize.FORCE,
+      QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+      QueryContexts.Vectorize.FALSE
   );
 
   @RegisterExtension

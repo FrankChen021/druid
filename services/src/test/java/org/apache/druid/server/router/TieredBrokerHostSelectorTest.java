@@ -35,6 +35,7 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
@@ -319,7 +320,7 @@ public class TieredBrokerHostSelectorTest
         "hotBroker",
         brokerSelector.select(
             queryBuilder
-                .context(ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), "hotBroker"))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, "hotBroker"))
                 .build()
         ).lhs
     );
@@ -327,7 +328,7 @@ public class TieredBrokerHostSelectorTest
         "coldBroker",
         brokerSelector.select(
             queryBuilder
-                .context(ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), "coldBroker"))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, "coldBroker"))
                 .build()
         ).lhs
     );
@@ -346,7 +347,7 @@ public class TieredBrokerHostSelectorTest
         "hotBroker",
         brokerSelector.selectForSql(
             createSqlQueryWithContext(
-                ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), "hotBroker")
+                QueryContext.of(QueryContextParameters.BROKER_SERVICE, "hotBroker")
             )
         ).lhs
     );
@@ -354,7 +355,7 @@ public class TieredBrokerHostSelectorTest
         "coldBroker",
         brokerSelector.selectForSql(
             createSqlQueryWithContext(
-                ImmutableMap.of(QueryContextParameters.BROKER_SERVICE.getName(), "coldBroker")
+                QueryContext.of(QueryContextParameters.BROKER_SERVICE, "coldBroker")
             )
         ).lhs
     );

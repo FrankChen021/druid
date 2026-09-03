@@ -89,6 +89,74 @@ public class QueryContext
     return new QueryContext(context);
   }
 
+  /**
+   * Builds an immutable context map from one declared query context parameter.
+   */
+  public static <T> Map<String, Object> of(
+      final QueryContextParameter<T> parameter,
+      @Nullable final T value
+  )
+  {
+    return new QueryContextBuilder().put(parameter, value).build();
+  }
+
+  /**
+   * Builds an immutable context map from two declared query context parameters.
+   */
+  public static <T1, T2> Map<String, Object> of(
+      final QueryContextParameter<T1> parameter1,
+      @Nullable final T1 value1,
+      final QueryContextParameter<T2> parameter2,
+      @Nullable final T2 value2
+  )
+  {
+    return new QueryContextBuilder()
+        .put(parameter1, value1)
+        .put(parameter2, value2)
+        .build();
+  }
+
+  /**
+   * Builds an immutable context map from three declared query context parameters.
+   */
+  public static <T1, T2, T3> Map<String, Object> of(
+      final QueryContextParameter<T1> parameter1,
+      @Nullable final T1 value1,
+      final QueryContextParameter<T2> parameter2,
+      @Nullable final T2 value2,
+      final QueryContextParameter<T3> parameter3,
+      @Nullable final T3 value3
+  )
+  {
+    return new QueryContextBuilder()
+        .put(parameter1, value1)
+        .put(parameter2, value2)
+        .put(parameter3, value3)
+        .build();
+  }
+
+  /**
+   * Builds an immutable context map from four declared query context parameters.
+   */
+  public static <T1, T2, T3, T4> Map<String, Object> of(
+      final QueryContextParameter<T1> parameter1,
+      @Nullable final T1 value1,
+      final QueryContextParameter<T2> parameter2,
+      @Nullable final T2 value2,
+      final QueryContextParameter<T3> parameter3,
+      @Nullable final T3 value3,
+      final QueryContextParameter<T4> parameter4,
+      @Nullable final T4 value4
+  )
+  {
+    return new QueryContextBuilder()
+        .put(parameter1, value1)
+        .put(parameter2, value2)
+        .put(parameter3, value3)
+        .put(parameter4, value4)
+        .build();
+  }
+
   public boolean isEmpty()
   {
     return context.isEmpty();

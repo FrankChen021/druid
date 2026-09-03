@@ -35,6 +35,8 @@ import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.OrderBy;
+import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.context.QueryContextParameters;
@@ -767,7 +769,7 @@ class QueryableIndexCursorFactoryClusteredTest extends InitializedNullHandlingTe
     // queries fail outright when the filter prunes every cluster group, instead of returning an empty result.
     final TimeseriesQuery query = newTimeseries()
         .filters(new EqualityFilter("tenant", ColumnType.STRING, "initech", null))
-        .context(Map.of(QueryContextParameters.VECTORIZE.getName(), "force"))
+        .context(QueryContext.of(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.FORCE))
         .build();
     final List<Result<TimeseriesResultValue>> results = timeseriesEngine.process(query, factory, null, null).toList();
     Assertions.assertTrue(

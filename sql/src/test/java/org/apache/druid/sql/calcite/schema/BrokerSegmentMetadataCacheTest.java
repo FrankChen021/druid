@@ -44,6 +44,7 @@ import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.metrics.StubServiceEmitter;
 import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.GlobalTableDataSource;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
@@ -314,7 +315,7 @@ public class BrokerSegmentMetadataCacheTest extends BrokerSegmentMetadataCacheTe
         new MultipleSpecificSegmentSpec(Collections.singletonList(realtimeSegment1.getId().toDescriptor())),
         new AllColumnIncluderator(),
         false,
-        ImmutableMap.of(QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), false),
+        QueryContext.of(QueryContextParameters.ENABLE_PARALLEL_MERGE, false),
         EnumSet.noneOf(SegmentMetadataQuery.AnalysisType.class),
         false,
         null,
@@ -1063,9 +1064,11 @@ public class BrokerSegmentMetadataCacheTest extends BrokerSegmentMetadataCacheTe
         CentralizedDatasourceSchemaConfig.create()
     );
 
-    Map<String, Object> queryContext = ImmutableMap.of(
-        QueryContextParameters.PRIORITY.getName(), 5,
-        QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), false
+    Map<String, Object> queryContext = QueryContext.of(
+        QueryContextParameters.PRIORITY,
+        5,
+        QueryContextParameters.ENABLE_PARALLEL_MERGE,
+        false
     );
 
     DataSegment segment = newSegment("test", 0);
@@ -1223,9 +1226,11 @@ public class BrokerSegmentMetadataCacheTest extends BrokerSegmentMetadataCacheTe
         CentralizedDatasourceSchemaConfig.create()
     );
 
-    Map<String, Object> queryContext = ImmutableMap.of(
-        QueryContextParameters.PRIORITY.getName(), 5,
-        QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), false
+    Map<String, Object> queryContext = QueryContext.of(
+        QueryContextParameters.PRIORITY,
+        5,
+        QueryContextParameters.ENABLE_PARALLEL_MERGE,
+        false
     );
 
     DataSegment segment = newSegment("test", 0);

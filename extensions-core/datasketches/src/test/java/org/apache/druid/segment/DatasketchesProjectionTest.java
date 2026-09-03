@@ -20,7 +20,6 @@
 package org.apache.druid.segment;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableMap;
 import org.apache.datasketches.common.Family;
 import org.apache.datasketches.hll.HllSketch;
 import org.apache.datasketches.kll.KllDoublesSketch;
@@ -48,6 +47,7 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.DruidProcessingConfig;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.aggregation.datasketches.hll.HllSketchBuildAggregatorFactory;
 import org.apache.druid.query.aggregation.datasketches.hll.HllSketchHolder;
 import org.apache.druid.query.aggregation.datasketches.hll.HllSketchModule;
@@ -378,7 +378,7 @@ public class DatasketchesProjectionTest extends InitializedNullHandlingTest
                         new ArrayOfDoublesSketchAggregatorFactory("b_doubles", "b", null, Arrays.asList("c", "d"), null),
                         new KllDoublesSketchAggregatorFactory("d", "d", null, null)
                     )
-                    .setContext(ImmutableMap.of(QueryContextParameters.NO_PROJECTIONS.getName(), true))
+                    .setContext(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true))
                     .build();
     final CursorBuildSpec buildSpec = GroupingEngine.makeCursorBuildSpec(query, null);
     try (final CursorHolder cursorHolder = projectionsCursorFactory.makeCursorHolder(buildSpec)) {

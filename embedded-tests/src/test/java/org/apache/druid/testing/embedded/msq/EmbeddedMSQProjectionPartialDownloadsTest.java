@@ -29,6 +29,7 @@ import org.apache.druid.indexing.common.task.TaskBuilder;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTask;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.http.SqlTaskStatus;
@@ -123,7 +124,7 @@ class EmbeddedMSQProjectionPartialDownloadsTest extends EmbeddedClusterTestBase
     emitter.flush();
 
     final SqlTaskStatus status = msqApis.submitTaskSql(
-        Map.of(QueryContextParameters.USE_PROJECTION.getName(), PROJECTION_NAME),
+        QueryContext.of(QueryContextParameters.USE_PROJECTION, PROJECTION_NAME),
         SELECT_SQL,
         dataSource
     );

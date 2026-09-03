@@ -19,7 +19,6 @@
 
 package org.apache.druid.query.aggregation.datasketches.util;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.apache.druid.hll.HyperLogLogCollector;
 import org.apache.druid.query.QueryContext;
@@ -177,8 +176,8 @@ public class ToObjectVectorColumnProcessorFactoryTest extends InitializedNullHan
   {
     final CursorBuildSpec buildSpec = CursorBuildSpec.builder()
                                                      .setQueryContext(
-                                                         QueryContext.of(
-                                                             ImmutableMap.of(QueryContextParameters.VECTOR_SIZE.getName(), 3)
+                                                         new QueryContext(
+                                                             QueryContext.of(QueryContextParameters.VECTOR_SIZE, 3)
                                                          )
                                                      )
                                                      .build();

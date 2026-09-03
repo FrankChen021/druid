@@ -46,6 +46,7 @@ import org.apache.druid.query.Druids;
 import org.apache.druid.query.JoinAlgorithm;
 import org.apache.druid.query.JoinDataSource;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.TableDataSource;
@@ -191,49 +192,49 @@ public class BaseCalciteQueryTest extends CalciteTestBase
                   .putAll(QUERY_CONTEXT_NO_STRINGIFY_ARRAY)
                   .build();
 
-  public static final Map<String, Object> QUERY_CONTEXT_DONT_SKIP_EMPTY_BUCKETS = ImmutableMap.of(
-      QueryContextParameters.SQL_QUERY_ID.getName(), DUMMY_SQL_ID,
-      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME,
-      TimeseriesQuery.SKIP_EMPTY_BUCKETS, false,
-      QueryContextParameters.DEFAULT_TIMEOUT.getName(), QueryContexts.DEFAULT_TIMEOUT_MILLIS,
-      QueryContextParameters.MAX_SCATTER_GATHER_BYTES.getName(), Long.MAX_VALUE
-  );
+  public static final Map<String, Object> QUERY_CONTEXT_DONT_SKIP_EMPTY_BUCKETS = new QueryContextBuilder()
+      .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
+      .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
+      .put(TimeseriesQuery.SKIP_EMPTY_BUCKETS, false)
+      .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
+      .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
+      .build();
 
-  public static final Map<String, Object> QUERY_CONTEXT_DO_SKIP_EMPTY_BUCKETS = ImmutableMap.of(
-      QueryContextParameters.SQL_QUERY_ID.getName(), DUMMY_SQL_ID,
-      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME,
-      TimeseriesQuery.SKIP_EMPTY_BUCKETS, true,
-      QueryContextParameters.DEFAULT_TIMEOUT.getName(), QueryContexts.DEFAULT_TIMEOUT_MILLIS,
-      QueryContextParameters.MAX_SCATTER_GATHER_BYTES.getName(), Long.MAX_VALUE
-  );
+  public static final Map<String, Object> QUERY_CONTEXT_DO_SKIP_EMPTY_BUCKETS = new QueryContextBuilder()
+      .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
+      .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
+      .put(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true)
+      .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
+      .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
+      .build();
 
   public static final Map<String, Object> QUERY_CONTEXT_LEXICOGRAPHIC_TOPN =
       QueryContexts.override(QUERY_CONTEXT_DEFAULT, PlannerConfig.CTX_KEY_USE_LEXICOGRAPHIC_TOPN, true);
 
-  public static final Map<String, Object> QUERY_CONTEXT_NO_TOPN = ImmutableMap.of(
-      QueryContextParameters.SQL_QUERY_ID.getName(), DUMMY_SQL_ID,
-      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME,
-      PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, "false",
-      QueryContextParameters.DEFAULT_TIMEOUT.getName(), QueryContexts.DEFAULT_TIMEOUT_MILLIS,
-      QueryContextParameters.MAX_SCATTER_GATHER_BYTES.getName(), Long.MAX_VALUE
-  );
+  public static final Map<String, Object> QUERY_CONTEXT_NO_TOPN = new QueryContextBuilder()
+      .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
+      .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
+      .put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, "false")
+      .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
+      .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
+      .build();
 
-  public static final Map<String, Object> QUERY_CONTEXT_LOS_ANGELES = ImmutableMap.of(
-      QueryContextParameters.SQL_QUERY_ID.getName(), DUMMY_SQL_ID,
-      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME,
-      PlannerContext.CTX_SQL_TIME_ZONE, LOS_ANGELES,
-      QueryContextParameters.DEFAULT_TIMEOUT.getName(), QueryContexts.DEFAULT_TIMEOUT_MILLIS,
-      QueryContextParameters.MAX_SCATTER_GATHER_BYTES.getName(), Long.MAX_VALUE
-  );
+  public static final Map<String, Object> QUERY_CONTEXT_LOS_ANGELES = new QueryContextBuilder()
+      .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
+      .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
+      .put(PlannerContext.CTX_SQL_TIME_ZONE, LOS_ANGELES)
+      .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
+      .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
+      .build();
 
   // Matches QUERY_CONTEXT_DEFAULT
-  public static final Map<String, Object> TIMESERIES_CONTEXT_BY_GRAN = ImmutableMap.of(
-      QueryContextParameters.SQL_QUERY_ID.getName(), DUMMY_SQL_ID,
-      PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME,
-      TimeseriesQuery.SKIP_EMPTY_BUCKETS, true,
-      QueryContextParameters.DEFAULT_TIMEOUT.getName(), QueryContexts.DEFAULT_TIMEOUT_MILLIS,
-      QueryContextParameters.MAX_SCATTER_GATHER_BYTES.getName(), Long.MAX_VALUE
-  );
+  public static final Map<String, Object> TIMESERIES_CONTEXT_BY_GRAN = new QueryContextBuilder()
+      .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
+      .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
+      .put(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true)
+      .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
+      .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
+      .build();
 
   public static final Map<String, Object> QUERY_CONTEXT_WITH_SUBQUERY_MEMORY_LIMIT =
       ImmutableMap.<String, Object>builder()

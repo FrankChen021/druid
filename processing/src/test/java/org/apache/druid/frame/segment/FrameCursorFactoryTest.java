@@ -19,7 +19,6 @@
 
 package org.apache.druid.frame.segment;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.frame.FrameType;
 import org.apache.druid.frame.testutil.FrameTestUtil;
 import org.apache.druid.java.util.common.Intervals;
@@ -170,8 +169,8 @@ public class FrameCursorFactoryTest
     private CursorFactory queryableCursorFactory;
     private FrameSegment frameSegment;
     private CursorFactory frameCursorFactory;
-    private final QueryContext queryContext = QueryContext.of(
-        ImmutableMap.of(QueryContextParameters.VECTOR_SIZE.getName(), VECTOR_SIZE)
+    private final QueryContext queryContext = new QueryContext(
+        QueryContext.of(QueryContextParameters.VECTOR_SIZE, VECTOR_SIZE)
     );
 
     public CursorTests(

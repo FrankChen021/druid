@@ -42,6 +42,7 @@ import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.BySegmentResultValue;
 import org.apache.druid.query.BySegmentResultValueClass;
 import org.apache.druid.query.Order;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerTestHelper;
@@ -3729,7 +3730,7 @@ public class TopNQueryRunnerTest extends InitializedNullHandlingTest
             QueryRunnerTestHelper.ADD_ROWS_INDEX_CONSTANT,
             QueryRunnerTestHelper.DEPENDENT_POST_AGG
         )
-        .context(ImmutableMap.of(QueryContextParameters.FINALIZE.getName(), true, QueryContextParameters.BY_SEGMENT.getName(), true))
+        .context(QueryContext.of(QueryContextParameters.FINALIZE, true, QueryContextParameters.BY_SEGMENT, true))
         .build();
     TopNResultValue topNResult = TopNResultValue.create(
         Arrays.<Map<String, Object>>asList(
@@ -7167,7 +7168,7 @@ public class TopNQueryRunnerTest extends InitializedNullHandlingTest
         .metric(QueryRunnerTestHelper.INDEX_METRIC)
         .threshold(10_000)
         .intervals(QueryRunnerTestHelper.FIRST_TO_THIRD)
-        .context(ImmutableMap.of(QueryContextParameters.USE_TOPN_MULTI_PASS_POOLED_QUERY_GRANULARITY.getName(), true))
+        .context(QueryContext.of(QueryContextParameters.USE_TOPN_MULTI_PASS_POOLED_QUERY_GRANULARITY, true))
         .aggregators(
             QueryRunnerTestHelper.INDEX_LONG_SUM,
             new StringAnyAggregatorFactory("big", QueryRunnerTestHelper.PLACEMENT_DIMENSION, 4000000, null)

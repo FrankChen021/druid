@@ -57,6 +57,7 @@ import org.apache.druid.query.DirectQueryProcessingPool;
 import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
 import org.apache.druid.query.Order;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
@@ -3027,7 +3028,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setDimensions(new DefaultDimensionSpec("quality", "alias"))
         .setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, new LongSumAggregatorFactory("idx", "index"))
         .setGranularity(QueryRunnerTestHelper.DAY_GRAN)
-        .overrideContext(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 60000))
+        .overrideContext(QueryContext.of(QueryContextParameters.TIMEOUT, 60000L))
         .build();
 
     List<ResultRow> expectedResults = Arrays.asList(
@@ -3591,9 +3592,11 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setQuerySegmentSpec(QueryRunnerTestHelper.FIRST_TO_THIRD)
         .setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, QueryRunnerTestHelper.QUALITY_CARDINALITY)
         .setGranularity(QueryRunnerTestHelper.ALL_GRAN);
-    GroupByQuery queryNoProjection = queryBuilder.setContext(Map.of(QueryContextParameters.NO_PROJECTIONS.getName(), "true")).build();
-    GroupByQuery queryWithProjection = queryBuilder.setContext(Map.of(
-        QueryContextParameters.USE_PROJECTION.getName(),
+    GroupByQuery queryNoProjection = queryBuilder
+        .setContext(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true))
+        .build();
+    GroupByQuery queryWithProjection = queryBuilder.setContext(QueryContext.of(
+        QueryContextParameters.USE_PROJECTION,
         "daily_countAndQualityCardinalityAndMaxLongNullable"
     )).build();
     // act
@@ -3626,9 +3629,11 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setInterval("2011-01-21T00:00:00.000Z/P1D")
         .setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, QueryRunnerTestHelper.QUALITY_CARDINALITY)
         .setGranularity(QueryRunnerTestHelper.ALL_GRAN);
-    GroupByQuery queryNoProjection = queryBuilder.setContext(Map.of(QueryContextParameters.NO_PROJECTIONS.getName(), "true")).build();
-    GroupByQuery queryWithProjection = queryBuilder.setContext(Map.of(
-        QueryContextParameters.USE_PROJECTION.getName(),
+    GroupByQuery queryNoProjection = queryBuilder
+        .setContext(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true))
+        .build();
+    GroupByQuery queryWithProjection = queryBuilder.setContext(QueryContext.of(
+        QueryContextParameters.USE_PROJECTION,
         "daily_countAndQualityCardinalityAndMaxLongNullable"
     )).build();
 
@@ -7428,7 +7433,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setQuerySegmentSpec(QueryRunnerTestHelper.FIRST_TO_THIRD)
         .setDimensions(new ArrayList<>()).setAggregatorSpecs(new CountAggregatorFactory("count"))
         .setGranularity(QueryRunnerTestHelper.ALL_GRAN)
-        .overrideContext(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 10000))
+        .overrideContext(QueryContext.of(QueryContextParameters.TIMEOUT, 10000L))
         .build();
 
     List<ResultRow> expectedResults = Collections.singletonList(
@@ -7859,7 +7864,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
             new LongLastAggregatorFactory("innerlast", "index", null)
         )
         .setGranularity(QueryRunnerTestHelper.DAY_GRAN)
-        .overrideContext(ImmutableMap.of(QueryContextParameters.FINALIZE.getName(), true))
+        .overrideContext(QueryContext.of(QueryContextParameters.FINALIZE, true))
         .build();
 
     GroupByQuery query = makeQueryBuilder()
@@ -9441,7 +9446,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, new LongSumAggregatorFactory("idx", "index"))
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
         .setDimFilter(new SelectorDimFilter("quality", "mezzanine", null))
-        .setContext(ImmutableMap.of(QueryContextParameters.BY_SEGMENT.getName(), true));
+        .setContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, true));
     final GroupByQuery fullQuery = builder.build();
 
     int segmentCount = 32;
@@ -9512,7 +9517,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         )).setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, new LongSumAggregatorFactory("idx", "index"))
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
         .setDimFilter(new SelectorDimFilter("quality", "mezzanine", null))
-        .setContext(ImmutableMap.of(QueryContextParameters.BY_SEGMENT.getName(), true));
+        .setContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, true));
     final GroupByQuery fullQuery = builder.build();
 
     int segmentCount = 32;
@@ -9582,7 +9587,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         )).setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, new LongSumAggregatorFactory("idx", "index"))
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
         .setDimFilter(new SelectorDimFilter("quality", "mezzanine", null))
-        .overrideContext(ImmutableMap.of(QueryContextParameters.BY_SEGMENT.getName(), true));
+        .overrideContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, true));
     final GroupByQuery fullQuery = builder.build();
 
     int segmentCount = 32;
@@ -10149,7 +10154,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, new LongSumAggregatorFactory("idx", "index"))
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
         .setDimFilter(superFilter)
-        .overrideContext(ImmutableMap.of(QueryContextParameters.BY_SEGMENT.getName(), true));
+        .overrideContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, true));
     final GroupByQuery fullQuery = builder.build();
 
     int segmentCount = 32;
