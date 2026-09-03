@@ -20,6 +20,7 @@
 package org.apache.druid.server.system;
 
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
@@ -88,7 +89,7 @@ public class SystemTableQueryHandlerTest
       @Override
       public Set<NodeRole> getNodeRoles()
       {
-        return Set.of();
+        return Set.of(NodeRole.BROKER);
       }
 
       @Override
@@ -110,6 +111,7 @@ public class SystemTableQueryHandlerTest
       }
     };
     final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Set.of(NodeRole.BROKER),
         Map.of("test", supplier),
         Map.of(descriptor.getTableName(), descriptor),
         new ScanQueryEngine(),
@@ -144,6 +146,67 @@ public class SystemTableQueryHandlerTest
         ),
         result.get(0).getEvents()
     );
+  }
+
+  @Test
+  public void testRejectsTableNotServedByCurrentNodeRole()
+  {
+    final AtomicInteger getRowsCalls = new AtomicInteger();
+    final SystemTableDataProvider supplier = (filters, authenticationResult) -> {
+      getRowsCalls.incrementAndGet();
+      return List.of();
+    };
+    final SystemTableDescriptor descriptor = new SystemTableDescriptor()
+    {
+      @Override
+      public String getTableName()
+      {
+        return "test";
+      }
+
+      @Override
+      public Set<NodeRole> getNodeRoles()
+      {
+        return Set.of(NodeRole.BROKER);
+      }
+
+      @Override
+      public RowSignature getRowSignature()
+      {
+        return ROW_SIGNATURE;
+      }
+
+      @Override
+      public SystemTableRowAuthorizer getRowAuthorizer()
+      {
+        return (rows, authenticationResult, authorizerMapper) -> rows;
+      }
+    };
+    final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Set.of(NodeRole.HISTORICAL),
+        Map.of("test", supplier),
+        Map.of(descriptor.getTableName(), descriptor),
+        new ScanQueryEngine(),
+        new AuthorizerMapper(Map.of())
+    );
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                  .dataSource(new SystemTableDataSource("test"))
+                                  .eternityInterval()
+                                  .columns(ROW_SIGNATURE)
+                                  .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                  .build();
+
+    final ISE exception = Assertions.assertThrows(
+        ISE.class,
+        () -> handler.createRunner(
+            query,
+            new AuthenticationResult("alice", "allow", "external", null),
+            true
+        )
+    );
+
+    Assertions.assertEquals("System table[test] is not served by this node", exception.getMessage());
+    Assertions.assertEquals(0, getRowsCalls.get());
   }
 
 }
