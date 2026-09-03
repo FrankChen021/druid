@@ -20,7 +20,6 @@
 package org.apache.druid.benchmark.query;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.sql.calcite.planner.DruidPlanner;
 import org.apache.druid.sql.calcite.planner.PlannerResult;

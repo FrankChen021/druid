@@ -26,7 +26,6 @@ import com.google.common.base.Preconditions;
 import org.apache.druid.msq.dart.controller.sql.DartSqlEngine;
 import org.apache.druid.msq.exec.ControllerHolder;
 import org.apache.druid.msq.util.MSQTaskQueryMakerUtils;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.sql.http.GetQueriesResponse;
 import org.apache.druid.sql.http.QueryInfo;

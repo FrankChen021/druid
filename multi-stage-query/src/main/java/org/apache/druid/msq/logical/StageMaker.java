@@ -33,7 +33,6 @@ import org.apache.druid.msq.logical.stages.AbstractShuffleStage;
 import org.apache.druid.msq.logical.stages.LogicalStage;
 import org.apache.druid.msq.querykit.scan.ScanQueryStageProcessor;
 import org.apache.druid.query.DataSource;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.segment.VirtualColumns;

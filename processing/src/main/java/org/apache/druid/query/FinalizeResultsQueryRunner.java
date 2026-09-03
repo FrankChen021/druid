@@ -25,8 +25,8 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
-import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.context.QueryContextParameters;
+import org.apache.druid.query.context.ResponseContext;
 
 import java.util.ArrayList;
 import java.util.List;

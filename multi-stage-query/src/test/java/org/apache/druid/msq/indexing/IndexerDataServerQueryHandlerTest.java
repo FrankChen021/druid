@@ -40,7 +40,6 @@ import org.apache.druid.msq.querykit.InputNumberDataSource;
 import org.apache.druid.msq.querykit.scan.ScanQueryFrameProcessor;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.FilteredDataSource;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.QueryContextParameters;

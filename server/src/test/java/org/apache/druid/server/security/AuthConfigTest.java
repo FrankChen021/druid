@@ -21,7 +21,6 @@ package org.apache.druid.server.security;
 
 import com.google.common.collect.ImmutableSet;
 import nl.jqno.equalsverifier.EqualsVerifier;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

@@ -29,7 +29,6 @@ import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.InlineDataSource;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerTestHelper;

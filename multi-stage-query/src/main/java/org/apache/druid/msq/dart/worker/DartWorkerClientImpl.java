@@ -30,7 +30,6 @@ import org.apache.druid.java.util.http.client.response.HttpResponseHandler;
 import org.apache.druid.msq.dart.worker.http.DartWorkerResource;
 import org.apache.druid.msq.exec.WorkerClient;
 import org.apache.druid.msq.rpc.BaseWorkerClientImpl;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.rpc.FixedServiceLocator;
 import org.apache.druid.rpc.IgnoreHttpResponseHandler;
 import org.apache.druid.rpc.RequestBuilder;

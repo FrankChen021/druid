@@ -24,7 +24,6 @@ import org.apache.druid.client.broker.BrokerClient;
 import org.apache.druid.error.ExceptionMatcher;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.Druids;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.http.ClientSqlQuery;
 import org.apache.druid.query.http.SqlTaskStatus;

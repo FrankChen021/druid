@@ -59,7 +59,6 @@ import org.apache.druid.msq.indexing.report.MSQTaskReport;
 import org.apache.druid.msq.indexing.report.MSQTaskReportPayload;
 import org.apache.druid.msq.sql.MSQTaskQueryKitSpecFactory;
 import org.apache.druid.msq.util.SqlStatementResourceHelper;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.rowsandcols.RowsAndColumns;
 import org.apache.druid.rpc.indexing.NoopOverlordClient;

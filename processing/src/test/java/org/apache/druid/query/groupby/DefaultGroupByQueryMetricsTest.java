@@ -25,7 +25,6 @@ import org.apache.druid.java.util.common.granularity.PeriodGranularity;
 import org.apache.druid.java.util.metrics.StubServiceEmitter;
 import org.apache.druid.query.DefaultQueryMetricsTest;
 import org.apache.druid.query.DruidMetrics;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.context.QueryContextParameters;

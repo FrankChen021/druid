@@ -50,7 +50,6 @@ import org.apache.druid.msq.sql.MSQTaskSqlEngine;
 import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.QueryConfigProvider;
 import org.apache.druid.query.QueryContext;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.initialization.ServerConfig;

@@ -27,7 +27,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.sql.http.SqlQuery;
 
 import javax.annotation.Nullable;

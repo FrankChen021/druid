@@ -25,6 +25,7 @@ import org.apache.druid.query.context.QueryContextParameter;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.constraint.ParameterConstraint;
 import org.apache.druid.query.context.constraint.Range;
+import org.apache.druid.query.context.docs.ParameterDocumentation.Language;
 import org.apache.druid.query.context.docs.ParameterDocumentation.QueryType;
 
 import java.io.IOException;
@@ -43,6 +44,7 @@ public final class ParameterDocumentationGenerator
 {
   private static final String GENERAL_REFERENCE = "docs/querying/query-context-reference.md";
   private static final String SCAN_REFERENCE = "docs/querying/scan-query.md";
+  private static final String SQL_REFERENCE = "docs/querying/sql-query-context.md";
   private static final String MARKER_FORMAT = "<!-- GENERATED QUERY CONTEXT PARAMETER: %s -->";
 
   private ParameterDocumentationGenerator()
@@ -92,7 +94,14 @@ public final class ParameterDocumentationGenerator
       if (docs == null) {
         continue;
       }
-      final String document = docs.getQueryTypes().contains(QueryType.SCAN) ? SCAN_REFERENCE : GENERAL_REFERENCE;
+      final String document;
+      if (docs.getLanguages().contains(Language.SQL) && !docs.getLanguages().contains(Language.NATIVE)) {
+        document = SQL_REFERENCE;
+      } else if (docs.getQueryTypes().contains(QueryType.SCAN)) {
+        document = SCAN_REFERENCE;
+      } else {
+        document = GENERAL_REFERENCE;
+      }
       rowsByDocument.computeIfAbsent(document, ignored -> new LinkedHashMap<>())
                     .put(parameter.getName(), renderRow(parameter, docs, document));
     }
@@ -111,6 +120,15 @@ public final class ParameterDocumentationGenerator
           parameter.getName(),
           escapeTableCell(docs.getDescription()),
           renderValueDescription(parameter),
+          renderDefault(parameter, docs)
+      );
+    }
+
+    if (SQL_REFERENCE.equals(document)) {
+      return StringUtils.format(
+          "|`%s`|%s|%s|",
+          parameter.getName(),
+          escapeTableCell(docs.getDescription()),
           renderDefault(parameter, docs)
       );
     }
@@ -161,11 +179,9 @@ public final class ParameterDocumentationGenerator
       final ParameterDocumentation docs
   )
   {
-    return parameter.getDefaultValue()
-                    .map(String::valueOf)
-                    .or(docs::getDefaultDescription)
-                    .map(value -> "`" + value + "`")
-                    .orElse("N/A");
+    return docs.getDefaultDescription()
+               .or(() -> parameter.getDefaultValue().map(value -> "`" + value + "`"))
+               .orElse("N/A");
   }
 
   private static String replaceRows(

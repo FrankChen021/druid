@@ -20,7 +20,6 @@
 package org.apache.druid.sql.calcite;
 
 import org.apache.calcite.rel.rules.CoreRules;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.UnnestDataSource;
 
 import java.lang.annotation.ElementType;

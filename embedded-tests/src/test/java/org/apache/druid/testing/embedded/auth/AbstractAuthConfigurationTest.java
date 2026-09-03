@@ -35,7 +35,6 @@ import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.auth.BasicCredentials;
 import org.apache.druid.java.util.http.client.response.StatusResponseHolder;
 import org.apache.druid.msq.dart.controller.sql.DartSqlEngine;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.http.SqlTaskStatus;
 import org.apache.druid.segment.TestHelper;

@@ -29,7 +29,6 @@ import org.apache.druid.msq.logical.StageMaker;
 import org.apache.druid.msq.logical.stages.LogicalStage;
 import org.apache.druid.msq.sql.MSQTaskQueryMaker;
 import org.apache.druid.query.QueryContext;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.security.ForbiddenException;

@@ -25,7 +25,6 @@ import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

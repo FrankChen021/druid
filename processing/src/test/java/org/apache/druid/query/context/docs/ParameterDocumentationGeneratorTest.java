@@ -20,6 +20,10 @@
 package org.apache.druid.query.context.docs;
 
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.query.context.QueryContextParameter;
+import org.apache.druid.query.context.QueryContextParameters;
+import org.apache.druid.query.context.docs.ParameterDocumentation.Language;
+import org.apache.druid.query.context.docs.ParameterDocumentation.QueryType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -37,10 +41,13 @@ class ParameterDocumentationGeneratorTest
 {
   private static final String GENERAL_DOCUMENT = "docs/querying/query-context-reference.md";
   private static final String SCAN_DOCUMENT = "docs/querying/scan-query.md";
+  private static final String SQL_DOCUMENT = "docs/querying/sql-query-context.md";
   private static final String GENERAL_MARKER =
       "<!-- GENERATED QUERY CONTEXT PARAMETER: useResultLevelCache -->";
   private static final String SCAN_MARKER =
       "<!-- GENERATED QUERY CONTEXT PARAMETER: maxRowsQueuedForOrdering -->";
+  private static final String SQL_MARKER =
+      "<!-- GENERATED QUERY CONTEXT PARAMETER: sqlQueryId -->";
 
   @TempDir
   Path temporaryFolder;
@@ -48,7 +55,11 @@ class ParameterDocumentationGeneratorTest
   @Test
   void testGenerateAndVerify() throws IOException
   {
-    writeDocuments("general header\n|stale| " + GENERAL_MARKER, "scan header\n|stale| " + SCAN_MARKER);
+    writeDocuments(
+        "general header\n|stale| " + GENERAL_MARKER,
+        "scan header\n|stale| " + SCAN_MARKER,
+        "sql header\n|stale| " + SQL_MARKER
+    );
 
     final Path generatedOutput = temporaryFolder.resolve("generated");
     ParameterDocumentationGenerator.main(arguments("generate", generatedOutput));
@@ -64,8 +75,14 @@ class ParameterDocumentationGeneratorTest
     assertTrue(scan.contains("An integer in [1, 2147483647]"));
     assertTrue(scan.contains(SCAN_MARKER));
 
+    final String sql = Files.readString(temporaryFolder.resolve(SQL_DOCUMENT), StandardCharsets.UTF_8);
+    assertTrue(sql.startsWith("sql header\n"));
+    assertTrue(sql.contains("|`sqlQueryId`|"));
+    assertTrue(sql.contains(SQL_MARKER));
+
     assertEquals(general, Files.readString(generatedOutput.resolve(GENERAL_DOCUMENT), StandardCharsets.UTF_8));
     assertEquals(scan, Files.readString(generatedOutput.resolve(SCAN_DOCUMENT), StandardCharsets.UTF_8));
+    assertEquals(sql, Files.readString(generatedOutput.resolve(SQL_DOCUMENT), StandardCharsets.UTF_8));
 
     ParameterDocumentationGenerator.main(arguments("verify", temporaryFolder.resolve("verified")));
   }
@@ -73,7 +90,7 @@ class ParameterDocumentationGeneratorTest
   @Test
   void testVerifyRejectsStaleDocumentation() throws IOException
   {
-    writeDocuments("|stale| " + GENERAL_MARKER, "|stale| " + SCAN_MARKER);
+    writeDocuments("|stale| " + GENERAL_MARKER, "|stale| " + SCAN_MARKER, "|stale| " + SQL_MARKER);
 
     final ISE exception = assertThrows(
         ISE.class,
@@ -85,7 +102,7 @@ class ParameterDocumentationGeneratorTest
   @Test
   void testGenerateRejectsMissingMarker() throws IOException
   {
-    writeDocuments("no generated row", "|stale| " + SCAN_MARKER);
+    writeDocuments("no generated row", "|stale| " + SCAN_MARKER, "|stale| " + SQL_MARKER, false);
 
     final ISE exception = assertThrows(
         ISE.class,
@@ -114,12 +131,62 @@ class ParameterDocumentationGeneratorTest
     return new String[]{temporaryFolder.toString(), mode, generatedOutput.toString()};
   }
 
-  private void writeDocuments(final String general, final String scan) throws IOException
+  private void writeDocuments(final String general, final String scan, final String sql) throws IOException
+  {
+    writeDocuments(general, scan, sql, true);
+  }
+
+  private void writeDocuments(
+      final String general,
+      final String scan,
+      final String sql,
+      final boolean addMissingMarkers
+  ) throws IOException
   {
     final Path generalPath = temporaryFolder.resolve(GENERAL_DOCUMENT);
     final Path scanPath = temporaryFolder.resolve(SCAN_DOCUMENT);
+    final Path sqlPath = temporaryFolder.resolve(SQL_DOCUMENT);
     Files.createDirectories(generalPath.getParent());
-    Files.writeString(generalPath, general, StandardCharsets.UTF_8);
-    Files.writeString(scanPath, scan, StandardCharsets.UTF_8);
+    Files.writeString(
+        generalPath,
+        addMissingMarkers ? addMissingMarkers(general, GENERAL_DOCUMENT) : general,
+        StandardCharsets.UTF_8
+    );
+    Files.writeString(
+        scanPath,
+        addMissingMarkers ? addMissingMarkers(scan, SCAN_DOCUMENT) : scan,
+        StandardCharsets.UTF_8
+    );
+    Files.writeString(
+        sqlPath,
+        addMissingMarkers ? addMissingMarkers(sql, SQL_DOCUMENT) : sql,
+        StandardCharsets.UTF_8
+    );
+  }
+
+  private String addMissingMarkers(final String document, final String documentPath)
+  {
+    final StringBuilder output = new StringBuilder(document);
+    for (final QueryContextParameter<?> parameter : QueryContextParameters.BY_NAME.values()) {
+      final ParameterDocumentation docs = parameter.getDocumentation().orElse(null);
+      if (docs == null) {
+        continue;
+      }
+      final String generatedDocument;
+      if (docs.getLanguages().contains(Language.SQL) && !docs.getLanguages().contains(Language.NATIVE)) {
+        generatedDocument = SQL_DOCUMENT;
+      } else if (docs.getQueryTypes().contains(QueryType.SCAN)) {
+        generatedDocument = SCAN_DOCUMENT;
+      } else {
+        generatedDocument = GENERAL_DOCUMENT;
+      }
+      if (generatedDocument.equals(documentPath)) {
+        final String marker = "<!-- GENERATED QUERY CONTEXT PARAMETER: " + parameter.getName() + " -->";
+        if (!document.contains(marker)) {
+          output.append("\n|stale| ").append(marker);
+        }
+      }
+    }
+    return output.toString();
   }
 }

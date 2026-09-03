@@ -25,7 +25,6 @@ import org.apache.druid.client.DirectDruidClient;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.scan.ScanResultValue;

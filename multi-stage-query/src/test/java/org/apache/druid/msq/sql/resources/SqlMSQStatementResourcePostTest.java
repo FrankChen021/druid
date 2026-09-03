@@ -44,7 +44,6 @@ import org.apache.druid.msq.test.MSQTestOverlordServiceClient;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.ExecutionMode;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.server.initialization.ServerConfig;
