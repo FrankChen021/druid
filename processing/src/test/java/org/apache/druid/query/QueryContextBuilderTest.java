@@ -35,10 +35,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class QueryContextBuilderTest
 {
   @Test
-  void testPutStringAndTypedParameters()
+  void testPutAllAndTypedParameters()
   {
     final Map<String, Object> context = QueryContext.builder()
-        .put("legacy", 1)
+        .putAll(ImmutableMap.of("legacy", 1))
         .put(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 10)
         .put(QueryContextParameters.USE_RESULT_LEVEL_CACHE, false)
         .toMap();
@@ -58,7 +58,7 @@ class QueryContextBuilderTest
   {
     final Map<String, Object> context = QueryContext.builder()
         .put(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 10)
-        .put("maxRowsQueuedForOrdering", 20)
+        .putAll(ImmutableMap.of("maxRowsQueuedForOrdering", 20))
         .toMap();
 
     assertEquals(20, context.get(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING.getName()));
@@ -69,7 +69,7 @@ class QueryContextBuilderTest
   {
     final Map<String, Object> context = QueryContext.builder()
         .putAll(ImmutableMap.of("legacy", 1))
-        .put("legacy", 2)
+        .putAll(ImmutableMap.of("legacy", 2))
         .toMap();
 
     assertEquals(2, context.get("legacy"));

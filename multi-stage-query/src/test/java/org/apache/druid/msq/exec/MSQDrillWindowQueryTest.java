@@ -43,8 +43,10 @@ public class MSQDrillWindowQueryTest extends DrillWindowQueryTest
 {
   private final QueryContextBuilder queryContextBuilder = QueryContext.builder()
       .put(QueryContextParameters.DEBUG, true)
-      .put(PlannerCaptureHook.NEED_CAPTURE_HOOK, true)
-      .put(MultiStageQueryContext.CTX_MAX_NUM_TASKS, 5);
+      .putAll(Map.of(
+          PlannerCaptureHook.NEED_CAPTURE_HOOK, true,
+          MultiStageQueryContext.CTX_MAX_NUM_TASKS, 5
+      ));
 
   public static class DrillWindowQueryMSQComponentSupplier extends AbstractMSQComponentSupplierDelegate
   {
@@ -246,6 +248,6 @@ public class MSQDrillWindowQueryTest extends DrillWindowQueryTest
    */
   private void useSingleWorker()
   {
-    queryContextBuilder.put(MultiStageQueryContext.CTX_MAX_NUM_TASKS, 2);
+    queryContextBuilder.putAll(Map.of(MultiStageQueryContext.CTX_MAX_NUM_TASKS, 2));
   }
 }

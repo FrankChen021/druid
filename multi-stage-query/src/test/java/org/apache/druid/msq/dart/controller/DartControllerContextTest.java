@@ -43,6 +43,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class DartControllerContextTest
@@ -61,7 +62,7 @@ public class DartControllerContextTest
   private final QueryContext queryContext =
       QueryContext.of(QueryContext.builder()
           .put(QueryContextParameters.DART_QUERY_ID, QUERY_ID)
-          .put(MultiStageQueryContext.CTX_MAX_CONCURRENT_STAGES, 3)
+          .putAll(Map.of(MultiStageQueryContext.CTX_MAX_CONCURRENT_STAGES, 3))
           .toMap());
   private MemoryIntrospector memoryIntrospector;
   private AutoCloseable mockCloser;

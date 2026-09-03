@@ -226,7 +226,7 @@ public class GroupingEngine
     // Set up downstream context.
     final QueryContextBuilder context = QueryContext.builder();
     context.put(QueryContextParameters.FINALIZE, false);
-    context.put(CTX_KEY_OUTERMOST, false);
+    context.putAll(ImmutableMap.of(CTX_KEY_OUTERMOST, false));
 
     Granularity granularity = query.getGranularity();
     List<DimensionSpec> dimensionSpecs = query.getDimensions();
@@ -270,12 +270,12 @@ public class GroupingEngine
       // otherwise the downstream is sorted by row's timestamp first which makes the final ordering not as expected
       int timestampResultFieldIndex = queryContext.getInt(GroupByQuery.CTX_TIMESTAMP_RESULT_FIELD_INDEX, 0);
       if (!query.getContextSortByDimsFirst() && timestampResultFieldIndex == query.getDimensions().size() - 1) {
-        context.put(GroupByQuery.CTX_KEY_SORT_BY_DIMS_FIRST, true);
+        context.putAll(ImmutableMap.of(GroupByQuery.CTX_KEY_SORT_BY_DIMS_FIRST, true));
       }
       // when timestampResultField is the first dimension and sortByDimsFirst=true,
       // it is actually equals to sortByDimsFirst=false
       if (query.getContextSortByDimsFirst() && timestampResultFieldIndex == 0) {
-        context.put(GroupByQuery.CTX_KEY_SORT_BY_DIMS_FIRST, false);
+        context.putAll(ImmutableMap.of(GroupByQuery.CTX_KEY_SORT_BY_DIMS_FIRST, false));
       }
       // when hasTimestampResultField=true and timestampResultField is neither first nor last dimension,
       // the DefaultLimitSpec will always do the reordering
@@ -284,14 +284,14 @@ public class GroupingEngine
       // universalTimestamp works only when granularity is all
       // hasTimestampResultField works only when granularity is all
       // fudgeTimestamp should not be used when hasTimestampResultField=true due to the row's actual timestamp is used
-      context.put(CTX_KEY_FUDGE_TIMESTAMP, String.valueOf(query.getUniversalTimestamp().getMillis()));
+      context.putAll(ImmutableMap.of(CTX_KEY_FUDGE_TIMESTAMP, String.valueOf(query.getUniversalTimestamp().getMillis())));
     }
 
     // The having spec shouldn't be passed down, so we need to convey the existing limit push down status
-    context.put(GroupByQueryConfig.CTX_KEY_APPLY_LIMIT_PUSH_DOWN, query.isApplyLimitPushDown());
+    context.putAll(ImmutableMap.of(GroupByQueryConfig.CTX_KEY_APPLY_LIMIT_PUSH_DOWN, query.isApplyLimitPushDown()));
 
     // Always request array result rows when passing the query downstream.
-    context.put(GroupByQueryConfig.CTX_KEY_ARRAY_RESULT_ROWS, true);
+    context.putAll(ImmutableMap.of(GroupByQueryConfig.CTX_KEY_ARRAY_RESULT_ROWS, true));
 
     return new GroupByQuery(
         query.getDataSource(),

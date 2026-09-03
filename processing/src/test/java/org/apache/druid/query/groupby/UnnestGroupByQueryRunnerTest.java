@@ -33,6 +33,7 @@ import org.apache.druid.query.DirectQueryProcessingPool;
 import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.UnnestDataSource;
@@ -1388,9 +1389,10 @@ public class UnnestGroupByQueryRunnerTest extends InitializedNullHandlingTest
   private Map<String, Object> makeContext()
   {
     return QueryContext.builder()
-                       .put(QueryContextParameters.VECTORIZE.getName(), vectorize ? "force" : "false")
-                       .put(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), vectorize ? "force" : "false")
-                       .put("vectorSize", 16) // Small vector size to ensure we use more than one.
+                       .put(QueryContextParameters.VECTORIZE, vectorize ? QueryContexts.Vectorize.FORCE : QueryContexts.Vectorize.FALSE)
+                       .put(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+                            vectorize ? QueryContexts.Vectorize.FORCE : QueryContexts.Vectorize.FALSE)
+                       .put(QueryContextParameters.VECTOR_SIZE, 16) // Small vector size to ensure we use more than one.
                        .toMap();
   }
 

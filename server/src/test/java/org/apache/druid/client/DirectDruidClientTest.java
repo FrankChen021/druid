@@ -300,7 +300,7 @@ public class DirectDruidClientTest
     final QueryPlus queryPlus = getQueryPlus(
         QueryContext.builder()
             .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, 100L)
-            .put(DirectDruidClient.QUERY_FAIL_TIME, System.currentTimeMillis() + 100)
+            .putAll(Map.of(DirectDruidClient.QUERY_FAIL_TIME, System.currentTimeMillis() + 100))
             .toMap()
     );
 
@@ -388,7 +388,7 @@ public class DirectDruidClientTest
     final QueryPlus queryPlus = getQueryPlus(
         QueryContext.builder()
             .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, 100L)
-            .put(DirectDruidClient.QUERY_FAIL_TIME, Long.MAX_VALUE)
+            .putAll(Map.of(DirectDruidClient.QUERY_FAIL_TIME, Long.MAX_VALUE))
             .toMap()
     );
 

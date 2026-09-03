@@ -28,28 +28,19 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Builds an immutable query context map using either string keys or typed parameter descriptors.
+ * Builds an immutable query context map using typed parameter descriptors.
+ * Existing string-keyed maps can be copied with {@link #putAll(Map)} for backward compatibility.
  */
 public final class QueryContextBuilder
 {
   private final Map<String, Object> values = new LinkedHashMap<>();
 
   /**
-   * Adds a context value using its string key.
-   */
-  public QueryContextBuilder put(final String name, final Object value)
-  {
-    final String nonNullName = Objects.requireNonNull(name, "name");
-    values.put(nonNullName, value);
-    return this;
-  }
-
-  /**
    * Adds all values from an existing query context map.
    */
   public QueryContextBuilder putAll(final Map<? extends String, ?> values)
   {
-    values.forEach(this::put);
+    values.forEach((name, value) -> this.values.put(Objects.requireNonNull(name, "name"), value));
     return this;
   }
 
@@ -58,7 +49,8 @@ public final class QueryContextBuilder
    */
   public <V> QueryContextBuilder put(final QueryContextParameter<V> parameter, @Nullable final V value)
   {
-    return put(parameter.getName(), parameter.validate(value));
+    values.put(parameter.getName(), parameter.validate(value));
+    return this;
   }
 
   /**

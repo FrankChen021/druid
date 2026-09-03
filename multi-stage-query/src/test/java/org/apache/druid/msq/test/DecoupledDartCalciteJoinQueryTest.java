@@ -35,6 +35,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.util.Map;
+
 @SqlTestFrameworkConfig.ComponentSupplier(DartComponentSupplier.class)
 public abstract class DecoupledDartCalciteJoinQueryTest extends CalciteJoinQueryTest
 {
@@ -86,8 +88,8 @@ public abstract class DecoupledDartCalciteJoinQueryTest extends CalciteJoinQuery
                     QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE,
                     QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
                 )
-                .put(QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER.getName(), decoupledExtension)
-                .put(PlannerContext.CTX_SQL_JOIN_ALGORITHM, joinAlgorithm().toString())
+                .put(QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER, true)
+                .putAll(Map.of(PlannerContext.CTX_SQL_JOIN_ALGORITHM, joinAlgorithm().toString()))
                 .put(QueryContextParameters.DEBUG, true)
                 .toMap()
         );

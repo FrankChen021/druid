@@ -427,7 +427,7 @@ public class MultiStageQueryContextTest
   {
     final QueryContext context = QueryContext.of(QueryContext.builder()
         .put(QueryContextParameters.DART_QUERY_ID, "test")
-        .put(MultiStageQueryContext.CTX_SELECT_DESTINATION, "durablestorage")
+        .putAll(Map.of(MultiStageQueryContext.CTX_SELECT_DESTINATION, "durablestorage"))
         .toMap());
 
     Assertions.assertEquals(

@@ -385,7 +385,7 @@ public class CachingClusteredClientBenchmark
                            QueryContext.builder()
                                .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
                                .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
-                               .put(BaseQuery.QUERY_ID, "BenchmarkQuery")
+                               .putAll(Map.of(BaseQuery.QUERY_ID, "BenchmarkQuery"))
                                .toMap()
                        )
                        .build();
@@ -416,7 +416,7 @@ public class CachingClusteredClientBenchmark
             QueryContext.builder()
                 .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
                 .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
-                .put(BaseQuery.QUERY_ID, "BenchmarkQuery")
+                .putAll(Map.of(BaseQuery.QUERY_ID, "BenchmarkQuery"))
                 .toMap()
         )
         .build();
@@ -449,7 +449,7 @@ public class CachingClusteredClientBenchmark
             QueryContext.builder()
                 .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
                 .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
-                .put(BaseQuery.QUERY_ID, "BenchmarkQuery")
+                .putAll(Map.of(BaseQuery.QUERY_ID, "BenchmarkQuery"))
                 .toMap()
         )
         .build();

@@ -68,7 +68,7 @@ public class MSQLoadedSegmentTests extends MSQTestBase
   public static final Map<String, Object> REALTIME_QUERY_CTX =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
-                  .put(MultiStageQueryContext.CTX_INCLUDE_SEGMENT_SOURCE, SegmentSource.REALTIME.name())
+                  .putAll(Map.of(MultiStageQueryContext.CTX_INCLUDE_SEGMENT_SOURCE, SegmentSource.REALTIME.name()))
                   .toMap();
   public static final DataSegment LOADED_SEGMENT_1 =
       DataSegment.builder()

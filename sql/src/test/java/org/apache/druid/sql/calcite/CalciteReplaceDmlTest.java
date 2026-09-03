@@ -76,7 +76,7 @@ public class CalciteReplaceDmlTest extends CalciteIngestionDmlTest
   {
     return QueryContext.builder()
                        .putAll(context)
-                       .put(DruidSqlReplace.SQL_REPLACE_TIME_CHUNKS, replaceTimeChunks)
+                       .putAll(Map.of(DruidSqlReplace.SQL_REPLACE_TIME_CHUNKS, replaceTimeChunks))
                        .toMap();
   }
 

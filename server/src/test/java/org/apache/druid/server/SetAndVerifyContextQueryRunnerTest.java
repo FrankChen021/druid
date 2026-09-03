@@ -34,6 +34,8 @@ import org.easymock.EasyMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 public class SetAndVerifyContextQueryRunnerTest
 {
   @Test
@@ -152,7 +154,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
         .context(QueryContext.builder()
             .put(QueryContextParameters.TIMEOUT, 300_000L)
-            .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
+            .putAll(Map.of(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime))
             .toMap())
         .build();
 
@@ -179,7 +181,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
         .context(QueryContext.builder()
             .put(QueryContextParameters.TIMEOUT, 1L)
-            .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
+            .putAll(Map.of(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime))
             .toMap())
         .build();
 
@@ -208,7 +210,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
         .context(QueryContext.builder()
             .put(QueryContextParameters.TIMEOUT, Long.MAX_VALUE)
-            .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
+            .putAll(Map.of(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime))
             .toMap())
         .build();
 

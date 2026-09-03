@@ -420,8 +420,10 @@ public class MSQWarningsTest extends MSQTestBase
   {
     final Map<String, Object> userContext =
         QueryContext.builder()
-                    .put(MSQWarnings.CTX_MAX_PARSE_EXCEPTIONS_ALLOWED, -1)
-                    .put(MultiStageQueryContext.CTX_MSQ_MODE, "strict")
+                    .putAll(Map.of(
+                        MSQWarnings.CTX_MAX_PARSE_EXCEPTIONS_ALLOWED, -1,
+                        MultiStageQueryContext.CTX_MSQ_MODE, "strict"
+                    ))
                     .toMap();
 
     testSelectQuery().setSql("SELECT\n"

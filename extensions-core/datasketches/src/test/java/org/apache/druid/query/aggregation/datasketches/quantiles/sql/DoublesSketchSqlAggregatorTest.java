@@ -308,9 +308,9 @@ public class DoublesSketchSqlAggregatorTest extends BaseCalciteQueryTest
         + ") AS alias\n",
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .put(QueryContextParameters.MAX_SUBQUERY_BYTES.getName(), "100000")
+                    .put(QueryContextParameters.MAX_SUBQUERY_BYTES, "100000")
                     // Disallows the fallback to row based limiting
-                    .put(QueryContextParameters.MAX_SUBQUERY_ROWS.getName(), "10")
+                    .put(QueryContextParameters.MAX_SUBQUERY_ROWS, 10)
                     .toMap(),
         ImmutableList.of(
             newScanQueryBuilder()
@@ -898,7 +898,7 @@ public class DoublesSketchSqlAggregatorTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .put(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
+                    .putAll(Map.of(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true))
                     .toMap();
 
     testQuery(
@@ -1009,7 +1009,7 @@ public class DoublesSketchSqlAggregatorTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .put(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
+                    .putAll(Map.of(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true))
                     .toMap();
 
     testQuery(

@@ -290,60 +290,64 @@ public class MSQTestBase extends BaseCalciteQueryTest
                   .put(QueryContextParameters.SQL_QUERY_ID, "test-query")
                   .put(QueryContextParameters.FINALIZE, true)
                   .put(QueryContextParameters.SQL_STRINGIFY_ARRAYS, false)
-                  .put(MultiStageQueryContext.CTX_MAX_NUM_TASKS, 2)
-                  .put(MSQWarnings.CTX_MAX_PARSE_EXCEPTIONS_ALLOWED, 0)
-                  .put(MSQTaskQueryMaker.USER_KEY, CalciteTests.REGULAR_USER_AUTH_RESULT.getIdentity())
-                  .put(MultiStageQueryContext.WINDOW_FUNCTION_OPERATOR_TRANSFORMATION, true)
-                  .put(MultiStageQueryContext.CTX_ROW_BASED_FRAME_TYPE, (int) FrameType.latestRowBased().version())
+                  .putAll(Map.of(
+                      MultiStageQueryContext.CTX_MAX_NUM_TASKS, 2,
+                      MSQWarnings.CTX_MAX_PARSE_EXCEPTIONS_ALLOWED, 0,
+                      MSQTaskQueryMaker.USER_KEY, CalciteTests.REGULAR_USER_AUTH_RESULT.getIdentity(),
+                      MultiStageQueryContext.WINDOW_FUNCTION_OPERATOR_TRANSFORMATION, true,
+                      MultiStageQueryContext.CTX_ROW_BASED_FRAME_TYPE, (int) FrameType.latestRowBased().version()
+                  ))
                   .toMap();
 
   public static final Map<String, Object> SUPERUSER_MSQ_CONTEXT =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
-                  .put(MSQTaskQueryMaker.USER_KEY, CalciteTests.SUPER_USER_AUTH_RESULT.getIdentity())
+                  .putAll(Map.of(MSQTaskQueryMaker.USER_KEY, CalciteTests.SUPER_USER_AUTH_RESULT.getIdentity()))
                   .toMap();
 
   public static final Map<String, Object> DURABLE_STORAGE_MSQ_CONTEXT =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
-                  .put(MultiStageQueryContext.CTX_DURABLE_SHUFFLE_STORAGE, true)
+                  .putAll(Map.of(MultiStageQueryContext.CTX_DURABLE_SHUFFLE_STORAGE, true))
                   .toMap();
 
 
   public static final Map<String, Object> FAULT_TOLERANCE_MSQ_CONTEXT =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
-                  .put(MultiStageQueryContext.CTX_FAULT_TOLERANCE, true)
+                  .putAll(Map.of(MultiStageQueryContext.CTX_FAULT_TOLERANCE, true))
                   .toMap();
 
   public static final Map<String, Object> PARALLEL_MERGE_MSQ_CONTEXT =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
-                  .put(
+                  .putAll(Map.of(
                       MultiStageQueryContext.CTX_CLUSTER_STATISTICS_MERGE_MODE,
                       ClusterStatisticsMergeMode.PARALLEL.toString()
-                  )
+                  ))
                   .toMap();
 
   public static final Map<String, Object> USE_COMBINER_MSQ_CONTEXT =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
-                  .put(MultiStageQueryContext.CTX_USE_COMBINER, true)
+                  .putAll(Map.of(MultiStageQueryContext.CTX_USE_COMBINER, true))
                   .toMap();
 
   public static final Map<String, Object> FAIL_EMPTY_INSERT_ENABLED_MSQ_CONTEXT =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
-                  .put(
+                  .putAll(Map.of(
                       MultiStageQueryContext.CTX_FAIL_ON_EMPTY_INSERT,
                       true
-                  )
+                  ))
                   .toMap();
 
   public static final Map<String, Object>
       ROLLUP_CONTEXT_PARAMS = QueryContext.builder()
-                                          .put(MultiStageQueryContext.CTX_FINALIZE_AGGREGATIONS, false)
-                                          .put(GroupByQueryConfig.CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING, false)
+                                          .putAll(Map.of(
+                                              MultiStageQueryContext.CTX_FINALIZE_AGGREGATIONS, false,
+                                              GroupByQueryConfig.CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING, false
+                                          ))
                                           .toMap();
 
   public static final String FAULT_TOLERANCE = "fault_tolerance";

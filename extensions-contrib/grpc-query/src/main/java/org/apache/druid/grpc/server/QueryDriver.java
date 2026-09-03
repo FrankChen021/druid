@@ -334,11 +334,7 @@ public class QueryDriver
   private Map<String, Object> translateContext(QueryRequest request)
   {
     final QueryContextBuilder builder = QueryContext.builder();
-    if (request.getContextCount() > 0) {
-      for (Map.Entry<String, String> entry : request.getContextMap().entrySet()) {
-        builder.put(entry.getKey(), entry.getValue());
-      }
-    }
+    builder.putAll(request.getContextMap());
     return builder.toMap();
   }
 

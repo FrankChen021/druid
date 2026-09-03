@@ -292,7 +292,7 @@ public class MSQFaultsTest extends MSQTestBase
   {
     Map<String, Object> context = QueryContext.builder()
                                               .putAll(DEFAULT_MSQ_CONTEXT)
-                                              .put(MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 1)
+                                              .putAll(Map.of(MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 1))
                                               .toMap();
 
 
@@ -331,8 +331,10 @@ public class MSQFaultsTest extends MSQTestBase
 
     final Map<String, Object> context = QueryContext.builder()
                                               .putAll(DEFAULT_MSQ_CONTEXT)
-                                              .put("maxNumSegments", maxNumSegments)
-                                              .put("rowsPerSegment", rowsPerSegment)
+                                              .putAll(Map.of(
+                                                  "maxNumSegments", maxNumSegments,
+                                                  "rowsPerSegment", rowsPerSegment
+                                              ))
                                               .toMap();
 
 
@@ -449,7 +451,7 @@ public class MSQFaultsTest extends MSQTestBase
     final Map<String, Object> context =
         QueryContext.builder()
                     .putAll(DEFAULT_MSQ_CONTEXT)
-                    .put(MultiStageQueryContext.CTX_MAX_CLUSTERED_BY_COLUMNS, maxClusteredByColumns)
+                    .putAll(Map.of(MultiStageQueryContext.CTX_MAX_CLUSTERED_BY_COLUMNS, maxClusteredByColumns))
                     .toMap();
 
     testIngestQuery()
@@ -489,8 +491,10 @@ public class MSQFaultsTest extends MSQTestBase
 
     final Map<String, Object> context =
         QueryContext.builder()
-                    .put(MultiStageQueryContext.CTX_MAX_NUM_TASKS, 8)
-                    .put(MultiStageQueryContext.CTX_MAX_INPUT_FILES_PER_WORKER, maxInputFilesPerWorker)
+                    .putAll(Map.of(
+                        MultiStageQueryContext.CTX_MAX_NUM_TASKS, 8,
+                        MultiStageQueryContext.CTX_MAX_INPUT_FILES_PER_WORKER, maxInputFilesPerWorker
+                    ))
                     .toMap();
 
     testIngestQuery()
@@ -521,8 +525,10 @@ public class MSQFaultsTest extends MSQTestBase
     final Map<String, Object> context =
         QueryContext.builder()
                     .putAll(DEFAULT_MSQ_CONTEXT)
-                    .put(MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 1)
-                    .put(MultiStageQueryContext.CTX_MAX_PARTITIONS, maxPartitions)
+                    .putAll(Map.of(
+                        MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 1,
+                        MultiStageQueryContext.CTX_MAX_PARTITIONS, maxPartitions
+                    ))
                     .toMap();
 
     final RowSignature rowSignature = RowSignature.builder().addTimeColumn().build();
@@ -708,7 +714,7 @@ public class MSQFaultsTest extends MSQTestBase
     // wraps this in DruidException, which getFaultFromException() converts to DruidExceptionFault.
     final Map<String, Object> context = QueryContext.builder()
                                                     .putAll(DEFAULT_MSQ_CONTEXT)
-                                                    .put("vectorize", "false")
+                                                    .putAll(Map.of("vectorize", "false"))
                                                     .toMap();
 
     testSelectQuery()

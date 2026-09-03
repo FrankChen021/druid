@@ -275,7 +275,7 @@ public class ChainedExecutionQueryRunnerTest
                                   .context(
                                       QueryContext.builder()
                                           .put(QueryContextParameters.TIMEOUT, 100L)
-                                          .put("queryId", "test")
+                                          .putAll(ImmutableMap.of("queryId", "test"))
                                           .toMap()
                                   )
                                   .build();
@@ -349,7 +349,7 @@ public class ChainedExecutionQueryRunnerTest
         .context(
             QueryContext.builder()
                 .put(QueryContextParameters.TIMEOUT, 100L)
-                .put("queryId", "test")
+                .putAll(ImmutableMap.of("queryId", "test"))
                 .toMap()
         )
         .build();

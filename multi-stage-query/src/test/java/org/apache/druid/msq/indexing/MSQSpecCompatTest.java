@@ -69,8 +69,7 @@ public class MSQSpecCompatTest
         .build();
 
     Map<String, Object> context = QueryContext.builder()
-        .put("someThing", 111)
-        .put("sqlInsertSegmentGranularity", "\"DAY\"")
+        .putAll(Map.of("someThing", 111, "sqlInsertSegmentGranularity", "\"DAY\""))
         .toMap();
     MSQSpec msqSpec = LegacyMSQSpec.builder()
         .query(
@@ -102,8 +101,7 @@ public class MSQSpecCompatTest
         .add("EXPR$0", ColumnType.LONG)
         .build();
     Map<String, Object> context = QueryContext.builder()
-        .put("someThing", 222)
-        .put("sqlInsertSegmentGranularity", "\"DAY\"")
+        .putAll(Map.of("someThing", 222, "sqlInsertSegmentGranularity", "\"DAY\""))
         .toMap();
     MSQSpec msqSpec = LegacyMSQSpec.builder()
         .query(
@@ -143,13 +141,15 @@ public class MSQSpecCompatTest
             )
             .setContext(
                 QueryContext.builder()
-                    .put("__user", "allowAll")
-                    .put("finalize", true)
-                    .put("maxNumTasks", 2)
-                    .put("maxParseExceptions", 0)
-                    .put("sqlInsertSegmentGranularity", "\"DAY\"")
-                    .put("sqlQueryId", "test-query")
-                    .put("sqlStringifyArrays", false)
+                    .putAll(Map.of(
+                        "__user", "allowAll",
+                        "finalize", true,
+                        "maxNumTasks", 2,
+                        "maxParseExceptions", 0,
+                        "sqlInsertSegmentGranularity", "\"DAY\"",
+                        "sqlQueryId", "test-query",
+                        "sqlStringifyArrays", false
+                    ))
                     .toMap()
             )
             .setLimitSpec(

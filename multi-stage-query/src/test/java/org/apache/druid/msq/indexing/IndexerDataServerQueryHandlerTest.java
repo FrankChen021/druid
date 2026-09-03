@@ -62,6 +62,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static org.apache.druid.query.Druids.newScanQueryBuilder;
@@ -128,7 +129,7 @@ public class IndexerDataServerQueryHandlerTest
         .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
         .context(QueryContext.builder()
             .put(QueryContextParameters.NUM_RETRIES_ON_MISSING_SEGMENTS, 1)
-            .put(MultiStageQueryContext.CTX_INCLUDE_SEGMENT_SOURCE, SegmentSource.REALTIME.toString())
+            .putAll(Map.of(MultiStageQueryContext.CTX_INCLUDE_SEGMENT_SOURCE, SegmentSource.REALTIME.toString()))
             .toMap())
         .build();
     target = spy(

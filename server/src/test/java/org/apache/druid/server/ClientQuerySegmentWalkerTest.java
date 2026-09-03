@@ -1762,17 +1762,19 @@ public class ClientQuerySegmentWalkerTest
       Query<?> modifiedQuery;
       // Need to blast various parameters that will vary and aren't important to test for.
       final QueryContextBuilder contextBuilder = QueryContext.builder();
-      contextBuilder.put(DirectDruidClient.QUERY_FAIL_TIME, 0L)
-                    .put(QueryContextParameters.DEFAULT_TIMEOUT, 0L)
+      contextBuilder.put(QueryContextParameters.DEFAULT_TIMEOUT, 0L)
                     .put(QueryContextParameters.FINALIZE, true)
                     .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, 0L)
-                    .put(GroupByQuery.CTX_KEY_SORT_BY_DIMS_FIRST, false)
-                    .put(GroupByQueryConfig.CTX_KEY_ARRAY_RESULT_ROWS, true)
-                    .put(GroupByQueryConfig.CTX_KEY_APPLY_LIMIT_PUSH_DOWN, true)
-                    .put(GroupingEngine.CTX_KEY_OUTERMOST, true)
-                    .put(GroupingEngine.CTX_KEY_FUDGE_TIMESTAMP, "1979")
                     .put(QueryContextParameters.QUERY_RESOURCE_ID, "dummy")
-                    .put(ResultSerializationMode.CTX_SERIALIZATION_PARAMETER, "blast");
+                    .putAll(Map.of(
+                        DirectDruidClient.QUERY_FAIL_TIME, 0L,
+                        GroupByQuery.CTX_KEY_SORT_BY_DIMS_FIRST, false,
+                        GroupByQueryConfig.CTX_KEY_ARRAY_RESULT_ROWS, true,
+                        GroupByQueryConfig.CTX_KEY_APPLY_LIMIT_PUSH_DOWN, true,
+                        GroupingEngine.CTX_KEY_OUTERMOST, true,
+                        GroupingEngine.CTX_KEY_FUDGE_TIMESTAMP, "1979",
+                        ResultSerializationMode.CTX_SERIALIZATION_PARAMETER, "blast"
+                    ));
 
       modifiedQuery = query.withOverriddenContext(contextBuilder.toMap());
 

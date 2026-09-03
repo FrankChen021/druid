@@ -58,6 +58,7 @@ import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
 import org.apache.druid.query.Order;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
@@ -14096,9 +14097,10 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
   private Map<String, Object> makeContext()
   {
     return QueryContext.builder()
-                       .put(QueryContextParameters.VECTORIZE.getName(), vectorize ? "force" : "false")
-                       .put(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), vectorize ? "force" : "false")
-                       .put("vectorSize", 16) // Small vector size to ensure we use more than one.
+                       .put(QueryContextParameters.VECTORIZE, vectorize ? QueryContexts.Vectorize.FORCE : QueryContexts.Vectorize.FALSE)
+                       .put(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+                            vectorize ? QueryContexts.Vectorize.FORCE : QueryContexts.Vectorize.FALSE)
+                       .put(QueryContextParameters.VECTOR_SIZE, 16) // Small vector size to ensure we use more than one.
                        .toMap();
   }
 
