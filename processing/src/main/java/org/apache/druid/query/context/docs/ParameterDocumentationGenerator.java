@@ -180,6 +180,7 @@ public final class ParameterDocumentationGenerator
   )
   {
     return docs.getDefaultDescription()
+               .map(ParameterDocumentationGenerator::normalizeTableCell)
                .or(() -> parameter.getDefaultValue().map(value -> "`" + value + "`"))
                .orElse("N/A");
   }
@@ -222,9 +223,9 @@ public final class ParameterDocumentationGenerator
   }
 
   /**
-   * Markdown table cells must be rendered on one physical line. Parameter descriptions are commonly written as Java
-   * text blocks, so remove text-block line continuations, flatten remaining line breaks, and collapse incidental
-   * whitespace before writing the generated documentation.
+   * Markdown table cells must be rendered on one physical line. Parameter descriptions and default descriptions are
+   * commonly written as Java text blocks, so remove text-block line continuations, flatten remaining line breaks, and
+   * collapse incidental whitespace before writing the generated documentation.
    */
   static String normalizeTableCell(final String value)
   {
