@@ -27,6 +27,7 @@ import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryRunner;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
 import org.apache.druid.server.initialization.ServerConfig;
@@ -42,7 +43,7 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(ImmutableMap.of(QueryContexts.TIMEOUT_KEY, 1))
+        .context(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 1))
         .build();
 
     ServerConfig defaultConfig = new ServerConfig();
@@ -93,7 +94,7 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(ImmutableMap.of(QueryContexts.TIMEOUT_KEY, 0))
+        .context(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 0))
         .build();
 
     ServerConfig defaultConfig = new ServerConfig();
@@ -115,7 +116,7 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(ImmutableMap.of(QueryContexts.TIMEOUT_KEY, 0))
+        .context(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 0))
         .build();
 
     ServerConfig defaultConfig = new ServerConfig()
@@ -151,7 +152,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
         .context(ImmutableMap.of(
-            QueryContexts.TIMEOUT_KEY, 300_000,
+            QueryContextParameters.TIMEOUT.getName(), 300_000,
             DirectDruidClient.QUERY_FAIL_TIME, existingFailTime
         ))
         .build();
@@ -178,7 +179,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
         .context(ImmutableMap.of(
-            QueryContexts.TIMEOUT_KEY, 1,
+            QueryContextParameters.TIMEOUT.getName(), 1,
             DirectDruidClient.QUERY_FAIL_TIME, existingFailTime
         ))
         .build();
@@ -207,7 +208,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
         .context(ImmutableMap.of(
-            QueryContexts.TIMEOUT_KEY, Long.MAX_VALUE,
+            QueryContextParameters.TIMEOUT.getName(), Long.MAX_VALUE,
             DirectDruidClient.QUERY_FAIL_TIME, existingFailTime
         ))
         .build();

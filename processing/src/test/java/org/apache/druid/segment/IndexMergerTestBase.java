@@ -52,6 +52,7 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnIndexSupplier;
 import org.apache.druid.segment.column.ColumnType;
@@ -3086,7 +3087,7 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     CursorBuildSpec p1Spec = CursorBuildSpec.builder()
                                             .setQueryContext(
                                                 QueryContext.of(
-                                                    ImmutableMap.of(QueryContexts.USE_PROJECTION, "a_hourly_c_sum")
+                                                    ImmutableMap.of(QueryContextParameters.USE_PROJECTION.getName(), "a_hourly_c_sum")
                                                 )
                                             )
                                             .setPhysicalColumns(Set.of("c", ColumnHolder.TIME_COLUMN_NAME))
@@ -3105,7 +3106,7 @@ public abstract class IndexMergerTestBase extends InitializedNullHandlingTest
     CursorBuildSpec p2Spec = CursorBuildSpec.builder()
                                             .setQueryContext(
                                                 QueryContext.of(
-                                                    ImmutableMap.of(QueryContexts.USE_PROJECTION, "a_c_sum")
+                                                    ImmutableMap.of(QueryContextParameters.USE_PROJECTION.getName(), "a_c_sum")
                                                 )
                                             )
                                             .setPhysicalColumns(Set.of("a", "c"))

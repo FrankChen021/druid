@@ -28,6 +28,7 @@ import org.apache.druid.msq.test.MSQTestOverlordServiceClient;
 import org.apache.druid.msq.test.VerifyMSQSupportedNativeQueriesPredicate;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.sql.calcite.DrillWindowQueryTest;
 import org.apache.druid.sql.calcite.QueryTestBuilder;
 import org.apache.druid.sql.calcite.SqlTestFrameworkConfig;
@@ -43,7 +44,7 @@ public class MSQDrillWindowQueryTest extends DrillWindowQueryTest
 {
   private final Map<String, Object> queryContext = new HashMap<>(ImmutableMap.of(
       PlannerCaptureHook.NEED_CAPTURE_HOOK, true,
-      QueryContexts.ENABLE_DEBUG, true,
+      QueryContextParameters.DEBUG.getName(), true,
       MultiStageQueryContext.CTX_MAX_NUM_TASKS, 5
   ));
 

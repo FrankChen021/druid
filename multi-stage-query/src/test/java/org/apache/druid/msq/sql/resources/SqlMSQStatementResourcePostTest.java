@@ -45,6 +45,7 @@ import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.ExecutionMode;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.sql.calcite.util.CalciteTests;
@@ -175,7 +176,7 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
             false,
             false,
             false,
-            ImmutableMap.of(QueryContexts.CTX_EXECUTION_MODE, ExecutionMode.SYNC.name()),
+            ImmutableMap.of(QueryContextParameters.EXECUTION_MODE.getName(), ExecutionMode.SYNC.name()),
             null
         ), SqlStatementResourceTest.makeOkRequest()),
         "The sql statement api currently does not support the provided execution mode [SYNC]. "
@@ -784,7 +785,7 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
   private static Map<String, Object> defaultAsyncContext()
   {
     Map<String, Object> context = new HashMap<>();
-    context.put(QueryContexts.CTX_EXECUTION_MODE, ExecutionMode.ASYNC.name());
+    context.put(QueryContextParameters.EXECUTION_MODE.getName(), ExecutionMode.ASYNC.name());
     return context;
   }
 

@@ -37,6 +37,7 @@ import org.apache.druid.query.Result;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.TestQueryRunner;
 import org.apache.druid.query.context.ConcurrentResponseContext;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.RangeFilter;
@@ -352,8 +353,8 @@ public class TimeBoundaryQueryRunnerTest extends InitializedNullHandlingTest
                   .bound(bound)
                   .context(
                       ImmutableMap.of(
-                          QueryContexts.VECTORIZE_KEY, vectorize,
-                          QueryContexts.VECTOR_SIZE_KEY, 7
+                          QueryContextParameters.VECTORIZE.getName(), vectorize,
+                          QueryContextParameters.VECTOR_SIZE.getName(), 7
                       )
                   )
                   .build();

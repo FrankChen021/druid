@@ -34,6 +34,7 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.http.ClientSqlQuery;
 import org.apache.druid.query.http.SqlTaskStatus;
 import org.apache.druid.server.metrics.LatchableEmitter;
@@ -581,7 +582,7 @@ public abstract class CatalogIngestAndQueryTest extends CatalogTestBase
         false,
         false,
         false,
-        Map.of(QueryContexts.CATALOG_VALIDATION_ENABLED, false),
+        Map.of(QueryContextParameters.CATALOG_VALIDATION_ENABLED.getName(), false),
         null
     );
     SqlTaskStatus sqlTaskStatus = cluster.callApi().onAnyBroker(b -> b.submitSqlTask(sqlQuery));
@@ -659,7 +660,7 @@ public abstract class CatalogIngestAndQueryTest extends CatalogTestBase
         false,
         false,
         false,
-        Map.of(QueryContexts.CATALOG_VALIDATION_ENABLED, false),
+        Map.of(QueryContextParameters.CATALOG_VALIDATION_ENABLED.getName(), false),
         null
     );
     SqlTaskStatus sqlTaskStatus = cluster.callApi().onAnyBroker(b -> b.submitSqlTask(sqlQuery));

@@ -29,6 +29,7 @@ import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.math.expr.ExpressionProcessing;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.segment.AutoTypeColumnSchema;
@@ -154,7 +155,7 @@ public class ShimCursorTest
     CursorBuildSpec cursorBuildSpec = CursorBuildSpec.builder()
                                                      .setQueryContext(
                                                          QueryContext.of(
-                                                             Map.of(QueryContexts.VECTOR_SIZE_KEY, vectorSize)
+                                                             Map.of(QueryContextParameters.VECTOR_SIZE.getName(), vectorSize)
                                                          )
                                                      )
                                                      .build();
@@ -222,7 +223,7 @@ public class ShimCursorTest
     CursorBuildSpec cursorBuildSpec = CursorBuildSpec.builder()
                                                      .setQueryContext(
                                                          QueryContext.of(
-                                                             Map.of(QueryContexts.VECTOR_SIZE_KEY, vectorSize)
+                                                             Map.of(QueryContextParameters.VECTOR_SIZE.getName(), vectorSize)
                                                          )
                                                      )
                                                      .build();
@@ -274,7 +275,7 @@ public class ShimCursorTest
     CursorBuildSpec cursorBuildSpec = CursorBuildSpec.builder()
                                                      .setQueryContext(
                                                          QueryContext.of(
-                                                             Map.of(QueryContexts.VECTOR_SIZE_KEY, vectorSize)
+                                                             Map.of(QueryContextParameters.VECTOR_SIZE.getName(), vectorSize)
                                                          )
                                                      )
                                                      .build();
@@ -337,7 +338,7 @@ public class ShimCursorTest
         CursorBuildSpec.builder()
                        .setQueryContext(
                            QueryContext.of(
-                               Map.of(QueryContexts.VECTOR_SIZE_KEY, vectorSize)
+                               Map.of(QueryContextParameters.VECTOR_SIZE.getName(), vectorSize)
                            )
                        )
                        .setVirtualColumns(VirtualColumns.create(
@@ -399,7 +400,7 @@ public class ShimCursorTest
     final QueryableIndexCursorFactory queryableIndexCursorFactory = new QueryableIndexCursorFactory(index);
     final CursorBuildSpec cursorBuildSpec =
         CursorBuildSpec.builder()
-                       .setQueryContext(QueryContext.of(Map.of(QueryContexts.VECTOR_SIZE_KEY, vectorSize)))
+                       .setQueryContext(QueryContext.of(Map.of(QueryContextParameters.VECTOR_SIZE.getName(), vectorSize)))
                        .build();
     final CursorHolder cursorHolder = closer.register(queryableIndexCursorFactory.makeCursorHolder(cursorBuildSpec));
     assertTrue(cursorHolder.canVectorize());

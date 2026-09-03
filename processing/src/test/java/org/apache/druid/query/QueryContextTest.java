@@ -398,12 +398,12 @@ public class QueryContextTest
   public void testGetMaxSubqueryBytes()
   {
     final QueryContext context1 = new QueryContext(
-        ImmutableMap.of(QueryContexts.MAX_SUBQUERY_BYTES_KEY, 500_000_000)
+        ImmutableMap.of(QueryContextParameters.MAX_SUBQUERY_BYTES.getName(), 500_000_000)
     );
     assertEquals("500000000", context1.getMaxSubqueryMemoryBytes(null));
 
     final QueryContext context2 = new QueryContext(
-        ImmutableMap.of(QueryContexts.MAX_SUBQUERY_BYTES_KEY, "auto")
+        ImmutableMap.of(QueryContextParameters.MAX_SUBQUERY_BYTES.getName(), "auto")
     );
     assertEquals("auto", context2.getMaxSubqueryMemoryBytes(null));
 
@@ -415,7 +415,7 @@ public class QueryContextTest
   public void testGetInFunctionThreshold()
   {
     final QueryContext context1 = new QueryContext(
-        ImmutableMap.of(QueryContexts.IN_FUNCTION_THRESHOLD, Integer.MAX_VALUE)
+        ImmutableMap.of(QueryContextParameters.IN_FUNCTION_THRESHOLD.getName(), Integer.MAX_VALUE)
     );
     assertEquals(Integer.MAX_VALUE, context1.getInFunctionThreshold());
 
@@ -427,7 +427,7 @@ public class QueryContextTest
   public void testGetInFunctionExprThreshold()
   {
     final QueryContext context1 = new QueryContext(
-        ImmutableMap.of(QueryContexts.IN_FUNCTION_EXPR_THRESHOLD, Integer.MAX_VALUE)
+        ImmutableMap.of(QueryContextParameters.IN_FUNCTION_EXPR_THRESHOLD.getName(), Integer.MAX_VALUE)
     );
     assertEquals(Integer.MAX_VALUE, context1.getInFunctionExprThreshold());
 
@@ -439,7 +439,7 @@ public class QueryContextTest
   public void testDefaultEnableQueryDebugging()
   {
     assertFalse(QueryContext.empty().isDebug());
-    assertTrue(QueryContext.of(ImmutableMap.of(QueryContexts.ENABLE_DEBUG, true)).isDebug());
+    assertTrue(QueryContext.of(ImmutableMap.of(QueryContextParameters.DEBUG.getName(), true)).isDebug());
   }
 
   @Test
@@ -449,7 +449,7 @@ public class QueryContextTest
     assertTrue(
         QueryContext.of(
             ImmutableMap.of(
-                QueryContexts.CTX_NATIVE_QUERY_SQL_PLANNING_MODE,
+                QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE.getName(),
                 QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
             )
         ).isDecoupledMode()
@@ -457,7 +457,7 @@ public class QueryContextTest
     assertFalse(
         QueryContext.of(
             ImmutableMap.of(
-                QueryContexts.CTX_NATIVE_QUERY_SQL_PLANNING_MODE,
+                QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE.getName(),
                 "garbage"
             )
         ).isDecoupledMode()
@@ -470,7 +470,7 @@ public class QueryContextTest
     assertTrue(QueryContext.empty().isExtendedFilteredSumRewrite());
     assertFalse(
         QueryContext
-            .of(ImmutableMap.of(QueryContexts.EXTENDED_FILTERED_SUM_REWRITE_ENABLED, false))
+            .of(ImmutableMap.of(QueryContextParameters.EXTENDED_FILTERED_SUM_REWRITE.getName(), false))
             .isExtendedFilteredSumRewrite()
     );
   }
@@ -530,7 +530,7 @@ public class QueryContextTest
     assertFalse(QueryContext.empty().isRealtimeSegmentsOnly());
     assertTrue(
         QueryContext
-            .of(ImmutableMap.of(QueryContexts.REALTIME_SEGMENTS_ONLY, true))
+            .of(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_ONLY.getName(), true))
             .isRealtimeSegmentsOnly()
     );
   }
@@ -544,17 +544,17 @@ public class QueryContextTest
     );
     assertEquals(
         QueryContexts.RealtimeSegmentsMode.EXCLUSIVE,
-        QueryContext.of(ImmutableMap.of(QueryContexts.REALTIME_SEGMENTS_MODE, "exclusive"))
+        QueryContext.of(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "exclusive"))
                    .getRealtimeSegmentsMode()
     );
     assertEquals(
         QueryContexts.RealtimeSegmentsMode.EXCLUDE,
-        QueryContext.of(ImmutableMap.of(QueryContexts.REALTIME_SEGMENTS_MODE, "exclude"))
+        QueryContext.of(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "exclude"))
                    .getRealtimeSegmentsMode()
     );
     assertEquals(
         QueryContexts.RealtimeSegmentsMode.INCLUDE,
-        QueryContext.of(ImmutableMap.of(QueryContexts.REALTIME_SEGMENTS_MODE, "include"))
+        QueryContext.of(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "include"))
                    .getRealtimeSegmentsMode()
     );
   }
@@ -565,13 +565,13 @@ public class QueryContextTest
     // realtimeSegmentsOnly=true maps to EXCLUSIVE
     assertEquals(
         QueryContexts.RealtimeSegmentsMode.EXCLUSIVE,
-        QueryContext.of(ImmutableMap.of(QueryContexts.REALTIME_SEGMENTS_ONLY, true))
+        QueryContext.of(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_ONLY.getName(), true))
                    .getRealtimeSegmentsMode()
     );
     // realtimeSegmentsOnly=false maps to INCLUDE (default)
     assertEquals(
         QueryContexts.RealtimeSegmentsMode.INCLUDE,
-        QueryContext.of(ImmutableMap.of(QueryContexts.REALTIME_SEGMENTS_ONLY, false))
+        QueryContext.of(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_ONLY.getName(), false))
                    .getRealtimeSegmentsMode()
     );
   }
@@ -582,8 +582,8 @@ public class QueryContextTest
     BadQueryContextException e = assertThrows(
         BadQueryContextException.class,
         () -> QueryContext.of(ImmutableMap.of(
-            QueryContexts.REALTIME_SEGMENTS_ONLY, true,
-            QueryContexts.REALTIME_SEGMENTS_MODE, "exclude"
+            QueryContextParameters.REALTIME_SEGMENTS_ONLY.getName(), true,
+            QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "exclude"
         )).getRealtimeSegmentsMode()
     );
     assertEquals(
@@ -597,7 +597,7 @@ public class QueryContextTest
   {
     BadQueryContextException e = assertThrows(
         BadQueryContextException.class,
-        () -> QueryContext.of(ImmutableMap.of(QueryContexts.REALTIME_SEGMENTS_MODE, "badvalue"))
+        () -> QueryContext.of(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "badvalue"))
                          .getRealtimeSegmentsMode()
     );
     assertEquals(

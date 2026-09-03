@@ -37,6 +37,7 @@ import org.apache.druid.query.aggregation.AggregationTestHelper;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
@@ -73,11 +74,11 @@ public class KllFloatsSketchAggregatorTest extends InitializedNullHandlingTest
         module.getJacksonModules(),
         config,
         tempFolder
-    ).withQueryContext(ImmutableMap.of(QueryContexts.VECTORIZE_KEY, vectorize));
+    ).withQueryContext(ImmutableMap.of(QueryContextParameters.VECTORIZE.getName(), vectorize));
     timeSeriesHelper = AggregationTestHelper.createTimeseriesQueryAggregationTestHelperWithTempDir(
         module.getJacksonModules(),
         tempFolder
-    ).withQueryContext(ImmutableMap.of(QueryContexts.VECTORIZE_KEY, vectorize));
+    ).withQueryContext(ImmutableMap.of(QueryContextParameters.VECTORIZE.getName(), vectorize));
   }
 
   public static Collection<?> constructorFeeder()

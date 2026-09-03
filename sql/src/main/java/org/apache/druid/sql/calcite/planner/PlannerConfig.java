@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.joda.time.DateTimeZone;
 
 import java.util.HashMap;
@@ -437,7 +438,7 @@ public class PlannerConfig
           maxNumericInFilters);
       nativeQuerySqlPlanningMode = QueryContexts.parseString(
           queryContext,
-          QueryContexts.CTX_NATIVE_QUERY_SQL_PLANNING_MODE,
+          QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE.getName(),
           nativeQuerySqlPlanningMode
       );
       requireTimeCondition = QueryContexts.parseBoolean(

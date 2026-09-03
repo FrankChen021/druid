@@ -33,6 +33,7 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.http.ClientSqlQuery;
 import org.apache.druid.server.metrics.LatchableEmitter;
 import org.apache.druid.testing.embedded.EmbeddedBroker;
@@ -175,7 +176,7 @@ class ClusteredSegmentProjectionQueryTest extends EmbeddedClusterTestBase
                 false,
                 false,
                 false,
-                Map.of(QueryContexts.NO_PROJECTIONS, true),
+                Map.of(QueryContextParameters.NO_PROJECTIONS.getName(), true),
                 null
             )
         )

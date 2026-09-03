@@ -31,6 +31,7 @@ import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.generator.GeneratorBasicSchemas;
@@ -189,12 +190,12 @@ public class SqlVectorizedExpressionResultConsistencyTest extends InitializedNul
   public static void testQuery(SqlEngine engine, PlannerFactory plannerFactory, String query)
   {
     final Map<String, Object> vector = ImmutableMap.of(
-            QueryContexts.VECTORIZE_KEY, "force",
-            QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY, "force"
+            QueryContextParameters.VECTORIZE.getName(), "force",
+            QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), "force"
     );
     final Map<String, Object> nonvector = ImmutableMap.of(
-            QueryContexts.VECTORIZE_KEY, "false",
-            QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY, "false"
+            QueryContextParameters.VECTORIZE.getName(), "false",
+            QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), "false"
     );
 
     try (

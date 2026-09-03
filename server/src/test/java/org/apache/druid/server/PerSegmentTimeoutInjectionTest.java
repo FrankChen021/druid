@@ -28,6 +28,7 @@ import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.server.broker.BrokerDynamicConfig;
@@ -55,7 +56,7 @@ import java.util.Set;
 public class PerSegmentTimeoutInjectionTest
 {
   private static final String DATASOURCE = "my_datasource";
-  private static final String KEY = QueryContexts.PER_SEGMENT_TIMEOUT_KEY;
+  private static final String KEY = QueryContextParameters.PER_SEGMENT_TIMEOUT.getName();
 
   private QueryRunnerFactoryConglomerate conglomerate;
   private QuerySegmentWalker texasRanger;

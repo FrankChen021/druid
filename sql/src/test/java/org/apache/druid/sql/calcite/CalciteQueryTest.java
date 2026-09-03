@@ -85,6 +85,7 @@ import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFact
 import org.apache.druid.query.aggregation.post.ArithmeticPostAggregator;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
 import org.apache.druid.query.aggregation.post.FinalizingFieldAccessPostAggregator;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.dimension.ExtractionDimensionSpec;
 import org.apache.druid.query.expression.TestExprMacroTable;
@@ -5565,7 +5566,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
         "SELECT dim1 IN ('abc', 'def', 'ghi'), COUNT(*)\n"
         + "FROM druid.foo\n"
         + "GROUP BY 1",
-        QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContexts.IN_FUNCTION_EXPR_THRESHOLD, 100),
+        QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_EXPR_THRESHOLD.getName(), 100),
         ImmutableList.of(
             GroupByQuery.builder()
                         .setDataSource(CalciteTests.DATASOURCE1)
@@ -5877,7 +5878,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
         "SELECT dim1, COUNT(*) FROM druid.foo\n"
         + "WHERE dim1 IN (" + elementsString + ") OR dim1 = 'xyz' OR dim1 IS NULL\n"
         + "GROUP BY dim1",
-        QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContexts.IN_FUNCTION_THRESHOLD, 20),
+        QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD.getName(), 20),
         ImmutableList.of(
             GroupByQuery.builder()
                         .setDataSource(CalciteTests.DATASOURCE1)
@@ -5928,8 +5929,8 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
         QueryContexts.override(
             QUERY_CONTEXT_DEFAULT,
             ImmutableMap.of(
-                QueryContexts.IN_FUNCTION_THRESHOLD, 20,
-                QueryContexts.IN_SUB_QUERY_THRESHOLD_KEY, 20
+                QueryContextParameters.IN_FUNCTION_THRESHOLD.getName(), 20,
+                QueryContextParameters.IN_SUBQUERY_THRESHOLD.getName(), 20
             )
         ),
         ImmutableList.of(
@@ -8111,7 +8112,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
 
       testQuery(
           PLANNER_CONFIG_MAX_NUMERIC_IN_FILTER,
-          ImmutableMap.of(QueryContexts.MAX_NUMERIC_IN_FILTERS, 20000),
+          ImmutableMap.of(QueryContextParameters.MAX_NUMERIC_IN_FILTERS.getName(), 20000),
           "SELECT COUNT(*)\n"
               + "FROM druid.numfoo\n"
               + "WHERE dim6 IN (\n"
@@ -15958,7 +15959,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
         )
         .queryContext(
             ImmutableMap.of(
-                QueryContexts.ENABLE_DEBUG, true
+                QueryContextParameters.DEBUG.getName(), true
             )
         )
         .expectedQuery(
@@ -16057,7 +16058,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
         )
         .queryContext(
             ImmutableMap.of(
-                QueryContexts.ENABLE_DEBUG, true
+                QueryContextParameters.DEBUG.getName(), true
             )
         )
         .expectedResults(
@@ -16403,7 +16404,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
     expectedContext.put("timeout", 9000.0);
     expectedContext.put("vectorize", "force");
     // sql query id is also set in the base context sent with the query, expect the SET statement to override this
-    expectedContext.put(QueryContexts.CTX_SQL_QUERY_ID, "dummy2");
+    expectedContext.put(QueryContextParameters.SQL_QUERY_ID.getName(), "dummy2");
 
     testBuilder().sql(
         "set useApproximateCountDistinct = TRUE; set timeout = 90000; set vectorize = 'force'; set sqlQueryId = 'dummy2'; select 3;;;"

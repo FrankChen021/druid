@@ -22,6 +22,7 @@ package org.apache.druid.benchmark.query;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Param;
@@ -71,9 +72,9 @@ public class SqlProjectionsBenchmark extends SqlBaseQueryBenchmark
   protected Map<String, Object> getContext()
   {
     final Map<String, Object> context = ImmutableMap.of(
-        QueryContexts.VECTORIZE_KEY, vectorize,
-        QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY, vectorize,
-        useProjections ? QueryContexts.FORCE_PROJECTION : QueryContexts.NO_PROJECTIONS, true
+        QueryContextParameters.VECTORIZE.getName(), vectorize,
+        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), vectorize,
+        useProjections ? QueryContextParameters.FORCE_PROJECTIONS.getName() : QueryContextParameters.NO_PROJECTIONS.getName(), true
     );
     return context;
   }

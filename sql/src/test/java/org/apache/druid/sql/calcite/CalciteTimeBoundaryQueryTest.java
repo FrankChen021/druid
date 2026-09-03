@@ -28,6 +28,7 @@ import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.aggregation.LongMaxAggregatorFactory;
 import org.apache.druid.query.aggregation.LongMinAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
 import org.apache.druid.query.timeboundary.TimeBoundaryQuery;
 import org.apache.druid.segment.column.ColumnType;
@@ -45,7 +46,7 @@ public class CalciteTimeBoundaryQueryTest extends BaseCalciteQueryTest
   public void testMaxTimeQuery()
   {
     HashMap<String, Object> queryContext = new HashMap<>(QUERY_CONTEXT_DEFAULT);
-    queryContext.put(QueryContexts.TIME_BOUNDARY_PLANNING_KEY, true);
+    queryContext.put(QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getName(), true);
     HashMap<String, Object> expectedContext = new HashMap<>(QUERY_CONTEXT_DEFAULT);
     expectedContext.put(TimeBoundaryQuery.MAX_TIME_ARRAY_OUTPUT_NAME, "a0");
     testQuery(
@@ -66,7 +67,7 @@ public class CalciteTimeBoundaryQueryTest extends BaseCalciteQueryTest
   public void testMinTimeQuery()
   {
     HashMap<String, Object> queryContext = new HashMap<>(QUERY_CONTEXT_DEFAULT);
-    queryContext.put(QueryContexts.TIME_BOUNDARY_PLANNING_KEY, true);
+    queryContext.put(QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getName(), true);
     HashMap<String, Object> expectedContext = new HashMap<>(QUERY_CONTEXT_DEFAULT);
     expectedContext.put(TimeBoundaryQuery.MIN_TIME_ARRAY_OUTPUT_NAME, "a0");
     testQuery(
@@ -87,7 +88,7 @@ public class CalciteTimeBoundaryQueryTest extends BaseCalciteQueryTest
   public void testMinTimeQueryWithTimeFilters()
   {
     HashMap<String, Object> queryContext = new HashMap<>(QUERY_CONTEXT_DEFAULT);
-    queryContext.put(QueryContexts.TIME_BOUNDARY_PLANNING_KEY, true);
+    queryContext.put(QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getName(), true);
     HashMap<String, Object> expectedContext = new HashMap<>(QUERY_CONTEXT_DEFAULT);
     expectedContext.put(TimeBoundaryQuery.MIN_TIME_ARRAY_OUTPUT_NAME, "a0");
     testQuery(
@@ -113,7 +114,7 @@ public class CalciteTimeBoundaryQueryTest extends BaseCalciteQueryTest
   public void testMinTimeQueryWithTimeAndColumnFilters()
   {
     HashMap<String, Object> queryContext = new HashMap<>(QUERY_CONTEXT_DEFAULT);
-    queryContext.put(QueryContexts.TIME_BOUNDARY_PLANNING_KEY, true);
+    queryContext.put(QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getName(), true);
     HashMap<String, Object> expectedContext = new HashMap<>(QUERY_CONTEXT_DEFAULT);
     expectedContext.put(TimeBoundaryQuery.MIN_TIME_ARRAY_OUTPUT_NAME, "a0");
     testQuery(
@@ -143,7 +144,7 @@ public class CalciteTimeBoundaryQueryTest extends BaseCalciteQueryTest
   {
     cannotVectorizeUnlessFallback();
     HashMap<String, Object> queryContext = new HashMap<>(QUERY_CONTEXT_DEFAULT);
-    queryContext.put(QueryContexts.TIME_BOUNDARY_PLANNING_KEY, true);
+    queryContext.put(QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getName(), true);
     testQuery(
         "SELECT MIN(__time) AS minTime FROM foo\n"
         + "where __time >= '2001-01-01' and __time < '2003-01-01'\n"
@@ -173,7 +174,7 @@ public class CalciteTimeBoundaryQueryTest extends BaseCalciteQueryTest
   public void testMinMaxTimeQuery()
   {
     HashMap<String, Object> context = new HashMap<>(QUERY_CONTEXT_DEFAULT);
-    context.put(QueryContexts.TIME_BOUNDARY_PLANNING_KEY, true);
+    context.put(QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getName(), true);
     testQuery(
         "SELECT MIN(__time) AS minTime, MAX(__time) as maxTime FROM foo",
         context,
@@ -202,7 +203,7 @@ public class CalciteTimeBoundaryQueryTest extends BaseCalciteQueryTest
     cannotVectorize();
 
     HashMap<String, Object> context = new HashMap<>(QUERY_CONTEXT_DEFAULT);
-    context.put(QueryContexts.TIME_BOUNDARY_PLANNING_KEY, true);
+    context.put(QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getName(), true);
 
     testBuilder()
         .sql("SELECT MAX(t1.__time)\n"

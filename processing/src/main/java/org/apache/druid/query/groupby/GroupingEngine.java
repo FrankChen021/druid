@@ -51,6 +51,7 @@ import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryCapacityExceededException;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryPlus;
@@ -61,6 +62,7 @@ import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.ResultMergeQueryRunner;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.dimension.DimensionSpec;
@@ -222,8 +224,8 @@ public class GroupingEngine
   public GroupByQuery prepareGroupByQuery(GroupByQuery query)
   {
     // Set up downstream context.
-    final ImmutableMap.Builder<String, Object> context = ImmutableMap.builder();
-    context.put(QueryContexts.FINALIZE_KEY, false);
+    final QueryContextBuilder context = new QueryContextBuilder();
+    context.put(QueryContextParameters.FINALIZE, false);
     context.put(CTX_KEY_OUTERMOST, false);
 
     Granularity granularity = query.getGranularity();

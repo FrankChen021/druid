@@ -30,6 +30,7 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.lifecycle.Lifecycle;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.query.timeseries.TimeseriesResultValue;
@@ -271,7 +272,7 @@ public class ChainedExecutionQueryRunnerTest
                                   .dataSource("test")
                                   .intervals("2014/2015")
                                   .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
-                                  .context(ImmutableMap.of(QueryContexts.TIMEOUT_KEY, 100, "queryId", "test"))
+                                  .context(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 100, "queryId", "test"))
                                   .build();
     final Sequence seq = chainedRunner.run(QueryPlus.wrap(query));
 
@@ -340,7 +341,7 @@ public class ChainedExecutionQueryRunnerTest
         .dataSource("test")
         .intervals("2014/2015")
         .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
-        .context(ImmutableMap.of(QueryContexts.TIMEOUT_KEY, 100, "queryId", "test"))
+        .context(ImmutableMap.of(QueryContextParameters.TIMEOUT.getName(), 100, "queryId", "test"))
         .build();
     List<QueryRunner<Result<TimeseriesResultValue>>> runners = Arrays.asList(
         Mockito.mock(QueryRunner.class),
@@ -394,8 +395,8 @@ public class ChainedExecutionQueryRunnerTest
                                   .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
                                   .context(
                                       ImmutableMap.of(
-                                          QueryContexts.PER_SEGMENT_TIMEOUT_KEY, 100L,
-                                          QueryContexts.TIMEOUT_KEY, 5_000L
+                                          QueryContextParameters.PER_SEGMENT_TIMEOUT.getName(), 100L,
+                                          QueryContextParameters.TIMEOUT.getName(), 5_000L
                                       )
                                   )
                                   .queryId("test")
@@ -452,8 +453,8 @@ public class ChainedExecutionQueryRunnerTest
                                       .intervals("2014/2015")
                                       .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
                                       .context(ImmutableMap.of(
-                                          QueryContexts.TIMEOUT_KEY, 300_000L,
-                                          QueryContexts.PER_SEGMENT_TIMEOUT_KEY, 1_000L
+                                          QueryContextParameters.TIMEOUT.getName(), 300_000L,
+                                          QueryContextParameters.PER_SEGMENT_TIMEOUT.getName(), 1_000L
                                       ))
                                       .queryId("slow")
                                       .build();
@@ -463,8 +464,8 @@ public class ChainedExecutionQueryRunnerTest
                                       .intervals("2014/2015")
                                       .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
                                       .context(ImmutableMap.of(
-                                          QueryContexts.TIMEOUT_KEY, 5_000L,
-                                          QueryContexts.PER_SEGMENT_TIMEOUT_KEY, 3_000L
+                                          QueryContextParameters.TIMEOUT.getName(), 5_000L,
+                                          QueryContextParameters.PER_SEGMENT_TIMEOUT.getName(), 3_000L
                                       ))
                                       .queryId("fast")
                                       .build();

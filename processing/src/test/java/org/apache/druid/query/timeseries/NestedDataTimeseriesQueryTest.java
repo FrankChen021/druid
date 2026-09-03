@@ -34,6 +34,7 @@ import org.apache.druid.query.aggregation.AggregationTestHelper;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.FilterTuning;
@@ -112,8 +113,8 @@ public class NestedDataTimeseriesQueryTest extends InitializedNullHandlingTest
   public Map<String, Object> getContext()
   {
     return ImmutableMap.of(
-        QueryContexts.VECTORIZE_KEY, vectorize.toString(),
-        QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY, vectorize.toString()
+        QueryContextParameters.VECTORIZE.getName(), vectorize.toString(),
+        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), vectorize.toString()
     );
   }
 

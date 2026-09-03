@@ -32,6 +32,7 @@ import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.aggregation.AggregationTestHelper;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
@@ -62,27 +63,27 @@ public class VectorizedVirtualColumnTest
   private static final String COUNT = "count";
   private static final Map<String, Object> CONTEXT_USE_DEFAULTS = ImmutableMap.of();
   private static final Map<String, Object> CONTEXT_VECTORIZE_FORCE = ImmutableMap.of(
-      QueryContexts.VECTORIZE_KEY,
+      QueryContextParameters.VECTORIZE.getName(),
       "force",
-      QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY,
+      QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(),
       "force"
   );
   private static final Map<String, Object> CONTEXT_VECTORIZE_TRUE_VIRTUAL_FORCE = ImmutableMap.of(
-      QueryContexts.VECTORIZE_KEY,
+      QueryContextParameters.VECTORIZE.getName(),
       "true",
-      QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY,
+      QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(),
       "force"
   );
   private static final Map<String, Object> CONTEXT_CONTRADICTION_VECTORIZE_FALSE_VIRTUAL_FORCE = ImmutableMap.of(
-      QueryContexts.VECTORIZE_KEY,
+      QueryContextParameters.VECTORIZE.getName(),
       "false",
-      QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY,
+      QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(),
       "force"
   );
   private static final Map<String, Object> CONTEXT_CONTRADICTION_VECTORIZE_FORCE_VIRTUAL_FALSE = ImmutableMap.of(
-      QueryContexts.VECTORIZE_KEY,
+      QueryContextParameters.VECTORIZE.getName(),
       "force",
-      QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY,
+      QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(),
       "false"
   );
 

@@ -49,6 +49,7 @@ import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.metadata.metadata.AllColumnIncluderator;
 import org.apache.druid.query.metadata.metadata.SegmentMetadataQuery;
 import org.apache.druid.query.policy.NoRestrictionPolicy;
@@ -314,7 +315,7 @@ public class BrokerSegmentMetadataCacheTest extends BrokerSegmentMetadataCacheTe
         new MultipleSpecificSegmentSpec(Collections.singletonList(realtimeSegment1.getId().toDescriptor())),
         new AllColumnIncluderator(),
         false,
-        ImmutableMap.of(QueryContexts.BROKER_PARALLEL_MERGE_KEY, false),
+        ImmutableMap.of(QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), false),
         EnumSet.noneOf(SegmentMetadataQuery.AnalysisType.class),
         false,
         null,
@@ -1064,8 +1065,8 @@ public class BrokerSegmentMetadataCacheTest extends BrokerSegmentMetadataCacheTe
     );
 
     Map<String, Object> queryContext = ImmutableMap.of(
-        QueryContexts.PRIORITY_KEY, 5,
-        QueryContexts.BROKER_PARALLEL_MERGE_KEY, false
+        QueryContextParameters.PRIORITY.getName(), 5,
+        QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), false
     );
 
     DataSegment segment = newSegment("test", 0);
@@ -1224,8 +1225,8 @@ public class BrokerSegmentMetadataCacheTest extends BrokerSegmentMetadataCacheTe
     );
 
     Map<String, Object> queryContext = ImmutableMap.of(
-        QueryContexts.PRIORITY_KEY, 5,
-        QueryContexts.BROKER_PARALLEL_MERGE_KEY, false
+        QueryContextParameters.PRIORITY.getName(), 5,
+        QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), false
     );
 
     DataSegment segment = newSegment("test", 0);

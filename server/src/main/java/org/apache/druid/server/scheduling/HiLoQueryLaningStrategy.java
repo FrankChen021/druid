@@ -29,6 +29,7 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.server.QueryLaningStrategy;
 
 import java.util.Optional;
@@ -72,7 +73,7 @@ public class HiLoQueryLaningStrategy implements QueryLaningStrategy
     // we make sure that priority has been set.
     Integer priority = null;
     final QueryContext queryContext = theQuery.context();
-    if (null != queryContext.get(QueryContexts.PRIORITY_KEY)) {
+    if (queryContext.get(QueryContextParameters.PRIORITY) != null) {
       priority = queryContext.getPriority();
     }
     final String lane = queryContext.getLane();

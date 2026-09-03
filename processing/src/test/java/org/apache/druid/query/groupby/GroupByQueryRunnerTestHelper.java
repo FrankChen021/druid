@@ -38,6 +38,7 @@ import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.QueryToolChest;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.joda.time.DateTime;
@@ -336,6 +337,6 @@ public class GroupByQueryRunnerTestHelper
 
   public static Map<String, Object> defaultResourceIdMap()
   {
-    return Collections.singletonMap(QueryContexts.QUERY_RESOURCE_ID, UUID.randomUUID().toString());
+    return Collections.singletonMap(QueryContextParameters.QUERY_RESOURCE_ID.getName(), UUID.randomUUID().toString());
   }
 }

@@ -49,6 +49,7 @@ import org.apache.druid.msq.test.LimitedFrameWriterFactory;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Order;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.policy.PolicyEnforcer;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryEngine;
@@ -124,9 +125,9 @@ public class ScanQueryFrameProcessorTest extends FrameProcessorTestBase
               .order(Order.DESCENDING);
 
     final ScanQuery nonVectorizedQuery =
-        baseBuilder.context(ImmutableMap.of(QueryContexts.VECTORIZE_KEY, "false")).build();
+        baseBuilder.context(ImmutableMap.of(QueryContextParameters.VECTORIZE.getName(), "false")).build();
     final ScanQuery vectorizedQuery =
-        baseBuilder.context(ImmutableMap.of(QueryContexts.VECTORIZE_KEY, "force", QueryContexts.VECTOR_SIZE_KEY, 7))
+        baseBuilder.context(ImmutableMap.of(QueryContextParameters.VECTORIZE.getName(), "force", QueryContextParameters.VECTOR_SIZE.getName(), 7))
                    .build();
 
     final List<List<Object>> nonVectorizedRows = runScanOverSegment(queryableIndex, nonVectorizedQuery);

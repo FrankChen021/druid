@@ -61,6 +61,7 @@ import org.apache.druid.query.aggregation.datasketches.theta.SketchMergeAggregat
 import org.apache.druid.query.aggregation.datasketches.theta.SketchModule;
 import org.apache.druid.query.aggregation.datasketches.tuple.ArrayOfDoublesSketchAggregatorFactory;
 import org.apache.druid.query.aggregation.datasketches.tuple.ArrayOfDoublesSketchModule;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByResourcesReservationPool;
@@ -378,7 +379,7 @@ public class DatasketchesProjectionTest extends InitializedNullHandlingTest
                         new ArrayOfDoublesSketchAggregatorFactory("b_doubles", "b", null, Arrays.asList("c", "d"), null),
                         new KllDoublesSketchAggregatorFactory("d", "d", null, null)
                     )
-                    .setContext(ImmutableMap.of(QueryContexts.NO_PROJECTIONS, true))
+                    .setContext(ImmutableMap.of(QueryContextParameters.NO_PROJECTIONS.getName(), true))
                     .build();
     final CursorBuildSpec buildSpec = GroupingEngine.makeCursorBuildSpec(query, null);
     try (final CursorHolder cursorHolder = projectionsCursorFactory.makeCursorHolder(buildSpec)) {

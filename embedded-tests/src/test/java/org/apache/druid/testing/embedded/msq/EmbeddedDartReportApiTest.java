@@ -42,6 +42,7 @@ import org.apache.druid.msq.dart.controller.sql.DartSqlClients;
 import org.apache.druid.msq.indexing.report.MSQTaskReport;
 import org.apache.druid.msq.indexing.report.MSQTaskReportPayload;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.http.ClientSqlQuery;
 import org.apache.druid.server.metrics.LatchableEmitter;
 import org.apache.druid.server.security.Action;
@@ -215,8 +216,8 @@ public class EmbeddedDartReportApiTest extends EmbeddedClusterTestBase
                 false,
                 false,
                 ImmutableMap.of(
-                    QueryContexts.ENGINE, "msq-dart",
-                    QueryContexts.CTX_SQL_QUERY_ID, sqlQueryId
+                    QueryContextParameters.ENGINE.getName(), "msq-dart",
+                    QueryContextParameters.SQL_QUERY_ID.getName(), sqlQueryId
                 ),
                 null
             )
@@ -315,8 +316,8 @@ public class EmbeddedDartReportApiTest extends EmbeddedClusterTestBase
                 false,
                 false,
                 ImmutableMap.of(
-                    QueryContexts.ENGINE, "msq-dart",
-                    QueryContexts.CTX_SQL_QUERY_ID, sqlQueryId
+                    QueryContextParameters.ENGINE.getName(), "msq-dart",
+                    QueryContextParameters.SQL_QUERY_ID.getName(), sqlQueryId
                 ),
                 null
             )
@@ -362,7 +363,7 @@ public class EmbeddedDartReportApiTest extends EmbeddedClusterTestBase
 
     // Step 1: Issue the query asynchronously.
     final ListenableFuture<String> queryFuture =
-        msqApis.submitDartSqlAsync(sql, Map.of(QueryContexts.CTX_SQL_QUERY_ID, sqlQueryId), broker1);
+        msqApis.submitDartSqlAsync(sql, Map.of(QueryContextParameters.SQL_QUERY_ID.getName(), sqlQueryId), broker1);
 
     // Step 2: Get the report.
     final GetQueryReportResponse runningReport = waitForReport(sqlQueryId);

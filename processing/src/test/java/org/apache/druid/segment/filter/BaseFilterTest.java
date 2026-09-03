@@ -56,6 +56,7 @@ import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.FilteredAggregatorFactory;
 import org.apache.druid.query.aggregation.VectorAggregator;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.filter.ColumnIndexSelector;
@@ -800,7 +801,7 @@ public abstract class BaseFilterTest extends InitializedNullHandlingTest
                           .setVirtualColumns(virtualColumns)
                           .setQueryContext(
                               QueryContext.of(
-                                  ImmutableMap.of(QueryContexts.VECTOR_SIZE_KEY, 3)
+                                  ImmutableMap.of(QueryContextParameters.VECTOR_SIZE.getName(), 3)
                               )
                           )
                           .build();

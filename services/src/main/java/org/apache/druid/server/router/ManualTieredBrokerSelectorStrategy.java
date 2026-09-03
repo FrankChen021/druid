@@ -34,12 +34,12 @@ import javax.annotation.Nullable;
 
 /**
  * Implementation of {@link TieredBrokerSelectorStrategy} which uses the parameter
- * {@link QueryContexts#BROKER_SERVICE_NAME} in the Query context to select the
+ * {@link org.apache.druid.query.context.QueryContextParameters#BROKER_SERVICE} in the Query context to select the
  * Broker Service.
  * <p>
  * If the {@link #defaultManualBrokerService} is set to a valid Broker Service Name,
  * then all queries that do not specify a valid value for
- * {@link QueryContexts#BROKER_SERVICE_NAME} would be directed to the
+ * {@link org.apache.druid.query.context.QueryContextParameters#BROKER_SERVICE} would be directed to the
  * {@code #defaultManualBrokerService}. Note that the {@code defaultManualBrokerService}
  * can be different from the {@link TieredBrokerConfig#getDefaultBrokerServiceName()}.
  */

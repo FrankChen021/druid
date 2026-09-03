@@ -37,6 +37,7 @@ import org.apache.druid.query.aggregation.histogram.QuantilePostAggregator;
 import org.apache.druid.query.aggregation.histogram.sql.FixedBucketsHistogramQuantileSqlAggregatorTest.FixedBucketsHistogramComponentSupplier;
 import org.apache.druid.query.aggregation.post.ArithmeticPostAggregator;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.groupby.GroupByQuery;
@@ -401,7 +402,7 @@ public class FixedBucketsHistogramQuantileSqlAggregatorTest extends BaseCalciteQ
                       new QuantilePostAggregator("a6", "a6:agg", 0.999f),
                       new QuantilePostAggregator("a7", "a5:agg", 0.999f)
                   )
-                  .context(ImmutableMap.of(QueryContexts.CTX_SQL_QUERY_ID, "dummy"))
+                  .context(ImmutableMap.of(QueryContextParameters.SQL_QUERY_ID.getName(), "dummy"))
                   .build()
         ),
         ImmutableList.of(

@@ -72,6 +72,7 @@ import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.expression.TestExprMacroTable;
@@ -383,8 +384,8 @@ public class CachingClusteredClientBenchmark
                        .context(
                            ImmutableMap.of(
                                BaseQuery.QUERY_ID, "BenchmarkQuery",
-                               QueryContexts.BROKER_PARALLEL_MERGE_KEY, parallelCombine,
-                               QueryContexts.BROKER_PARALLELISM, parallelism
+                               QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), parallelCombine,
+                               QueryContextParameters.PARALLEL_MERGE_PARALLELISM.getName(), parallelism
                            )
                        )
                        .build();
@@ -414,8 +415,8 @@ public class CachingClusteredClientBenchmark
         .context(
             ImmutableMap.of(
                 BaseQuery.QUERY_ID, "BenchmarkQuery",
-                QueryContexts.BROKER_PARALLEL_MERGE_KEY, parallelCombine,
-                QueryContexts.BROKER_PARALLELISM, parallelism
+                QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), parallelCombine,
+                QueryContextParameters.PARALLEL_MERGE_PARALLELISM.getName(), parallelism
             )
         )
         .build();
@@ -447,8 +448,8 @@ public class CachingClusteredClientBenchmark
         .setContext(
             ImmutableMap.of(
                 BaseQuery.QUERY_ID, "BenchmarkQuery",
-                QueryContexts.BROKER_PARALLEL_MERGE_KEY, parallelCombine,
-                QueryContexts.BROKER_PARALLELISM, parallelism
+                QueryContextParameters.ENABLE_PARALLEL_MERGE.getName(), parallelCombine,
+                QueryContextParameters.PARALLEL_MERGE_PARALLELISM.getName(), parallelism
             )
         )
         .build();
@@ -469,7 +470,7 @@ public class CachingClusteredClientBenchmark
                                               query.getDataSource(),
                                               query.getId(),
                                               query.getSqlQueryId(),
-                                              query.context().getString(QueryContexts.QUERY_RESOURCE_ID)
+                                              query.context().getString(QueryContextParameters.QUERY_RESOURCE_ID.getName())
                                           ));
   }
 

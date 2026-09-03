@@ -83,6 +83,7 @@ import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.aggregation.post.ArithmeticPostAggregator;
 import org.apache.druid.query.aggregation.post.ConstantPostAggregator;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.filter.AndDimFilter;
@@ -172,7 +173,7 @@ import java.util.stream.IntStream;
 public class CachingClusteredClientTest
 {
   private static final ImmutableMap<String, Object> CONTEXT = ImmutableMap.of(
-      QueryContexts.FINALIZE_KEY, false
+      QueryContextParameters.FINALIZE.getName(), false
   );
   private static final MultipleIntervalSegmentSpec SEG_SPEC = new MultipleIntervalSegmentSpec(ImmutableList.of());
   private static final String DATA_SOURCE = "test";
@@ -1639,7 +1640,7 @@ public class CachingClusteredClientTest
     );
 
     final Map<String, Object> context = new HashMap<>(CONTEXT);
-    context.put(QueryContexts.SECONDARY_PARTITION_PRUNING_KEY, enableSegmentPruning);
+    context.put(QueryContextParameters.SECONDARY_PARTITION_PRUNING.getName(), enableSegmentPruning);
     final Druids.TimeseriesQueryBuilder builder = Druids.newTimeseriesQueryBuilder()
                                                         .dataSource(DATA_SOURCE)
                                                         .filters(filter)
@@ -2166,11 +2167,11 @@ public class CachingClusteredClientTest
         Query capturedQuery = capturedQueryPlus.getQuery();
         final QueryContext queryContext = capturedQuery.context();
         if (expectBySegment) {
-          Assertions.assertEquals(true, queryContext.getBoolean(QueryContexts.BY_SEGMENT_KEY));
+          Assertions.assertEquals(true, queryContext.getBoolean(QueryContextParameters.BY_SEGMENT.getName()));
         } else {
           Assertions.assertTrue(
-              queryContext.get(QueryContexts.BY_SEGMENT_KEY) == null ||
-              !queryContext.getBoolean(QueryContexts.BY_SEGMENT_KEY)
+              queryContext.get(QueryContextParameters.BY_SEGMENT.getName()) == null ||
+              !queryContext.getBoolean(QueryContextParameters.BY_SEGMENT.getName())
           );
         }
       }
@@ -3139,7 +3140,7 @@ public class CachingClusteredClientTest
     final TimeBoundaryQuery queryInclude = Druids.newTimeBoundaryQueryBuilder()
             .dataSource(DATA_SOURCE)
             .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(queryInterval)))
-            .context(ImmutableMap.of(QueryContexts.REALTIME_SEGMENTS_MODE, "include"))
+            .context(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "include"))
             .randomQueryId()
             .build();
 
@@ -3147,7 +3148,7 @@ public class CachingClusteredClientTest
     final TimeBoundaryQuery queryExclusive = Druids.newTimeBoundaryQueryBuilder()
             .dataSource(DATA_SOURCE)
             .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(queryInterval)))
-            .context(ImmutableMap.of(QueryContexts.REALTIME_SEGMENTS_MODE, "exclusive"))
+            .context(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "exclusive"))
             .randomQueryId()
             .build();
 
@@ -3155,7 +3156,7 @@ public class CachingClusteredClientTest
     final TimeBoundaryQuery queryLegacyTrue = Druids.newTimeBoundaryQueryBuilder()
             .dataSource(DATA_SOURCE)
             .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(queryInterval)))
-            .context(ImmutableMap.of(QueryContexts.REALTIME_SEGMENTS_ONLY, true))
+            .context(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_ONLY.getName(), true))
             .randomQueryId()
             .build();
 
@@ -3204,7 +3205,7 @@ public class CachingClusteredClientTest
     final TimeBoundaryQuery queryExclude = Druids.newTimeBoundaryQueryBuilder()
             .dataSource(DATA_SOURCE)
             .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(queryInterval)))
-            .context(ImmutableMap.of(QueryContexts.REALTIME_SEGMENTS_MODE, "exclude"))
+            .context(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "exclude"))
             .randomQueryId()
             .build();
 
@@ -3212,7 +3213,7 @@ public class CachingClusteredClientTest
     final TimeBoundaryQuery queryInclude = Druids.newTimeBoundaryQueryBuilder()
             .dataSource(DATA_SOURCE)
             .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(queryInterval)))
-            .context(ImmutableMap.of(QueryContexts.REALTIME_SEGMENTS_MODE, "include"))
+            .context(ImmutableMap.of(QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(), "include"))
             .randomQueryId()
             .build();
 

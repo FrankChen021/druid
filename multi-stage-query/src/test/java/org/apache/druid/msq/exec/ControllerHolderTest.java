@@ -35,6 +35,7 @@ import org.apache.druid.msq.indexing.report.MSQTaskReportPayload;
 import org.apache.druid.msq.test.NoopQueryListener;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -384,7 +385,7 @@ public class ControllerHolderTest
       @Override
       public QueryContext getQueryContext()
       {
-        return QueryContext.of(Map.of(QueryContexts.TIMEOUT_KEY, 1));
+        return QueryContext.of(Map.of(QueryContextParameters.TIMEOUT.getName(), 1));
       }
 
       @Override

@@ -31,6 +31,7 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.query.filter.NotDimFilter;
@@ -183,7 +184,7 @@ public class DescendingVectorCursorDiffTest extends InitializedNullHandlingTest
                              .setVirtualColumns(virtualColumns)
                              .setFilter(filterEntry.getValue())
                              .setQueryContext(
-                                 QueryContext.of(ImmutableMap.of(QueryContexts.VECTOR_SIZE_KEY, vectorSize))
+                                 QueryContext.of(ImmutableMap.of(QueryContextParameters.VECTOR_SIZE.getName(), vectorSize))
                              )
                              .build();
 

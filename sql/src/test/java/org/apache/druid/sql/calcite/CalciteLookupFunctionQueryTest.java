@@ -36,6 +36,7 @@ import org.apache.druid.query.aggregation.GroupingAggregatorFactory;
 import org.apache.druid.query.aggregation.LongMinAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.aggregation.cardinality.CardinalityAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.dimension.ExtractionDimensionSpec;
 import org.apache.druid.query.extraction.ExtractionFn;
@@ -395,7 +396,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
         ImmutableMap.<String, Object>builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true)
-                    .put(QueryContexts.IN_FUNCTION_THRESHOLD, 1)
+                    .put(QueryContextParameters.IN_FUNCTION_THRESHOLD.getName(), 1)
                     .build();
 
     testQuery(
@@ -438,7 +439,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
         ImmutableMap.<String, Object>builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true)
-                    .put(QueryContexts.IN_SUB_QUERY_THRESHOLD_KEY, 1)
+                    .put(QueryContextParameters.IN_SUBQUERY_THRESHOLD.getName(), 1)
                     .build();
 
     testQuery(

@@ -30,6 +30,7 @@ import org.apache.druid.java.util.common.Numbers;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.parsers.TimestampParser;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.column.ValueType;
@@ -403,7 +404,7 @@ public class DrillWindowQueryTest extends BaseCalciteQueryTest
   {
     return ImmutableMap.of(
         PlannerCaptureHook.NEED_CAPTURE_HOOK, true,
-        QueryContexts.ENABLE_DEBUG, true
+        QueryContextParameters.DEBUG.getName(), true
     );
   }
 

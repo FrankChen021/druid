@@ -40,6 +40,7 @@ import org.apache.druid.query.aggregation.AggregationTestHelper;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFactory;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByQueryRunnerTest;
@@ -489,7 +490,7 @@ public class HllSketchAggregatorTest extends InitializedNullHandlingTest
                        .setPostAggregatorSpecs(
                            new FieldAccessPostAggregator("sketch_raw", "sketch")
                        )
-                       .setContext(ImmutableMap.of(QueryContexts.VECTORIZE_KEY, vectorize.toString()))
+                       .setContext(ImmutableMap.of(QueryContextParameters.VECTORIZE.getName(), vectorize.toString()))
                        .build();
   }
 
@@ -526,7 +527,7 @@ public class HllSketchAggregatorTest extends InitializedNullHandlingTest
                  .granularity(Granularities.ALL)
                  .intervals(Intervals.of("2017-01-01T00:00:00.000Z/2017-01-31T00:00:00.000Z").toString())
                  .aggregators(agg)
-                 .context(ImmutableMap.of(QueryContexts.VECTORIZE_KEY, vectorize.toString()))
+                 .context(ImmutableMap.of(QueryContextParameters.VECTORIZE.getName(), vectorize.toString()))
                  .build();
   }
 

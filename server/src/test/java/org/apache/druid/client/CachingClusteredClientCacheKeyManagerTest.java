@@ -29,6 +29,7 @@ import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.segment.join.NoopDataSource;
 import org.apache.druid.timeline.DataSegment;
@@ -69,7 +70,7 @@ public class CachingClusteredClientCacheKeyManagerTest extends EasyMockSupport
   public void setup()
   {
     expect(strategy.computeCacheKey(query)).andReturn(QUERY_CACHE_KEY).anyTimes();
-    expect(query.context()).andReturn(QueryContext.of(ImmutableMap.of(QueryContexts.BY_SEGMENT_KEY, false))).anyTimes();
+    expect(query.context()).andReturn(QueryContext.of(ImmutableMap.of(QueryContextParameters.BY_SEGMENT.getName(), false))).anyTimes();
   }
 
   @AfterEach
@@ -180,7 +181,7 @@ public class CachingClusteredClientCacheKeyManagerTest extends EasyMockSupport
     reset(query);
 
     expect(query.getDataSource()).andReturn(new NoopDataSource());
-    expect(query.context()).andReturn(QueryContext.of(ImmutableMap.of(QueryContexts.BY_SEGMENT_KEY, true))).anyTimes();
+    expect(query.context()).andReturn(QueryContext.of(ImmutableMap.of(QueryContextParameters.BY_SEGMENT.getName(), true))).anyTimes();
 
     replayAll();
     CachingClusteredClient.CacheKeyManager<Object> keyManager = makeKeyManager();
@@ -246,7 +247,7 @@ public class CachingClusteredClientCacheKeyManagerTest extends EasyMockSupport
   public void testSegmentQueryCacheKey_noCachingIfBySegment()
   {
     reset(query);
-    expect(query.context()).andReturn(QueryContext.of(ImmutableMap.of(QueryContexts.BY_SEGMENT_KEY, true))).anyTimes();
+    expect(query.context()).andReturn(QueryContext.of(ImmutableMap.of(QueryContextParameters.BY_SEGMENT.getName(), true))).anyTimes();
     replayAll();
     byte[] cacheKey = makeKeyManager().computeSegmentLevelQueryCacheKey();
     Assertions.assertNull(cacheKey);

@@ -123,7 +123,7 @@ public @interface DecoupledTestConfig
      */
     EQUIV_PLAN,
     /**
-     * {@link QueryContexts#SQL_JOIN_LEFT_SCAN_DIRECT} not supported.
+     * {@link org.apache.druid.query.context.QueryContextParameters#ENABLE_JOIN_LEFT_SCAN_DIRECT} not supported.
      */
     JOIN_LEFT_DIRECT_ACCESS,
     /**

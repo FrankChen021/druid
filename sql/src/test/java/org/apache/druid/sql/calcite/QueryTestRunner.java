@@ -35,6 +35,7 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.quidem.DruidQTestInfo;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.ResourceAction;
@@ -278,11 +279,11 @@ public class QueryTestRunner
                                                   .build();
 
         final Map<String, Object> theQueryContext = new HashMap<>(sqlQuery.context());
-        theQueryContext.put(QueryContexts.VECTORIZE_KEY, vectorize);
-        theQueryContext.put(QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY, vectorize);
+        theQueryContext.put(QueryContextParameters.VECTORIZE.getName(), vectorize);
+        theQueryContext.put(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), vectorize);
 
         if (!"false".equals(vectorize)) {
-          theQueryContext.put(QueryContexts.VECTOR_SIZE_KEY, 2); // Small vector size to ensure we use more than one.
+          theQueryContext.put(QueryContextParameters.VECTOR_SIZE.getName(), 2); // Small vector size to ensure we use more than one.
         }
 
         results.add(runQuery(

@@ -29,6 +29,7 @@ import org.apache.druid.msq.indexing.report.MSQTaskReportPayload;
 import org.apache.druid.query.DefaultQueryMetrics;
 import org.apache.druid.query.DruidProcessingConfigTest;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.http.ClientSqlQuery;
 import org.apache.druid.server.coordinator.stats.Stats;
 import org.apache.druid.server.metrics.LatchableEmitter;
@@ -322,8 +323,8 @@ class QueryVirtualStorageTest extends EmbeddedClusterTestBase
                 false,
                 false,
                 Map.of(
-                    QueryContexts.CTX_SQL_QUERY_ID, sqlQueryId,
-                    QueryContexts.ENGINE, "msq-dart"
+                    QueryContextParameters.SQL_QUERY_ID.getName(), sqlQueryId,
+                    QueryContextParameters.ENGINE.getName(), "msq-dart"
                 ),
                 null
             )

@@ -41,6 +41,7 @@ import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.JoinAlgorithm;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.explain.ExplainAttributes;
 import org.apache.druid.query.extraction.ExtractionFn;
 import org.apache.druid.query.filter.InDimFilter;
@@ -711,9 +712,11 @@ public class PlannerContext
     }
     localNow = utcNow.withZone(timeZone);
 
-    final Object stringifyParam = queryContext.get(QueryContexts.CTX_SQL_STRINGIFY_ARRAYS);
+    final Boolean stringifyParam = QueryContextParameters.SQL_STRINGIFY_ARRAYS.parse(
+        queryContext.get(QueryContextParameters.SQL_STRINGIFY_ARRAYS.getName())
+    );
     if (stringifyParam != null) {
-      stringifyArrays = Numbers.parseBoolean(stringifyParam);
+      stringifyArrays = stringifyParam;
     } else {
       stringifyArrays = true;
     }
@@ -753,11 +756,13 @@ public class PlannerContext
       useGranularity = DEFAULT_SQL_USE_GRANULARITY;
     }
 
-    sqlQueryId = (String) this.queryContext.get(QueryContexts.CTX_SQL_QUERY_ID);
+    sqlQueryId = QueryContextParameters.SQL_QUERY_ID.parse(
+        this.queryContext.get(QueryContextParameters.SQL_QUERY_ID.getName())
+    );
     // special handling for DruidViewMacro, normal client will allocate sqlid in SqlLifecyle
     if (Strings.isNullOrEmpty(sqlQueryId)) {
       sqlQueryId = UUID.randomUUID().toString();
-      this.queryContext.put(QueryContexts.CTX_SQL_QUERY_ID, UUID.randomUUID().toString());
+      this.queryContext.put(QueryContextParameters.SQL_QUERY_ID.getName(), sqlQueryId);
     }
 
     if (plannerConfig != null) {

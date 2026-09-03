@@ -30,6 +30,7 @@ import org.apache.druid.query.NestedDataTestUtils;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.aggregation.AggregationTestHelper;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.groupby.orderby.DefaultLimitSpec;
 import org.apache.druid.query.groupby.orderby.OrderByColumnSpec;
@@ -92,8 +93,8 @@ public class NestedGroupByArrayQueryTest
   public Map<String, Object> getContext()
   {
     return ImmutableMap.of(
-        QueryContexts.VECTORIZE_KEY, vectorize.toString(),
-        QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY, vectorize.toString()
+        QueryContextParameters.VECTORIZE.getName(), vectorize.toString(),
+        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), vectorize.toString()
     );
   }
   public static Collection<?> constructorFeeder()

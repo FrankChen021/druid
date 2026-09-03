@@ -42,6 +42,7 @@ import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.Result;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.segment.IndexBuilder;
 import org.apache.druid.segment.QueryableIndex;
@@ -297,7 +298,7 @@ public class DirectDruidClientTest
     final DirectDruidClient client = makeDirectDruidClient(initHttpClientFromExistingClient(testHttpClient, false));
 
     final QueryPlus queryPlus = getQueryPlus(Map.of(
-        QueryContexts.MAX_SCATTER_GATHER_BYTES_KEY, 100,
+        QueryContextParameters.MAX_SCATTER_GATHER_BYTES.getName(), 100,
         DirectDruidClient.QUERY_FAIL_TIME, System.currentTimeMillis() + 100
     ));
 
@@ -383,7 +384,7 @@ public class DirectDruidClientTest
     final DirectDruidClient client = makeDirectDruidClient(initHttpClientWithSuccessfulQuery());
 
     final QueryPlus queryPlus = getQueryPlus(Map.of(
-        QueryContexts.MAX_SCATTER_GATHER_BYTES_KEY, 100,
+        QueryContextParameters.MAX_SCATTER_GATHER_BYTES.getName(), 100,
         DirectDruidClient.QUERY_FAIL_TIME, Long.MAX_VALUE
     ));
 

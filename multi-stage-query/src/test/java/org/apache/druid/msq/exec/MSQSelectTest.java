@@ -69,6 +69,7 @@ import org.apache.druid.query.aggregation.LongMinAggregatorFactory;
 import org.apache.druid.query.aggregation.cardinality.CardinalityAggregatorFactory;
 import org.apache.druid.query.aggregation.post.ArithmeticPostAggregator;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.filter.LikeDimFilter;
@@ -2778,7 +2779,7 @@ public class MSQSelectTest extends MSQTestBase
 
     ImmutableMap<String, Object> timeoutContext = ImmutableMap.<String, Object>builder()
                                                               .putAll(context)
-                                                              .put(QueryContexts.TIMEOUT_KEY, 1) // Trigger timeout
+                                                              .put(QueryContextParameters.TIMEOUT.getName(), 1) // Trigger timeout
                                                               .build();
 
     testSelectQuery()

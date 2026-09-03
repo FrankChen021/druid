@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import org.apache.druid.hll.HyperLogLogCollector;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.ColumnProcessors;
 import org.apache.druid.segment.CursorBuildSpec;
 import org.apache.druid.segment.CursorFactory;
@@ -178,7 +179,7 @@ public class ToObjectVectorColumnProcessorFactoryTest extends InitializedNullHan
     final CursorBuildSpec buildSpec = CursorBuildSpec.builder()
                                                      .setQueryContext(
                                                          QueryContext.of(
-                                                             ImmutableMap.of(QueryContexts.VECTOR_SIZE_KEY, 3)
+                                                             ImmutableMap.of(QueryContextParameters.VECTOR_SIZE.getName(), 3)
                                                          )
                                                      )
                                                      .build();

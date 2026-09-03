@@ -37,6 +37,7 @@ import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.column.NumericColumn;
 import org.apache.druid.segment.data.ReadableOffset;
@@ -216,7 +217,7 @@ public class QueryableIndexCursorHolderTest
                                                          new LongSumAggregatorFactory("c_sum", "c")
                                                      )
                                                  )
-                                                 .setQueryContext(QueryContext.of(ImmutableMap.of(QueryContexts.FORCE_PROJECTION, true)))
+                                                 .setQueryContext(QueryContext.of(ImmutableMap.of(QueryContextParameters.FORCE_PROJECTIONS.getName(), true)))
                                                  .build();
       final CursorFactory cursorFactory = new QueryableIndexCursorFactory(index);
 

@@ -62,6 +62,7 @@ import org.apache.druid.query.aggregation.any.StringAnyAggregatorFactory;
 import org.apache.druid.query.aggregation.cardinality.CardinalityAggregatorFactory;
 import org.apache.druid.query.aggregation.post.ArithmeticPostAggregator;
 import org.apache.druid.query.aggregation.post.FieldAccessPostAggregator;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.filter.LikeDimFilter;
 import org.apache.druid.query.groupby.GroupByQuery;
@@ -126,7 +127,7 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
 
     Map<String, Object> context = new HashMap<>(QUERY_CONTEXT_DEFAULT);
     context.put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, false);
-    context.put(QueryContexts.MIN_TOP_N_THRESHOLD, 1);
+    context.put(QueryContextParameters.MIN_TOP_N_THRESHOLD.getName(), 1);
     testQuery(
         "select t1.b1 from (select __time as b1 from numfoo group by 1 order by 1) as t1 inner join (\n"
         + "  select __time as b2 from foo group by 1 order by 1\n"
@@ -189,7 +190,7 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
     Map<String, Object> context = new HashMap<>(QUERY_CONTEXT_DEFAULT);
     context.put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, false);
     context.put(PlannerConfig.CTX_KEY_USE_LEXICOGRAPHIC_TOPN, true);
-    context.put(QueryContexts.MIN_TOP_N_THRESHOLD, 1);
+    context.put(QueryContextParameters.MIN_TOP_N_THRESHOLD.getName(), 1);
     testQuery(
         "select f1.\"dim4\", sum(\"m1\") from numfoo f1 inner join (\n"
         + "  select \"dim4\" from numfoo where dim4 <> 'a' group by 1\n"
@@ -2636,7 +2637,7 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
     }
 
     Map<String, Object> updatedQueryContext = new HashMap<>(queryContext);
-    updatedQueryContext.put(QueryContexts.TIME_BOUNDARY_PLANNING_KEY, true);
+    updatedQueryContext.put(QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getName(), true);
     Map<String, Object> maxTimeQueryContext = new HashMap<>(queryContext);
     maxTimeQueryContext.put(TimeBoundaryQuery.MAX_TIME_ARRAY_OUTPUT_NAME, "a0");
     testQuery(
@@ -2684,7 +2685,7 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
     cannotVectorize();
 
     Map<String, Object> updatedQueryContext = new HashMap<>(queryContext);
-    updatedQueryContext.put(QueryContexts.TIME_BOUNDARY_PLANNING_KEY, true);
+    updatedQueryContext.put(QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getName(), true);
     Map<String, Object> maxTimeQueryContext = new HashMap<>(queryContext);
     maxTimeQueryContext.put(TimeBoundaryQuery.MAX_TIME_ARRAY_OUTPUT_NAME, "a0");
     testQuery(
@@ -3612,7 +3613,7 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
     // Cannot vectorize due to 'concat' expression.
     cannotVectorize();
 
-    boolean isJoinFilterRewriteEnabled = queryContext.getOrDefault(QueryContexts.JOIN_FILTER_REWRITE_ENABLE_KEY, true)
+    boolean isJoinFilterRewriteEnabled = queryContext.getOrDefault(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE.getName(), true)
                                                      .toString()
                                                      .equals("true");
     testQuery(
@@ -3972,7 +3973,7 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
     }
 
     Map<String, Object> updatedQueryContext = new HashMap<>(queryContext);
-    updatedQueryContext.put(QueryContexts.TIME_BOUNDARY_PLANNING_KEY, true);
+    updatedQueryContext.put(QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getName(), true);
     Map<String, Object> maxTimeQueryContext = new HashMap<>(queryContext);
     maxTimeQueryContext.put(TimeBoundaryQuery.MAX_TIME_ARRAY_OUTPUT_NAME, "a0");
     testQuery(
@@ -4035,7 +4036,7 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
     cannotVectorize();
 
     Map<String, Object> updatedQueryContext = new HashMap<>(queryContext);
-    updatedQueryContext.put(QueryContexts.TIME_BOUNDARY_PLANNING_KEY, true);
+    updatedQueryContext.put(QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getName(), true);
     Map<String, Object> minTimeQueryContext = new HashMap<>(queryContext);
     minTimeQueryContext.put(TimeBoundaryQuery.MIN_TIME_ARRAY_OUTPUT_NAME, "a0");
     Map<String, Object> maxTimeQueryContext = new HashMap<>(queryContext);
@@ -4140,7 +4141,7 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
     cannotVectorize();
 
     Map<String, Object> updatedQueryContext = new HashMap<>(queryContext);
-    updatedQueryContext.put(QueryContexts.TIME_BOUNDARY_PLANNING_KEY, true);
+    updatedQueryContext.put(QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getName(), true);
     Map<String, Object> minTimeQueryContext = new HashMap<>(queryContext);
     minTimeQueryContext.put(TimeBoundaryQuery.MIN_TIME_ARRAY_OUTPUT_NAME, "a0");
     Map<String, Object> maxTimeQueryContext = new HashMap<>(queryContext);
@@ -5642,7 +5643,7 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
     String query = "SELECT l1 FROM numfoo WHERE l1 IN (4842, 4844, 4845, 14905, 4853, 29064)";
 
     Map<String, Object> queryContext = new HashMap<>(QUERY_CONTEXT_DEFAULT);
-    queryContext.put(QueryContexts.IN_SUB_QUERY_THRESHOLD_KEY, 3);
+    queryContext.put(QueryContextParameters.IN_SUBQUERY_THRESHOLD.getName(), 3);
 
     testQuery(
         PLANNER_CONFIG_DEFAULT,
@@ -5809,7 +5810,7 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
   {
     Map<String, Object> context = new HashMap<>(QUERY_CONTEXT_DEFAULT);
     context.put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, false);
-    context.put(QueryContexts.MIN_TOP_N_THRESHOLD, 1);
+    context.put(QueryContextParameters.MIN_TOP_N_THRESHOLD.getName(), 1);
     testQuery(
         "select t1.__time from druid.foo as t1 join\n"
         + "  druid.numfoo as t2 on t1.dim2 = t2.dim2\n"

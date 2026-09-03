@@ -197,10 +197,10 @@ public class QueryRetryOnMissingSegmentsTest extends QueryTestBase
   {
     final Map<String, Object> context = new HashMap<>();
     // Disable cache so that each run hits historical.
-    context.put(QueryContexts.USE_CACHE_KEY, false);
+    context.put(QueryContextParameters.USE_CACHE.getName(), false);
     QueryContextParameters.USE_RESULT_LEVEL_CACHE.set(context, false);
-    context.put(QueryContexts.NUM_RETRIES_ON_MISSING_SEGMENTS_KEY, numRetriesOnMissingSegments);
-    context.put(QueryContexts.RETURN_PARTIAL_RESULTS_KEY, allowPartialResults);
+    context.put(QueryContextParameters.NUM_RETRIES_ON_MISSING_SEGMENTS.getName(), numRetriesOnMissingSegments);
+    context.put(QueryContextParameters.RETURN_PARTIAL_RESULTS.getName(), allowPartialResults);
     context.put(QUERY_RETRY_TEST_CONTEXT_KEY, true);
     context.put(QUERY_RETRY_UNAVAILABLE_SEGMENT_IDX_KEY, unavailableSegmentIdx);
     return context;

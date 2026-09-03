@@ -88,9 +88,10 @@ public final class ParameterDocumentationGenerator
   {
     final Map<String, Map<String, String>> rowsByDocument = new LinkedHashMap<>();
     for (final QueryContextParameter<?> parameter : QueryContextParameters.BY_NAME.values()) {
-      final ParameterDocumentation docs = parameter.getDocumentation().orElseThrow(
-          () -> new ISE("Query context parameter [%s] has no documentation", parameter.getName())
-      );
+      final ParameterDocumentation docs = parameter.getDocumentation().orElse(null);
+      if (docs == null) {
+        continue;
+      }
       final String document = docs.getQueryTypes().contains(QueryType.SCAN) ? SCAN_REFERENCE : GENERAL_REFERENCE;
       rowsByDocument.computeIfAbsent(document, ignored -> new LinkedHashMap<>())
                     .put(parameter.getName(), renderRow(parameter, docs, document));

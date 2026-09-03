@@ -45,6 +45,7 @@ import org.apache.druid.query.aggregation.ExpressionLambdaAggregatorFactory;
 import org.apache.druid.query.aggregation.FilteredAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.aggregation.post.ExpressionPostAggregator;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.extraction.SubstringDimExtractionFn;
@@ -94,7 +95,7 @@ public class CalciteArraysQueryTest extends BaseCalciteQueryTest
   private static final Map<String, Object> QUERY_CONTEXT_UNNEST =
       ImmutableMap.<String, Object>builder()
                   .putAll(QUERY_CONTEXT_DEFAULT)
-                  .put(QueryContexts.CTX_SQL_STRINGIFY_ARRAYS, false)
+                  .put(QueryContextParameters.SQL_STRINGIFY_ARRAYS.getName(), false)
                   .build();
 
   public static void assertResultsDeepEquals(String sql, List<Object[]> expected, List<Object[]> results)

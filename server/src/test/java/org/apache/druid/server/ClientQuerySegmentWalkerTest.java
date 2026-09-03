@@ -58,6 +58,7 @@ import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.UnionDataSource;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.filter.SelectorDimFilter;
@@ -852,7 +853,7 @@ public class ClientQuerySegmentWalkerTest
   public void testScanOnScanWithStringExpression()
   {
     initWalker(
-        ImmutableMap.of(QueryContexts.MAX_SUBQUERY_ROWS_KEY, "1", QueryContexts.MAX_SUBQUERY_BYTES_KEY, "1000"),
+        ImmutableMap.of(QueryContextParameters.MAX_SUBQUERY_ROWS.getName(), "1", QueryContextParameters.MAX_SUBQUERY_BYTES.getName(), "1000"),
         scheduler
     );
 
@@ -932,7 +933,7 @@ public class ClientQuerySegmentWalkerTest
               .granularity(Granularities.ALL)
               .intervals(Intervals.ONLY_ETERNITY)
               .aggregators(new CountAggregatorFactory("cnt"))
-              .context(ImmutableMap.of(QueryContexts.MAX_SUBQUERY_BYTES_KEY, "1"))
+              .context(ImmutableMap.of(QueryContextParameters.MAX_SUBQUERY_BYTES.getName(), "1"))
               .build()
               .withId(DUMMY_QUERY_ID);
 
@@ -1009,7 +1010,7 @@ public class ClientQuerySegmentWalkerTest
                                 .granularity(Granularities.ALL)
                                 .intervals(Intervals.ONLY_ETERNITY)
                                 .aggregators(new CountAggregatorFactory("cnt"))
-                                .context(ImmutableMap.of(QueryContexts.MAX_SUBQUERY_BYTES_KEY, "10000"))
+                                .context(ImmutableMap.of(QueryContextParameters.MAX_SUBQUERY_BYTES.getName(), "10000"))
                                 .build()
                                 .withId(DUMMY_QUERY_ID);
 
@@ -1761,15 +1762,15 @@ public class ClientQuerySegmentWalkerTest
       // Need to blast various parameters that will vary and aren't important to test for.
       ImmutableMap.Builder<String, Object> contextBuilder = ImmutableMap.builder();
       contextBuilder.put(DirectDruidClient.QUERY_FAIL_TIME, 0L)
-                    .put(QueryContexts.DEFAULT_TIMEOUT_KEY, 0L)
-                    .put(QueryContexts.FINALIZE_KEY, true)
-                    .put(QueryContexts.MAX_SCATTER_GATHER_BYTES_KEY, 0L)
+                    .put(QueryContextParameters.DEFAULT_TIMEOUT.getName(), 0L)
+                    .put(QueryContextParameters.FINALIZE.getName(), true)
+                    .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES.getName(), 0L)
                     .put(GroupByQuery.CTX_KEY_SORT_BY_DIMS_FIRST, false)
                     .put(GroupByQueryConfig.CTX_KEY_ARRAY_RESULT_ROWS, true)
                     .put(GroupByQueryConfig.CTX_KEY_APPLY_LIMIT_PUSH_DOWN, true)
                     .put(GroupingEngine.CTX_KEY_OUTERMOST, true)
                     .put(GroupingEngine.CTX_KEY_FUDGE_TIMESTAMP, "1979")
-                    .put(QueryContexts.QUERY_RESOURCE_ID, "dummy")
+                    .put(QueryContextParameters.QUERY_RESOURCE_ID.getName(), "dummy")
                     .put(ResultSerializationMode.CTX_SERIALIZATION_PARAMETER, "blast");
 
       modifiedQuery = query.withOverriddenContext(contextBuilder.build());

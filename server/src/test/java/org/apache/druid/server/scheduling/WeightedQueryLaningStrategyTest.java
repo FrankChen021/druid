@@ -29,6 +29,7 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.server.QueryLaningStrategy;
@@ -135,7 +136,7 @@ public class WeightedQueryLaningStrategyTest
   {
     WeightedQueryLaningStrategy strategy = newStrategy(null, null, 10000, null);
     TimeseriesQuery query = queryBuilder
-        .context(Map.of(QueryContexts.LANE_KEY, "custom"))
+        .context(Map.of(QueryContextParameters.LANE.getName(), "custom"))
         .build();
     Optional<String> lane = strategy.computeLane(QueryPlus.wrap(query), Set.of());
     Assertions.assertTrue(lane.isPresent());

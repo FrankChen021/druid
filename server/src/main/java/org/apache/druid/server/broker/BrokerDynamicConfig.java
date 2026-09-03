@@ -26,6 +26,7 @@ import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.server.QueryBlocklistRule;
 
 import javax.annotation.Nullable;
@@ -120,7 +121,7 @@ public class BrokerDynamicConfig
           return QueryContext.empty();
         }
         return QueryContext.of(
-            Map.of(QueryContexts.PER_SEGMENT_TIMEOUT_KEY, dataSourceTimeoutConfig.getPerSegmentTimeoutMs())
+            Map.of(QueryContextParameters.PER_SEGMENT_TIMEOUT.getName(), dataSourceTimeoutConfig.getPerSegmentTimeoutMs())
         );
       }
     }

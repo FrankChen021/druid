@@ -29,6 +29,7 @@ import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.extraction.TimeFormatExtractionFn;
 import org.apache.druid.query.extraction.UpperExtractionFn;
 import org.apache.druid.query.filter.SelectorDimFilter;
@@ -171,7 +172,7 @@ public class FrameCursorFactoryTest
     private FrameSegment frameSegment;
     private CursorFactory frameCursorFactory;
     private final QueryContext queryContext = QueryContext.of(
-        ImmutableMap.of(QueryContexts.VECTOR_SIZE_KEY, VECTOR_SIZE)
+        ImmutableMap.of(QueryContextParameters.VECTOR_SIZE.getName(), VECTOR_SIZE)
     );
 
     public CursorTests(

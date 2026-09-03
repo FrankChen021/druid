@@ -38,6 +38,7 @@ import org.apache.druid.query.OrderBy;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.Result;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.filter.ColumnIndexSelector;
@@ -767,7 +768,7 @@ class QueryableIndexCursorFactoryClusteredTest extends InitializedNullHandlingTe
     // queries fail outright when the filter prunes every cluster group, instead of returning an empty result.
     final TimeseriesQuery query = newTimeseries()
         .filters(new EqualityFilter("tenant", ColumnType.STRING, "initech", null))
-        .context(Map.of(QueryContexts.VECTORIZE_KEY, "force"))
+        .context(Map.of(QueryContextParameters.VECTORIZE.getName(), "force"))
         .build();
     final List<Result<TimeseriesResultValue>> results = timeseriesEngine.process(query, factory, null, null).toList();
     Assertions.assertTrue(
