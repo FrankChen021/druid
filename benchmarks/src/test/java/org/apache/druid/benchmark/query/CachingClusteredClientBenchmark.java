@@ -54,7 +54,6 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.math.expr.ExprMacroTable;
-import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.BrokerParallelMergeConfig;
 import org.apache.druid.query.BySegmentQueryRunner;
 import org.apache.druid.query.DefaultQueryRunnerFactoryConglomerate;
@@ -385,7 +384,7 @@ public class CachingClusteredClientBenchmark
                            QueryContext.builder()
                                .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
                                .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
-                               .putRaw(BaseQuery.QUERY_ID, "BenchmarkQuery")
+                               .put(QueryContextParameters.QUERY_ID, "BenchmarkQuery")
                                .toMap()
                        )
                        .build();
@@ -416,7 +415,7 @@ public class CachingClusteredClientBenchmark
             QueryContext.builder()
                 .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
                 .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
-                .putRaw(BaseQuery.QUERY_ID, "BenchmarkQuery")
+                .put(QueryContextParameters.QUERY_ID, "BenchmarkQuery")
                 .toMap()
         )
         .build();
@@ -449,7 +448,7 @@ public class CachingClusteredClientBenchmark
             QueryContext.builder()
                 .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
                 .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
-                .putRaw(BaseQuery.QUERY_ID, "BenchmarkQuery")
+                .put(QueryContextParameters.QUERY_ID, "BenchmarkQuery")
                 .toMap()
         )
         .build();

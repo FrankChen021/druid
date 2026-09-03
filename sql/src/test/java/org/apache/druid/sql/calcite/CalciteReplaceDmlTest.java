@@ -36,6 +36,7 @@ import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.groupby.GroupByQuery;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
@@ -128,7 +129,7 @@ public class CalciteReplaceDmlTest extends CalciteIngestionDmlTest
   public void testReplaceFromTableWithTimeZoneInQueryContext()
   {
     HashMap<String, Object> context = new HashMap<>(DEFAULT_CONTEXT);
-    context.put(PlannerContext.CTX_SQL_TIME_ZONE, "+05:30");
+    QueryContextParameters.SQL_TIME_ZONE.set(context, "+05:30");
     testIngestionQuery()
         .context(context)
         .sql("REPLACE INTO dst OVERWRITE WHERE __time >= TIMESTAMP '2000-01-01 05:30:00' AND __time < TIMESTAMP '2000-01-02 05:30:00' "

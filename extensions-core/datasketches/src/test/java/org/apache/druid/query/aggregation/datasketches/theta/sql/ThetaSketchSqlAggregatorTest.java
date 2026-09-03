@@ -37,7 +37,7 @@ import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.FilteredAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
-import org.apache.druid.query.aggregation.datasketches.SketchQueryContext;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.aggregation.datasketches.theta.SketchEstimatePostAggregator;
 import org.apache.druid.query.aggregation.datasketches.theta.SketchMergeAggregatorFactory;
 import org.apache.druid.query.aggregation.datasketches.theta.SketchModule;
@@ -597,7 +597,7 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putRaw(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
+                    .put(QueryContextParameters.SQL_FINALIZE_OUTER_SKETCHES, true)
                     .toMap();
 
     final List<Object[]> expectedResults = ImmutableList.of(
@@ -807,7 +807,7 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putRaw(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
+                    .put(QueryContextParameters.SQL_FINALIZE_OUTER_SKETCHES, true)
                     .toMap();
 
     final List<Object[]> expectedResults = ImmutableList.of(
@@ -994,7 +994,7 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putRaw(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
+                    .put(QueryContextParameters.SQL_FINALIZE_OUTER_SKETCHES, true)
                     .toMap();
 
     testQuery(

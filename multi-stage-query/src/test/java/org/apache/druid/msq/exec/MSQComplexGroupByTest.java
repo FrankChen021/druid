@@ -47,6 +47,7 @@ import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.orderby.DefaultLimitSpec;
 import org.apache.druid.query.groupby.orderby.OrderByColumnSpec;
 import org.apache.druid.query.ordering.StringComparators;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
@@ -55,7 +56,6 @@ import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.filtration.Filtration;
 import org.apache.druid.sql.calcite.planner.ColumnMapping;
 import org.apache.druid.sql.calcite.planner.ColumnMappings;
-import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.utils.CompressionUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -455,10 +455,7 @@ public class MSQComplexGroupByTest extends MSQTestBase
 
     Map<String, Object> modifiedContext = QueryContext.builder()
                                                       .putAll(context)
-                                                      .putRaw(
-                                                          PlannerConfig.CTX_KEY_USE_APPROXIMATE_COUNT_DISTINCT,
-                                                          false
-                                                      )
+                                                      .put(QueryContextParameters.USE_APPROXIMATE_COUNT_DISTINCT, false)
                                                       .toMap();
 
     DimFilter innerFilter = new NullFilter("d0", null);
@@ -473,7 +470,7 @@ public class MSQComplexGroupByTest extends MSQTestBase
                              + "   )\n"
                              + " )\n"
                              + " ORDER BY 1")
-                     .setQueryContext(Map.of(PlannerConfig.CTX_KEY_USE_APPROXIMATE_COUNT_DISTINCT, false))
+                     .setQueryContext(QueryContext.ofMap(QueryContextParameters.USE_APPROXIMATE_COUNT_DISTINCT, false))
                      .setExpectedMSQSpec(
                          LegacyMSQSpec
                              .builder()
@@ -550,10 +547,7 @@ public class MSQComplexGroupByTest extends MSQTestBase
 
     Map<String, Object> modifiedContext = QueryContext.builder()
                                                       .putAll(context)
-                                                      .putRaw(
-                                                          PlannerConfig.CTX_KEY_USE_APPROXIMATE_COUNT_DISTINCT,
-                                                          false
-                                                      )
+                                                      .put(QueryContextParameters.USE_APPROXIMATE_COUNT_DISTINCT, false)
                                                       .toMap();
 
     DimFilter innerFilter = new NullFilter("d0", null);
@@ -568,7 +562,7 @@ public class MSQComplexGroupByTest extends MSQTestBase
                              + "   )\n"
                              + " )\n"
                              + " ORDER BY 1")
-                     .setQueryContext(Map.of(PlannerConfig.CTX_KEY_USE_APPROXIMATE_COUNT_DISTINCT, false))
+                     .setQueryContext(QueryContext.ofMap(QueryContextParameters.USE_APPROXIMATE_COUNT_DISTINCT, false))
                      .setExpectedMSQSpec(
                          LegacyMSQSpec
                              .builder()

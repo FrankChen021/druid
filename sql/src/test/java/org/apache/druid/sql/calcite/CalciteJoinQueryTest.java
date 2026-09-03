@@ -126,8 +126,8 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
   {
 
     Map<String, Object> context = new HashMap<>(QUERY_CONTEXT_DEFAULT);
-    context.put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, false);
-    context.put(QueryContextParameters.MIN_TOP_N_THRESHOLD.getName(), 1);
+    QueryContextParameters.USE_APPROXIMATE_TOP_N.set(context, false);
+    QueryContextParameters.MIN_TOP_N_THRESHOLD.set(context, 1);
     testQuery(
         "select t1.b1 from (select __time as b1 from numfoo group by 1 order by 1) as t1 inner join (\n"
         + "  select __time as b2 from foo group by 1 order by 1\n"
@@ -188,9 +188,9 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
   public void testExactTopNOnInnerJoinWithLimit()
   {
     Map<String, Object> context = new HashMap<>(QUERY_CONTEXT_DEFAULT);
-    context.put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, false);
-    context.put(PlannerConfig.CTX_KEY_USE_LEXICOGRAPHIC_TOPN, true);
-    context.put(QueryContextParameters.MIN_TOP_N_THRESHOLD.getName(), 1);
+    QueryContextParameters.USE_APPROXIMATE_TOP_N.set(context, false);
+    QueryContextParameters.USE_LEXICOGRAPHIC_TOP_N.set(context, true);
+    QueryContextParameters.MIN_TOP_N_THRESHOLD.set(context, 1);
     testQuery(
         "select f1.\"dim4\", sum(\"m1\") from numfoo f1 inner join (\n"
         + "  select \"dim4\" from numfoo where dim4 <> 'a' group by 1\n"
@@ -5232,7 +5232,7 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
 
   {
     final Map<String, Object> contextWithLexicographicTopN =
-        QueryContexts.override(queryContext, PlannerConfig.CTX_KEY_USE_LEXICOGRAPHIC_TOPN, true);
+        QueryContexts.override(queryContext, QueryContextParameters.USE_LEXICOGRAPHIC_TOP_N, true);
     testQuery(
         "SELECT druid.broadcast.dim4, COUNT(*)\n"
         + "FROM druid.numfoo\n"
@@ -5698,7 +5698,7 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
   {
     cannotVectorize();
     final Map<String, Object> contextWithLexicographicTopN =
-        QueryContexts.override(queryContext, PlannerConfig.CTX_KEY_USE_LEXICOGRAPHIC_TOPN, true);
+        QueryContexts.override(queryContext, QueryContextParameters.USE_LEXICOGRAPHIC_TOP_N, true);
     testQuery(
         "select\n" +
         "count(*) filter (where trim(both from dim1) in (select dim2 from foo)),\n" +
@@ -5809,8 +5809,8 @@ public class CalciteJoinQueryTest extends BaseCalciteQueryTest
   public void testJoinWithAliasAndOrderByNoGroupBy()
   {
     Map<String, Object> context = new HashMap<>(QUERY_CONTEXT_DEFAULT);
-    context.put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, false);
-    context.put(QueryContextParameters.MIN_TOP_N_THRESHOLD.getName(), 1);
+    QueryContextParameters.USE_APPROXIMATE_TOP_N.set(context, false);
+    QueryContextParameters.MIN_TOP_N_THRESHOLD.set(context, 1);
     testQuery(
         "select t1.__time from druid.foo as t1 join\n"
         + "  druid.numfoo as t2 on t1.dim2 = t2.dim2\n"

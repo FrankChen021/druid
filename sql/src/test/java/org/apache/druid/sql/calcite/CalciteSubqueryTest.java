@@ -129,7 +129,7 @@ public class CalciteSubqueryTest extends BaseCalciteQueryTest
       cannotVectorize();
     }
     final Map<String, Object> contextWithLexicographicTopN =
-        QueryContexts.override(queryContext, PlannerConfig.CTX_KEY_USE_LEXICOGRAPHIC_TOPN, true);
+        QueryContexts.override(queryContext, QueryContextParameters.USE_LEXICOGRAPHIC_TOP_N, true);
     testQuery(
         "SELECT\n"
         + "  SUM(cnt),\n"
@@ -741,7 +741,7 @@ public class CalciteSubqueryTest extends BaseCalciteQueryTest
   {
     Map<String, Object> modifiedQueryContext = new HashMap<>(queryContext);
     modifiedQueryContext.put(QueryContextParameters.MAX_SUBQUERY_ROWS.getName(), 1);
-    modifiedQueryContext.put(PlannerConfig.CTX_KEY_USE_LEXICOGRAPHIC_TOPN, true);
+    QueryContextParameters.USE_LEXICOGRAPHIC_TOP_N.set(modifiedQueryContext, true);
 
     testQueryThrows(
         "SELECT\n"
@@ -769,7 +769,7 @@ public class CalciteSubqueryTest extends BaseCalciteQueryTest
     // row limit for the subquery
     Map<String, Object> modifiedQueryContext = new HashMap<>(queryContext);
     modifiedQueryContext.put(QueryContextParameters.MAX_SUBQUERY_ROWS.getName(), 1);
-    modifiedQueryContext.put(PlannerConfig.CTX_KEY_USE_LEXICOGRAPHIC_TOPN, true);
+    QueryContextParameters.USE_LEXICOGRAPHIC_TOP_N.set(modifiedQueryContext, true);
 
     testQuery(
         "SELECT\n"
@@ -1452,7 +1452,7 @@ public class CalciteSubqueryTest extends BaseCalciteQueryTest
     );
 
     final Map<String, Object> contextWithTopN =
-        QueryContexts.override(queryContext, PlannerConfig.CTX_KEY_USE_LEXICOGRAPHIC_TOPN, true);
+        QueryContexts.override(queryContext, QueryContextParameters.USE_LEXICOGRAPHIC_TOP_N, true);
     testQuery(
         "SELECT a.dim1, a.e_dim2, b.dim1 "
         + "FROM ("

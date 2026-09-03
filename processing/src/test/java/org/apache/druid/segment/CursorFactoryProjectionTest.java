@@ -1557,7 +1557,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                                         .intervals(ImmutableList.of(Intervals.ETERNITY))
                                         .granularity(Granularities.MINUTE)
                                         .aggregators(new LongSumAggregatorFactory("c_sum", "c"))
-                                        .context(Map.of(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true))
+                                        .context(QueryContext.ofMap(QueryContextParameters.SKIP_EMPTY_BUCKETS, true))
                                         .build();
 
     final ExpectedProjectionTimeseries queryMetrics =

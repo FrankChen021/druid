@@ -196,7 +196,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
       .putRaw(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
-      .putRaw(TimeseriesQuery.SKIP_EMPTY_BUCKETS, false)
+      .put(QueryContextParameters.SKIP_EMPTY_BUCKETS, false)
       .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_DO_SKIP_EMPTY_BUCKETS = QueryContext.builder()
@@ -204,18 +204,18 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
       .putRaw(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
-      .putRaw(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true)
+      .put(QueryContextParameters.SKIP_EMPTY_BUCKETS, true)
       .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_LEXICOGRAPHIC_TOPN =
-      QueryContexts.override(QUERY_CONTEXT_DEFAULT, PlannerConfig.CTX_KEY_USE_LEXICOGRAPHIC_TOPN, true);
+      QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.USE_LEXICOGRAPHIC_TOP_N, true);
 
   public static final Map<String, Object> QUERY_CONTEXT_NO_TOPN = QueryContext.builder()
       .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
       .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
       .putRaw(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
-      .putRaw(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, "false")
+      .putRaw(QueryContextParameters.USE_APPROXIMATE_TOP_N.getName(), "false")
       .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_LOS_ANGELES = QueryContext.builder()
@@ -223,7 +223,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
       .putRaw(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
-      .putRaw(PlannerContext.CTX_SQL_TIME_ZONE, LOS_ANGELES)
+      .put(QueryContextParameters.SQL_TIME_ZONE, LOS_ANGELES)
       .toMap();
 
   // Matches QUERY_CONTEXT_DEFAULT
@@ -232,7 +232,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
       .putRaw(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
-      .putRaw(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true)
+      .put(QueryContextParameters.SKIP_EMPTY_BUCKETS, true)
       .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_WITH_SUBQUERY_MEMORY_LIMIT =
@@ -266,10 +266,10 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   public boolean skipVectorize = false;
 
   static {
-    TIMESERIES_CONTEXT_LOS_ANGELES.put(QueryContextParameters.SQL_QUERY_ID.getName(), DUMMY_SQL_ID);
+    QueryContextParameters.SQL_QUERY_ID.set(TIMESERIES_CONTEXT_LOS_ANGELES, DUMMY_SQL_ID);
     TIMESERIES_CONTEXT_LOS_ANGELES.put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, "2000-01-01T00:00:00Z");
-    TIMESERIES_CONTEXT_LOS_ANGELES.put(PlannerContext.CTX_SQL_TIME_ZONE, LOS_ANGELES);
-    TIMESERIES_CONTEXT_LOS_ANGELES.put(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true);
+    QueryContextParameters.SQL_TIME_ZONE.set(TIMESERIES_CONTEXT_LOS_ANGELES, LOS_ANGELES);
+    QueryContextParameters.SKIP_EMPTY_BUCKETS.set(TIMESERIES_CONTEXT_LOS_ANGELES, true);
     TIMESERIES_CONTEXT_LOS_ANGELES.put(QueryContextParameters.DEFAULT_TIMEOUT.getName(), QueryContexts.DEFAULT_TIMEOUT_MILLIS);
     TIMESERIES_CONTEXT_LOS_ANGELES.put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES.getName(), Long.MAX_VALUE);
 

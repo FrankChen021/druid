@@ -704,7 +704,7 @@ public class QueryContextTest
     @Override
     public Query<Integer> withId(String id)
     {
-      context.put(BaseQuery.QUERY_ID, id);
+      QueryContextParameters.QUERY_ID.set(context, id);
       return this;
     }
 
@@ -712,7 +712,7 @@ public class QueryContextTest
     @Override
     public String getId()
     {
-      return (String) context.get(BaseQuery.QUERY_ID);
+      return (String) context.get(QueryContextParameters.QUERY_ID.getName());
     }
 
     @Override

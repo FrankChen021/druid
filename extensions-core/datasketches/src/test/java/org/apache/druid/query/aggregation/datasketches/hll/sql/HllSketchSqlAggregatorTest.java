@@ -31,7 +31,6 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.PeriodGranularity;
 import org.apache.druid.math.expr.ExprMacroTable;
-import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryDataSource;
@@ -41,7 +40,6 @@ import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.FilteredAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
-import org.apache.druid.query.aggregation.datasketches.SketchQueryContext;
 import org.apache.druid.query.aggregation.datasketches.hll.HllSketchBuildAggregatorFactory;
 import org.apache.druid.query.aggregation.datasketches.hll.HllSketchMergeAggregatorFactory;
 import org.apache.druid.query.aggregation.datasketches.hll.HllSketchModule;
@@ -61,7 +59,7 @@ import org.apache.druid.query.groupby.orderby.OrderByColumnSpec;
 import org.apache.druid.query.ordering.StringComparators;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
-import org.apache.druid.query.timeseries.TimeseriesQuery;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.topn.InvertedTopNMetricSpec;
 import org.apache.druid.query.topn.NumericTopNMetricSpec;
 import org.apache.druid.query.topn.TopNQueryBuilder;
@@ -428,10 +426,10 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
                                       .build()
                                       .withOverriddenContext(
                                           BaseCalciteQueryTest.getTimeseriesContextWithFloorTime(
-                                              ImmutableMap.of(
-                                                  TimeseriesQuery.SKIP_EMPTY_BUCKETS,
+                                              QueryContext.ofMap(
+                                                  QueryContextParameters.SKIP_EMPTY_BUCKETS,
                                                   true,
-                                                  BaseQuery.SQL_QUERY_ID,
+                                                  QueryContextParameters.SQL_QUERY_ID,
                                                   "dummy"
                                               ),
                                               "d0"
@@ -698,7 +696,7 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putRaw(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
+                    .put(QueryContextParameters.SQL_FINALIZE_OUTER_SKETCHES, true)
                     .toMap();
 
     final String sketchSummary = "### HLL SKETCH SUMMARY: \n"
@@ -969,7 +967,7 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putRaw(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
+                    .put(QueryContextParameters.SQL_FINALIZE_OUTER_SKETCHES, true)
                     .toMap();
 
     testQuery(

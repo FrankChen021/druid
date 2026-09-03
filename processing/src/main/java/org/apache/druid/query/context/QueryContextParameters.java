@@ -42,6 +42,19 @@ import java.util.stream.Collectors;
  */
 public final class QueryContextParameters
 {
+  public static final QueryContextParameter<String> QUERY_ID = stringParameter("queryId")
+      .description(
+          """
+          Unique identifier given to this query.
+          If a query ID is set or known, this can be used to cancel the query.
+          """
+      )
+      .since("0.6.62")
+      .defaultDescription("auto-generated")
+      .query(Query.JSON, Query.SQL)
+      .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+      .build();
+
   public static final QueryContextParameter<Boolean> FINALIZE = booleanParameter("finalize")
       .description(
           """
@@ -487,6 +500,20 @@ public final class QueryContextParameters
       .engine(Engine.NATIVE)
       .build();
 
+  public static final QueryContextParameter<Boolean> SET_PROCESSING_THREAD_NAMES =
+      booleanParameter("setProcessingThreadNames")
+          .defaultValue(false)
+          .description(
+              """
+              Flag indicating whether processing thread names will be set to `processing_<queryId>` while processing a query.
+              Thread renaming aids in interpreting thread dumps, but has measurable thread renaming overhead when segment scans are very quick.
+              """
+          )
+          .since("24.0.0")
+          .query(Query.JSON)
+          .engine(Engine.NATIVE)
+          .build();
+
   public static final QueryContextParameter<Boolean> BY_SEGMENT = booleanParameter("bySegment")
       .defaultValue(QueryContexts.DEFAULT_BY_SEGMENT)
       .description(
@@ -645,6 +672,16 @@ public final class QueryContextParameters
           .queryType(QueryType.TOP_N)
           .build();
 
+  public static final QueryContextParameter<Boolean> SKIP_EMPTY_BUCKETS =
+      booleanParameter("skipEmptyBuckets")
+          .defaultValue(false)
+          .description("Disable timeseries zero-filling behavior, so only buckets with results will be returned.")
+          .since("0.7.0")
+          .query(Query.JSON)
+          .engine(Engine.NATIVE)
+          .queryType(QueryType.TIMESERIES)
+          .build();
+
   public static final QueryContextParameter<Boolean> CATALOG_VALIDATION_ENABLED =
       booleanParameter("catalogValidationEnabled")
           .defaultValue(QueryContexts.DEFAULT_CATALOG_VALIDATION_ENABLED)
@@ -709,6 +746,183 @@ public final class QueryContextParameters
           .description("If `true`, Druid serializes result columns with array values as JSON strings in the response instead of arrays.")
           .since("0.22.0")
           .defaultDescription("`true`, except for JDBC connections, where it's always `false`")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<Integer> SQL_PLANNER_BLOAT =
+      integerParameter("sqlPlannerBloat")
+          .defaultValue(1000)
+          .description(
+              """
+              Calcite parameter which controls whether to merge two Project operators when inlining expressions causes complexity to increase.
+              Implemented as a workaround to exception `There are not enough rules to produce a node with desired properties: convention=DRUID, sort=[]` thrown after rejecting the merge of two projects.
+              """
+          )
+          .since("31.0.1")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<String> SQL_TIME_ZONE =
+      stringParameter("sqlTimeZone")
+          .description(
+              """
+              Time zone for a connection.
+              For example, `America/Los_Angeles` or an offset like `-08:00`.
+              This parameter affects how time functions and timestamp literals behave.
+              """
+          )
+          .since("0.10.0")
+          .defaultDescription("UTC")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<Boolean> USE_APPROXIMATE_COUNT_DISTINCT =
+      booleanParameter("useApproximateCountDistinct")
+          .description("Whether to use an approximate cardinality algorithm for `COUNT(DISTINCT foo)`.")
+          .since("0.10.0")
+          .defaultDescription("`true`")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<Boolean> USE_GROUPING_SET_FOR_EXACT_DISTINCT =
+      booleanParameter("useGroupingSetForExactDistinct")
+          .description("Whether to use grouping sets to execute queries with multiple exact distinct aggregations.")
+          .since("0.22.0")
+          .defaultDescription("`false`")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<Boolean> USE_APPROXIMATE_TOP_N =
+      booleanParameter("useApproximateTopN")
+          .description(
+              """
+              If `true`, Druid converts SQL queries to approximate [TopN queries](topnquery.md) wherever possible.
+              If `false`, Druid uses exact [GroupBy queries](groupbyquery.md) instead.
+              """
+          )
+          .since("0.10.0")
+          .defaultDescription("`true`")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<Boolean> USE_LEXICOGRAPHIC_TOP_N =
+      booleanParameter("useLexicographicTopN")
+          .description(
+              """
+              If `true`, Druid can use [TopN queries](topnquery.md) with lexicographic dimension ordering.
+              If `false`, Druid uses [GroupBy queries](groupbyquery.md) instead for lexicographic ordering.
+              When both `useLexicographicTopN` and `useApproximateTopN` are `false`, TopN queries are never used.
+              """
+          )
+          .since("35.0.1")
+          .defaultDescription("`false`")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<Boolean> USE_NATIVE_QUERY_EXPLAIN =
+      booleanParameter("useNativeQueryExplain")
+          .description(
+              """
+              If `true`, `EXPLAIN PLAN FOR` returns the explain plan as a JSON representation of equivalent native query,
+              else it returns the original version of explain plan generated by Calcite.
+              This property is provided for backwards compatibility.
+              We don't recommend setting this parameter unless your application depends on the older behavior.
+              """
+          )
+          .since("0.23.0")
+          .defaultDescription("`true`")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<Boolean> SQL_FINALIZE_OUTER_SKETCHES =
+      booleanParameter("sqlFinalizeOuterSketches")
+          .defaultValue(false)
+          .description(
+              """
+              If `false` (default behavior in Druid 25.0.0 and later), `DS_HLL`, `DS_THETA`, and `DS_QUANTILES_SKETCH` return sketches in query results.
+              If `true` (default behavior in Druid 24.0.1 and earlier), Druid finalizes sketches from these functions when they appear in query results.
+              This property is provided for backwards compatibility with behavior in Druid 24.0.1 and earlier.
+              We don't recommend setting this parameter unless your application uses Druid 24.0.1 or earlier.
+              Instead, use a function that doesn't return a sketch, such as `APPROX_COUNT_DISTINCT_DS_HLL`, `APPROX_COUNT_DISTINCT_DS_THETA`, `APPROX_QUANTILE_DS`, `DS_THETA_ESTIMATE`, or `DS_GET_QUANTILE`.
+              """
+          )
+          .since("25.0.0")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<Boolean> SQL_USE_BOUND_AND_SELECTORS =
+      booleanParameter("sqlUseBoundAndSelectors")
+          .defaultValue(false)
+          .description(
+              """
+              If `false` (default behavior in Druid 27.0.0 and later), the SQL planner uses [equality](./filters.md#equality-filter),
+              [null](./filters.md#null-filter), and [range](./filters.md#range-filter) filters instead of [selector](./filters.md#selector-filter)
+              and [bounds](./filters.md#bound-filter).
+              For filtering `ARRAY` typed values, `sqlUseBoundAndSelectors` must be `false`.
+              """
+          )
+          .since("30.0.1")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<Boolean> SQL_USE_EXTRACTION_FNS =
+      booleanParameter("sqlUseExtractionFns")
+          .defaultValue(false)
+          .description(
+              """
+              If false, the SQL planner avoids using [`extractionFn`](dimensionspecs.md#extraction-functions) in favor of using other constructs such as [virtual columns](virtual-columns.md).
+              This parameter is provided for compatibility with prior behavior, and may be removed in a future release.
+              """
+          )
+          .since("35.0.1")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<Boolean> SQL_REVERSE_LOOKUP =
+      booleanParameter("sqlReverseLookup")
+          .defaultValue(true)
+          .description(
+              """
+              Whether to consider the [reverse-lookup rewrite](lookups.md#reverse-lookup) of the `LOOKUP` function during SQL planning.
+              Druid reverses calls to `LOOKUP` only when the number of matching keys is lower than both `inSubQueryThreshold` and `sqlReverseLookupThreshold`.
+              """
+          )
+          .since("30.0.1")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<Integer> SQL_REVERSE_LOOKUP_THRESHOLD =
+      integerParameter("sqlReverseLookupThreshold")
+          .defaultValue(10000)
+          .description(
+              """
+              Maximum size of `IN` filter to create when applying a [reverse-lookup rewrite](lookups.md#reverse-lookup).
+              If a `LOOKUP` call matches more keys than the specified threshold, it remains unchanged.
+              If `inSubQueryThreshold` is lower than `sqlReverseLookupThreshold`, Druid uses `inSubQueryThreshold` threshold instead.
+              """
+          )
+          .since("30.0.1")
+          .query(Query.SQL)
+          .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
+          .build();
+
+  public static final QueryContextParameter<Boolean> SQL_PULL_UP_LOOKUP =
+      booleanParameter("sqlPullUpLookup")
+          .defaultValue(true)
+          .description("Whether to consider the [pull-up rewrite](lookups.md#pull-up) of the `LOOKUP` function during SQL planning.")
+          .since("30.0.1")
           .query(Query.SQL)
           .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
           .build();

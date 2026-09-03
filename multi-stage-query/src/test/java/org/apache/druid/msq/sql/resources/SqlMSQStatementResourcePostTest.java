@@ -295,7 +295,7 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
   public void testExplain() throws IOException
   {
     Map<String, Object> context = defaultAsyncContext();
-    context.put("sqlQueryId", "queryId");
+    QueryContextParameters.SQL_QUERY_ID.set(context, "queryId");
     Response response = resource.doPost(new SqlQuery(
         "explain plan for select * from foo",
         null,

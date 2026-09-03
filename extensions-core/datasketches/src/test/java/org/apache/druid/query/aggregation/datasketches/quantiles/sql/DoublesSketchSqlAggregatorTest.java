@@ -36,7 +36,6 @@ import org.apache.druid.query.aggregation.FilteredAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.aggregation.cardinality.CardinalityAggregatorFactory;
-import org.apache.druid.query.aggregation.datasketches.SketchQueryContext;
 import org.apache.druid.query.aggregation.datasketches.quantiles.DoublesSketchAggregatorFactory;
 import org.apache.druid.query.aggregation.datasketches.quantiles.DoublesSketchModule;
 import org.apache.druid.query.aggregation.datasketches.quantiles.DoublesSketchToCDFPostAggregator;
@@ -898,7 +897,7 @@ public class DoublesSketchSqlAggregatorTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putRaw(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
+                    .put(QueryContextParameters.SQL_FINALIZE_OUTER_SKETCHES, true)
                     .toMap();
 
     testQuery(
@@ -1009,7 +1008,7 @@ public class DoublesSketchSqlAggregatorTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putRaw(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
+                    .put(QueryContextParameters.SQL_FINALIZE_OUTER_SKETCHES, true)
                     .toMap();
 
     testQuery(

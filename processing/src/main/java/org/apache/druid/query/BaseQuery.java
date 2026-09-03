@@ -30,6 +30,7 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.granularity.PeriodGranularity;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.planning.ExecutionVertex;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.joda.time.DateTimeZone;
@@ -56,9 +57,13 @@ public abstract class BaseQuery<T> implements Query<T>
     }
   }
 
-  public static final String QUERY_ID = "queryId";
+  /** @deprecated use {@link QueryContextParameters#QUERY_ID}. */
+  @Deprecated
+  public static final String QUERY_ID = QueryContextParameters.QUERY_ID.getName();
   public static final String SUB_QUERY_ID = "subQueryId";
-  public static final String SQL_QUERY_ID = "sqlQueryId";
+  /** @deprecated use {@link QueryContextParameters#SQL_QUERY_ID}. */
+  @Deprecated
+  public static final String SQL_QUERY_ID = QueryContextParameters.SQL_QUERY_ID.getName();
   private final DataSource dataSource;
   private final QueryContext context;
   private final QuerySegmentSpec querySegmentSpec;
@@ -206,7 +211,7 @@ public abstract class BaseQuery<T> implements Query<T>
   @Override
   public String getId()
   {
-    return context().getString(QUERY_ID);
+    return context().get(QueryContextParameters.QUERY_ID);
   }
 
   @Override
@@ -225,13 +230,13 @@ public abstract class BaseQuery<T> implements Query<T>
   @Override
   public Query<T> withId(String id)
   {
-    return withOverriddenContext(ImmutableMap.of(QUERY_ID, id));
+    return withOverriddenContext(QueryContextParameters.QUERY_ID, id);
   }
 
   @Override
   public Query<T> withSqlQueryId(String sqlQueryId)
   {
-    return withOverriddenContext(ImmutableMap.of(SQL_QUERY_ID, sqlQueryId));
+    return withOverriddenContext(QueryContextParameters.SQL_QUERY_ID, sqlQueryId);
   }
 
   @Override
