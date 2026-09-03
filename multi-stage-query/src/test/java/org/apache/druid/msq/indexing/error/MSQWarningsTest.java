@@ -30,7 +30,6 @@ import org.apache.druid.msq.indexing.MSQTuningConfig;
 import org.apache.druid.msq.test.MSQTestBase;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
@@ -418,13 +417,10 @@ public class MSQWarningsTest extends MSQTestBase
   @Test
   public void testSuccessWhenModeIsOverridden()
   {
-    final Map<String, Object> userContext =
-        QueryContext.builder()
-                    .putAll(Map.of(
-                        MSQWarnings.CTX_MAX_PARSE_EXCEPTIONS_ALLOWED, -1,
-                        MultiStageQueryContext.CTX_MSQ_MODE, "strict"
-                    ))
-                    .toMap();
+    final Map<String, Object> userContext = Map.of(
+        MSQWarnings.CTX_MAX_PARSE_EXCEPTIONS_ALLOWED, -1,
+        MultiStageQueryContext.CTX_MSQ_MODE, "strict"
+    );
 
     testSelectQuery().setSql("SELECT\n"
                              + "  floor(TIME_PARSE(\"timestamp\") to day) AS __time,\n"

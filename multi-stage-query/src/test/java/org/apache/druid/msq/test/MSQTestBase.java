@@ -343,12 +343,10 @@ public class MSQTestBase extends BaseCalciteQueryTest
                   .toMap();
 
   public static final Map<String, Object>
-      ROLLUP_CONTEXT_PARAMS = QueryContext.builder()
-                                          .putAll(Map.of(
-                                              MultiStageQueryContext.CTX_FINALIZE_AGGREGATIONS, false,
-                                              GroupByQueryConfig.CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING, false
-                                          ))
-                                          .toMap();
+      ROLLUP_CONTEXT_PARAMS = Map.of(
+          MultiStageQueryContext.CTX_FINALIZE_AGGREGATIONS, false,
+          GroupByQueryConfig.CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING, false
+      );
 
   public static final String FAULT_TOLERANCE = "fault_tolerance";
   public static final String DURABLE_STORAGE = "durable_storage";

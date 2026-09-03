@@ -30,7 +30,6 @@ import org.apache.druid.msq.indexing.destination.TaskReportMSQDestination;
 import org.apache.druid.msq.kernel.WorkerAssignmentStrategy;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.InlineDataSource;
-import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.filter.NotDimFilter;
@@ -68,9 +67,7 @@ public class MSQSpecCompatTest
         .add("EXPR$0", ColumnType.LONG)
         .build();
 
-    Map<String, Object> context = QueryContext.builder()
-        .putAll(Map.of("someThing", 111, "sqlInsertSegmentGranularity", "\"DAY\""))
-        .toMap();
+    Map<String, Object> context = Map.of("someThing", 111, "sqlInsertSegmentGranularity", "\"DAY\"");
     MSQSpec msqSpec = LegacyMSQSpec.builder()
         .query(
             Druids.newScanQueryBuilder()
@@ -100,9 +97,7 @@ public class MSQSpecCompatTest
     RowSignature resultSignature = RowSignature.builder()
         .add("EXPR$0", ColumnType.LONG)
         .build();
-    Map<String, Object> context = QueryContext.builder()
-        .putAll(Map.of("someThing", 222, "sqlInsertSegmentGranularity", "\"DAY\""))
-        .toMap();
+    Map<String, Object> context = Map.of("someThing", 222, "sqlInsertSegmentGranularity", "\"DAY\"");
     MSQSpec msqSpec = LegacyMSQSpec.builder()
         .query(
             Druids.newScanQueryBuilder()
@@ -139,19 +134,15 @@ public class MSQSpecCompatTest
                 new DefaultDimensionSpec("__time", "d0", ColumnType.LONG),
                 new DefaultDimensionSpec("dim1", "d1", ColumnType.STRING)
             )
-            .setContext(
-                QueryContext.builder()
-                    .putAll(Map.of(
-                        "__user", "allowAll",
-                        "finalize", true,
-                        "maxNumTasks", 2,
-                        "maxParseExceptions", 0,
-                        "sqlInsertSegmentGranularity", "\"DAY\"",
-                        "sqlQueryId", "test-query",
-                        "sqlStringifyArrays", false
-                    ))
-                    .toMap()
-            )
+            .setContext(Map.of(
+                "__user", "allowAll",
+                "finalize", true,
+                "maxNumTasks", 2,
+                "maxParseExceptions", 0,
+                "sqlInsertSegmentGranularity", "\"DAY\"",
+                "sqlQueryId", "test-query",
+                "sqlStringifyArrays", false
+            ))
             .setLimitSpec(
                 DefaultLimitSpec.builder()
                     .orderBy(OrderByColumnSpec.asc("d1"))

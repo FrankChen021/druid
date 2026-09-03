@@ -489,13 +489,10 @@ public class MSQFaultsTest extends MSQTestBase
     final String toReadFileNameAsJson = queryFramework().queryJsonMapper().writeValueAsString(toRead.getAbsolutePath());
     final String externalFiles = String.join(", ", Collections.nCopies(numFiles, toReadFileNameAsJson));
 
-    final Map<String, Object> context =
-        QueryContext.builder()
-                    .putAll(Map.of(
-                        MultiStageQueryContext.CTX_MAX_NUM_TASKS, 8,
-                        MultiStageQueryContext.CTX_MAX_INPUT_FILES_PER_WORKER, maxInputFilesPerWorker
-                    ))
-                    .toMap();
+    final Map<String, Object> context = Map.of(
+        MultiStageQueryContext.CTX_MAX_NUM_TASKS, 8,
+        MultiStageQueryContext.CTX_MAX_INPUT_FILES_PER_WORKER, maxInputFilesPerWorker
+    );
 
     testIngestQuery()
         .setSql(StringUtils.format(

@@ -318,18 +318,15 @@ public class MSQInsertTest extends MSQTestBase
                         new DefaultDimensionSpec("__time", "d0", ColumnType.LONG),
                         new DefaultDimensionSpec("dim1", "d1", ColumnType.STRING)
                     )
-                    .setContext(QueryContext.builder()
-                                            .putAll(Map.of(
-                                                "__user", "allowAll",
-                                                "finalize", true,
-                                                "maxNumTasks", 2,
-                                                "maxParseExceptions", 0,
-                                                "sqlInsertSegmentGranularity", "\"DAY\"",
-                                                "sqlQueryId", "test-query",
-                                                "sqlStringifyArrays", false
-                                            ))
-                                            .toMap()
-                    )
+                    .setContext(Map.of(
+                        "__user", "allowAll",
+                        "finalize", true,
+                        "maxNumTasks", 2,
+                        "maxParseExceptions", 0,
+                        "sqlInsertSegmentGranularity", "\"DAY\"",
+                        "sqlQueryId", "test-query",
+                        "sqlStringifyArrays", false
+                    ))
                     .setLimitSpec(DefaultLimitSpec.builder()
                                                   .orderBy(OrderByColumnSpec.asc("d1"))
                                                   .build()
