@@ -21,6 +21,8 @@ package org.apache.druid.server.system.handler;
 
 import com.google.inject.Inject;
 import org.apache.druid.client.DirectDruidClient;
+import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.JodaUtils;
@@ -43,11 +45,14 @@ import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTablePushdownFilter;
 
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
 /** Resolves one node-local system table and returns its rows through the standard native Scan stack. */
 public class SystemTableQueryHandler implements DataSourceQueryHandler
 {
+  private final Set<NodeRole> selfNodeRoles;
   private final Map<String, SystemTableDataProvider> dataSuppliers;
   private final Map<String, SystemTableDescriptor> tableDescriptors;
   private final ScanQueryEngine scanQueryEngine;
@@ -55,12 +60,14 @@ public class SystemTableQueryHandler implements DataSourceQueryHandler
 
   @Inject
   public SystemTableQueryHandler(
+      @Self final Set<NodeRole> selfNodeRoles,
       final Map<String, SystemTableDataProvider> dataSuppliers,
       final Map<String, SystemTableDescriptor> tableDescriptors,
       final ScanQueryEngine scanQueryEngine,
       final AuthorizerMapper authorizerMapper
   )
   {
+    this.selfNodeRoles = selfNodeRoles;
     this.dataSuppliers = dataSuppliers;
     this.tableDescriptors = tableDescriptors;
     this.scanQueryEngine = scanQueryEngine;
@@ -79,13 +86,16 @@ public class SystemTableQueryHandler implements DataSourceQueryHandler
     }
 
     final SystemTableDataSource dataSource = (SystemTableDataSource) query.getDataSource();
-    final SystemTableDataProvider dataSupplier = dataSuppliers.get(dataSource.getTable());
-    if (dataSupplier == null) {
-      throw new ISE("System table[%s] is not served by this node", dataSource.getTable());
-    }
     final SystemTableDescriptor descriptor = tableDescriptors.get(dataSource.getTable());
     if (descriptor == null) {
       throw new ISE("No descriptor is registered for system table[%s]", dataSource.getTable());
+    }
+    if (Collections.disjoint(selfNodeRoles, descriptor.getNodeRoles())) {
+      throw new ISE("System table[%s] is not served by this node", dataSource.getTable());
+    }
+    final SystemTableDataProvider dataSupplier = dataSuppliers.get(dataSource.getTable());
+    if (dataSupplier == null) {
+      throw new ISE("System table[%s] is not served by this node", dataSource.getTable());
     }
 
     return (queryPlus, responseContext) -> {
