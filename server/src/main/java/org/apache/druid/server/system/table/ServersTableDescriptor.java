@@ -51,7 +51,7 @@ public class ServersTableDescriptor implements SystemTableDescriptor
       .add("start_time", ColumnType.STRING)
       .add("version", ColumnType.STRING)
       .add("build_revision", ColumnType.STRING)
-      .add("labels", ColumnType.NESTED_DATA)
+      .add("labels", ColumnType.STRING)
       .add("available_processors", ColumnType.LONG)
       .add("total_memory", ColumnType.LONG)
       .build();

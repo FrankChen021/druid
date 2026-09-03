@@ -19,6 +19,7 @@
 
 package org.apache.druid.server.system.table;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import org.apache.druid.client.DruidServer;
 import org.apache.druid.client.FilteredServerInventoryView;
@@ -28,8 +29,10 @@ import org.apache.druid.discovery.DataNodeService;
 import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.DruidNode;
@@ -64,6 +67,7 @@ public class ServersTableDataProvider implements SystemTableDataProvider
   private final AuthorizerMapper authorizerMapper;
   private final OverlordClient overlordClient;
   private final CoordinatorClient coordinatorClient;
+  private final ObjectMapper jsonMapper;
 
   @Inject
   public ServersTableDataProvider(
@@ -71,7 +75,8 @@ public class ServersTableDataProvider implements SystemTableDataProvider
       final FilteredServerInventoryView serverInventoryView,
       final AuthorizerMapper authorizerMapper,
       final OverlordClient overlordClient,
-      final CoordinatorClient coordinatorClient
+      final CoordinatorClient coordinatorClient,
+      @Json final ObjectMapper jsonMapper
   )
   {
     this.druidNodeDiscoveryProvider = druidNodeDiscoveryProvider;
@@ -79,6 +84,7 @@ public class ServersTableDataProvider implements SystemTableDataProvider
     this.authorizerMapper = authorizerMapper;
     this.overlordClient = overlordClient;
     this.coordinatorClient = coordinatorClient;
+    this.jsonMapper = jsonMapper;
   }
 
   @Override
@@ -192,7 +198,7 @@ public class ServersTableDataProvider implements SystemTableDataProvider
         toStringOrNull(discoveryDruidNode.getStartTime()),
         node.getVersion(),
         node.getBuildRevision(),
-        node.getLabels(),
+        node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
         (long) discoveryDruidNode.getAvailableProcessors(),
         discoveryDruidNode.getTotalMemory()
     };
@@ -218,7 +224,7 @@ public class ServersTableDataProvider implements SystemTableDataProvider
         toStringOrNull(discoveryDruidNode.getStartTime()),
         node.getVersion(),
         node.getBuildRevision(),
-        node.getLabels(),
+        node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
         (long) discoveryDruidNode.getAvailableProcessors(),
         discoveryDruidNode.getTotalMemory()
     };
@@ -250,7 +256,7 @@ public class ServersTableDataProvider implements SystemTableDataProvider
         toStringOrNull(discoveryDruidNode.getStartTime()),
         node.getVersion(),
         node.getBuildRevision(),
-        node.getLabels(),
+        node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
         (long) discoveryDruidNode.getAvailableProcessors(),
         discoveryDruidNode.getTotalMemory()
     };

@@ -31,6 +31,7 @@ import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.DruidService;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.rpc.indexing.OverlordClient;
+import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.coordination.ServerType;
@@ -60,7 +61,7 @@ public class ServersTableDataProviderTest
       new AuthenticationResult("test-user", AuthConfig.ALLOW_ALL_NAME, null, null);
 
   @Test
-  public void testReturnsDiscoveredServersWithJsonLabels() throws Exception
+  public void testReturnsDiscoveredServersWithStringLabels() throws Exception
   {
     final DruidNodeDiscoveryProvider discoveryProvider = EasyMock.mock(DruidNodeDiscoveryProvider.class);
     final FilteredServerInventoryView serverInventoryView = EasyMock.mock(FilteredServerInventoryView.class);
@@ -110,7 +111,8 @@ public class ServersTableDataProviderTest
         serverInventoryView,
         allowAllAuthorizerMapper(),
         overlordClient,
-        coordinatorClient
+        coordinatorClient,
+        TestHelper.JSON_MAPPER
     );
     final List<Object[]> rows = toRows(provider.getRows(Collections.emptyList(), AUTHENTICATION_RESULT));
 
@@ -125,9 +127,9 @@ public class ServersTableDataProviderTest
                                    .filter(row -> "localhost:8082".equals(row[0]))
                                    .findFirst()
                                    .orElseThrow();
-    Assertions.assertEquals(labels, brokerRow[13]);
+    Assertions.assertEquals(TestHelper.JSON_MAPPER.writeValueAsString(labels), brokerRow[13]);
     Assertions.assertEquals(100L, brokerRow[6]);
-    Assertions.assertEquals(ColumnType.NESTED_DATA, ServersTableDescriptor.ROW_SIGNATURE.getColumnType(13).orElseThrow());
+    Assertions.assertEquals(ColumnType.STRING, ServersTableDescriptor.ROW_SIGNATURE.getColumnType(13).orElseThrow());
 
     EasyMock.verify(discoveryProvider, serverInventoryView, coordinatorClient, overlordClient, server);
   }
@@ -149,7 +151,8 @@ public class ServersTableDataProviderTest
         EasyMock.mock(FilteredServerInventoryView.class),
         authorizerMapper,
         EasyMock.mock(OverlordClient.class),
-        EasyMock.mock(CoordinatorClient.class)
+        EasyMock.mock(CoordinatorClient.class),
+        TestHelper.JSON_MAPPER
     );
 
     Assertions.assertThrows(
@@ -165,7 +168,7 @@ public class ServersTableDataProviderTest
 
     Assertions.assertEquals(Set.of(NodeRole.BROKER), descriptor.getNodeRoles());
     Assertions.assertEquals(SystemTableRoutingMode.LOCAL, descriptor.getRoutingMode());
-    Assertions.assertEquals(ColumnType.NESTED_DATA, descriptor.getRowSignature().getColumnType(13).orElseThrow());
+    Assertions.assertEquals(ColumnType.STRING, descriptor.getRowSignature().getColumnType(13).orElseThrow());
   }
 
   private static DiscoveryDruidNode discoveryNode(

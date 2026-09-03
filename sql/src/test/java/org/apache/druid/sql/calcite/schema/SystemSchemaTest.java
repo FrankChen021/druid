@@ -70,6 +70,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.io.Closer;
+import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.http.client.response.HttpResponseHandler;
@@ -897,6 +898,7 @@ public class SystemSchemaTest extends CalciteTestBase
                                                          authMapper,
                                                          overlordClient,
                                                          coordinatorClient,
+                                                         MAPPER,
                                                          createAuthResult(Users.SUPER)
                                                      )
                                                      .createMock();
@@ -1338,7 +1340,7 @@ public class SystemSchemaTest extends CalciteTestBase
         startTime,
         version,
         buildRevision,
-        labels,
+        labels == null ? null : JacksonUtils.writeValueAsString(MAPPER, labels),
         availableProcessors,
         totalMemory
     };
