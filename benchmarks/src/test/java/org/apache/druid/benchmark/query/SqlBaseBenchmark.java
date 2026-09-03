@@ -344,7 +344,7 @@ public class SqlBaseBenchmark
         "EXPLAIN PLAN FOR " + getQuery(),
         QueryContext.builder()
                     .putAll(getContext())
-                    .putRaw("useNativeQueryExplain", true)
+                    .putRaw(PlannerConfig.CTX_KEY_USE_NATIVE_QUERY_EXPLAIN, true)
                     .toMap()
     )) {
       final PlannerResult plannerResult = planner.plan();

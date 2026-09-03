@@ -34,6 +34,8 @@ import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.quidem.DruidQTestInfo;
 import org.apache.druid.segment.column.RowSignature;
@@ -277,13 +279,23 @@ public class QueryTestRunner
                                                   .queryContext(builder.queryContext)
                                                   .build();
 
-        final Map<String, Object> theQueryContext = new HashMap<>(sqlQuery.context());
-        theQueryContext.put(QueryContextParameters.VECTORIZE.getName(), vectorize);
-        theQueryContext.put(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), vectorize);
-
-        if (!"false".equals(vectorize)) {
-          theQueryContext.put(QueryContextParameters.VECTOR_SIZE.getName(), 2); // Small vector size to ensure we use more than one.
-        }
+        final QueryContexts.Vectorize vectorizeOption = QueryContexts.Vectorize.fromString(vectorize);
+        final Map<String, Object> vectorizationContext = "false".equals(vectorize)
+                                                         ? QueryContext.ofMap(
+                                                             QueryContextParameters.VECTORIZE,
+                                                             vectorizeOption,
+                                                             QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+                                                             vectorizeOption
+                                                         )
+                                                         : QueryContext.ofMap(
+                                                             QueryContextParameters.VECTORIZE,
+                                                             vectorizeOption,
+                                                             QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+                                                             vectorizeOption,
+                                                             QueryContextParameters.VECTOR_SIZE,
+                                                             2
+                                                         );
+        final Map<String, Object> theQueryContext = QueryContexts.override(sqlQuery.context(), vectorizationContext);
 
         results.add(runQuery(
             sqlStatementFactory,

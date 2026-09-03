@@ -230,7 +230,10 @@ public class SchemaEvolutionTest
                 new HyperUniquesAggregatorFactory("uniques", "uniques")
             )
         )
-        .context(Map.of(QueryContextParameters.VECTORIZE.getName(), doVectorize))
+        .context(QueryContext.ofMap(
+            QueryContextParameters.VECTORIZE,
+            doVectorize ? QueryContexts.Vectorize.TRUE : QueryContexts.Vectorize.FALSE
+        ))
         .build();
 
     // index1 has no "uniques" column
@@ -266,7 +269,10 @@ public class SchemaEvolutionTest
                 new DoubleSumAggregatorFactory("d", null, "c1 * 1", TestExprMacroTable.INSTANCE)
             )
         )
-        .context(Map.of(QueryContextParameters.VECTORIZE.getName(), doVectorize))
+        .context(QueryContext.ofMap(
+            QueryContextParameters.VECTORIZE,
+            doVectorize ? QueryContexts.Vectorize.TRUE : QueryContexts.Vectorize.FALSE
+        ))
         .build();
 
     // Only string(1)
@@ -345,7 +351,10 @@ public class SchemaEvolutionTest
                 new CountAggregatorFactory("c")
             )
         )
-        .context(Map.of(QueryContextParameters.VECTORIZE.getName(), doVectorize))
+        .context(QueryContext.ofMap(
+            QueryContextParameters.VECTORIZE,
+            doVectorize ? QueryContexts.Vectorize.TRUE : QueryContexts.Vectorize.FALSE
+        ))
         .build();
 
     // Only string(1) -- which we can filter but not aggregate

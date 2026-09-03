@@ -822,7 +822,7 @@ public class ClientQuerySegmentWalkerTest
   public void testTimeseriesOnGroupByOnTableErrorTooManyRows()
   {
     Throwable exception = Assertions.assertThrows(ResourceLimitExceededException.class, () -> {
-      initWalker(ImmutableMap.of("maxSubqueryRows", "2"));
+      initWalker(QueryContext.ofMap(QueryContextParameters.MAX_SUBQUERY_ROWS, 2));
 
       final GroupByQuery subquery =
           GroupByQuery.builder()
@@ -854,7 +854,12 @@ public class ClientQuerySegmentWalkerTest
   public void testScanOnScanWithStringExpression()
   {
     initWalker(
-        ImmutableMap.of(QueryContextParameters.MAX_SUBQUERY_ROWS.getName(), "1", QueryContextParameters.MAX_SUBQUERY_BYTES.getName(), "1000"),
+        QueryContext.ofMap(
+            QueryContextParameters.MAX_SUBQUERY_ROWS,
+            1,
+            QueryContextParameters.MAX_SUBQUERY_BYTES,
+            "1000"
+        ),
         scheduler
     );
 
@@ -934,7 +939,7 @@ public class ClientQuerySegmentWalkerTest
               .granularity(Granularities.ALL)
               .intervals(Intervals.ONLY_ETERNITY)
               .aggregators(new CountAggregatorFactory("cnt"))
-              .context(ImmutableMap.of(QueryContextParameters.MAX_SUBQUERY_BYTES.getName(), "1"))
+              .context(QueryContext.ofMap(QueryContextParameters.MAX_SUBQUERY_BYTES, "1"))
               .build()
               .withId(DUMMY_QUERY_ID);
 
@@ -1011,7 +1016,7 @@ public class ClientQuerySegmentWalkerTest
                                 .granularity(Granularities.ALL)
                                 .intervals(Intervals.ONLY_ETERNITY)
                                 .aggregators(new CountAggregatorFactory("cnt"))
-                                .context(ImmutableMap.of(QueryContextParameters.MAX_SUBQUERY_BYTES.getName(), "10000"))
+                                .context(QueryContext.ofMap(QueryContextParameters.MAX_SUBQUERY_BYTES, "10000"))
                                 .build()
                                 .withId(DUMMY_QUERY_ID);
 
@@ -1595,7 +1600,7 @@ public class ClientQuerySegmentWalkerTest
   /**
    * Initialize (or reinitialize) our {@link #walker} and {@link #closer} with default scheduler.
    */
-  private void initWalker(final Map<String, String> serverProperties)
+  private void initWalker(final Map<String, ?> serverProperties)
   {
     initWalker(serverProperties, QueryStackTests.DEFAULT_NOOP_SCHEDULER);
   }
@@ -1603,7 +1608,7 @@ public class ClientQuerySegmentWalkerTest
   /**
    * Initialize (or reinitialize) our {@link #walker} and {@link #closer}.
    */
-  private void initWalker(final Map<String, String> serverProperties, QueryScheduler schedulerForTest)
+  private void initWalker(final Map<String, ?> serverProperties, QueryScheduler schedulerForTest)
   {
     final ObjectMapper jsonMapper = TestHelper.makeJsonMapper();
     final ServerConfig serverConfig = jsonMapper.convertValue(serverProperties, ServerConfig.class);

@@ -47,10 +47,12 @@ import org.apache.druid.query.DimensionComparisonUtils;
 import org.apache.druid.query.PerSegmentQueryOptimizationContext;
 import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
+import org.apache.druid.query.context.QueryContextParameter;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.filter.DimFilter;
@@ -1241,6 +1243,11 @@ public class GroupByQuery extends BaseQuery<ResultRow>
     {
       this.context = computeOverriddenContext(context, contextOverride);
       return this;
+    }
+
+    public <V> Builder overrideContext(final QueryContextParameter<V> parameter, @Nullable final V value)
+    {
+      return overrideContext(QueryContext.ofMap(parameter, value));
     }
 
     public Builder setHavingSpec(@Nullable HavingSpec havingSpec)

@@ -5567,7 +5567,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
         "SELECT dim1 IN ('abc', 'def', 'ghi'), COUNT(*)\n"
         + "FROM druid.foo\n"
         + "GROUP BY 1",
-        QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_EXPR_THRESHOLD.getName(), 100),
+        QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_EXPR_THRESHOLD, 100),
         ImmutableList.of(
             GroupByQuery.builder()
                         .setDataSource(CalciteTests.DATASOURCE1)
@@ -5879,7 +5879,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
         "SELECT dim1, COUNT(*) FROM druid.foo\n"
         + "WHERE dim1 IN (" + elementsString + ") OR dim1 = 'xyz' OR dim1 IS NULL\n"
         + "GROUP BY dim1",
-        QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD.getName(), 20),
+        QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD, 20),
         ImmutableList.of(
             GroupByQuery.builder()
                         .setDataSource(CalciteTests.DATASOURCE1)
