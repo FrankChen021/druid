@@ -68,11 +68,10 @@ public class HiLoQueryLaningStrategy implements QueryLaningStrategy
   public <T> Optional<String> computeLane(QueryPlus<T> query, Set<SegmentServerSelector> segments)
   {
     final Query<T> theQuery = query.getQuery();
-    // QueryContexts.getPriority gives a default, but it can parse the value to integer. Before calling QueryContexts.getPriority
-    // we make sure that priority has been set.
+    // Only use the query priority when the parameter is present; otherwise leave it unset so lane assignment can apply.
     Integer priority = null;
     final QueryContext queryContext = theQuery.context();
-    if (queryContext.get(QueryContextParameters.PRIORITY) != null) {
+    if (queryContext.has(QueryContextParameters.PRIORITY)) {
       priority = queryContext.getPriority();
     }
     final String lane = queryContext.getLane();

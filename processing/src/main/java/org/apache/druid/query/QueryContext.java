@@ -761,8 +761,7 @@ public class QueryContext
     final RealtimeSegmentsMode mode = has(QueryContextParameters.REALTIME_SEGMENTS_MODE)
                                       ? get(QueryContextParameters.REALTIME_SEGMENTS_MODE)
                                       : null;
-    final boolean hasDeprecatedFlag = has(QueryContextParameters.REALTIME_SEGMENTS_ONLY)
-                                      && get(QueryContextParameters.REALTIME_SEGMENTS_ONLY) != null;
+    final boolean hasDeprecatedFlag = has(QueryContextParameters.REALTIME_SEGMENTS_ONLY);
     if (mode != null && hasDeprecatedFlag) {
       throw new BadQueryContextException(
           StringUtils.format(

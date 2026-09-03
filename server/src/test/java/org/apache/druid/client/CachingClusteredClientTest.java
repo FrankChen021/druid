@@ -2169,8 +2169,8 @@ public class CachingClusteredClientTest
           Assertions.assertEquals(true, queryContext.getBoolean(QueryContextParameters.BY_SEGMENT.getName()));
         } else {
           Assertions.assertTrue(
-              queryContext.get(QueryContextParameters.BY_SEGMENT.getName()) == null ||
-              !queryContext.getBoolean(QueryContextParameters.BY_SEGMENT.getName())
+              !queryContext.has(QueryContextParameters.BY_SEGMENT) ||
+              !queryContext.getOrDefault(QueryContextParameters.BY_SEGMENT, false)
           );
         }
       }
