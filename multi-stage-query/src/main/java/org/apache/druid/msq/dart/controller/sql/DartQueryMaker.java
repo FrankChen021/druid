@@ -254,7 +254,7 @@ public class DartQueryMaker implements QueryMaker
                 "maxQueryReportSize[%,d] exceeded. "
                 + "Try limiting the result set for your query, or run it with %s[false]",
                 limit,
-                QueryContextParameters.FULL_REPORT.getName()
+                QueryContextParameters.FULL_REPORT
             )
         ),
         plannerContext.getJsonMapper(),

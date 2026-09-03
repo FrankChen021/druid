@@ -954,7 +954,7 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
     + "JVM's memory or set the '%s' in the query context to increase the space allocated for subqueries to "
     + "materialize their results. Manually alter the value carefully as it can cause the broker to go out of memory.",
         memoryLimit,
-        QueryContextParameters.MAX_SUBQUERY_BYTES.getName()
+        QueryContextParameters.MAX_SUBQUERY_BYTES
     );
   }
 
@@ -966,10 +966,10 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
         + "memory size and result's heap usage or manually configure the values of either '%s' or '%s' in the query "
         + "context. Manually alter the value carefully as it can cause the broker to go out of memory.",
         rowLimitUsed,
-        QueryContextParameters.MAX_SUBQUERY_BYTES.getName(),
+        QueryContextParameters.MAX_SUBQUERY_BYTES,
         SubqueryGuardrailHelper.AUTO_LIMIT_VALUE,
-        QueryContextParameters.MAX_SUBQUERY_BYTES.getName(),
-        QueryContextParameters.MAX_SUBQUERY_ROWS.getName()
+        QueryContextParameters.MAX_SUBQUERY_BYTES,
+        QueryContextParameters.MAX_SUBQUERY_ROWS
     );
   }
 }

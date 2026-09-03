@@ -386,7 +386,7 @@ public class DartSqlEngine implements SqlEngine
     } else {
       log.warn(
           "%s[%s] for query[%s] is not a string, cannot cancel.",
-          QueryContextParameters.DART_QUERY_ID.getName(),
+          QueryContextParameters.DART_QUERY_ID,
           dartQueryId,
           plannerContext.getSqlQueryId()
       );

@@ -964,7 +964,7 @@ public class SqlStatementResource
       throw InvalidInput.exception(
           "Execution mode is not provided to the sql statement api. "
           + "Please set [%s] to [%s] in the query context",
-          QueryContextParameters.EXECUTION_MODE.getName(),
+          QueryContextParameters.EXECUTION_MODE,
           ExecutionMode.ASYNC
       );
     }
@@ -974,7 +974,7 @@ public class SqlStatementResource
           "The sql statement api currently does not support the provided execution mode [%s]. "
           + "Please set [%s] to [%s] in the query context",
           executionMode,
-          QueryContextParameters.EXECUTION_MODE.getName(),
+          QueryContextParameters.EXECUTION_MODE,
           ExecutionMode.ASYNC
       );
     }

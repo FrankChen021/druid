@@ -61,7 +61,7 @@ public class FrameCursorUtils
               "Subquery's row size exceeds the frame size and therefore cannot write the subquery's "
               + "row to the frame. Either modify the subqueries to materialize smaller rows by removing wide columns, "
               + "or disable byte based limiting by setting '%s' to 'disabled'",
-              QueryContextParameters.MAX_SUBQUERY_BYTES.getName()
+              QueryContextParameters.MAX_SUBQUERY_BYTES
           );
 
   private FrameCursorUtils()

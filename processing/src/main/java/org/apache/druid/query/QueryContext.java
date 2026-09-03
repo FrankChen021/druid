@@ -540,7 +540,7 @@ public class QueryContext
     throw new BadQueryContextException(
         StringUtils.format(
             "Timeout [%s] must be a non negative value, but was %d",
-            QueryContextParameters.TIMEOUT.getName(),
+            QueryContextParameters.TIMEOUT,
             timeout
         )
     );
@@ -564,7 +564,7 @@ public class QueryContext
     throw new BadQueryContextException(
         StringUtils.format(
             "Timeout [%s] must be a non negative value, but was %d",
-            QueryContextParameters.DEFAULT_TIMEOUT.getName(),
+            QueryContextParameters.DEFAULT_TIMEOUT,
             defaultTimeout
         )
     );
@@ -577,7 +577,7 @@ public class QueryContext
       throw new BadQueryContextException(
           StringUtils.format(
               "Configured %s = %d is more than enforced limit of %d.",
-              QueryContextParameters.TIMEOUT.getName(),
+              QueryContextParameters.TIMEOUT,
               timeout,
               maxQueryTimeout
           )
@@ -600,7 +600,7 @@ public class QueryContext
     throw new BadQueryContextException(
         StringUtils.format(
             "Per-segment timeout [%s] must be a non negative value, but was [%d]",
-            QueryContextParameters.PER_SEGMENT_TIMEOUT.getName(),
+            QueryContextParameters.PER_SEGMENT_TIMEOUT,
             timeout
         )
     );
@@ -618,7 +618,7 @@ public class QueryContext
       throw new BadQueryContextException(
           StringUtils.format(
             "Configured %s = %d is more than enforced limit of %d.",
-            QueryContextParameters.MAX_SCATTER_GATHER_BYTES.getName(),
+            QueryContextParameters.MAX_SCATTER_GATHER_BYTES,
             curr,
             maxScatterGatherBytesLimit
           )
@@ -794,9 +794,9 @@ public class QueryContext
       throw new BadQueryContextException(
           StringUtils.format(
               "Cannot set both [%s] and deprecated [%s]; use [%s] only.",
-              QueryContextParameters.REALTIME_SEGMENTS_MODE.getName(),
-              QueryContextParameters.REALTIME_SEGMENTS_ONLY.getName(),
-              QueryContextParameters.REALTIME_SEGMENTS_MODE.getName()
+              QueryContextParameters.REALTIME_SEGMENTS_MODE,
+              QueryContextParameters.REALTIME_SEGMENTS_ONLY,
+              QueryContextParameters.REALTIME_SEGMENTS_MODE
           )
       );
     }
