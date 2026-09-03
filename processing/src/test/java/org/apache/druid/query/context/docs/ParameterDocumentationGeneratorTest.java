@@ -22,7 +22,7 @@ package org.apache.druid.query.context.docs;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.context.QueryContextParameter;
 import org.apache.druid.query.context.QueryContextParameters;
-import org.apache.druid.query.context.docs.ParameterDocumentation.Language;
+import org.apache.druid.query.context.docs.ParameterDocumentation.Query;
 import org.apache.druid.query.context.docs.ParameterDocumentation.QueryType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -196,7 +196,7 @@ class ParameterDocumentationGeneratorTest
         continue;
       }
       final String generatedDocument;
-      if (docs.getLanguages().contains(Language.SQL) && !docs.getLanguages().contains(Language.NATIVE)) {
+      if (docs.getQueries().contains(Query.SQL) && !docs.getQueries().contains(Query.JSON)) {
         generatedDocument = SQL_DOCUMENT;
       } else if (docs.getQueryTypes().contains(QueryType.SCAN)) {
         generatedDocument = SCAN_DOCUMENT;

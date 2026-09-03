@@ -25,7 +25,7 @@ import org.apache.druid.query.context.QueryContextParameter;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.constraint.ParameterConstraint;
 import org.apache.druid.query.context.constraint.Range;
-import org.apache.druid.query.context.docs.ParameterDocumentation.Language;
+import org.apache.druid.query.context.docs.ParameterDocumentation.Query;
 import org.apache.druid.query.context.docs.ParameterDocumentation.QueryType;
 
 import java.io.IOException;
@@ -95,7 +95,7 @@ public final class ParameterDocumentationGenerator
         continue;
       }
       final String document;
-      if (docs.getLanguages().contains(Language.SQL) && !docs.getLanguages().contains(Language.NATIVE)) {
+      if (docs.getQueries().contains(Query.SQL) && !docs.getQueries().contains(Query.JSON)) {
         document = SQL_REFERENCE;
       } else if (docs.getQueryTypes().contains(QueryType.SCAN)) {
         document = SCAN_REFERENCE;

@@ -24,7 +24,7 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.constraint.Range;
 import org.apache.druid.query.context.docs.ParameterDocumentation;
 import org.apache.druid.query.context.docs.ParameterDocumentation.Engine;
-import org.apache.druid.query.context.docs.ParameterDocumentation.Language;
+import org.apache.druid.query.context.docs.ParameterDocumentation.Query;
 import org.apache.druid.query.context.docs.ParameterDocumentation.QueryType;
 import org.apache.druid.query.context.docs.ParameterDocumentation.StatementType;
 import org.junit.jupiter.api.Test;
@@ -50,17 +50,13 @@ class QueryContextParameterTest
         .builder("maxThings", Integer.class, value -> QueryContexts.getAsInt("maxThings", value))
         .constraint(closedRange(0, Integer.MAX_VALUE))
         .defaultValue(10)
-        .docs(
-            ParameterDocumentation.builder()
-                                              .description("Maximum number of things.")
-                                              .language(Language.NATIVE)
-                                              .engine(Engine.NATIVE)
-                                              .query(QueryType.SCAN)
-                                              .statement(StatementType.SELECT)
-                                              .defaultDescription("runtime configuration")
-                                              .since("39.0.0")
-                                              .build()
-        )
+        .description("Maximum number of things.")
+        .query(Query.JSON)
+        .engine(Engine.NATIVE)
+        .queryType(QueryType.SCAN)
+        .statement(StatementType.SELECT)
+        .defaultDescription("runtime configuration")
+        .since("39.0.0")
         .build();
 
     assertEquals("maxThings", parameter.getName());
@@ -73,7 +69,7 @@ class QueryContextParameterTest
     final ParameterDocumentation docs = parameter.getDocumentation().orElseThrow();
     assertEquals("39.0.0", docs.getSince().orElseThrow());
     assertEquals("Maximum number of things.", docs.getDescription());
-    assertEquals(Set.of(Language.NATIVE), docs.getLanguages());
+    assertEquals(Set.of(Query.JSON), docs.getQueries());
     assertEquals(Set.of(Engine.NATIVE), docs.getEngines());
     assertEquals(Set.of(QueryType.SCAN), docs.getQueryTypes());
     assertEquals(Set.of(StatementType.SELECT), docs.getStatementTypes());

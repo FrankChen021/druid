@@ -425,10 +425,12 @@ public class MultiStageQueryContextTest
   @Test
   public void testDartSelectDestination()
   {
-    final QueryContext context = QueryContext.of(QueryContextParameters.DART_QUERY_ID, "test")
-                                            .override(
-                                                Map.of(MultiStageQueryContext.CTX_SELECT_DESTINATION, "durablestorage")
-                                            );
+    final QueryContext context = QueryContext.of(
+        QueryContext.builder()
+            .put(QueryContextParameters.DART_QUERY_ID, "test")
+            .putRaw(MultiStageQueryContext.CTX_SELECT_DESTINATION, "durablestorage")
+            .toMap()
+    );
 
     Assertions.assertEquals(
         MSQSelectDestination.TASKREPORT,

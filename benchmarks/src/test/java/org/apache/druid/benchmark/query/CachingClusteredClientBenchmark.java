@@ -382,12 +382,11 @@ public class CachingClusteredClientBenchmark
                        .aggregators(new LongSumAggregatorFactory("sumLongSequential", "sumLongSequential"))
                        .granularity(Granularity.fromString(queryGranularity))
                        .context(
-                           QueryContext.of(
-                               QueryContextParameters.ENABLE_PARALLEL_MERGE,
-                               parallelCombine,
-                               QueryContextParameters.PARALLEL_MERGE_PARALLELISM,
-                               parallelism
-                           ).override(Map.of(BaseQuery.QUERY_ID, "BenchmarkQuery")).asMap()
+                           QueryContext.builder()
+                               .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
+                               .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
+                               .putRaw(BaseQuery.QUERY_ID, "BenchmarkQuery")
+                               .toMap()
                        )
                        .build();
 
@@ -414,12 +413,11 @@ public class CachingClusteredClientBenchmark
         .metric("sumLongSequential")
         .threshold(10_000) // we are primarily measuring 'broker' merge time, so collect a significant number of results
         .context(
-            QueryContext.of(
-                QueryContextParameters.ENABLE_PARALLEL_MERGE,
-                parallelCombine,
-                QueryContextParameters.PARALLEL_MERGE_PARALLELISM,
-                parallelism
-            ).override(Map.of(BaseQuery.QUERY_ID, "BenchmarkQuery")).asMap()
+            QueryContext.builder()
+                .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
+                .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
+                .putRaw(BaseQuery.QUERY_ID, "BenchmarkQuery")
+                .toMap()
         )
         .build();
 
@@ -448,12 +446,11 @@ public class CachingClusteredClientBenchmark
         .setAggregatorSpecs(new LongSumAggregatorFactory("sumLongSequential", "sumLongSequential"))
         .setGranularity(Granularity.fromString(queryGranularity))
         .setContext(
-            QueryContext.of(
-                QueryContextParameters.ENABLE_PARALLEL_MERGE,
-                parallelCombine,
-                QueryContextParameters.PARALLEL_MERGE_PARALLELISM,
-                parallelism
-            ).override(Map.of(BaseQuery.QUERY_ID, "BenchmarkQuery")).asMap()
+            QueryContext.builder()
+                .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
+                .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
+                .putRaw(BaseQuery.QUERY_ID, "BenchmarkQuery")
+                .toMap()
         )
         .build();
 
