@@ -295,26 +295,26 @@ public class MSQTestBase extends BaseCalciteQueryTest
                   .put(MSQTaskQueryMaker.USER_KEY, CalciteTests.REGULAR_USER_AUTH_RESULT.getIdentity())
                   .put(MultiStageQueryContext.WINDOW_FUNCTION_OPERATOR_TRANSFORMATION, true)
                   .put(MultiStageQueryContext.CTX_ROW_BASED_FRAME_TYPE, (int) FrameType.latestRowBased().version())
-                  .build();
+                  .toMap();
 
   public static final Map<String, Object> SUPERUSER_MSQ_CONTEXT =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
                   .put(MSQTaskQueryMaker.USER_KEY, CalciteTests.SUPER_USER_AUTH_RESULT.getIdentity())
-                  .build();
+                  .toMap();
 
   public static final Map<String, Object> DURABLE_STORAGE_MSQ_CONTEXT =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
                   .put(MultiStageQueryContext.CTX_DURABLE_SHUFFLE_STORAGE, true)
-                  .build();
+                  .toMap();
 
 
   public static final Map<String, Object> FAULT_TOLERANCE_MSQ_CONTEXT =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
                   .put(MultiStageQueryContext.CTX_FAULT_TOLERANCE, true)
-                  .build();
+                  .toMap();
 
   public static final Map<String, Object> PARALLEL_MERGE_MSQ_CONTEXT =
       QueryContext.builder()
@@ -323,13 +323,13 @@ public class MSQTestBase extends BaseCalciteQueryTest
                       MultiStageQueryContext.CTX_CLUSTER_STATISTICS_MERGE_MODE,
                       ClusterStatisticsMergeMode.PARALLEL.toString()
                   )
-                  .build();
+                  .toMap();
 
   public static final Map<String, Object> USE_COMBINER_MSQ_CONTEXT =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
                   .put(MultiStageQueryContext.CTX_USE_COMBINER, true)
-                  .build();
+                  .toMap();
 
   public static final Map<String, Object> FAIL_EMPTY_INSERT_ENABLED_MSQ_CONTEXT =
       QueryContext.builder()
@@ -338,13 +338,13 @@ public class MSQTestBase extends BaseCalciteQueryTest
                       MultiStageQueryContext.CTX_FAIL_ON_EMPTY_INSERT,
                       true
                   )
-                  .build();
+                  .toMap();
 
   public static final Map<String, Object>
       ROLLUP_CONTEXT_PARAMS = QueryContext.builder()
                                           .put(MultiStageQueryContext.CTX_FINALIZE_AGGREGATIONS, false)
                                           .put(GroupByQueryConfig.CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING, false)
-                                          .build();
+                                          .toMap();
 
   public static final String FAULT_TOLERANCE = "fault_tolerance";
   public static final String DURABLE_STORAGE = "durable_storage";

@@ -1684,7 +1684,7 @@ public class MSQWindowTest extends MSQTestBase
         QueryContext.builder()
                     .putAll(DEFAULT_MSQ_CONTEXT)
                     .put(MultiStageQueryContext.MAX_ROWS_MATERIALIZED_IN_WINDOW, 200)
-                    .build();
+                    .toMap();
 
     testSelectQuery()
         .setSql(

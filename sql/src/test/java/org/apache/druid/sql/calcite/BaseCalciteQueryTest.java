@@ -178,18 +178,18 @@ public class BaseCalciteQueryTest extends CalciteTestBase
                   .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, "2000-01-01T00:00:00Z")
                   .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
                   .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
-                  .build();
+                  .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_NO_STRINGIFY_ARRAY =
       QueryContext.builder()
                   .putAll(QUERY_CONTEXT_DEFAULT)
                   .put(QueryContextParameters.SQL_STRINGIFY_ARRAYS, false)
-                  .build();
+                  .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_NO_STRINGIFY_ARRAY_USE_EQUALITY =
       QueryContext.builder()
                   .putAll(QUERY_CONTEXT_NO_STRINGIFY_ARRAY)
-                  .build();
+                  .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_DONT_SKIP_EMPTY_BUCKETS = QueryContext.builder()
       .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
@@ -197,7 +197,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
       .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
       .put(TimeseriesQuery.SKIP_EMPTY_BUCKETS, false)
-      .build();
+      .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_DO_SKIP_EMPTY_BUCKETS = QueryContext.builder()
       .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
@@ -205,7 +205,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
       .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
       .put(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true)
-      .build();
+      .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_LEXICOGRAPHIC_TOPN =
       QueryContexts.override(QUERY_CONTEXT_DEFAULT, PlannerConfig.CTX_KEY_USE_LEXICOGRAPHIC_TOPN, true);
@@ -216,7 +216,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
       .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
       .put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, "false")
-      .build();
+      .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_LOS_ANGELES = QueryContext.builder()
       .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
@@ -224,7 +224,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
       .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
       .put(PlannerContext.CTX_SQL_TIME_ZONE, LOS_ANGELES)
-      .build();
+      .toMap();
 
   // Matches QUERY_CONTEXT_DEFAULT
   public static final Map<String, Object> TIMESERIES_CONTEXT_BY_GRAN = QueryContext.builder()
@@ -233,7 +233,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
       .put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
       .put(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true)
-      .build();
+      .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_WITH_SUBQUERY_MEMORY_LIMIT =
       QueryContext.builder()
@@ -241,7 +241,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
                   .put(QueryContextParameters.MAX_SUBQUERY_BYTES, "100000")
                   // Disallows the fallback to row based limiting
                   .put(QueryContextParameters.MAX_SUBQUERY_ROWS.getName(), "1")
-                  .build();
+                  .toMap();
 
   // Add additional context to the given context map for when the
   // timeseries query has timestamp_floor expression on the timestamp dimension
@@ -253,7 +253,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
     return QueryContext.builder()
                        .putAll(context)
                        .put(TimeseriesQuery.CTX_TIMESTAMP_RESULT_FIELD, timestampResultField)
-                       .build();
+                       .toMap();
   }
 
   // Matches QUERY_CONTEXT_LOS_ANGELES
@@ -1312,21 +1312,21 @@ public class BaseCalciteQueryTest extends CalciteTestBase
             .put(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE_VALUE_COLUMN_FILTERS, true)
             .put(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE, true)
             .put(QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER, true)
-            .build()),
+            .toMap()),
         // filter-on-value-column rewrites disabled, everything else enabled
         Named.of("filter-on-value-column_disabled", QueryContext.builder()
             .putAll(QUERY_CONTEXT_DEFAULT)
             .put(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE_VALUE_COLUMN_FILTERS, false)
             .put(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE, true)
             .put(QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER, true)
-            .build()),
+            .toMap()),
         // filter rewrites fully disabled, join-to-filter enabled
         Named.of("join-to-filter", QueryContext.builder()
             .putAll(QUERY_CONTEXT_DEFAULT)
             .put(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE_VALUE_COLUMN_FILTERS, false)
             .put(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE, false)
             .put(QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER, true)
-            .build()),
+            .toMap()),
         // filter rewrites disabled, but value column filters still set to true
         // (it should be ignored and this should
         // behave the same as the previous context)
@@ -1335,21 +1335,21 @@ public class BaseCalciteQueryTest extends CalciteTestBase
             .put(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE_VALUE_COLUMN_FILTERS, true)
             .put(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE, false)
             .put(QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER, true)
-            .build()),
+            .toMap()),
         // filter rewrites fully enabled, join-to-filter disabled
         Named.of("filter-rewrites", QueryContext.builder()
             .putAll(QUERY_CONTEXT_DEFAULT)
             .put(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE_VALUE_COLUMN_FILTERS, true)
             .put(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE, true)
             .put(QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER, false)
-            .build()),
+            .toMap()),
         // all rewrites disabled
         Named.of("all_disabled", QueryContext.builder()
             .putAll(QUERY_CONTEXT_DEFAULT)
             .put(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE_VALUE_COLUMN_FILTERS, false)
             .put(QueryContextParameters.ENABLE_JOIN_FILTER_REWRITE, false)
             .put(QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER, false)
-            .build()),
+            .toMap()),
     };
   }
 

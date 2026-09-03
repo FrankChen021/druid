@@ -92,7 +92,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
   protected static final Map<String, Object> DEFAULT_CONTEXT =
       QueryContext.builder()
                   .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
-                  .build();
+                  .toMap();
 
   public static final Map<String, Object> PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT = ImmutableMap.of(
       DruidSqlInsert.SQL_INSERT_SEGMENT_GRANULARITY,

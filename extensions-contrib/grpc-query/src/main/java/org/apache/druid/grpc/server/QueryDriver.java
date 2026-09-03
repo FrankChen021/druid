@@ -339,7 +339,7 @@ public class QueryDriver
         builder.put(entry.getKey(), entry.getValue());
       }
     }
-    return builder.build();
+    return builder.toMap();
   }
 
   /**

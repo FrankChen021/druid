@@ -98,7 +98,7 @@ public class MSQCalciteSelectJoinQueryTest
       Map<String, Object> defaultCtx = QueryContext.builder()
           .putAll(BaseCalciteQueryTest.QUERY_CONTEXT_DEFAULT)
           .put(PlannerContext.CTX_SQL_JOIN_ALGORITHM, joinAlgorithm().toString())
-          .build();
+          .toMap();
       return new QueryTestBuilder(new CalciteTestConfig(defaultCtx, true))
           .addCustomRunner(
               new ExtractResultsFactory(

@@ -196,7 +196,7 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
         false,
         QueryContext.builder()
                     .putAll(defaultAsyncContext())
-                    .build(),
+                    .toMap(),
         null
     ), SqlStatementResourceTest.makeOkRequest());
     Assertions.assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
@@ -226,7 +226,7 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
         false,
         QueryContext.builder()
                     .putAll(defaultAsyncContext())
-                    .build(),
+                    .toMap(),
         null
     ), SqlStatementResourceTest.makeOkRequest());
     Assertions.assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
@@ -257,7 +257,7 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
         QueryContext.builder()
                     .putAll(defaultAsyncContext())
                     .put(MultiStageQueryContext.CTX_FAIL_ON_EMPTY_INSERT, true)
-                    .build(),
+                    .toMap(),
         null
     ), SqlStatementResourceTest.makeOkRequest());
     Assertions.assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());

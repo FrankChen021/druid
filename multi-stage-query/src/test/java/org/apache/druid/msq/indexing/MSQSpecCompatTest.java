@@ -71,7 +71,7 @@ public class MSQSpecCompatTest
     Map<String, Object> context = QueryContext.builder()
         .put("someThing", 111)
         .put("sqlInsertSegmentGranularity", "\"DAY\"")
-        .build();
+        .toMap();
     MSQSpec msqSpec = LegacyMSQSpec.builder()
         .query(
             Druids.newScanQueryBuilder()
@@ -104,7 +104,7 @@ public class MSQSpecCompatTest
     Map<String, Object> context = QueryContext.builder()
         .put("someThing", 222)
         .put("sqlInsertSegmentGranularity", "\"DAY\"")
-        .build();
+        .toMap();
     MSQSpec msqSpec = LegacyMSQSpec.builder()
         .query(
             Druids.newScanQueryBuilder()
@@ -150,7 +150,7 @@ public class MSQSpecCompatTest
                     .put("sqlInsertSegmentGranularity", "\"DAY\"")
                     .put("sqlQueryId", "test-query")
                     .put("sqlStringifyArrays", false)
-                    .build()
+                    .toMap()
             )
             .setLimitSpec(
                 DefaultLimitSpec.builder()

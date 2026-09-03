@@ -55,7 +55,7 @@ public class DecoupledDartExtension implements BeforeEachCallback
       .put(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE, QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED)
       .put(QueryContextParameters.PREPLANNED, true)
       .put(QueryContextParameters.DEBUG, true)
-      .build();
+      .toMap();
 
   public QueryTestBuilder testBuilder()
   {

@@ -1774,7 +1774,7 @@ public class ClientQuerySegmentWalkerTest
                     .put(QueryContextParameters.QUERY_RESOURCE_ID, "dummy")
                     .put(ResultSerializationMode.CTX_SERIALIZATION_PARAMETER, "blast");
 
-      modifiedQuery = query.withOverriddenContext(contextBuilder.build());
+      modifiedQuery = query.withOverriddenContext(contextBuilder.toMap());
 
       if (modifiedQuery.getDataSource() instanceof FrameBasedInlineDataSource) {
         // Do round-trip serialization in order to replace FrameBasedInlineDataSource with InlineDataSource, so

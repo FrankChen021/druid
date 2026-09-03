@@ -97,7 +97,7 @@ public class CalciteArraysQueryTest extends BaseCalciteQueryTest
       QueryContext.builder()
                   .putAll(QUERY_CONTEXT_DEFAULT)
                   .put(QueryContextParameters.SQL_STRINGIFY_ARRAYS, false)
-                  .build();
+                  .toMap();
 
   public static void assertResultsDeepEquals(String sql, List<Object[]> expected, List<Object[]> results)
   {

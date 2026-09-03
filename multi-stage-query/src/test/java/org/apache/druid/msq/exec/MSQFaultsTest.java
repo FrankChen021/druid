@@ -293,7 +293,7 @@ public class MSQFaultsTest extends MSQTestBase
     Map<String, Object> context = QueryContext.builder()
                                               .putAll(DEFAULT_MSQ_CONTEXT)
                                               .put(MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 1)
-                                              .build();
+                                              .toMap();
 
 
     RowSignature rowSignature = RowSignature.builder()
@@ -333,7 +333,7 @@ public class MSQFaultsTest extends MSQTestBase
                                               .putAll(DEFAULT_MSQ_CONTEXT)
                                               .put("maxNumSegments", maxNumSegments)
                                               .put("rowsPerSegment", rowsPerSegment)
-                                              .build();
+                                              .toMap();
 
 
     final File file = createNdJsonFile(newTempFile("ndjson30k"), numRowsInInputFile, 1);
@@ -450,7 +450,7 @@ public class MSQFaultsTest extends MSQTestBase
         QueryContext.builder()
                     .putAll(DEFAULT_MSQ_CONTEXT)
                     .put(MultiStageQueryContext.CTX_MAX_CLUSTERED_BY_COLUMNS, maxClusteredByColumns)
-                    .build();
+                    .toMap();
 
     testIngestQuery()
         .setSql(StringUtils.format(
@@ -491,7 +491,7 @@ public class MSQFaultsTest extends MSQTestBase
         QueryContext.builder()
                     .put(MultiStageQueryContext.CTX_MAX_NUM_TASKS, 8)
                     .put(MultiStageQueryContext.CTX_MAX_INPUT_FILES_PER_WORKER, maxInputFilesPerWorker)
-                    .build();
+                    .toMap();
 
     testIngestQuery()
         .setSql(StringUtils.format(
@@ -523,7 +523,7 @@ public class MSQFaultsTest extends MSQTestBase
                     .putAll(DEFAULT_MSQ_CONTEXT)
                     .put(MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 1)
                     .put(MultiStageQueryContext.CTX_MAX_PARTITIONS, maxPartitions)
-                    .build();
+                    .toMap();
 
     final RowSignature rowSignature = RowSignature.builder().addTimeColumn().build();
 
@@ -709,7 +709,7 @@ public class MSQFaultsTest extends MSQTestBase
     final Map<String, Object> context = QueryContext.builder()
                                                     .putAll(DEFAULT_MSQ_CONTEXT)
                                                     .put("vectorize", "false")
-                                                    .build();
+                                                    .toMap();
 
     testSelectQuery()
         .setSql("SELECT BITWISE_COMPLEMENT(m1 * 1e19) FROM foo")

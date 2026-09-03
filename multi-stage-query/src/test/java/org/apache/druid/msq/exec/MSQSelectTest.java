@@ -123,7 +123,7 @@ public class MSQSelectTest extends MSQTestBase
                       MultiStageQueryContext.CTX_SELECT_DESTINATION,
                       StringUtils.toLowerCase(MSQSelectDestination.DURABLESTORAGE.getName())
                   )
-                  .build();
+                  .toMap();
 
 
   public static final Map<String, Object> QUERY_RESULTS_WITH_DEFAULT_CONTEXT =
@@ -133,7 +133,7 @@ public class MSQSelectTest extends MSQTestBase
                       MultiStageQueryContext.CTX_SELECT_DESTINATION,
                       StringUtils.toLowerCase(MSQSelectDestination.DURABLESTORAGE.getName())
                   )
-                  .build();
+                  .toMap();
 
   public static Collection<Object[]> data()
   {
@@ -1074,7 +1074,7 @@ public class MSQSelectTest extends MSQTestBase
         QueryContext.builder()
                     .putAll(context)
                     .put(PlannerContext.CTX_SQL_JOIN_ALGORITHM, joinAlgorithm.toString())
-                    .build();
+                    .toMap();
 
     final RowSignature resultSignature = RowSignature.builder()
                                                      .add("dim2", ColumnType.STRING)
@@ -2779,7 +2779,7 @@ public class MSQSelectTest extends MSQTestBase
     Map<String, Object> timeoutContext = QueryContext.builder()
                                                               .putAll(context)
                                                               .put(QueryContextParameters.TIMEOUT, 1L) // Trigger timeout
-                                                              .build();
+                                                              .toMap();
 
     testSelectQuery()
         .setSql("select m1,dim2 from foo2")
@@ -2939,7 +2939,7 @@ public class MSQSelectTest extends MSQTestBase
     Map<String, Object> localContext = QueryContext.builder()
                                                    .putAll(context)
                                                    .put("groupByEnableMultiValueUnnesting", value)
-                                                   .build();
+                                                   .toMap();
     return localContext;
   }
 

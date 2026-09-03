@@ -301,7 +301,7 @@ public class DirectDruidClientTest
         QueryContext.builder()
             .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, 100L)
             .put(DirectDruidClient.QUERY_FAIL_TIME, System.currentTimeMillis() + 100)
-            .build()
+            .toMap()
     );
 
     QueryTimeoutException actualException = Assertions.assertThrows(
@@ -389,7 +389,7 @@ public class DirectDruidClientTest
         QueryContext.builder()
             .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, 100L)
             .put(DirectDruidClient.QUERY_FAIL_TIME, Long.MAX_VALUE)
-            .build()
+            .toMap()
     );
 
     ResourceLimitExceededException actualException = Assertions.assertThrows(

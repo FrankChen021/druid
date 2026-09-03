@@ -69,7 +69,7 @@ public class MSQLoadedSegmentTests extends MSQTestBase
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
                   .put(MultiStageQueryContext.CTX_INCLUDE_SEGMENT_SOURCE, SegmentSource.REALTIME.name())
-                  .build();
+                  .toMap();
   public static final DataSegment LOADED_SEGMENT_1 =
       DataSegment.builder()
                  .dataSource(CalciteTests.DATASOURCE1)

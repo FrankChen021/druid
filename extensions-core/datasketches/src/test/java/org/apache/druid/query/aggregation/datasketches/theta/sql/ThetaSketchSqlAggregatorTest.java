@@ -598,7 +598,7 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
-                    .build();
+                    .toMap();
 
     final List<Object[]> expectedResults = ImmutableList.of(
         new Object[]{
@@ -808,7 +808,7 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
-                    .build();
+                    .toMap();
 
     final List<Object[]> expectedResults = ImmutableList.of(
         new Object[]{
@@ -995,7 +995,7 @@ public class ThetaSketchSqlAggregatorTest extends BaseCalciteQueryTest
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
-                    .build();
+                    .toMap();
 
     testQuery(
         "SELECT\n"

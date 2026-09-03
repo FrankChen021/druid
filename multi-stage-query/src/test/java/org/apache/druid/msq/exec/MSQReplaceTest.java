@@ -103,7 +103,7 @@ public class MSQReplaceTest extends MSQTestBase
                   .putAll(DEFAULT_MSQ_CONTEXT)
                   .put(Tasks.TASK_LOCK_TYPE, StringUtils.toLowerCase(TaskLockType.REPLACE.name()))
                   .put(Tasks.STORE_COMPACTION_STATE_KEY, true)
-                  .build();
+                  .toMap();
 
   public static Collection<Object[]> data()
   {
@@ -1418,7 +1418,7 @@ public class MSQReplaceTest extends MSQTestBase
                                                     .putAll(DEFAULT_MSQ_CONTEXT)
                                                     .put("maxNumSegments", 1)
                                                     .put("rowsPerSegment", 1)
-                                                    .build();
+                                                    .toMap();
 
     testIngestQuery().setSql("REPLACE INTO foo"
                              + " OVERWRITE ALL "
@@ -1446,7 +1446,7 @@ public class MSQReplaceTest extends MSQTestBase
     final Map<String, Object> context = QueryContext.builder()
                                                     .putAll(DEFAULT_MSQ_CONTEXT)
                                                     .put("maxNumSegments", 1)
-                                                    .build();
+                                                    .toMap();
 
     final RowSignature expectedRowSignature = RowSignature.builder()
                                                           .add("__time", ColumnType.LONG)
@@ -1576,7 +1576,7 @@ public class MSQReplaceTest extends MSQTestBase
     Map<String, Object> queryContext = QueryContext.builder()
                                                    .putAll(context)
                                                    .put(MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 2)
-                                                   .build();
+                                                   .toMap();
 
     List<Object[]> expectedRows = ImmutableList.of(
         new Object[]{946684800000L, ""},
@@ -2750,7 +2750,7 @@ public class MSQReplaceTest extends MSQTestBase
     Map<String, Object> context = QueryContext.builder()
                                               .putAll(DEFAULT_MSQ_CONTEXT)
                                               .put(MultiStageQueryContext.CTX_INCLUDE_SEGMENT_SOURCE, SegmentSource.REALTIME.name())
-                                              .build();
+                                              .toMap();
 
     testIngestQuery().setSql(
                          "REPLACE INTO foo"

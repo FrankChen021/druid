@@ -41,7 +41,7 @@ class QueryContextBuilderTest
         .put("legacy", 1)
         .put(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 10)
         .put(QueryContextParameters.USE_RESULT_LEVEL_CACHE, false)
-        .build();
+        .toMap();
 
     assertEquals(
         ImmutableMap.of(
@@ -59,7 +59,7 @@ class QueryContextBuilderTest
     final Map<String, Object> context = QueryContext.builder()
         .put(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 10)
         .put("maxRowsQueuedForOrdering", 20)
-        .build();
+        .toMap();
 
     assertEquals(20, context.get(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING.getName()));
   }
@@ -70,7 +70,7 @@ class QueryContextBuilderTest
     final Map<String, Object> context = QueryContext.builder()
         .putAll(ImmutableMap.of("legacy", 1))
         .put("legacy", 2)
-        .build();
+        .toMap();
 
     assertEquals(2, context.get("legacy"));
   }
@@ -89,18 +89,18 @@ class QueryContextBuilderTest
   {
     final Map<String, Object> context = QueryContext.builder()
         .put(QueryContextParameters.USE_RESULT_LEVEL_CACHE, null)
-        .build();
+        .toMap();
 
     assertTrue(context.containsKey(QueryContextParameters.USE_RESULT_LEVEL_CACHE.getName()));
     assertNull(context.get(QueryContextParameters.USE_RESULT_LEVEL_CACHE.getName()));
   }
 
   @Test
-  void testBuildCanBeWrappedAsContext()
+  void testToMapCanBeWrappedAsContext()
   {
     final QueryContext context = QueryContext.of(QueryContext.builder()
         .put(QueryContextParameters.USE_RESULT_LEVEL_CACHE, false)
-        .build());
+        .toMap());
 
     assertFalse(context.isUseResultLevelCache());
   }

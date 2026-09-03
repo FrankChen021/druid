@@ -48,7 +48,7 @@ public class DecoupledDartCalciteArraysQueryTest extends CalciteArraysQueryTest
                 .put(QueryContextParameters.PREPLANNED, true)
                 .put(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE, QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED)
                 .put(QueryContextParameters.DEBUG, true)
-                .build()
+                .toMap()
         );
   }
 

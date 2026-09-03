@@ -116,7 +116,7 @@ public class QueryContext
       @Nullable final T value
   )
   {
-    return builder().put(parameter, value).build();
+    return builder().put(parameter, value).toMap();
   }
 
   /**
@@ -145,7 +145,7 @@ public class QueryContext
     return builder()
         .put(parameter1, value1)
         .put(parameter2, value2)
-        .build();
+        .toMap();
   }
 
   /**
@@ -179,7 +179,7 @@ public class QueryContext
         .put(parameter1, value1)
         .put(parameter2, value2)
         .put(parameter3, value3)
-        .build();
+        .toMap();
   }
 
   /**
@@ -227,7 +227,7 @@ public class QueryContext
         .put(parameter2, value2)
         .put(parameter3, value3)
         .put(parameter4, value4)
-        .build();
+        .toMap();
   }
 
   public boolean isEmpty()

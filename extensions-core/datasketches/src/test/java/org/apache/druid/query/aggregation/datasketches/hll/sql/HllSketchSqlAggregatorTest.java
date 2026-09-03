@@ -699,7 +699,7 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
-                    .build();
+                    .toMap();
 
     final String sketchSummary = "### HLL SKETCH SUMMARY: \n"
                                  + "  Log Config K   : 12\n"
@@ -970,7 +970,7 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
-                    .build();
+                    .toMap();
 
     testQuery(
         "SELECT\n"

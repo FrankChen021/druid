@@ -299,7 +299,7 @@ public class SqlExpressionBenchmark extends SqlBaseQueryBenchmark
         .put(QueryContextParameters.VECTORIZE, vectorizeContext)
         .put(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS, vectorizeContext)
         .put(GroupByQueryConfig.CTX_KEY_DEFER_EXPRESSION_DIMENSIONS, deferExpressionDimensions)
-        .build();
+        .toMap();
     return context;
   }
 }

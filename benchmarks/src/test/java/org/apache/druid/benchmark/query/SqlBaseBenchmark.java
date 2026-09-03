@@ -348,7 +348,7 @@ public class SqlBaseBenchmark
                         "useNativeQueryExplain",
                         true
                     )
-                    .build()
+                    .toMap()
     )) {
       final PlannerResult plannerResult = planner.plan();
       final Sequence<Object[]> resultSequence = plannerResult.run().getResults();

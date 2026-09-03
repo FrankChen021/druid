@@ -104,7 +104,7 @@ public class GroupByQueryConfigTest
                                         GroupByQueryConfig.CTX_KEY_DEFER_EXPRESSION_DIMENSIONS,
                                         DeferExpressionDimensions.ALWAYS.toString()
                                     )
-                                    .build()
+                                    .toMap()
                     )
                     .build()
     );
@@ -186,7 +186,7 @@ public class GroupByQueryConfigTest
                     .setDataSource("test")
                     .setInterval(Intervals.of("2000/P1D"))
                     .setGranularity(Granularities.ALL)
-                    .setContext(QueryContext.builder().build())
+                    .setContext(QueryContext.builder().toMap())
                     .build()
     );
     Assertions.assertEquals(5_000_000_000L, config2.getMaxOnDiskStorage().getBytes());
@@ -207,7 +207,7 @@ public class GroupByQueryConfigTest
                     .setContext(
                         QueryContext.builder()
                             .put("maxOnDiskStorage", "1G")
-                            .build()
+                            .toMap()
                     )
                     .build()
     );

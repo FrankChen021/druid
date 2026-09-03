@@ -422,7 +422,7 @@ public class MSQWarningsTest extends MSQTestBase
         QueryContext.builder()
                     .put(MSQWarnings.CTX_MAX_PARSE_EXCEPTIONS_ALLOWED, -1)
                     .put(MultiStageQueryContext.CTX_MSQ_MODE, "strict")
-                    .build();
+                    .toMap();
 
     testSelectQuery().setSql("SELECT\n"
                              + "  floor(TIME_PARSE(\"timestamp\") to day) AS __time,\n"

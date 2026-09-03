@@ -405,7 +405,7 @@ public class QueryContextTest
                     .put("m4", "500MiB")
                     .put("m5", "500000000")
                     .put("m6", "abc")
-                    .build()
+                    .toMap()
     );
     assertEquals(500_000_000, context.getHumanReadableBytes("m1", HumanReadableBytes.ZERO).getBytes());
     assertEquals(500_000_000, context.getHumanReadableBytes("m2", HumanReadableBytes.ZERO).getBytes());

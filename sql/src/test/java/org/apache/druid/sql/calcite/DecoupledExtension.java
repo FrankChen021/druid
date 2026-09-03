@@ -58,7 +58,7 @@ public class DecoupledExtension implements BeforeEachCallback
       .putAll(BaseCalciteQueryTest.QUERY_CONTEXT_DEFAULT)
       .put(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE, QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED)
       .put(QueryContextParameters.DEBUG, true)
-      .build();
+      .toMap();
 
   public QueryTestBuilder testBuilder()
   {

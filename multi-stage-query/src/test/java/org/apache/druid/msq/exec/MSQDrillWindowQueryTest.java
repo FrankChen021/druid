@@ -66,7 +66,7 @@ public class MSQDrillWindowQueryTest extends DrillWindowQueryTest
   @Override
   protected Map<String, Object> getQueryContext()
   {
-    return queryContextBuilder.build();
+    return queryContextBuilder.toMap();
   }
 
   @Override

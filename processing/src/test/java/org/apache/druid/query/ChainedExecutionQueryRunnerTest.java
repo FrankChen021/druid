@@ -276,7 +276,7 @@ public class ChainedExecutionQueryRunnerTest
                                       QueryContext.builder()
                                           .put(QueryContextParameters.TIMEOUT, 100L)
                                           .put("queryId", "test")
-                                          .build()
+                                          .toMap()
                                   )
                                   .build();
     final Sequence seq = chainedRunner.run(QueryPlus.wrap(query));
@@ -350,7 +350,7 @@ public class ChainedExecutionQueryRunnerTest
             QueryContext.builder()
                 .put(QueryContextParameters.TIMEOUT, 100L)
                 .put("queryId", "test")
-                .build()
+                .toMap()
         )
         .build();
     List<QueryRunner<Result<TimeseriesResultValue>>> runners = Arrays.asList(

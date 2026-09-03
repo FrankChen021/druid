@@ -129,7 +129,7 @@ public class IndexerDataServerQueryHandlerTest
         .context(QueryContext.builder()
             .put(QueryContextParameters.NUM_RETRIES_ON_MISSING_SEGMENTS, 1)
             .put(MultiStageQueryContext.CTX_INCLUDE_SEGMENT_SOURCE, SegmentSource.REALTIME.toString())
-            .build())
+            .toMap())
         .build();
     target = spy(
         new IndexerDataServerQueryHandler(

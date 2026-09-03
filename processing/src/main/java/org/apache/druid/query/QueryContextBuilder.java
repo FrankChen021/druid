@@ -62,9 +62,9 @@ public final class QueryContextBuilder
   }
 
   /**
-   * Builds an immutable context map snapshot.
+   * Converts the current values to an immutable context map snapshot.
    */
-  public Map<String, Object> build()
+  public Map<String, Object> toMap()
   {
     return Collections.unmodifiableMap(new LinkedHashMap<>(values));
   }

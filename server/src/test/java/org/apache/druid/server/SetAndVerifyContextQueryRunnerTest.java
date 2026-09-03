@@ -153,7 +153,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .context(QueryContext.builder()
             .put(QueryContextParameters.TIMEOUT, 300_000L)
             .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
-            .build())
+            .toMap())
         .build();
 
     ServerConfig defaultConfig = new ServerConfig();
@@ -180,7 +180,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .context(QueryContext.builder()
             .put(QueryContextParameters.TIMEOUT, 1L)
             .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
-            .build())
+            .toMap())
         .build();
 
     ServerConfig defaultConfig = new ServerConfig();
@@ -209,7 +209,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .context(QueryContext.builder()
             .put(QueryContextParameters.TIMEOUT, Long.MAX_VALUE)
             .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
-            .build())
+            .toMap())
         .build();
 
     // Explicit max so the test does not depend on ServerConfig default values.

@@ -71,7 +71,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
                   .putAll(QUERY_CONTEXT_DEFAULT)
                   .put(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true)
                   .put(ReverseLookupRule.CTX_MAX_OPTIMIZE_COUNT, 1)
-                  .build();
+                  .toMap();
 
   /**
    * For tests that use the lookup extraction function rather than expressions.
@@ -80,7 +80,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
       QueryContext.builder()
                   .putAll(QUERY_CONTEXT)
                   .put(PlannerContext.CTX_SQL_USE_EXTRACTION_FNS, true)
-                  .build();
+                  .toMap();
 
   private static final String LOOKUP_EXPRESSION = "lookup(\"dim1\",'lookyloo')";
   private static final ExtractionFn EXTRACTION_FN =
@@ -216,7 +216,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true)
                     .put(ReverseLookupRule.CTX_MAX_OPTIMIZE_COUNT, 2)
-                    .build();
+                    .toMap();
 
     testQuery(
         buildFilterTestSql("CONCAT(LOOKUP(dim1, 'lookyloo'), ' (', dim1, ')') IN ('xa (a)', 'xabc (abc)')"),
@@ -255,7 +255,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true)
                     .put(ReverseLookupRule.CTX_MAX_OPTIMIZE_COUNT, 2)
-                    .build();
+                    .toMap();
 
     testQuery(
         buildFilterTestSql(
@@ -397,7 +397,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true)
                     .put(QueryContextParameters.IN_FUNCTION_THRESHOLD.getName(), 1)
-                    .build();
+                    .toMap();
 
     testQuery(
         buildFilterTestSql("LOOKUP(dim1, 'lookyloo') IN ('xabc', 'x6', 'nonexistent')"),
@@ -417,7 +417,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true)
                     .put(ReverseLookupRule.CTX_THRESHOLD, 1)
-                    .build();
+                    .toMap();
 
     testQuery(
         buildFilterTestSql("LOOKUP(dim1, 'lookyloo') IN ('xabc', 'x6', 'nonexistent')"),
@@ -440,7 +440,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true)
                     .put(QueryContextParameters.IN_SUBQUERY_THRESHOLD.getName(), 1)
-                    .build();
+                    .toMap();
 
     testQuery(
         buildFilterTestSql("LOOKUP(dim1, 'lookyloo') = 'xabc' OR LOOKUP(dim1, 'lookyloo') = 'x6'"),
@@ -840,7 +840,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true)
                     .put(ReverseLookupRule.CTX_MAX_OPTIMIZE_COUNT, 3)
-                    .build();
+                    .toMap();
 
     testQuery(
         buildFilterTestSql("LOOKUP(dim1, 'lookyloo') IS DISTINCT FROM 'xabc' AND "

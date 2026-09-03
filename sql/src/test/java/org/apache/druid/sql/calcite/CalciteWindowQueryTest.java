@@ -81,7 +81,7 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
                   .putAll(DEFAULT_QUERY_CONTEXT)
                   .put(QueryContextParameters.MAX_SUBQUERY_BYTES, "100000")
                   .put(QueryContextParameters.MAX_SUBQUERY_ROWS.getName(), "0")
-                  .build();
+                  .toMap();
 
   public static Object[] parametersForWindowQueryTest() throws Exception
   {
@@ -227,7 +227,7 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
               QueryContext.builder()
                   .putAll(DEFAULT_QUERY_CONTEXT)
                   .putAll(testCase.getQueryContext())
-                  .build()
+                  .toMap()
           )
           .addCustomVerification(QueryVerification.ofResults(testCase))
           .run();
@@ -251,7 +251,7 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
               QueryContext.builder()
                           .putAll(DEFAULT_QUERY_CONTEXT_WITH_SUBQUERY_BYTES)
                           .putAll(testCase.getQueryContext())
-                          .build()
+                          .toMap()
           )
           .addCustomVerification(QueryVerification.ofResults(testCase))
           .run();
@@ -319,7 +319,7 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
                     .put(QueryContextParameters.DEBUG, true)
                     .put(QueryContextParameters.SQL_STRINGIFY_ARRAYS, false)
                     .put(PlannerContext.CTX_ENABLE_RAC_TRANSFER_OVER_WIRE, true)
-                    .build()
+                    .toMap()
             )
             .run()
     );
