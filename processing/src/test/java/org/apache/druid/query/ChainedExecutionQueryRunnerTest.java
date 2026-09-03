@@ -272,10 +272,11 @@ public class ChainedExecutionQueryRunnerTest
                                   .dataSource("test")
                                   .intervals("2014/2015")
                                   .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
-                                  .context(new QueryContextBuilder()
-                                      .put(QueryContextParameters.TIMEOUT, 100L)
-                                      .put("queryId", "test")
-                                      .toMap())
+                                  .context(
+                                      QueryContext.of(QueryContextParameters.TIMEOUT, 100L)
+                                                 .put("queryId", "test")
+                                                 .toMap()
+                                  )
                                   .build();
     final Sequence seq = chainedRunner.run(QueryPlus.wrap(query));
 
@@ -345,10 +346,9 @@ public class ChainedExecutionQueryRunnerTest
         .intervals("2014/2015")
         .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
         .context(
-            new QueryContextBuilder()
-                .put(QueryContextParameters.TIMEOUT, 100L)
-                .put("queryId", "test")
-                .toMap()
+            QueryContext.of(QueryContextParameters.TIMEOUT, 100L)
+                       .put("queryId", "test")
+                       .toMap()
         )
         .build();
     List<QueryRunner<Result<TimeseriesResultValue>>> runners = Arrays.asList(
