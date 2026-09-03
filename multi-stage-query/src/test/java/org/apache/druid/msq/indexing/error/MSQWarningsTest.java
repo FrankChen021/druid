@@ -30,6 +30,7 @@ import org.apache.druid.msq.indexing.MSQTuningConfig;
 import org.apache.druid.msq.test.MSQTestBase;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
@@ -418,7 +419,7 @@ public class MSQWarningsTest extends MSQTestBase
   public void testSuccessWhenModeIsOverridden()
   {
     final Map<String, Object> userContext =
-        ImmutableMap.<String, Object>builder()
+        QueryContext.builder()
                     .put(MSQWarnings.CTX_MAX_PARSE_EXCEPTIONS_ALLOWED, -1)
                     .put(MultiStageQueryContext.CTX_MSQ_MODE, "strict")
                     .build();

@@ -23,7 +23,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.data.input.ListBasedInputRow;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
@@ -33,6 +32,7 @@ import org.apache.druid.query.DataSource;
 import org.apache.druid.query.DirectQueryProcessingPool;
 import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.QueryRunner;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.UnnestDataSource;
@@ -1387,7 +1387,7 @@ public class UnnestGroupByQueryRunnerTest extends InitializedNullHandlingTest
 
   private Map<String, Object> makeContext()
   {
-    return ImmutableMap.<String, Object>builder()
+    return QueryContext.builder()
                        .put(QueryContextParameters.VECTORIZE.getName(), vectorize ? "force" : "false")
                        .put(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.getName(), vectorize ? "force" : "false")
                        .put("vectorSize", 16) // Small vector size to ensure we use more than one.

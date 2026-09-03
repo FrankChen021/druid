@@ -20,7 +20,6 @@
 package org.apache.druid.msq.exec;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.remote.TypedValue;
@@ -55,6 +54,7 @@ import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.JoinAlgorithm;
 import org.apache.druid.query.LookupDataSource;
 import org.apache.druid.query.OrderBy;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.RestrictedDataSource;
 import org.apache.druid.query.TableDataSource;
@@ -116,7 +116,7 @@ public class MSQSelectTest extends MSQTestBase
   public static final String QUERY_RESULTS_WITH_DEFAULT = "query_results_with_default_storage";
 
   public static final Map<String, Object> QUERY_RESULTS_WITH_DURABLE_STORAGE_CONTEXT =
-      ImmutableMap.<String, Object>builder()
+      QueryContext.builder()
                   .putAll(DURABLE_STORAGE_MSQ_CONTEXT)
                   .put(MultiStageQueryContext.CTX_ROWS_PER_PAGE, 2)
                   .put(
@@ -127,7 +127,7 @@ public class MSQSelectTest extends MSQTestBase
 
 
   public static final Map<String, Object> QUERY_RESULTS_WITH_DEFAULT_CONTEXT =
-      ImmutableMap.<String, Object>builder()
+      QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
                   .put(
                       MultiStageQueryContext.CTX_SELECT_DESTINATION,
@@ -1071,7 +1071,7 @@ public class MSQSelectTest extends MSQTestBase
   private void testJoin(String contextName, Map<String, Object> context, final JoinAlgorithm joinAlgorithm)
   {
     final Map<String, Object> queryContext =
-        ImmutableMap.<String, Object>builder()
+        QueryContext.builder()
                     .putAll(context)
                     .put(PlannerContext.CTX_SQL_JOIN_ALGORITHM, joinAlgorithm.toString())
                     .build();
@@ -2776,9 +2776,9 @@ public class MSQSelectTest extends MSQTestBase
                                                .add("dim2", ColumnType.STRING)
                                                .build();
 
-    ImmutableMap<String, Object> timeoutContext = ImmutableMap.<String, Object>builder()
+    Map<String, Object> timeoutContext = QueryContext.builder()
                                                               .putAll(context)
-                                                              .put(QueryContextParameters.TIMEOUT.getName(), 1) // Trigger timeout
+                                                              .put(QueryContextParameters.TIMEOUT, 1L) // Trigger timeout
                                                               .build();
 
     testSelectQuery()
@@ -2936,7 +2936,7 @@ public class MSQSelectTest extends MSQTestBase
 
   private static Map<String, Object> enableMultiValueUnnesting(Map<String, Object> context, boolean value)
   {
-    Map<String, Object> localContext = ImmutableMap.<String, Object>builder()
+    Map<String, Object> localContext = QueryContext.builder()
                                                    .putAll(context)
                                                    .put("groupByEnableMultiValueUnnesting", value)
                                                    .build();

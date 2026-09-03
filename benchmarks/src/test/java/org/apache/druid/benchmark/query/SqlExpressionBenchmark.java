@@ -21,7 +21,7 @@ package org.apache.druid.benchmark.query;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.druid.math.expr.ExpressionProcessing;
-import org.apache.druid.query.QueryContextBuilder;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.openjdk.jmh.annotations.Fork;
@@ -295,7 +295,7 @@ public class SqlExpressionBenchmark extends SqlBaseQueryBenchmark
   @Override
   protected Map<String, Object> getContext()
   {
-    final Map<String, Object> context = new QueryContextBuilder()
+    final Map<String, Object> context = QueryContext.builder()
         .put(QueryContextParameters.VECTORIZE, vectorizeContext)
         .put(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS, vectorizeContext)
         .put(GroupByQueryConfig.CTX_KEY_DEFER_EXPRESSION_DIMENSIONS, deferExpressionDimensions)

@@ -19,7 +19,7 @@
 
 package org.apache.druid.msq.test;
 
-import com.google.common.collect.ImmutableMap;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.JoinAlgorithm;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
@@ -80,15 +80,15 @@ public abstract class DecoupledDartCalciteJoinQueryTest extends CalciteJoinQuery
   {
     return decoupledExtension.testBuilder()
         .queryContext(
-            ImmutableMap.<String, Object>builder()
-                .put(QueryContextParameters.PREPLANNED.getName(), true)
+            QueryContext.builder()
+                .put(QueryContextParameters.PREPLANNED, true)
                 .put(
-                    QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE.getName(),
+                    QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE,
                     QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
                 )
                 .put(QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER.getName(), decoupledExtension)
                 .put(PlannerContext.CTX_SQL_JOIN_ALGORITHM, joinAlgorithm().toString())
-                .put(QueryContextParameters.DEBUG.getName(), true)
+                .put(QueryContextParameters.DEBUG, true)
                 .build()
         );
   }

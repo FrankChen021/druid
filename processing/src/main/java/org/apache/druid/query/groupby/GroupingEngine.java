@@ -224,7 +224,7 @@ public class GroupingEngine
   public GroupByQuery prepareGroupByQuery(GroupByQuery query)
   {
     // Set up downstream context.
-    final QueryContextBuilder context = new QueryContextBuilder();
+    final QueryContextBuilder context = QueryContext.builder();
     context.put(QueryContextParameters.FINALIZE, false);
     context.put(CTX_KEY_OUTERMOST, false);
 

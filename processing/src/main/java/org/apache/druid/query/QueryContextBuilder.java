@@ -45,6 +45,15 @@ public final class QueryContextBuilder
   }
 
   /**
+   * Adds all values from an existing query context map.
+   */
+  public QueryContextBuilder putAll(final Map<? extends String, ?> values)
+  {
+    values.forEach(this::put);
+    return this;
+  }
+
+  /**
    * Adds a context value using a typed parameter descriptor.
    */
   public <V> QueryContextBuilder put(final QueryContextParameter<V> parameter, @Nullable final V value)

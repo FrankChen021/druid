@@ -84,6 +84,14 @@ public class QueryContext
     return EMPTY;
   }
 
+  /**
+   * Creates a builder for a query context map.
+   */
+  public static QueryContextBuilder builder()
+  {
+    return new QueryContextBuilder();
+  }
+
   public static QueryContext of(Map<String, Object> context)
   {
     return new QueryContext(context);
@@ -108,7 +116,7 @@ public class QueryContext
       @Nullable final T value
   )
   {
-    return new QueryContextBuilder().put(parameter, value).build();
+    return builder().put(parameter, value).build();
   }
 
   /**
@@ -134,7 +142,7 @@ public class QueryContext
       @Nullable final T2 value2
   )
   {
-    return new QueryContextBuilder()
+    return builder()
         .put(parameter1, value1)
         .put(parameter2, value2)
         .build();
@@ -167,7 +175,7 @@ public class QueryContext
       @Nullable final T3 value3
   )
   {
-    return new QueryContextBuilder()
+    return builder()
         .put(parameter1, value1)
         .put(parameter2, value2)
         .put(parameter3, value3)
@@ -214,7 +222,7 @@ public class QueryContext
       @Nullable final T4 value4
   )
   {
-    return new QueryContextBuilder()
+    return builder()
         .put(parameter1, value1)
         .put(parameter2, value2)
         .put(parameter3, value3)

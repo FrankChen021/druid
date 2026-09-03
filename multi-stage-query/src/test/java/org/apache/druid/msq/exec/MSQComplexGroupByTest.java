@@ -19,7 +19,6 @@
 
 package org.apache.druid.msq.exec;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.data.input.impl.JsonInputFormat;
 import org.apache.druid.data.input.impl.LocalInputSource;
 import org.apache.druid.data.input.impl.systemfield.SystemFields;
@@ -34,6 +33,7 @@ import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.NestedDataTestUtils;
 import org.apache.druid.query.OrderBy;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.FilteredAggregatorFactory;
@@ -453,7 +453,7 @@ public class MSQComplexGroupByTest extends MSQTestBase
                                             .add("distinct_obj", ColumnType.LONG)
                                             .build();
 
-    Map<String, Object> modifiedContext = ImmutableMap.<String, Object>builder()
+    Map<String, Object> modifiedContext = QueryContext.builder()
                                                       .putAll(context)
                                                       .put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_COUNT_DISTINCT, false)
                                                       .build();
@@ -545,7 +545,7 @@ public class MSQComplexGroupByTest extends MSQTestBase
                                             .add("distinct_obj", ColumnType.LONG)
                                             .build();
 
-    Map<String, Object> modifiedContext = ImmutableMap.<String, Object>builder()
+    Map<String, Object> modifiedContext = QueryContext.builder()
                                                       .putAll(context)
                                                       .put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_COUNT_DISTINCT, false)
                                                       .build();

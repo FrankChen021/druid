@@ -22,7 +22,6 @@ package org.apache.druid.benchmark.query;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -343,7 +342,7 @@ public class SqlBaseBenchmark
     try (final DruidPlanner planner = plannerFactory.createPlannerForTesting(
         engine,
         "EXPLAIN PLAN FOR " + getQuery(),
-        ImmutableMap.<String, Object>builder()
+        QueryContext.builder()
                     .putAll(getContext())
                     .put(
                         "useNativeQueryExplain",

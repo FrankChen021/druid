@@ -33,6 +33,7 @@ import org.apache.druid.java.util.common.granularity.PeriodGranularity;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
@@ -94,6 +95,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
@@ -693,8 +695,8 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
   @Test
   public void testHllSketchPostAggsFinalizeOuterSketches()
   {
-    final ImmutableMap<String, Object> queryContext =
-        ImmutableMap.<String, Object>builder()
+    final Map<String, Object> queryContext =
+        QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
                     .build();
@@ -964,8 +966,8 @@ public class HllSketchSqlAggregatorTest extends BaseCalciteQueryTest
   @Test
   public void testGroupByAggregatorDefaultValuesFinalizeOuterSketches()
   {
-    final ImmutableMap<String, Object> queryContext =
-        ImmutableMap.<String, Object>builder()
+    final Map<String, Object> queryContext =
+        QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
                     .put(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
                     .build();

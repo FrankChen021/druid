@@ -31,6 +31,7 @@ import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.granularity.GranularityType;
 import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.query.OrderBy;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
@@ -73,7 +74,7 @@ public class CalciteReplaceDmlTest extends CalciteIngestionDmlTest
 
   protected Map<String, Object> addReplaceTimeChunkToQueryContext(Map<String, Object> context, String replaceTimeChunks)
   {
-    return ImmutableMap.<String, Object>builder()
+    return QueryContext.builder()
                        .putAll(context)
                        .put(DruidSqlReplace.SQL_REPLACE_TIME_CHUNKS, replaceTimeChunks)
                        .build();

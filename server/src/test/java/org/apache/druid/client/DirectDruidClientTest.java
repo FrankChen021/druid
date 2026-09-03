@@ -35,7 +35,7 @@ import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.metrics.StubServiceEmitter;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.NestedDataTestUtils;
-import org.apache.druid.query.QueryContextBuilder;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunnerTestHelper;
@@ -298,7 +298,7 @@ public class DirectDruidClientTest
     final DirectDruidClient client = makeDirectDruidClient(initHttpClientFromExistingClient(testHttpClient, false));
 
     final QueryPlus queryPlus = getQueryPlus(
-        new QueryContextBuilder()
+        QueryContext.builder()
             .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, 100L)
             .put(DirectDruidClient.QUERY_FAIL_TIME, System.currentTimeMillis() + 100)
             .build()
@@ -386,7 +386,7 @@ public class DirectDruidClientTest
     final DirectDruidClient client = makeDirectDruidClient(initHttpClientWithSuccessfulQuery());
 
     final QueryPlus queryPlus = getQueryPlus(
-        new QueryContextBuilder()
+        QueryContext.builder()
             .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, 100L)
             .put(DirectDruidClient.QUERY_FAIL_TIME, Long.MAX_VALUE)
             .build()

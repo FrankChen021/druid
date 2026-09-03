@@ -23,14 +23,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.RE;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
-import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.operator.OperatorFactory;
 import org.apache.druid.query.operator.WindowOperatorQuery;
@@ -79,9 +77,9 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
   );
 
   private static final Map<String, Object> DEFAULT_QUERY_CONTEXT_WITH_SUBQUERY_BYTES =
-      ImmutableMap.<String, Object>builder()
+      QueryContext.builder()
                   .putAll(DEFAULT_QUERY_CONTEXT)
-                  .put(QueryContextParameters.MAX_SUBQUERY_BYTES.getName(), "100000")
+                  .put(QueryContextParameters.MAX_SUBQUERY_BYTES, "100000")
                   .put(QueryContextParameters.MAX_SUBQUERY_ROWS.getName(), "0")
                   .build();
 
@@ -226,7 +224,7 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
           .skipVectorize(true)
           .sql(testCase.getSql())
           .queryContext(
-              ImmutableMap.<String, Object>builder()
+              QueryContext.builder()
                   .putAll(DEFAULT_QUERY_CONTEXT)
                   .putAll(testCase.getQueryContext())
                   .build()
@@ -250,7 +248,7 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
           .skipVectorize(true)
           .sql(testCase.getSql())
           .queryContext(
-              ImmutableMap.<String, Object>builder()
+              QueryContext.builder()
                           .putAll(DEFAULT_QUERY_CONTEXT_WITH_SUBQUERY_BYTES)
                           .putAll(testCase.getQueryContext())
                           .build()
@@ -317,7 +315,7 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
                  + "where countryName in ('Austria', 'Republic of Korea') and cityName is not null\n"
                  + "order by 1, 2, 3")
             .queryContext(
-                new QueryContextBuilder()
+                QueryContext.builder()
                     .put(QueryContextParameters.DEBUG, true)
                     .put(QueryContextParameters.SQL_STRINGIFY_ARRAYS, false)
                     .put(PlannerContext.CTX_ENABLE_RAC_TRANSFER_OVER_WIRE, true)

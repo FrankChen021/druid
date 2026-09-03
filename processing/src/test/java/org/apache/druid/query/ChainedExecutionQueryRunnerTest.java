@@ -273,7 +273,7 @@ public class ChainedExecutionQueryRunnerTest
                                   .intervals("2014/2015")
                                   .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
                                   .context(
-                                      new QueryContextBuilder()
+                                      QueryContext.builder()
                                           .put(QueryContextParameters.TIMEOUT, 100L)
                                           .put("queryId", "test")
                                           .build()
@@ -347,7 +347,7 @@ public class ChainedExecutionQueryRunnerTest
         .intervals("2014/2015")
         .aggregators(Collections.singletonList(new CountAggregatorFactory("count")))
         .context(
-            new QueryContextBuilder()
+            QueryContext.builder()
                 .put(QueryContextParameters.TIMEOUT, 100L)
                 .put("queryId", "test")
                 .build()

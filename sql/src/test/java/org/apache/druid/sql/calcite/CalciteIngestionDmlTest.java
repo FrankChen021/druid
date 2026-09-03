@@ -45,6 +45,7 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.metadata.input.InputSourceModule;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFactory;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.column.ColumnType;
@@ -89,8 +90,8 @@ import java.util.stream.Stream;
 public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
 {
   protected static final Map<String, Object> DEFAULT_CONTEXT =
-      ImmutableMap.<String, Object>builder()
-                  .put(QueryContextParameters.SQL_QUERY_ID.getName(), DUMMY_SQL_ID)
+      QueryContext.builder()
+                  .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
                   .build();
 
   public static final Map<String, Object> PARTITIONED_BY_ALL_TIME_QUERY_CONTEXT = ImmutableMap.of(

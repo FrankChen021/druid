@@ -40,7 +40,6 @@ import org.apache.druid.msq.querykit.scan.ScanQueryFrameProcessor;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.FilteredDataSource;
 import org.apache.druid.query.QueryContext;
-import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.QueryContextParameters;
@@ -127,7 +126,7 @@ public class IndexerDataServerQueryHandlerTest
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.of("2003/2004"))))
         .columns("__time", "cnt", "dim1", "dim2", "m1", "m2", "unique_dim1")
         .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
-        .context(new QueryContextBuilder()
+        .context(QueryContext.builder()
             .put(QueryContextParameters.NUM_RETRIES_ON_MISSING_SEGMENTS, 1)
             .put(MultiStageQueryContext.CTX_INCLUDE_SEGMENT_SOURCE, SegmentSource.REALTIME.toString())
             .build())

@@ -37,7 +37,7 @@ class QueryContextBuilderTest
   @Test
   void testPutStringAndTypedParameters()
   {
-    final Map<String, Object> context = new QueryContextBuilder()
+    final Map<String, Object> context = QueryContext.builder()
         .put("legacy", 1)
         .put(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 10)
         .put(QueryContextParameters.USE_RESULT_LEVEL_CACHE, false)
@@ -56,7 +56,7 @@ class QueryContextBuilderTest
   @Test
   void testLaterValueReplacesEarlierValue()
   {
-    final Map<String, Object> context = new QueryContextBuilder()
+    final Map<String, Object> context = QueryContext.builder()
         .put(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 10)
         .put("maxRowsQueuedForOrdering", 20)
         .build();
@@ -65,18 +65,29 @@ class QueryContextBuilderTest
   }
 
   @Test
+  void testPutAll()
+  {
+    final Map<String, Object> context = QueryContext.builder()
+        .putAll(ImmutableMap.of("legacy", 1))
+        .put("legacy", 2)
+        .build();
+
+    assertEquals(2, context.get("legacy"));
+  }
+
+  @Test
   void testTypedPutValidatesParameter()
   {
     assertThrows(
         IAE.class,
-        () -> new QueryContextBuilder().put(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 0)
+        () -> QueryContext.builder().put(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 0)
     );
   }
 
   @Test
   void testTypedPutAcceptsNullableParameter()
   {
-    final Map<String, Object> context = new QueryContextBuilder()
+    final Map<String, Object> context = QueryContext.builder()
         .put(QueryContextParameters.USE_RESULT_LEVEL_CACHE, null)
         .build();
 
@@ -87,7 +98,7 @@ class QueryContextBuilderTest
   @Test
   void testBuildCanBeWrappedAsContext()
   {
-    final QueryContext context = QueryContext.of(new QueryContextBuilder()
+    final QueryContext context = QueryContext.of(QueryContext.builder()
         .put(QueryContextParameters.USE_RESULT_LEVEL_CACHE, false)
         .build());
 

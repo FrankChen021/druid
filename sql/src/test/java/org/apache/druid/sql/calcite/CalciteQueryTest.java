@@ -16528,7 +16528,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                                             .setGranularity(Granularities.ALL)
                                             .setDimensions(dimensions(new DefaultDimensionSpec("dim2", "d0")))
                                             .setContext(
-                                                ImmutableMap.<String, Object>builder()
+                                                QueryContext.builder()
                                                             .putAll(QUERY_CONTEXT_DEFAULT)
                                                             .put("useApproximateCountDistinct", false)
                                                             .build()
@@ -16545,7 +16545,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                             )
                         ))
                         .setContext(
-                            ImmutableMap.<String, Object>builder()
+                            QueryContext.builder()
                                         .putAll(QUERY_CONTEXT_DEFAULT)
                                         .put("useApproximateCountDistinct", false)
                                         .build()

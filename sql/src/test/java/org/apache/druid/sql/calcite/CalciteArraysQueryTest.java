@@ -35,6 +35,7 @@ import org.apache.druid.query.FilteredDataSource;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.LookupDataSource;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.TableDataSource;
@@ -93,9 +94,9 @@ import java.util.Map;
 public class CalciteArraysQueryTest extends BaseCalciteQueryTest
 {
   private static final Map<String, Object> QUERY_CONTEXT_UNNEST =
-      ImmutableMap.<String, Object>builder()
+      QueryContext.builder()
                   .putAll(QUERY_CONTEXT_DEFAULT)
-                  .put(QueryContextParameters.SQL_STRINGIFY_ARRAYS.getName(), false)
+                  .put(QueryContextParameters.SQL_STRINGIFY_ARRAYS, false)
                   .build();
 
   public static void assertResultsDeepEquals(String sql, List<Object[]> expected, List<Object[]> results)

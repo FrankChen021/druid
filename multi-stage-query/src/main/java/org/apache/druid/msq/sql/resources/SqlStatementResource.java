@@ -201,7 +201,7 @@ public class SqlStatementResource
       sqlQueryPlus = SqlResource.makeSqlQueryPlus(
           sqlQuery,
           req,
-          ImmutableMap.<String, Object>builder()
+          QueryContext.builder()
                       .putAll(queryConfigProvider.getContext())
                       .put(RESULT_FORMAT, sqlQuery.getResultFormat())
                       .build()

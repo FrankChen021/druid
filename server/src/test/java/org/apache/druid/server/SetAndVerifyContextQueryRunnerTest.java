@@ -25,7 +25,6 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
-import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -151,7 +150,7 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(new QueryContextBuilder()
+        .context(QueryContext.builder()
             .put(QueryContextParameters.TIMEOUT, 300_000L)
             .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
             .build())
@@ -178,7 +177,7 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(new QueryContextBuilder()
+        .context(QueryContext.builder()
             .put(QueryContextParameters.TIMEOUT, 1L)
             .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
             .build())
@@ -207,7 +206,7 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(new QueryContextBuilder()
+        .context(QueryContext.builder()
             .put(QueryContextParameters.TIMEOUT, Long.MAX_VALUE)
             .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
             .build())

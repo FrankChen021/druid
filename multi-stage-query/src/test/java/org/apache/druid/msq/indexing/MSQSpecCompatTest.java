@@ -21,7 +21,6 @@ package org.apache.druid.msq.indexing;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
@@ -31,6 +30,7 @@ import org.apache.druid.msq.indexing.destination.TaskReportMSQDestination;
 import org.apache.druid.msq.kernel.WorkerAssignmentStrategy;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.InlineDataSource;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.filter.NotDimFilter;
@@ -68,7 +68,7 @@ public class MSQSpecCompatTest
         .add("EXPR$0", ColumnType.LONG)
         .build();
 
-    Map<String, Object> context = ImmutableMap.<String, Object>builder()
+    Map<String, Object> context = QueryContext.builder()
         .put("someThing", 111)
         .put("sqlInsertSegmentGranularity", "\"DAY\"")
         .build();
@@ -101,7 +101,7 @@ public class MSQSpecCompatTest
     RowSignature resultSignature = RowSignature.builder()
         .add("EXPR$0", ColumnType.LONG)
         .build();
-    Map<String, Object> context = ImmutableMap.<String, Object>builder()
+    Map<String, Object> context = QueryContext.builder()
         .put("someThing", 222)
         .put("sqlInsertSegmentGranularity", "\"DAY\"")
         .build();
@@ -142,7 +142,7 @@ public class MSQSpecCompatTest
                 new DefaultDimensionSpec("dim1", "d1", ColumnType.STRING)
             )
             .setContext(
-                ImmutableMap.<String, Object>builder()
+                QueryContext.builder()
                     .put("__user", "allowAll")
                     .put("finalize", true)
                     .put("maxNumTasks", 2)

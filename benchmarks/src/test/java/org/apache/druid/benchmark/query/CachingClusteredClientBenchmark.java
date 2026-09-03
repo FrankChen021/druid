@@ -63,7 +63,7 @@ import org.apache.druid.query.Druids;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
 import org.apache.druid.query.FluentQueryRunner;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.QueryContextBuilder;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
@@ -382,7 +382,7 @@ public class CachingClusteredClientBenchmark
                        .aggregators(new LongSumAggregatorFactory("sumLongSequential", "sumLongSequential"))
                        .granularity(Granularity.fromString(queryGranularity))
                        .context(
-                           new QueryContextBuilder()
+                           QueryContext.builder()
                                .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
                                .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
                                .put(BaseQuery.QUERY_ID, "BenchmarkQuery")
@@ -413,7 +413,7 @@ public class CachingClusteredClientBenchmark
         .metric("sumLongSequential")
         .threshold(10_000) // we are primarily measuring 'broker' merge time, so collect a significant number of results
         .context(
-            new QueryContextBuilder()
+            QueryContext.builder()
                 .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
                 .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
                 .put(BaseQuery.QUERY_ID, "BenchmarkQuery")
@@ -446,7 +446,7 @@ public class CachingClusteredClientBenchmark
         .setAggregatorSpecs(new LongSumAggregatorFactory("sumLongSequential", "sumLongSequential"))
         .setGranularity(Granularity.fromString(queryGranularity))
         .setContext(
-            new QueryContextBuilder()
+            QueryContext.builder()
                 .put(QueryContextParameters.ENABLE_PARALLEL_MERGE, parallelCombine)
                 .put(QueryContextParameters.PARALLEL_MERGE_PARALLELISM, parallelism)
                 .put(BaseQuery.QUERY_ID, "BenchmarkQuery")

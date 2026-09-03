@@ -58,7 +58,6 @@ import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryCapacityExceededException;
-import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.QueryException;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QueryTimeoutException;
@@ -1485,7 +1484,7 @@ public class SqlResourceTest extends CalciteTestBase
   @Test
   public void testExplainCountStar() throws Exception
   {
-    Map<String, Object> queryContext = new QueryContextBuilder()
+    Map<String, Object> queryContext = QueryContext.builder()
         .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_QUERY_ID)
         .put(PlannerConfig.CTX_KEY_USE_NATIVE_QUERY_EXPLAIN, "false")
         .build();

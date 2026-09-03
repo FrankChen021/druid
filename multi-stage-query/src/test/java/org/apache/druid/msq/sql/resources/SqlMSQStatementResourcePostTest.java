@@ -194,7 +194,7 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
         false,
         false,
         false,
-        ImmutableMap.<String, Object>builder()
+        QueryContext.builder()
                     .putAll(defaultAsyncContext())
                     .build(),
         null
@@ -224,7 +224,7 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
         false,
         false,
         false,
-        ImmutableMap.<String, Object>builder()
+        QueryContext.builder()
                     .putAll(defaultAsyncContext())
                     .build(),
         null
@@ -254,7 +254,7 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
         false,
         false,
         false,
-        ImmutableMap.<String, Object>builder()
+        QueryContext.builder()
                     .putAll(defaultAsyncContext())
                     .put(MultiStageQueryContext.CTX_FAIL_ON_EMPTY_INSERT, true)
                     .build(),

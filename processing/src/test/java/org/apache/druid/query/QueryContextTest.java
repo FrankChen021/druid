@@ -398,7 +398,7 @@ public class QueryContextTest
   public void testGetHumanReadableBytes()
   {
     final QueryContext context = new QueryContext(
-        ImmutableMap.<String, Object>builder()
+        QueryContext.builder()
                     .put("m1", 500_000_000)
                     .put("m2", "500M")
                     .put("m3", "500Mi")

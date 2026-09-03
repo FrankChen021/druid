@@ -300,7 +300,7 @@ public class CachingClusteredClient implements QuerySegmentWalker
 
     private Map<String, Object> makeDownstreamQueryContext()
     {
-      final QueryContextBuilder contextBuilder = new QueryContextBuilder();
+      final QueryContextBuilder contextBuilder = QueryContext.builder();
 
       final QueryContext queryContext = query.context();
       final int priority = queryContext.getPriority();

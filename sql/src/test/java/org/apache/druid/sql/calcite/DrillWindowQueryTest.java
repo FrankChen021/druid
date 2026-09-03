@@ -28,7 +28,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.druid.java.util.common.Numbers;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.parsers.TimestampParser;
-import org.apache.druid.query.QueryContextBuilder;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
@@ -401,7 +401,7 @@ public class DrillWindowQueryTest extends BaseCalciteQueryTest
 
   protected Map<String, Object> getQueryContext()
   {
-    return new QueryContextBuilder()
+    return QueryContext.builder()
         .put(QueryContextParameters.DEBUG, true)
         .put(PlannerCaptureHook.NEED_CAPTURE_HOOK, true)
         .build();

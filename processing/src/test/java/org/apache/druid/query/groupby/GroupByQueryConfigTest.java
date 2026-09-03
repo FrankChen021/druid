@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.segment.TestHelper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -92,7 +93,7 @@ public class GroupByQueryConfigTest
                     .setInterval(Intervals.of("2000/P1D"))
                     .setGranularity(Granularities.ALL)
                     .setContext(
-                        ImmutableMap.<String, Object>builder()
+                        QueryContext.builder()
                                     .put("maxOnDiskStorage", "3M")
                                     .put("maxResults", 2)
                                     .put("maxSelectorDictionarySize", 3)
@@ -185,7 +186,7 @@ public class GroupByQueryConfigTest
                     .setDataSource("test")
                     .setInterval(Intervals.of("2000/P1D"))
                     .setGranularity(Granularities.ALL)
-                    .setContext(ImmutableMap.<String, Object>builder().build())
+                    .setContext(QueryContext.builder().build())
                     .build()
     );
     Assertions.assertEquals(5_000_000_000L, config2.getMaxOnDiskStorage().getBytes());
@@ -204,7 +205,7 @@ public class GroupByQueryConfigTest
                     .setInterval(Intervals.of("2000/P1D"))
                     .setGranularity(Granularities.ALL)
                     .setContext(
-                        ImmutableMap.<String, Object>builder()
+                        QueryContext.builder()
                             .put("maxOnDiskStorage", "1G")
                             .build()
                     )
