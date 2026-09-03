@@ -58,7 +58,7 @@ class QueryContextBuilderTest
   {
     final Map<String, Object> context = QueryContext.builder()
         .put(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 10)
-        .putAll(ImmutableMap.of("maxRowsQueuedForOrdering", 20))
+        .putRaw("maxRowsQueuedForOrdering", 20)
         .toMap();
 
     assertEquals(20, context.get(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING.getName()));
@@ -67,9 +67,11 @@ class QueryContextBuilderTest
   @Test
   void testPutAll()
   {
+    final Map<String, Object> firstValues = ImmutableMap.of("legacy", 1);
+    final Map<String, Object> secondValues = ImmutableMap.of("legacy", 2);
     final Map<String, Object> context = QueryContext.builder()
-        .putAll(ImmutableMap.of("legacy", 1))
-        .putAll(ImmutableMap.of("legacy", 2))
+        .putAll(firstValues)
+        .putAll(secondValues)
         .toMap();
 
     assertEquals(2, context.get("legacy"));

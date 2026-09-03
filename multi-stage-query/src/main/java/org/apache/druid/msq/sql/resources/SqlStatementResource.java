@@ -203,7 +203,7 @@ public class SqlStatementResource
           req,
           QueryContext.builder()
                       .putAll(queryConfigProvider.getContext())
-                      .putAll(ImmutableMap.of(RESULT_FORMAT, sqlQuery.getResultFormat()))
+                      .putRaw(RESULT_FORMAT, sqlQuery.getResultFormat())
                       .toMap()
       );
       stmt = msqSqlStatementFactory.httpStatement(sqlQueryPlus, req);

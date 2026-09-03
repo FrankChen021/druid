@@ -94,16 +94,16 @@ public class GroupByQueryConfigTest
                     .setGranularity(Granularities.ALL)
                     .setContext(
                         QueryContext.builder()
-                                    .putAll(ImmutableMap.of(
-                                        "maxOnDiskStorage", "3M",
-                                        "maxResults", 2,
-                                        "maxSelectorDictionarySize", 3,
-                                        "maxMergingDictionarySize", 4,
-                                        "maxSpillFileCount", 333,
-                                        "applyLimitPushDownToSegment", true,
+                                    .putRaw("maxOnDiskStorage", "3M")
+                                    .putRaw("maxResults", 2)
+                                    .putRaw("maxSelectorDictionarySize", 3)
+                                    .putRaw("maxMergingDictionarySize", 4)
+                                    .putRaw("maxSpillFileCount", 333)
+                                    .putRaw("applyLimitPushDownToSegment", true)
+                                    .putRaw(
                                         GroupByQueryConfig.CTX_KEY_DEFER_EXPRESSION_DIMENSIONS,
                                         DeferExpressionDimensions.ALWAYS.toString()
-                                    ))
+                                    )
                                     .toMap()
                     )
                     .build()
@@ -206,7 +206,7 @@ public class GroupByQueryConfigTest
                     .setGranularity(Granularities.ALL)
                     .setContext(
                         QueryContext.builder()
-                            .putAll(ImmutableMap.of("maxOnDiskStorage", "1G"))
+                            .putRaw("maxOnDiskStorage", "1G")
                             .toMap()
                     )
                     .build()

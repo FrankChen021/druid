@@ -399,14 +399,12 @@ public class QueryContextTest
   {
     final QueryContext context = new QueryContext(
         QueryContext.builder()
-                    .putAll(ImmutableMap.of(
-                        "m1", 500_000_000,
-                        "m2", "500M",
-                        "m3", "500Mi",
-                        "m4", "500MiB",
-                        "m5", "500000000",
-                        "m6", "abc"
-                    ))
+                    .putRaw("m1", 500_000_000)
+                    .putRaw("m2", "500M")
+                    .putRaw("m3", "500Mi")
+                    .putRaw("m4", "500MiB")
+                    .putRaw("m5", "500000000")
+                    .putRaw("m6", "abc")
                     .toMap()
     );
     assertEquals(500_000_000, context.getHumanReadableBytes("m1", HumanReadableBytes.ZERO).getBytes());
