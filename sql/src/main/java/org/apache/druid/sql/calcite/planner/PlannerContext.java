@@ -712,11 +712,9 @@ public class PlannerContext
     }
     localNow = utcNow.withZone(timeZone);
 
-    final Boolean stringifyParam = QueryContextParameters.SQL_STRINGIFY_ARRAYS.parse(
-        queryContext.get(QueryContextParameters.SQL_STRINGIFY_ARRAYS.getName())
-    );
+    final Object stringifyParam = queryContext.get(QueryContextParameters.SQL_STRINGIFY_ARRAYS.getName());
     if (stringifyParam != null) {
-      stringifyArrays = stringifyParam;
+      stringifyArrays = Numbers.parseBoolean(stringifyParam);
     } else {
       stringifyArrays = true;
     }
@@ -756,9 +754,7 @@ public class PlannerContext
       useGranularity = DEFAULT_SQL_USE_GRANULARITY;
     }
 
-    sqlQueryId = QueryContextParameters.SQL_QUERY_ID.parse(
-        this.queryContext.get(QueryContextParameters.SQL_QUERY_ID.getName())
-    );
+    sqlQueryId = (String) this.queryContext.get(QueryContextParameters.SQL_QUERY_ID.getName());
     // special handling for DruidViewMacro, normal client will allocate sqlid in SqlLifecyle
     if (Strings.isNullOrEmpty(sqlQueryId)) {
       sqlQueryId = UUID.randomUUID().toString();

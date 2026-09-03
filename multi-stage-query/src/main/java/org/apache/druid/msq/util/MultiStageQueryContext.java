@@ -653,7 +653,7 @@ public class MultiStageQueryContext
     final Map<String, Object> overrides = new HashMap<>();
 
     // Add appropriate finalization to native query context.
-    if (!originalContext.containsKey(QueryContextParameters.FINALIZE)) {
+    if (!originalContext.has(QueryContextParameters.FINALIZE)) {
       overrides.put(QueryContextParameters.FINALIZE.getName(), isFinalizeAggregations(originalContext));
     }
 

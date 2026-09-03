@@ -38,6 +38,7 @@ import org.apache.druid.query.context.QueryContextParameter;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.QuerySegmentSpec;
+import org.apache.druid.query.topn.TopNQueryConfig;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Duration;
@@ -153,18 +154,22 @@ public class QueryContextTest
         )
     );
 
-    assertTrue(context.containsKey(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING));
+    assertTrue(context.has(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING));
     assertEquals(10, context.get(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING));
     assertEquals(Optional.of(10), context.getOptional(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING));
     assertFalse(context.get(QueryContextParameters.USE_RESULT_LEVEL_CACHE));
     assertFalse(context.getOrDefault(QueryContextParameters.USE_RESULT_LEVEL_CACHE));
 
     final QueryContext emptyContext = QueryContext.empty();
-    assertFalse(emptyContext.containsKey(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING));
+    assertFalse(emptyContext.has(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING));
     assertNull(emptyContext.get(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING));
     assertEquals(Optional.empty(), emptyContext.getOptional(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING));
     assertEquals(20, emptyContext.getOrDefault(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 20));
     assertThrows(ISE.class, () -> emptyContext.getOrDefault(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING));
+    assertEquals(
+        TopNQueryConfig.DEFAULT_MIN_TOPN_THRESHOLD,
+        emptyContext.getOrDefault(QueryContextParameters.MIN_TOP_N_THRESHOLD)
+    );
     assertTrue(emptyContext.get(QueryContextParameters.USE_RESULT_LEVEL_CACHE));
     assertEquals(Optional.of(true), emptyContext.getOptional(QueryContextParameters.USE_RESULT_LEVEL_CACHE));
     assertFalse(emptyContext.getOrDefault(QueryContextParameters.USE_RESULT_LEVEL_CACHE, false));

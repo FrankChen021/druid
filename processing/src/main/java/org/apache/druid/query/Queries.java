@@ -257,7 +257,7 @@ public class Queries
   public static <T> Query<T> withMaxScatterGatherBytes(Query<T> query, long maxScatterGatherBytesLimit)
   {
     QueryContext context = query.context();
-    if (!context.containsKey(QueryContextParameters.MAX_SCATTER_GATHER_BYTES)) {
+    if (!context.has(QueryContextParameters.MAX_SCATTER_GATHER_BYTES)) {
       return query.withOverriddenContext(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, maxScatterGatherBytesLimit);
     }
     context.verifyMaxScatterGatherBytes(maxScatterGatherBytesLimit);

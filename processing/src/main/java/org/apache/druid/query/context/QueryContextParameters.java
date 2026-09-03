@@ -28,6 +28,7 @@ import org.apache.druid.query.context.docs.ParameterDocumentation;
 import org.apache.druid.query.context.docs.ParameterDocumentation.Engine;
 import org.apache.druid.query.context.docs.ParameterDocumentation.Language;
 import org.apache.druid.query.context.docs.ParameterDocumentation.QueryType;
+import org.apache.druid.query.topn.TopNQueryConfig;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Field;
@@ -682,6 +683,7 @@ public final class QueryContextParameters
 
   public static final QueryContextParameter<Integer> MIN_TOP_N_THRESHOLD =
       integerParameter("minTopNThreshold")
+          .defaultValue(TopNQueryConfig.DEFAULT_MIN_TOPN_THRESHOLD)
           .docs(
               doc().description("The top minTopNThreshold local results from each segment are returned for merging to determine the global topN.")
                    .defaultDescription("`1000`")

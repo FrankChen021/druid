@@ -625,10 +625,7 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
 
       final TopNQuery query = (TopNQuery) input;
       final int minTopNThreshold = query.context()
-                                        .getOrDefault(
-                                            QueryContextParameters.MIN_TOP_N_THRESHOLD,
-                                            TopNQueryConfig.DEFAULT_MIN_TOPN_THRESHOLD
-                                        );
+                                        .getOrDefault(QueryContextParameters.MIN_TOP_N_THRESHOLD);
       if (query.getThreshold() > minTopNThreshold) {
         return runner.run(queryPlus, responseContext);
       }

@@ -114,6 +114,7 @@ import java.util.stream.Collectors;
 public class GroupingEngine
 {
   public static final String CTX_KEY_FUDGE_TIMESTAMP = "fudgeTimestamp";
+  // Internal merge marker; this is not a public query context parameter descriptor.
   public static final String CTX_KEY_OUTERMOST = "groupByOutermost";
 
   private final DruidProcessingConfig processingConfig;

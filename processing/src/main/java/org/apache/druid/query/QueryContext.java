@@ -101,7 +101,7 @@ public class QueryContext
   }
 
   /**
-   * Check if the given key is set. If the client will then fetch the value,
+   * Check if the given string key is set. If the client will then fetch the value,
    * consider using one of the {@code get<Type>(String key)} methods instead:
    * they each return {@code null} if the value is not set.
    */
@@ -110,7 +110,10 @@ public class QueryContext
     return context.containsKey(key);
   }
 
-  public boolean containsKey(final QueryContextParameter<?> parameter)
+  /**
+   * Check if the given declared query context parameter is set.
+   */
+  public boolean has(final QueryContextParameter<?> parameter)
   {
     return containsKey(parameter.getName());
   }
@@ -131,7 +134,7 @@ public class QueryContext
   @Nullable
   public <T> T get(final QueryContextParameter<T> parameter)
   {
-    if (!containsKey(parameter)) {
+    if (!has(parameter)) {
       return parameter.getDefaultValue().orElse(null);
     }
     return parameter.parse(get(parameter.getName()));
@@ -165,7 +168,7 @@ public class QueryContext
    */
   public <T> T getOrDefault(final QueryContextParameter<T> parameter, final T defaultValue)
   {
-    if (!containsKey(parameter)) {
+    if (!has(parameter)) {
       return defaultValue;
     }
     return Optional.ofNullable(parameter.parse(get(parameter.getName()))).orElse(defaultValue);
@@ -658,7 +661,7 @@ public class QueryContext
 
   public int getInSubQueryThreshold()
   {
-    return getInSubQueryThreshold(QueryContexts.DEFAULT_IN_SUB_QUERY_THRESHOLD);
+    return getOrDefault(QueryContextParameters.IN_SUBQUERY_THRESHOLD);
   }
 
   public int getInSubQueryThreshold(int defaultValue)
@@ -785,10 +788,10 @@ public class QueryContext
    */
   public RealtimeSegmentsMode getRealtimeSegmentsMode()
   {
-    final RealtimeSegmentsMode mode = containsKey(QueryContextParameters.REALTIME_SEGMENTS_MODE)
+    final RealtimeSegmentsMode mode = has(QueryContextParameters.REALTIME_SEGMENTS_MODE)
                                       ? get(QueryContextParameters.REALTIME_SEGMENTS_MODE)
                                       : null;
-    final boolean hasDeprecatedFlag = containsKey(QueryContextParameters.REALTIME_SEGMENTS_ONLY)
+    final boolean hasDeprecatedFlag = has(QueryContextParameters.REALTIME_SEGMENTS_ONLY)
                                       && get(QueryContextParameters.REALTIME_SEGMENTS_ONLY) != null;
     if (mode != null && hasDeprecatedFlag) {
       throw new BadQueryContextException(
