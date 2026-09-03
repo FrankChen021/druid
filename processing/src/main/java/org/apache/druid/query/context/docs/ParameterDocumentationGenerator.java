@@ -218,7 +218,20 @@ public final class ParameterDocumentationGenerator
 
   private static String escapeTableCell(final String value)
   {
-    return StringUtils.replace(value, "|", "\\|");
+    return StringUtils.replace(normalizeTableCell(value), "|", "\\|");
+  }
+
+  /**
+   * Markdown table cells must be rendered on one physical line. Parameter descriptions are commonly written as Java
+   * text blocks, so remove text-block line continuations, flatten remaining line breaks, and collapse incidental
+   * whitespace before writing the generated documentation.
+   */
+  static String normalizeTableCell(final String value)
+  {
+    return value.replaceAll("\\\\[ \\t]*\\R", "")
+                .replaceAll("\\R", " ")
+                .replaceAll("[ \\t]+", " ")
+                .trim();
   }
 
   private enum Mode
