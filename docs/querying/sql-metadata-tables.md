@@ -170,6 +170,7 @@ execution:
 |-----|--------------|
 |[`sys.tasks`](#tasks-table)|The Overlord that owns task state. Supported filters are pushed into task storage when the configured task storage implementation supports filter pushdown.|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Filters on `server` and `service_name` can avoid reading properties from nodes that don't match.|
+|[`sys.servers`](#servers-table)|The Broker's local discovered-cluster view of Druid servers.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
 aggregations, sorting, and result processing. A system table that doesn't advertise native query support continues to

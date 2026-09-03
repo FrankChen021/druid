@@ -74,6 +74,7 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
@@ -198,26 +199,6 @@ public class SystemSchema extends AbstractTableSchema
           SEGMENTS_SIGNATURE.indexOf("last_compaction_state")
       }
   );
-
-  static final RowSignature SERVERS_SIGNATURE = RowSignature
-      .builder()
-      .add("server", ColumnType.STRING)
-      .add("host", ColumnType.STRING)
-      .add("plaintext_port", ColumnType.LONG)
-      .add("tls_port", ColumnType.LONG)
-      .add("server_type", ColumnType.STRING)
-      .add("tier", ColumnType.STRING)
-      .add("curr_size", ColumnType.LONG)
-      .add("max_size", ColumnType.LONG)
-      .add("storage_size", ColumnType.LONG)
-      .add("is_leader", ColumnType.LONG)
-      .add("start_time", ColumnType.STRING)
-      .add("version", ColumnType.STRING)
-      .add("build_revision", ColumnType.STRING)
-      .add("labels", ColumnType.STRING)
-      .add("available_processors", ColumnType.LONG)
-      .add("total_memory", ColumnType.LONG)
-      .build();
 
   static final RowSignature SERVER_SEGMENTS_SIGNATURE = RowSignature
       .builder()
@@ -654,7 +635,7 @@ public class SystemSchema extends AbstractTableSchema
    * This table contains row per server. It contains all the discovered servers in Druid cluster.
    * Some columns like tier and size are only applicable to historical nodes which contain segments.
    */
-  static class ServersTable extends AbstractTable implements ScannableTable
+  static class ServersTable extends AbstractTable implements ScannableTable, NativeSystemTable
   {
     // This is used for maxSize and currentSize when they are unknown.
     // The unknown size doesn't have to be 0, it's better to be null.
@@ -693,13 +674,19 @@ public class SystemSchema extends AbstractTableSchema
     @Override
     public RelDataType getRowType(RelDataTypeFactory typeFactory)
     {
-      return RowSignatures.toRelDataType(SERVERS_SIGNATURE, typeFactory);
+      return RowSignatures.toRelDataType(ServersTableDescriptor.ROW_SIGNATURE, typeFactory);
     }
 
     @Override
     public TableType getJdbcTableType()
     {
       return TableType.SYSTEM_TABLE;
+    }
+
+    @Override
+    public DruidTable asNativeTable()
+    {
+      return new NativeServersTable();
     }
 
     @Override

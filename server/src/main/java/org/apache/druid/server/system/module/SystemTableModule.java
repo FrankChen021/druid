@@ -27,12 +27,14 @@ import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
+import org.apache.druid.server.system.table.ServersTableDataProvider;
+import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 
 /**
- * Registers native system-table routing and the node-local server-properties supplier.
+ * Registers native system-table routing and the built-in system-table suppliers.
  *
  * <p>Table-specific integrations, such as the task supplier in indexing-service, contribute their own entries to the
  * native system-table multibinders.</p>
@@ -50,12 +52,17 @@ public class SystemTableModule implements Module
     final MapBinder<String, SystemTableDescriptor> descriptorBinder = MapBinder.newMapBinder(binder, String.class, SystemTableDescriptor.class);
     descriptorBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                     .toInstance(new ServerPropertiesTableDescriptor());
+    descriptorBinder.addBinding(ServersTableDescriptor.TABLE_NAME)
+                    .toInstance(new ServersTableDescriptor());
     descriptorBinder.addBinding(TaskTableDescriptor.TABLE_NAME)
                     .toInstance(new TaskTableDescriptor());
 
     final MapBinder<String, SystemTableDataProvider> dataProviderBinder = MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class);
     dataProviderBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                       .to(ServerPropertiesTableDataProvider.class)
+                      .in(LazySingleton.class);
+    dataProviderBinder.addBinding(ServersTableDescriptor.TABLE_NAME)
+                      .to(ServersTableDataProvider.class)
                       .in(LazySingleton.class);
   }
 }

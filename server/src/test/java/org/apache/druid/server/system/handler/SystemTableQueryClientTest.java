@@ -83,6 +83,7 @@ import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
+import org.apache.druid.server.system.table.SystemTableRoutingMode;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.joda.time.Duration;
 import org.junit.jupiter.api.Assertions;
@@ -333,6 +334,59 @@ public class SystemTableQueryClientTest
     Assertions.assertEquals(1, events.size());
     Assertions.assertArrayEquals(new Object[]{"local"}, (Object[]) events.get(0));
     Mockito.verifyNoInteractions(directClientFactory);
+    Mockito.verify(localQueryHandler).createRunner(
+        ArgumentMatchers.any(),
+        Mockito.same(escalatedAuthenticationResult),
+        Mockito.eq(true)
+    );
+  }
+
+  /** A LOCAL system table executes its provider in-process without node discovery or an HTTP client. */
+  @Test
+  public void testLocalRoutingExecutesLocalRunnerWithoutHttp()
+  {
+    final SystemTableDescriptor descriptor = new TestSystemTableDescriptor(SystemTableRoutingMode.LOCAL);
+    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
+    final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
+    final SystemTableQueryHandler localQueryHandler = Mockito.mock(SystemTableQueryHandler.class);
+    final AuthenticationResult escalatedAuthenticationResult =
+        new AuthenticationResult("system", "allow", "system", null);
+    final Escalator escalator = Mockito.mock(Escalator.class);
+    Mockito.when(escalator.createEscalatedAuthenticationResult()).thenReturn(escalatedAuthenticationResult);
+    Mockito.doAnswer(
+        ignored -> (QueryRunner<ScanResultValue>) (queryPlus, responseContext) ->
+            Sequences.simple(List.of(scanResult(new Object[]{"local"})))
+    ).when(localQueryHandler).createRunner(
+        ArgumentMatchers.any(),
+        Mockito.same(escalatedAuthenticationResult),
+        Mockito.eq(true)
+    );
+
+    final QuerySegmentWalker querySegmentWalker = Mockito.mock(QuerySegmentWalker.class);
+    Mockito.when(querySegmentWalker.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
+           .thenAnswer(ignored -> passthroughRunner(descriptor.getRowSignature()));
+    final SystemTableQueryClient client = new SystemTableQueryClient(
+        nodeLocator,
+        directClientFactory,
+        Mockito.mock(QueryScheduler.class),
+        querySegmentWalker,
+        Map.of(descriptor.getTableName(), descriptor),
+        new AuthorizerMapper(Map.of("allow", new AllowAllAuthorizer(null))),
+        localQueryHandler,
+        escalator,
+        nonMatchingSelfNode()
+    );
+    final ScanQuery query = query(descriptor, Collections.emptyMap());
+
+    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT, false)
+                                                .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
+                                                .toList();
+
+    Assertions.assertEquals(1, results.size());
+    final List<?> events = (List<?>) results.get(0).getEvents();
+    Assertions.assertEquals(1, events.size());
+    Assertions.assertArrayEquals(new Object[]{"local"}, (Object[]) events.get(0));
+    Mockito.verifyNoInteractions(nodeLocator, directClientFactory);
     Mockito.verify(localQueryHandler).createRunner(
         ArgumentMatchers.any(),
         Mockito.same(escalatedAuthenticationResult),
@@ -1382,6 +1436,17 @@ public class SystemTableQueryClientTest
   private static class TestSystemTableDescriptor implements SystemTableDescriptor
   {
     private static final RowSignature ROW_SIGNATURE = RowSignature.builder().add("value", null).build();
+    private final SystemTableRoutingMode routingMode;
+
+    private TestSystemTableDescriptor()
+    {
+      this(SystemTableRoutingMode.ALL_NODES);
+    }
+
+    private TestSystemTableDescriptor(final SystemTableRoutingMode routingMode)
+    {
+      this.routingMode = routingMode;
+    }
 
     @Override
     public String getTableName()
@@ -1393,6 +1458,12 @@ public class SystemTableQueryClientTest
     public Set<NodeRole> getNodeRoles()
     {
       return Set.of(NodeRole.BROKER);
+    }
+
+    @Override
+    public SystemTableRoutingMode getRoutingMode()
+    {
+      return routingMode;
     }
 
     @Override

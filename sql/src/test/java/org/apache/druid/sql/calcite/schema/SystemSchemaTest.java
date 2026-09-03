@@ -70,6 +70,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.io.Closer;
+import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.http.client.response.HttpResponseHandler;
@@ -107,6 +108,7 @@ import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.run.SqlEngine;
@@ -1135,7 +1137,7 @@ public class SystemSchemaTest extends CalciteTestBase
             startTimeStr,
             version,
             buildRevision,
-            "{\"brokerKey\":\"brokerValue\",\"brokerKey2\":\"brokerValue2\"}",
+            ImmutableMap.of("brokerKey", "brokerValue", "brokerKey2", "brokerValue2"),
             availableProcessors,
             totalMemory
         )
@@ -1175,7 +1177,7 @@ public class SystemSchemaTest extends CalciteTestBase
             startTimeStr,
             version,
             buildRevision,
-            "{\"overlordKey\":\"overlordValue\"}",
+            ImmutableMap.of("overlordKey", "overlordValue"),
             availableProcessors,
             totalMemory
         )
@@ -1284,7 +1286,7 @@ public class SystemSchemaTest extends CalciteTestBase
     }
 
     // Verify value types.
-    verifyTypes(rows, SystemSchema.SERVERS_SIGNATURE);
+    verifyTypes(rows, ServersTableDescriptor.ROW_SIGNATURE);
   }
 
   private DruidServer mockDataServer(String name, long currentSize, long maxSize, String tier)
@@ -1319,7 +1321,7 @@ public class SystemSchemaTest extends CalciteTestBase
       String startTime,
       String version,
       String buildRevision,
-      String labels,
+      @Nullable Map<String, String> labels,
       long availableProcessors,
       long totalMemory
   )
@@ -1338,7 +1340,7 @@ public class SystemSchemaTest extends CalciteTestBase
         startTime,
         version,
         buildRevision,
-        labels,
+        labels == null ? null : JacksonUtils.writeValueAsString(MAPPER, labels),
         availableProcessors,
         totalMemory
     };
@@ -2522,6 +2524,9 @@ public class SystemSchemaTest extends CalciteTestBase
             break;
           case STRING:
             expectedClass = String.class;
+            break;
+          case COMPLEX:
+            expectedClass = Object.class;
             break;
           default:
             throw new IAE("Don't know what class to expect for valueType[%s]", columnType);
