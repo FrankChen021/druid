@@ -465,7 +465,6 @@ public final class QueryContextParameters
                        Even if a query doesn't explicitly include a join, this parameter may still apply since the SQL planner can translate the query into a join internally.
                        """
                    )
-                   .defaultDescription("`false`")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
                    .build()
@@ -591,7 +590,6 @@ public final class QueryContextParameters
                        A threshold of `2147483647` disables the rewrite of SQL `IN` to `JOIN`.
                        """
                    )
-                   .defaultDescription("`2147483647`")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
                    .build()
@@ -610,7 +608,6 @@ public final class QueryContextParameters
                        The converted function is eligible for fewer planning-time optimizations, which speeds up planning, but may prevent certain planning-time optimizations.
                        """
                    )
-                   .defaultDescription("`100`")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
                    .build()
@@ -629,7 +626,6 @@ public final class QueryContextParameters
                        This property is provided for backwards compatibility purposes, and may be removed in a future release.
                        """
                    )
-                   .defaultDescription("`2`")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
                    .build()
@@ -646,7 +642,6 @@ public final class QueryContextParameters
                        Time boundary queries are very efficient for min-max calculation on the `__time` column in a datasource.
                        """
                    )
-                   .defaultDescription("`false`")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
                    .build()
@@ -722,7 +717,6 @@ public final class QueryContextParameters
           .defaultValue(TopNQueryConfig.DEFAULT_MIN_TOPN_THRESHOLD)
           .docs(
               doc("The top minTopNThreshold local results from each segment are returned for merging to determine the global topN.")
-                   .defaultDescription("`1000`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .query(QueryType.TOP_N)
@@ -831,7 +825,6 @@ public final class QueryContextParameters
                        When set to `false`, this is equivalent to `realtimeSegmentsMode=include`.
                        """
                    )
-                   .defaultDescription("`false`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -850,7 +843,6 @@ public final class QueryContextParameters
                        `exclusive` queries only realtime segments.
                        """
                    )
-                   .defaultDescription("`include`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
