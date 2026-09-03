@@ -199,7 +199,7 @@ public class GroupByQueryMergeBufferTest extends InitializedNullHandlingTest
         .setGranularity(Granularities.ALL)
         .setInterval(QueryRunnerTestHelper.FIRST_TO_THIRD)
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
-        .setContext(QueryContext.of(QueryContextParameters.TIMEOUT, TIMEOUT).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, TIMEOUT))
         .build();
 
     Assertions.assertEquals(0, GroupByQueryResources.countRequiredMergeBufferNumForToolchestMerge(query));
@@ -228,7 +228,7 @@ public class GroupByQueryMergeBufferTest extends InitializedNullHandlingTest
         .setGranularity(Granularities.ALL)
         .setInterval(QueryRunnerTestHelper.FIRST_TO_THIRD)
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
-        .setContext(QueryContext.of(QueryContextParameters.TIMEOUT, TIMEOUT).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, TIMEOUT))
         .build();
 
     Assertions.assertEquals(1, GroupByQueryResources.countRequiredMergeBufferNumForToolchestMerge(query));
@@ -268,7 +268,7 @@ public class GroupByQueryMergeBufferTest extends InitializedNullHandlingTest
         .setGranularity(Granularities.ALL)
         .setInterval(QueryRunnerTestHelper.FIRST_TO_THIRD)
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
-        .setContext(QueryContext.of(QueryContextParameters.TIMEOUT, TIMEOUT).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, TIMEOUT))
         .build();
 
     Assertions.assertEquals(2, GroupByQueryResources.countRequiredMergeBufferNumForToolchestMerge(query));
@@ -322,7 +322,7 @@ public class GroupByQueryMergeBufferTest extends InitializedNullHandlingTest
         .setGranularity(Granularities.ALL)
         .setInterval(QueryRunnerTestHelper.FIRST_TO_THIRD)
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
-        .setContext(QueryContext.of(QueryContextParameters.TIMEOUT, TIMEOUT).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, TIMEOUT))
         .build();
 
     Assertions.assertEquals(2, GroupByQueryResources.countRequiredMergeBufferNumForToolchestMerge(query));
@@ -351,7 +351,7 @@ public class GroupByQueryMergeBufferTest extends InitializedNullHandlingTest
             Arrays.asList(QueryRunnerTestHelper.MARKET_DIMENSION, QueryRunnerTestHelper.PLACEMENT_DIMENSION),
             Arrays.asList(QueryRunnerTestHelper.MARKET_DIMENSION, QueryRunnerTestHelper.PLACEMENT_DIMENSION, QueryRunnerTestHelper.QUALITY_DIMENSION)
         ))
-        .setContext(QueryContext.of(QueryContextParameters.TIMEOUT, TIMEOUT).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, TIMEOUT))
         .build();
 
     Assertions.assertEquals(1, GroupByQueryResources.countRequiredMergeBufferNumForToolchestMerge(query));
@@ -380,7 +380,7 @@ public class GroupByQueryMergeBufferTest extends InitializedNullHandlingTest
             Arrays.asList(QueryRunnerTestHelper.MARKET_DIMENSION, QueryRunnerTestHelper.PLACEMENT_DIMENSION),
             Arrays.asList(QueryRunnerTestHelper.MARKET_DIMENSION, QueryRunnerTestHelper.QUALITY_DIMENSION)
         ))
-        .setContext(QueryContext.of(QueryContextParameters.TIMEOUT, TIMEOUT).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, TIMEOUT))
         .build();
 
     Assertions.assertEquals(2, GroupByQueryResources.countRequiredMergeBufferNumForToolchestMerge(query));
@@ -422,7 +422,7 @@ public class GroupByQueryMergeBufferTest extends InitializedNullHandlingTest
             Collections.singletonList("market")
         ))
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
-        .setContext(QueryContext.of(QueryContextParameters.TIMEOUT, TIMEOUT).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, TIMEOUT))
         .build();
 
     Assertions.assertEquals(3, GroupByQueryResources.countRequiredMergeBufferNumForToolchestMerge(query));
@@ -468,7 +468,7 @@ public class GroupByQueryMergeBufferTest extends InitializedNullHandlingTest
             Collections.singletonList("market")
         ))
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
-        .setContext(QueryContext.of(QueryContextParameters.TIMEOUT, TIMEOUT).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, TIMEOUT))
         .build();
 
     Assertions.assertEquals(3, GroupByQueryResources.countRequiredMergeBufferNumForToolchestMerge(query));

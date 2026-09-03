@@ -196,10 +196,10 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
     final QueryLogic queryExecutor = conglomerate.getQueryLogic(query);
     if (queryExecutor != null) {
       query = query.withOverriddenContext(
-          QueryContext.of(
+          QueryContext.ofMap(
               QueryContextParameters.USE_NESTED_FOR_UNKNOWN_TYPE_IN_SUBQUERY,
               useNestedForUnknownTypeInSubquery
-          ).toMap()
+          )
       );
       return (QueryRunner<T>) queryExecutor.entryPoint(query, this);
     }

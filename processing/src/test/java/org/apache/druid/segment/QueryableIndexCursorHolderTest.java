@@ -219,7 +219,7 @@ public class QueryableIndexCursorHolderTest
                                                      QueryContext.of(
                                                          QueryContextParameters.FORCE_PROJECTIONS,
                                                          true
-                                                     ).toContext()
+                                                     )
                                                  )
                                                  .build();
       final CursorFactory cursorFactory = new QueryableIndexCursorFactory(index);

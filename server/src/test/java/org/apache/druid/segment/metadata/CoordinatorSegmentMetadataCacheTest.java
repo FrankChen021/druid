@@ -1046,12 +1046,12 @@ public class CoordinatorSegmentMetadataCacheTest extends CoordinatorSegmentMetad
         segmentsMetadataManagerConfigSupplier
     );
 
-    Map<String, Object> queryContext = QueryContext.of(
+    Map<String, Object> queryContext = QueryContext.ofMap(
         QueryContextParameters.PRIORITY,
         5,
         QueryContextParameters.ENABLE_PARALLEL_MERGE,
         false
-    ).toMap();
+    );
 
     DataSegment segment = newSegment("test", 0);
     List<SegmentId> segmentIterable = ImmutableList.of(segment.getId());
@@ -2234,12 +2234,12 @@ public class CoordinatorSegmentMetadataCacheTest extends CoordinatorSegmentMetad
         segmentsMetadataManagerConfigSupplier
     );
 
-    Map<String, Object> queryContext = QueryContext.of(
+    Map<String, Object> queryContext = QueryContext.ofMap(
         QueryContextParameters.PRIORITY,
         5,
         QueryContextParameters.ENABLE_PARALLEL_MERGE,
         false
-    ).toMap();
+    );
 
     DataSegment segment = newSegment("test", 0);
     DataSegment tombstone = DataSegment.builder()

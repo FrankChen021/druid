@@ -116,12 +116,12 @@ public class ComplexDimensionGroupByQueryTest
 
   public Map<String, Object> getContext()
   {
-    return QueryContext.of(
+    return QueryContext.ofMap(
         QueryContextParameters.VECTORIZE,
         vectorize,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         QueryContexts.Vectorize.TRUE
-    ).toMap();
+    );
   }
 
   @Test

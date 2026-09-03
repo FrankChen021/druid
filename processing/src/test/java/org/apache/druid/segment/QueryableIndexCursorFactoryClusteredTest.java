@@ -769,7 +769,7 @@ class QueryableIndexCursorFactoryClusteredTest extends InitializedNullHandlingTe
     // queries fail outright when the filter prunes every cluster group, instead of returning an empty result.
     final TimeseriesQuery query = newTimeseries()
         .filters(new EqualityFilter("tenant", ColumnType.STRING, "initech", null))
-        .context(QueryContext.of(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.FORCE).toMap())
+        .context(QueryContext.ofMap(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.FORCE))
         .build();
     final List<Result<TimeseriesResultValue>> results = timeseriesEngine.process(query, factory, null, null).toList();
     Assertions.assertTrue(

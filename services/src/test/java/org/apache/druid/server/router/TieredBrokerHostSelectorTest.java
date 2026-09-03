@@ -320,7 +320,7 @@ public class TieredBrokerHostSelectorTest
         "hotBroker",
         brokerSelector.select(
             queryBuilder
-                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, "hotBroker").toMap())
+                .context(QueryContext.ofMap(QueryContextParameters.BROKER_SERVICE, "hotBroker"))
                 .build()
         ).lhs
     );
@@ -328,7 +328,7 @@ public class TieredBrokerHostSelectorTest
         "coldBroker",
         brokerSelector.select(
             queryBuilder
-                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, "coldBroker").toMap())
+                .context(QueryContext.ofMap(QueryContextParameters.BROKER_SERVICE, "coldBroker"))
                 .build()
         ).lhs
     );
@@ -347,7 +347,7 @@ public class TieredBrokerHostSelectorTest
         "hotBroker",
         brokerSelector.selectForSql(
             createSqlQueryWithContext(
-                QueryContext.of(QueryContextParameters.BROKER_SERVICE, "hotBroker").toMap()
+                QueryContext.ofMap(QueryContextParameters.BROKER_SERVICE, "hotBroker")
             )
         ).lhs
     );
@@ -355,7 +355,7 @@ public class TieredBrokerHostSelectorTest
         "coldBroker",
         brokerSelector.selectForSql(
             createSqlQueryWithContext(
-                QueryContext.of(QueryContextParameters.BROKER_SERVICE, "coldBroker").toMap()
+                QueryContext.ofMap(QueryContextParameters.BROKER_SERVICE, "coldBroker")
             )
         ).lhs
     );

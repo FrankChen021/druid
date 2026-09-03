@@ -63,30 +63,30 @@ public class VectorizedVirtualColumnTest
   private static final String ALWAYS_TWO = "two";
   private static final String COUNT = "count";
   private static final Map<String, Object> CONTEXT_USE_DEFAULTS = ImmutableMap.of();
-  private static final Map<String, Object> CONTEXT_VECTORIZE_FORCE = QueryContext.of(
+  private static final Map<String, Object> CONTEXT_VECTORIZE_FORCE = QueryContext.ofMap(
       QueryContextParameters.VECTORIZE,
       QueryContexts.Vectorize.FORCE,
       QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
       QueryContexts.Vectorize.FORCE
-  ).toMap();
-  private static final Map<String, Object> CONTEXT_VECTORIZE_TRUE_VIRTUAL_FORCE = QueryContext.of(
+  );
+  private static final Map<String, Object> CONTEXT_VECTORIZE_TRUE_VIRTUAL_FORCE = QueryContext.ofMap(
       QueryContextParameters.VECTORIZE,
       QueryContexts.Vectorize.TRUE,
       QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
       QueryContexts.Vectorize.FORCE
-  ).toMap();
-  private static final Map<String, Object> CONTEXT_CONTRADICTION_VECTORIZE_FALSE_VIRTUAL_FORCE = QueryContext.of(
+  );
+  private static final Map<String, Object> CONTEXT_CONTRADICTION_VECTORIZE_FALSE_VIRTUAL_FORCE = QueryContext.ofMap(
       QueryContextParameters.VECTORIZE,
       QueryContexts.Vectorize.FALSE,
       QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
       QueryContexts.Vectorize.FORCE
-  ).toMap();
-  private static final Map<String, Object> CONTEXT_CONTRADICTION_VECTORIZE_FORCE_VIRTUAL_FALSE = QueryContext.of(
+  );
+  private static final Map<String, Object> CONTEXT_CONTRADICTION_VECTORIZE_FORCE_VIRTUAL_FALSE = QueryContext.ofMap(
       QueryContextParameters.VECTORIZE,
       QueryContexts.Vectorize.FORCE,
       QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
       QueryContexts.Vectorize.FALSE
-  ).toMap();
+  );
 
   @RegisterExtension
   public final TemporaryFolderExtension tmpFolder = TemporaryFolderExtension.testCaseScoped();

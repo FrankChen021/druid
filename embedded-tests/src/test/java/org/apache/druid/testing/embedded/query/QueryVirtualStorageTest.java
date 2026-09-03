@@ -322,12 +322,12 @@ class QueryVirtualStorageTest extends EmbeddedClusterTestBase
                 false,
                 false,
                 false,
-                QueryContext.of(
+                QueryContext.ofMap(
                     QueryContextParameters.SQL_QUERY_ID,
                     sqlQueryId,
                     QueryContextParameters.ENGINE,
                     "msq-dart"
-                ).toMap(),
+                ),
                 null
             )
         )

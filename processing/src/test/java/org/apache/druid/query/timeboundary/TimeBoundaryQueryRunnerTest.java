@@ -354,12 +354,12 @@ public class TimeBoundaryQueryRunnerTest extends InitializedNullHandlingTest
                   )
                   .bound(bound)
                   .context(
-                      QueryContext.of(
+                      QueryContext.ofMap(
                           QueryContextParameters.VECTORIZE,
                           vectorize,
                           QueryContextParameters.VECTOR_SIZE,
                           7
-                      ).toMap()
+                      )
                   )
                   .build();
 

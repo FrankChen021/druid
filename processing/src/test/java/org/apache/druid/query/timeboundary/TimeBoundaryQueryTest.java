@@ -55,7 +55,7 @@ public class TimeBoundaryQueryTest
                                           .dataSource("foo")
                                           .intervals("2013/2014")
                                           .context(
-                                              QueryContext.of(
+                                              QueryContext.ofMap(
                                                   QueryContextParameters.PRIORITY,
                                                   1,
                                                   QueryContextParameters.USE_CACHE,
@@ -64,7 +64,7 @@ public class TimeBoundaryQueryTest
                                                   true,
                                                   QueryContextParameters.FINALIZE,
                                                   true
-                                              ).toMap()
+                                              )
                                           ).build();
 
     final ObjectMapper mapper = new DefaultObjectMapper();

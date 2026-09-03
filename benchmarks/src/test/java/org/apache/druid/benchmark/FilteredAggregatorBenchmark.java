@@ -311,12 +311,12 @@ public class FilteredAggregatorBenchmark
 
     final QueryPlus<T> queryToRun = QueryPlus.wrap(
         query.withOverriddenContext(
-            QueryContext.of(
+            QueryContext.ofMap(
                 QueryContextParameters.VECTORIZE,
                 QueryContexts.Vectorize.fromString(vectorize),
                 QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
                 QueryContexts.Vectorize.fromString(vectorize)
-            ).toMap()
+            )
         )
     );
     Sequence<T> queryResult = theRunner.run(queryToRun, ResponseContext.createEmpty());

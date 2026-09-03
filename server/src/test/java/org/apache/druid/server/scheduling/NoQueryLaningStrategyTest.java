@@ -63,7 +63,7 @@ public class NoQueryLaningStrategyTest
   {
     final String someLane = "some-lane";
     TimeseriesQuery query = queryBuilder.context(
-        QueryContext.of(QueryContextParameters.PRIORITY, 100, QueryContextParameters.LANE, someLane).toMap()
+        QueryContext.ofMap(QueryContextParameters.PRIORITY, 100, QueryContextParameters.LANE, someLane)
     ).build();
     Assertions.assertEquals(
         someLane,

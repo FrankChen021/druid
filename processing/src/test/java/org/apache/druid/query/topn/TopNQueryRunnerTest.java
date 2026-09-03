@@ -3730,7 +3730,7 @@ public class TopNQueryRunnerTest extends InitializedNullHandlingTest
             QueryRunnerTestHelper.ADD_ROWS_INDEX_CONSTANT,
             QueryRunnerTestHelper.DEPENDENT_POST_AGG
         )
-        .context(QueryContext.of(QueryContextParameters.FINALIZE, true, QueryContextParameters.BY_SEGMENT, true).toMap())
+        .context(QueryContext.ofMap(QueryContextParameters.FINALIZE, true, QueryContextParameters.BY_SEGMENT, true))
         .build();
     TopNResultValue topNResult = TopNResultValue.create(
         Arrays.<Map<String, Object>>asList(
@@ -7168,7 +7168,7 @@ public class TopNQueryRunnerTest extends InitializedNullHandlingTest
         .metric(QueryRunnerTestHelper.INDEX_METRIC)
         .threshold(10_000)
         .intervals(QueryRunnerTestHelper.FIRST_TO_THIRD)
-        .context(QueryContext.of(QueryContextParameters.USE_TOPN_MULTI_PASS_POOLED_QUERY_GRANULARITY, true).toMap())
+        .context(QueryContext.ofMap(QueryContextParameters.USE_TOPN_MULTI_PASS_POOLED_QUERY_GRANULARITY, true))
         .aggregators(
             QueryRunnerTestHelper.INDEX_LONG_SUM,
             new StringAnyAggregatorFactory("big", QueryRunnerTestHelper.PLACEMENT_DIMENSION, 4000000, null)

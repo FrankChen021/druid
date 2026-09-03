@@ -124,7 +124,7 @@ class EmbeddedMSQProjectionPartialDownloadsTest extends EmbeddedClusterTestBase
     emitter.flush();
 
     final SqlTaskStatus status = msqApis.submitTaskSql(
-        QueryContext.of(QueryContextParameters.USE_PROJECTION, PROJECTION_NAME).toMap(),
+        QueryContext.ofMap(QueryContextParameters.USE_PROJECTION, PROJECTION_NAME),
         SELECT_SQL,
         dataSource
     );

@@ -169,7 +169,7 @@ public class FrameCursorFactoryTest
     private CursorFactory queryableCursorFactory;
     private FrameSegment frameSegment;
     private CursorFactory frameCursorFactory;
-    private final QueryContext queryContext = QueryContext.of(QueryContextParameters.VECTOR_SIZE, VECTOR_SIZE).toContext();
+    private final QueryContext queryContext = QueryContext.of(QueryContextParameters.VECTOR_SIZE, VECTOR_SIZE);
 
     public CursorTests(
         FrameType frameType,

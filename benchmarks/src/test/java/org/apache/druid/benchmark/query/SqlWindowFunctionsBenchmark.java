@@ -89,7 +89,7 @@ public class SqlWindowFunctionsBenchmark extends SqlBaseQueryBenchmark
   @Override
   protected Map<String, Object> getContext()
   {
-    return QueryContext.of(
+    return QueryContext.ofMap(
         QueryContextParameters.MAX_SUBQUERY_BYTES,
         "disabled",
         QueryContextParameters.MAX_SUBQUERY_ROWS,
@@ -98,6 +98,6 @@ public class SqlWindowFunctionsBenchmark extends SqlBaseQueryBenchmark
         vectorizeContext,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         vectorizeContext
-    ).toMap();
+    );
   }
 }

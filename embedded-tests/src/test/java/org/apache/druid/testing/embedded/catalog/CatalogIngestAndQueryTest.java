@@ -582,7 +582,7 @@ public abstract class CatalogIngestAndQueryTest extends CatalogTestBase
         false,
         false,
         false,
-        QueryContext.of(QueryContextParameters.CATALOG_VALIDATION_ENABLED, false).toMap(),
+        QueryContext.ofMap(QueryContextParameters.CATALOG_VALIDATION_ENABLED, false),
         null
     );
     SqlTaskStatus sqlTaskStatus = cluster.callApi().onAnyBroker(b -> b.submitSqlTask(sqlQuery));
@@ -660,7 +660,7 @@ public abstract class CatalogIngestAndQueryTest extends CatalogTestBase
         false,
         false,
         false,
-        QueryContext.of(QueryContextParameters.CATALOG_VALIDATION_ENABLED, false).toMap(),
+        QueryContext.ofMap(QueryContextParameters.CATALOG_VALIDATION_ENABLED, false),
         null
     );
     SqlTaskStatus sqlTaskStatus = cluster.callApi().onAnyBroker(b -> b.submitSqlTask(sqlQuery));

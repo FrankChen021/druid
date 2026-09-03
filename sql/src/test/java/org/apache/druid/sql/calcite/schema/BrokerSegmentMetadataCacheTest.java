@@ -315,7 +315,7 @@ public class BrokerSegmentMetadataCacheTest extends BrokerSegmentMetadataCacheTe
         new MultipleSpecificSegmentSpec(Collections.singletonList(realtimeSegment1.getId().toDescriptor())),
         new AllColumnIncluderator(),
         false,
-        QueryContext.of(QueryContextParameters.ENABLE_PARALLEL_MERGE, false).toMap(),
+        QueryContext.ofMap(QueryContextParameters.ENABLE_PARALLEL_MERGE, false),
         EnumSet.noneOf(SegmentMetadataQuery.AnalysisType.class),
         false,
         null,
@@ -1064,12 +1064,12 @@ public class BrokerSegmentMetadataCacheTest extends BrokerSegmentMetadataCacheTe
         CentralizedDatasourceSchemaConfig.create()
     );
 
-    Map<String, Object> queryContext = QueryContext.of(
+    Map<String, Object> queryContext = QueryContext.ofMap(
         QueryContextParameters.PRIORITY,
         5,
         QueryContextParameters.ENABLE_PARALLEL_MERGE,
         false
-    ).toMap();
+    );
 
     DataSegment segment = newSegment("test", 0);
     List<SegmentId> segmentIterable = ImmutableList.of(segment.getId());
@@ -1226,12 +1226,12 @@ public class BrokerSegmentMetadataCacheTest extends BrokerSegmentMetadataCacheTe
         CentralizedDatasourceSchemaConfig.create()
     );
 
-    Map<String, Object> queryContext = QueryContext.of(
+    Map<String, Object> queryContext = QueryContext.ofMap(
         QueryContextParameters.PRIORITY,
         5,
         QueryContextParameters.ENABLE_PARALLEL_MERGE,
         false
-    ).toMap();
+    );
 
     DataSegment segment = newSegment("test", 0);
     DataSegment tombstone = DataSegment.builder()

@@ -90,20 +90,44 @@ public class QueryContext
   }
 
   /**
-   * Starts building a context from one declared query context parameter.
+   * Creates a query context from one declared query context parameter.
    */
-  public static <T> QueryContextBuilder of(
+  public static <T> QueryContext of(
       final QueryContextParameter<T> parameter,
       @Nullable final T value
   )
   {
-    return new QueryContextBuilder().put(parameter, value);
+    return new QueryContext(ofMap(parameter, value));
   }
 
   /**
-   * Starts building a context from two declared query context parameters.
+   * Creates a query context map from one declared query context parameter.
    */
-  public static <T1, T2> QueryContextBuilder of(
+  public static <T> Map<String, Object> ofMap(
+      final QueryContextParameter<T> parameter,
+      @Nullable final T value
+  )
+  {
+    return new QueryContextBuilder().put(parameter, value).build();
+  }
+
+  /**
+   * Creates a query context from two declared query context parameters.
+   */
+  public static <T1, T2> QueryContext of(
+      final QueryContextParameter<T1> parameter1,
+      @Nullable final T1 value1,
+      final QueryContextParameter<T2> parameter2,
+      @Nullable final T2 value2
+  )
+  {
+    return new QueryContext(ofMap(parameter1, value1, parameter2, value2));
+  }
+
+  /**
+   * Creates a query context map from two declared query context parameters.
+   */
+  public static <T1, T2> Map<String, Object> ofMap(
       final QueryContextParameter<T1> parameter1,
       @Nullable final T1 value1,
       final QueryContextParameter<T2> parameter2,
@@ -112,13 +136,29 @@ public class QueryContext
   {
     return new QueryContextBuilder()
         .put(parameter1, value1)
-        .put(parameter2, value2);
+        .put(parameter2, value2)
+        .build();
   }
 
   /**
-   * Starts building a context from three declared query context parameters.
+   * Creates a query context from three declared query context parameters.
    */
-  public static <T1, T2, T3> QueryContextBuilder of(
+  public static <T1, T2, T3> QueryContext of(
+      final QueryContextParameter<T1> parameter1,
+      @Nullable final T1 value1,
+      final QueryContextParameter<T2> parameter2,
+      @Nullable final T2 value2,
+      final QueryContextParameter<T3> parameter3,
+      @Nullable final T3 value3
+  )
+  {
+    return new QueryContext(ofMap(parameter1, value1, parameter2, value2, parameter3, value3));
+  }
+
+  /**
+   * Creates a query context map from three declared query context parameters.
+   */
+  public static <T1, T2, T3> Map<String, Object> ofMap(
       final QueryContextParameter<T1> parameter1,
       @Nullable final T1 value1,
       final QueryContextParameter<T2> parameter2,
@@ -130,13 +170,40 @@ public class QueryContext
     return new QueryContextBuilder()
         .put(parameter1, value1)
         .put(parameter2, value2)
-        .put(parameter3, value3);
+        .put(parameter3, value3)
+        .build();
   }
 
   /**
-   * Starts building a context from four declared query context parameters.
+   * Creates a query context from four declared query context parameters.
    */
-  public static <T1, T2, T3, T4> QueryContextBuilder of(
+  public static <T1, T2, T3, T4> QueryContext of(
+      final QueryContextParameter<T1> parameter1,
+      @Nullable final T1 value1,
+      final QueryContextParameter<T2> parameter2,
+      @Nullable final T2 value2,
+      final QueryContextParameter<T3> parameter3,
+      @Nullable final T3 value3,
+      final QueryContextParameter<T4> parameter4,
+      @Nullable final T4 value4
+  )
+  {
+    return new QueryContext(ofMap(
+        parameter1,
+        value1,
+        parameter2,
+        value2,
+        parameter3,
+        value3,
+        parameter4,
+        value4
+    ));
+  }
+
+  /**
+   * Creates a query context map from four declared query context parameters.
+   */
+  public static <T1, T2, T3, T4> Map<String, Object> ofMap(
       final QueryContextParameter<T1> parameter1,
       @Nullable final T1 value1,
       final QueryContextParameter<T2> parameter2,
@@ -151,7 +218,8 @@ public class QueryContext
         .put(parameter1, value1)
         .put(parameter2, value2)
         .put(parameter3, value3)
-        .put(parameter4, value4);
+        .put(parameter4, value4)
+        .build();
   }
 
   public boolean isEmpty()

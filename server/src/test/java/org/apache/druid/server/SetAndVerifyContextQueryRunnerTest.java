@@ -25,6 +25,7 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -42,7 +43,7 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 1L).toMap())
+        .context(QueryContext.ofMap(QueryContextParameters.TIMEOUT, 1L))
         .build();
 
     ServerConfig defaultConfig = new ServerConfig();
@@ -93,7 +94,7 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 0L).toMap())
+        .context(QueryContext.ofMap(QueryContextParameters.TIMEOUT, 0L))
         .build();
 
     ServerConfig defaultConfig = new ServerConfig();
@@ -115,7 +116,7 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 0L).toMap())
+        .context(QueryContext.ofMap(QueryContextParameters.TIMEOUT, 0L))
         .build();
 
     ServerConfig defaultConfig = new ServerConfig()
@@ -150,11 +151,10 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(
-            QueryContext.of(QueryContextParameters.TIMEOUT, 300_000L)
-                       .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
-                       .toMap()
-        )
+        .context(new QueryContextBuilder()
+            .put(QueryContextParameters.TIMEOUT, 300_000L)
+            .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
+            .build())
         .build();
 
     ServerConfig defaultConfig = new ServerConfig();
@@ -178,11 +178,10 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(
-            QueryContext.of(QueryContextParameters.TIMEOUT, 1L)
-                       .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
-                       .toMap()
-        )
+        .context(new QueryContextBuilder()
+            .put(QueryContextParameters.TIMEOUT, 1L)
+            .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
+            .build())
         .build();
 
     ServerConfig defaultConfig = new ServerConfig();
@@ -208,11 +207,10 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(
-            QueryContext.of(QueryContextParameters.TIMEOUT, Long.MAX_VALUE)
-                       .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
-                       .toMap()
-        )
+        .context(new QueryContextBuilder()
+            .put(QueryContextParameters.TIMEOUT, Long.MAX_VALUE)
+            .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
+            .build())
         .build();
 
     // Explicit max so the test does not depend on ServerConfig default values.

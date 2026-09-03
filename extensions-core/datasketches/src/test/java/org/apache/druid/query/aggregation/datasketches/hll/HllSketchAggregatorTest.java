@@ -491,7 +491,7 @@ public class HllSketchAggregatorTest extends InitializedNullHandlingTest
                        .setPostAggregatorSpecs(
                            new FieldAccessPostAggregator("sketch_raw", "sketch")
                        )
-                       .setContext(QueryContext.of(QueryContextParameters.VECTORIZE, vectorize).toMap())
+                       .setContext(QueryContext.ofMap(QueryContextParameters.VECTORIZE, vectorize))
                        .build();
   }
 
@@ -528,7 +528,7 @@ public class HllSketchAggregatorTest extends InitializedNullHandlingTest
                  .granularity(Granularities.ALL)
                  .intervals(Intervals.of("2017-01-01T00:00:00.000Z/2017-01-31T00:00:00.000Z").toString())
                  .aggregators(agg)
-                 .context(QueryContext.of(QueryContextParameters.VECTORIZE, vectorize).toMap())
+                 .context(QueryContext.ofMap(QueryContextParameters.VECTORIZE, vectorize))
                  .build();
   }
 

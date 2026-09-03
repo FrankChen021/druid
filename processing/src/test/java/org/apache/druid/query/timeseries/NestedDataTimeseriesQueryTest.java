@@ -113,12 +113,12 @@ public class NestedDataTimeseriesQueryTest extends InitializedNullHandlingTest
 
   public Map<String, Object> getContext()
   {
-    return QueryContext.of(
+    return QueryContext.ofMap(
         QueryContextParameters.VECTORIZE,
         vectorize,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         vectorize
-    ).toMap();
+    );
   }
 
   @Test

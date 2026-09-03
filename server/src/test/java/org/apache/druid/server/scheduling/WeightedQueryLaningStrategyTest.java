@@ -136,7 +136,7 @@ public class WeightedQueryLaningStrategyTest
   {
     WeightedQueryLaningStrategy strategy = newStrategy(null, null, 10000, null);
     TimeseriesQuery query = queryBuilder
-        .context(QueryContext.of(QueryContextParameters.LANE, "custom").toMap())
+        .context(QueryContext.ofMap(QueryContextParameters.LANE, "custom"))
         .build();
     Optional<String> lane = strategy.computeLane(QueryPlus.wrap(query), Set.of());
     Assertions.assertTrue(lane.isPresent());

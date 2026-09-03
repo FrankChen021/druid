@@ -401,7 +401,7 @@ public class FixedBucketsHistogramQuantileSqlAggregatorTest extends BaseCalciteQ
                       new QuantilePostAggregator("a6", "a6:agg", 0.999f),
                       new QuantilePostAggregator("a7", "a5:agg", 0.999f)
                   )
-                  .context(QueryContext.of(QueryContextParameters.SQL_QUERY_ID, "dummy").toMap())
+                  .context(QueryContext.ofMap(QueryContextParameters.SQL_QUERY_ID, "dummy"))
                   .build()
         ),
         ImmutableList.of(

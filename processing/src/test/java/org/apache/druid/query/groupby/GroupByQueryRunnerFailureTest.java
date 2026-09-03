@@ -201,7 +201,7 @@ public class GroupByQueryRunnerFailureTest
         .setGranularity(Granularities.ALL)
         .setInterval(QueryRunnerTestHelper.FIRST_TO_THIRD)
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
-        .setContext(QueryContext.of(QueryContextParameters.TIMEOUT, 500L).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, 500L))
         .build();
 
     final ResourceLimitExceededException exception = Assertions.assertThrows(
@@ -244,7 +244,7 @@ public class GroupByQueryRunnerFailureTest
         .setGranularity(Granularities.ALL)
         .setInterval(QueryRunnerTestHelper.FIRST_TO_THIRD)
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
-        .setContext(QueryContext.of(QueryContextParameters.TIMEOUT, 500L).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, 500L))
         .build();
 
     Assertions.assertThrows(
@@ -273,7 +273,7 @@ public class GroupByQueryRunnerFailureTest
         .setGranularity(Granularities.ALL)
         .setInterval(QueryRunnerTestHelper.FIRST_TO_THIRD)
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
-        .setContext(QueryContext.of(QueryContextParameters.TIMEOUT, 500L).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, 500L))
         .build();
 
     List<ReferenceCountingResourceHolder<ByteBuffer>> holder = null;
@@ -305,7 +305,7 @@ public class GroupByQueryRunnerFailureTest
         .setDimensions(new DefaultDimensionSpec("quality", "alias"))
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
         .setGranularity(Granularities.ALL)
-        .overrideContext(QueryContext.of(QueryContextParameters.TIMEOUT, 1L).toMap())
+        .overrideContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, 1L))
         .queryId("test")
         .build();
 
@@ -352,7 +352,7 @@ public class GroupByQueryRunnerFailureTest
         .setDimensions(new DefaultDimensionSpec("quality", "alias"))
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
         .setGranularity(Granularities.ALL)
-        .overrideContext(QueryContext.of(QueryContextParameters.TIMEOUT, 1L).toMap())
+        .overrideContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, 1L))
         .queryId("test")
         .build();
 
@@ -402,12 +402,12 @@ public class GroupByQueryRunnerFailureTest
         .setDimensions(new DefaultDimensionSpec("quality", "alias"))
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
         .setGranularity(Granularities.ALL)
-        .overrideContext(QueryContext.of(
+        .overrideContext(QueryContext.ofMap(
             QueryContextParameters.TIMEOUT,
             300_000L,
             QueryContextParameters.PER_SEGMENT_TIMEOUT,
             100L
-        ).toMap())
+        ))
         .queryId("test")
         .build();
 
@@ -457,12 +457,12 @@ public class GroupByQueryRunnerFailureTest
         .setDimensions(new DefaultDimensionSpec("quality", "alias"))
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
         .setGranularity(Granularities.ALL)
-        .overrideContext(QueryContext.of(
+        .overrideContext(QueryContext.ofMap(
             QueryContextParameters.TIMEOUT,
             300_000L,
             QueryContextParameters.PER_SEGMENT_TIMEOUT,
             100L
-        ).toMap())
+        ))
         .queryId("test")
         .build();
 
@@ -524,12 +524,12 @@ public class GroupByQueryRunnerFailureTest
         .setDimensions(new DefaultDimensionSpec("quality", "alias"))
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
         .setGranularity(Granularities.ALL)
-        .overrideContext(QueryContext.of(
+        .overrideContext(QueryContext.ofMap(
             QueryContextParameters.TIMEOUT,
             300_000L,
             QueryContextParameters.PER_SEGMENT_TIMEOUT,
             1_000L
-        ).toMap())
+        ))
         .queryId("slow")
         .build();
 
@@ -540,12 +540,12 @@ public class GroupByQueryRunnerFailureTest
         .setDimensions(new DefaultDimensionSpec("quality", "alias"))
         .setAggregatorSpecs(new LongSumAggregatorFactory("rows", "rows"))
         .setGranularity(Granularities.ALL)
-        .overrideContext(QueryContext.of(
+        .overrideContext(QueryContext.ofMap(
             QueryContextParameters.TIMEOUT,
             5_000L,
             QueryContextParameters.PER_SEGMENT_TIMEOUT,
             100L
-        ).toMap())
+        ))
         .queryId("fast")
         .build();
 

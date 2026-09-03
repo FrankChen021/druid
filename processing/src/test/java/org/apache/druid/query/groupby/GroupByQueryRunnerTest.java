@@ -3028,7 +3028,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setDimensions(new DefaultDimensionSpec("quality", "alias"))
         .setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, new LongSumAggregatorFactory("idx", "index"))
         .setGranularity(QueryRunnerTestHelper.DAY_GRAN)
-        .overrideContext(QueryContext.of(QueryContextParameters.TIMEOUT, 60000L).toMap())
+        .overrideContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, 60000L))
         .build();
 
     List<ResultRow> expectedResults = Arrays.asList(
@@ -3593,12 +3593,12 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, QueryRunnerTestHelper.QUALITY_CARDINALITY)
         .setGranularity(QueryRunnerTestHelper.ALL_GRAN);
     GroupByQuery queryNoProjection = queryBuilder
-        .setContext(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.NO_PROJECTIONS, true))
         .build();
-    GroupByQuery queryWithProjection = queryBuilder.setContext(QueryContext.of(
+    GroupByQuery queryWithProjection = queryBuilder.setContext(QueryContext.ofMap(
         QueryContextParameters.USE_PROJECTION,
         "daily_countAndQualityCardinalityAndMaxLongNullable"
-    ).toMap()).build();
+    )).build();
     // act
     Iterable<ResultRow> resultsNoProjection = GroupByQueryRunnerTestHelper.runQuery(factory, runner, queryNoProjection);
     Iterable<ResultRow> resultsWithProjection = GroupByQueryRunnerTestHelper.runQuery(
@@ -3630,12 +3630,12 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, QueryRunnerTestHelper.QUALITY_CARDINALITY)
         .setGranularity(QueryRunnerTestHelper.ALL_GRAN);
     GroupByQuery queryNoProjection = queryBuilder
-        .setContext(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true).toMap())
+        .setContext(QueryContext.ofMap(QueryContextParameters.NO_PROJECTIONS, true))
         .build();
-    GroupByQuery queryWithProjection = queryBuilder.setContext(QueryContext.of(
+    GroupByQuery queryWithProjection = queryBuilder.setContext(QueryContext.ofMap(
         QueryContextParameters.USE_PROJECTION,
         "daily_countAndQualityCardinalityAndMaxLongNullable"
-    ).toMap()).build();
+    )).build();
 
     Iterable<ResultRow> resultsNoProjection = GroupByQueryRunnerTestHelper.runQuery(factory, runner, queryNoProjection);
     Iterable<ResultRow> resultsWithProjection = GroupByQueryRunnerTestHelper.runQuery(
@@ -7433,7 +7433,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setQuerySegmentSpec(QueryRunnerTestHelper.FIRST_TO_THIRD)
         .setDimensions(new ArrayList<>()).setAggregatorSpecs(new CountAggregatorFactory("count"))
         .setGranularity(QueryRunnerTestHelper.ALL_GRAN)
-        .overrideContext(QueryContext.of(QueryContextParameters.TIMEOUT, 10000L).toMap())
+        .overrideContext(QueryContext.ofMap(QueryContextParameters.TIMEOUT, 10000L))
         .build();
 
     List<ResultRow> expectedResults = Collections.singletonList(
@@ -7864,7 +7864,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
             new LongLastAggregatorFactory("innerlast", "index", null)
         )
         .setGranularity(QueryRunnerTestHelper.DAY_GRAN)
-        .overrideContext(QueryContext.of(QueryContextParameters.FINALIZE, true).toMap())
+        .overrideContext(QueryContext.ofMap(QueryContextParameters.FINALIZE, true))
         .build();
 
     GroupByQuery query = makeQueryBuilder()
@@ -9446,7 +9446,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, new LongSumAggregatorFactory("idx", "index"))
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
         .setDimFilter(new SelectorDimFilter("quality", "mezzanine", null))
-        .setContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, true).toMap());
+        .setContext(QueryContext.ofMap(QueryContextParameters.BY_SEGMENT, true));
     final GroupByQuery fullQuery = builder.build();
 
     int segmentCount = 32;
@@ -9517,7 +9517,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         )).setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, new LongSumAggregatorFactory("idx", "index"))
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
         .setDimFilter(new SelectorDimFilter("quality", "mezzanine", null))
-        .setContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, true).toMap());
+        .setContext(QueryContext.ofMap(QueryContextParameters.BY_SEGMENT, true));
     final GroupByQuery fullQuery = builder.build();
 
     int segmentCount = 32;
@@ -9587,7 +9587,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         )).setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, new LongSumAggregatorFactory("idx", "index"))
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
         .setDimFilter(new SelectorDimFilter("quality", "mezzanine", null))
-        .overrideContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, true).toMap());
+        .overrideContext(QueryContext.ofMap(QueryContextParameters.BY_SEGMENT, true));
     final GroupByQuery fullQuery = builder.build();
 
     int segmentCount = 32;
@@ -10154,7 +10154,7 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
         .setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, new LongSumAggregatorFactory("idx", "index"))
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
         .setDimFilter(superFilter)
-        .overrideContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, true).toMap());
+        .overrideContext(QueryContext.ofMap(QueryContextParameters.BY_SEGMENT, true));
     final GroupByQuery fullQuery = builder.build();
 
     int segmentCount = 32;

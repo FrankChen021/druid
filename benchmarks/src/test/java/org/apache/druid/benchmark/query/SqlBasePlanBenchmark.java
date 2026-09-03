@@ -39,12 +39,12 @@ public class SqlBasePlanBenchmark extends SqlBaseBenchmark
   @OutputTimeUnit(TimeUnit.MILLISECONDS)
   public void planSql(Blackhole blackhole)
   {
-    final Map<String, Object> context = QueryContext.of(
+    final Map<String, Object> context = QueryContext.ofMap(
         QueryContextParameters.VECTORIZE,
         vectorizeContext,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         vectorizeContext
-    ).toMap();
+    );
     final String sql = getQuery();
     try (final DruidPlanner planner = plannerFactory.createPlannerForTesting(engine, sql, context)) {
       final PlannerResult plannerResult = planner.plan();

@@ -378,7 +378,7 @@ public class DatasketchesProjectionTest extends InitializedNullHandlingTest
                         new ArrayOfDoublesSketchAggregatorFactory("b_doubles", "b", null, Arrays.asList("c", "d"), null),
                         new KllDoublesSketchAggregatorFactory("d", "d", null, null)
                     )
-                    .setContext(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true).toMap())
+                    .setContext(QueryContext.ofMap(QueryContextParameters.NO_PROJECTIONS, true))
                     .build();
     final CursorBuildSpec buildSpec = GroupingEngine.makeCursorBuildSpec(query, null);
     try (final CursorHolder cursorHolder = projectionsCursorFactory.makeCursorHolder(buildSpec)) {

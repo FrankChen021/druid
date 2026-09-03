@@ -111,17 +111,17 @@ public class QueryContextTest
             QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING.getName(), 10,
             QueryContextParameters.USE_RESULT_LEVEL_CACHE.getName(), false
         ),
-        QueryContext.of(
+        QueryContext.ofMap(
             QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING,
             10,
             QueryContextParameters.USE_RESULT_LEVEL_CACHE,
             false
-        ).toMap()
+        )
     );
 
     assertThrows(
         IAE.class,
-        () -> QueryContext.of(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 0).toMap()
+        () -> QueryContext.ofMap(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 0)
     );
   }
 
@@ -419,10 +419,10 @@ public class QueryContextTest
   @Test
   public void testGetMaxSubqueryBytes()
   {
-    final QueryContext context1 = QueryContext.of(QueryContextParameters.MAX_SUBQUERY_BYTES, 500_000_000).toContext();
+    final QueryContext context1 = QueryContext.of(QueryContextParameters.MAX_SUBQUERY_BYTES, 500_000_000);
     assertEquals("500000000", context1.getMaxSubqueryMemoryBytes(null));
 
-    final QueryContext context2 = QueryContext.of(QueryContextParameters.MAX_SUBQUERY_BYTES, "auto").toContext();
+    final QueryContext context2 = QueryContext.of(QueryContextParameters.MAX_SUBQUERY_BYTES, "auto");
     assertEquals("auto", context2.getMaxSubqueryMemoryBytes(null));
 
     final QueryContext context3 = new QueryContext(ImmutableMap.of());
@@ -432,7 +432,7 @@ public class QueryContextTest
   @Test
   public void testGetInFunctionThreshold()
   {
-    final QueryContext context1 = QueryContext.of(QueryContextParameters.IN_FUNCTION_THRESHOLD, Integer.MAX_VALUE).toContext();
+    final QueryContext context1 = QueryContext.of(QueryContextParameters.IN_FUNCTION_THRESHOLD, Integer.MAX_VALUE);
     assertEquals(Integer.MAX_VALUE, context1.getInFunctionThreshold());
 
     final QueryContext context2 = QueryContext.empty();
@@ -442,7 +442,7 @@ public class QueryContextTest
   @Test
   public void testGetInFunctionExprThreshold()
   {
-    final QueryContext context1 = QueryContext.of(QueryContextParameters.IN_FUNCTION_EXPR_THRESHOLD, Integer.MAX_VALUE).toContext();
+    final QueryContext context1 = QueryContext.of(QueryContextParameters.IN_FUNCTION_EXPR_THRESHOLD, Integer.MAX_VALUE);
     assertEquals(Integer.MAX_VALUE, context1.getInFunctionExprThreshold());
 
     final QueryContext context2 = QueryContext.empty();
@@ -453,7 +453,7 @@ public class QueryContextTest
   public void testDefaultEnableQueryDebugging()
   {
     assertFalse(QueryContext.empty().isDebug());
-    assertTrue(QueryContext.of(QueryContextParameters.DEBUG, true).toContext().isDebug());
+    assertTrue(QueryContext.of(QueryContextParameters.DEBUG, true).isDebug());
   }
 
   @Test
@@ -464,10 +464,10 @@ public class QueryContextTest
         QueryContext.of(
             QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE,
             QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
-        ).toContext().isDecoupledMode()
+        ).isDecoupledMode()
     );
     assertFalse(
-        QueryContext.of(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE, "garbage").toContext().isDecoupledMode()
+        QueryContext.of(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE, "garbage").isDecoupledMode()
     );
   }
 
@@ -477,7 +477,6 @@ public class QueryContextTest
     assertTrue(QueryContext.empty().isExtendedFilteredSumRewrite());
     assertFalse(
         QueryContext.of(QueryContextParameters.EXTENDED_FILTERED_SUM_REWRITE, false)
-            .toContext()
             .isExtendedFilteredSumRewrite()
     );
   }
@@ -561,14 +560,12 @@ public class QueryContextTest
     assertEquals(
         QueryContexts.RealtimeSegmentsMode.EXCLUSIVE,
         QueryContext.of(QueryContextParameters.REALTIME_SEGMENTS_ONLY, true)
-                   .toContext()
                    .getRealtimeSegmentsMode()
     );
     // realtimeSegmentsOnly=false maps to INCLUDE (default)
     assertEquals(
         QueryContexts.RealtimeSegmentsMode.INCLUDE,
         QueryContext.of(QueryContextParameters.REALTIME_SEGMENTS_ONLY, false)
-                   .toContext()
                    .getRealtimeSegmentsMode()
     );
   }
@@ -583,7 +580,7 @@ public class QueryContextTest
             true,
             QueryContextParameters.REALTIME_SEGMENTS_MODE,
             QueryContexts.RealtimeSegmentsMode.EXCLUDE
-        ).toContext().getRealtimeSegmentsMode()
+        ).getRealtimeSegmentsMode()
     );
     assertEquals(
         "Cannot set both [realtimeSegmentsMode] and deprecated [realtimeSegmentsOnly]; use [realtimeSegmentsMode] only.",

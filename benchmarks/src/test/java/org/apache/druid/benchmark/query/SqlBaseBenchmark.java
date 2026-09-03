@@ -229,12 +229,12 @@ public class SqlBaseBenchmark
 
   protected Map<String, Object> getContext()
   {
-    final Map<String, Object> context = QueryContext.of(
+    final Map<String, Object> context = QueryContext.ofMap(
         QueryContextParameters.VECTORIZE,
         vectorizeContext,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         vectorizeContext
-    ).toMap();
+    );
     return context;
   }
 

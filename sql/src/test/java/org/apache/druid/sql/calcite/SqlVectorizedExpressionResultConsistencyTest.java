@@ -189,18 +189,18 @@ public class SqlVectorizedExpressionResultConsistencyTest extends InitializedNul
 
   public static void testQuery(SqlEngine engine, PlannerFactory plannerFactory, String query)
   {
-    final Map<String, Object> vector = QueryContext.of(
+    final Map<String, Object> vector = QueryContext.ofMap(
         QueryContextParameters.VECTORIZE,
         QueryContexts.Vectorize.FORCE,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         QueryContexts.Vectorize.FORCE
-    ).toMap();
-    final Map<String, Object> nonvector = QueryContext.of(
+    );
+    final Map<String, Object> nonvector = QueryContext.ofMap(
         QueryContextParameters.VECTORIZE,
         QueryContexts.Vectorize.FALSE,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         QueryContexts.Vectorize.FALSE
-    ).toMap();
+    );
 
     try (
         final DruidPlanner vectorPlanner = plannerFactory.createPlannerForTesting(engine, query, vector);

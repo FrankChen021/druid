@@ -214,12 +214,12 @@ public class EmbeddedDartReportApiTest extends EmbeddedClusterTestBase
                 false,
                 false,
                 false,
-                QueryContext.of(
+                QueryContext.ofMap(
                     QueryContextParameters.ENGINE,
                     "msq-dart",
                     QueryContextParameters.SQL_QUERY_ID,
                     sqlQueryId
-                ).toMap(),
+                ),
                 null
             )
         )
@@ -316,12 +316,12 @@ public class EmbeddedDartReportApiTest extends EmbeddedClusterTestBase
                 false,
                 false,
                 false,
-                QueryContext.of(
+                QueryContext.ofMap(
                     QueryContextParameters.ENGINE,
                     "msq-dart",
                     QueryContextParameters.SQL_QUERY_ID,
                     sqlQueryId
-                ).toMap(),
+                ),
                 null
             )
         )
@@ -366,7 +366,7 @@ public class EmbeddedDartReportApiTest extends EmbeddedClusterTestBase
 
     // Step 1: Issue the query asynchronously.
     final ListenableFuture<String> queryFuture =
-        msqApis.submitDartSqlAsync(sql, QueryContext.of(QueryContextParameters.SQL_QUERY_ID, sqlQueryId).toMap(), broker1);
+        msqApis.submitDartSqlAsync(sql, QueryContext.ofMap(QueryContextParameters.SQL_QUERY_ID, sqlQueryId), broker1);
 
     // Step 2: Get the report.
     final GetQueryReportResponse runningReport = waitForReport(sqlQueryId);

@@ -176,7 +176,7 @@ class ClusteredSegmentProjectionQueryTest extends EmbeddedClusterTestBase
                 false,
                 false,
                 false,
-                QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true).toMap(),
+                QueryContext.ofMap(QueryContextParameters.NO_PROJECTIONS, true),
                 null
             )
         )

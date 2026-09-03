@@ -798,7 +798,7 @@ public abstract class BaseFilterTest extends InitializedNullHandlingTest
     return CursorBuildSpec.builder()
                           .setFilter(filter)
                           .setVirtualColumns(virtualColumns)
-                          .setQueryContext(QueryContext.of(QueryContextParameters.VECTOR_SIZE, 3).toContext())
+                          .setQueryContext(QueryContext.of(QueryContextParameters.VECTOR_SIZE, 3))
                           .build();
   }
 

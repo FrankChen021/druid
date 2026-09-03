@@ -313,7 +313,7 @@ public class GroupingEngine
         query.getSubtotalsSpec(),
         query.getContext()
     ).withOverriddenContext(
-        context.toMap()
+        context.build()
     );
   }
 

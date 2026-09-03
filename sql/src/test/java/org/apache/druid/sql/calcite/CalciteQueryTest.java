@@ -5929,12 +5929,12 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
         + "GROUP BY dim1",
         QueryContexts.override(
             QUERY_CONTEXT_DEFAULT,
-            QueryContext.of(
+            QueryContext.ofMap(
                 QueryContextParameters.IN_FUNCTION_THRESHOLD,
                 20,
                 QueryContextParameters.IN_SUBQUERY_THRESHOLD,
                 20
-            ).toMap()
+            )
         ),
         ImmutableList.of(
             GroupByQuery.builder()
@@ -8115,7 +8115,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
 
       testQuery(
           PLANNER_CONFIG_MAX_NUMERIC_IN_FILTER,
-          QueryContext.of(QueryContextParameters.MAX_NUMERIC_IN_FILTERS, 20000).toMap(),
+          QueryContext.ofMap(QueryContextParameters.MAX_NUMERIC_IN_FILTERS, 20000),
           "SELECT COUNT(*)\n"
               + "FROM druid.numfoo\n"
               + "WHERE dim6 IN (\n"
@@ -15961,10 +15961,10 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                 + "GROUP BY FLOOR(__time TO DAY)"
         )
         .queryContext(
-            QueryContext.of(
+            QueryContext.ofMap(
                 QueryContextParameters.DEBUG,
                 true
-            ).toMap()
+            )
         )
         .expectedQuery(
             WindowOperatorQueryBuilder.builder()
@@ -16061,10 +16061,10 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
             + "left join compare0 on main.pickup is not distinct from compare0.pickup "
         )
         .queryContext(
-            QueryContext.of(
+            QueryContext.ofMap(
                 QueryContextParameters.DEBUG,
                 true
-            ).toMap()
+            )
         )
         .expectedResults(
             ImmutableList.of(

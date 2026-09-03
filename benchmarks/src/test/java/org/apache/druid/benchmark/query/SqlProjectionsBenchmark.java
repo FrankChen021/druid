@@ -70,14 +70,14 @@ public class SqlProjectionsBenchmark extends SqlBaseQueryBenchmark
   @Override
   protected Map<String, Object> getContext()
   {
-    final Map<String, Object> context = QueryContext.of(
+    final Map<String, Object> context = QueryContext.ofMap(
         QueryContextParameters.VECTORIZE,
         vectorizeContext,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         vectorizeContext,
         useProjections ? QueryContextParameters.FORCE_PROJECTIONS : QueryContextParameters.NO_PROJECTIONS,
         true
-    ).toMap();
+    );
     return context;
   }
 }
