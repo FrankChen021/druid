@@ -35,10 +35,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class QueryContextBuilderTest
 {
   @Test
-  void testPutAllAndTypedParameters()
+  void testPutRawAndTypedParameters()
   {
     final Map<String, Object> context = QueryContext.builder()
-        .putAll(ImmutableMap.of("legacy", 1))
+        .putRaw("legacy", 1)
         .put(QueryContextParameters.MAX_ROWS_QUEUED_FOR_ORDERING, 10)
         .put(QueryContextParameters.USE_RESULT_LEVEL_CACHE, false)
         .toMap();

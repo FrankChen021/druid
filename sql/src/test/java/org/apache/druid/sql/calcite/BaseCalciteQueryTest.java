@@ -175,7 +175,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   public static final Map<String, Object> QUERY_CONTEXT_DEFAULT =
       QueryContext.builder()
                   .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
-                  .putAll(Map.of(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, "2000-01-01T00:00:00Z"))
+                  .putRaw(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, "2000-01-01T00:00:00Z")
                   .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
                   .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
                   .toMap();
@@ -195,16 +195,16 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
       .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
-      .putAll(Map.of(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME))
-      .putAll(Map.of(TimeseriesQuery.SKIP_EMPTY_BUCKETS, false))
+      .putRaw(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
+      .putRaw(TimeseriesQuery.SKIP_EMPTY_BUCKETS, false)
       .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_DO_SKIP_EMPTY_BUCKETS = QueryContext.builder()
       .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
       .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
-      .putAll(Map.of(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME))
-      .putAll(Map.of(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true))
+      .putRaw(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
+      .putRaw(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true)
       .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_LEXICOGRAPHIC_TOPN =
@@ -214,16 +214,16 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
       .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
-      .putAll(Map.of(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME))
-      .putAll(Map.of(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, "false"))
+      .putRaw(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
+      .putRaw(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, "false")
       .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_LOS_ANGELES = QueryContext.builder()
       .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
       .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
-      .putAll(Map.of(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME))
-      .putAll(Map.of(PlannerContext.CTX_SQL_TIME_ZONE, LOS_ANGELES))
+      .putRaw(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
+      .putRaw(PlannerContext.CTX_SQL_TIME_ZONE, LOS_ANGELES)
       .toMap();
 
   // Matches QUERY_CONTEXT_DEFAULT
@@ -231,8 +231,8 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_ID)
       .put(QueryContextParameters.DEFAULT_TIMEOUT, QueryContexts.DEFAULT_TIMEOUT_MILLIS)
       .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, Long.MAX_VALUE)
-      .putAll(Map.of(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME))
-      .putAll(Map.of(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true))
+      .putRaw(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, PRETEND_CURRENT_TIME)
+      .putRaw(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true)
       .toMap();
 
   public static final Map<String, Object> QUERY_CONTEXT_WITH_SUBQUERY_MEMORY_LIMIT =
@@ -252,7 +252,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   {
     return QueryContext.builder()
                        .putAll(context)
-                       .putAll(Map.of(TimeseriesQuery.CTX_TIMESTAMP_RESULT_FIELD, timestampResultField))
+                       .putRaw(TimeseriesQuery.CTX_TIMESTAMP_RESULT_FIELD, timestampResultField)
                        .toMap();
   }
 

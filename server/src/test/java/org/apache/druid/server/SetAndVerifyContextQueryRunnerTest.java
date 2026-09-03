@@ -154,7 +154,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
         .context(QueryContext.builder()
             .put(QueryContextParameters.TIMEOUT, 300_000L)
-            .putAll(Map.of(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime))
+            .putRaw(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
             .toMap())
         .build();
 
@@ -181,7 +181,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
         .context(QueryContext.builder()
             .put(QueryContextParameters.TIMEOUT, 1L)
-            .putAll(Map.of(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime))
+            .putRaw(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
             .toMap())
         .build();
 
@@ -210,7 +210,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
         .context(QueryContext.builder()
             .put(QueryContextParameters.TIMEOUT, Long.MAX_VALUE)
-            .putAll(Map.of(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime))
+            .putRaw(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
             .toMap())
         .build();
 

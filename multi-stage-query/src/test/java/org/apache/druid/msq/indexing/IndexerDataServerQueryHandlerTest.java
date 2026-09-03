@@ -129,7 +129,7 @@ public class IndexerDataServerQueryHandlerTest
         .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
         .context(QueryContext.builder()
             .put(QueryContextParameters.NUM_RETRIES_ON_MISSING_SEGMENTS, 1)
-            .putAll(Map.of(MultiStageQueryContext.CTX_INCLUDE_SEGMENT_SOURCE, SegmentSource.REALTIME.toString()))
+            .putRaw(MultiStageQueryContext.CTX_INCLUDE_SEGMENT_SOURCE, SegmentSource.REALTIME.toString())
             .toMap())
         .build();
     target = spy(

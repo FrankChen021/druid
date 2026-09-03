@@ -898,7 +898,7 @@ public class DoublesSketchSqlAggregatorTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putAll(Map.of(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true))
+                    .putRaw(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
                     .toMap();
 
     testQuery(
@@ -1009,7 +1009,7 @@ public class DoublesSketchSqlAggregatorTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putAll(Map.of(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true))
+                    .putRaw(SketchQueryContext.CTX_FINALIZE_OUTER_SKETCHES, true)
                     .toMap();
 
     testQuery(

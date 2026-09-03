@@ -256,7 +256,7 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
         false,
         QueryContext.builder()
                     .putAll(defaultAsyncContext())
-                    .putAll(Map.of(MultiStageQueryContext.CTX_FAIL_ON_EMPTY_INSERT, true))
+                    .putRaw(MultiStageQueryContext.CTX_FAIL_ON_EMPTY_INSERT, true)
                     .toMap(),
         null
     ), SqlStatementResourceTest.makeOkRequest());

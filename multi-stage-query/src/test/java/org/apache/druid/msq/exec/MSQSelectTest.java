@@ -118,22 +118,24 @@ public class MSQSelectTest extends MSQTestBase
   public static final Map<String, Object> QUERY_RESULTS_WITH_DURABLE_STORAGE_CONTEXT =
       QueryContext.builder()
                   .putAll(DURABLE_STORAGE_MSQ_CONTEXT)
-                  .putAll(Map.of(
+                  .putRaw(
                       MultiStageQueryContext.CTX_ROWS_PER_PAGE,
-                      2,
+                      2
+                  )
+                  .putRaw(
                       MultiStageQueryContext.CTX_SELECT_DESTINATION,
                       StringUtils.toLowerCase(MSQSelectDestination.DURABLESTORAGE.getName())
-                  ))
+                  )
                   .toMap();
 
 
   public static final Map<String, Object> QUERY_RESULTS_WITH_DEFAULT_CONTEXT =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
-                  .putAll(Map.of(
+                  .putRaw(
                       MultiStageQueryContext.CTX_SELECT_DESTINATION,
                       StringUtils.toLowerCase(MSQSelectDestination.DURABLESTORAGE.getName())
-                  ))
+                  )
                   .toMap();
 
   public static Collection<Object[]> data()
@@ -1074,7 +1076,7 @@ public class MSQSelectTest extends MSQTestBase
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(context)
-                    .putAll(Map.of(PlannerContext.CTX_SQL_JOIN_ALGORITHM, joinAlgorithm.toString()))
+                    .putRaw(PlannerContext.CTX_SQL_JOIN_ALGORITHM, joinAlgorithm.toString())
                     .toMap();
 
     final RowSignature resultSignature = RowSignature.builder()
@@ -2939,7 +2941,7 @@ public class MSQSelectTest extends MSQTestBase
   {
     Map<String, Object> localContext = QueryContext.builder()
                                                    .putAll(context)
-                                                   .putAll(Map.of("groupByEnableMultiValueUnnesting", value))
+                                                   .putRaw("groupByEnableMultiValueUnnesting", value)
                                                    .toMap();
     return localContext;
   }

@@ -107,10 +107,10 @@ public class MSQInsertTest extends MSQTestBase
   private static final Map<String, Object> QUERY_CONTEXT_WITH_APPEND_LOCK =
       QueryContext.builder()
                   .putAll(DEFAULT_MSQ_CONTEXT)
-                  .putAll(Map.of(
+                  .putRaw(
                       Tasks.TASK_LOCK_TYPE,
                       TaskLockType.APPEND.name().toLowerCase(Locale.ENGLISH)
-                  ))
+                  )
                   .toMap();
   private final HashFunction fn = Hashing.murmur3_128();
 
@@ -356,10 +356,14 @@ public class MSQInsertTest extends MSQTestBase
     Map<String, Object> sqlContext =
         QueryContext.builder()
             .putAll(context)
-                    .putAll(Map.of(
-                        "sqlInsertSegmentGranularity", "\"DAY\"",
-                        "forceTimeChunkLock", true
-                    ))
+                    .putRaw(
+                        "sqlInsertSegmentGranularity",
+                        "\"DAY\""
+                    )
+                    .putRaw(
+                        "forceTimeChunkLock",
+                        true
+                    )
                     .toMap();
 
     MSQControllerTask controllerTask = new MSQControllerTask(
@@ -1281,10 +1285,10 @@ public class MSQInsertTest extends MSQTestBase
                                             .add("cnt", ColumnType.LONG).build();
     Map<String, Object> newContext = QueryContext.builder()
                                               .putAll(DEFAULT_MSQ_CONTEXT)
-                                              .putAll(Map.of(
+                                              .putRaw(
                                                   MultiStageQueryContext.CTX_CLUSTER_STATISTICS_MERGE_MODE,
                                                   ClusterStatisticsMergeMode.SEQUENTIAL.toString()
-                                              ))
+                                              )
                                               .toMap();
 
     testIngestQuery().setSql(
@@ -1538,7 +1542,7 @@ public class MSQInsertTest extends MSQTestBase
   {
     Map<String, Object> localContext = QueryContext.builder()
                                                    .putAll(context)
-                                                   .putAll(Map.of("groupByEnableMultiValueUnnesting", false))
+                                                   .putRaw("groupByEnableMultiValueUnnesting", false)
                                                    .toMap();
 
 
@@ -2051,10 +2055,14 @@ public class MSQInsertTest extends MSQTestBase
   {
     final Map<String, Object> context = QueryContext.builder()
                                                     .putAll(DEFAULT_MSQ_CONTEXT)
-                                                    .putAll(Map.of(
-                                                        "maxNumSegments", 1,
-                                                        "rowsPerSegment", 1
-                                                    ))
+                                                    .putRaw(
+                                                        "maxNumSegments",
+                                                        1
+                                                    )
+                                                    .putRaw(
+                                                        "rowsPerSegment",
+                                                        1
+                                                    )
                                                     .toMap();
 
     testIngestQuery().setSql("INSERT INTO foo"
@@ -2081,10 +2089,14 @@ public class MSQInsertTest extends MSQTestBase
   {
     final Map<String, Object> context = QueryContext.builder()
                                                     .putAll(DEFAULT_MSQ_CONTEXT)
-                                                    .putAll(Map.of(
-                                                        "maxNumSegments", 2,
-                                                        "rowsPerSegment", 1
-                                                    ))
+                                                    .putRaw(
+                                                        "maxNumSegments",
+                                                        2
+                                                    )
+                                                    .putRaw(
+                                                        "rowsPerSegment",
+                                                        1
+                                                    )
                                                     .toMap();
 
     final RowSignature expectedRowSignature = RowSignature.builder()
@@ -2158,7 +2170,7 @@ public class MSQInsertTest extends MSQTestBase
   {
     Map<String, Object> queryContext = QueryContext.builder()
                                                    .putAll(context)
-                                                   .putAll(Map.of(MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 2))
+                                                   .putRaw(MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 2)
                                                    .toMap();
 
     List<Object[]> expectedRows = ImmutableList.of(
@@ -2196,7 +2208,7 @@ public class MSQInsertTest extends MSQTestBase
   {
     Map<String, Object> queryContext = QueryContext.builder()
                                                    .putAll(context)
-                                                   .putAll(Map.of(MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 2))
+                                                   .putRaw(MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 2)
                                                    .toMap();
 
     List<Object[]> expectedRows = ImmutableList.of(new Object[]{DateTimes.utc(0L).getMillis(), 5L});

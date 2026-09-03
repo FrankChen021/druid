@@ -69,10 +69,14 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
   private static final Map<String, Object> QUERY_CONTEXT =
       QueryContext.builder()
                   .putAll(QUERY_CONTEXT_DEFAULT)
-                  .putAll(Map.of(
-                      PlannerContext.CTX_SQL_REVERSE_LOOKUP, true,
-                      ReverseLookupRule.CTX_MAX_OPTIMIZE_COUNT, 1
-                  ))
+                  .putRaw(
+                      PlannerContext.CTX_SQL_REVERSE_LOOKUP,
+                      true
+                  )
+                  .putRaw(
+                      ReverseLookupRule.CTX_MAX_OPTIMIZE_COUNT,
+                      1
+                  )
                   .toMap();
 
   /**
@@ -81,7 +85,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
   private static final Map<String, Object> QUERY_CONTEXT_WITH_EXTRACTION_FNS =
       QueryContext.builder()
                   .putAll(QUERY_CONTEXT)
-                  .putAll(Map.of(PlannerContext.CTX_SQL_USE_EXTRACTION_FNS, true))
+                  .putRaw(PlannerContext.CTX_SQL_USE_EXTRACTION_FNS, true)
                   .toMap();
 
   private static final String LOOKUP_EXPRESSION = "lookup(\"dim1\",'lookyloo')";
@@ -216,10 +220,14 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putAll(Map.of(
-                        PlannerContext.CTX_SQL_REVERSE_LOOKUP, true,
-                        ReverseLookupRule.CTX_MAX_OPTIMIZE_COUNT, 2
-                    ))
+                    .putRaw(
+                        PlannerContext.CTX_SQL_REVERSE_LOOKUP,
+                        true
+                    )
+                    .putRaw(
+                        ReverseLookupRule.CTX_MAX_OPTIMIZE_COUNT,
+                        2
+                    )
                     .toMap();
 
     testQuery(
@@ -257,10 +265,14 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putAll(Map.of(
-                        PlannerContext.CTX_SQL_REVERSE_LOOKUP, true,
-                        ReverseLookupRule.CTX_MAX_OPTIMIZE_COUNT, 2
-                    ))
+                    .putRaw(
+                        PlannerContext.CTX_SQL_REVERSE_LOOKUP,
+                        true
+                    )
+                    .putRaw(
+                        ReverseLookupRule.CTX_MAX_OPTIMIZE_COUNT,
+                        2
+                    )
                     .toMap();
 
     testQuery(
@@ -401,7 +413,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putAll(Map.of(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true))
+                    .putRaw(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true)
                     .put(QueryContextParameters.IN_FUNCTION_THRESHOLD, 1)
                     .toMap();
 
@@ -421,10 +433,14 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putAll(Map.of(
-                        PlannerContext.CTX_SQL_REVERSE_LOOKUP, true,
-                        ReverseLookupRule.CTX_THRESHOLD, 1
-                    ))
+                    .putRaw(
+                        PlannerContext.CTX_SQL_REVERSE_LOOKUP,
+                        true
+                    )
+                    .putRaw(
+                        ReverseLookupRule.CTX_THRESHOLD,
+                        1
+                    )
                     .toMap();
 
     testQuery(
@@ -446,7 +462,7 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putAll(Map.of(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true))
+                    .putRaw(PlannerContext.CTX_SQL_REVERSE_LOOKUP, true)
                     .put(QueryContextParameters.IN_SUBQUERY_THRESHOLD, 1)
                     .toMap();
 
@@ -846,10 +862,14 @@ public class CalciteLookupFunctionQueryTest extends BaseCalciteQueryTest
     final Map<String, Object> queryContext =
         QueryContext.builder()
                     .putAll(QUERY_CONTEXT_DEFAULT)
-                    .putAll(Map.of(
-                        PlannerContext.CTX_SQL_REVERSE_LOOKUP, true,
-                        ReverseLookupRule.CTX_MAX_OPTIMIZE_COUNT, 3
-                    ))
+                    .putRaw(
+                        PlannerContext.CTX_SQL_REVERSE_LOOKUP,
+                        true
+                    )
+                    .putRaw(
+                        ReverseLookupRule.CTX_MAX_OPTIMIZE_COUNT,
+                        3
+                    )
                     .toMap();
 
     testQuery(

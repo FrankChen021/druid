@@ -403,7 +403,7 @@ public class DrillWindowQueryTest extends BaseCalciteQueryTest
   {
     return QueryContext.builder()
         .put(QueryContextParameters.DEBUG, true)
-        .putAll(Map.of(PlannerCaptureHook.NEED_CAPTURE_HOOK, true))
+        .putRaw(PlannerCaptureHook.NEED_CAPTURE_HOOK, true)
         .toMap();
   }
 

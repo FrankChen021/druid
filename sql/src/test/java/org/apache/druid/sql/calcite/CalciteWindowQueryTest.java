@@ -318,7 +318,7 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
                 QueryContext.builder()
                     .put(QueryContextParameters.DEBUG, true)
                     .put(QueryContextParameters.SQL_STRINGIFY_ARRAYS, false)
-                    .putAll(Map.of(PlannerContext.CTX_ENABLE_RAC_TRANSFER_OVER_WIRE, true))
+                    .putRaw(PlannerContext.CTX_ENABLE_RAC_TRANSFER_OVER_WIRE, true)
                     .toMap()
             )
             .run()

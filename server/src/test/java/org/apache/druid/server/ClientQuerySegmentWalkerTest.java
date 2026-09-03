@@ -1766,15 +1766,34 @@ public class ClientQuerySegmentWalkerTest
                     .put(QueryContextParameters.FINALIZE, true)
                     .put(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, 0L)
                     .put(QueryContextParameters.QUERY_RESOURCE_ID, "dummy")
-                    .putAll(Map.of(
-                        DirectDruidClient.QUERY_FAIL_TIME, 0L,
-                        GroupByQuery.CTX_KEY_SORT_BY_DIMS_FIRST, false,
-                        GroupByQueryConfig.CTX_KEY_ARRAY_RESULT_ROWS, true,
-                        GroupByQueryConfig.CTX_KEY_APPLY_LIMIT_PUSH_DOWN, true,
-                        GroupingEngine.CTX_KEY_OUTERMOST, true,
-                        GroupingEngine.CTX_KEY_FUDGE_TIMESTAMP, "1979",
-                        ResultSerializationMode.CTX_SERIALIZATION_PARAMETER, "blast"
-                    ));
+                    .putRaw(
+                        DirectDruidClient.QUERY_FAIL_TIME,
+                        0L
+                    )
+                    .putRaw(
+                        GroupByQuery.CTX_KEY_SORT_BY_DIMS_FIRST,
+                        false
+                    )
+                    .putRaw(
+                        GroupByQueryConfig.CTX_KEY_ARRAY_RESULT_ROWS,
+                        true
+                    )
+                    .putRaw(
+                        GroupByQueryConfig.CTX_KEY_APPLY_LIMIT_PUSH_DOWN,
+                        true
+                    )
+                    .putRaw(
+                        GroupingEngine.CTX_KEY_OUTERMOST,
+                        true
+                    )
+                    .putRaw(
+                        GroupingEngine.CTX_KEY_FUDGE_TIMESTAMP,
+                        "1979"
+                    )
+                    .putRaw(
+                        ResultSerializationMode.CTX_SERIALIZATION_PARAMETER,
+                        "blast"
+                    );
 
       modifiedQuery = query.withOverriddenContext(contextBuilder.toMap());
 

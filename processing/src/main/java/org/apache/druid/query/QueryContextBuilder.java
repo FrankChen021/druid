@@ -36,6 +36,18 @@ public final class QueryContextBuilder
   private final Map<String, Object> values = new LinkedHashMap<>();
 
   /**
+   * Adds a context value using a raw string key.
+   *
+   * <p>This is an explicit escape hatch for keys that do not yet have a declared
+   * {@link QueryContextParameter} descriptor.</p>
+   */
+  public QueryContextBuilder putRaw(final String name, @Nullable final Object value)
+  {
+    values.put(Objects.requireNonNull(name, "name"), value);
+    return this;
+  }
+
+  /**
    * Adds all values from an existing query context map.
    */
   public QueryContextBuilder putAll(final Map<? extends String, ?> values)

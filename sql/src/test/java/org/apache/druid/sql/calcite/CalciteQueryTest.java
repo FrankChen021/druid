@@ -16530,7 +16530,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                                             .setContext(
                                                 QueryContext.builder()
                                                             .putAll(QUERY_CONTEXT_DEFAULT)
-                                                            .putAll(Map.of("useApproximateCountDistinct", false))
+                                                            .putRaw("useApproximateCountDistinct", false)
                                                             .toMap()
                                             )
                                             .build()
@@ -16547,7 +16547,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                         .setContext(
                             QueryContext.builder()
                                         .putAll(QUERY_CONTEXT_DEFAULT)
-                                        .putAll(Map.of("useApproximateCountDistinct", false))
+                                        .putRaw("useApproximateCountDistinct", false)
                                         .toMap()
                         )
                         .build()

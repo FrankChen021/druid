@@ -344,7 +344,7 @@ public class SqlBaseBenchmark
         "EXPLAIN PLAN FOR " + getQuery(),
         QueryContext.builder()
                     .putAll(getContext())
-                    .putAll(Map.of("useNativeQueryExplain", true))
+                    .putRaw("useNativeQueryExplain", true)
                     .toMap()
     )) {
       final PlannerResult plannerResult = planner.plan();

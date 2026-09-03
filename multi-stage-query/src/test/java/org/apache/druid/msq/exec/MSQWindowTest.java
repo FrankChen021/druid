@@ -1683,7 +1683,7 @@ public class MSQWindowTest extends MSQTestBase
     final Map<String, Object> customContext =
         QueryContext.builder()
                     .putAll(DEFAULT_MSQ_CONTEXT)
-                    .putAll(Map.of(MultiStageQueryContext.MAX_ROWS_MATERIALIZED_IN_WINDOW, 200))
+                    .putRaw(MultiStageQueryContext.MAX_ROWS_MATERIALIZED_IN_WINDOW, 200)
                     .toMap();
 
     testSelectQuery()

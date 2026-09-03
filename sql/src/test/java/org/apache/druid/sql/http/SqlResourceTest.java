@@ -1486,7 +1486,7 @@ public class SqlResourceTest extends CalciteTestBase
   {
     Map<String, Object> queryContext = QueryContext.builder()
         .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_QUERY_ID)
-        .putAll(Map.of(PlannerConfig.CTX_KEY_USE_NATIVE_QUERY_EXPLAIN, "false"))
+        .putRaw(PlannerConfig.CTX_KEY_USE_NATIVE_QUERY_EXPLAIN, "false")
         .toMap();
     final List<Map<String, Object>> rows = doPost(
         new SqlQuery(

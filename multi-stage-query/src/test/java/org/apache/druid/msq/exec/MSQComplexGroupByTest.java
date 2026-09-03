@@ -455,7 +455,10 @@ public class MSQComplexGroupByTest extends MSQTestBase
 
     Map<String, Object> modifiedContext = QueryContext.builder()
                                                       .putAll(context)
-                                                      .putAll(Map.of(PlannerConfig.CTX_KEY_USE_APPROXIMATE_COUNT_DISTINCT, false))
+                                                      .putRaw(
+                                                          PlannerConfig.CTX_KEY_USE_APPROXIMATE_COUNT_DISTINCT,
+                                                          false
+                                                      )
                                                       .toMap();
 
     DimFilter innerFilter = new NullFilter("d0", null);
@@ -547,7 +550,10 @@ public class MSQComplexGroupByTest extends MSQTestBase
 
     Map<String, Object> modifiedContext = QueryContext.builder()
                                                       .putAll(context)
-                                                      .putAll(Map.of(PlannerConfig.CTX_KEY_USE_APPROXIMATE_COUNT_DISTINCT, false))
+                                                      .putRaw(
+                                                          PlannerConfig.CTX_KEY_USE_APPROXIMATE_COUNT_DISTINCT,
+                                                          false
+                                                      )
                                                       .toMap();
 
     DimFilter innerFilter = new NullFilter("d0", null);

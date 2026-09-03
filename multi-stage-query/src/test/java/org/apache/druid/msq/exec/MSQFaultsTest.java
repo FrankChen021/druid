@@ -292,7 +292,7 @@ public class MSQFaultsTest extends MSQTestBase
   {
     Map<String, Object> context = QueryContext.builder()
                                               .putAll(DEFAULT_MSQ_CONTEXT)
-                                              .putAll(Map.of(MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 1))
+                                              .putRaw(MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 1)
                                               .toMap();
 
 
@@ -331,10 +331,14 @@ public class MSQFaultsTest extends MSQTestBase
 
     final Map<String, Object> context = QueryContext.builder()
                                               .putAll(DEFAULT_MSQ_CONTEXT)
-                                              .putAll(Map.of(
-                                                  "maxNumSegments", maxNumSegments,
-                                                  "rowsPerSegment", rowsPerSegment
-                                              ))
+                                              .putRaw(
+                                                  "maxNumSegments",
+                                                  maxNumSegments
+                                              )
+                                              .putRaw(
+                                                  "rowsPerSegment",
+                                                  rowsPerSegment
+                                              )
                                               .toMap();
 
 
@@ -451,7 +455,7 @@ public class MSQFaultsTest extends MSQTestBase
     final Map<String, Object> context =
         QueryContext.builder()
                     .putAll(DEFAULT_MSQ_CONTEXT)
-                    .putAll(Map.of(MultiStageQueryContext.CTX_MAX_CLUSTERED_BY_COLUMNS, maxClusteredByColumns))
+                    .putRaw(MultiStageQueryContext.CTX_MAX_CLUSTERED_BY_COLUMNS, maxClusteredByColumns)
                     .toMap();
 
     testIngestQuery()
@@ -522,10 +526,14 @@ public class MSQFaultsTest extends MSQTestBase
     final Map<String, Object> context =
         QueryContext.builder()
                     .putAll(DEFAULT_MSQ_CONTEXT)
-                    .putAll(Map.of(
-                        MultiStageQueryContext.CTX_ROWS_PER_SEGMENT, 1,
-                        MultiStageQueryContext.CTX_MAX_PARTITIONS, maxPartitions
-                    ))
+                    .putRaw(
+                        MultiStageQueryContext.CTX_ROWS_PER_SEGMENT,
+                        1
+                    )
+                    .putRaw(
+                        MultiStageQueryContext.CTX_MAX_PARTITIONS,
+                        maxPartitions
+                    )
                     .toMap();
 
     final RowSignature rowSignature = RowSignature.builder().addTimeColumn().build();
@@ -711,7 +719,7 @@ public class MSQFaultsTest extends MSQTestBase
     // wraps this in DruidException, which getFaultFromException() converts to DruidExceptionFault.
     final Map<String, Object> context = QueryContext.builder()
                                                     .putAll(DEFAULT_MSQ_CONTEXT)
-                                                    .putAll(Map.of("vectorize", "false"))
+                                                    .putRaw("vectorize", "false")
                                                     .toMap();
 
     testSelectQuery()
