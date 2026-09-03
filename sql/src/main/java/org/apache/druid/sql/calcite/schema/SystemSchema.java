@@ -56,6 +56,7 @@ import org.apache.druid.indexer.TaskStatusPlus;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorStatus;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.rpc.indexing.OverlordClient;
@@ -306,6 +307,7 @@ public class SystemSchema extends AbstractTableSchema
           authorizerMapper,
           overlordClient,
           coordinatorClient,
+          jsonMapper,
           authenticationResult
       );
       case SERVER_SEGMENTS_TABLE -> new ServerSegmentsTable(serverView, authorizerMapper, authenticationResult);
@@ -647,6 +649,7 @@ public class SystemSchema extends AbstractTableSchema
     private final FilteredServerInventoryView serverInventoryView;
     private final OverlordClient overlordClient;
     private final CoordinatorClient coordinatorClient;
+    private final ObjectMapper jsonMapper;
     private final AuthenticationResult authenticationResult;
 
     public ServersTable(
@@ -655,6 +658,7 @@ public class SystemSchema extends AbstractTableSchema
         AuthorizerMapper authorizerMapper,
         OverlordClient overlordClient,
         CoordinatorClient coordinatorClient,
+        ObjectMapper jsonMapper,
         AuthenticationResult authenticationResult
     )
     {
@@ -663,6 +667,7 @@ public class SystemSchema extends AbstractTableSchema
       this.serverInventoryView = serverInventoryView;
       this.overlordClient = overlordClient;
       this.coordinatorClient = coordinatorClient;
+      this.jsonMapper = jsonMapper;
       this.authenticationResult = authenticationResult;
     }
 
@@ -770,7 +775,7 @@ public class SystemSchema extends AbstractTableSchema
           toStringOrNull(discoveryDruidNode.getStartTime()),
           node.getVersion(),
           node.getBuildRevision(),
-          node.getLabels(),
+          node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
           (long) discoveryDruidNode.getAvailableProcessors(),
           discoveryDruidNode.getTotalMemory()
       };
@@ -799,7 +804,7 @@ public class SystemSchema extends AbstractTableSchema
           toStringOrNull(discoveryDruidNode.getStartTime()),
           node.getVersion(),
           node.getBuildRevision(),
-          node.getLabels(),
+          node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
           (long) discoveryDruidNode.getAvailableProcessors(),
           discoveryDruidNode.getTotalMemory()
       };
@@ -840,7 +845,7 @@ public class SystemSchema extends AbstractTableSchema
           toStringOrNull(discoveryDruidNode.getStartTime()),
           node.getVersion(),
           node.getBuildRevision(),
-          node.getLabels(),
+          node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
           (long) discoveryDruidNode.getAvailableProcessors(),
           discoveryDruidNode.getTotalMemory()
       };

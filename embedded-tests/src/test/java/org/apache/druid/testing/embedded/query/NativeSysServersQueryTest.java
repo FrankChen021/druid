@@ -53,10 +53,10 @@ public class NativeSysServersQueryTest extends EmbeddedClusterTestBase
       QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED,
       QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
   })
-  public void testLabelsAreQueryableAsJson(final String plannerStrategy)
+  public void testJsonValueOnStringLabels(final String plannerStrategy)
   {
     final String result = cluster.runSql(
-        "SELECT JSON_VALUE(labels, '$.environment') "
+        "SELECT JSON_VALUE(PARSE_JSON(labels), '$.environment') "
         + "FROM sys.servers "
         + "WHERE server_type = 'broker'",
         nativeQueryContext(plannerStrategy)
