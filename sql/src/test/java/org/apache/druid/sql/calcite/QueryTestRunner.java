@@ -280,22 +280,13 @@ public class QueryTestRunner
                                                   .build();
 
         final QueryContexts.Vectorize vectorizeOption = QueryContexts.Vectorize.fromString(vectorize);
-        final Map<String, Object> vectorizationContext = "false".equals(vectorize)
-                                                         ? QueryContext.ofMap(
-                                                             QueryContextParameters.VECTORIZE,
-                                                             vectorizeOption,
-                                                             QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
-                                                             vectorizeOption
-                                                         )
-                                                         : QueryContext.ofMap(
-                                                             QueryContextParameters.VECTORIZE,
-                                                             vectorizeOption,
-                                                             QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
-                                                             vectorizeOption,
-                                                             QueryContextParameters.VECTOR_SIZE,
-                                                             2
-                                                         );
-        final Map<String, Object> theQueryContext = QueryContexts.override(sqlQuery.context(), vectorizationContext);
+        final Map<String, Object> theQueryContext = new HashMap<>(sqlQuery.context());
+        QueryContextParameters.VECTORIZE.set(theQueryContext, vectorizeOption);
+        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS.set(theQueryContext, vectorizeOption);
+
+        if (!"false".equals(vectorize)) {
+          QueryContextParameters.VECTOR_SIZE.set(theQueryContext, 2); // Small vector size to ensure we use more than one.
+        }
 
         results.add(runQuery(
             sqlStatementFactory,

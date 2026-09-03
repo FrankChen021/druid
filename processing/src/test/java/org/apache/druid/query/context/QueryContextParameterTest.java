@@ -20,6 +20,7 @@
 package org.apache.druid.query.context;
 
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.constraint.Range;
 import org.apache.druid.query.context.docs.ParameterDocumentation;
@@ -79,6 +80,28 @@ class QueryContextParameterTest
     assertEquals(0, constraint.getLowerBound());
     assertEquals(Integer.MAX_VALUE, constraint.getUpperBound());
     assertEquals("maxThings", parameter.toString());
+  }
+
+  @Test
+  void testParseOrDefault()
+  {
+    final QueryContextParameter<Integer> parameter = QueryContextParameter
+        .builder("maxThings", Integer.class, value -> QueryContexts.getAsInt("maxThings", value))
+        .defaultValue(10)
+        .build();
+
+    assertEquals(12, parameter.parseOrDefault("12"));
+    assertEquals(10, parameter.parseOrDefault(null));
+  }
+
+  @Test
+  void testParseOrDefaultRequiresDeclaredDefault()
+  {
+    final QueryContextParameter<String> parameter = QueryContextParameter
+        .builder("tag", String.class, value -> (String) value)
+        .build();
+
+    assertThrows(ISE.class, () -> parameter.parseOrDefault(null));
   }
 
   @Test

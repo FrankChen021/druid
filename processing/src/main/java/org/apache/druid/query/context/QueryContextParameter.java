@@ -20,6 +20,7 @@
 package org.apache.druid.query.context;
 
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.context.constraint.ParameterConstraint;
 import org.apache.druid.query.context.docs.ParameterDocumentation;
 
@@ -111,6 +112,22 @@ public final class QueryContextParameter<T>
       return validate(valueType.cast(value));
     }
     return validate(valueType.cast(parser.parse(value)));
+  }
+
+  /**
+   * Parses a raw value and returns the declared default when parsing produces {@code null}.
+   *
+   * @throws ISE if this parameter has no declared default
+   */
+  public T parseOrDefault(@Nullable final Object value)
+  {
+    final T parsed = parse(value);
+    if (parsed != null) {
+      return parsed;
+    }
+    return defaultValue.orElseThrow(
+        () -> new ISE("Query context parameter [%s] has no declared default", name)
+    );
   }
 
   /**

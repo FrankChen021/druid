@@ -58,13 +58,10 @@ public class DartControllerContextTest
   /**
    * Context returned by {@link #query}. Overrides "maxConcurrentStages".
    */
-  private final QueryContext queryContext =
-      QueryContext.of(
-          QueryContext.builder()
-              .put(QueryContextParameters.DART_QUERY_ID, QUERY_ID)
-              .putRaw(MultiStageQueryContext.CTX_MAX_CONCURRENT_STAGES, 3)
-              .toMap()
-      );
+  private final QueryContext queryContext = QueryContext.builder()
+      .put(QueryContextParameters.DART_QUERY_ID, QUERY_ID)
+      .putRaw(MultiStageQueryContext.CTX_MAX_CONCURRENT_STAGES, 3)
+      .toContext();
   private MemoryIntrospector memoryIntrospector;
   private AutoCloseable mockCloser;
 

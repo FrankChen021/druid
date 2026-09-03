@@ -47,7 +47,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Optional;
 
 /**
  */
@@ -94,9 +93,8 @@ public class BrokerQueryResource extends QueryResource
   ) throws IOException
   {
     final ResourceIOReaderWriterFactory.ResourceIOReaderWriter ioReaderWriter = resourceIOReaderWriterFactory.factorize(req, pretty != null);
-    final CloneQueryMode cloneQueryMode = Optional.ofNullable(
-        QueryContextParameters.CLONE_QUERY_MODE.parse(cloneQueryModeString)
-    ).orElseGet(() -> QueryContextParameters.CLONE_QUERY_MODE.getDefaultValue().orElseThrow());
+    final CloneQueryMode cloneQueryMode =
+        QueryContextParameters.CLONE_QUERY_MODE.parseOrDefault(cloneQueryModeString);
     try {
       Query<?> query = ioReaderWriter.getRequestMapper().readValue(in, Query.class);
       ExecutionVertex ev = ExecutionVertex.of(query);

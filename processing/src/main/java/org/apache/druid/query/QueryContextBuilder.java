@@ -72,4 +72,12 @@ public final class QueryContextBuilder
   {
     return Collections.unmodifiableMap(new LinkedHashMap<>(values));
   }
+
+  /**
+   * Converts the current values to an immutable {@link QueryContext} snapshot.
+   */
+  public QueryContext toContext()
+  {
+    return QueryContext.of(toMap());
+  }
 }

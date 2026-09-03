@@ -98,11 +98,11 @@ class QueryContextBuilderTest
   }
 
   @Test
-  void testToMapCanBeWrappedAsContext()
+  void testToContext()
   {
-    final QueryContext context = QueryContext.of(QueryContext.builder()
+    final QueryContext context = QueryContext.builder()
         .put(QueryContextParameters.USE_RESULT_LEVEL_CACHE, false)
-        .toMap());
+        .toContext();
 
     assertFalse(context.isUseResultLevelCache());
   }

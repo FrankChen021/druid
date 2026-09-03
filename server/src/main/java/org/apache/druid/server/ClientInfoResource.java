@@ -307,9 +307,8 @@ public class ClientInfoResource
       @Context final HttpServletRequest req
   )
   {
-    final CloneQueryMode cloneQueryMode = Optional.ofNullable(
-        QueryContextParameters.CLONE_QUERY_MODE.parse(cloneQueryModeString)
-    ).orElseGet(() -> QueryContextParameters.CLONE_QUERY_MODE.getDefaultValue().orElseThrow());
+    final CloneQueryMode cloneQueryMode =
+        QueryContextParameters.CLONE_QUERY_MODE.parseOrDefault(cloneQueryModeString);
     List<Interval> intervalList = new ArrayList<>();
     for (String interval : intervals.split(",")) {
       intervalList.add(Intervals.of(interval.trim()));
