@@ -40,11 +40,14 @@ public class DecoupledCalciteDartTest extends CalciteDartTest
   {
     return decoupledExtension.testBuilder()
         .queryContext(
-            QueryContext.builder()
-                .put(QueryContextParameters.PREPLANNED, true)
-                .put(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE, QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED)
-                .put(QueryContextParameters.DEBUG, true)
-                .toMap()
+            QueryContext.ofMap(
+                QueryContextParameters.PREPLANNED,
+                true,
+                QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE,
+                QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED,
+                QueryContextParameters.DEBUG,
+                true
+            )
         );
   }
 }

@@ -26,7 +26,6 @@ import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 
-import java.util.Collections;
 import java.util.UUID;
 
 /**
@@ -46,10 +45,7 @@ public class ResourceIdPopulatingQueryRunner<T> implements QueryRunner<T>
    */
   public static <T> Query<T> populateResourceId(Query<T> query)
   {
-    return query.withOverriddenContext(Collections.singletonMap(
-        QueryContextParameters.QUERY_RESOURCE_ID.getName(),
-        UUID.randomUUID().toString()
-    ));
+    return query.withOverriddenContext(QueryContextParameters.QUERY_RESOURCE_ID, UUID.randomUUID().toString());
   }
 
   @Override

@@ -1102,10 +1102,7 @@ public class SegmentMetadataQueryTest extends InitializedNullHandlingTest
 
     TestHelper.assertExpectedObjects(
         ImmutableList.of(bySegmentResult, bySegmentResult),
-        myRunner.run(QueryPlus.wrap(testQuery.withOverriddenContext(QueryContext.ofMap(
-            QueryContextParameters.BY_SEGMENT,
-            true
-        )))),
+        myRunner.run(QueryPlus.wrap(testQuery.withOverriddenContext(QueryContextParameters.BY_SEGMENT, true))),
         "failed SegmentMetadata bySegment query"
     );
     exec.shutdownNow();

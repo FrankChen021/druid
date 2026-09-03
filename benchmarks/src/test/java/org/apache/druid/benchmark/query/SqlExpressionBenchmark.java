@@ -295,11 +295,15 @@ public class SqlExpressionBenchmark extends SqlBaseQueryBenchmark
   @Override
   protected Map<String, Object> getContext()
   {
-    final Map<String, Object> context = QueryContext.builder()
-        .put(QueryContextParameters.VECTORIZE, vectorizeContext)
-        .put(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS, vectorizeContext)
-        .putAll(Map.of(GroupByQueryConfig.CTX_KEY_DEFER_EXPRESSION_DIMENSIONS, deferExpressionDimensions))
-        .toMap();
+    final Map<String, Object> context = QueryContext.of(
+        QueryContextParameters.VECTORIZE,
+        vectorizeContext,
+        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+        vectorizeContext
+    ).override(Map.of(
+        GroupByQueryConfig.CTX_KEY_DEFER_EXPRESSION_DIMENSIONS,
+        deferExpressionDimensions
+    )).asMap();
     return context;
   }
 }

@@ -196,10 +196,8 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
     final QueryLogic queryExecutor = conglomerate.getQueryLogic(query);
     if (queryExecutor != null) {
       query = query.withOverriddenContext(
-          QueryContext.ofMap(
-              QueryContextParameters.USE_NESTED_FOR_UNKNOWN_TYPE_IN_SUBQUERY,
-              useNestedForUnknownTypeInSubquery
-          )
+          QueryContextParameters.USE_NESTED_FOR_UNKNOWN_TYPE_IN_SUBQUERY,
+          useNestedForUnknownTypeInSubquery
       );
       return (QueryRunner<T>) queryExecutor.entryPoint(query, this);
     }
@@ -692,10 +690,7 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
         query = query.withSqlQueryId(parentSqlQueryId);
       }
 
-      query.withOverriddenContext(Collections.singletonMap(
-          QueryContextParameters.QUERY_RESOURCE_ID.getName(),
-          parentQueryResourceId
-      ));
+      query.withOverriddenContext(QueryContextParameters.QUERY_RESOURCE_ID, parentQueryResourceId);
 
       currentDataSource = new QueryDataSource(query);
     }

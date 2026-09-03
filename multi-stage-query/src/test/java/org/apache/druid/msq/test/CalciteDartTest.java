@@ -41,9 +41,7 @@ public class CalciteDartTest extends BaseCalciteQueryTest
   {
     return new QueryTestBuilder(new CalciteTestConfig(true))
         .queryContext(
-            QueryContext.builder()
-                .put(QueryContextParameters.DEBUG, true)
-                .toMap()
+            QueryContext.ofMap(QueryContextParameters.DEBUG, true)
         )
         .skipVectorize(true)
         .verifyNativeQueries(new VerifyMSQSupportedNativeQueriesPredicate());

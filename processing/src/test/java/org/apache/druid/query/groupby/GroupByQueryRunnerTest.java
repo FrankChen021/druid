@@ -14096,12 +14096,14 @@ public class GroupByQueryRunnerTest extends InitializedNullHandlingTest
 
   private Map<String, Object> makeContext()
   {
-    return QueryContext.builder()
-                       .put(QueryContextParameters.VECTORIZE, vectorize ? QueryContexts.Vectorize.FORCE : QueryContexts.Vectorize.FALSE)
-                       .put(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
-                            vectorize ? QueryContexts.Vectorize.FORCE : QueryContexts.Vectorize.FALSE)
-                       .put(QueryContextParameters.VECTOR_SIZE, 16) // Small vector size to ensure we use more than one.
-                       .toMap();
+    return QueryContext.ofMap(
+        QueryContextParameters.VECTORIZE,
+        vectorize ? QueryContexts.Vectorize.FORCE : QueryContexts.Vectorize.FALSE,
+        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+        vectorize ? QueryContexts.Vectorize.FORCE : QueryContexts.Vectorize.FALSE,
+        QueryContextParameters.VECTOR_SIZE,
+        16 // Small vector size to ensure we use more than one.
+    );
   }
 
   private void verifyGroupByMetricsForSmallBufferConfig(boolean skipMergeDictionaryMetric)
