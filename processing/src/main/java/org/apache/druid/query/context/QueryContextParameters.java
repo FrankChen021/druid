@@ -53,6 +53,7 @@ public final class QueryContextParameters
                    cardinality when this flag is set to `false`.
                    """
                )
+               .since("0.1.0")
                .language(Language.NATIVE, Language.SQL)
                .engine(Engine.NATIVE)
                .build()
@@ -68,6 +69,7 @@ public final class QueryContextParameters
                    Queries with higher priority get precedence for computational resources.
                    """
                )
+               .since("0.5.0")
                .defaultDescription(
                    """
                    The default priority is one of the following: <ul><li>Value of `priority` in the query context, if
@@ -89,6 +91,7 @@ public final class QueryContextParameters
                    See [Broker configuration](../configuration/index.md#broker) for more details.
                    """
                )
+               .since("0.18.0")
                .defaultDescription("`null`")
                .language(Language.NATIVE, Language.SQL)
                .engine(Engine.NATIVE)
@@ -105,6 +108,7 @@ public final class QueryContextParameters
                    To set the default timeout and maximum timeout, see [Broker configuration](../configuration/index.md#broker).
                    """
                )
+               .since("0.6.122")
                .defaultDescription("`druid.server.http.defaultQueryTimeout`")
                .language(Language.NATIVE, Language.SQL)
                .engine(Engine.NATIVE)
@@ -124,6 +128,7 @@ public final class QueryContextParameters
                        A cluster-wide default value for this query context can be specified via `druid.query.default.context.perSegmentTimeout`.
                        """
                    )
+                   .since("35.0.0")
                    .defaultDescription("`null`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
@@ -141,6 +146,7 @@ public final class QueryContextParameters
                        See [Broker configuration](../configuration/index.md#broker) for more details.
                        """
                    )
+                   .since("0.10.1")
                    .defaultDescription("`druid.server.http.maxScatterGatherBytes`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
@@ -158,6 +164,7 @@ public final class QueryContextParameters
                        Zero means disabled.
                        """
                    )
+                   .since("0.13.0-incubating")
                    .defaultDescription("`druid.broker.http.maxQueuedBytes`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
@@ -180,6 +187,7 @@ public final class QueryContextParameters
                        See [Broker configuration](../configuration/index.md#broker) for more details.
                        """
                    )
+                   .since("0.17.0")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -195,6 +203,7 @@ public final class QueryContextParameters
                        See [Broker configuration](../configuration/index.md#broker) for more details.
                        """
                    )
+                   .since("0.17.0")
                    .defaultDescription("`druid.processing.merge.initialYieldNumRows`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
@@ -211,6 +220,7 @@ public final class QueryContextParameters
                        See [Broker configuration](../configuration/index.md#broker) for more details.
                        """
                    )
+                   .since("0.17.0")
                    .defaultDescription("`druid.processing.merge.smallBatchNumRows`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
@@ -227,6 +237,7 @@ public final class QueryContextParameters
                        See [Broker configuration](../configuration/index.md#broker) for more details.
                        """
                    )
+                   .since("0.17.0")
                    .defaultDescription("`druid.processing.merge.parallelism`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
@@ -246,6 +257,7 @@ public final class QueryContextParameters
                        This will override `druid.query.default.context.vectorize` if it's set.
                        """
                    )
+                   .since("0.16.0-incubating")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -264,6 +276,7 @@ public final class QueryContextParameters
                        This will override `druid.query.default.context.vectorizeVirtualColumns` if it's set.
                        """
                    )
+                   .since("0.20.0")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -279,6 +292,7 @@ public final class QueryContextParameters
                    This will override `druid.query.default.context.vectorSize` if it's set.
                    """
                )
+               .since("0.16.0-incubating")
                .language(Language.NATIVE, Language.SQL)
                .engine(Engine.NATIVE)
                .build()
@@ -294,6 +308,7 @@ public final class QueryContextParameters
                        See [Broker configuration](../configuration/index.md#broker) and [subquery guardrails](../configuration/index.md#Guardrails for materialization of subqueries) for more details.
                        """
                    )
+                   .since("0.18.0")
                    .defaultDescription("`druid.server.http.maxSubqueryRows`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
@@ -310,6 +325,7 @@ public final class QueryContextParameters
                        See [Broker configuration](../configuration/index.md#broker) and [subquery guardrails](../configuration/index.md#Guardrails for materialization of subqueries) for more details.
                        """
                    )
+                   .since("27.0.0")
                    .defaultDescription("`druid.server.http.maxSubqueryBytes`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
@@ -331,6 +347,7 @@ public final class QueryContextParameters
                        Controls whether a join query will attempt filter push down, which reduces the number of rows that have to be compared in a join operation.
                        """
                    )
+                   .since("0.18.0")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -346,6 +363,7 @@ public final class QueryContextParameters
                        Controls whether filter clauses that reference non-base table columns will be rewritten into filters on base table columns.
                        """
                    )
+                   .since("0.18.0")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -362,6 +380,7 @@ public final class QueryContextParameters
                        Requires a scan of the non-base table.
                        """
                    )
+                   .since("0.18.0")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -377,6 +396,7 @@ public final class QueryContextParameters
                        Controls whether a join can be pushed partial or fully to the base table as a filter at runtime.
                        """
                    )
+                   .since("0.22.0")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -393,6 +413,7 @@ public final class QueryContextParameters
                        Set this limit to prevent excessive memory use.
                        """
                    )
+                   .since("0.18.0")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -415,6 +436,7 @@ public final class QueryContextParameters
                        If `druid.sql.planner.maxNumericInFilters` isn't set explicitly, Druid ignores this value.
                        """
                    )
+                   .since("0.23.0")
                    .defaultDescription("`-1`")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
@@ -442,6 +464,7 @@ public final class QueryContextParameters
                        MSQ does not query Historicals directly.
                        """
                    )
+                   .since("34.0.0")
                    .language(Language.NATIVE)
                    .engine(Engine.NATIVE)
                    .build()
@@ -465,6 +488,7 @@ public final class QueryContextParameters
                        Even if a query doesn't explicitly include a join, this parameter may still apply since the SQL planner can translate the query into a join internally.
                        """
                    )
+                   .since("0.22.0")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
                    .build()
@@ -484,6 +508,7 @@ public final class QueryContextParameters
                    We recommend hand tuning your filters to produce an optimal form if possible, or at least verifying through experimentation that using this parameter actually improves your query performance with no ill-effects.
                    """
                )
+               .since("0.19.0")
                .language(Language.NATIVE, Language.SQL)
                .engine(Engine.NATIVE)
                .build()
@@ -506,6 +531,7 @@ public final class QueryContextParameters
                    When set to true, Apache Druid uses `druid.broker.cache.useCache` or `druid.historical.cache.useCache` to determine whether or not to read from the query cache.
                    """
                )
+               .since("0.1.0")
                .language(Language.NATIVE, Language.SQL)
                .engine(Engine.NATIVE)
                .build()
@@ -522,6 +548,7 @@ public final class QueryContextParameters
                        The Broker will always prune unnecessary segments from the input scan based on a filter on time intervals, but if the data is further partitioned with hash or range partitioning, this option will enable additional pruning based on a filter on secondary partition dimensions.
                        """
                    )
+                   .since("0.20.0")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -538,6 +565,7 @@ public final class QueryContextParameters
                    When set to true, the following addition logs will be produced:<br />- Log the stack trace of the exception (if any) produced by the query
                    """
                )
+               .since("0.22.0")
                .language(Language.NATIVE, Language.SQL)
                .engine(Engine.NATIVE)
                .build()
@@ -554,6 +582,7 @@ public final class QueryContextParameters
                    Primarily used for debugging, setting it to `true` returns results associated with the data segment they came from.
                    """
                )
+               .since("0.1.0")
                .language(Language.NATIVE)
                .engine(Engine.NATIVE)
                .build()
@@ -570,6 +599,7 @@ public final class QueryContextParameters
                        See [Router strategies](../design/router.md#router-strategies) for more details.
                        """
                    )
+                   .since("0.22.0")
                    .defaultDescription("`null`")
                    .language(Language.NATIVE)
                    .engine(Engine.NATIVE)
@@ -590,6 +620,7 @@ public final class QueryContextParameters
                        A threshold of `2147483647` disables the rewrite of SQL `IN` to `JOIN`.
                        """
                    )
+                   .since("0.23.0")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
                    .build()
@@ -608,6 +639,7 @@ public final class QueryContextParameters
                        The converted function is eligible for fewer planning-time optimizations, which speeds up planning, but may prevent certain planning-time optimizations.
                        """
                    )
+                   .since("31.0.0")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
                    .build()
@@ -626,6 +658,7 @@ public final class QueryContextParameters
                        This property is provided for backwards compatibility purposes, and may be removed in a future release.
                        """
                    )
+                   .since("31.0.0")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
                    .build()
@@ -642,6 +675,7 @@ public final class QueryContextParameters
                        Time boundary queries are very efficient for min-max calculation on the `__time` column in a datasource.
                        """
                    )
+                   .since("0.24.0")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
                    .build()
@@ -660,6 +694,7 @@ public final class QueryContextParameters
                        When set to true, Druid uses `druid.broker.cache.populateCache` or `druid.historical.cache.populateCache` to determine whether or not to save the results of this query to the query cache.
                        """
                    )
+                   .since("0.1.0")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -678,6 +713,7 @@ public final class QueryContextParameters
                        When set to true, Druid uses `druid.broker.cache.populateResultLevelCache` to determine whether or not to save the results of this query to the result-level query cache.
                        """
                    )
+                   .since("0.13.0-incubating")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -689,6 +725,7 @@ public final class QueryContextParameters
       booleanParameter("serializeDateTimeAsLong")
       .docs(
           doc("If true, DateTime is serialized as long in the result returned by Broker and the data transportation between Broker and compute process")
+                   .since("0.10.1")
                    .defaultDescription("`false`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
@@ -700,6 +737,7 @@ public final class QueryContextParameters
       booleanParameter("serializeDateTimeAsLongInner")
       .docs(
           doc("If true, DateTime is serialized as long in the data transportation between Broker and compute process")
+                   .since("0.10.1")
                    .defaultDescription("`false`")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
@@ -717,6 +755,7 @@ public final class QueryContextParameters
           .defaultValue(TopNQueryConfig.DEFAULT_MIN_TOPN_THRESHOLD)
           .docs(
               doc("The top minTopNThreshold local results from each segment are returned for merging to determine the global topN.")
+                   .since("0.9.0")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .query(QueryType.TOP_N)
@@ -746,6 +785,7 @@ public final class QueryContextParameters
                    When set to true, Druid uses `druid.broker.cache.useResultLevelCache` to determine whether or not to read from the result-level query cache.
                    """
                )
+               .since("0.13.0-incubating")
                .language(Language.NATIVE, Language.SQL)
                .engine(Engine.NATIVE)
                .build()
@@ -780,6 +820,7 @@ public final class QueryContextParameters
                        All native queries underlying SQL use an auto-generated `queryId`.
                        """
                    )
+                   .since("0.14.0-incubating")
                    .defaultDescription("auto-generated")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
@@ -791,6 +832,7 @@ public final class QueryContextParameters
       booleanParameter("sqlStringifyArrays")
           .docs(
               doc("If `true`, Druid serializes result columns with array values as JSON strings in the response instead of arrays.")
+                   .since("0.22.0")
                    .defaultDescription("`true`, except for JDBC connections, where it's always `false`")
                    .language(Language.SQL)
                    .engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
@@ -825,6 +867,7 @@ public final class QueryContextParameters
                        When set to `false`, this is equivalent to `realtimeSegmentsMode=include`.
                        """
                    )
+                   .since("35.0.0")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -843,6 +886,7 @@ public final class QueryContextParameters
                        `exclusive` queries only realtime segments.
                        """
                    )
+                   .since("38.0.0")
                    .language(Language.NATIVE, Language.SQL)
                    .engine(Engine.NATIVE)
                    .build()
@@ -863,6 +907,7 @@ public final class QueryContextParameters
                        Overrides the identically named config.
                        """
                    )
+                   .since("0.15.0-incubating")
                    .defaultDescription("`druid.query.scan.maxRowsQueuedForOrdering`")
                    .language(Language.NATIVE)
                    .engine(Engine.NATIVE)
