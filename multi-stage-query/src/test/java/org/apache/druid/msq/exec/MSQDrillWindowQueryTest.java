@@ -45,7 +45,7 @@ public class MSQDrillWindowQueryTest extends DrillWindowQueryTest
       .put(PlannerCaptureHook.NEED_CAPTURE_HOOK, true)
       .put(QueryContextParameters.DEBUG, true)
       .put(MultiStageQueryContext.CTX_MAX_NUM_TASKS, 5)
-      .build());
+      .toMap());
 
   public static class DrillWindowQueryMSQComponentSupplier extends AbstractMSQComponentSupplierDelegate
   {

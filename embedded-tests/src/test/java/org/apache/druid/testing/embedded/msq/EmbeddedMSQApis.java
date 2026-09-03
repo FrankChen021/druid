@@ -85,7 +85,7 @@ public class EmbeddedMSQApis
                 false,
                 false,
                 false,
-                QueryContext.of(QueryContextParameters.ENGINE, DartSqlEngine.NAME),
+                QueryContext.of(QueryContextParameters.ENGINE, DartSqlEngine.NAME).toMap(),
                 null
             )
         )

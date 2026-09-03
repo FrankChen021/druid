@@ -153,12 +153,10 @@ public class ShimCursorTest
 
     CursorBuildSpec cursorBuildSpec = CursorBuildSpec.builder()
                                                      .setQueryContext(
-                                                         new QueryContext(
-                                                             QueryContext.of(
-                                                                 QueryContextParameters.VECTOR_SIZE,
-                                                                 vectorSize
-                                                             )
-                                                         )
+                                                         QueryContext.of(
+                                                             QueryContextParameters.VECTOR_SIZE,
+                                                             vectorSize
+                                                         ).toContext()
                                                      )
                                                      .build();
     CursorHolder cursorHolder = closer.register(queryableIndexCursorFactory.makeCursorHolder(cursorBuildSpec));
@@ -224,12 +222,10 @@ public class ShimCursorTest
 
     CursorBuildSpec cursorBuildSpec = CursorBuildSpec.builder()
                                                      .setQueryContext(
-                                                         new QueryContext(
-                                                             QueryContext.of(
-                                                                 QueryContextParameters.VECTOR_SIZE,
-                                                                 vectorSize
-                                                             )
-                                                         )
+                                                         QueryContext.of(
+                                                             QueryContextParameters.VECTOR_SIZE,
+                                                             vectorSize
+                                                         ).toContext()
                                                      )
                                                      .build();
     CursorHolder cursorHolder = closer.register(queryableIndexCursorFactory.makeCursorHolder(cursorBuildSpec));
@@ -279,12 +275,10 @@ public class ShimCursorTest
 
     CursorBuildSpec cursorBuildSpec = CursorBuildSpec.builder()
                                                      .setQueryContext(
-                                                         new QueryContext(
-                                                             QueryContext.of(
-                                                                 QueryContextParameters.VECTOR_SIZE,
-                                                                 vectorSize
-                                                             )
-                                                         )
+                                                         QueryContext.of(
+                                                             QueryContextParameters.VECTOR_SIZE,
+                                                             vectorSize
+                                                         ).toContext()
                                                      )
                                                      .build();
     CursorHolder cursorHolder = closer.register(queryableIndexCursorFactory.makeCursorHolder(cursorBuildSpec));
@@ -345,7 +339,7 @@ public class ShimCursorTest
     CursorBuildSpec cursorBuildSpec =
         CursorBuildSpec.builder()
                        .setQueryContext(
-                           new QueryContext(QueryContext.of(QueryContextParameters.VECTOR_SIZE, vectorSize))
+                           QueryContext.of(QueryContextParameters.VECTOR_SIZE, vectorSize).toContext()
                        )
                        .setVirtualColumns(VirtualColumns.create(
                                               new ExpressionVirtualColumn(
@@ -407,7 +401,7 @@ public class ShimCursorTest
     final CursorBuildSpec cursorBuildSpec =
         CursorBuildSpec.builder()
                        .setQueryContext(
-                           new QueryContext(QueryContext.of(QueryContextParameters.VECTOR_SIZE, vectorSize))
+                           QueryContext.of(QueryContextParameters.VECTOR_SIZE, vectorSize).toContext()
                        )
                        .build();
     final CursorHolder cursorHolder = closer.register(queryableIndexCursorFactory.makeCursorHolder(cursorBuildSpec));

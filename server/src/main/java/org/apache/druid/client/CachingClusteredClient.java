@@ -315,7 +315,7 @@ public class CachingClusteredClient implements QuerySegmentWalker
         contextBuilder.put(CacheConfig.POPULATE_CACHE, false);
         contextBuilder.put(QueryContextParameters.BY_SEGMENT, true);
       }
-      return contextBuilder.build();
+      return contextBuilder.toMap();
     }
 
     /**

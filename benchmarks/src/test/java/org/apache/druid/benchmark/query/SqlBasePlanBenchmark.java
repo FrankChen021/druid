@@ -44,7 +44,7 @@ public class SqlBasePlanBenchmark extends SqlBaseBenchmark
         vectorizeContext,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         vectorizeContext
-    );
+    ).toMap();
     final String sql = getQuery();
     try (final DruidPlanner planner = plannerFactory.createPlannerForTesting(engine, sql, context)) {
       final PlannerResult plannerResult = planner.plan();

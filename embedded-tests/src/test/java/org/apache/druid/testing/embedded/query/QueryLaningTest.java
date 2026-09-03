@@ -90,7 +90,7 @@ public class QueryLaningTest extends QueryTestBase
         false,
         false,
         false,
-        QueryContext.of(QueryContextParameters.LANE, lane),
+        QueryContext.of(QueryContextParameters.LANE, lane).toMap(),
         null
     );
   }

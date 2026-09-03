@@ -648,7 +648,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                             10
                         )
                     )
-                    .setContext(QueryContext.of(QueryContextParameters.USE_PROJECTION, "abfoo"))
+                    .setContext(QueryContext.of(QueryContextParameters.USE_PROJECTION, "abfoo").toMap())
                     .build();
 
     final ExpectedProjectionGroupBy queryMetrics = new ExpectedProjectionGroupBy("abfoo");
@@ -722,7 +722,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                     .addDimension("a")
                     .addDimension("b")
                     .addAggregator(new CountAggregatorFactory("count"))
-                    .setContext(QueryContext.of(QueryContextParameters.FORCE_PROJECTIONS, true))
+                    .setContext(QueryContext.of(QueryContextParameters.FORCE_PROJECTIONS, true).toMap())
                     .build();
 
     final CursorBuildSpec buildSpec = GroupingEngine.makeCursorBuildSpec(query, null);
@@ -746,7 +746,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                     .addDimension("a")
                     .addAggregator(new LongSumAggregatorFactory("c_sum", "c"))
                     .addAggregator(new LongLastAggregatorFactory("c_last", "c", null))
-                    .setContext(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true))
+                    .setContext(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true).toMap())
                     .build();
     final ExpectedProjectionGroupBy queryMetrics = new ExpectedProjectionGroupBy(null);
     final CursorBuildSpec buildSpec = GroupingEngine.makeCursorBuildSpec(query, queryMetrics);
@@ -1401,7 +1401,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                                         .intervals(ImmutableList.of(Intervals.ETERNITY))
                                         .granularity(Granularities.ALL)
                                         .aggregators(new LongSumAggregatorFactory("c_sum", "c"))
-                                        .context(QueryContext.of(QueryContextParameters.USE_PROJECTION, "b_c_sum"))
+                                        .context(QueryContext.of(QueryContextParameters.USE_PROJECTION, "b_c_sum").toMap())
                                         .build();
 
     final ExpectedProjectionTimeseries queryMetrics =
@@ -1429,7 +1429,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                                         .intervals(ImmutableList.of(Intervals.ETERNITY))
                                         .granularity(Granularities.ALL)
                                         .aggregators(new LongSumAggregatorFactory("c_sum", "c"))
-                                        .context(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true))
+                                        .context(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true).toMap())
                                         .build();
 
     final ExpectedProjectionTimeseries queryMetrics =
@@ -1457,7 +1457,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                                         .intervals(ImmutableList.of(Intervals.ETERNITY))
                                         .granularity(Granularities.DAY)
                                         .aggregators(new LongSumAggregatorFactory("c_sum", "c"))
-                                        .context(QueryContext.of(QueryContextParameters.USE_PROJECTION, "b_c_sum"))
+                                        .context(QueryContext.of(QueryContextParameters.USE_PROJECTION, "b_c_sum").toMap())
                                         .build();
 
     final CursorBuildSpec buildSpec = TimeseriesQueryEngine.makeCursorBuildSpec(query, null);
@@ -1503,7 +1503,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                                         .intervals(ImmutableList.of(Intervals.ETERNITY))
                                         .granularity(Granularities.ALL)
                                         .aggregators(new LongSumAggregatorFactory("c_sum", "c"))
-                                        .context(QueryContext.of(QueryContextParameters.USE_PROJECTION, "c_sum_daily"))
+                                        .context(QueryContext.of(QueryContextParameters.USE_PROJECTION, "c_sum_daily").toMap())
                                         .build();
 
     final ExpectedProjectionTimeseries queryMetrics =
@@ -1529,7 +1529,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                                         .intervals(ImmutableList.of(Intervals.ETERNITY))
                                         .granularity(Granularities.ALL)
                                         .aggregators(new LongSumAggregatorFactory("c_sum", "c"))
-                                        .context(QueryContext.of(QueryContextParameters.USE_PROJECTION, "c_sum"))
+                                        .context(QueryContext.of(QueryContextParameters.USE_PROJECTION, "c_sum").toMap())
                                         .build();
 
     final ExpectedProjectionTimeseries queryMetrics =
@@ -1699,7 +1699,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                     .addAggregator(new LongSumAggregatorFactory("c_sum", "c"))
                     .addAggregator(new DoubleSumAggregatorFactory("d_sum", "d"))
                     .setContext(
-                        QueryContext.of(QueryContextParameters.USE_PROJECTION, "a_filter_b_aaonly_hourly_cd_sum")
+                        QueryContext.of(QueryContextParameters.USE_PROJECTION, "a_filter_b_aaonly_hourly_cd_sum").toMap()
                     )
                     .build();
     final ExpectedProjectionGroupBy queryMetrics =
@@ -1849,7 +1849,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                                         .context(QueryContext.of(
                                             QueryContextParameters.USE_PROJECTION,
                                             "a_hourly_c_sum_filter_a_to_empty"
-                                        ))
+                                        ).toMap())
                                         .build();
 
     final ExpectedProjectionTimeseries queryMetrics =
@@ -1893,7 +1893,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
     // timeseries query only works on base table if base table is sorted by time
     Assumptions.assumeTrue(segmentSortedByTime);
     final Sequence<Result<TimeseriesResultValue>> resultRowsNoProjection = timeseriesEngine.process(
-        query.withOverriddenContext(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true)),
+        query.withOverriddenContext(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true).toMap()),
         projectionsCursorFactory,
         projectionsTimeBoundaryInspector,
         queryMetrics
@@ -2006,7 +2006,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
     testGroupByQuery(query, queryMetrics, rollup, withMerge, expectedResults);
     // test query without projections
     GroupByQuery queryNoProjections = query.withOverriddenContext(
-        QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true)
+        QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true).toMap()
     );
     testGroupByQuery(queryNoProjections, new ExpectedProjectionGroupBy(null), rollup, withMerge, expectedResults);
   }
@@ -2022,7 +2022,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
     GroupByQuery finalQuery = withMerge ? query.withOverriddenContext(QueryContext.of(
         QueryContextParameters.QUERY_RESOURCE_ID,
         String.valueOf(query.hashCode())
-    )) : query;
+    ).toMap()) : query;
     QueryRunner<ResultRow> runner = (unused1, unused2) -> groupingEngine.process(
         finalQuery,
         rollup ? rollupProjectionsCursorFactory : projectionsCursorFactory,
@@ -2077,7 +2077,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
     // timeseries query only works on base table if base table is sorted by time
     Assumptions.assumeTrue(segmentSortedByTime);
     final Sequence<Result<TimeseriesResultValue>> resultRowsNoProjection = timeseriesEngine.process(
-        query.withOverriddenContext(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true)),
+        query.withOverriddenContext(QueryContext.of(QueryContextParameters.NO_PROJECTIONS, true).toMap()),
         cursorFactory,
         timeBoundaryInspector,
         queryMetrics

@@ -216,12 +216,10 @@ public class QueryableIndexCursorHolderTest
                                                      )
                                                  )
                                                  .setQueryContext(
-                                                     new QueryContext(
-                                                         QueryContext.of(
-                                                             QueryContextParameters.FORCE_PROJECTIONS,
-                                                             true
-                                                         )
-                                                     )
+                                                     QueryContext.of(
+                                                         QueryContextParameters.FORCE_PROJECTIONS,
+                                                         true
+                                                     ).toContext()
                                                  )
                                                  .build();
       final CursorFactory cursorFactory = new QueryableIndexCursorFactory(index);

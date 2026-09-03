@@ -119,12 +119,10 @@ public class BrokerDynamicConfig
           );
           return QueryContext.empty();
         }
-        return new QueryContext(
-            QueryContext.of(
-                QueryContextParameters.PER_SEGMENT_TIMEOUT,
-                dataSourceTimeoutConfig.getPerSegmentTimeoutMs()
-            )
-        );
+        return QueryContext.of(
+            QueryContextParameters.PER_SEGMENT_TIMEOUT,
+            dataSourceTimeoutConfig.getPerSegmentTimeoutMs()
+        ).toContext();
       }
     }
     return QueryContext.empty();

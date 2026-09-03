@@ -1487,7 +1487,7 @@ public class SqlResourceTest extends CalciteTestBase
     Map<String, Object> queryContext = new QueryContextBuilder()
         .put(QueryContextParameters.SQL_QUERY_ID, DUMMY_SQL_QUERY_ID)
         .put(PlannerConfig.CTX_KEY_USE_NATIVE_QUERY_EXPLAIN, "false")
-        .build();
+        .toMap();
     final List<Map<String, Object>> rows = doPost(
         new SqlQuery(
             "EXPLAIN PLAN FOR SELECT COUNT(*) AS cnt FROM druid.foo",
@@ -1903,7 +1903,7 @@ public class SqlResourceTest extends CalciteTestBase
     Map<String, Object> queryContext = new QueryContextBuilder()
         .put(QueryContextParameters.TIMEOUT, 1L)
         .put(BaseQuery.SQL_QUERY_ID, sqlQueryId)
-        .build();
+        .toMap();
 
     ErrorResponse exception = postSyncForException(
         new SqlQuery(

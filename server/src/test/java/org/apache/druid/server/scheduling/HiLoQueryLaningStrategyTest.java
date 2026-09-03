@@ -145,14 +145,14 @@ public class HiLoQueryLaningStrategyTest
   @Test
   public void testLaningZeroPriority()
   {
-    TimeseriesQuery query = queryBuilder.context(QueryContext.of(QueryContextParameters.PRIORITY, 0)).build();
+    TimeseriesQuery query = queryBuilder.context(QueryContext.of(QueryContextParameters.PRIORITY, 0).toMap()).build();
     Assertions.assertFalse(strategy.computeLane(QueryPlus.wrap(query), ImmutableSet.of()).isPresent());
   }
 
   @Test
   public void testLaningInteractivePriority()
   {
-    TimeseriesQuery query = queryBuilder.context(QueryContext.of(QueryContextParameters.PRIORITY, 100)).build();
+    TimeseriesQuery query = queryBuilder.context(QueryContext.of(QueryContextParameters.PRIORITY, 100).toMap()).build();
     Assertions.assertFalse(strategy.computeLane(QueryPlus.wrap(query), ImmutableSet.of()).isPresent());
   }
 
@@ -166,7 +166,7 @@ public class HiLoQueryLaningStrategyTest
   @Test
   public void testLaningLowPriority()
   {
-    TimeseriesQuery query = queryBuilder.context(QueryContext.of(QueryContextParameters.PRIORITY, -1)).build();
+    TimeseriesQuery query = queryBuilder.context(QueryContext.of(QueryContextParameters.PRIORITY, -1).toMap()).build();
     Assertions.assertTrue(strategy.computeLane(QueryPlus.wrap(query), ImmutableSet.of()).isPresent());
     Assertions.assertEquals(
         HiLoQueryLaningStrategy.LOW,
@@ -189,7 +189,7 @@ public class HiLoQueryLaningStrategyTest
   public void testLaningPreservesManualSetLane()
   {
     TimeseriesQuery query = queryBuilder.context(
-        QueryContext.of(QueryContextParameters.PRIORITY, 100, QueryContextParameters.LANE, "low")
+        QueryContext.of(QueryContextParameters.PRIORITY, 100, QueryContextParameters.LANE, "low").toMap()
     ).build();
     Assertions.assertEquals(
         HiLoQueryLaningStrategy.LOW,

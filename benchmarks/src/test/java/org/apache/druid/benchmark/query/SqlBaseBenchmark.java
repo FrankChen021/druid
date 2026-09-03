@@ -234,7 +234,7 @@ public class SqlBaseBenchmark
         vectorizeContext,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         vectorizeContext
-    );
+    ).toMap();
     return context;
   }
 

@@ -64,7 +64,7 @@ public class DartControllerContextTest
           new QueryContextBuilder()
               .put(MultiStageQueryContext.CTX_MAX_CONCURRENT_STAGES, 3)
               .put(QueryContextParameters.DART_QUERY_ID, QUERY_ID)
-              .build()
+              .toMap()
       );
   private MemoryIntrospector memoryIntrospector;
   private AutoCloseable mockCloser;

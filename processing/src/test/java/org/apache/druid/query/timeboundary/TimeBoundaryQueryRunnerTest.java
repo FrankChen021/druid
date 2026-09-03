@@ -359,7 +359,7 @@ public class TimeBoundaryQueryRunnerTest extends InitializedNullHandlingTest
                           vectorize,
                           QueryContextParameters.VECTOR_SIZE,
                           7
-                      )
+                      ).toMap()
                   )
                   .build();
 

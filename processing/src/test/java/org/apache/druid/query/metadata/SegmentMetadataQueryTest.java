@@ -1105,7 +1105,7 @@ public class SegmentMetadataQueryTest extends InitializedNullHandlingTest
         myRunner.run(QueryPlus.wrap(testQuery.withOverriddenContext(QueryContext.of(
             QueryContextParameters.BY_SEGMENT,
             true
-        )))),
+        ).toMap()))),
         "failed SegmentMetadata bySegment query"
     );
     exec.shutdownNow();

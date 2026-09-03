@@ -97,7 +97,7 @@ public class NestedGroupByArrayQueryTest
         vectorize,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         vectorize
-    );
+    ).toMap();
   }
   public static Collection<?> constructorFeeder()
   {

@@ -64,7 +64,7 @@ public class TimeBoundaryQueryTest
                                                   true,
                                                   QueryContextParameters.FINALIZE,
                                                   true
-                                              )
+                                              ).toMap()
                                           ).build();
 
     final ObjectMapper mapper = new DefaultObjectMapper();

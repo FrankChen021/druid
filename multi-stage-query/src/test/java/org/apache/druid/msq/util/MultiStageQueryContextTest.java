@@ -430,7 +430,7 @@ public class MultiStageQueryContextTest
         new QueryContextBuilder()
             .put(QueryContextParameters.DART_QUERY_ID, "test")
             .put(MultiStageQueryContext.CTX_SELECT_DESTINATION, "durablestorage")
-            .build()
+            .toMap()
     );
 
     Assertions.assertEquals(
@@ -508,7 +508,7 @@ public class MultiStageQueryContextTest
   {
     final long timeoutMs = 60_000;
     final QueryContext context = MultiStageQueryContext.withCommonContext(
-        new QueryContext(QueryContext.of(QueryContextParameters.TIMEOUT, timeoutMs))
+        QueryContext.of(QueryContextParameters.TIMEOUT, timeoutMs).toContext()
     );
 
     Assertions.assertTrue(context.containsKey(MultiStageQueryContext.CTX_START_TIME));

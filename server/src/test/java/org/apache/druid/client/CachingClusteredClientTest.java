@@ -172,7 +172,7 @@ import java.util.stream.IntStream;
 @MethodSource("constructorFeeder")
 public class CachingClusteredClientTest
 {
-  private static final Map<String, Object> CONTEXT = QueryContext.of(QueryContextParameters.FINALIZE, false);
+  private static final Map<String, Object> CONTEXT = QueryContext.of(QueryContextParameters.FINALIZE, false).toMap();
   private static final MultipleIntervalSegmentSpec SEG_SPEC = new MultipleIntervalSegmentSpec(ImmutableList.of());
   private static final String DATA_SOURCE = "test";
   private static final ObjectMapper JSON_MAPPER = CachingClusteredClientTestUtils.createObjectMapper();
@@ -3142,7 +3142,7 @@ public class CachingClusteredClientTest
                 QueryContext.of(
                     QueryContextParameters.REALTIME_SEGMENTS_MODE,
                     QueryContexts.RealtimeSegmentsMode.INCLUDE
-                )
+                ).toMap()
             )
             .randomQueryId()
             .build();
@@ -3155,7 +3155,7 @@ public class CachingClusteredClientTest
                 QueryContext.of(
                     QueryContextParameters.REALTIME_SEGMENTS_MODE,
                     QueryContexts.RealtimeSegmentsMode.EXCLUSIVE
-                )
+                ).toMap()
             )
             .randomQueryId()
             .build();
@@ -3164,7 +3164,7 @@ public class CachingClusteredClientTest
     final TimeBoundaryQuery queryLegacyTrue = Druids.newTimeBoundaryQueryBuilder()
             .dataSource(DATA_SOURCE)
             .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(queryInterval)))
-            .context(QueryContext.of(QueryContextParameters.REALTIME_SEGMENTS_ONLY, true))
+            .context(QueryContext.of(QueryContextParameters.REALTIME_SEGMENTS_ONLY, true).toMap())
             .randomQueryId()
             .build();
 
@@ -3217,7 +3217,7 @@ public class CachingClusteredClientTest
                 QueryContext.of(
                     QueryContextParameters.REALTIME_SEGMENTS_MODE,
                     QueryContexts.RealtimeSegmentsMode.EXCLUDE
-                )
+                ).toMap()
             )
             .randomQueryId()
             .build();
@@ -3230,7 +3230,7 @@ public class CachingClusteredClientTest
                 QueryContext.of(
                     QueryContextParameters.REALTIME_SEGMENTS_MODE,
                     QueryContexts.RealtimeSegmentsMode.INCLUDE
-                )
+                ).toMap()
             )
             .randomQueryId()
             .build();

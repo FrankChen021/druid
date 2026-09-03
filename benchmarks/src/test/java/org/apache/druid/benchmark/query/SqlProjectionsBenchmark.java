@@ -77,7 +77,7 @@ public class SqlProjectionsBenchmark extends SqlBaseQueryBenchmark
         vectorizeContext,
         useProjections ? QueryContextParameters.FORCE_PROJECTIONS : QueryContextParameters.NO_PROJECTIONS,
         true
-    );
+    ).toMap();
     return context;
   }
 }

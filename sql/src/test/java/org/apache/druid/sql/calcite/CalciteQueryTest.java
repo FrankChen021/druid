@@ -5934,7 +5934,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
                 20,
                 QueryContextParameters.IN_SUBQUERY_THRESHOLD,
                 20
-            )
+            ).toMap()
         ),
         ImmutableList.of(
             GroupByQuery.builder()
@@ -8115,7 +8115,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
 
       testQuery(
           PLANNER_CONFIG_MAX_NUMERIC_IN_FILTER,
-          QueryContext.of(QueryContextParameters.MAX_NUMERIC_IN_FILTERS, 20000),
+          QueryContext.of(QueryContextParameters.MAX_NUMERIC_IN_FILTERS, 20000).toMap(),
           "SELECT COUNT(*)\n"
               + "FROM druid.numfoo\n"
               + "WHERE dim6 IN (\n"
@@ -15964,7 +15964,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
             QueryContext.of(
                 QueryContextParameters.DEBUG,
                 true
-            )
+            ).toMap()
         )
         .expectedQuery(
             WindowOperatorQueryBuilder.builder()
@@ -16064,7 +16064,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
             QueryContext.of(
                 QueryContextParameters.DEBUG,
                 true
-            )
+            ).toMap()
         )
         .expectedResults(
             ImmutableList.of(

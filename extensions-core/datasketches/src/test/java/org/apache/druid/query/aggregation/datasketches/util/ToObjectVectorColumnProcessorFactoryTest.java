@@ -176,9 +176,7 @@ public class ToObjectVectorColumnProcessorFactoryTest extends InitializedNullHan
   {
     final CursorBuildSpec buildSpec = CursorBuildSpec.builder()
                                                      .setQueryContext(
-                                                         new QueryContext(
-                                                             QueryContext.of(QueryContextParameters.VECTOR_SIZE, 3)
-                                                         )
+                                                         QueryContext.of(QueryContextParameters.VECTOR_SIZE, 3).toContext()
                                                      )
                                                      .build();
     return cursorFactory.makeCursorHolder(buildSpec);

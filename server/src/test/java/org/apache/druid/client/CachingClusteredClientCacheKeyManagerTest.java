@@ -69,7 +69,7 @@ public class CachingClusteredClientCacheKeyManagerTest extends EasyMockSupport
   {
     expect(strategy.computeCacheKey(query)).andReturn(QUERY_CACHE_KEY).anyTimes();
     expect(query.context()).andReturn(
-        new QueryContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, false))
+        QueryContext.of(QueryContextParameters.BY_SEGMENT, false).toContext()
     ).anyTimes();
   }
 
@@ -182,7 +182,7 @@ public class CachingClusteredClientCacheKeyManagerTest extends EasyMockSupport
 
     expect(query.getDataSource()).andReturn(new NoopDataSource());
     expect(query.context()).andReturn(
-        new QueryContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, true))
+        QueryContext.of(QueryContextParameters.BY_SEGMENT, true).toContext()
     ).anyTimes();
 
     replayAll();
@@ -250,7 +250,7 @@ public class CachingClusteredClientCacheKeyManagerTest extends EasyMockSupport
   {
     reset(query);
     expect(query.context()).andReturn(
-        new QueryContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, true))
+        QueryContext.of(QueryContextParameters.BY_SEGMENT, true).toContext()
     ).anyTimes();
     replayAll();
     byte[] cacheKey = makeKeyManager().computeSegmentLevelQueryCacheKey();

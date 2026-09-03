@@ -75,13 +75,13 @@ public class DoublesSketchAggregatorTest extends InitializedNullHandlingTest
         config,
         tempFolder
     ).withQueryContext(
-        QueryContext.of(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.fromString(vectorize))
+        QueryContext.of(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.fromString(vectorize)).toMap()
     );
     timeSeriesHelper = AggregationTestHelper.createTimeseriesQueryAggregationTestHelperWithTempDir(
         module.getJacksonModules(),
         tempFolder
     ).withQueryContext(
-        QueryContext.of(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.fromString(vectorize))
+        QueryContext.of(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.fromString(vectorize)).toMap()
     );
   }
 

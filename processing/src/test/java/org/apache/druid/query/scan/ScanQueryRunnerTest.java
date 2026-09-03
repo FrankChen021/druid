@@ -820,7 +820,7 @@ public class ScanQueryRunnerTest extends InitializedNullHandlingTest
     ScanQuery query = newTestQuery()
         .intervals(I_0112_0114)
         .virtualColumns(EXPR_COLUMN)
-        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 1L))
+        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 1L).toMap())
         .build();
     ResponseContext responseContext = DefaultResponseContext.createEmpty();
     final long timeoutAt = System.currentTimeMillis();
@@ -842,7 +842,7 @@ public class ScanQueryRunnerTest extends InitializedNullHandlingTest
     ScanQuery query = newTestQuery()
         .intervals(I_0112_0114)
         .virtualColumns(EXPR_COLUMN)
-        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 1L))
+        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 1L).toMap())
         .build();
     try {
       FACTORY.mergeRunners(
@@ -872,7 +872,7 @@ public class ScanQueryRunnerTest extends InitializedNullHandlingTest
     ScanQuery query = newTestQuery()
         .intervals(I_0112_0114)
         .virtualColumns(EXPR_COLUMN)
-        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 0L))
+        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 0L).toMap())
         .build();
 
     Iterable<ScanResultValue> results = FACTORY.mergeRunners(

@@ -460,7 +460,7 @@ class PartialProjectionLoadRuleQueryTest extends EmbeddedClusterTestBase
     try {
       result = msqApis.submitDartSqlAsync(
           sql,
-          QueryContext.of(QueryContextParameters.SQL_QUERY_ID, sqlQueryId),
+          QueryContext.of(QueryContextParameters.SQL_QUERY_ID, sqlQueryId).toMap(),
           broker
       ).get();
     }

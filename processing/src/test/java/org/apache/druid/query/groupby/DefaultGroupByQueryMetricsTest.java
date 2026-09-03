@@ -70,7 +70,7 @@ public class DefaultGroupByQueryMetricsTest extends InitializedNullHandlingTest
         )).setAggregatorSpecs(QueryRunnerTestHelper.ROWS_COUNT, new LongSumAggregatorFactory("idx", "index"))
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
         .setDimFilter(new SelectorDimFilter("quality", "mezzanine", null))
-        .setContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, true));
+        .setContext(QueryContext.of(QueryContextParameters.BY_SEGMENT, true).toMap());
     GroupByQuery query = builder.build();
     queryMetrics.query(query);
 
@@ -88,7 +88,7 @@ public class DefaultGroupByQueryMetricsTest extends InitializedNullHandlingTest
     Assertions.assertEquals("true", actualEvent.get("hasFilters"));
     Assertions.assertEquals(expectedInterval.toDuration().toString(), actualEvent.get("duration"));
     Assertions.assertEquals("", actualEvent.get(DruidMetrics.ID));
-    Assertions.assertEquals(QueryContext.of(QueryContextParameters.BY_SEGMENT, true), actualEvent.get("context"));
+    Assertions.assertEquals(QueryContext.of(QueryContextParameters.BY_SEGMENT, true).toMap(), actualEvent.get("context"));
 
     // GroupBy-specific dimensions
     Assertions.assertEquals("1", actualEvent.get("numDimensions"));

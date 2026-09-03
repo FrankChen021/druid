@@ -194,13 +194,13 @@ public class SqlVectorizedExpressionResultConsistencyTest extends InitializedNul
         QueryContexts.Vectorize.FORCE,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         QueryContexts.Vectorize.FORCE
-    );
+    ).toMap();
     final Map<String, Object> nonvector = QueryContext.of(
         QueryContextParameters.VECTORIZE,
         QueryContexts.Vectorize.FALSE,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         QueryContexts.Vectorize.FALSE
-    );
+    ).toMap();
 
     try (
         final DruidPlanner vectorPlanner = plannerFactory.createPlannerForTesting(engine, query, vector);

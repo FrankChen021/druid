@@ -118,7 +118,7 @@ public class NestedDataTimeseriesQueryTest extends InitializedNullHandlingTest
         vectorize,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         vectorize
-    );
+    ).toMap();
   }
 
   @Test

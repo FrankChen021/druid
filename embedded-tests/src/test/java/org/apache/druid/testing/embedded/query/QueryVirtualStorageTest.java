@@ -327,7 +327,7 @@ class QueryVirtualStorageTest extends EmbeddedClusterTestBase
                     sqlQueryId,
                     QueryContextParameters.ENGINE,
                     "msq-dart"
-                ),
+                ).toMap(),
                 null
             )
         )

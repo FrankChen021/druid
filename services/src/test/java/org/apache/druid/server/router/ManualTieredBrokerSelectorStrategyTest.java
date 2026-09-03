@@ -119,7 +119,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.INVALID_BROKER))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.INVALID_BROKER).toMap())
                 .build()
         )
     );
@@ -128,7 +128,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_HOT))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_HOT).toMap())
                 .build()
         )
     );
@@ -137,7 +137,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_COLD))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_COLD).toMap())
                 .build()
         )
     );
@@ -158,7 +158,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.INVALID_BROKER))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.INVALID_BROKER).toMap())
                 .build()
         )
     );
@@ -167,7 +167,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_HOT))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_HOT).toMap())
                 .build()
         )
     );
@@ -188,7 +188,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.INVALID_BROKER))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.INVALID_BROKER).toMap())
                 .build()
         )
     );
@@ -197,7 +197,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             queryBuilder
-                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_HOT))
+                .context(QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_HOT).toMap())
                 .build()
         )
     );
@@ -218,7 +218,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             createSqlQueryWithContext(
-                QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.INVALID_BROKER)
+                QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.INVALID_BROKER).toMap()
             )
         )
     );
@@ -227,7 +227,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             createSqlQueryWithContext(
-                QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_HOT)
+                QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_HOT).toMap()
             )
         )
     );
@@ -236,7 +236,7 @@ public class ManualTieredBrokerSelectorStrategyTest
         strategy.getBrokerServiceName(
             tieredBrokerConfig,
             createSqlQueryWithContext(
-                QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_COLD)
+                QueryContext.of(QueryContextParameters.BROKER_SERVICE, Names.BROKER_SVC_COLD).toMap()
             )
         )
     );

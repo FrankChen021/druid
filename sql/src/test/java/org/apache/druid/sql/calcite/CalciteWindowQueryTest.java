@@ -76,7 +76,7 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
       true,
       QueryContextParameters.SQL_STRINGIFY_ARRAYS,
       false
-  );
+  ).toMap();
 
   private static final Map<String, Object> DEFAULT_QUERY_CONTEXT_WITH_SUBQUERY_BYTES =
       ImmutableMap.<String, Object>builder()
@@ -320,7 +320,7 @@ public class CalciteWindowQueryTest extends BaseCalciteQueryTest
                 .put(QueryContextParameters.DEBUG, true)
                 .put(QueryContextParameters.SQL_STRINGIFY_ARRAYS, false)
                 .put(PlannerContext.CTX_ENABLE_RAC_TRANSFER_OVER_WIRE, true)
-                .build())
+                .toMap())
             .run()
     );
 

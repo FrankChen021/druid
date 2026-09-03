@@ -176,7 +176,7 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
             false,
             false,
             false,
-            QueryContext.of(QueryContextParameters.EXECUTION_MODE, ExecutionMode.SYNC),
+            QueryContext.of(QueryContextParameters.EXECUTION_MODE, ExecutionMode.SYNC).toMap(),
             null
         ), SqlStatementResourceTest.makeOkRequest()),
         "The sql statement api currently does not support the provided execution mode [SYNC]. "

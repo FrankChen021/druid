@@ -125,7 +125,7 @@ public class ScanQueryFrameProcessorTest extends FrameProcessorTestBase
               .order(Order.DESCENDING);
 
     final ScanQuery nonVectorizedQuery =
-        baseBuilder.context(QueryContext.of(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.FALSE)).build();
+        baseBuilder.context(QueryContext.of(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.FALSE).toMap()).build();
     final ScanQuery vectorizedQuery =
         baseBuilder.context(
                      QueryContext.of(
@@ -133,7 +133,7 @@ public class ScanQueryFrameProcessorTest extends FrameProcessorTestBase
                          QueryContexts.Vectorize.FORCE,
                          QueryContextParameters.VECTOR_SIZE,
                          7
-                     )
+                     ).toMap()
                  )
                    .build();
 

@@ -121,7 +121,7 @@ public class ComplexDimensionGroupByQueryTest
         vectorize,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         QueryContexts.Vectorize.TRUE
-    );
+    ).toMap();
   }
 
   @Test

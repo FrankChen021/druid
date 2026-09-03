@@ -130,7 +130,7 @@ public class IndexerDataServerQueryHandlerTest
         .context(new QueryContextBuilder()
             .put(QueryContextParameters.NUM_RETRIES_ON_MISSING_SEGMENTS, 1)
             .put(MultiStageQueryContext.CTX_INCLUDE_SEGMENT_SOURCE, SegmentSource.REALTIME.toString())
-            .build())
+            .toMap())
         .build();
     target = spy(
         new IndexerDataServerQueryHandler(
@@ -308,7 +308,7 @@ public class IndexerDataServerQueryHandlerTest
         .isHandoffComplete(DATASOURCE1, IndexerDataServerQueryHandler.toSegmentDescriptorWithFullInterval(SEGMENT_1));
 
     ScanQuery queryWithRetry =
-        query.withOverriddenContext(QueryContext.of(QueryContextParameters.NUM_RETRIES_ON_MISSING_SEGMENTS, 3));
+        query.withOverriddenContext(QueryContext.of(QueryContextParameters.NUM_RETRIES_ON_MISSING_SEGMENTS, 3).toMap());
 
     Assertions.assertThrows(DruidException.class, () ->
         target.fetchRowsFromDataServer(

@@ -43,7 +43,7 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 1L))
+        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 1L).toMap())
         .build();
 
     ServerConfig defaultConfig = new ServerConfig();
@@ -94,7 +94,7 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 0L))
+        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 0L).toMap())
         .build();
 
     ServerConfig defaultConfig = new ServerConfig();
@@ -116,7 +116,7 @@ public class SetAndVerifyContextQueryRunnerTest
     Query<ScanResultValue> query = new Druids.ScanQueryBuilder()
         .dataSource("foo")
         .intervals(new MultipleIntervalSegmentSpec(ImmutableList.of(Intervals.ETERNITY)))
-        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 0L))
+        .context(QueryContext.of(QueryContextParameters.TIMEOUT, 0L).toMap())
         .build();
 
     ServerConfig defaultConfig = new ServerConfig()
@@ -154,7 +154,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .context(new QueryContextBuilder()
             .put(QueryContextParameters.TIMEOUT, 300_000L)
             .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
-            .build())
+            .toMap())
         .build();
 
     ServerConfig defaultConfig = new ServerConfig();
@@ -181,7 +181,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .context(new QueryContextBuilder()
             .put(QueryContextParameters.TIMEOUT, 1L)
             .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
-            .build())
+            .toMap())
         .build();
 
     ServerConfig defaultConfig = new ServerConfig();
@@ -210,7 +210,7 @@ public class SetAndVerifyContextQueryRunnerTest
         .context(new QueryContextBuilder()
             .put(QueryContextParameters.TIMEOUT, Long.MAX_VALUE)
             .put(DirectDruidClient.QUERY_FAIL_TIME, existingFailTime)
-            .build())
+            .toMap())
         .build();
 
     // Explicit max so the test does not depend on ServerConfig default values.

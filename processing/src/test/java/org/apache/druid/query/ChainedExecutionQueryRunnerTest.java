@@ -275,7 +275,7 @@ public class ChainedExecutionQueryRunnerTest
                                   .context(new QueryContextBuilder()
                                       .put(QueryContextParameters.TIMEOUT, 100L)
                                       .put("queryId", "test")
-                                      .build())
+                                      .toMap())
                                   .build();
     final Sequence seq = chainedRunner.run(QueryPlus.wrap(query));
 
@@ -348,7 +348,7 @@ public class ChainedExecutionQueryRunnerTest
             new QueryContextBuilder()
                 .put(QueryContextParameters.TIMEOUT, 100L)
                 .put("queryId", "test")
-                .build()
+                .toMap()
         )
         .build();
     List<QueryRunner<Result<TimeseriesResultValue>>> runners = Arrays.asList(
@@ -407,7 +407,7 @@ public class ChainedExecutionQueryRunnerTest
                                           100L,
                                           QueryContextParameters.TIMEOUT,
                                           5_000L
-                                      )
+                                      ).toMap()
                                   )
                                   .queryId("test")
                                   .build();
@@ -467,7 +467,7 @@ public class ChainedExecutionQueryRunnerTest
                                           300_000L,
                                           QueryContextParameters.PER_SEGMENT_TIMEOUT,
                                           1_000L
-                                      ))
+                                      ).toMap())
                                       .queryId("slow")
                                       .build();
 
@@ -480,7 +480,7 @@ public class ChainedExecutionQueryRunnerTest
                                           5_000L,
                                           QueryContextParameters.PER_SEGMENT_TIMEOUT,
                                           3_000L
-                                      ))
+                                      ).toMap())
                                       .queryId("fast")
                                       .build();
 

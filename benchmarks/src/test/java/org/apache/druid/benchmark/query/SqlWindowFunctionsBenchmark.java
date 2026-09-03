@@ -98,6 +98,6 @@ public class SqlWindowFunctionsBenchmark extends SqlBaseQueryBenchmark
         vectorizeContext,
         QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
         vectorizeContext
-    );
+    ).toMap();
   }
 }

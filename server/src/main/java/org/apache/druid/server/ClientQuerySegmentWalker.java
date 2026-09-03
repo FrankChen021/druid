@@ -199,7 +199,7 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
           QueryContext.of(
               QueryContextParameters.USE_NESTED_FOR_UNKNOWN_TYPE_IN_SUBQUERY,
               useNestedForUnknownTypeInSubquery
-          )
+          ).toMap()
       );
       return (QueryRunner<T>) queryExecutor.entryPoint(query, this);
     }

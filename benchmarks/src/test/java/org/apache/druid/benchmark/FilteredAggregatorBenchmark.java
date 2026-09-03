@@ -316,7 +316,7 @@ public class FilteredAggregatorBenchmark
                 QueryContexts.Vectorize.fromString(vectorize),
                 QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
                 QueryContexts.Vectorize.fromString(vectorize)
-            )
+            ).toMap()
         )
     );
     Sequence<T> queryResult = theRunner.run(queryToRun, ResponseContext.createEmpty());
