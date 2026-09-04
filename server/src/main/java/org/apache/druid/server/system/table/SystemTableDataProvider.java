@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Supplies storage-prefiltered rows authorized for the internal caller of one native system table.
+ * Supplies storage-prefiltered rows authorized for the caller of one native system table.
  * The implementation is deployed in related service.
  * For example, the data provider of sys.tasks is deployed in overlord module
  * */
@@ -56,7 +56,7 @@ public interface SystemTableDataProvider
 
   Iterable<Object[]> getRows(
       @NotNull List<DimFilter> filters,
-      AuthenticationResult internalAuthenticationResult
+      AuthenticationResult authenticationResult
   );
 
   /**

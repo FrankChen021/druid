@@ -70,6 +70,7 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.table.SegmentsTableDescriptor;
+import org.apache.druid.server.system.table.ServerSegmentsTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
@@ -98,7 +99,7 @@ public class SystemSchema extends AbstractTableSchema
 {
   public static final String SEGMENTS_TABLE = SegmentsTableDescriptor.TABLE_NAME;
   public static final String SERVERS_TABLE = "servers";
-  public static final String SERVER_SEGMENTS_TABLE = "server_segments";
+  public static final String SERVER_SEGMENTS_TABLE = ServerSegmentsTableDescriptor.TABLE_NAME;
   public static final String TASKS_TABLE = "tasks";
   public static final String SUPERVISOR_TABLE = "supervisors";
   public static final String QUERIES_TABLE = "queries";
@@ -149,12 +150,6 @@ public class SystemSchema extends AbstractTableSchema
       .add("labels", ColumnType.STRING)
       .add("available_processors", ColumnType.LONG)
       .add("total_memory", ColumnType.LONG)
-      .build();
-
-  static final RowSignature SERVER_SEGMENTS_SIGNATURE = RowSignature
-      .builder()
-      .add("server", ColumnType.STRING)
-      .add("segment_id", ColumnType.STRING)
       .build();
 
   static final RowSignature TASKS_SIGNATURE = RowSignature
@@ -669,7 +664,7 @@ public class SystemSchema extends AbstractTableSchema
   /**
    * This table contains row per segment per server.
    */
-  static class ServerSegmentsTable extends AbstractTable implements ScannableTable
+  static class ServerSegmentsTable extends AbstractTable implements ScannableTable, NativeSystemTable
   {
     private final TimelineServerView serverView;
     private final AuthorizerMapper authorizerMapper;
@@ -689,7 +684,7 @@ public class SystemSchema extends AbstractTableSchema
     @Override
     public RelDataType getRowType(RelDataTypeFactory typeFactory)
     {
-      return RowSignatures.toRelDataType(SERVER_SEGMENTS_SIGNATURE, typeFactory);
+      return RowSignatures.toRelDataType(ServerSegmentsTableDescriptor.ROW_SIGNATURE, typeFactory);
     }
 
     @Override
@@ -699,13 +694,19 @@ public class SystemSchema extends AbstractTableSchema
     }
 
     @Override
+    public DruidTable asNativeTable()
+    {
+      return new NativeServerSegmentsTable();
+    }
+
+    @Override
     public Enumerable<Object[]> scan(DataContext root)
     {
       checkStateReadAccessForServers(authenticationResult, authorizerMapper);
 
       final List<Object[]> rows = new ArrayList<>();
       final List<ImmutableDruidServer> druidServers = serverView.getDruidServers();
-      final int serverSegmentsTableSize = SERVER_SEGMENTS_SIGNATURE.size();
+      final int serverSegmentsTableSize = ServerSegmentsTableDescriptor.ROW_SIGNATURE.size();
       for (ImmutableDruidServer druidServer : druidServers) {
         final Iterable<DataSegment> authorizedServerSegments = AuthorizationUtils.filterAuthorizedResources(
             authenticationResult,
