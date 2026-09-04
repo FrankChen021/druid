@@ -22,7 +22,9 @@ package org.apache.druid.server.initialization.jetty;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import org.apache.commons.lang3.CharUtils;
+import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.eclipse.jetty.client.Response;
 
@@ -49,17 +51,28 @@ import java.util.Set;
  */
 public class StandardResponseHeaderFilterHolder implements ServletFilterHolder
 {
-  private static final Set<String> STANDARD_HEADERS = ImmutableSet.of("Cache-Control",
+  public static final String RESPONSE_SERVER_HEADER = "X-Druid-Response-Server";
+  public static final String RESPONSE_SERVICE_HEADER = "X-Druid-Response-Service";
+
+  private static final Set<String> STANDARD_HEADERS = ImmutableSet.of(
+      "Cache-Control",
       "Content-Security-Policy",
-      "Strict-Transport-Security");
+      "Strict-Transport-Security",
+      RESPONSE_SERVER_HEADER,
+      RESPONSE_SERVICE_HEADER
+  );
   private static final String DEFAULT_CONTENT_SECURITY_POLICY = "frame-ancestors 'none'";
 
   private final String contentSecurityPolicy;
+  private final String responseServer;
+  private final String responseService;
 
   @Inject
-  public StandardResponseHeaderFilterHolder(final ServerConfig serverConfig)
+  public StandardResponseHeaderFilterHolder(final ServerConfig serverConfig, @Self final DruidNode selfNode)
   {
     this.contentSecurityPolicy = asContentSecurityPolicyHeaderValue(serverConfig.getContentSecurityPolicy());
+    this.responseServer = selfNode.getHostAndPortToUse();
+    this.responseService = selfNode.getServiceName();
   }
 
   /**
@@ -101,7 +114,7 @@ public class StandardResponseHeaderFilterHolder implements ServletFilterHolder
   @Override
   public Filter getFilter()
   {
-    return new StandardResponseHeaderFilter(contentSecurityPolicy);
+    return new StandardResponseHeaderFilter(contentSecurityPolicy, responseServer, responseService);
   }
 
   @Override
@@ -132,10 +145,18 @@ public class StandardResponseHeaderFilterHolder implements ServletFilterHolder
   static class StandardResponseHeaderFilter implements Filter
   {
     private final String contentSecurityPolicy;
+    private final String responseServer;
+    private final String responseService;
 
-    public StandardResponseHeaderFilter(final String contentSecurityPolicy)
+    public StandardResponseHeaderFilter(
+        final String contentSecurityPolicy,
+        final String responseServer,
+        final String responseService
+    )
     {
       this.contentSecurityPolicy = contentSecurityPolicy;
+      this.responseServer = responseServer;
+      this.responseService = responseService;
     }
 
     @Override
@@ -161,6 +182,9 @@ public class StandardResponseHeaderFilterHolder implements ServletFilterHolder
         // Set the desired Content-Security-Policy on non-POSTs. (It's for web pages, which we don't serve via POST.)
         httpResponse.setHeader("Content-Security-Policy", contentSecurityPolicy);
       }
+
+      httpResponse.setHeader(RESPONSE_SERVER_HEADER, responseServer);
+      httpResponse.setHeader(RESPONSE_SERVICE_HEADER, responseService);
 
       chain.doFilter(request, response);
     }

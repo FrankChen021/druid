@@ -26,6 +26,16 @@ sidebar_label: Overview
 
 This topic is an index to the Apache&circledR; Druid API documentation.
 
+Every HTTP response includes headers that identify the Druid service which generated the response:
+
+|Header|Description|
+|------|-----------|
+|`X-Druid-Response-Server`|Advertised host and port of the Druid server that generated the response.|
+|`X-Druid-Response-Service`|Service name of that Druid server, as configured by `druid.service`.|
+
+When a Router proxies a request, it passes through these headers from the upstream Druid server instead of returning
+the Router's identity. If the Router generates the response itself, the headers identify the Router.
+
 ## HTTP APIs
 * [Druid SQL queries](./sql-api.md) to submit SQL queries using the Druid SQL API.
 * [SQL-based ingestion](./sql-ingestion-api.md) to submit SQL-based batch ingestion requests.

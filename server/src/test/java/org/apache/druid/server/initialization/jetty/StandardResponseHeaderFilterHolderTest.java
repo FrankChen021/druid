@@ -20,6 +20,7 @@
 package org.apache.druid.server.initialization.jetty;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.easymock.Capture;
 import org.easymock.EasyMock;
@@ -35,12 +36,21 @@ import javax.servlet.FilterChain;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.HttpMethod;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public class StandardResponseHeaderFilterHolderTest
 {
+  private static final DruidNode SELF_NODE = new DruidNode(
+      "druid/test",
+      "test-host",
+      false,
+      8080,
+      null,
+      true,
+      false
+  );
+
   public ServerConfig serverConfig;
   public HttpServletRequest httpRequest;
   public HttpServletResponse httpResponse;
@@ -77,6 +87,8 @@ public class StandardResponseHeaderFilterHolderTest
         ImmutableMap.<String, String>builder()
                     .put("Cache-Control", "no-cache, no-store, max-age=0")
                     .put("Content-Security-Policy", "frame-ancestors 'none'")
+                    .put(StandardResponseHeaderFilterHolder.RESPONSE_SERVER_HEADER, "test-host:8080")
+                    .put(StandardResponseHeaderFilterHolder.RESPONSE_SERVICE_HEADER, "druid/test")
                     .build()
     );
   }
@@ -87,7 +99,14 @@ public class StandardResponseHeaderFilterHolderTest
     EasyMock.expect(serverConfig.getContentSecurityPolicy()).andReturn("").once();
     EasyMock.expect(httpRequest.getMethod()).andReturn(HttpMethod.POST).anyTimes();
 
-    runFilterAndVerifyHeaders(Collections.emptyMap());
+    runFilterAndVerifyHeaders(
+        ImmutableMap.of(
+            StandardResponseHeaderFilterHolder.RESPONSE_SERVER_HEADER,
+            "test-host:8080",
+            StandardResponseHeaderFilterHolder.RESPONSE_SERVICE_HEADER,
+            "druid/test"
+        )
+    );
   }
 
   @Test
@@ -100,6 +119,8 @@ public class StandardResponseHeaderFilterHolderTest
         ImmutableMap.<String, String>builder()
                     .put("Cache-Control", "no-cache, no-store, max-age=0")
                     .put("Content-Security-Policy", "frame-ancestors 'none'")
+                    .put(StandardResponseHeaderFilterHolder.RESPONSE_SERVER_HEADER, "test-host:8080")
+                    .put(StandardResponseHeaderFilterHolder.RESPONSE_SERVICE_HEADER, "druid/test")
                     .build()
     );
   }
@@ -115,6 +136,8 @@ public class StandardResponseHeaderFilterHolderTest
         ImmutableMap.<String, String>builder()
                     .put("Cache-Control", "no-cache, no-store, max-age=0")
                     .put("Content-Security-Policy", "frame-ancestors 'self'")
+                    .put(StandardResponseHeaderFilterHolder.RESPONSE_SERVER_HEADER, "test-host:8080")
+                    .put(StandardResponseHeaderFilterHolder.RESPONSE_SERVICE_HEADER, "druid/test")
                     .build()
     );
   }
@@ -139,11 +162,24 @@ public class StandardResponseHeaderFilterHolderTest
     proxyResponse.setHeader("Cache-Control", null);
     EasyMock.expectLastCall().once();
     EasyMock.expect(proxyResponse.containsHeader("Strict-Transport-Security")).andReturn(false).once();
+    EasyMock.expect(proxyResponse.containsHeader(StandardResponseHeaderFilterHolder.RESPONSE_SERVER_HEADER))
+            .andReturn(true).once();
+    proxyResponse.setHeader(StandardResponseHeaderFilterHolder.RESPONSE_SERVER_HEADER, null);
+    EasyMock.expectLastCall().once();
+    EasyMock.expect(proxyResponse.containsHeader(StandardResponseHeaderFilterHolder.RESPONSE_SERVICE_HEADER))
+            .andReturn(true).once();
+    proxyResponse.setHeader(StandardResponseHeaderFilterHolder.RESPONSE_SERVICE_HEADER, null);
+    EasyMock.expectLastCall().once();
 
     EasyMock.expect(clientResponse.getHeaders())
             .andReturn(
-                HttpFields.from(new HttpField("Cache-Control", "true"), new HttpField("Strict-Transport-Security", "true"))
-            ).times(3);
+                HttpFields.from(
+                    new HttpField("Cache-Control", "true"),
+                    new HttpField("Strict-Transport-Security", "true"),
+                    new HttpField(StandardResponseHeaderFilterHolder.RESPONSE_SERVER_HEADER, "upstream:8082"),
+                    new HttpField(StandardResponseHeaderFilterHolder.RESPONSE_SERVICE_HEADER, "druid/broker")
+                )
+            ).times(5);
 
     replayAllMocks();
 
@@ -155,13 +191,19 @@ public class StandardResponseHeaderFilterHolderTest
   {
     EasyMock.expect(proxyResponse.containsHeader("Cache-Control")).andReturn(false).once();
     EasyMock.expect(proxyResponse.containsHeader("Strict-Transport-Security")).andReturn(false).once();
+    EasyMock.expect(proxyResponse.containsHeader(StandardResponseHeaderFilterHolder.RESPONSE_SERVER_HEADER))
+            .andReturn(false).once();
+    EasyMock.expect(proxyResponse.containsHeader(StandardResponseHeaderFilterHolder.RESPONSE_SERVICE_HEADER))
+            .andReturn(false).once();
 
     EasyMock.expect(clientResponse.getHeaders())
             .andReturn(HttpFields.from(
                 new HttpField("Cache-Control", "true"),
-                new HttpField("Strict-Transport-Security", "true")
+                new HttpField("Strict-Transport-Security", "true"),
+                new HttpField(StandardResponseHeaderFilterHolder.RESPONSE_SERVER_HEADER, "upstream:8082"),
+                new HttpField(StandardResponseHeaderFilterHolder.RESPONSE_SERVICE_HEADER, "druid/broker")
             ))
-            .times(3);
+            .times(5);
 
     replayAllMocks();
 
@@ -171,7 +213,7 @@ public class StandardResponseHeaderFilterHolderTest
   private StandardResponseHeaderFilterHolder.StandardResponseHeaderFilter makeFilter()
   {
     return (StandardResponseHeaderFilterHolder.StandardResponseHeaderFilter)
-        new StandardResponseHeaderFilterHolder(serverConfig).getFilter();
+        new StandardResponseHeaderFilterHolder(serverConfig, SELF_NODE).getFilter();
   }
 
   private void runFilterAndVerifyHeaders(final Map<String, String> expectedHeaders) throws Exception
