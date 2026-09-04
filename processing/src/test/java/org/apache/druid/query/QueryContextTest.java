@@ -731,7 +731,7 @@ public class QueryContextTest
     @Override
     public Query<Integer> withSubQueryId(String subQueryId)
     {
-      context.put(BaseQuery.SUB_QUERY_ID, subQueryId);
+      QueryContextParameters.SUB_QUERY_ID.set(context, subQueryId);
       return this;
     }
 
@@ -739,7 +739,7 @@ public class QueryContextTest
     @Override
     public String getSubQueryId()
     {
-      return (String) context.get(BaseQuery.SUB_QUERY_ID);
+      return (String) context.get(QueryContextParameters.SUB_QUERY_ID.getName());
     }
 
     @Override
