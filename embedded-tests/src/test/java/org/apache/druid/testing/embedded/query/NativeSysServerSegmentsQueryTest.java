@@ -55,12 +55,12 @@ public class NativeSysServerSegmentsQueryTest extends EmbeddedClusterTestBase
   public void testNativeAggregationUsesBrokerLocalProvider(final String plannerStrategy)
   {
     final String result = cluster.runSql(
-        "SELECT COUNT(*), COUNT(DISTINCT server), COUNT(DISTINCT segment_id) "
-        + "FROM sys.server_segments",
+        "SELECT COUNT(*), COUNT(DISTINCT server), COUNT(DISTINCT segment_id), COUNT(DISTINCT datasource) "
+        + "FROM sys.server_segments WHERE datasource = 'wikipedia'",
         nativeQueryContext(plannerStrategy)
     );
 
-    Assertions.assertEquals("0,0,0", result);
+    Assertions.assertEquals("0,0,0,0", result);
   }
 
   private static Map<String, Object> nativeQueryContext(final String plannerStrategy)
