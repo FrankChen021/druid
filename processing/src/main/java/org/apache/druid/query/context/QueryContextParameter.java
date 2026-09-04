@@ -53,6 +53,7 @@ public final class QueryContextParameter<T>
   private final List<ParameterConstraint<T>> constraints;
   private final Optional<T> defaultValue;
   private final boolean nullable;
+  private final boolean internal;
   private final Optional<String> deprecationMessage;
   private final Optional<ParameterDocumentation> documentation;
 
@@ -64,12 +65,37 @@ public final class QueryContextParameter<T>
     this.constraints = List.copyOf(builder.constraints);
     this.defaultValue = Optional.ofNullable(builder.defaultValue);
     this.nullable = builder.nullable;
+    this.internal = builder.internal;
     this.deprecationMessage = Optional.ofNullable(builder.deprecationMessage);
-    this.documentation = builder.documentationBuilder == null
-                         ? Optional.empty()
-                         : Optional.of(builder.documentationBuilder.build());
+
+    if (internal && builder.since == null) {
+      throw new IAE("Internal query context parameter [%s] must declare since", name);
+    }
+
+    if (builder.documentationBuilder == null) {
+      if (internal) {
+        this.documentation = Optional.of(
+            ParameterDocumentation.builder()
+                                  .description(systemGeneratedDescription(name))
+                                  .since(builder.since)
+                                  .build()
+        );
+      } else {
+        this.documentation = Optional.empty();
+      }
+    } else {
+      if (builder.since != null) {
+        builder.documentationBuilder.since(builder.since);
+      }
+      this.documentation = Optional.of(builder.documentationBuilder.build());
+    }
 
     defaultValue.ifPresent(this::validate);
+  }
+
+  private static String systemGeneratedDescription(final String name)
+  {
+    return "System generated description: Internal query context parameter `" + name + "`.";
   }
 
   public static <T> Builder<T> builder(
@@ -165,6 +191,14 @@ public final class QueryContextParameter<T>
     return nullable;
   }
 
+  /**
+   * Returns whether this parameter is used for Druid-internal coordination and is omitted from public documentation.
+   */
+  public boolean isInternal()
+  {
+    return internal;
+  }
+
   public boolean isDeprecated()
   {
     return deprecationMessage.isPresent();
@@ -197,10 +231,13 @@ public final class QueryContextParameter<T>
     private T defaultValue;
     // Query context maps historically permit explicit null values, so preserve that behavior unless declared otherwise.
     private boolean nullable = true;
+    private boolean internal;
     @Nullable
     private String deprecationMessage;
     @Nullable
     private ParameterDocumentation.Builder documentationBuilder;
+    @Nullable
+    private String since;
 
     private Builder(final String name, final Class<T> valueType, final ValueParser<T> parser)
     {
@@ -228,6 +265,12 @@ public final class QueryContextParameter<T>
     public Builder<T> nullable(final boolean nullable)
     {
       this.nullable = nullable;
+      return this;
+    }
+
+    public Builder<T> internal()
+    {
+      this.internal = true;
       return this;
     }
 
@@ -286,7 +329,10 @@ public final class QueryContextParameter<T>
 
     public Builder<T> since(final String since)
     {
-      documentationBuilder().since(since);
+      this.since = Objects.requireNonNull(since, "since");
+      if (since.isBlank()) {
+        throw new IAE("Query context parameter since must not be blank");
+      }
       return this;
     }
 
