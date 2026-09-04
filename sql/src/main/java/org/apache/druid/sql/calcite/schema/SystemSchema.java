@@ -701,6 +701,7 @@ public class SystemSchema extends AbstractTableSchema
           Object[] row = new Object[serverSegmentsTableSize];
           row[0] = druidServer.getHost();
           row[1] = segment.getId().toString();
+          row[2] = segment.getDataSource();
           rows.add(row);
         }
       }

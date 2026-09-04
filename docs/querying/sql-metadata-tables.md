@@ -299,23 +299,23 @@ SELECT * FROM sys.servers;
 
 ### SERVER_SEGMENTS table
 
-SERVER_SEGMENTS is used to join servers with segments table
+SERVER_SEGMENTS maps servers to their loaded segments and datasources.
 
 |Column|Type|Notes|
 |------|-----|-----|
 |server|VARCHAR|Server name in format host:port (Primary key of [servers table](#servers-table))|
 |segment_id|VARCHAR|Segment identifier (Primary key of [segments table](#segments-table))|
+|datasource|VARCHAR|Datasource name|
 
 JOIN between "servers" and "segments" can be used to query the number of segments for a specific datasource,
 grouped by server, example query:
 
 ```sql
-SELECT count(segments.segment_id) as num_segments from sys.segments as segments
-INNER JOIN sys.server_segments as server_segments
-ON segments.segment_id  = server_segments.segment_id
+SELECT count(server_segments.segment_id) as num_segments
+FROM sys.server_segments as server_segments
 INNER JOIN sys.servers as servers
 ON servers.server = server_segments.server
-WHERE segments.datasource = 'wikipedia'
+WHERE server_segments.datasource = 'wikipedia'
 GROUP BY servers.server;
 ```
 

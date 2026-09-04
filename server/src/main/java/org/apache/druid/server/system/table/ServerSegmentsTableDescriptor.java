@@ -40,6 +40,7 @@ public class ServerSegmentsTableDescriptor implements SystemTableDescriptor
       .builder()
       .add("server", ColumnType.STRING)
       .add("segment_id", ColumnType.STRING)
+      .add("datasource", ColumnType.STRING)
       .build();
 
   private static final Set<NodeRole> NODE_ROLES = Set.of(NodeRole.BROKER);
