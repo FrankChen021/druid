@@ -81,6 +81,7 @@ import org.apache.druid.server.security.Escalator;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
+import org.apache.druid.server.system.table.SegmentsTableDescriptor;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
@@ -88,6 +89,7 @@ import org.joda.time.Duration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
@@ -337,6 +339,67 @@ public class SystemTableQueryClientTest
         ArgumentMatchers.any(),
         Mockito.same(escalatedAuthenticationResult),
         Mockito.eq(true)
+    );
+  }
+
+  /** A local-only system table bypasses discovery and remote clients entirely. */
+  @Test
+  public void testLocalOnlySystemTableExecutesOnReceivingBroker()
+  {
+    final SystemTableDescriptor descriptor = new SegmentsTableDescriptor();
+    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
+    final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
+    final SystemTableQueryHandler localQueryHandler = Mockito.mock(SystemTableQueryHandler.class);
+    final Escalator escalator = Mockito.mock(Escalator.class);
+    Mockito.when(escalator.createEscalatedAuthenticationResult()).thenReturn(
+        new AuthenticationResult("system", "allow", "system", null)
+    );
+    Mockito.when(localQueryHandler.resolveDataSource(ArgumentMatchers.any(), Mockito.same(AUTHENTICATION_RESULT)))
+           .thenReturn(
+               InlineDataSource.fromIterable(
+                   Collections.singletonList(new Object[]{"foo", 1L}),
+                   RowSignature.builder()
+                               .add("datasource", ColumnType.STRING)
+                               .add("size", ColumnType.LONG)
+                               .build()
+               )
+    );
+
+    final QuerySegmentWalker querySegmentWalker = Mockito.mock(QuerySegmentWalker.class);
+    Mockito.when(querySegmentWalker.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
+           .thenAnswer(ignored -> passthroughRunner(descriptor.getRowSignature()));
+    final SystemTableQueryClient client = new SystemTableQueryClient(
+        nodeLocator,
+        directClientFactory,
+        Mockito.mock(QueryScheduler.class),
+        querySegmentWalker,
+        Map.of(descriptor.getTableName(), descriptor),
+        new AuthorizerMapper(Map.of("allow", new AllowAllAuthorizer(null))),
+        localQueryHandler,
+        escalator,
+        nonMatchingSelfNode()
+    );
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                 .dataSource(new SystemTableDataSource(descriptor.getTableName()))
+                                 .eternityInterval()
+                                 .columns(List.of("datasource", "size"))
+                                 .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                 .build();
+
+    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT, false)
+                                                .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
+                                                .toList();
+
+    Assertions.assertEquals(1, results.size());
+    Assertions.assertEquals(1, ((List<?>) results.get(0).getEvents()).size());
+    Mockito.verifyNoInteractions(nodeLocator, directClientFactory);
+    final ArgumentCaptor<ScanQuery> localQuery = ArgumentCaptor.forClass(ScanQuery.class);
+    Mockito.verify(localQueryHandler).resolveDataSource(localQuery.capture(), Mockito.same(AUTHENTICATION_RESULT));
+    Assertions.assertEquals(List.of("datasource", "size"), localQuery.getValue().getColumns());
+    Mockito.verify(localQueryHandler, Mockito.never()).createRunner(
+        ArgumentMatchers.any(),
+        ArgumentMatchers.any(),
+        ArgumentMatchers.anyBoolean()
     );
   }
 

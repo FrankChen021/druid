@@ -22,6 +22,7 @@ package org.apache.druid.sql.calcite.schema;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.schema.Schema;
 import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.server.system.table.ServerSegmentsTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.sql.calcite.run.SqlEngine;
@@ -36,6 +37,22 @@ public class SystemTableDataProviderTest
   @Test
   public void testNativeTablesExposeSystemMetadata()
   {
+    final NativeSegmentsTable segments = new NativeSegmentsTable();
+    Assertions.assertEquals("segments", ((SystemTableDataSource) segments.getDataSource()).getTable());
+    Assertions.assertFalse(segments.isJoinable());
+    Assertions.assertFalse(segments.isBroadcast());
+    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, segments.getJdbcTableType());
+
+    final NativeServerSegmentsTable serverSegments = new NativeServerSegmentsTable();
+    Assertions.assertEquals(
+        "server_segments",
+        ((SystemTableDataSource) serverSegments.getDataSource()).getTable()
+    );
+    Assertions.assertEquals(ServerSegmentsTableDescriptor.ROW_SIGNATURE, serverSegments.getRowSignature());
+    Assertions.assertFalse(serverSegments.isJoinable());
+    Assertions.assertFalse(serverSegments.isBroadcast());
+    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, serverSegments.getJdbcTableType());
+
     final NativeTasksTable tasks = new NativeTasksTable();
     Assertions.assertEquals("tasks", ((SystemTableDataSource) tasks.getDataSource()).getTable());
     Assertions.assertFalse(tasks.isJoinable());

@@ -25,6 +25,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.MapBinder;
+import org.apache.druid.query.BatchedInlineDataSource;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.FrameBasedInlineDataSource;
 import org.apache.druid.query.InlineDataSource;
@@ -48,6 +49,7 @@ public class SegmentWranglerModule implements Module
   @VisibleForTesting
   static final Map<Class<? extends DataSource>, Class<? extends SegmentWrangler>> WRANGLER_MAPPINGS =
       ImmutableMap.of(
+          BatchedInlineDataSource.class, BatchedInlineDataSource.Wrangler.class,
           InlineDataSource.class, InlineSegmentWrangler.class,
           FrameBasedInlineDataSource.class, FrameBasedInlineSegmentWrangler.class,
           LookupDataSource.class, LookupSegmentWrangler.class

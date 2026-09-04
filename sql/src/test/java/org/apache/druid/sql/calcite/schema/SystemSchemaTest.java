@@ -107,6 +107,7 @@ import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.ServerSegmentsTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.run.SqlEngine;
@@ -1360,11 +1361,11 @@ public class SystemSchemaTest extends CalciteTestBase
 
     //server_segments table is the join of servers and segments table
     // it will have 5 rows as follows
-    // localhost:0000 |  test1_2010-01-01T00:00:00.000Z_2011-01-01T00:00:00.000Z_version1(segment1)
-    // localhost:0000 |  test2_2011-01-01T00:00:00.000Z_2012-01-01T00:00:00.000Z_version2(segment2)
-    // server2:1234   |  test3_2012-01-01T00:00:00.000Z_2013-01-01T00:00:00.000Z_version3(segment3)
-    // server2:1234   |  test4_2017-01-01T00:00:00.000Z_2018-01-01T00:00:00.000Z_version4(segment4)
-    // server2:1234   |  test5_2017-01-01T00:00:00.000Z_2018-01-01T00:00:00.000Z_version5(segment5)
+    // localhost:0000 | test1_2010-01-01T00:00:00.000Z_2011-01-01T00:00:00.000Z_version1 | test1
+    // localhost:0000 | test2_2011-01-01T00:00:00.000Z_2012-01-01T00:00:00.000Z_version2 | test2
+    // server2:1234   | test3_2012-01-01T00:00:00.000Z_2013-01-01T00:00:00.000Z_version3 | test3
+    // server2:1234   | test4_2017-01-01T00:00:00.000Z_2018-01-01T00:00:00.000Z_version4 | test4
+    // server2:1234   | test5_2017-01-01T00:00:00.000Z_2018-01-01T00:00:00.000Z_version5 | test5
 
     final List<Object[]> rows = serverSegmentsTable.scan(dataContext).toList();
     Assertions.assertEquals(5, rows.size());
@@ -1372,25 +1373,30 @@ public class SystemSchemaTest extends CalciteTestBase
     Object[] row0 = rows.get(0);
     Assertions.assertEquals("localhost:0000", row0[0]);
     Assertions.assertEquals("test1_2010-01-01T00:00:00.000Z_2011-01-01T00:00:00.000Z_version1", row0[1].toString());
+    Assertions.assertEquals("test1", row0[2]);
 
     Object[] row1 = rows.get(1);
     Assertions.assertEquals("localhost:0000", row1[0]);
     Assertions.assertEquals("test2_2011-01-01T00:00:00.000Z_2012-01-01T00:00:00.000Z_version2", row1[1].toString());
+    Assertions.assertEquals("test2", row1[2]);
 
     Object[] row2 = rows.get(2);
     Assertions.assertEquals("server2:1234", row2[0]);
     Assertions.assertEquals("test3_2012-01-01T00:00:00.000Z_2013-01-01T00:00:00.000Z_version3_2", row2[1].toString());
+    Assertions.assertEquals("test3", row2[2]);
 
     Object[] row3 = rows.get(3);
     Assertions.assertEquals("server2:1234", row3[0]);
     Assertions.assertEquals("test4_2014-01-01T00:00:00.000Z_2015-01-01T00:00:00.000Z_version4", row3[1].toString());
+    Assertions.assertEquals("test4", row3[2]);
 
     Object[] row4 = rows.get(4);
     Assertions.assertEquals("server2:1234", row4[0]);
     Assertions.assertEquals("test5_2015-01-01T00:00:00.000Z_2016-01-01T00:00:00.000Z_version5", row4[1].toString());
+    Assertions.assertEquals("test5", row4[2]);
 
     // Verify value types.
-    verifyTypes(rows, SystemSchema.SERVER_SEGMENTS_SIGNATURE);
+    verifyTypes(rows, ServerSegmentsTableDescriptor.ROW_SIGNATURE);
   }
 
   @Test
