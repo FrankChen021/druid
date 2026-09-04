@@ -22,7 +22,6 @@ package org.apache.druid.query;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.guice.annotations.ExtensionPoint;
@@ -135,7 +134,7 @@ public interface Query<T>
    * {@link QueryContext#getString(String)} <br/>
    * {@link QueryContext#getInt(String)} <br/>
    * {@link QueryContext#getLong(String)} <br/>
- * {@link QueryContext#getFloat(String, float)} <br/>
+   * {@link QueryContext#getFloat(String, float)} <br/>
    * {@link QueryContext#getEnum(String, Class, Enum)} <br/>
    * {@link QueryContext#getHumanReadableBytes(String, HumanReadableBytes)}
    *
@@ -241,7 +240,7 @@ public interface Query<T>
   @Nullable
   default String getSqlQueryId()
   {
-    return context().getString(BaseQuery.SQL_QUERY_ID);
+    return context().get(QueryContextParameters.SQL_QUERY_ID);
   }
 
   /**
