@@ -19,7 +19,7 @@
 
 package org.apache.druid.testing.embedded.server;
 
-import org.apache.druid.server.initialization.jetty.StandardResponseHeaderFilterHolder;
+import org.apache.druid.server.initialization.jetty.ResponseIdentityHeaderHandler;
 import org.apache.druid.testing.embedded.EmbeddedBroker;
 import org.apache.druid.testing.embedded.EmbeddedCoordinator;
 import org.apache.druid.testing.embedded.EmbeddedDruidCluster;
@@ -59,6 +59,7 @@ public class ResponseIdentityHeaderTest extends EmbeddedClusterTestBase
   protected EmbeddedDruidCluster createCluster()
   {
     return EmbeddedDruidCluster.withEmbeddedDerbyAndZookeeper()
+                               .addCommonProperty("druid.server.http.enableResponseIdentityHeaders", "true")
                                .addServer(coordinator)
                                .addServer(overlord)
                                .addServer(broker)
@@ -109,6 +110,21 @@ public class ResponseIdentityHeaderTest extends EmbeddedClusterTestBase
     assertResponseIdentity(sendNativeQuery(historical), historical);
   }
 
+  @Test
+  @Timeout(30)
+  public void testRouterGeneratedAndEarlyErrorResponsesUseRouterIdentity() throws Exception
+  {
+    assertResponseIdentity(sendGet(getServerUrl(router) + "/status/health"), router);
+
+    final HttpRequest request = HttpRequest.newBuilder(URI.create(getServerUrl(router) + "/status/health"))
+                                           .timeout(Duration.ofSeconds(10))
+                                           .method("PATCH", HttpRequest.BodyPublishers.noBody())
+                                           .build();
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      assertResponseIdentity(client.send(request, HttpResponse.BodyHandlers.ofString()), router, 405);
+    }
+  }
+
   private static HttpResponse<String> sendGet(final String url) throws Exception
   {
     final HttpRequest request = HttpRequest.newBuilder(URI.create(url))
@@ -137,14 +153,23 @@ public class ResponseIdentityHeaderTest extends EmbeddedClusterTestBase
       final EmbeddedDruidServer<?> expectedServer
   )
   {
-    Assertions.assertEquals(200, response.statusCode(), response.body());
+    assertResponseIdentity(response, expectedServer, 200);
+  }
+
+  private static void assertResponseIdentity(
+      final HttpResponse<String> response,
+      final EmbeddedDruidServer<?> expectedServer,
+      final int expectedStatus
+  )
+  {
+    Assertions.assertEquals(expectedStatus, response.statusCode(), response.body());
     Assertions.assertEquals(
         List.of(expectedServer.bindings().selfNode().getHostAndPortToUse()),
-        response.headers().allValues(StandardResponseHeaderFilterHolder.RESPONSE_SERVER_HEADER)
+        response.headers().allValues(ResponseIdentityHeaderHandler.RESPONSE_SERVER_HEADER)
     );
     Assertions.assertEquals(
         List.of(expectedServer.bindings().selfNode().getServiceName()),
-        response.headers().allValues(StandardResponseHeaderFilterHolder.RESPONSE_SERVICE_HEADER)
+        response.headers().allValues(ResponseIdentityHeaderHandler.RESPONSE_SERVICE_HEADER)
     );
   }
 }

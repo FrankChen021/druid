@@ -26,7 +26,8 @@ sidebar_label: Overview
 
 This topic is an index to the Apache&circledR; Druid API documentation.
 
-Every HTTP response includes headers that identify the Druid service which generated the response:
+Set `druid.server.http.enableResponseIdentityHeaders` to `true` to include headers on every HTTP response that identify
+the Druid service which generated the response:
 
 |Header|Description|
 |------|-----------|
@@ -34,7 +35,11 @@ Every HTTP response includes headers that identify the Druid service which gener
 |`X-Druid-Response-Service`|Service name of that Druid server, as configured by `druid.service`.|
 
 When a Router proxies a request, it passes through these headers from the upstream Druid server instead of returning
-the Router's identity. If the Router generates the response itself, the headers identify the Router.
+the Router's identity. If the upstream server does not return both headers, the Router does not return either header.
+If the Router generates the response itself, the headers identify the Router.
+
+This feature is disabled by default because the server header may expose internal hostnames, IP addresses, and ports.
+Only enable it when clients are authorized to receive cluster topology information.
 
 ## HTTP APIs
 * [Druid SQL queries](./sql-api.md) to submit SQL queries using the Druid SQL API.

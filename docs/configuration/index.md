@@ -1477,6 +1477,7 @@ Druid uses Jetty to serve HTTP requests.
 |`druid.server.http.enableForwardedRequestCustomizer`|If enabled, adds Jetty ForwardedRequestCustomizer which reads X-Forwarded-* request headers to manipulate servlet request object when Druid is used behind a proxy.|false|
 |`druid.server.http.allowedHttpMethods`|List of HTTP methods that should be allowed in addition to the ones required by Druid APIs. Druid APIs require GET, PUT, POST, and DELETE, which are always allowed. This option is not useful unless you have installed an extension that needs these additional HTTP methods or that adds functionality related to CORS. None of Druid's bundled extensions require these methods.|`[]`|
 |`druid.server.http.contentSecurityPolicy`|Content-Security-Policy header value to set on each non-POST response. Setting this property to an empty string, or omitting it, both result in the default `frame-ancestors: none` being set.|`frame-ancestors 'none'`|
+|`druid.server.http.enableResponseIdentityHeaders`|If enabled, adds response headers containing the responding Druid service name and its advertised host and port. This can expose internal cluster topology; only enable it when clients are authorized to receive this information.|`false`|
 |`druid.server.http.uriCompliance`|Jetty `UriCompliance` mode for Druid's embedded Jetty servers. To modify, override this config with the string representation of any `UriCompliance` mode that [Jetty supports](https://javadoc.jetty.org/jetty-12/org/eclipse/jetty/http/UriCompliance.html).|LEGACY|
 |`druid.server.http.enforceStrictSNIHostChecking`| If enabled, the Jetty server will enforce strict SNI host checking. This means that if a client connects to the server using TLS but does not provide an SNI hostname, or provides an SNI hostname that does not match the server's configured hostname, a request will get a 400 response. Setting this to false is not recommended in production.|true|
 
@@ -1590,6 +1591,7 @@ Druid uses Jetty to serve HTTP requests.
 |`druid.server.http.maxQueryTimeout`|Maximum allowed value (in milliseconds) for `timeout` parameter. See [query-context](../querying/query-context-reference.md) to know more about `timeout`. Query is rejected if the query context `timeout` is greater than this value. |`Long.MAX_VALUE`|
 |`druid.server.http.maxRequestHeaderSize`|Maximum size of a request header in bytes. Larger headers consume more memory and can make a server more vulnerable to denial of service attacks.|8 * 1024|
 |`druid.server.http.contentSecurityPolicy`|Content-Security-Policy header value to set on each non-POST response. Setting this property to an empty string, or omitting it, both result in the default `frame-ancestors: none` being set.|`frame-ancestors 'none'`|
+|`druid.server.http.enableResponseIdentityHeaders`|If enabled, adds response headers containing the responding Druid service name and its advertised host and port. This can expose internal cluster topology; only enable it when clients are authorized to receive this information.|`false`|
 
 ##### Processing
 
@@ -1798,6 +1800,7 @@ Druid uses Jetty to serve HTTP requests. Each query being processed consumes a s
 |`druid.server.http.maxQueryTimeout`|Maximum allowed value (in milliseconds) for `timeout` parameter. See [query-context](../querying/query-context-reference.md) to know more about `timeout`. Query is rejected if the query context `timeout` is greater than this value. |`Long.MAX_VALUE`|
 |`druid.server.http.maxRequestHeaderSize`|Maximum size of a request header in bytes. Larger headers consume more memory and can make a server more vulnerable to denial of service attacks. |8 * 1024|
 |`druid.server.http.contentSecurityPolicy`|Content-Security-Policy header value to set on each non-POST response. Setting this property to an empty string, or omitting it, both result in the default `frame-ancestors: none` being set.|`frame-ancestors 'none'`|
+|`druid.server.http.enableResponseIdentityHeaders`|If enabled, adds response headers containing the responding Druid service name and its advertised host and port. This can expose internal cluster topology; only enable it when clients are authorized to receive this information.|`false`|
 |`druid.server.http.enableHSTS`|If set to true, druid services will add strict transport security header `Strict-Transport-Security: max-age=63072000; includeSubDomains` to all HTTP responses|`false`|
 
 ##### Client configuration

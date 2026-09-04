@@ -48,6 +48,7 @@ import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryToolChestWarehouse;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.initialization.jetty.HttpException;
+import org.apache.druid.server.initialization.jetty.ResponseIdentityHeaderHandler;
 import org.apache.druid.server.initialization.jetty.StandardResponseHeaderFilterHolder;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.metrics.QueryCountStatsProvider;
@@ -634,6 +635,7 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
     if (responseContext != null) {
       proxyResponse.setHeader(responseContext.getName(), responseContext.getValue());
     }
+    ResponseIdentityHeaderHandler.clearRouterIdentity(proxyResponse);
     StandardResponseHeaderFilterHolder.deduplicateHeadersInProxyServlet(proxyResponse, serverResponse);
     super.onServerResponseHeaders(clientRequest, proxyResponse, serverResponse);
   }
@@ -646,6 +648,13 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
   )
   {
     if (QueryResource.HEADER_RESPONSE_CONTEXT.equalsIgnoreCase(field.getName())) {
+      return null;
+    }
+    if (!ResponseIdentityHeaderHandler.shouldProxyIdentityHeader(
+        serverConfig.isEnableResponseIdentityHeaders(),
+        serverResponse,
+        field
+    )) {
       return null;
     }
     return super.filterServerResponseHeader(clientRequest, serverResponse, field);
