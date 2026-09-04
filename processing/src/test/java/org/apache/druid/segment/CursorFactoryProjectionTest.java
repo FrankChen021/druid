@@ -47,7 +47,9 @@ import org.apache.druid.query.DirectQueryProcessingPool;
 import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryResourceId;
 import org.apache.druid.query.QueryRunner;
@@ -1556,7 +1558,7 @@ public class CursorFactoryProjectionTest extends InitializedNullHandlingTest
                                         .intervals(ImmutableList.of(Intervals.ETERNITY))
                                         .granularity(Granularities.MINUTE)
                                         .aggregators(new LongSumAggregatorFactory("c_sum", "c"))
-                                        .context(Map.of(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true))
+                                        .context(QueryContext.ofMap(QueryContextParameters.SKIP_EMPTY_BUCKETS, true))
                                         .build();
 
     final ExpectedProjectionTimeseries queryMetrics =
