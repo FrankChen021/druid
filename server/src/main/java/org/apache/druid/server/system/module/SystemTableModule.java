@@ -28,6 +28,7 @@ import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.system.table.SegmentsTableDescriptor;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
+import org.apache.druid.server.system.table.ServerSegmentsTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
@@ -51,6 +52,8 @@ public class SystemTableModule implements Module
     final MapBinder<String, SystemTableDescriptor> descriptorBinder = MapBinder.newMapBinder(binder, String.class, SystemTableDescriptor.class);
     descriptorBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                     .toInstance(new ServerPropertiesTableDescriptor());
+    descriptorBinder.addBinding(ServerSegmentsTableDescriptor.TABLE_NAME)
+                    .toInstance(new ServerSegmentsTableDescriptor());
     descriptorBinder.addBinding(SegmentsTableDescriptor.TABLE_NAME)
                     .toInstance(new SegmentsTableDescriptor());
     descriptorBinder.addBinding(TaskTableDescriptor.TABLE_NAME)

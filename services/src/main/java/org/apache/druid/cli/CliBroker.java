@@ -83,6 +83,8 @@ import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
 import org.apache.druid.server.metrics.SubqueryCountStatsProvider;
 import org.apache.druid.server.router.TieredBrokerConfig;
 import org.apache.druid.server.system.table.SegmentsTableDescriptor;
+import org.apache.druid.server.system.table.ServerSegmentsTableDataProvider;
+import org.apache.druid.server.system.table.ServerSegmentsTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.sql.calcite.schema.MetadataSegmentView;
 import org.apache.druid.sql.calcite.schema.SegmentsTableDataProvider;
@@ -133,6 +135,10 @@ public class CliBroker extends ServerRunnable
           MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class)
                    .addBinding(SegmentsTableDescriptor.TABLE_NAME)
                    .to(SegmentsTableDataProvider.class)
+                   .in(LazySingleton.class);
+          MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class)
+                   .addBinding(ServerSegmentsTableDescriptor.TABLE_NAME)
+                   .to(ServerSegmentsTableDataProvider.class)
                    .in(LazySingleton.class);
 
           binder.bindConstant().annotatedWith(Names.named("serviceName")).to(
