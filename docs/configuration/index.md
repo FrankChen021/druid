@@ -2287,6 +2287,9 @@ Supported runtime properties:
 |`druid.query.groupBy.forceHashAggregation`|Force to use hash-based aggregation.|false|
 |`druid.query.groupBy.intermediateCombineDegree`|Number of intermediate processes combined together in the combining tree. Higher degrees will need less threads which might be helpful to improve the query performance by reducing the overhead of too many threads if the server has sufficiently powerful CPU cores.|8|
 |`druid.query.groupBy.numParallelCombineThreads`|Hint for the number of parallel combining threads. This should be larger than 1 to turn on the parallel combining feature. The actual number of threads used for parallel combining is min(`druid.query.groupBy.numParallelCombineThreads`, `druid.processing.numThreads`).|1 (disabled)|
+|`druid.query.groupBy.enablePagedAggregationHashTable`|Operator gate for the experimental paged aggregation hash table used while merging row-based GroupBy results. Queries must also set `usePagedAggregationHashTable` in their context. Limit-pushdown groupers continue to use the legacy implementation.|false|
+|`druid.query.groupBy.pagedAggregationHashTablePageSize`|Physical page size used for paged GroupBy index and aggregation records. The page manager obtains backing buffers from the existing merge-buffer pool and shares their pages across paged queries.|1 MiB|
+|`druid.query.groupBy.pagedAggregationHashTableMaxSize`|Maximum merge-memory bytes assigned to one paged query. `0` permits growth up to available pool capacity. A query context may lower, but not raise, a nonzero operator limit.|0|
 
 Supported query contexts:
 
@@ -2298,6 +2301,8 @@ Supported query contexts:
 |`forceHashAggregation`|Overrides the value of `druid.query.groupBy.forceHashAggregation`|none|
 |`intermediateCombineDegree`|Overrides the value of `druid.query.groupBy.intermediateCombineDegree`|none|
 |`numParallelCombineThreads`|Overrides the value of `druid.query.groupBy.numParallelCombineThreads`|none|
+|`usePagedAggregationHashTable`|Uses the experimental page-managed aggregation path when the operator has enabled `druid.query.groupBy.enablePagedAggregationHashTable`. The data-server merge path uses exclusive single-writer lanes that acquire pages dynamically instead of reserving a complete merge buffer and dividing it into fixed slices. Unsupported merge roles retain the legacy path.|false|
+|`pagedAggregationHashTableMaxSize`|Lowers the operator's nonzero per-query paged merge-memory limit. `0` uses the operator limit, or available pool capacity when the operator limit is also `0`.|0|
 |`sortByDimsFirst`|Sort the results first by dimension values and then by timestamp.|false|
 |`forceLimitPushDown`|When all fields in the orderby are part of the grouping key, the broker will push limit application down to the Historical processes. When the sorting order uses fields that are not in the grouping key, applying this optimization can result in approximate results with unknown accuracy, so this optimization is disabled by default in that case. Enabling this context flag turns on limit push down for limit/orderbys that contain non-grouping key columns.|false|
 

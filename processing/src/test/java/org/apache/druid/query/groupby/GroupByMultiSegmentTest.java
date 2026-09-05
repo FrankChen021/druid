@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.smile.SmileFactory;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.MapBasedInputRow;
@@ -53,6 +54,8 @@ import org.apache.druid.query.TestBufferPool;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
+import org.apache.druid.query.groupby.epinephelinae.BlockingPoolMergeMemoryBackingAllocator;
+import org.apache.druid.query.groupby.epinephelinae.MergeMemoryManager;
 import org.apache.druid.query.groupby.having.GreaterThanHavingSpec;
 import org.apache.druid.query.groupby.orderby.DefaultLimitSpec;
 import org.apache.druid.query.groupby.orderby.OrderByColumnSpec;
@@ -221,6 +224,12 @@ public class GroupByMultiSegmentTest extends InitializedNullHandlingTest
       {
         return HumanReadableBytes.valueOf(1_000_000_000L);
       }
+
+      @Override
+      public boolean isPagedAggregationHashTableEnabled()
+      {
+        return true;
+      }
     };
     config.setSingleThreaded(false);
 
@@ -242,8 +251,12 @@ public class GroupByMultiSegmentTest extends InitializedNullHandlingTest
 
     final Supplier<GroupByQueryConfig> configSupplier = Suppliers.ofInstance(config);
     final GroupByStatsProvider groupByStatsProvider = new GroupByStatsProvider();
+    final MergeMemoryManager mergeMemoryManager = new MergeMemoryManager(
+        new BlockingPoolMergeMemoryBackingAllocator(mergePool, 10_000_000),
+        config.getPagedAggregationHashTablePageSize()
+    );
     final GroupByResourcesReservationPool groupByResourcesReservationPool =
-        new GroupByResourcesReservationPool(mergePool, config);
+        new GroupByResourcesReservationPool(mergePool, config, mergeMemoryManager, druidProcessingConfig.getNumThreads());
     final GroupingEngine groupingEngine = new GroupingEngine(
         druidProcessingConfig,
         configSupplier,
@@ -310,6 +323,7 @@ public class GroupByMultiSegmentTest extends InitializedNullHandlingTest
             new GreaterThanHavingSpec("metA", 110)
         )
         .setGranularity(Granularities.ALL)
+        .setContext(ImmutableMap.of(GroupByQueryConfig.CTX_KEY_USE_PAGED_AGGREGATION_HASH_TABLE, true))
         .build();
 
     Sequence<ResultRow> queryResult = theRunner.run(

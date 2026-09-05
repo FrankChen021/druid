@@ -42,6 +42,8 @@ import org.apache.druid.query.NoopQueryProcessingPool;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByResourcesReservationPool;
+import org.apache.druid.query.groupby.epinephelinae.BlockingPoolMergeMemoryBackingAllocator;
+import org.apache.druid.query.groupby.epinephelinae.MergeMemoryManager;
 import org.apache.druid.utils.RuntimeInfo;
 
 import java.nio.ByteBuffer;
@@ -140,10 +142,20 @@ public class PeonProcessingModule implements Module
   @Merging
   public GroupByResourcesReservationPool getGroupByResourcesReservationPool(
       @Merging BlockingPool<ByteBuffer> mergeBufferPool,
-      GroupByQueryConfig groupByQueryConfig
+      final GroupByQueryConfig groupByQueryConfig,
+      final DruidProcessingConfig processingConfig
   )
   {
-    return new GroupByResourcesReservationPool(mergeBufferPool, groupByQueryConfig);
+    final MergeMemoryManager mergeMemoryManager = new MergeMemoryManager(
+        new BlockingPoolMergeMemoryBackingAllocator(mergeBufferPool, processingConfig.intermediateComputeSizeBytes()),
+        groupByQueryConfig.getPagedAggregationHashTablePageSize()
+    );
+    return new GroupByResourcesReservationPool(
+        mergeBufferPool,
+        groupByQueryConfig,
+        mergeMemoryManager,
+        processingConfig.getNumThreads()
+    );
   }
 
   /**
