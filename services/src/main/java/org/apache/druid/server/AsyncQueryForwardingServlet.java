@@ -635,6 +635,9 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
     if (responseContext != null) {
       proxyResponse.setHeader(responseContext.getName(), responseContext.getValue());
     }
+    // When response identity headers are enabled, the outer response handler initially adds the Router identity.
+    // An upstream response must replace it with the upstream identity, or with no identity when the upstream does not
+    // provide a complete header pair.
     ResponseIdentityHeaderHandler.clearRouterIdentity(proxyResponse);
     StandardResponseHeaderFilterHolder.deduplicateHeadersInProxyServlet(proxyResponse, serverResponse);
     super.onServerResponseHeaders(clientRequest, proxyResponse, serverResponse);
@@ -650,6 +653,7 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
     if (QueryResource.HEADER_RESPONSE_CONTEXT.equalsIgnoreCase(field.getName())) {
       return null;
     }
+    // Identity headers must be forwarded as a pair and only when this Router has the feature enabled.
     if (!ResponseIdentityHeaderHandler.shouldProxyIdentityHeader(
         serverConfig.isEnableResponseIdentityHeaders(),
         serverResponse,

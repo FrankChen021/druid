@@ -42,14 +42,6 @@ import java.util.List;
 
 public class ResponseIdentityHeaderTest extends EmbeddedClusterTestBase
 {
-  private static final String NATIVE_QUERY = "{"
-                                             + "\"queryType\":\"timeseries\","
-                                             + "\"dataSource\":\"missing_datasource\","
-                                             + "\"granularity\":\"all\","
-                                             + "\"intervals\":[\"2000/3000\"],"
-                                             + "\"aggregations\":[{\"type\":\"count\",\"name\":\"rows\"}]"
-                                             + "}";
-
   private final EmbeddedCoordinator coordinator = new EmbeddedCoordinator();
   private final EmbeddedOverlord overlord = new EmbeddedOverlord();
   private final EmbeddedBroker broker = new EmbeddedBroker();
@@ -105,10 +97,18 @@ public class ResponseIdentityHeaderTest extends EmbeddedClusterTestBase
 
   @Test
   @Timeout(30)
-  public void testBrokerQueryResponseIdentity_directAndViaRouter() throws Exception
+  public void testBrokerNativeQueryResponseIdentity_directAndViaRouter() throws Exception
   {
     assertResponseIdentity(sendNativeQuery(broker), broker);
     assertResponseIdentity(sendNativeQuery(router), broker);
+  }
+
+  @Test
+  @Timeout(30)
+  public void testBrokerSqlResponseIdentity_directAndViaRouter() throws Exception
+  {
+    assertResponseIdentity(sendSqlQuery(broker), broker);
+    assertResponseIdentity(sendSqlQuery(router), broker);
   }
 
   @Test
@@ -145,7 +145,37 @@ public class ResponseIdentityHeaderTest extends EmbeddedClusterTestBase
     final HttpRequest request = HttpRequest.newBuilder(URI.create(getServerUrl(server) + "/druid/v2"))
                                            .header("Content-Type", "application/json")
                                            .timeout(Duration.ofSeconds(10))
-                                           .POST(HttpRequest.BodyPublishers.ofString(NATIVE_QUERY))
+                                           .POST(
+                                               HttpRequest.BodyPublishers.ofString(
+                                                   """
+                                                   {
+                                                     "queryType": "timeseries",
+                                                     "dataSource": "missing_datasource",
+                                                     "granularity": "all",
+                                                     "intervals": ["2000/3000"],
+                                                     "aggregations": [{"type": "count", "name": "rows"}]
+                                                   }
+                                                   """
+                                               )
+                                           )
+                                           .build();
+    return client.send(request, HttpResponse.BodyHandlers.ofString());
+  }
+
+  private HttpResponse<String> sendSqlQuery(final EmbeddedDruidServer<?> server) throws Exception
+  {
+    final HttpRequest request = HttpRequest.newBuilder(URI.create(getServerUrl(server) + "/druid/v2/sql"))
+                                           .header("Content-Type", "application/json")
+                                           .timeout(Duration.ofSeconds(10))
+                                           .POST(
+                                               HttpRequest.BodyPublishers.ofString(
+                                                   """
+                                                   {
+                                                     "query": "SELECT 1"
+                                                   }
+                                                   """
+                                               )
+                                           )
                                            .build();
     return client.send(request, HttpResponse.BodyHandlers.ofString());
   }
