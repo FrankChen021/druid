@@ -23,6 +23,10 @@ import org.apache.druid.collections.BlockingPool;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.guice.annotations.Merging;
 import org.apache.druid.query.QueryResourceId;
+import org.apache.druid.query.ResourceLimitExceededException;
+import org.apache.druid.query.groupby.epinephelinae.MergeMemoryLease;
+import org.apache.druid.query.groupby.epinephelinae.MergeMemoryManager;
+import org.apache.druid.query.groupby.epinephelinae.PagedAggregationHashTable;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -98,14 +102,31 @@ public class GroupByResourcesReservationPool
    */
   private final GroupByQueryConfig groupByQueryConfig;
 
+  @Nullable
+  private final MergeMemoryManager mergeMemoryManager;
+
+  private final int processingThreadCount;
+
   @Inject
   public GroupByResourcesReservationPool(
       @Merging BlockingPool<ByteBuffer> mergeBufferPool,
       GroupByQueryConfig groupByQueryConfig
   )
   {
+    this(mergeBufferPool, groupByQueryConfig, null, 1);
+  }
+
+  public GroupByResourcesReservationPool(
+      @Merging final BlockingPool<ByteBuffer> mergeBufferPool,
+      final GroupByQueryConfig groupByQueryConfig,
+      @Nullable final MergeMemoryManager mergeMemoryManager,
+      final int processingThreadCount
+  )
+  {
     this.mergeBufferPool = mergeBufferPool;
     this.groupByQueryConfig = groupByQueryConfig;
+    this.mergeMemoryManager = mergeMemoryManager;
+    this.processingThreadCount = processingThreadCount;
   }
 
   /**
@@ -140,7 +161,43 @@ public class GroupByResourcesReservationPool
     GroupByQueryResources resources;
     try {
       // We have reserved a spot in the map. Now begin the blocking call.
-      resources = GroupingEngine.prepareResource(groupByQuery, mergeBufferPool, willMergeRunner, groupByQueryConfig);
+      final GroupByQueryConfig querySpecificConfig = groupByQueryConfig.withOverrides(groupByQuery);
+      if (mergeMemoryManager != null && usePagedMergingPath(groupByQuery, querySpecificConfig, willMergeRunner)) {
+        final int laneCount = querySpecificConfig.isSingleThreaded() ? 1 : processingThreadCount;
+        final int minimumPages = Math.multiplyExact(
+            laneCount,
+            PagedAggregationHashTable.minimumPageCount(
+                mergeMemoryManager.pageSize(),
+                querySpecificConfig.getBufferGrouperInitialBuckets()
+            )
+        );
+        final long configuredMaximumBytes = querySpecificConfig.getPagedAggregationHashTableMaxSize();
+        final int maximumPages = configuredMaximumBytes == 0
+                                 ? Integer.MAX_VALUE
+                                 : (int) Math.min(
+                                     Integer.MAX_VALUE,
+                                     configuredMaximumBytes / mergeMemoryManager.pageSize()
+                                 );
+        if (maximumPages < minimumPages) {
+          throw ResourceLimitExceededException.withMessage(
+              "Paged GroupBy merge-memory limit[%,d bytes] is smaller than the required minimum[%,d bytes]",
+              configuredMaximumBytes,
+              Math.multiplyExact((long) minimumPages, mergeMemoryManager.pageSize())
+          );
+        }
+        final long timeoutMillis = groupByQuery.context().hasTimeout()
+                                   ? groupByQuery.context().getTimeout()
+                                   : -1;
+        final MergeMemoryLease lease = mergeMemoryManager.acquireMinimum(
+            queryResourceId,
+            minimumPages,
+            maximumPages,
+            timeoutMillis
+        );
+        resources = new GroupByQueryResources(null, null, lease);
+      } else {
+        resources = GroupingEngine.prepareResource(groupByQuery, mergeBufferPool, willMergeRunner, groupByQueryConfig);
+      }
     }
     catch (Throwable t) {
       // Unable to allocate the resources, perform cleanup and rethrow the exception
@@ -153,6 +210,18 @@ public class GroupByResourcesReservationPool
     reference.compareAndSet(null, resources);
 
     perQueryStats.mergeBufferAcquisitionTime(System.nanoTime() - startNs);
+  }
+
+  private static boolean usePagedMergingPath(
+      final GroupByQuery query,
+      final GroupByQueryConfig querySpecificConfig,
+      final boolean willMergeRunner
+  )
+  {
+    return querySpecificConfig.isPagedAggregationHashTableEnabled()
+           && willMergeRunner
+           && querySpecificConfig.getNumParallelCombineThreads() == 1
+           && GroupByQueryResources.countRequiredMergeBufferNumForToolchestMerge(query) == 0;
   }
 
   /**
