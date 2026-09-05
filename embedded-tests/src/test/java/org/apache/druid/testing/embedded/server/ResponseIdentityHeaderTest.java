@@ -28,6 +28,7 @@ import org.apache.druid.testing.embedded.EmbeddedHistorical;
 import org.apache.druid.testing.embedded.EmbeddedOverlord;
 import org.apache.druid.testing.embedded.EmbeddedRouter;
 import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -54,6 +55,7 @@ public class ResponseIdentityHeaderTest extends EmbeddedClusterTestBase
   private final EmbeddedBroker broker = new EmbeddedBroker();
   private final EmbeddedRouter router = new EmbeddedRouter();
   private final EmbeddedHistorical historical = new EmbeddedHistorical();
+  private final HttpClient client = HttpClient.newHttpClient();
 
   @Override
   protected EmbeddedDruidCluster createCluster()
@@ -65,6 +67,12 @@ public class ResponseIdentityHeaderTest extends EmbeddedClusterTestBase
                                .addServer(broker)
                                .addServer(historical)
                                .addServer(router);
+  }
+
+  @AfterAll
+  public void closeClient()
+  {
+    client.close();
   }
 
   @Test
@@ -120,32 +128,26 @@ public class ResponseIdentityHeaderTest extends EmbeddedClusterTestBase
                                            .timeout(Duration.ofSeconds(10))
                                            .method("PATCH", HttpRequest.BodyPublishers.noBody())
                                            .build();
-    try (HttpClient client = HttpClient.newHttpClient()) {
-      assertResponseIdentity(client.send(request, HttpResponse.BodyHandlers.ofString()), router, 405);
-    }
+    assertResponseIdentity(client.send(request, HttpResponse.BodyHandlers.ofString()), router, 405);
   }
 
-  private static HttpResponse<String> sendGet(final String url) throws Exception
+  private HttpResponse<String> sendGet(final String url) throws Exception
   {
     final HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                                            .timeout(Duration.ofSeconds(10))
                                            .GET()
                                            .build();
-    try (HttpClient client = HttpClient.newHttpClient()) {
-      return client.send(request, HttpResponse.BodyHandlers.ofString());
-    }
+    return client.send(request, HttpResponse.BodyHandlers.ofString());
   }
 
-  private static HttpResponse<String> sendNativeQuery(final EmbeddedDruidServer<?> server) throws Exception
+  private HttpResponse<String> sendNativeQuery(final EmbeddedDruidServer<?> server) throws Exception
   {
     final HttpRequest request = HttpRequest.newBuilder(URI.create(getServerUrl(server) + "/druid/v2"))
                                            .header("Content-Type", "application/json")
                                            .timeout(Duration.ofSeconds(10))
                                            .POST(HttpRequest.BodyPublishers.ofString(NATIVE_QUERY))
                                            .build();
-    try (HttpClient client = HttpClient.newHttpClient()) {
-      return client.send(request, HttpResponse.BodyHandlers.ofString());
-    }
+    return client.send(request, HttpResponse.BodyHandlers.ofString());
   }
 
   private static void assertResponseIdentity(
