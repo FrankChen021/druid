@@ -27,6 +27,14 @@ jobs:
         run: echo "DRUID_DIST_IMAGE_NAME=apache/druid:docker-tests" >> $GITHUB_ENV
       - name: Build the Docker image
         run: DOCKER_BUILDKIT=1 docker build -t $DRUID_DIST_IMAGE_NAME -f distribution/docker/Dockerfile .
+      - name: Enable compact object headers in the test image
+        # Set this in the image so Druid services and task JVMs, including K3s pods, inherit it.
+        run: |
+          docker build --build-arg BASE_IMAGE="$DRUID_DIST_IMAGE_NAME" -t "$DRUID_DIST_IMAGE_NAME" - <<'EOF'
+          ARG BASE_IMAGE=apache/druid:docker-tests
+          FROM ${BASE_IMAGE}
+          ENV JAVA_TOOL_OPTIONS="-XX:+UseCompactObjectHeaders"
+          EOF
       - name: Save Docker image to archive
         run: |
           echo "Saving image $DRUID_DIST_IMAGE_NAME in archive druid-dist-container.tar.gz"
