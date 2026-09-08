@@ -286,11 +286,11 @@ public abstract class CompactionTaskRunBase
     taskActionTestKit.before();
     taskActionTestKitStarted = true;
 
-    baseSetupStarted = true;
     setup();
+    baseSetupStarted = true;
 
-    runnerSetupStarted = true;
     setUpRunner();
+    runnerSetupStarted = true;
   }
 
   @AfterEach
