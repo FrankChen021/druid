@@ -33,6 +33,7 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -76,10 +77,17 @@ public class MergingRowIteratorTest extends InitializedNullHandlingTest
     for (int i1 = 0; i1 < possibleSequences.size(); i1++) {
       for (int i2 = i1; i2 < possibleSequences.size(); i2++) {
         for (int i3 = i2; i3 < possibleSequences.size(); i3++) {
-          testMerge(possibleSequences.get(i1), possibleSequences.get(i2), possibleSequences.get(i3));
+          testMergeOrder(possibleSequences.get(i1), possibleSequences.get(i2), possibleSequences.get(i3));
         }
       }
     }
+  }
+
+  @Test
+  public void testMarkHandlingAcrossEqualAndChangingTimestamps()
+  {
+    // Mark handling depends on equal and changing timestamps, not on the exhaustive sequence cross-product above.
+    testMerge(Longs.asList(1, 2, 2, 4), Longs.asList(1, 3, 4), Longs.asList(2, 3, 5));
   }
 
   private static void populateSequences(
@@ -149,6 +157,36 @@ public class MergingRowIteratorTest extends InitializedNullHandlingTest
       if (iterated) {
         Assertions.assertEquals(currentTimestamp, mergingRowIterator.getPointer().timestampSelector.getLong(), message);
       }
+    }
+  }
+
+  @SafeVarargs
+  private static void testMergeOrder(List<Long>... timestampSequences)
+  {
+    final Supplier<String> message
+        = () -> Stream.of(timestampSequences).map(List::toString).collect(Collectors.joining(" "));
+    try (MergingRowIterator mergingRowIterator = new MergingRowIterator(
+        Stream.of(timestampSequences).map(TestRowIterator::new).collect(Collectors.toList())
+    )) {
+      final Iterator<Long> expectedTimestamps = Utils.mergeSorted(
+          Stream.of(timestampSequences).map(List::iterator).collect(Collectors.toList()),
+          Comparator.naturalOrder()
+      );
+      while (expectedTimestamps.hasNext()) {
+        Assertions.assertTrue(
+            mergingRowIterator.moveToNext(),
+            message
+        );
+        Assertions.assertEquals(
+            expectedTimestamps.next(),
+            mergingRowIterator.getPointer().timestampSelector.getLong(),
+            message
+        );
+      }
+      Assertions.assertFalse(
+          mergingRowIterator.moveToNext(),
+          message
+      );
     }
   }
 
