@@ -65,9 +65,13 @@ public class TaskTableDescriptor implements SystemTableDescriptor
       return AuthorizationUtils.filterAuthorizedResources(
           authenticationResult,
           rows,
-          row -> Collections.singletonList(
-              AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply((String) row[DATASOURCE_COLUMN])
-          ),
+          row -> {
+            final String dataSource = (String) row[DATASOURCE_COLUMN];
+            // A null resource-action generator result makes AuthorizationUtils omit the row, including for allow-all.
+            return dataSource == null
+                   ? null
+                   : Collections.singletonList(AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply(dataSource));
+          },
           authorizerMapper
       );
     }

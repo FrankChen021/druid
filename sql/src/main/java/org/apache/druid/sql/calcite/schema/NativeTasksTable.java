@@ -31,7 +31,7 @@ import org.apache.druid.sql.calcite.table.DruidTable;
 /** Native-query representation of {@code sys.tasks}. */
 class NativeTasksTable extends DruidTable
 {
-  private static final DataSource DATA_SOURCE = new SystemTableDataSource("tasks");
+  private static final DataSource DATA_SOURCE = new SystemTableDataSource(TaskTableDescriptor.TABLE_NAME);
 
   NativeTasksTable()
   {
