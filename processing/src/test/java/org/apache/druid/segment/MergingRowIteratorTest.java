@@ -112,15 +112,20 @@ public class MergingRowIteratorTest extends InitializedNullHandlingTest
   @SafeVarargs
   private static void testMerge(List<Long>... timestampSequences)
   {
-    String message = Stream.of(timestampSequences).map(List::toString).collect(Collectors.joining(" "));
-    int totalLength = Stream.of(timestampSequences).mapToInt(List::size).sum();
+    final Supplier<String> failureMessage
+        = () -> Stream.of(timestampSequences).map(List::toString).collect(Collectors.joining(" "));
+    final int totalLength = Stream.of(timestampSequences).mapToInt(List::size).sum();
     for (int markIteration = 0; markIteration < totalLength; markIteration++) {
-      testMerge(message, markIteration, timestampSequences);
+      testMerge(failureMessage, markIteration, timestampSequences);
     }
   }
 
   @SafeVarargs
-  private static void testMerge(String message, int markIteration, List<Long>... timestampSequences)
+  private static void testMerge(
+      Supplier<String> failureMessage,
+      int markIteration,
+      List<Long>... timestampSequences
+  )
   {
     try (MergingRowIterator mergingRowIterator = new MergingRowIterator(
         Stream.of(timestampSequences).map(TestRowIterator::new).collect(Collectors.toList())
@@ -136,14 +141,18 @@ public class MergingRowIteratorTest extends InitializedNullHandlingTest
       boolean iterated = false;
       while (mergedTimestamps.hasNext()) {
         currentTimestamp = mergedTimestamps.next();
-        Assertions.assertTrue(mergingRowIterator.moveToNext(), message);
+        Assertions.assertTrue(mergingRowIterator.moveToNext(), failureMessage);
         iterated = true;
-        Assertions.assertEquals(currentTimestamp, mergingRowIterator.getPointer().timestampSelector.getLong(), message);
+        Assertions.assertEquals(
+            currentTimestamp,
+            mergingRowIterator.getPointer().timestampSelector.getLong(),
+            failureMessage
+        );
         if (marked) {
           Assertions.assertEquals(
               markedTimestamp != currentTimestamp,
               mergingRowIterator.hasTimeAndDimsChangedSinceMark(),
-              message
+              failureMessage
           );
         }
         if (i == markIteration) {
@@ -153,9 +162,13 @@ public class MergingRowIteratorTest extends InitializedNullHandlingTest
         }
         i++;
       }
-      Assertions.assertFalse(mergingRowIterator.moveToNext(), message);
+      Assertions.assertFalse(mergingRowIterator.moveToNext(), failureMessage);
       if (iterated) {
-        Assertions.assertEquals(currentTimestamp, mergingRowIterator.getPointer().timestampSelector.getLong(), message);
+        Assertions.assertEquals(
+            currentTimestamp,
+            mergingRowIterator.getPointer().timestampSelector.getLong(),
+            failureMessage
+        );
       }
     }
   }
