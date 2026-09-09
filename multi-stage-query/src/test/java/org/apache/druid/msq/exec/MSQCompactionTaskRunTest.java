@@ -110,8 +110,6 @@ import org.apache.druid.timeline.partition.ShardSpec;
 import org.joda.time.Interval;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -174,17 +172,6 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
       }
       return configurations.stream();
     }
-  }
-
-  public static Stream<Configuration> concurrentLockConfigurations()
-  {
-    return new MsqConfigurations().configurations().filter(Configuration::useConcurrentLocks);
-  }
-
-  public static Stream<Configuration> timeChunkConcurrentLockConfigurations()
-  {
-    return concurrentLockConfigurations()
-        .filter(configuration -> configuration.lockGranularity() == LockGranularity.TIME_CHUNK);
   }
 
   @Override
@@ -467,8 +454,7 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
     );
   }
 
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("concurrentLockConfigurations")
+  @CompactionTest(Selection.CONCURRENT_LOCK)
   public void testMSQCompactionWithConcurrentAppendCompactionLocksFirst(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -528,9 +514,7 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
     verifyTaskSuccessRowsAndSchemaMatch(finalResult, 19);
   }
 
-
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("concurrentLockConfigurations")
+  @CompactionTest(Selection.CONCURRENT_LOCK)
   public void testMSQCompactionWithConcurrentAppendAppendLocksFirst(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -590,8 +574,7 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
     verifyTaskSuccessRowsAndSchemaMatch(finalResult, 19);
   }
 
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("timeChunkConcurrentLockConfigurations")
+  @CompactionTest(Selection.CONCURRENT_TIME_CHUNK_LOCK)
   public void testMinorCompaction(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -646,8 +629,7 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
         ), usedSegments);
   }
 
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("timeChunkConcurrentLockConfigurations")
+  @CompactionTest(Selection.CONCURRENT_TIME_CHUNK_LOCK)
   public void testMinorCompactionRangePartition(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -704,8 +686,7 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
     Assertions.assertEquals(Set.of("range"), shards.stream().map(ShardSpec::getType).collect(Collectors.toSet()));
   }
 
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("timeChunkConcurrentLockConfigurations")
+  @CompactionTest(Selection.CONCURRENT_TIME_CHUNK_LOCK)
   public void testMinorCompactionOverlappingInterval(Configuration configuration) throws Exception
   {
     startCase(configuration);

@@ -63,6 +63,21 @@ public final class CompactionTaskRunTestCases
         return configuration.lockGranularity() == LockGranularity.SEGMENT;
       }
     },
+    CONCURRENT_LOCK {
+      @Override
+      boolean isApplicable(Configuration configuration)
+      {
+        return configuration.useConcurrentLocks();
+      }
+    },
+    CONCURRENT_TIME_CHUNK_LOCK {
+      @Override
+      boolean isApplicable(Configuration configuration)
+      {
+        return configuration.useConcurrentLocks()
+               && configuration.lockGranularity() == LockGranularity.TIME_CHUNK;
+      }
+    },
     NON_SEGMENT_LOCK_WITH_NULL_GRANULARITY {
       @Override
       boolean isApplicable(Configuration configuration)
