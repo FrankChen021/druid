@@ -163,7 +163,7 @@ public class MergingRowIteratorTest extends InitializedNullHandlingTest
   @SafeVarargs
   private static void testMergeOrder(List<Long>... timestampSequences)
   {
-    final Supplier<String> message
+    final Supplier<String> failureMessage
         = () -> Stream.of(timestampSequences).map(List::toString).collect(Collectors.joining(" "));
     try (MergingRowIterator mergingRowIterator = new MergingRowIterator(
         Stream.of(timestampSequences).map(TestRowIterator::new).collect(Collectors.toList())
@@ -175,17 +175,17 @@ public class MergingRowIteratorTest extends InitializedNullHandlingTest
       while (expectedTimestamps.hasNext()) {
         Assertions.assertTrue(
             mergingRowIterator.moveToNext(),
-            message
+            failureMessage
         );
         Assertions.assertEquals(
             expectedTimestamps.next(),
             mergingRowIterator.getPointer().timestampSelector.getLong(),
-            message
+            failureMessage
         );
       }
       Assertions.assertFalse(
           mergingRowIterator.moveToNext(),
-          message
+          failureMessage
       );
     }
   }
