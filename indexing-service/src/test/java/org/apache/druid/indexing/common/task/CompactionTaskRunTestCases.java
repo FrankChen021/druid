@@ -42,115 +42,94 @@ public final class CompactionTaskRunTestCases
 {
   public enum Selection
   {
-    ALL,
-    TIME_CHUNK_LOCK,
-    SEGMENT_LOCK,
-    NON_SEGMENT_LOCK_WITH_NULL_GRANULARITY,
-    NON_NULL_GRANULARITY_NOT_FINER_THAN_SIX_HOUR,
-    SIX_HOUR_GRANULARITY,
-    SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL,
-    NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY,
-    NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL;
-
-    boolean isApplicable(Configuration configuration)
-    {
-      switch (this) {
-        case ALL:
-          return true;
-        case TIME_CHUNK_LOCK:
-          return configuration.getLockGranularity() == LockGranularity.TIME_CHUNK;
-        case SEGMENT_LOCK:
-          return configuration.getLockGranularity() == LockGranularity.SEGMENT;
-        case NON_SEGMENT_LOCK_WITH_NULL_GRANULARITY:
-          return configuration.getLockGranularity() != LockGranularity.SEGMENT
-                 && configuration.getSegmentGranularity() == null;
-        case NON_NULL_GRANULARITY_NOT_FINER_THAN_SIX_HOUR:
-          return configuration.getSegmentGranularity() != null
-                 && !configuration.getSegmentGranularity().isFinerThan(Granularities.SIX_HOUR);
-        case SIX_HOUR_GRANULARITY:
-          return Granularities.SIX_HOUR.equals(configuration.getSegmentGranularity());
-        case SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL:
-          return Granularities.SIX_HOUR.equals(configuration.getSegmentGranularity())
-                 && CompactionTaskRunBase.TEST_INTERVAL.equals(configuration.getInputInterval());
-        case NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY:
-          return configuration.getLockGranularity() != LockGranularity.SEGMENT
-                 && Granularities.SIX_HOUR.equals(configuration.getSegmentGranularity());
-        case NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL:
-          return configuration.getLockGranularity() != LockGranularity.SEGMENT
-                 && Granularities.SIX_HOUR.equals(configuration.getSegmentGranularity())
-                 && CompactionTaskRunBase.TEST_INTERVAL.equals(configuration.getInputInterval());
-        default:
-          throw new IllegalStateException("Unhandled selection " + this);
+    ALL {
+      @Override
+      boolean isApplicable(Configuration configuration)
+      {
+        return true;
       }
-    }
+    },
+    TIME_CHUNK_LOCK {
+      @Override
+      boolean isApplicable(Configuration configuration)
+      {
+        return configuration.lockGranularity() == LockGranularity.TIME_CHUNK;
+      }
+    },
+    SEGMENT_LOCK {
+      @Override
+      boolean isApplicable(Configuration configuration)
+      {
+        return configuration.lockGranularity() == LockGranularity.SEGMENT;
+      }
+    },
+    NON_SEGMENT_LOCK_WITH_NULL_GRANULARITY {
+      @Override
+      boolean isApplicable(Configuration configuration)
+      {
+        return configuration.lockGranularity() != LockGranularity.SEGMENT
+               && configuration.segmentGranularity() == null;
+      }
+    },
+    NON_NULL_GRANULARITY_NOT_FINER_THAN_SIX_HOUR {
+      @Override
+      boolean isApplicable(Configuration configuration)
+      {
+        return configuration.segmentGranularity() != null
+               && !configuration.segmentGranularity().isFinerThan(Granularities.SIX_HOUR);
+      }
+    },
+    SIX_HOUR_GRANULARITY {
+      @Override
+      boolean isApplicable(Configuration configuration)
+      {
+        return Granularities.SIX_HOUR.equals(configuration.segmentGranularity());
+      }
+    },
+    SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL {
+      @Override
+      boolean isApplicable(Configuration configuration)
+      {
+        return Granularities.SIX_HOUR.equals(configuration.segmentGranularity())
+               && CompactionTaskRunBase.TEST_INTERVAL.equals(configuration.inputInterval());
+      }
+    },
+    NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY {
+      @Override
+      boolean isApplicable(Configuration configuration)
+      {
+        return configuration.lockGranularity() != LockGranularity.SEGMENT
+               && Granularities.SIX_HOUR.equals(configuration.segmentGranularity());
+      }
+    },
+    NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL {
+      @Override
+      boolean isApplicable(Configuration configuration)
+      {
+        return configuration.lockGranularity() != LockGranularity.SEGMENT
+               && Granularities.SIX_HOUR.equals(configuration.segmentGranularity())
+               && CompactionTaskRunBase.TEST_INTERVAL.equals(configuration.inputInterval());
+      }
+    };
+
+    /**
+     * Returns whether the given configuration should be included for a test using this selection. This method is
+     * evaluated while test arguments are generated, so inapplicable configurations are excluded before per-test
+     * fixtures are initialized.
+     */
+    abstract boolean isApplicable(Configuration configuration);
   }
 
-  public static class Configuration
+  public record Configuration(
+      LockGranularity lockGranularity,
+      boolean useCentralizedDatasourceSchema,
+      boolean batchSegmentAllocation,
+      boolean useSegmentMetadataCache,
+      boolean useConcurrentLocks,
+      Interval inputInterval,
+      @Nullable Granularity segmentGranularity
+  )
   {
-    private final LockGranularity lockGranularity;
-    private final boolean useCentralizedDatasourceSchema;
-    private final boolean batchSegmentAllocation;
-    private final boolean useSegmentMetadataCache;
-    private final boolean useConcurrentLocks;
-    private final Interval inputInterval;
-    @Nullable
-    private final Granularity segmentGranularity;
-
-    public Configuration(
-        LockGranularity lockGranularity,
-        boolean useCentralizedDatasourceSchema,
-        boolean batchSegmentAllocation,
-        boolean useSegmentMetadataCache,
-        boolean useConcurrentLocks,
-        Interval inputInterval,
-        @Nullable Granularity segmentGranularity
-    )
-    {
-      this.lockGranularity = lockGranularity;
-      this.useCentralizedDatasourceSchema = useCentralizedDatasourceSchema;
-      this.batchSegmentAllocation = batchSegmentAllocation;
-      this.useSegmentMetadataCache = useSegmentMetadataCache;
-      this.useConcurrentLocks = useConcurrentLocks;
-      this.inputInterval = inputInterval;
-      this.segmentGranularity = segmentGranularity;
-    }
-
-    public LockGranularity getLockGranularity()
-    {
-      return lockGranularity;
-    }
-
-    public boolean isUseCentralizedDatasourceSchema()
-    {
-      return useCentralizedDatasourceSchema;
-    }
-
-    public boolean isBatchSegmentAllocation()
-    {
-      return batchSegmentAllocation;
-    }
-
-    public boolean isUseSegmentMetadataCache()
-    {
-      return useSegmentMetadataCache;
-    }
-
-    public boolean isUseConcurrentLocks()
-    {
-      return useConcurrentLocks;
-    }
-
-    public Interval getInputInterval()
-    {
-      return inputInterval;
-    }
-
-    @Nullable
-    public Granularity getSegmentGranularity()
-    {
-      return segmentGranularity;
-    }
-
     @Override
     public String toString()
     {

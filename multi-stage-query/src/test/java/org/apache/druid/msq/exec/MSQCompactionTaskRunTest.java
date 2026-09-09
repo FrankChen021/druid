@@ -178,13 +178,13 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
 
   public static Stream<Configuration> concurrentLockConfigurations()
   {
-    return new MsqConfigurations().configurations().filter(Configuration::isUseConcurrentLocks);
+    return new MsqConfigurations().configurations().filter(Configuration::useConcurrentLocks);
   }
 
   public static Stream<Configuration> timeChunkConcurrentLockConfigurations()
   {
     return concurrentLockConfigurations()
-        .filter(configuration -> configuration.getLockGranularity() == LockGranularity.TIME_CHUNK);
+        .filter(configuration -> configuration.lockGranularity() == LockGranularity.TIME_CHUNK);
   }
 
   @Override

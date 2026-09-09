@@ -264,16 +264,16 @@ public abstract class CompactionTaskRunBase
 
   private void configure(Configuration configuration)
   {
-    lockGranularity = configuration.getLockGranularity();
-    useCentralizedDatasourceSchema = configuration.isUseCentralizedDatasourceSchema();
-    useConcurrentLocks = configuration.isUseConcurrentLocks();
-    inputInterval = configuration.getInputInterval();
-    segmentGranularity = configuration.getSegmentGranularity();
+    lockGranularity = configuration.lockGranularity();
+    useCentralizedDatasourceSchema = configuration.useCentralizedDatasourceSchema();
+    useConcurrentLocks = configuration.useConcurrentLocks();
+    inputInterval = configuration.inputInterval();
+    segmentGranularity = configuration.segmentGranularity();
 
     taskActionTestKit = new TaskActionTestKit()
         .setUseCentralizedDatasourceSchema(useCentralizedDatasourceSchema)
-        .setUseSegmentMetadataCache(configuration.isUseSegmentMetadataCache())
-        .setBatchSegmentAllocation(configuration.isBatchSegmentAllocation());
+        .setUseSegmentMetadataCache(configuration.useSegmentMetadataCache())
+        .setBatchSegmentAllocation(configuration.batchSegmentAllocation());
 
     objectMapper = testUtils.getTestObjectMapper();
     objectMapper.registerSubtypes(new NamedType(LocalLoadSpec.class, "local"));
