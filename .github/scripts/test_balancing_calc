@@ -21,7 +21,8 @@
 
 set -e
 
-find . -name 'TEST*xml' |
+# QTest runs in dedicated shards and is explicitly excluded from the main unit-test shards.
+find . -name 'TEST*xml' ! -name 'TEST-org.apache.druid.quidem.QTest.xml' |
 # <testsuite ... name="org.apache.druid.query.policy.NoRestrictionPolicyTest" time="0.071" ...>
 xargs sed -nr '/^<testsuite/s/.*name=\"([^\"]+)\".*time=\"([^\"]+)\".*/\1\t\2/p' |
 # org.apache.druid.server.RequestLogLineTest      0.052
