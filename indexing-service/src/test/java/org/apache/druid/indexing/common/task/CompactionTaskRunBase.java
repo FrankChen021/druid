@@ -60,7 +60,7 @@ import org.apache.druid.indexing.common.config.TaskConfigBuilder;
 import org.apache.druid.indexing.common.task.CompactionTask.Builder;
 import org.apache.druid.indexing.common.task.CompactionTaskRunTestCases.CompactionTest;
 import org.apache.druid.indexing.common.task.CompactionTaskRunTestCases.Configuration;
-import org.apache.druid.indexing.common.task.CompactionTaskRunTestCases.Scenario;
+import org.apache.druid.indexing.common.task.CompactionTaskRunTestCases.Selection;
 import org.apache.druid.indexing.overlord.Segments;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
@@ -336,7 +336,7 @@ public abstract class CompactionTaskRunBase
   {
   }
 
-  @CompactionTest(Scenario.RUN_WITH_DYNAMIC_PARTITIONING)
+  @CompactionTest(Selection.ALL)
   public void testRunWithDynamicPartitioning(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -361,7 +361,7 @@ public abstract class CompactionTaskRunBase
     );
   }
 
-  @CompactionTest(Scenario.RUN_WITH_HASH_PARTITIONING)
+  @CompactionTest(Selection.NON_SEGMENT_LOCK_WITH_NULL_GRANULARITY)
   public void testRunWithHashPartitioning(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -402,7 +402,7 @@ public abstract class CompactionTaskRunBase
     }
   }
 
-  @CompactionTest(Scenario.RUN_COMPACTION_TWICE)
+  @CompactionTest(Selection.TIME_CHUNK_LOCK)
   public void testRunCompactionTwice(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -453,7 +453,7 @@ public abstract class CompactionTaskRunBase
     }
   }
 
-  @CompactionTest(Scenario.RUN_COMPACTION_TWICE_WITH_SEGMENT_LOCK)
+  @CompactionTest(Selection.SEGMENT_LOCK)
   public void testRunCompactionTwiceWithSegmentLock(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -519,7 +519,7 @@ public abstract class CompactionTaskRunBase
     }
   }
 
-  @CompactionTest(Scenario.RUN_INDEX_AND_COMPACT_AT_THE_SAME_TIME_FOR_DIFFERENT_INTERVAL)
+  @CompactionTest(Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL)
   public void testRunIndexAndCompactAtTheSameTimeForDifferentInterval(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -583,7 +583,7 @@ public abstract class CompactionTaskRunBase
     );
   }
 
-  @CompactionTest(Scenario.WITH_SEGMENT_GRANULARITY_MISALIGNED_INTERVAL)
+  @CompactionTest(Selection.SIX_HOUR_GRANULARITY)
   public void testWithSegmentGranularityMisalignedInterval(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -603,7 +603,7 @@ public abstract class CompactionTaskRunBase
     Assertions.assertTrue(e.getMessage().contains(Granularities.WEEK.toString()));
   }
 
-  @CompactionTest(Scenario.WITH_SEGMENT_GRANULARITY_MISALIGNED_INTERVAL_ALLOWED)
+  @CompactionTest(Selection.SIX_HOUR_GRANULARITY)
   public void testWithSegmentGranularityMisalignedIntervalAllowed(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -627,7 +627,7 @@ public abstract class CompactionTaskRunBase
     );
   }
 
-  @CompactionTest(Scenario.WITH_SEGMENT_GRANULARITY_MISALIGNED_INTERVAL_ALLOWED_2)
+  @CompactionTest(Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL)
   public void testWithSegmentGranularityMisalignedIntervalAllowed2(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -656,7 +656,7 @@ public abstract class CompactionTaskRunBase
     );
   }
 
-  @CompactionTest(Scenario.COMPACTION_WITH_FILTER_IN_TRANSFORM_SPEC)
+  @CompactionTest(Selection.SIX_HOUR_GRANULARITY)
   public void testCompactionWithFilterInTransformSpec(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -713,7 +713,7 @@ public abstract class CompactionTaskRunBase
     );
   }
 
-  @CompactionTest(Scenario.COMPACTION_WITH_NEW_METRIC_IN_METRICS_SPEC)
+  @CompactionTest(Selection.SIX_HOUR_GRANULARITY)
   public void testCompactionWithNewMetricInMetricsSpec(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -747,7 +747,7 @@ public abstract class CompactionTaskRunBase
     Assertions.assertEquals(expectedCompactionState, segments.get(0).getLastCompactionState());
   }
 
-  @CompactionTest(Scenario.WITH_GRANULARITY_SPEC_NON_NULL_QUERY_GRANULARITY)
+  @CompactionTest(Selection.ALL)
   public void testWithGranularitySpecNonNullQueryGranularity(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -772,7 +772,7 @@ public abstract class CompactionTaskRunBase
     );
   }
 
-  @CompactionTest(Scenario.WITH_GRANULARITY_SPEC_NON_NULL_QUERY_GRANULARITY_AND_COARSE_SEGMENT_GRANULARITY)
+  @CompactionTest(Selection.SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL)
   public void testWithGranularitySpecNonNullQueryGranularityAndCoarseSegmentGranularity(Configuration configuration)
       throws Exception
   {
@@ -802,7 +802,7 @@ public abstract class CompactionTaskRunBase
     Assertions.assertEquals(new NumberedShardSpec(0, 1), segments.get(0).getShardSpec());
   }
 
-  @CompactionTest(Scenario.COMPACT_THEN_APPEND)
+  @CompactionTest(Selection.SIX_HOUR_GRANULARITY)
   public void testCompactThenAppend(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -829,7 +829,7 @@ public abstract class CompactionTaskRunBase
   }
 
   @CompactionTest(
-      Scenario.PARTIAL_INTERVAL_COMPACT_WITH_FINER_SEGMENT_GRANULARITY_THAN_FULL_INTERVAL_COMPACT_WITH_DROP_EXISTING_TRUE
+      Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL
   )
   public void testPartialIntervalCompactWithFinerSegmentGranularityThanFullIntervalCompactWithDropExistingTrue(
       Configuration configuration
@@ -955,7 +955,7 @@ public abstract class CompactionTaskRunBase
     );
   }
 
-  @CompactionTest(Scenario.COMPACT_DATASOURCE_OVER_INTERVAL_WITH_ONLY_TOMBSTONES)
+  @CompactionTest(Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL)
   public void testCompactDatasourceOverIntervalWithOnlyTombstones(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -1048,7 +1048,7 @@ public abstract class CompactionTaskRunBase
   }
 
   @CompactionTest(
-      Scenario.PARTIAL_INTERVAL_COMPACT_WITH_FINER_SEGMENT_GRANULARITY_THEN_FULL_INTERVAL_COMPACT_WITH_DROP_EXISTING_FALSE
+      Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL
   )
   public void testPartialIntervalCompactWithFinerSegmentGranularityThenFullIntervalCompactWithDropExistingFalse(
       Configuration configuration
@@ -1103,7 +1103,7 @@ public abstract class CompactionTaskRunBase
     }
   }
 
-  @CompactionTest(Scenario.RUN_INDEX_AND_COMPACT_FOR_SAME_SEGMENT_AT_THE_SAME_TIME)
+  @CompactionTest(Selection.ALL)
   public void testRunIndexAndCompactForSameSegmentAtTheSameTime(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -1154,7 +1154,7 @@ public abstract class CompactionTaskRunBase
     Assertions.assertTrue(e.getMessage().contains("not ready"));
   }
 
-  @CompactionTest(Scenario.RUN_INDEX_AND_COMPACT_FOR_SAME_SEGMENT_AT_THE_SAME_TIME_2)
+  @CompactionTest(Selection.ALL)
   public void testRunIndexAndCompactForSameSegmentAtTheSameTime2(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -1213,7 +1213,7 @@ public abstract class CompactionTaskRunBase
     Assertions.assertEquals(TaskState.FAILED, compactionResult.lhs.getStatusCode());
   }
 
-  @CompactionTest(Scenario.RUN_WITH_SPATIAL_DIMENSIONS)
+  @CompactionTest(Selection.SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL)
   public void testRunWithSpatialDimensions(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -1322,7 +1322,7 @@ public abstract class CompactionTaskRunBase
     Assertions.assertEquals(spatialrows, rowsFromSegment);
   }
 
-  @CompactionTest(Scenario.RUN_WITH_AUTO_CAST_DIMENSIONS)
+  @CompactionTest(Selection.SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL)
   public void testRunWithAutoCastDimensions(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -1440,7 +1440,7 @@ public abstract class CompactionTaskRunBase
     Assertions.assertEquals(rows, rowsFromSegment);
   }
 
-  @CompactionTest(Scenario.RUN_WITH_AUTO_CAST_DIMENSIONS_SORT_BY_DIMENSION)
+  @CompactionTest(Selection.SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL)
   public void testRunWithAutoCastDimensionsSortByDimension(Configuration configuration) throws Exception
   {
     startCase(configuration);

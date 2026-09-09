@@ -54,7 +54,7 @@ import org.apache.druid.indexing.common.task.CompactionTaskRunTestCases.Compacti
 import org.apache.druid.indexing.common.task.CompactionTaskRunTestCases.Configuration;
 import org.apache.druid.indexing.common.task.CompactionTaskRunTestCases.ConfigurationProvider;
 import org.apache.druid.indexing.common.task.CompactionTaskRunTestCases.ConfigurationSource;
-import org.apache.druid.indexing.common.task.CompactionTaskRunTestCases.Scenario;
+import org.apache.druid.indexing.common.task.CompactionTaskRunTestCases.Selection;
 import org.apache.druid.indexing.common.task.IndexTask;
 import org.apache.druid.indexing.common.task.MinorCompactionInputSpec;
 import org.apache.druid.indexing.common.task.Tasks;
@@ -174,20 +174,6 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
       }
       return configurations.stream();
     }
-
-    @Override
-    public boolean isApplicable(Scenario scenario, Configuration configuration)
-    {
-      if (scenario == Scenario.COMPACTION_WITH_NEW_METRIC_IN_METRICS_SPEC) {
-        return configuration.getSegmentGranularity() != null
-               && !configuration.getSegmentGranularity().isFinerThan(Granularities.SIX_HOUR);
-      } else if (scenario
-                 == Scenario.PARTIAL_INTERVAL_COMPACT_WITH_FINER_SEGMENT_GRANULARITY_THAN_FULL_INTERVAL_COMPACT_WITH_DROP_EXISTING_TRUE) {
-        return configuration.getLockGranularity() != LockGranularity.SEGMENT
-               && Granularities.SIX_HOUR.equals(configuration.getSegmentGranularity());
-      }
-      return ConfigurationProvider.super.isApplicable(scenario, configuration);
-    }
   }
 
   public static Stream<Configuration> concurrentLockConfigurations()
@@ -295,14 +281,14 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
 
   @Override
   @Disabled("Hash paritioning is not supported in MSQ")
-  @CompactionTest(Scenario.RUN_WITH_HASH_PARTITIONING)
+  @CompactionTest(Selection.NON_SEGMENT_LOCK_WITH_NULL_GRANULARITY)
   public void testRunWithHashPartitioning(Configuration configuration)
   {
   }
 
   @Override
   @Disabled("The MSQ compaction test matrix does not support segment locks")
-  @CompactionTest(Scenario.RUN_COMPACTION_TWICE_WITH_SEGMENT_LOCK)
+  @CompactionTest(Selection.SEGMENT_LOCK)
   public void testRunCompactionTwiceWithSegmentLock(Configuration configuration)
   {
   }
@@ -310,7 +296,7 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
   @Override
   @Disabled("dropExisting must set to true in MSQ")
   @CompactionTest(
-      Scenario.PARTIAL_INTERVAL_COMPACT_WITH_FINER_SEGMENT_GRANULARITY_THEN_FULL_INTERVAL_COMPACT_WITH_DROP_EXISTING_FALSE
+      Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL
   )
   public void testPartialIntervalCompactWithFinerSegmentGranularityThenFullIntervalCompactWithDropExistingFalse(
       Configuration configuration
@@ -320,20 +306,20 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
 
   @Override
   @Disabled("allowNonAlignedInterval is not supported in MSQ")
-  @CompactionTest(Scenario.WITH_SEGMENT_GRANULARITY_MISALIGNED_INTERVAL_ALLOWED)
+  @CompactionTest(Selection.SIX_HOUR_GRANULARITY)
   public void testWithSegmentGranularityMisalignedIntervalAllowed(Configuration configuration)
   {
   }
 
   @Override
   @Disabled("allowNonAlignedInterval is not supported in MSQ")
-  @CompactionTest(Scenario.WITH_SEGMENT_GRANULARITY_MISALIGNED_INTERVAL_ALLOWED_2)
+  @CompactionTest(Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL)
   public void testWithSegmentGranularityMisalignedIntervalAllowed2(Configuration configuration)
   {
   }
 
   @Override
-  @CompactionTest(Scenario.COMPACTION_WITH_NEW_METRIC_IN_METRICS_SPEC)
+  @CompactionTest(Selection.NON_NULL_GRANULARITY_NOT_FINER_THAN_SIX_HOUR)
   public void testCompactionWithNewMetricInMetricsSpec(Configuration configuration) throws Exception
   {
     startCase(configuration);
@@ -364,7 +350,7 @@ public class MSQCompactionTaskRunTest extends CompactionTaskRunBase
 
   @Override
   @CompactionTest(
-      Scenario.PARTIAL_INTERVAL_COMPACT_WITH_FINER_SEGMENT_GRANULARITY_THAN_FULL_INTERVAL_COMPACT_WITH_DROP_EXISTING_TRUE
+      Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY
   )
   public void testPartialIntervalCompactWithFinerSegmentGranularityThanFullIntervalCompactWithDropExistingTrue(
       Configuration configuration

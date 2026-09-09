@@ -40,63 +40,16 @@ import java.util.stream.Stream;
 
 public final class CompactionTaskRunTestCases
 {
-  public enum Scenario
-  {
-    RUN_WITH_DYNAMIC_PARTITIONING(Selection.ALL),
-    RUN_WITH_HASH_PARTITIONING(Selection.NON_SEGMENT_LOCK_WITH_NULL_GRANULARITY),
-    RUN_COMPACTION_TWICE(Selection.TIME_CHUNK_LOCK),
-    RUN_COMPACTION_TWICE_WITH_SEGMENT_LOCK(Selection.SEGMENT_LOCK),
-    RUN_INDEX_AND_COMPACT_AT_THE_SAME_TIME_FOR_DIFFERENT_INTERVAL(
-        Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL
-    ),
-    WITH_SEGMENT_GRANULARITY_MISALIGNED_INTERVAL(Selection.SIX_HOUR_GRANULARITY),
-    WITH_SEGMENT_GRANULARITY_MISALIGNED_INTERVAL_ALLOWED(Selection.SIX_HOUR_GRANULARITY),
-    WITH_SEGMENT_GRANULARITY_MISALIGNED_INTERVAL_ALLOWED_2(
-        Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL
-    ),
-    COMPACTION_WITH_FILTER_IN_TRANSFORM_SPEC(Selection.SIX_HOUR_GRANULARITY),
-    COMPACTION_WITH_NEW_METRIC_IN_METRICS_SPEC(Selection.SIX_HOUR_GRANULARITY),
-    WITH_GRANULARITY_SPEC_NON_NULL_QUERY_GRANULARITY(Selection.ALL),
-    WITH_GRANULARITY_SPEC_NON_NULL_QUERY_GRANULARITY_AND_COARSE_SEGMENT_GRANULARITY(
-        Selection.SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL
-    ),
-    COMPACT_THEN_APPEND(Selection.SIX_HOUR_GRANULARITY),
-    PARTIAL_INTERVAL_COMPACT_WITH_FINER_SEGMENT_GRANULARITY_THAN_FULL_INTERVAL_COMPACT_WITH_DROP_EXISTING_TRUE(
-        Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL
-    ),
-    COMPACT_DATASOURCE_OVER_INTERVAL_WITH_ONLY_TOMBSTONES(
-        Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL
-    ),
-    PARTIAL_INTERVAL_COMPACT_WITH_FINER_SEGMENT_GRANULARITY_THEN_FULL_INTERVAL_COMPACT_WITH_DROP_EXISTING_FALSE(
-        Selection.NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL
-    ),
-    RUN_INDEX_AND_COMPACT_FOR_SAME_SEGMENT_AT_THE_SAME_TIME(Selection.ALL),
-    RUN_INDEX_AND_COMPACT_FOR_SAME_SEGMENT_AT_THE_SAME_TIME_2(Selection.ALL),
-    RUN_WITH_SPATIAL_DIMENSIONS(Selection.SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL),
-    RUN_WITH_AUTO_CAST_DIMENSIONS(Selection.SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL),
-    RUN_WITH_AUTO_CAST_DIMENSIONS_SORT_BY_DIMENSION(Selection.SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL);
-
-    private final Selection selection;
-
-    Scenario(Selection selection)
-    {
-      this.selection = selection;
-    }
-
-    public boolean isApplicable(Configuration configuration)
-    {
-      return selection.isApplicable(configuration);
-    }
-  }
-
-  private enum Selection
+  public enum Selection
   {
     ALL,
     TIME_CHUNK_LOCK,
     SEGMENT_LOCK,
     NON_SEGMENT_LOCK_WITH_NULL_GRANULARITY,
+    NON_NULL_GRANULARITY_NOT_FINER_THAN_SIX_HOUR,
     SIX_HOUR_GRANULARITY,
     SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL,
+    NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY,
     NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL;
 
     boolean isApplicable(Configuration configuration)
@@ -111,11 +64,17 @@ public final class CompactionTaskRunTestCases
         case NON_SEGMENT_LOCK_WITH_NULL_GRANULARITY:
           return configuration.getLockGranularity() != LockGranularity.SEGMENT
                  && configuration.getSegmentGranularity() == null;
+        case NON_NULL_GRANULARITY_NOT_FINER_THAN_SIX_HOUR:
+          return configuration.getSegmentGranularity() != null
+                 && !configuration.getSegmentGranularity().isFinerThan(Granularities.SIX_HOUR);
         case SIX_HOUR_GRANULARITY:
           return Granularities.SIX_HOUR.equals(configuration.getSegmentGranularity());
         case SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL:
           return Granularities.SIX_HOUR.equals(configuration.getSegmentGranularity())
                  && CompactionTaskRunBase.TEST_INTERVAL.equals(configuration.getInputInterval());
+        case NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY:
+          return configuration.getLockGranularity() != LockGranularity.SEGMENT
+                 && Granularities.SIX_HOUR.equals(configuration.getSegmentGranularity());
         case NON_SEGMENT_LOCK_WITH_SIX_HOUR_GRANULARITY_AND_TEST_INTERVAL:
           return configuration.getLockGranularity() != LockGranularity.SEGMENT
                  && Granularities.SIX_HOUR.equals(configuration.getSegmentGranularity())
@@ -208,11 +167,6 @@ public final class CompactionTaskRunTestCases
   public interface ConfigurationProvider
   {
     Stream<Configuration> configurations();
-
-    default boolean isApplicable(Scenario scenario, Configuration configuration)
-    {
-      return scenario.isApplicable(configuration);
-    }
   }
 
   @Inherited
@@ -226,13 +180,13 @@ public final class CompactionTaskRunTestCases
   @Retention(RetentionPolicy.RUNTIME)
   @Target(ElementType.METHOD)
   @ParameterizedTest(name = "{0}")
-  @ArgumentsSource(ScenarioArgumentsProvider.class)
+  @ArgumentsSource(SelectionArgumentsProvider.class)
   public @interface CompactionTest
   {
-    Scenario value();
+    Selection value();
   }
 
-  public static class ScenarioArgumentsProvider implements ArgumentsProvider
+  public static class SelectionArgumentsProvider implements ArgumentsProvider
   {
     @Override
     public Stream<? extends Arguments> provideArguments(ExtensionContext context) throws Exception
@@ -252,10 +206,7 @@ public final class CompactionTaskRunTestCases
                                                                                   .getDeclaredConstructor()
                                                                                   .newInstance();
       return configurationProvider.configurations()
-                                  .filter(configuration -> configurationProvider.isApplicable(
-                                      compactionTest.value(),
-                                      configuration
-                                  ))
+                                  .filter(compactionTest.value()::isApplicable)
                                   .map(Arguments::of);
     }
   }
