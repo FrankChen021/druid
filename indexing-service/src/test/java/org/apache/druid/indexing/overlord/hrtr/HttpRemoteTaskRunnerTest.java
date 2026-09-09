@@ -1695,7 +1695,7 @@ public class HttpRemoteTaskRunnerTest
    * when shutdown is called on pending / running tasks and completed tasks
    */
   @Test
-  public void testShutdown()
+  public void testShutdown() throws Exception
   {
     List<Object> listenerNotificationsAccumulator = new ArrayList<>();
     HttpRemoteTaskRunner taskRunner = createTaskRunnerForTestTaskAddedOrUpdated(
@@ -1715,15 +1715,24 @@ public class HttpRemoteTaskRunnerTest
     taskRunner.start();
 
     Task pendingTask = NoopTask.create();
-    taskRunner.run(pendingTask);
-    // Pending task is not cleaned up immediately
+    final Future<TaskStatus> pendingTaskFuture = taskRunner.run(pendingTask);
     taskRunner.shutdown(pendingTask.getId(), "Forced shutdown");
-    Assertions.assertTrue(taskRunner.getKnownTasks()
-                                .stream()
-                                .map(TaskRunnerWorkItem::getTaskId)
-                                .collect(Collectors.toSet())
-                                .contains(pendingTask.getId())
+    Assertions.assertFalse(
+        taskRunner.getKnownTasks().stream().anyMatch(item -> item.getTaskId().equals(pendingTask.getId()))
     );
+    Assertions.assertTrue(taskRunner.getPendingTasks().isEmpty());
+    Assertions.assertTrue(taskRunner.getPendingTasksList().isEmpty());
+
+    final TaskStatus pendingTaskStatus = pendingTaskFuture.get();
+    Assertions.assertTrue(pendingTaskStatus.isFailure());
+    Assertions.assertEquals("Forced shutdown", pendingTaskStatus.getErrorMsg());
+    Assertions.assertEquals(
+        ImmutableList.of(ImmutableList.of(pendingTask.getId(), pendingTaskStatus)),
+        listenerNotificationsAccumulator
+    );
+
+    taskRunner.shutdown(pendingTask.getId(), "Repeated shutdown");
+    Assertions.assertEquals(1, listenerNotificationsAccumulator.size());
 
     Task completedTask = NoopTask.create();
     taskRunner.run(completedTask);
