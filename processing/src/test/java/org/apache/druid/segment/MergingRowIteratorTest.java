@@ -86,7 +86,9 @@ public class MergingRowIteratorTest extends InitializedNullHandlingTest
   @Test
   public void testMarkHandlingAcrossEqualAndChangingTimestamps()
   {
-    // Mark handling depends on equal and changing timestamps, not on the exhaustive sequence cross-product above.
+    // These inputs merge to [1, 1, 2, 2, 2, 3, 3, 4, 4, 5], covering equal timestamps from both
+    // the same iterator and different iterators, as well as transitions to a new timestamp. testMerge()
+    // places the mark at every output position, exercising mark handling without the exhaustive cross-product above.
     testMerge(Longs.asList(1, 2, 2, 4), Longs.asList(1, 3, 4), Longs.asList(2, 3, 5));
   }
 
