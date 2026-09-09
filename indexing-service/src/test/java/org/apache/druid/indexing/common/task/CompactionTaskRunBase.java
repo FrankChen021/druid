@@ -199,16 +199,16 @@ public abstract class CompactionTaskRunBase
   protected ObjectMapper objectMapper;
   protected File reportsFile;
 
-  protected OverlordClient overlordClient;
-  protected CoordinatorClient coordinatorClient;
-  protected SegmentCacheManagerFactory segmentCacheManagerFactory;
+  protected final OverlordClient overlordClient;
+  protected final CoordinatorClient coordinatorClient;
+  protected final SegmentCacheManagerFactory segmentCacheManagerFactory;
 
   protected LockGranularity lockGranularity;
   protected boolean useCentralizedDatasourceSchema;
   protected boolean useConcurrentLocks;
   protected Interval inputInterval;
   protected Granularity segmentGranularity;
-  protected TestUtils testUtils;
+  protected final TestUtils testUtils;
 
   protected ExecutorService exec;
   protected File localDeepStorage;
@@ -217,27 +217,13 @@ public abstract class CompactionTaskRunBase
   private boolean baseSetupStarted;
   private boolean runnerSetupStarted;
 
-  private void configure(Configuration configuration)
+  protected CompactionTaskRunBase()
   {
-    lockGranularity = configuration.getLockGranularity();
-    useCentralizedDatasourceSchema = configuration.isUseCentralizedDatasourceSchema();
-    useConcurrentLocks = configuration.isUseConcurrentLocks();
-    inputInterval = configuration.getInputInterval();
-    segmentGranularity = configuration.getSegmentGranularity();
-
-    taskActionTestKit = new TaskActionTestKit()
-        .setUseCentralizedDatasourceSchema(useCentralizedDatasourceSchema)
-        .setUseSegmentMetadataCache(configuration.isUseSegmentMetadataCache())
-        .setBatchSegmentAllocation(configuration.isBatchSegmentAllocation());
-
     testUtils = new TestUtils();
-    segmentCacheManagerFactory = SegmentCacheManagerFactory.createWithOwnedPool(TestIndex.INDEX_IO, testUtils.getTestObjectMapper());
-
-    objectMapper = testUtils.getTestObjectMapper();
-    objectMapper.registerSubtypes(new NamedType(LocalLoadSpec.class, "local"));
-    objectMapper.registerSubtypes(LocalDataSegmentPuller.class);
-    objectMapper.registerSubtypes(TombstoneLoadSpec.class);
-
+    segmentCacheManagerFactory = SegmentCacheManagerFactory.createWithOwnedPool(
+        TestIndex.INDEX_IO,
+        testUtils.getTestObjectMapper()
+    );
     overlordClient = new NoopOverlordClient();
     coordinatorClient = new NoopCoordinatorClient()
     {
@@ -274,6 +260,25 @@ public abstract class CompactionTaskRunBase
                              .get());
       }
     };
+  }
+
+  private void configure(Configuration configuration)
+  {
+    lockGranularity = configuration.getLockGranularity();
+    useCentralizedDatasourceSchema = configuration.isUseCentralizedDatasourceSchema();
+    useConcurrentLocks = configuration.isUseConcurrentLocks();
+    inputInterval = configuration.getInputInterval();
+    segmentGranularity = configuration.getSegmentGranularity();
+
+    taskActionTestKit = new TaskActionTestKit()
+        .setUseCentralizedDatasourceSchema(useCentralizedDatasourceSchema)
+        .setUseSegmentMetadataCache(configuration.isUseSegmentMetadataCache())
+        .setBatchSegmentAllocation(configuration.isBatchSegmentAllocation());
+
+    objectMapper = testUtils.getTestObjectMapper();
+    objectMapper.registerSubtypes(new NamedType(LocalLoadSpec.class, "local"));
+    objectMapper.registerSubtypes(LocalDataSegmentPuller.class);
+    objectMapper.registerSubtypes(TombstoneLoadSpec.class);
   }
 
   protected final void startCase(Configuration configuration) throws Exception
