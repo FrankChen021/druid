@@ -61,7 +61,7 @@ public class ServersTableDataProviderTest
       new AuthenticationResult("test-user", AuthConfig.ALLOW_ALL_NAME, null, null);
 
   @Test
-  public void testReturnsDiscoveredServersWithStringLabels() throws Exception
+  public void testReturnsDiscoveredServersWithStringAndJsonLabels() throws Exception
   {
     final DruidNodeDiscoveryProvider discoveryProvider = EasyMock.mock(DruidNodeDiscoveryProvider.class);
     final FilteredServerInventoryView serverInventoryView = EasyMock.mock(FilteredServerInventoryView.class);
@@ -122,14 +122,17 @@ public class ServersTableDataProviderTest
                                         .orElseThrow();
     Assertions.assertEquals(1L, coordinatorRow[9]);
     Assertions.assertNull(coordinatorRow[13]);
+    Assertions.assertNull(coordinatorRow[16]);
 
     final Object[] brokerRow = rows.stream()
                                    .filter(row -> "localhost:8082".equals(row[0]))
                                    .findFirst()
                                    .orElseThrow();
     Assertions.assertEquals(TestHelper.JSON_MAPPER.writeValueAsString(labels), brokerRow[13]);
+    Assertions.assertEquals(labels, brokerRow[16]);
     Assertions.assertEquals(100L, brokerRow[6]);
     Assertions.assertEquals(ColumnType.STRING, ServersTableDescriptor.ROW_SIGNATURE.getColumnType(13).orElseThrow());
+    Assertions.assertEquals(ColumnType.NESTED_DATA, ServersTableDescriptor.ROW_SIGNATURE.getColumnType(16).orElseThrow());
 
     EasyMock.verify(discoveryProvider, serverInventoryView, coordinatorClient, overlordClient, server);
   }
@@ -169,6 +172,7 @@ public class ServersTableDataProviderTest
     Assertions.assertEquals(Set.of(NodeRole.BROKER), descriptor.getNodeRoles());
     Assertions.assertEquals(SystemTableRoutingMode.LOCAL, descriptor.getRoutingMode());
     Assertions.assertEquals(ColumnType.STRING, descriptor.getRowSignature().getColumnType(13).orElseThrow());
+    Assertions.assertEquals(ColumnType.NESTED_DATA, descriptor.getRowSignature().getColumnType(16).orElseThrow());
   }
 
   private static DiscoveryDruidNode discoveryNode(

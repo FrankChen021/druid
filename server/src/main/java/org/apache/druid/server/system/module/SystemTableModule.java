@@ -31,7 +31,6 @@ import org.apache.druid.server.system.table.ServersTableDataProvider;
 import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
-import org.apache.druid.server.system.table.TaskTableDescriptor;
 
 /**
  * Registers native system-table routing and the built-in system-table suppliers.
@@ -53,8 +52,6 @@ public class SystemTableModule implements Module
                     .toInstance(new ServerPropertiesTableDescriptor());
     descriptorBinder.addBinding(ServersTableDescriptor.TABLE_NAME)
                     .toInstance(new ServersTableDescriptor());
-    descriptorBinder.addBinding(TaskTableDescriptor.TABLE_NAME)
-                    .toInstance(new TaskTableDescriptor());
     final MapBinder<String, SystemTableDataProvider> dataProviderBinder = MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class);
     dataProviderBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                       .to(ServerPropertiesTableDataProvider.class)

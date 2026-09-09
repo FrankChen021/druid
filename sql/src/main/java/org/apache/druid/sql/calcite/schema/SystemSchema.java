@@ -75,7 +75,6 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.table.ServersTableDescriptor;
-import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
@@ -796,7 +795,8 @@ public class SystemSchema extends AbstractTableSchema
           node.getBuildRevision(),
           node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
           (long) discoveryDruidNode.getAvailableProcessors(),
-          discoveryDruidNode.getTotalMemory()
+          discoveryDruidNode.getTotalMemory(),
+          node.getLabels()
       };
     }
 
@@ -825,7 +825,8 @@ public class SystemSchema extends AbstractTableSchema
           node.getBuildRevision(),
           node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
           (long) discoveryDruidNode.getAvailableProcessors(),
-          discoveryDruidNode.getTotalMemory()
+          discoveryDruidNode.getTotalMemory(),
+          node.getLabels()
       };
     }
 
@@ -866,7 +867,8 @@ public class SystemSchema extends AbstractTableSchema
           node.getBuildRevision(),
           node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
           (long) discoveryDruidNode.getAvailableProcessors(),
-          discoveryDruidNode.getTotalMemory()
+          discoveryDruidNode.getTotalMemory(),
+          node.getLabels()
       };
     }
 

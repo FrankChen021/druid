@@ -200,7 +200,8 @@ public class ServersTableDataProvider implements SystemTableDataProvider
         node.getBuildRevision(),
         node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
         (long) discoveryDruidNode.getAvailableProcessors(),
-        discoveryDruidNode.getTotalMemory()
+        discoveryDruidNode.getTotalMemory(),
+        node.getLabels()
     };
   }
 
@@ -226,7 +227,8 @@ public class ServersTableDataProvider implements SystemTableDataProvider
         node.getBuildRevision(),
         node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
         (long) discoveryDruidNode.getAvailableProcessors(),
-        discoveryDruidNode.getTotalMemory()
+        discoveryDruidNode.getTotalMemory(),
+        node.getLabels()
     };
   }
 
@@ -258,7 +260,8 @@ public class ServersTableDataProvider implements SystemTableDataProvider
         node.getBuildRevision(),
         node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
         (long) discoveryDruidNode.getAvailableProcessors(),
-        discoveryDruidNode.getTotalMemory()
+        discoveryDruidNode.getTotalMemory(),
+        node.getLabels()
     };
   }
 

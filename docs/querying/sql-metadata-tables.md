@@ -289,6 +289,7 @@ Servers table lists all discovered servers in the cluster.
 |labels|VARCHAR|Labels for the server configured using the property [`druid.labels`](../configuration/index.md)|
 |available_processors|BIGINT|Total number of CPU processors available to the server|
 |total_memory|BIGINT|Total memory in bytes available to the server|
+|labels_json|COMPLEX&lt;json&gt;|Labels for the server as a JSON object. This column is appended to preserve the existing column ordinals.|
 
 To retrieve information about all servers, use the query:
 
