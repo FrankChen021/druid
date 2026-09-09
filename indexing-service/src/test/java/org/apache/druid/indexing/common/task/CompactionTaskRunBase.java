@@ -316,9 +316,9 @@ public abstract class CompactionTaskRunBase
 
   protected void setup() throws IOException
   {
-    exec = Execs.multiThreaded(2, "compaction-task-run-test-%d");
     localDeepStorage = temporaryFolder.newFolder();
     reportsFile = new File(temporaryFolder.newFolder(), "reports.json");
+    exec = Execs.multiThreaded(2, "compaction-task-run-test-%d");
   }
 
   protected void teardown()
