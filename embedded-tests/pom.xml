@@ -908,6 +908,18 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <excludedGroups>docker-test,perf</excludedGroups>
+          <!--
+            Embedded tests run real Kafka/Kinesis supervisors in-process. SeekableStreamSupervisor
+            hard-codes a multi-second warm-up delay (up to 25s) before it first fetches partition
+            offsets/emits its lag metric, to avoid reading a not-yet-settled state in production.
+            That warm-up is pure dead time in fast, single-node embedded tests, so shrink it here;
+            this only affects this module's test JVM and has no effect on production defaults.
+          -->
+          <systemPropertyVariables>
+            <druid.test.supervisor.minGetOffsetPeriodMillis>50</druid.test.supervisor.minGetOffsetPeriodMillis>
+            <druid.test.supervisor.initialGetOffsetDelayMillis>50</druid.test.supervisor.initialGetOffsetDelayMillis>
+            <druid.test.supervisor.initialEmitLagMetricDelayMillis>100</druid.test.supervisor.initialEmitLagMetricDelayMillis>
+          </systemPropertyVariables>
         </configuration>
       </plugin>
       <plugin>

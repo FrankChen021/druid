@@ -165,9 +165,17 @@ public abstract class SeekableStreamSupervisor<PartitionIdType, SequenceOffsetTy
   public static final String AUTOSCALER_UPDATED_TASK_METRIC = "task/autoScaler/updatedCount";
   public static final String AUTOSCALER_SCALING_TIME_METRIC = "task/autoScaler/scaleActionTime";
 
-  private static final long MINIMUM_GET_OFFSET_PERIOD_MILLIS = 5000;
-  private static final long INITIAL_GET_OFFSET_DELAY_MILLIS = 15000;
-  private static final long INITIAL_EMIT_LAG_METRIC_DELAY_MILLIS = 25000;
+  // These control the warm-up delay before the supervisor first fetches partition offsets and
+  // emits its lag metric after (re)starting. The defaults are conservative to avoid computing lag
+  // from a supervisor/task state that hasn't fully settled yet. Embedded/unit tests that need the
+  // lag metric to be available quickly can lower these via the system properties below; this has
+  // no effect unless the property is explicitly set, so production behavior is unchanged.
+  private static final long MINIMUM_GET_OFFSET_PERIOD_MILLIS =
+      Long.getLong("druid.test.supervisor.minGetOffsetPeriodMillis", 5000);
+  private static final long INITIAL_GET_OFFSET_DELAY_MILLIS =
+      Long.getLong("druid.test.supervisor.initialGetOffsetDelayMillis", 15000);
+  private static final long INITIAL_EMIT_LAG_METRIC_DELAY_MILLIS =
+      Long.getLong("druid.test.supervisor.initialEmitLagMetricDelayMillis", 25000);
 
   private static final long MAX_RUN_FREQUENCY_MILLIS = 1000;
   private static final int MAX_INITIALIZATION_RETRIES = 20;
