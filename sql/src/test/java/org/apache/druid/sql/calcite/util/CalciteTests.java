@@ -336,25 +336,7 @@ public class CalciteTests
       final PlannerConfig plannerConfig
   )
   {
-    final DruidNode coordinatorNode = mockCoordinatorNode();
-    FakeDruidNodeDiscoveryProvider provider = mockDruidNodeDiscoveryProvider(coordinatorNode);
-
     final DruidNode overlordNode = new DruidNode("test-overlord", "dummy", false, 8090, null, true, false);
-
-    final CoordinatorClient coordinatorClient = new NoopCoordinatorClient()
-    {
-      @Override
-      public ListenableFuture<URI> findCurrentLeader()
-      {
-        try {
-          return Futures.immediateFuture(new URI(coordinatorNode.getHostAndPortToUse()));
-        }
-        catch (URISyntaxException e) {
-          throw new RuntimeException(e);
-        }
-      }
-    };
-
     final OverlordClient overlordClient = new NoopOverlordClient()
     {
       @Override
@@ -398,6 +380,43 @@ public class CalciteTests
             datasource,
             null
         );
+      }
+    };
+
+    return createMockSystemSchemaProvider(
+        segmentMetadataCache,
+        timelineServerView,
+        authorizerMapper,
+        plannerConfig,
+        overlordClient
+    );
+  }
+
+  /**
+   * Creates the standard mock system schema with a caller-provided Overlord client.
+   */
+  public static SystemSchemaProvider createMockSystemSchemaProvider(
+      final BrokerSegmentMetadataCache segmentMetadataCache,
+      final TimelineServerView timelineServerView,
+      final AuthorizerMapper authorizerMapper,
+      final PlannerConfig plannerConfig,
+      final OverlordClient overlordClient
+  )
+  {
+    final DruidNode coordinatorNode = mockCoordinatorNode();
+    final FakeDruidNodeDiscoveryProvider provider = mockDruidNodeDiscoveryProvider(coordinatorNode);
+
+    final CoordinatorClient coordinatorClient = new NoopCoordinatorClient()
+    {
+      @Override
+      public ListenableFuture<URI> findCurrentLeader()
+      {
+        try {
+          return Futures.immediateFuture(new URI(coordinatorNode.getHostAndPortToUse()));
+        }
+        catch (URISyntaxException e) {
+          throw new RuntimeException(e);
+        }
       }
     };
 

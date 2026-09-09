@@ -58,6 +58,7 @@ import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.math.expr.ExprMacroTable;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.DefaultGenericQueryMetricsFactory;
 import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.GlobalTableDataSource;
@@ -82,6 +83,7 @@ import org.apache.druid.quidem.TestSqlModule;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
 import org.apache.druid.segment.realtime.ChatHandlerProvider;
 import org.apache.druid.server.ClientQuerySegmentWalker;
+import org.apache.druid.server.DataSourceQueryHandler;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.LocalQuerySegmentWalker;
 import org.apache.druid.server.QueryLifecycle;
@@ -135,6 +137,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -1025,12 +1028,16 @@ public class SqlTestFramework
 
     @Provides
     @LazySingleton
-    public QueryLifecycleFactory queryLifecycleFactory(final Injector injector)
+    public QueryLifecycleFactory queryLifecycleFactory(
+        final Injector injector,
+        final Map<Class<? extends DataSource>, DataSourceQueryHandler> dataSourceQueryHandlers
+    )
     {
       return QueryFrameworkUtils.createMockQueryLifecycleFactory(
           injector.getInstance(QuerySegmentWalker.class),
           injector.getInstance(QueryRunnerFactoryConglomerate.class),
-          injector.getInstance(AuthorizerMapper.class)
+          injector.getInstance(AuthorizerMapper.class),
+          dataSourceQueryHandlers
       );
     }
 
