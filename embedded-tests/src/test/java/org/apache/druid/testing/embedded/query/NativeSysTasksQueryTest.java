@@ -102,23 +102,6 @@ public class NativeSysTasksQueryTest extends EmbeddedClusterTestBase
     Assertions.assertEquals("5,5,2,5", result);
   }
 
-  /**
-   * Verifies execution when native planning represents the inner aggregation as a query datasource.
-   *
-   * <pre>{@code
-   * SELECT COUNT(*)
-   * FROM
-   * (
-   *   SELECT
-   *     task_id,
-   *     COUNT(*) AS task_count
-   *   FROM sys.tasks
-   *   WHERE datasource IN ('native_sys_a', 'native_sys_b')
-   *   GROUP BY task_id
-   * )
-   * WHERE task_count > 0
-   * }</pre>
-   */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @ValueSource(strings = {
       QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED,
@@ -141,22 +124,6 @@ public class NativeSysTasksQueryTest extends EmbeddedClusterTestBase
     Assertions.assertEquals("5", result);
   }
 
-  /**
-   * Verifies that an outer aggregation can consume grouped rows from a native system-table subquery.
-   *
-   * <pre>{@code
-   * SELECT SUM(task_count)
-   * FROM
-   * (
-   *   SELECT
-   *     datasource,
-   *     COUNT(*) AS task_count
-   *   FROM sys.tasks
-   *   WHERE datasource IN ('native_sys_a', 'native_sys_b')
-   *   GROUP BY datasource
-   * )
-   * }</pre>
-   */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @ValueSource(strings = {
       QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED,
@@ -209,15 +176,6 @@ public class NativeSysTasksQueryTest extends EmbeddedClusterTestBase
     );
   }
 
-  /**
-   * Verifies that expression virtual columns required by a pushed node filter are preserved.
-   *
-   * <pre>{@code
-   * SELECT task_id
-   * FROM sys.tasks
-   * WHERE UPPER(task_id) = 'NATIVE_SYS_MVP_A_0'
-   * }</pre>
-   */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @ValueSource(strings = {
       QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED,

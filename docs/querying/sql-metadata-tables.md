@@ -175,17 +175,17 @@ After Druid retrieves the system-table rows, the native engine applies the remai
 aggregations, sorting, and result processing. A system table that doesn't advertise native query support continues to
 use its existing SQL-layer execution path, even when `useNativeQueryForSystemTables` is `true`.
 
+The parameter defaults to `false`. During a rolling upgrade, leave it disabled until the Broker and all nodes
+that serve the native system tables have been upgraded. After the upgrade, you can enable it by query or set
+`druid.query.default.context.useNativeQueryForSystemTables=true` on Brokers as the cluster-wide default. For more
+information, see [SQL query context](sql-query-context.md).
+
 Native system-table queries sent to the Router use distributed Broker execution by default. To execute a native
 system-table Scan against only the contacted node, set the HTTP header
 `X-Druid-Native-Query-Route: local`. Local execution uses the authenticated request identity and applies the table's
 authorization rules. The Broker uses the same header for remote node fan-out requests. If the Broker itself is
 one of the selected nodes, it executes that node Scan in-process without an HTTP request. The header
 controls routing and doesn't grant additional permissions.
-
-The parameter defaults to `false`. During a rolling upgrade, leave it disabled until the Broker and all nodes
-that serve the native system tables have been upgraded. After the upgrade, you can enable it by query or set
-`druid.query.default.context.useNativeQueryForSystemTables=true` on Brokers as the cluster-wide default. For more
-information, see [SQL query context](sql-query-context.md).
 
 ### SEGMENTS table
 
