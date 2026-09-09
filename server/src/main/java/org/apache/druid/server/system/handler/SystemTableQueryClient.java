@@ -215,6 +215,8 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
       throw new ISE("No routing descriptor is registered for system table[%s]", dataSource.getTable());
     }
 
+    descriptor.validateQuery(owningQuery);
+
     final ScanQuery nodeQuery = makeNodeQuery(dataSource, descriptor, owningQuery);
     final List<QueryRunner<ScanResultValue>> nodeRunners = makeNodeRunners(
         nodeQuery,

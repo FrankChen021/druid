@@ -87,11 +87,13 @@ public class SystemTableQueryHandler implements DataSourceQueryHandler
     if (descriptor == null) {
       throw new ISE("No descriptor is registered for system table[%s]", dataSource.getTable());
     }
+    descriptor.validateQuery(query);
 
     return (queryPlus, responseContext) -> {
       final Iterable<Object[]> suppliedRows = () -> dataSupplier.getRows(
           SystemTablePushdownFilter.extract(query, dataSupplier.getPushdownFilters()),
-          requestAuthenticationResult
+          requestAuthenticationResult,
+          query.getContext()
       ).iterator();
       final Iterable<Object[]> authorizedRows = descriptor.getRowAuthorizer().filterAuthorizedRows(
           suppliedRows,

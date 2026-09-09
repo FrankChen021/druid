@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class SystemTableQueryHandlerTest
 {
@@ -144,6 +145,81 @@ public class SystemTableQueryHandlerTest
         ),
         result.get(0).getEvents()
     );
+  }
+
+  @Test
+  public void testPassesQueryContextToProvider()
+  {
+    final AtomicReference<Map<String, Object>> queryContext = new AtomicReference<>();
+    final SystemTableDataProvider supplier = new SystemTableDataProvider()
+    {
+      @Override
+      public Iterable<Object[]> getRows(
+          final List<DimFilter> filters,
+          final AuthenticationResult authenticationResult
+      )
+      {
+        return List.<Object[]>of(new Object[]{"task-a", 10L});
+      }
+
+      @Override
+      public Iterable<Object[]> getRows(
+          final List<DimFilter> filters,
+          final AuthenticationResult authenticationResult,
+          final Map<String, Object> context
+      )
+      {
+        queryContext.set(context);
+        return getRows(filters, authenticationResult);
+      }
+    };
+    final SystemTableDescriptor descriptor = new SystemTableDescriptor()
+    {
+      @Override
+      public String getTableName()
+      {
+        return "test";
+      }
+
+      @Override
+      public Set<NodeRole> getNodeRoles()
+      {
+        return Set.of();
+      }
+
+      @Override
+      public RowSignature getRowSignature()
+      {
+        return ROW_SIGNATURE;
+      }
+
+      @Override
+      public SystemTableRowAuthorizer getRowAuthorizer()
+      {
+        return (rows, authenticationResult, authorizerMapper) -> rows;
+      }
+    };
+    final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Map.of("test", supplier),
+        Map.of("test", descriptor),
+        new ScanQueryEngine(),
+        new AuthorizerMapper(Map.of())
+    );
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                  .dataSource(new SystemTableDataSource("test"))
+                                  .eternityInterval()
+                                  .columns(ROW_SIGNATURE)
+                                  .context(Map.of("maxStackTraceFrameDepth", 25))
+                                  .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                  .build();
+
+    handler.createRunner(
+        query,
+        new AuthenticationResult("alice", "allow", "external", null),
+        true
+    ).run(QueryPlus.wrap(query), ResponseContext.createEmpty()).toList();
+
+    Assertions.assertEquals(Map.of("maxStackTraceFrameDepth", 25), queryContext.get());
   }
 
 }
