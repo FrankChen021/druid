@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
+import org.apache.druid.query.groupby.orderby.DefaultLimitSpec;
 import org.apache.druid.segment.TestHelper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,9 @@ public class GroupByQueryConfigTest
       .put("maxMergingDictionarySize", "6M")
       .put("bufferGrouperMaxLoadFactor", "7")
       .put("maxSpillFileCount", "123")
+      .put("enablePagedAggregationHashTable", "true")
+      .put("pagedAggregationHashTablePageSize", "8M")
+      .put("pagedAggregationHashTableMaxSize", "64M")
       .build();
 
   @Test
@@ -57,6 +61,9 @@ public class GroupByQueryConfigTest
     Assertions.assertEquals(6_000_000, config.getConfiguredMaxMergingDictionarySize());
     Assertions.assertEquals(7.0, config.getBufferGrouperMaxLoadFactor(), 0.0);
     Assertions.assertFalse(config.isApplyLimitPushDownToSegment());
+    Assertions.assertTrue(config.isPagedAggregationHashTableEnabled());
+    Assertions.assertEquals(8_000_000, config.getPagedAggregationHashTablePageSize());
+    Assertions.assertEquals(64_000_000, config.getPagedAggregationHashTableMaxSize());
   }
 
   @Test
@@ -80,6 +87,7 @@ public class GroupByQueryConfigTest
     Assertions.assertEquals(7.0, config2.getBufferGrouperMaxLoadFactor(), 0.0);
     Assertions.assertEquals(DeferExpressionDimensions.FIXED_WIDTH_NON_NUMERIC, config2.getDeferExpressionDimensions());
     Assertions.assertFalse(config2.isApplyLimitPushDownToSegment());
+    Assertions.assertFalse(config2.isPagedAggregationHashTableEnabled());
   }
 
   @Test
@@ -99,6 +107,8 @@ public class GroupByQueryConfigTest
                                     .put("maxMergingDictionarySize", 4)
                                     .put("maxSpillFileCount", 333)
                                     .put("applyLimitPushDownToSegment", true)
+                                    .put(GroupByQueryConfig.CTX_KEY_USE_PAGED_AGGREGATION_HASH_TABLE, true)
+                                    .put(GroupByQueryConfig.CTX_KEY_PAGED_AGGREGATION_HASH_TABLE_MAX_SIZE, "32M")
                                     .put(
                                         GroupByQueryConfig.CTX_KEY_DEFER_EXPRESSION_DIMENSIONS,
                                         DeferExpressionDimensions.ALWAYS.toString()
@@ -117,6 +127,44 @@ public class GroupByQueryConfigTest
     Assertions.assertEquals(7.0, config2.getBufferGrouperMaxLoadFactor(), 0.0);
     Assertions.assertEquals(DeferExpressionDimensions.ALWAYS, config2.getDeferExpressionDimensions());
     Assertions.assertTrue(config2.isApplyLimitPushDownToSegment());
+    Assertions.assertTrue(config2.isPagedAggregationHashTableEnabled());
+    Assertions.assertEquals(8_000_000, config2.getPagedAggregationHashTablePageSize());
+    Assertions.assertEquals(32_000_000, config2.getPagedAggregationHashTableMaxSize());
+    Assertions.assertTrue(config2.isMergeThreadLocal());
+  }
+
+  @Test
+  public void testQueryCannotEnablePagedAggregationWithoutOperatorGate()
+  {
+    final GroupByQueryConfig config = new GroupByQueryConfig();
+    final GroupByQueryConfig overridden = config.withOverrides(
+        GroupByQuery.builder()
+                    .setDataSource("test")
+                    .setInterval(Intervals.of("2000/P1D"))
+                    .setGranularity(Granularities.ALL)
+                    .setContext(ImmutableMap.of(GroupByQueryConfig.CTX_KEY_USE_PAGED_AGGREGATION_HASH_TABLE, true))
+                    .build()
+    );
+
+    Assertions.assertFalse(overridden.isPagedAggregationHashTableEnabled());
+  }
+
+  @Test
+  public void testLimitPushDownKeepsLegacyConcurrencyPath()
+  {
+    final GroupByQueryConfig config = MAPPER.convertValue(CONFIG_MAP, GroupByQueryConfig.class);
+    final GroupByQueryConfig overridden = config.withOverrides(
+        GroupByQuery.builder()
+                    .setDataSource("test")
+                    .setInterval(Intervals.of("2000/P1D"))
+                    .setGranularity(Granularities.ALL)
+                    .setLimitSpec(DefaultLimitSpec.builder().limit(1).build())
+                    .setContext(ImmutableMap.of(GroupByQueryConfig.CTX_KEY_USE_PAGED_AGGREGATION_HASH_TABLE, true))
+                    .build()
+    );
+
+    Assertions.assertFalse(overridden.isPagedAggregationHashTableEnabled());
+    Assertions.assertFalse(overridden.isMergeThreadLocal());
   }
 
   @Test

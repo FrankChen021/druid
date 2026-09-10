@@ -27,7 +27,7 @@ import org.apache.druid.query.aggregation.AggregatorAdapters;
 
 import java.nio.ByteBuffer;
 
-public abstract class AbstractBufferHashGrouper<KeyType> implements Grouper<KeyType>
+public abstract class AbstractBufferHashGrouper<KeyType> implements SpillableGrouper<KeyType>
 {
   protected static final int HASH_SIZE = Integer.BYTES;
   protected static final Logger log = new Logger(AbstractBufferHashGrouper.class);
@@ -180,6 +180,7 @@ public abstract class AbstractBufferHashGrouper<KeyType> implements Grouper<KeyT
    * This method is implemented to return the highest memory value used, this is helpful especially in
    * reporting the highest number of bytes used throughout the entire query lifecycle.
    */
+  @Override
   public long getMaxMergeBufferUsedBytes()
   {
     return hashTable.getMaxMergeBufferUsedBytes();
@@ -190,6 +191,7 @@ public abstract class AbstractBufferHashGrouper<KeyType> implements Grouper<KeyT
    * The value {@code SpillingGrouper} reports for {@code mergeBuffer/maxSpillProximity}. Preserved across
    * {@link #reset()}; 0.0 if the grouper was never initialized. See {@link ByteBufferHashTable#getMaxSpillProximity()}.
    */
+  @Override
   public double getMaxSpillProximity()
   {
     return hashTable == null ? 0.0 : hashTable.getMaxSpillProximity();

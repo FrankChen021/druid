@@ -19,6 +19,24 @@
 # one word per line, to define a file override use ' - filename'
 # where filename is relative to this configuration file
 BrowserOnly
+P4
+ARM64
+ClickHouse
+JMH
+RSS
+growable
+macOS
+p99
+preallocated
+resize
+rollout
+serde
+single-writer
+spill
+spilled
+1x
+4x
+12x
 docusaurus
 1M
 10MiB
