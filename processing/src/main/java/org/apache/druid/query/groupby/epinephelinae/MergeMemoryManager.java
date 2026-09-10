@@ -62,13 +62,6 @@ public class MergeMemoryManager
     this.backingAllocator = backingAllocator;
     this.pageSize = pageSize;
     this.pagesPerBackingAllocation = backingAllocator.allocationSize() / pageSize;
-    if (pagesPerBackingAllocation == 0) {
-      throw new IAE(
-          "Backing allocation size[%d] is smaller than page size[%d]",
-          backingAllocator.allocationSize(),
-          pageSize
-      );
-    }
   }
 
   public MergeMemoryLease acquireMinimum(
@@ -84,6 +77,15 @@ public class MergeMemoryManager
           queryResourceId,
           minimumPages,
           maximumPages
+      );
+    }
+    if (pagesPerBackingAllocation == 0) {
+      throw new ResourceLimitExceededException(
+          StringUtils.format(
+              "Backing allocation size[%d] is smaller than page size[%d]",
+              backingAllocator.allocationSize(),
+              pageSize
+          )
       );
     }
 

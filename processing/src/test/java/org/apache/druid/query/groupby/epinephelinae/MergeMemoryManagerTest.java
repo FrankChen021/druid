@@ -25,6 +25,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.query.QueryCapacityExceededException;
 import org.apache.druid.query.QueryResourceId;
+import org.apache.druid.query.ResourceLimitExceededException;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
@@ -43,6 +44,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MergeMemoryManagerTest
 {
+  @Test
+  public void testBackingAllocationSmallerThanPageFailsOnlyWhenAcquired()
+  {
+    final DefaultBlockingPool<ByteBuffer> pool = new DefaultBlockingPool<>(
+        () -> ByteBuffer.allocate(8),
+        1
+    );
+    final MergeMemoryManager manager = new MergeMemoryManager(
+        new BlockingPoolMergeMemoryBackingAllocator(pool, 8),
+        16
+    );
+
+    final ResourceLimitExceededException exception = assertThrows(
+        ResourceLimitExceededException.class,
+        () -> manager.acquireMinimum(new QueryResourceId("query"), 1, 1, 0)
+    );
+    assertEquals("Backing allocation size[8] is smaller than page size[16]", exception.getMessage());
+    assertEquals(0, pool.getUsedResourcesCount());
+  }
+
   @Test
   public void testQueriesShareBackingBufferAndReturnItAfterLastLeaseCloses()
   {

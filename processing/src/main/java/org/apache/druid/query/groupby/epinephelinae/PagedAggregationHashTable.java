@@ -27,6 +27,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.query.aggregation.AggregatorAdapters;
 
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -63,7 +64,9 @@ public class PagedAggregationHashTable<KeyType> implements SpillableGrouper<KeyT
   private ByteBuffer[] indexPages = new ByteBuffer[0];
   private ByteBuffer[] payloadPages = new ByteBuffer[0];
   private ByteBuffer[] payloadComparisonViews = new ByteBuffer[0];
+  @Nullable
   private ByteBuffer firstIndexPage;
+  @Nullable
   private ByteBuffer firstPayloadPage;
   private int allocatedIndexPageCount;
   private int allocatedPayloadPageCount;
