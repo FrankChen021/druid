@@ -19,13 +19,18 @@
 
 package org.apache.druid.sql.calcite.rule.logical;
 
+import org.apache.calcite.plan.RelOptRuleCall;
+import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTrait;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.convert.ConverterRule;
 import org.apache.calcite.rel.logical.LogicalTableScan;
+import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.rel.logical.DruidLogicalConvention;
 import org.apache.druid.sql.calcite.rel.logical.DruidTableScan;
+import org.apache.druid.sql.calcite.schema.SystemSchema;
+import org.apache.druid.sql.calcite.table.DruidTable;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
@@ -33,20 +38,40 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  */
 public class DruidTableScanRule extends ConverterRule
 {
-  public DruidTableScanRule(Class<? extends RelNode> clazz, RelTrait in, RelTrait out, String descriptionPrefix)
+  private final PlannerContext plannerContext;
+
+  public DruidTableScanRule(
+      final Class<? extends RelNode> clazz,
+      final RelTrait in,
+      final RelTrait out,
+      final String descriptionPrefix,
+      final PlannerContext plannerContext
+  )
   {
     super(
         Config.INSTANCE
             .withConversion(clazz, in, out, descriptionPrefix)
     );
+    this.plannerContext = plannerContext;
+  }
+
+  @Override
+  public boolean matches(final RelOptRuleCall call)
+  {
+    final LogicalTableScan tableScan = call.rel(0);
+    final RelOptTable table = tableScan.getTable();
+    final DruidTable druidTable = table.unwrap(DruidTable.class);
+
+    // Native-only system tables must not enter the Druid logical convention unless native planning is enabled.
+    return druidTable != null || SystemSchema.canUseNativeSystemTable(table, plannerContext);
   }
 
   @Override
   public @Nullable RelNode convert(RelNode rel)
   {
-    LogicalTableScan tableScan = (LogicalTableScan) rel;
-    RelTraitSet newTrait = tableScan.getTraitSet().replace(DruidLogicalConvention.instance());
-    DruidTableScan druidTableScan = new DruidTableScan(
+    final LogicalTableScan tableScan = (LogicalTableScan) rel;
+    final RelTraitSet newTrait = tableScan.getTraitSet().replace(DruidLogicalConvention.instance());
+    final DruidTableScan druidTableScan = new DruidTableScan(
         tableScan.getCluster(),
         newTrait,
         tableScan.getTable()

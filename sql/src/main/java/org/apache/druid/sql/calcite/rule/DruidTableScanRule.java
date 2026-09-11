@@ -44,8 +44,8 @@ public class DruidTableScanRule extends RelOptRule
     final LogicalTableScan scan = call.rel(0);
     final RelOptTable table = scan.getTable();
     DruidTable druidTable = table.unwrap(DruidTable.class);
-    if (druidTable == null) {
-      // QueryHandler has already selected native planning, so only resolve the advertised native representation here.
+    if (druidTable == null && SystemSchema.canUseNativeSystemTable(table, plannerContext)) {
+      // Only resolve the advertised native representation after native system-table planning has been selected.
       druidTable = SystemSchema.getNativeSystemTable(table);
     }
     if (druidTable != null) {
