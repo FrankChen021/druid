@@ -44,6 +44,15 @@ public class SystemTableDataProviderTest
     Assertions.assertFalse(serverProperties.isJoinable());
     Assertions.assertFalse(serverProperties.isBroadcast());
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, serverProperties.getJdbcTableType());
+
+    final NativeQueriesTable queries = new NativeQueriesTable();
+    Assertions.assertEquals(
+        "queries",
+        ((SystemTableDataSource) queries.getDataSource()).getTable()
+    );
+    Assertions.assertFalse(queries.isJoinable());
+    Assertions.assertFalse(queries.isBroadcast());
+    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, queries.getJdbcTableType());
   }
 
   @Test

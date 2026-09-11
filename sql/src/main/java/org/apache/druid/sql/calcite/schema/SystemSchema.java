@@ -74,6 +74,7 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.QueriesTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
@@ -256,13 +257,7 @@ public class SystemSchema extends AbstractTableSchema
       .add("spec", ColumnType.STRING)
       .build();
 
-  static final RowSignature QUERIES_SIGNATURE = RowSignature
-      .builder()
-      .add("id", ColumnType.STRING)
-      .add("engine", ColumnType.STRING)
-      .add("state", ColumnType.STRING)
-      .add("info", ColumnType.STRING)
-      .build();
+  static final RowSignature QUERIES_SIGNATURE = QueriesTableDescriptor.ROW_SIGNATURE;
 
   /**
    * Index of the "info" column in {@link #QUERIES_SIGNATURE}. Used for projection pushdown.
@@ -1330,7 +1325,7 @@ public class SystemSchema extends AbstractTableSchema
    * This table contains currently running and recently completed queries from all SQL engines.
    * Enabled based on {@link PlannerConfig#isEnableSysQueriesTable()}.
    */
-  static class QueriesTable extends AbstractTable implements ProjectableFilterableTable
+  static class QueriesTable extends AbstractTable implements ProjectableFilterableTable, NativeSystemTable
   {
     private final Provider<SqlEngineRegistry> sqlEngineRegistryProvider;
     private final ObjectMapper jsonMapper;
@@ -1360,6 +1355,12 @@ public class SystemSchema extends AbstractTableSchema
     public TableType getJdbcTableType()
     {
       return TableType.SYSTEM_TABLE;
+    }
+
+    @Override
+    public NativeQueriesTable asNativeTable()
+    {
+      return new NativeQueriesTable();
     }
 
     @Override

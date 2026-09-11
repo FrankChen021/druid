@@ -2266,12 +2266,20 @@ public class SystemSchemaTest extends CalciteTestBase
     Assertions.assertEquals("native", rows.get(0)[1]);
     Assertions.assertEquals("RUNNING", rows.get(0)[2]);
     Assertions.assertNotNull(rows.get(0)[3]); // info should be serialized JSON
+    Assertions.assertNull(rows.get(0)[4]);
+    Assertions.assertNull(rows.get(0)[5]);
+    Assertions.assertNull(rows.get(0)[6]);
+    Assertions.assertNull(rows.get(0)[7]);
 
     // Verify second row
     Assertions.assertEquals("query-2", rows.get(1)[0]);
     Assertions.assertEquals("native", rows.get(1)[1]);
     Assertions.assertEquals("COMPLETED", rows.get(1)[2]);
     Assertions.assertNotNull(rows.get(1)[3]); // info should be serialized JSON
+    Assertions.assertNull(rows.get(1)[4]);
+    Assertions.assertNull(rows.get(1)[5]);
+    Assertions.assertNull(rows.get(1)[6]);
+    Assertions.assertNull(rows.get(1)[7]);
 
     // Verify value types
     verifyTypes(rows, SystemSchema.QUERIES_SIGNATURE);

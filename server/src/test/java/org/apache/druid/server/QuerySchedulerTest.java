@@ -119,6 +119,46 @@ public class QuerySchedulerTest
     Assertions.assertTrue(future.isCancelled());
   }
 
+  @Test
+  public void testRunningQueryInfoTracksUniqueQueriesUntilTheirLastFutureCompletes()
+  {
+    final Query<?> query = GroupByQuery.builder()
+                                       .setDataSource("foo")
+                                       .setInterval("2000/2001")
+                                       .setGranularity(Granularities.ALL)
+                                       .setContext(
+                                           Map.of(
+                                               "queryId", "native-query",
+                                               "sqlQueryId", "sql-query"
+                                           )
+                                       )
+                                       .build();
+    final SettableFuture<Object> firstFuture = SettableFuture.create();
+    final SettableFuture<Object> secondFuture = SettableFuture.create();
+
+    scheduler.registerQueryFuture(query, firstFuture);
+    scheduler.registerQueryFuture(query, secondFuture);
+
+    Assertions.assertEquals(
+        List.of(
+            new QueryScheduler.RegisteredQueryInfo(
+                "native-query",
+                "sql-query",
+                null,
+                "groupBy",
+                Set.of("foo"),
+                null
+            )
+        ),
+        scheduler.getRunningQueryInfo()
+    );
+
+    firstFuture.set(null);
+    Assertions.assertEquals(1, scheduler.getRunningQueryInfo().size());
+    secondFuture.set(null);
+    Assertions.assertTrue(scheduler.getRunningQueryInfo().isEmpty());
+  }
+
   @BeforeEach
   public void setup()
   {
