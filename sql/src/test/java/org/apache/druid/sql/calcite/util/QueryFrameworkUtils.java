@@ -25,6 +25,7 @@ import com.google.inject.Injector;
 import org.apache.calcite.avatica.remote.TypedValue;
 import org.apache.druid.client.InternalQueryConfig;
 import org.apache.druid.client.TimelineServerView;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.DefaultGenericQueryMetricsFactory;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.GlobalTableDataSource;
@@ -35,6 +36,7 @@ import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.segment.join.JoinableFactory;
 import org.apache.druid.segment.loading.SegmentCacheManager;
 import org.apache.druid.segment.metadata.CentralizedDatasourceSchemaConfig;
+import org.apache.druid.server.DataSourceQueryHandler;
 import org.apache.druid.server.QueryLifecycleFactory;
 import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.SegmentManager;
@@ -87,6 +89,16 @@ public class QueryFrameworkUtils
       final AuthorizerMapper authorizerMapper
   )
   {
+    return createMockQueryLifecycleFactory(walker, conglomerate, authorizerMapper, Map.of());
+  }
+
+  public static QueryLifecycleFactory createMockQueryLifecycleFactory(
+      final QuerySegmentWalker walker,
+      final QueryRunnerFactoryConglomerate conglomerate,
+      final AuthorizerMapper authorizerMapper,
+      final Map<Class<? extends DataSource>, DataSourceQueryHandler> dataSourceQueryHandlers
+  )
+  {
     return new QueryLifecycleFactory(
         conglomerate,
         walker,
@@ -97,6 +109,7 @@ public class QueryFrameworkUtils
         NoopPolicyEnforcer.instance(),
         authorizerMapper,
         new DefaultQueryConfig(Map.of()),
+        dataSourceQueryHandlers,
         null  // BrokerConfigManager - null for tests
     );
   }
