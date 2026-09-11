@@ -68,7 +68,16 @@ public class TasksTableDataProviderTest
 
     final List<SystemTablePushdownFilter> filters = dataProvider(taskQueryTool).getPushdownFilters();
 
-    Assertions.assertEquals(6, filters.size());
+    Assertions.assertEquals(
+        List.of(
+            new SystemTablePushdownFilter("task_id", "id"),
+            new SystemTablePushdownFilter("group_id", null),
+            new SystemTablePushdownFilter("type", null),
+            new SystemTablePushdownFilter("datasource", null),
+            new SystemTablePushdownFilter("status", null)
+        ),
+        filters
+    );
   }
 
   @Test
@@ -275,14 +284,13 @@ public class TasksTableDataProviderTest
     final List<DimFilter> extracted = extract(query);
     final TaskStorageQueryFilter pushdownFilters = new TaskStorageQueryFilter(extracted);
 
-    Assertions.assertEquals(7, extracted.size());
+    Assertions.assertEquals(5, extracted.size());
     Assertions.assertEquals("id", pushdownFilters.getStringValuesColumn(extracted.get(0)));
     Assertions.assertEquals(Set.of("task-a", "task-b"), pushdownFilters.getStringValues(extracted.get(0)));
     Assertions.assertEquals(Set.of("group-a"), pushdownFilters.getStringValues(extracted.get(1)));
     Assertions.assertEquals(Set.of("noop"), pushdownFilters.getStringValues(extracted.get(2)));
     Assertions.assertEquals(Set.of("native_sys_a"), pushdownFilters.getStringValues(extracted.get(3)));
-    Assertions.assertEquals("created_date", pushdownFilters.getStringValuesColumn(extracted.get(4)));
-    Assertions.assertEquals("created_date", ((RangeFilter) extracted.get(5)).getColumn());
+    Assertions.assertEquals("status", ((SelectorDimFilter) extracted.get(4)).getDimension());
     Assertions.assertFalse(pushdownFilters.includesActiveTasks());
     Assertions.assertTrue(pushdownFilters.includesCompleteTasks());
   }

@@ -42,7 +42,6 @@ public class TasksTableDataProvider implements SystemTableDataProvider
       new SystemTablePushdownFilter("group_id", null),
       new SystemTablePushdownFilter("type", null),
       new SystemTablePushdownFilter("datasource", null),
-      new SystemTablePushdownFilter("created_time", "created_date"),
       new SystemTablePushdownFilter("status", null)
   );
   private static final List<SystemTablePushdownFilter> STATUS_PUSHDOWN_FILTERS = List.of(
