@@ -71,7 +71,8 @@ public class SupervisorsTableDataProviderTest
             "noop",
             "noop",
             0L,
-            TestHelper.makeJsonMapper().writeValueAsString(supervisorA)
+            TestHelper.makeJsonMapper().writeValueAsString(supervisorA),
+            List.of("datasource-a")
         },
         rows.get(0)
     );

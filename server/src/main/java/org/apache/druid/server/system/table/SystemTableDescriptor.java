@@ -44,6 +44,22 @@ public interface SystemTableDescriptor
 
   RowSignature getRowSignature();
 
+  /**
+   * Returns the signature used to transport rows from serving nodes to the Broker. This may append internal columns
+   * needed for Broker-side authorization; such columns are not part of the SQL table returned by
+   * {@link #getRowSignature()}.
+   */
+  default RowSignature getTransportRowSignature()
+  {
+    return getRowSignature();
+  }
+
+  /** Converts an authorized transport row to the public row described by {@link #getRowSignature()}. */
+  default Object[] toPublicRow(final Object[] transportRow)
+  {
+    return transportRow;
+  }
+
   SystemTableRowAuthorizer getRowAuthorizer();
 
   /** Whether an empty discovery result represents an empty table instead of unavailable infrastructure. */

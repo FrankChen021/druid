@@ -20,19 +20,24 @@
 package org.apache.druid.server.system.table;
 
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.server.security.ResourceAction;
 
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 
 /** Descriptor for the native {@code sys.supervisors} table. */
 public class SupervisorTableDescriptor implements SystemTableDescriptor
 {
   public static final String TABLE_NAME = "supervisors";
+  static final String AUTHORIZATION_DATASOURCES_COLUMN = "__system_table_authorization_datasources";
   public static final RowSignature ROW_SIGNATURE = RowSignature
       .builder()
       .add("supervisor_id", ColumnType.STRING)
@@ -45,9 +50,15 @@ public class SupervisorTableDescriptor implements SystemTableDescriptor
       .add("suspended", ColumnType.LONG)
       .add("spec", ColumnType.STRING)
       .build();
+  private static final RowSignature TRANSPORT_ROW_SIGNATURE = RowSignature
+      .builder()
+      .addAll(ROW_SIGNATURE)
+      .add(AUTHORIZATION_DATASOURCES_COLUMN, ColumnType.STRING_ARRAY)
+      .build();
 
   private static final Set<NodeRole> NODE_ROLES = Set.of(NodeRole.OVERLORD);
-  private static final int DATASOURCE_COLUMN = ROW_SIGNATURE.indexOf("datasource");
+  private static final int AUTHORIZATION_DATASOURCES_COLUMN_INDEX =
+      TRANSPORT_ROW_SIGNATURE.indexOf(AUTHORIZATION_DATASOURCES_COLUMN);
   private static final SystemTableRowAuthorizer ROW_AUTHORIZER = new SystemTableRowAuthorizer()
   {
     @Override
@@ -60,9 +71,7 @@ public class SupervisorTableDescriptor implements SystemTableDescriptor
       return AuthorizationUtils.filterAuthorizedResources(
           authenticationResult,
           rows,
-          row -> Collections.singletonList(
-              AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply((String) row[DATASOURCE_COLUMN])
-          ),
+          SupervisorTableDescriptor::datasourceReadActions,
           authorizerMapper
       );
     }
@@ -93,8 +102,42 @@ public class SupervisorTableDescriptor implements SystemTableDescriptor
   }
 
   @Override
+  public RowSignature getTransportRowSignature()
+  {
+    return TRANSPORT_ROW_SIGNATURE;
+  }
+
+  @Override
+  public Object[] toPublicRow(final Object[] transportRow)
+  {
+    return Arrays.copyOf(transportRow, ROW_SIGNATURE.size());
+  }
+
+  @Override
   public SystemTableRowAuthorizer getRowAuthorizer()
   {
     return ROW_AUTHORIZER;
+  }
+
+  private static Iterable<ResourceAction> datasourceReadActions(final Object[] row)
+  {
+    final Object datasources = row[AUTHORIZATION_DATASOURCES_COLUMN_INDEX];
+    if (datasources == null) {
+      return null;
+    }
+
+    final List<ResourceAction> resourceActions = new ArrayList<>();
+    if (datasources instanceof Iterable<?> iterable) {
+      for (final Object datasource : iterable) {
+        resourceActions.add(AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply(String.class.cast(datasource)));
+      }
+    } else if (datasources instanceof Object[] array) {
+      for (final Object datasource : array) {
+        resourceActions.add(AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply(String.class.cast(datasource)));
+      }
+    } else {
+      throw new ISE("Invalid supervisor authorization datasource value of type[%s]", datasources.getClass());
+    }
+    return resourceActions;
   }
 }

@@ -42,6 +42,14 @@ public class SupervisorTableDescriptorTest
     Assertions.assertEquals(Set.of(NodeRole.OVERLORD), descriptor.getNodeRoles());
     Assertions.assertEquals(SystemTableRoutingMode.LEADER_ONLY, descriptor.getRoutingMode());
     Assertions.assertEquals(SupervisorTableDescriptor.ROW_SIGNATURE, descriptor.getRowSignature());
+    Assertions.assertEquals(
+        SupervisorTableDescriptor.ROW_SIGNATURE.size() + 1,
+        descriptor.getTransportRowSignature().size()
+    );
+    Assertions.assertEquals(
+        SupervisorTableDescriptor.AUTHORIZATION_DATASOURCES_COLUMN,
+        descriptor.getTransportRowSignature().getColumnName(SupervisorTableDescriptor.ROW_SIGNATURE.size())
+    );
   }
 
   @Test
@@ -57,23 +65,42 @@ public class SupervisorTableDescriptorTest
                                                    : Access.deny("denied")
         )
     );
-    final Object[] authorizedRow = row("supervisor-a", "datasource-a");
-    final Object[] deniedRow = row("supervisor-b", "datasource-b");
+    final Object[] authorizedRow = row("supervisor-a", "datasource-a", new Object[]{"datasource-a"});
+    final Object[] deniedRow = row("supervisor-b", "datasource-b", List.of("datasource-b"));
+    final Object[] partlyAuthorizedRow = row(
+        "supervisor-multi",
+        "datasource-a",
+        List.of("datasource-a", "datasource-b")
+    );
+    final Object[] missingSpecRow = row("supervisor-missing", null, null);
 
     final List<Object[]> filteredRows = new ArrayList<>();
     descriptor.getRowAuthorizer()
-              .filterAuthorizedRows(List.of(authorizedRow, deniedRow), authenticationResult, authorizerMapper)
+              .filterAuthorizedRows(
+                  List.of(authorizedRow, deniedRow, partlyAuthorizedRow, missingSpecRow),
+                  authenticationResult,
+                  authorizerMapper
+              )
               .forEach(filteredRows::add);
 
     Assertions.assertEquals(1, filteredRows.size());
     Assertions.assertSame(authorizedRow, filteredRows.get(0));
+    Assertions.assertArrayEquals(
+        new Object[]{"supervisor-a", "datasource-a", null, null, null, null, null, null, null},
+        descriptor.toPublicRow(authorizedRow)
+    );
   }
 
-  private static Object[] row(final String supervisorId, final String datasource)
+  private static Object[] row(
+      final String supervisorId,
+      final String datasource,
+      final Object authorizationDatasources
+  )
   {
-    final Object[] row = new Object[SupervisorTableDescriptor.ROW_SIGNATURE.size()];
+    final Object[] row = new Object[SupervisorTableDescriptor.ROW_SIGNATURE.size() + 1];
     row[SupervisorTableDescriptor.ROW_SIGNATURE.indexOf("supervisor_id")] = supervisorId;
     row[SupervisorTableDescriptor.ROW_SIGNATURE.indexOf("datasource")] = datasource;
+    row[SupervisorTableDescriptor.ROW_SIGNATURE.size()] = authorizationDatasources;
     return row;
   }
 }

@@ -55,6 +55,10 @@ public class SystemTableQueryHandlerTest
                                                                .add("task_id", ColumnType.STRING)
                                                                .add("duration", ColumnType.LONG)
                                                                .build();
+  private static final RowSignature TRANSPORT_ROW_SIGNATURE = RowSignature.builder()
+                                                                         .addAll(ROW_SIGNATURE)
+                                                                         .add("internal", ColumnType.STRING)
+                                                                         .build();
 
   /** A direct local Scan lazily reads provider rows and applies the table descriptor's row authorization. */
   @Test
@@ -178,4 +182,90 @@ public class SystemTableQueryHandlerTest
     );
   }
 
+  @Test
+  public void testTransportColumnsAreReturnedOnlyForInternalRequests()
+  {
+    final SystemTableDataProvider supplier = (filters, authenticationResult) -> List.<Object[]>of(
+        new Object[]{"task-a", 10L, "authorization-metadata"}
+    );
+    final SystemTableDescriptor descriptor = new SystemTableDescriptor()
+    {
+      @Override
+      public String getTableName()
+      {
+        return "test";
+      }
+
+      @Override
+      public Set<NodeRole> getNodeRoles()
+      {
+        return Set.of();
+      }
+
+      @Override
+      public RowSignature getRowSignature()
+      {
+        return ROW_SIGNATURE;
+      }
+
+      @Override
+      public RowSignature getTransportRowSignature()
+      {
+        return TRANSPORT_ROW_SIGNATURE;
+      }
+
+      @Override
+      public Object[] toPublicRow(final Object[] transportRow)
+      {
+        return Arrays.copyOf(transportRow, ROW_SIGNATURE.size());
+      }
+
+      @Override
+      public SystemTableRowAuthorizer getRowAuthorizer()
+      {
+        return (rows, authenticationResult, authorizerMapper) -> rows;
+      }
+    };
+    final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Map.of("test", supplier),
+        Map.of(descriptor.getTableName(), descriptor),
+        new ScanQueryEngine(),
+        new AuthorizerMapper(Map.of())
+    );
+
+    Assertions.assertEquals(
+        List.of("task-a", 10L, "authorization-metadata"),
+        runScan(handler, TRANSPORT_ROW_SIGNATURE, true)
+    );
+    Assertions.assertEquals(
+        List.of("task-a", 10L),
+        runScan(handler, ROW_SIGNATURE, false)
+    );
+  }
+
+  private static List<?> runScan(
+      final SystemTableQueryHandler handler,
+      final RowSignature columns,
+      final boolean executeLocally
+  )
+  {
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                  .dataSource(new SystemTableDataSource("test"))
+                                  .eternityInterval()
+                                  .columns(columns)
+                                  .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                  .build();
+    final QueryRunner<ScanResultValue> runner = handler.createRunner(
+        query,
+        new AuthenticationResult("alice", "allow", "external", null),
+        executeLocally
+    );
+    final List<ScanResultValue> result = runner.run(
+        QueryPlus.wrap(query),
+        ResponseContext.createEmpty()
+    ).toList();
+
+    Assertions.assertEquals(1, result.size());
+    return (List<?>) ((List<?>) result.get(0).getEvents()).get(0);
+  }
 }

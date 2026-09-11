@@ -82,7 +82,17 @@ public class SupervisorsTableDataProvider implements SystemTableDataProvider
     final Set<String> supervisorIds = filterSupervisorIds(manager.getSupervisorIds(), filters);
     final List<Object[]> rows = new ArrayList<>(supervisorIds.size());
     for (final String supervisorId : supervisorIds) {
-      rows.add(toRow(SupervisorStatusMapper.toStatus(objectMapper, manager, supervisorId, false, true)));
+      final Optional<SupervisorStateManager.State> state = manager.getSupervisorState(supervisorId);
+      final Optional<SupervisorSpec> spec = manager.getSupervisorSpec(supervisorId);
+      if (!spec.isPresent()) {
+        continue;
+      }
+      rows.add(
+          toRow(
+              SupervisorStatusMapper.toStatus(objectMapper, supervisorId, state, spec, false, true),
+              spec.get().getDataSources()
+          )
+      );
     }
     return rows;
   }
@@ -111,7 +121,7 @@ public class SupervisorsTableDataProvider implements SystemTableDataProvider
            || filter instanceof OrDimFilter;
   }
 
-  private static Object[] toRow(final SupervisorStatus supervisor)
+  private static Object[] toRow(final SupervisorStatus supervisor, final List<String> authorizationDatasources)
   {
     return new Object[]{
         supervisor.getId(),
@@ -122,7 +132,8 @@ public class SupervisorsTableDataProvider implements SystemTableDataProvider
         supervisor.getType(),
         supervisor.getSource(),
         supervisor.isSuspended() ? 1L : 0L,
-        supervisor.getSpecString()
+        supervisor.getSpecString(),
+        authorizationDatasources
     };
   }
 }

@@ -38,15 +38,32 @@ final class SupervisorStatusMapper
       final boolean includeSystem
   )
   {
+    return toStatus(
+        objectMapper,
+        supervisorId,
+        manager.getSupervisorState(supervisorId),
+        manager.getSupervisorSpec(supervisorId),
+        includeFull,
+        includeSystem
+    );
+  }
+
+  static SupervisorStatus toStatus(
+      final ObjectMapper objectMapper,
+      final String supervisorId,
+      final Optional<SupervisorStateManager.State> state,
+      final Optional<SupervisorSpec> optionalSpec,
+      final boolean includeFull,
+      final boolean includeSystem
+  )
+  {
     final SupervisorStatus.Builder builder = new SupervisorStatus.Builder().withId(supervisorId);
-    final Optional<SupervisorStateManager.State> state = manager.getSupervisorState(supervisorId);
     if (state.isPresent()) {
       builder.withState(state.get().getBasicState().toString())
              .withDetailedState(state.get().toString())
              .withHealthy(state.get().isHealthy());
     }
 
-    final Optional<SupervisorSpec> optionalSpec = manager.getSupervisorSpec(supervisorId);
     if (optionalSpec.isPresent()) {
       final SupervisorSpec spec = optionalSpec.get();
       builder.withDataSource(spec.getDataSources().stream().findFirst().orElse(null));
