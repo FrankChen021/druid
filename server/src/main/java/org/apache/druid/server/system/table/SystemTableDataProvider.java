@@ -20,14 +20,17 @@
 package org.apache.druid.server.system.table;
 
 import jakarta.validation.constraints.NotNull;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.server.security.AuthenticationResult;
 
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 /**
- * Supplies storage-prefiltered rows authorized for the internal caller of one native system table.
+ * Supplies storage-prefiltered rows authorized for the caller of one native system table.
  * The implementation is deployed in related service.
  * For example, the data provider of sys.tasks is deployed in overlord module
  * */
@@ -38,8 +41,47 @@ public interface SystemTableDataProvider
     return Collections.emptyList();
   }
 
+  /**
+   * Returns a query-local datasource over the framework-authorized raw rows, or empty to use the inline-row fallback.
+   * Implementations must derive the returned datasource solely from {@code authorizedRows}; authorization and storage
+   * filter pushdown have already been applied by the framework.
+   */
+  default Optional<DataSource> getAuthorizedDataSource(
+      final SystemTableQueryRequest request,
+      final Iterable<Object[]> authorizedRows
+  )
+  {
+    return Optional.empty();
+  }
+
   Iterable<Object[]> getRows(
       @NotNull List<DimFilter> filters,
-      AuthenticationResult internalAuthenticationResult
+      AuthenticationResult authenticationResult
   );
+
+  /**
+   * Returns full-width rows before any type conversion that can be deferred until column projection. Providers whose
+   * rows already match the descriptor signature can use the default implementation.
+   */
+  default Iterable<Object[]> getRawRows(
+      @NotNull final List<DimFilter> filters,
+      final AuthenticationResult internalAuthenticationResult
+  )
+  {
+    return getRows(filters, internalAuthenticationResult);
+  }
+
+  /** Projects one authorized raw row into the columns requested by the native query. */
+  default Object[] projectRow(final Object[] row, @Nullable final int[] projects)
+  {
+    if (projects == null) {
+      return row;
+    }
+
+    final Object[] projectedRow = new Object[projects.length];
+    for (int i = 0; i < projects.length; i++) {
+      projectedRow[i] = row[projects[i]];
+    }
+    return projectedRow;
+  }
 }

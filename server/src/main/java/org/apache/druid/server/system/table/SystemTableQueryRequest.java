@@ -19,15 +19,18 @@
 
 package org.apache.druid.server.system.table;
 
-/** Defines how the Broker selects nodes that contribute rows to a system table. */
-public enum SystemTableRoutingMode
+import org.apache.druid.segment.column.RowSignature;
+
+import java.util.List;
+
+/** Query-local projection requested from a native system-table provider. */
+public record SystemTableQueryRequest(
+    List<String> columns,
+    RowSignature rowSignature
+)
 {
-  /** Only the node receiving the query contributes its local rows. */
-  LOCAL_ONLY,
-
-  /** Every discovered node for the descriptor's roles contributes an independent set of rows. */
-  ALL_NODES,
-
-  /** Only the current leader for the descriptor's single node role contains authoritative rows. */
-  LEADER_ONLY
+  public SystemTableQueryRequest
+  {
+    columns = List.copyOf(columns);
+  }
 }

@@ -168,6 +168,7 @@ execution:
 
 |Table|Source of rows|
 |-----|--------------|
+|[`sys.segments`](#segments-table)|The Broker that receives the SQL query. It combines that Broker's segment metadata cache with its Coordinator metadata view. Exact equality/`IN` filters on `datasource`, `segment_id`, `start`, `end`, and `version` are applied before matching rows are built; `datasource` also restricts both local metadata views. Native execution does not fan out to other Brokers.|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Filters on `server` and `service_name` can avoid reading properties from nodes that don't match.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
@@ -297,23 +298,23 @@ SELECT * FROM sys.servers;
 
 ### SERVER_SEGMENTS table
 
-SERVER_SEGMENTS is used to join servers with segments table
+SERVER_SEGMENTS maps servers to their loaded segments and datasources.
 
 |Column|Type|Notes|
 |------|-----|-----|
 |server|VARCHAR|Server name in format host:port (Primary key of [servers table](#servers-table))|
 |segment_id|VARCHAR|Segment identifier (Primary key of [segments table](#segments-table))|
+|datasource|VARCHAR|Datasource name|
 
 JOIN between "servers" and "segments" can be used to query the number of segments for a specific datasource,
 grouped by server, example query:
 
 ```sql
-SELECT count(segments.segment_id) as num_segments from sys.segments as segments
-INNER JOIN sys.server_segments as server_segments
-ON segments.segment_id  = server_segments.segment_id
+SELECT count(server_segments.segment_id) as num_segments
+FROM sys.server_segments as server_segments
 INNER JOIN sys.servers as servers
 ON servers.server = server_segments.server
-WHERE segments.datasource = 'wikipedia'
+WHERE server_segments.datasource = 'wikipedia'
 GROUP BY servers.server;
 ```
 

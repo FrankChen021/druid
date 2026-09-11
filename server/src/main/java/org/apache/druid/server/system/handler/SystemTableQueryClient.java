@@ -202,7 +202,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
     return dataSource.withChildren(resolvedChildren);
   }
 
-  private InlineDataSource resolveSystemTableDataSource(
+  private DataSource resolveSystemTableDataSource(
       final SystemTableDataSource dataSource,
       final Query<?> owningQuery,
       final AuthenticationResult authenticationResult,
@@ -216,6 +216,9 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
     }
 
     final ScanQuery nodeQuery = makeNodeQuery(dataSource, descriptor, owningQuery);
+    if (descriptor.getRoutingMode() == SystemTableRoutingMode.LOCAL_ONLY) {
+      return localQueryHandler.resolveDataSource(nodeQuery, authenticationResult);
+    }
     final List<QueryRunner<ScanResultValue>> nodeRunners = makeNodeRunners(
         nodeQuery,
         descriptor,
@@ -270,7 +273,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
                  .limit(Long.MAX_VALUE)
                  .filters(nodeFilter)
                  .virtualColumns(nodeVirtualColumns(dataSource, owningQuery, nodeFilter))
-                 .columns(descriptor.getRowSignature())
+                 .columns(nodeColumns(dataSource, descriptor, owningQuery))
                  .context(nodeContext)
                  .build();
   }
@@ -830,6 +833,27 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
 
   private record NodeQuerySequence(SystemTableNode node, Sequence<ScanResultValue> sequence)
   {
+  }
+
+  private static List<String> nodeColumns(
+      final SystemTableDataSource dataSource,
+      final SystemTableDescriptor descriptor,
+      final Query<?> query
+  )
+  {
+    if (descriptor.getRoutingMode() != SystemTableRoutingMode.LOCAL_ONLY
+        || !dataSource.equals(query.getDataSource())
+        || query.getRequiredColumns() == null) {
+      return descriptor.getRowSignature().getColumnNames();
+    }
+
+    final List<String> columns = descriptor.getRowSignature()
+                                           .getColumnNames()
+                                           .stream()
+                                           .filter(query.getRequiredColumns()::contains)
+                                           .toList();
+    // A count-only query still needs one physical column so the inline cursor retains the source row cardinality.
+    return columns.isEmpty() ? List.of(descriptor.getRowSignature().getColumnName(0)) : columns;
   }
 
   @Nullable
