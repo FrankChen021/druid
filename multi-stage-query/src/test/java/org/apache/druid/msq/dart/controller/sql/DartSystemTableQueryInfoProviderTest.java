@@ -24,12 +24,14 @@ import org.apache.druid.msq.dart.controller.DartControllerRegistry;
 import org.apache.druid.msq.dart.controller.QueryInfoAndReport;
 import org.apache.druid.msq.dart.controller.http.DartQueryInfo;
 import org.apache.druid.segment.TestHelper;
+import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.system.table.SystemTableQueryInfo;
 import org.easymock.EasyMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.StreamSupport;
 
 public class DartSystemTableQueryInfoProviderTest
@@ -70,7 +72,7 @@ public class DartSystemTableQueryInfoProviderTest
     Assertions.assertTrue(row.initialQuery());
     Assertions.assertEquals("broker:8082", row.server());
     Assertions.assertEquals("broker", row.serverType());
-    Assertions.assertTrue(row.info().contains("\"sqlQueryId\":\"sql-1\""));
+    Assertions.assertEquals("sql-1", ((Map<?, ?>) StructuredData.unwrap(row.info())).get("sqlQueryId"));
     EasyMock.verify(registry);
   }
 }

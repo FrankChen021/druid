@@ -90,6 +90,7 @@ import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.join.MapJoinableFactory;
 import org.apache.druid.segment.loading.SegmentCacheManager;
 import org.apache.druid.segment.metadata.CentralizedDatasourceSchemaConfig;
+import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMediumFactory;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryStackTests;
@@ -2265,7 +2266,7 @@ public class SystemSchemaTest extends CalciteTestBase
     Assertions.assertEquals("query-1", rows.get(0)[0]);
     Assertions.assertEquals("native", rows.get(0)[1]);
     Assertions.assertEquals("RUNNING", rows.get(0)[2]);
-    Assertions.assertNotNull(rows.get(0)[3]); // info should be serialized JSON
+    Assertions.assertInstanceOf(StructuredData.class, rows.get(0)[3]);
     Assertions.assertNull(rows.get(0)[4]);
     Assertions.assertNull(rows.get(0)[5]);
     Assertions.assertNull(rows.get(0)[6]);
@@ -2275,7 +2276,7 @@ public class SystemSchemaTest extends CalciteTestBase
     Assertions.assertEquals("query-2", rows.get(1)[0]);
     Assertions.assertEquals("native", rows.get(1)[1]);
     Assertions.assertEquals("COMPLETED", rows.get(1)[2]);
-    Assertions.assertNotNull(rows.get(1)[3]); // info should be serialized JSON
+    Assertions.assertInstanceOf(StructuredData.class, rows.get(1)[3]);
     Assertions.assertNull(rows.get(1)[4]);
     Assertions.assertNull(rows.get(1)[5]);
     Assertions.assertNull(rows.get(1)[6]);
@@ -2530,6 +2531,12 @@ public class SystemSchemaTest extends CalciteTestBase
           case STRING:
             expectedClass = String.class;
             break;
+          case COMPLEX:
+            if (ColumnType.NESTED_DATA.equals(columnType)) {
+              expectedClass = StructuredData.class;
+              break;
+            }
+            throw new IAE("Don't know what class to expect for valueType[%s]", columnType);
           default:
             throw new IAE("Don't know what class to expect for valueType[%s]", columnType);
         }

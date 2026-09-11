@@ -64,6 +64,7 @@ import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.metadata.AvailableSegmentMetadata;
+import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -1389,7 +1390,7 @@ public class SystemSchema extends AbstractTableSchema
         allQueries.addAll(response.getQueries());
       }
 
-      // Determine if we need to serialize the info field (based on projection pushdown)
+      // Determine if we need to build the info field (based on projection pushdown)
       final int[] nonNullProjects = projects == null ? QUERIES_PROJECT_ALL : projects;
       final boolean includeInfo = containsIndex(nonNullProjects, QUERIES_INFO_INDEX);
 
@@ -1416,14 +1417,9 @@ public class SystemSchema extends AbstractTableSchema
       row[1] = queryInfo.engine();
       row[2] = queryInfo.state();
 
-      // Only serialize info if it's in the projection
+      // Only build info if it's in the projection.
       if (includeInfo) {
-        try {
-          row[3] = jsonMapper.writeValueAsString(queryInfo);
-        }
-        catch (JsonProcessingException e) {
-          throw new RuntimeException(e);
-        }
+        row[3] = StructuredData.wrap(jsonMapper.convertValue(queryInfo, Object.class));
       } else {
         row[3] = null;
       }

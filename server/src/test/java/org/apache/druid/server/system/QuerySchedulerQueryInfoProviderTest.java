@@ -21,7 +21,7 @@ package org.apache.druid.server.system;
 
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.query.SystemTableDataSource;
-import org.apache.druid.segment.TestHelper;
+import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.system.table.QuerySchedulerQueryInfoProvider;
@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.StreamSupport;
 
@@ -55,7 +56,6 @@ public class QuerySchedulerQueryInfoProviderTest
     EasyMock.replay(scheduler);
     final QuerySchedulerQueryInfoProvider provider = new QuerySchedulerQueryInfoProvider(
         scheduler,
-        TestHelper.makeJsonMapper(),
         new DruidNode("broker", "localhost", false, 8082, null, true, false),
         Set.of(NodeRole.BROKER)
     );
@@ -67,7 +67,10 @@ public class QuerySchedulerQueryInfoProviderTest
     Assertions.assertTrue(queryInfo.initialQuery());
     Assertions.assertEquals("localhost:8082", queryInfo.server());
     Assertions.assertEquals("broker", queryInfo.serverType());
-    Assertions.assertTrue(queryInfo.info().contains("\"queryType\":\"scan\""));
+    Assertions.assertEquals(
+        Map.of("queryType", "scan", "datasources", Set.of("foo"), "sqlQueryId", "sql-1"),
+        StructuredData.unwrap(queryInfo.info())
+    );
     EasyMock.verify(scheduler);
   }
 
@@ -98,7 +101,6 @@ public class QuerySchedulerQueryInfoProviderTest
     EasyMock.replay(scheduler);
     final QuerySchedulerQueryInfoProvider provider = new QuerySchedulerQueryInfoProvider(
         scheduler,
-        TestHelper.makeJsonMapper(),
         new DruidNode("historical", "localhost", false, 8083, null, true, false),
         Set.of(NodeRole.HISTORICAL)
     );

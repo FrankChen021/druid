@@ -41,7 +41,7 @@ public class QueriesTableDescriptor implements SystemTableDescriptor
       .add("id", ColumnType.STRING)
       .add("engine", ColumnType.STRING)
       .add("state", ColumnType.STRING)
-      .add("info", ColumnType.STRING)
+      .add("info", ColumnType.NESTED_DATA)
       .add("initial_query_id", ColumnType.STRING)
       .add("is_initial_query", ColumnType.LONG)
       .add("server", ColumnType.STRING)

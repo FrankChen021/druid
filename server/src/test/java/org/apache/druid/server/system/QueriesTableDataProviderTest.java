@@ -19,6 +19,7 @@
 
 package org.apache.druid.server.system;
 
+import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.system.table.QueriesTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableQueryInfo;
 import org.apache.druid.server.system.table.SystemTableQueryInfoProvider;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.StreamSupport;
 
@@ -39,7 +41,7 @@ public class QueriesTableDataProviderTest
             "native-1",
             "native",
             "RUNNING",
-            "{\"queryType\":\"scan\"}",
+            StructuredData.wrap(Map.of("queryType", "scan")),
             "sql-1",
             false,
             "historical:8083",
@@ -51,7 +53,7 @@ public class QueriesTableDataProviderTest
             "dart-1",
             "msq-dart",
             "RUNNING",
-            "{}",
+            StructuredData.wrap(Map.of()),
             "sql-1",
             true,
             "broker:8082",
@@ -66,6 +68,7 @@ public class QueriesTableDataProviderTest
     Assertions.assertTrue(
         rows.stream().anyMatch(
             row -> "native-1".equals(row[0])
+                   && StructuredData.wrap(Map.of("queryType", "scan")).equals(row[3])
                    && "sql-1".equals(row[4])
                    && Long.valueOf(0).equals(row[5])
                    && "historical:8083".equals(row[6])

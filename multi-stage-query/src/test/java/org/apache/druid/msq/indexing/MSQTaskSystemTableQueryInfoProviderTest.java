@@ -24,7 +24,7 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.indexing.overlord.TaskMaster;
 import org.apache.druid.indexing.overlord.TaskQueue;
 import org.apache.druid.query.QueryContext;
-import org.apache.druid.segment.TestHelper;
+import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.system.table.SystemTableQueryInfo;
 import org.easymock.EasyMock;
@@ -55,7 +55,6 @@ public class MSQTaskSystemTableQueryInfoProviderTest
     EasyMock.replay(querySpec, controllerTask, taskQueue, taskMaster);
     final MSQTaskSystemTableQueryInfoProvider provider = new MSQTaskSystemTableQueryInfoProvider(
         taskMaster,
-        TestHelper.makeJsonMapper(),
         new DruidNode("overlord", "localhost", false, 8090, null, true, false),
         Set.of(NodeRole.OVERLORD)
     );
@@ -71,6 +70,10 @@ public class MSQTaskSystemTableQueryInfoProviderTest
     Assertions.assertEquals("sql-1", row.initialQueryId());
     Assertions.assertTrue(row.initialQuery());
     Assertions.assertEquals("overlord", row.serverType());
+    Assertions.assertEquals(
+        Map.of("taskId", "query-sql-1", "queryType", MSQControllerTask.TYPE, "datasource", "__query_select"),
+        StructuredData.unwrap(row.info())
+    );
     EasyMock.verify(querySpec, controllerTask, taskQueue, taskMaster);
   }
 
@@ -82,7 +85,6 @@ public class MSQTaskSystemTableQueryInfoProviderTest
     EasyMock.replay(taskMaster);
     final MSQTaskSystemTableQueryInfoProvider provider = new MSQTaskSystemTableQueryInfoProvider(
         taskMaster,
-        TestHelper.makeJsonMapper(),
         new DruidNode("overlord", "localhost", false, 8090, null, true, false),
         Set.of(NodeRole.OVERLORD)
     );

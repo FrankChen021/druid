@@ -19,13 +19,13 @@
 
 package org.apache.druid.msq.dart.controller.sql;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.msq.dart.controller.DartControllerRegistry;
 import org.apache.druid.msq.dart.controller.QueryInfoAndReport;
 import org.apache.druid.msq.dart.controller.http.DartQueryInfo;
+import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.system.table.SystemTableQueryInfo;
 import org.apache.druid.server.system.table.SystemTableQueryInfoProvider;
 
@@ -62,7 +62,7 @@ public class DartSystemTableQueryInfoProvider implements SystemTableQueryInfoPro
               dartQueryInfo.executionId(),
               dartQueryInfo.engine(),
               dartQueryInfo.state(),
-              serializeInfo(dartQueryInfo),
+              StructuredData.wrap(jsonMapper.convertValue(dartQueryInfo, Object.class)),
               dartQueryInfo.getSqlQueryId(),
               true,
               dartQueryInfo.getControllerHost(),
@@ -73,13 +73,4 @@ public class DartSystemTableQueryInfoProvider implements SystemTableQueryInfoPro
     return queryInfo;
   }
 
-  private String serializeInfo(final DartQueryInfo queryInfo)
-  {
-    try {
-      return jsonMapper.writeValueAsString(queryInfo);
-    }
-    catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
-    }
-  }
 }

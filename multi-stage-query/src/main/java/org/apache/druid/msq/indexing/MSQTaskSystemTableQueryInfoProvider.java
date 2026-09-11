@@ -19,18 +19,16 @@
 
 package org.apache.druid.msq.indexing;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.google.inject.Inject;
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.indexing.overlord.TaskMaster;
 import org.apache.druid.indexing.overlord.TaskQueue;
 import org.apache.druid.msq.sql.MSQTaskSqlEngine;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.system.table.SystemTableQueryInfo;
 import org.apache.druid.server.system.table.SystemTableQueryInfoProvider;
@@ -48,20 +46,17 @@ public class MSQTaskSystemTableQueryInfoProvider implements SystemTableQueryInfo
   private static final String RUNNING_STATE = "RUNNING";
 
   private final TaskMaster taskMaster;
-  private final ObjectMapper jsonMapper;
   private final DruidNode selfNode;
   private final Set<NodeRole> selfNodeRoles;
 
   @Inject
   public MSQTaskSystemTableQueryInfoProvider(
       final TaskMaster taskMaster,
-      @Json final ObjectMapper jsonMapper,
       @Self final DruidNode selfNode,
       @Self final Set<NodeRole> selfNodeRoles
   )
   {
     this.taskMaster = taskMaster;
-    this.jsonMapper = jsonMapper;
     this.selfNode = selfNode;
     this.selfNodeRoles = selfNodeRoles;
   }
@@ -88,7 +83,7 @@ public class MSQTaskSystemTableQueryInfoProvider implements SystemTableQueryInfo
               controllerTask.getId(),
               MSQTaskSqlEngine.NAME,
               RUNNING_STATE,
-              serializeInfo(controllerTask),
+              makeInfo(controllerTask),
               initialQueryId,
               true,
               selfNode.getHostAndPortToUse(),
@@ -102,17 +97,12 @@ public class MSQTaskSystemTableQueryInfoProvider implements SystemTableQueryInfo
     return queryInfo;
   }
 
-  private String serializeInfo(final MSQControllerTask controllerTask)
+  private static StructuredData makeInfo(final MSQControllerTask controllerTask)
   {
     final Map<String, Object> info = new LinkedHashMap<>();
     info.put("taskId", controllerTask.getId());
     info.put("queryType", controllerTask.getType());
     info.put("datasource", controllerTask.getDataSource());
-    try {
-      return jsonMapper.writeValueAsString(info);
-    }
-    catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
-    }
+    return StructuredData.wrap(info);
   }
 }

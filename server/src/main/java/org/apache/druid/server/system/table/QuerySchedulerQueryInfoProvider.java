@@ -19,13 +19,11 @@
 
 package org.apache.druid.server.system.table;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryScheduler;
 
@@ -43,20 +41,17 @@ public class QuerySchedulerQueryInfoProvider implements SystemTableQueryInfoProv
   private static final String RUNNING_STATE = "RUNNING";
 
   private final QueryScheduler queryScheduler;
-  private final ObjectMapper jsonMapper;
   private final DruidNode selfNode;
   private final Set<NodeRole> selfNodeRoles;
 
   @Inject
   public QuerySchedulerQueryInfoProvider(
       final QueryScheduler queryScheduler,
-      @Json final ObjectMapper jsonMapper,
       @Self final DruidNode selfNode,
       @Self final Set<NodeRole> selfNodeRoles
   )
   {
     this.queryScheduler = queryScheduler;
-    this.jsonMapper = jsonMapper;
     this.selfNode = selfNode;
     this.selfNodeRoles = selfNodeRoles;
   }
@@ -81,7 +76,7 @@ public class QuerySchedulerQueryInfoProvider implements SystemTableQueryInfoProv
               registeredQuery.id(),
               NATIVE_ENGINE,
               RUNNING_STATE,
-              serializeInfo(registeredQuery),
+              makeInfo(registeredQuery),
               initialQueryId,
               isInitialQuery,
               selfNode.getHostAndPortToUse(),
@@ -95,7 +90,7 @@ public class QuerySchedulerQueryInfoProvider implements SystemTableQueryInfoProv
     return queryInfo;
   }
 
-  private String serializeInfo(final QueryScheduler.RegisteredQueryInfo queryInfo)
+  private static StructuredData makeInfo(final QueryScheduler.RegisteredQueryInfo queryInfo)
   {
     final Map<String, Object> info = new LinkedHashMap<>();
     info.put("queryType", queryInfo.queryType());
@@ -109,11 +104,6 @@ public class QuerySchedulerQueryInfoProvider implements SystemTableQueryInfoProv
     if (queryInfo.dartQueryId() != null) {
       info.put("dartQueryId", queryInfo.dartQueryId());
     }
-    try {
-      return jsonMapper.writeValueAsString(info);
-    }
-    catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
-    }
+    return StructuredData.wrap(info);
   }
 }

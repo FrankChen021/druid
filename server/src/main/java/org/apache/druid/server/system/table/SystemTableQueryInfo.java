@@ -19,6 +19,8 @@
 
 package org.apache.druid.server.system.table;
 
+import org.apache.druid.segment.nested.StructuredData;
+
 import javax.annotation.Nullable;
 
 /** A node-local query execution exposed through the native {@code sys.queries} table. */
@@ -26,7 +28,7 @@ public record SystemTableQueryInfo(
     String id,
     String engine,
     String state,
-    @Nullable String info,
+    @Nullable StructuredData info,
     String initialQueryId,
     boolean initialQuery,
     String server,
