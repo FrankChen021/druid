@@ -19,6 +19,7 @@
 
 package org.apache.druid.server.system.handler;
 
+import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 import org.apache.druid.client.DirectDruidClient;
 import org.apache.druid.java.util.common.ISE;
@@ -103,11 +104,16 @@ public class SystemTableQueryHandler implements DataSourceQueryHandler
           requestAuthenticationResult,
           authorizerMapper
       );
+      final Iterable<Object[]> resultRows = executeLocally
+                                            ? authorizedRows
+                                            : Iterables.transform(authorizedRows, descriptor::toPublicRow);
       final ScanQuery resolvedQuery = Druids.ScanQueryBuilder.copy((ScanQuery) query)
                                                        .dataSource(
                                                            InlineDataSource.fromIterable(
-                                                               authorizedRows,
-                                                               descriptor.getRowSignature()
+                                                               resultRows,
+                                                               executeLocally
+                                                               ? descriptor.getTransportRowSignature()
+                                                               : descriptor.getRowSignature()
                                                            )
                                                        )
                                                        .build();

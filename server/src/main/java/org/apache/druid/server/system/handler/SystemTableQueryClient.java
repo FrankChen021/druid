@@ -245,9 +245,10 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
         authenticationResult,
         authorizerMapper
     );
+    final Iterable<Object[]> publicRows = Iterables.transform(authorizedRows, descriptor::toPublicRow);
     final Iterable<Object[]> queryRows = requiresMaterializedRows(owningQuery)
-                                         ? materializeRows(authorizedRows)
-                                         : authorizedRows;
+                                         ? materializeRows(publicRows)
+                                         : publicRows;
     return InlineDataSource.fromIterable(queryRows, descriptor.getRowSignature());
   }
 
@@ -270,7 +271,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
                  .limit(Long.MAX_VALUE)
                  .filters(nodeFilter)
                  .virtualColumns(nodeVirtualColumns(dataSource, owningQuery, nodeFilter))
-                 .columns(descriptor.getRowSignature())
+                 .columns(descriptor.getTransportRowSignature())
                  .context(nodeContext)
                  .build();
   }
