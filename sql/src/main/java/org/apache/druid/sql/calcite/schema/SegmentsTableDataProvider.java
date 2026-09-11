@@ -48,12 +48,15 @@ import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.SegmentStatusInCluster;
 
 import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
 /** Native row supplier for {@code sys.segments}. */
@@ -79,7 +82,11 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
       }
   );
   private static final List<SystemTablePushdownFilter> PUSHDOWN_FILTERS = List.of(
-      new SystemTablePushdownFilter("datasource", null)
+      new SystemTablePushdownFilter("datasource", null),
+      new SystemTablePushdownFilter("segment_id", null),
+      new SystemTablePushdownFilter("start", null),
+      new SystemTablePushdownFilter("end", null),
+      new SystemTablePushdownFilter("version", null)
   );
 
   private final Provider<BrokerSegmentMetadataCache> segmentMetadataCacheProvider;
@@ -139,8 +146,14 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
       final AuthenticationResult internalAuthenticationResult
   )
   {
+    final Map<String, Set<String>> stringFilters = getStringFilters(filters);
     return Iterables.filter(
-        getRawRows(segmentMetadataCacheProvider.get(), metadataView, getDataSourceFilter(filters)),
+        getRawRows(
+            segmentMetadataCacheProvider.get(),
+            metadataView,
+            stringFilters.get("datasource"),
+            segment -> matchesStringFilters(segment, stringFilters)
+        ),
         Objects::nonNull
     );
   }
@@ -158,6 +171,16 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
       @Nullable final Set<String> dataSourceFilter
   )
   {
+    return getRawRows(segmentMetadataCache, metadataView, dataSourceFilter, segment -> true);
+  }
+
+  private static Iterable<Object[]> getRawRows(
+      final BrokerSegmentMetadataCache segmentMetadataCache,
+      final MetadataSegmentView metadataView,
+      @Nullable final Set<String> dataSourceFilter,
+      final Predicate<DataSegment> segmentFilter
+  )
+  {
     final Set<SegmentId> segmentsAlreadySeen = dataSourceFilter == null
                                                 ? Sets.newHashSetWithExpectedSize(
                                                     segmentMetadataCache.getTotalSegments()
@@ -167,6 +190,7 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
     final Iterator<SegmentStatusInCluster> metadataStoreSegments = metadataView.getSegments(dataSourceFilter);
     final FluentIterable<Object[]> publishedSegments = FluentIterable
         .from(() -> metadataStoreSegments)
+        .filter(val -> segmentFilter.test(val.getDataSegment()))
         .transform(val -> {
           final DataSegment segment = val.getDataSegment();
           final AvailableSegmentMetadata availableSegmentMetadata =
@@ -221,6 +245,7 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
 
     final FluentIterable<Object[]> availableSegments = FluentIterable
         .from(() -> segmentMetadataCache.iterateSegmentMetadata(dataSourceFilter))
+        .filter(val -> segmentFilter.test(val.getSegment()))
         .transform(val -> {
           final DataSegment segment = val.getSegment();
           if (segmentsAlreadySeen.contains(segment.getId())) {
@@ -286,17 +311,39 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
     return projectedRow;
   }
 
-  @Nullable
-  private static Set<String> getDataSourceFilter(final List<DimFilter> filters)
+  private static Map<String, Set<String>> getStringFilters(final List<DimFilter> filters)
   {
-    Set<String> result = null;
+    final Map<String, Set<String>> result = new HashMap<>();
     for (final DimFilter filter : filters) {
-      if (isStringValuesFilter(filter) && "datasource".equals(SystemTablePushdownFilter.getStringValuesColumn(filter))) {
+      if (isStringValuesFilter(filter)) {
+        final String column = SystemTablePushdownFilter.getStringValuesColumn(filter);
         final Set<String> values = SystemTablePushdownFilter.getStringValues(filter);
-        result = result == null ? values : Sets.intersection(result, values).immutableCopy();
+        result.compute(
+            column,
+            (ignored, currentValues) -> currentValues == null
+                                        ? values
+                                        : Sets.intersection(currentValues, values).immutableCopy()
+        );
       }
     }
     return result;
+  }
+
+  private static boolean matchesStringFilters(
+      final DataSegment segment,
+      final Map<String, Set<String>> filters
+  )
+  {
+    return matches(filters.get("datasource"), segment.getDataSource())
+           && matches(filters.get("segment_id"), segment.getId().toString())
+           && matches(filters.get("start"), segment.getInterval().getStart().toString())
+           && matches(filters.get("end"), segment.getInterval().getEnd().toString())
+           && matches(filters.get("version"), segment.getVersion());
+  }
+
+  private static boolean matches(@Nullable final Set<String> acceptedValues, final String value)
+  {
+    return acceptedValues == null || acceptedValues.contains(value);
   }
 
   private static boolean isStringValuesFilter(final DimFilter filter)

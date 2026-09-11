@@ -29,24 +29,42 @@ import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.segment.metadata.AvailableSegmentMetadata;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.system.table.SegmentsTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableQueryRequest;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
+import org.apache.druid.timeline.SegmentStatusInCluster;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class SegmentsTableDataProviderTest
 {
   private static final AuthenticationResult AUTHENTICATION_RESULT =
       new AuthenticationResult("test-user", AuthConfig.ALLOW_ALL_NAME, null, null);
+
+  @Test
+  public void testPushdownFilters()
+  {
+    final SegmentsTableDataProvider provider = new SegmentsTableDataProvider(
+        () -> Mockito.mock(BrokerSegmentMetadataCache.class),
+        Mockito.mock(MetadataSegmentView.class),
+        new DefaultObjectMapper()
+    );
+
+    Assertions.assertEquals(
+        List.of("datasource", "segment_id", "start", "end", "version"),
+        provider.getPushdownFilters().stream().map(filter -> filter.key()).toList()
+    );
+  }
 
   @Test
   public void testDatasourceFilterIsPushedIntoBothLocalViews()
@@ -67,6 +85,84 @@ public class SegmentsTableDataProviderTest
     Mockito.verify(metadataView).getSegments(Set.of("foo"));
     Mockito.verify(metadataCache).iterateSegmentMetadata(Set.of("foo"));
     Mockito.verify(metadataCache, Mockito.never()).getTotalSegments();
+  }
+
+  @Test
+  public void testExactSegmentFieldsAreFilteredBeforeRowsAreBuilt()
+  {
+    final DataSegment matchingSegment = DataSegment.builder(
+        SegmentId.of("foo", Intervals.of("2000/2001"), "v1", null)
+    ).build();
+    final DataSegment otherSegment = DataSegment.builder(
+        SegmentId.of("foo", Intervals.of("2001/2002"), "v2", null)
+    ).build();
+    final List<SegmentStatusInCluster> segments = List.of(
+        new SegmentStatusInCluster(matchingSegment, false, 1, 10L, false),
+        new SegmentStatusInCluster(otherSegment, false, 1, 10L, false)
+    );
+    final BrokerSegmentMetadataCache metadataCache = Mockito.mock(BrokerSegmentMetadataCache.class);
+    final MetadataSegmentView metadataView = Mockito.mock(MetadataSegmentView.class);
+    Mockito.when(metadataView.getSegments((Set<String>) null)).thenAnswer(ignored -> segments.iterator());
+    Mockito.when(metadataCache.iterateSegmentMetadata(null)).thenAnswer(ignored -> Collections.emptyIterator());
+    Mockito.when(metadataCache.getTotalSegments()).thenReturn(segments.size());
+
+    final SegmentsTableDataProvider provider = new SegmentsTableDataProvider(
+        () -> metadataCache,
+        metadataView,
+        new DefaultObjectMapper()
+    );
+    final Map<String, String> filters = Map.of(
+        "segment_id", matchingSegment.getId().toString(),
+        "start", matchingSegment.getInterval().getStart().toString(),
+        "end", matchingSegment.getInterval().getEnd().toString(),
+        "version", matchingSegment.getVersion()
+    );
+
+    for (final Map.Entry<String, String> filter : filters.entrySet()) {
+      final List<Object[]> rows = toRows(
+          provider.getRows(
+              List.of(new SelectorDimFilter(filter.getKey(), filter.getValue(), null)),
+              AUTHENTICATION_RESULT
+          )
+      );
+      Assertions.assertEquals(1, rows.size(), filter.getKey());
+      Assertions.assertEquals(matchingSegment.getId().toString(), rows.get(0)[0], filter.getKey());
+    }
+  }
+
+  @Test
+  public void testExactSegmentFieldsFilterAvailableSegments()
+  {
+    final DataSegment matchingSegment = DataSegment.builder(
+        SegmentId.of("foo", Intervals.of("2000/2001"), "v1", null)
+    ).build();
+    final DataSegment otherSegment = DataSegment.builder(
+        SegmentId.of("foo", Intervals.of("2001/2002"), "v2", null)
+    ).build();
+    final List<AvailableSegmentMetadata> segments = List.of(
+        AvailableSegmentMetadata.builder(matchingSegment, 0, Collections.emptySet(), null, 10).build(),
+        AvailableSegmentMetadata.builder(otherSegment, 0, Collections.emptySet(), null, 10).build()
+    );
+    final BrokerSegmentMetadataCache metadataCache = Mockito.mock(BrokerSegmentMetadataCache.class);
+    final MetadataSegmentView metadataView = Mockito.mock(MetadataSegmentView.class);
+    Mockito.when(metadataView.getSegments((Set<String>) null)).thenAnswer(ignored -> Collections.emptyIterator());
+    Mockito.when(metadataCache.iterateSegmentMetadata(null)).thenAnswer(ignored -> segments.iterator());
+    Mockito.when(metadataCache.getTotalSegments()).thenReturn(segments.size());
+
+    final SegmentsTableDataProvider provider = new SegmentsTableDataProvider(
+        () -> metadataCache,
+        metadataView,
+        new DefaultObjectMapper()
+    );
+    final List<Object[]> rows = toRows(
+        provider.getRows(
+            List.of(new SelectorDimFilter("segment_id", matchingSegment.getId().toString(), null)),
+            AUTHENTICATION_RESULT
+        )
+    );
+
+    Assertions.assertEquals(1, rows.size());
+    Assertions.assertEquals(matchingSegment.getId().toString(), rows.get(0)[0]);
   }
 
   @Test

@@ -168,7 +168,7 @@ execution:
 
 |Table|Source of rows|
 |-----|--------------|
-|[`sys.segments`](#segments-table)|The Broker that receives the SQL query. It combines that Broker's segment metadata cache with its Coordinator metadata view, and exact `datasource` equality/`IN` filters are pushed into the local scan. Native execution does not fan out to other Brokers.|
+|[`sys.segments`](#segments-table)|The Broker that receives the SQL query. It combines that Broker's segment metadata cache with its Coordinator metadata view. Exact equality/`IN` filters on `datasource`, `segment_id`, `start`, `end`, and `version` are applied before matching rows are built; `datasource` also restricts both local metadata views. Native execution does not fan out to other Brokers.|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Filters on `server` and `service_name` can avoid reading properties from nodes that don't match.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,

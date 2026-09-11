@@ -40,14 +40,11 @@ import org.apache.druid.query.BatchedInlineDataSource;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.DefaultGenericQueryMetricsFactory;
 import org.apache.druid.query.DefaultQueryConfig;
-import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.SystemTableDataSource;
-import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.query.scan.ScanQueryEngine;
 import org.apache.druid.rpc.indexing.NoopOverlordClient;
-import org.apache.druid.segment.InlineSegmentWrangler;
 import org.apache.druid.segment.MapSegmentWrangler;
 import org.apache.druid.segment.join.JoinableFactory;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
@@ -61,7 +58,6 @@ import org.apache.druid.server.log.NoopRequestLogger;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthTestUtils;
-import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.system.handler.SystemTableNodeLocator;
 import org.apache.druid.server.system.handler.SystemTableQueryClient;
 import org.apache.druid.server.system.handler.SystemTableQueryHandler;
@@ -112,7 +108,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-/** Compares Bindable and native execution of the Web Console datasource-tab query over 500,000 segments. */
+/**
+ * Compares Bindable and batched native execution of the Web Console datasource-tab query over 500,000 segments.
+ * Filtered workloads also include a batched native control that disables provider pushdown while preserving the
+ * residual query filter, isolating the amount of work avoided by pushdown.
+ */
 @State(Scope.Benchmark)
 @Fork(
     value = 1,
@@ -134,35 +134,54 @@ public class SysSegmentsSqlBenchmark
 {
   private static final int NUM_SEGMENTS = 500_000;
   private static final int NUM_DATASOURCES = 1_000;
+  private static final String FIRST_SEGMENT_ID = SegmentId.of(
+      "datasource_0",
+      Intervals.utc(0, 86_400_000L),
+      "1",
+      new LinearShardSpec(0)
+  ).toString();
+
+  public enum Workload
+  {
+    SINGLE_DATASOURCE_EQUALS("WHERE datasource = 'datasource_0'\n", 1),
+    MULTI_DATASOURCE_IN("WHERE datasource IN ('datasource_0', 'datasource_1', 'datasource_2')\n", 3),
+    SEGMENT_ID_EQUALS("WHERE segment_id = '" + FIRST_SEGMENT_ID + "'\n", 1);
+
+    private final String filterClause;
+    private final int expectedResultRows;
+
+    Workload(final String filterClause, final int expectedResultRows)
+    {
+      this.filterClause = filterClause;
+      this.expectedResultRows = expectedResultRows;
+    }
+  }
+
   private static final String BINDABLE = "bindable";
-  private static final String NATIVE_ROW = "nativeRow";
   private static final String NATIVE_PROVIDER = "nativeProvider";
-  private static final String SQL = "SELECT\n"
-                                    + "datasource,\n"
-                                    + "COUNT(*) FILTER (WHERE is_active = 1) AS num_segments,\n"
-                                    + "COUNT(*) FILTER (WHERE is_published = 1 AND is_overshadowed = 0 "
-                                    + "AND replication_factor = 0) AS num_zero_replica_segments,\n"
-                                    + "COUNT(*) FILTER (WHERE is_published = 1 AND is_overshadowed = 0 "
-                                    + "AND is_available = 0 AND replication_factor > 0) AS num_segments_to_load,\n"
-                                    + "COUNT(*) FILTER (WHERE is_available = 1 AND is_active = 0) "
-                                    + "AS num_segments_to_drop,\n"
-                                    + "SUM(\"size\") FILTER (WHERE is_active = 1) AS total_data_size,\n"
-                                    + "MIN(\"num_rows\") FILTER (WHERE is_available = 1 AND is_realtime = 0) "
-                                    + "AS min_segment_rows,\n"
-                                    + "AVG(\"num_rows\") FILTER (WHERE is_available = 1 AND is_realtime = 0) "
-                                    + "AS avg_segment_rows,\n"
-                                    + "MAX(\"num_rows\") FILTER (WHERE is_available = 1 AND is_realtime = 0) "
-                                    + "AS max_segment_rows,\n"
-                                    + "SUM(\"num_rows\") FILTER (WHERE is_active = 1) AS total_rows,\n"
-                                    + "CASE WHEN SUM(\"num_rows\") FILTER (WHERE is_available = 1) <> 0 "
-                                    + "THEN (SUM(\"size\") FILTER (WHERE is_available = 1) / "
-                                    + "SUM(\"num_rows\") FILTER (WHERE is_available = 1)) ELSE 0 END "
-                                    + "AS avg_row_size,\n"
-                                    + "SUM(\"size\" * \"num_replicas\") FILTER (WHERE is_active = 1) "
-                                    + "AS replicated_size\n"
-                                    + "FROM sys.segments\n"
-                                    + "GROUP BY 1\n"
-                                    + "ORDER BY 1";
+  private static final String NATIVE_PROVIDER_NO_PUSHDOWN = "nativeProviderNoPushdown";
+  private static final String SQL_PREFIX = """
+      SELECT
+      datasource,
+      COUNT(*) FILTER (WHERE is_active = 1) AS num_segments,
+      COUNT(*) FILTER (WHERE is_published = 1 AND is_overshadowed = 0 AND replication_factor = 0)
+        AS num_zero_replica_segments,
+      COUNT(*) FILTER (WHERE is_published = 1 AND is_overshadowed = 0 AND is_available = 0 AND replication_factor > 0)
+        AS num_segments_to_load,
+      COUNT(*) FILTER (WHERE is_available = 1 AND is_active = 0) AS num_segments_to_drop,
+      SUM("size") FILTER (WHERE is_active = 1) AS total_data_size,
+      MIN("num_rows") FILTER (WHERE is_available = 1 AND is_realtime = 0) AS min_segment_rows,
+      AVG("num_rows") FILTER (WHERE is_available = 1 AND is_realtime = 0) AS avg_segment_rows,
+      MAX("num_rows") FILTER (WHERE is_available = 1 AND is_realtime = 0) AS max_segment_rows,
+      SUM("num_rows") FILTER (WHERE is_active = 1) AS total_rows,
+      CASE WHEN SUM("num_rows") FILTER (WHERE is_available = 1) <> 0
+        THEN (SUM("size") FILTER (WHERE is_available = 1) / SUM("num_rows") FILTER (WHERE is_available = 1))
+        ELSE 0
+      END AS avg_row_size,
+      SUM("size" * "num_replicas") FILTER (WHERE is_active = 1) AS replicated_size
+      FROM sys.segments
+      """;
+  private static final String SQL_SUFFIX = "GROUP BY 1\nORDER BY 1";
 
   private static final Map<String, Object> BINDABLE_CONTEXT = ImmutableMap.of(
       PlannerContext.CTX_USE_NATIVE_QUERY_FOR_SYSTEM_TABLES,
@@ -175,13 +194,16 @@ public class SysSegmentsSqlBenchmark
 
   private final Closer closer = Closer.create();
   private PlannerFactory plannerFactory;
-  private SqlEngine rowEngine;
   private SqlEngine providerEngine;
+  private SqlEngine noPushdownProviderEngine;
+
+  @Param
+  private Workload workload;
 
   @State(Scope.Thread)
   public static class ExecutionState
   {
-    @Param({BINDABLE, NATIVE_ROW, NATIVE_PROVIDER})
+    @Param({BINDABLE, NATIVE_PROVIDER, NATIVE_PROVIDER_NO_PUSHDOWN})
     private String executionPath;
     private PreparedQuery preparedQuery;
 
@@ -237,47 +259,6 @@ public class SysSegmentsSqlBenchmark
     }
   }
 
-  /** Keeps the former row-only native path available as a stable benchmark baseline. */
-  private static class RowOnlySystemTableDataProvider implements SystemTableDataProvider
-  {
-    private final SystemTableDataProvider delegate;
-
-    RowOnlySystemTableDataProvider(final SystemTableDataProvider delegate)
-    {
-      this.delegate = delegate;
-    }
-
-    @Override
-    public List<SystemTablePushdownFilter> getPushdownFilters()
-    {
-      return delegate.getPushdownFilters();
-    }
-
-    @Override
-    public Iterable<Object[]> getRows(
-        final List<DimFilter> filters,
-        final AuthenticationResult internalAuthenticationResult
-    )
-    {
-      return delegate.getRows(filters, internalAuthenticationResult);
-    }
-
-    @Override
-    public Iterable<Object[]> getRawRows(
-        final List<DimFilter> filters,
-        final AuthenticationResult internalAuthenticationResult
-    )
-    {
-      return delegate.getRawRows(filters, internalAuthenticationResult);
-    }
-
-    @Override
-    public Object[] projectRow(final Object[] row, final int[] projects)
-    {
-      return delegate.projectRow(row, projects);
-    }
-  }
-
   @Setup(Level.Trial)
   public void setup()
   {
@@ -310,6 +291,19 @@ public class SysSegmentsSqlBenchmark
         metadataView,
         CalciteTests.getJsonMapper()
     );
+    final SegmentsTableDataProvider noPushdownDataProvider = new SegmentsTableDataProvider(
+        () -> segmentMetadataCache,
+        metadataView,
+        CalciteTests.getJsonMapper()
+    )
+    {
+      /** Keeps all other provider behavior identical while preventing provider-level filtering. */
+      @Override
+      public List<SystemTablePushdownFilter> getPushdownFilters()
+      {
+        return Collections.emptyList();
+      }
+    };
 
     final QueryRunnerFactoryConglomerate conglomerate = QueryStackTests.createQueryRunnerFactoryConglomerate(closer);
     final SpecificSegmentsQuerySegmentWalker walker = closer.register(
@@ -318,8 +312,6 @@ public class SysSegmentsSqlBenchmark
             conglomerate,
             new MapSegmentWrangler(
                 Map.of(
-                    InlineDataSource.class,
-                    new InlineSegmentWrangler(),
                     BatchedInlineDataSource.class,
                     new BatchedInlineDataSource.Wrangler()
                 )
@@ -334,17 +326,14 @@ public class SysSegmentsSqlBenchmark
         new ScanQueryEngine(),
         AuthTestUtils.TEST_AUTHORIZER_MAPPER
     );
-    final SystemTableQueryHandler rowQueryHandler = new SystemTableQueryHandler(
-        Map.<String, SystemTableDataProvider>of(
-            descriptor.getTableName(),
-            new RowOnlySystemTableDataProvider(dataProvider)
-        ),
+    final SystemTableQueryHandler noPushdownProviderQueryHandler = new SystemTableQueryHandler(
+        Map.<String, SystemTableDataProvider>of(descriptor.getTableName(), noPushdownDataProvider),
         Map.<String, SystemTableDescriptor>of(descriptor.getTableName(), descriptor),
         new ScanQueryEngine(),
         AuthTestUtils.TEST_AUTHORIZER_MAPPER
     );
-    rowEngine = makeEngine(conglomerate, walker, descriptor, rowQueryHandler);
     providerEngine = makeEngine(conglomerate, walker, descriptor, providerQueryHandler);
+    noPushdownProviderEngine = makeEngine(conglomerate, walker, descriptor, noPushdownProviderQueryHandler);
 
     final PlannerConfig plannerConfig = new PlannerConfig();
     final TimelineServerView timelineServerView = new TestTimelineServerView(Collections.emptyList());
@@ -399,9 +388,9 @@ public class SysSegmentsSqlBenchmark
     );
 
     final List<Object[]> bindableResults = runQuery(BINDABLE);
-    for (final String executionPath : List.of(NATIVE_ROW, NATIVE_PROVIDER)) {
+    for (final String executionPath : List.of(NATIVE_PROVIDER, NATIVE_PROVIDER_NO_PUSHDOWN)) {
       final List<Object[]> nativeResults = runQuery(executionPath);
-      if (bindableResults.size() != NUM_DATASOURCES || !rowsEqual(bindableResults, nativeResults)) {
+      if (bindableResults.size() != workload.expectedResultRows || !rowsEqual(bindableResults, nativeResults)) {
         throw new IllegalStateException("Bindable and native benchmark results do not match for " + executionPath);
       }
     }
@@ -482,22 +471,26 @@ public class SysSegmentsSqlBenchmark
     final Map<String, Object> context;
     switch (executionPath) {
       case BINDABLE:
-        engine = rowEngine;
+        engine = providerEngine;
         context = BINDABLE_CONTEXT;
-        break;
-      case NATIVE_ROW:
-        engine = rowEngine;
-        context = NATIVE_CONTEXT;
         break;
       case NATIVE_PROVIDER:
         engine = providerEngine;
+        context = NATIVE_CONTEXT;
+        break;
+      case NATIVE_PROVIDER_NO_PUSHDOWN:
+        engine = noPushdownProviderEngine;
         context = NATIVE_CONTEXT;
         break;
       default:
         throw new IllegalArgumentException("Unknown execution path " + executionPath);
     }
 
-    final DruidPlanner planner = plannerFactory.createPlannerForTesting(engine, SQL, context);
+    final DruidPlanner planner = plannerFactory.createPlannerForTesting(
+        engine,
+        SQL_PREFIX + workload.filterClause + SQL_SUFFIX,
+        context
+    );
     try {
       return new PreparedQuery(planner, planner.plan());
     }
@@ -521,15 +514,15 @@ public class SysSegmentsSqlBenchmark
   }
 
   @Benchmark
-  public void queryNative(final Blackhole blackhole)
-  {
-    blackhole.consume(runQuery(NATIVE_ROW));
-  }
-
-  @Benchmark
   public void queryNativeProvider(final Blackhole blackhole)
   {
     blackhole.consume(runQuery(NATIVE_PROVIDER));
+  }
+
+  @Benchmark
+  public void queryNativeProviderWithoutPushdown(final Blackhole blackhole)
+  {
+    blackhole.consume(runQuery(NATIVE_PROVIDER_NO_PUSHDOWN));
   }
 
   @Benchmark
