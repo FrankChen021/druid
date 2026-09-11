@@ -120,6 +120,7 @@ import org.apache.druid.metadata.input.InputSourceModule;
 import org.apache.druid.msq.guice.MSQDurableStorageModule;
 import org.apache.druid.msq.guice.MSQExternalDataSourceModule;
 import org.apache.druid.msq.guice.MSQIndexingModule;
+import org.apache.druid.msq.indexing.MSQTaskSystemTableQueryInfoProvider;
 import org.apache.druid.query.lookup.LookupSerdeModule;
 import org.apache.druid.segment.incremental.RowIngestionMetersFactory;
 import org.apache.druid.segment.realtime.ChatHandlerProvider;
@@ -143,6 +144,7 @@ import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationUtils;
 import org.apache.druid.server.security.Authenticator;
 import org.apache.druid.server.security.AuthenticatorMapper;
+import org.apache.druid.server.system.table.SystemTableQueryInfoProvider;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
 import org.apache.druid.tasklogs.TaskLogStreamer;
 import org.apache.druid.tasklogs.TaskLogs;
@@ -237,6 +239,10 @@ public class CliOverlord extends ServerRunnable
 
             binder.bind(DruidOverlord.class).in(ManageLifecycle.class);
             binder.bind(TaskMaster.class).in(ManageLifecycle.class);
+            Multibinder.newSetBinder(binder, SystemTableQueryInfoProvider.class)
+                       .addBinding()
+                       .to(MSQTaskSystemTableQueryInfoProvider.class)
+                       .in(LazySingleton.class);
             binder.bind(TaskCountStatsProvider.class).to(TaskMaster.class);
             binder.bind(TaskSlotCountStatsProvider.class).to(TaskMaster.class);
             binder.bind(SupervisorStatsProvider.class).to(SupervisorManager.class);

@@ -64,6 +64,7 @@ import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.metadata.AvailableSegmentMetadata;
+import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -74,6 +75,7 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.QueriesTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
@@ -256,13 +258,7 @@ public class SystemSchema extends AbstractTableSchema
       .add("spec", ColumnType.STRING)
       .build();
 
-  static final RowSignature QUERIES_SIGNATURE = RowSignature
-      .builder()
-      .add("id", ColumnType.STRING)
-      .add("engine", ColumnType.STRING)
-      .add("state", ColumnType.STRING)
-      .add("info", ColumnType.STRING)
-      .build();
+  static final RowSignature QUERIES_SIGNATURE = QueriesTableDescriptor.ROW_SIGNATURE;
 
   /**
    * Index of the "info" column in {@link #QUERIES_SIGNATURE}. Used for projection pushdown.
@@ -1330,7 +1326,7 @@ public class SystemSchema extends AbstractTableSchema
    * This table contains currently running and recently completed queries from all SQL engines.
    * Enabled based on {@link PlannerConfig#isEnableSysQueriesTable()}.
    */
-  static class QueriesTable extends AbstractTable implements ProjectableFilterableTable
+  static class QueriesTable extends AbstractTable implements ProjectableFilterableTable, NativeSystemTable
   {
     private final Provider<SqlEngineRegistry> sqlEngineRegistryProvider;
     private final ObjectMapper jsonMapper;
@@ -1363,6 +1359,12 @@ public class SystemSchema extends AbstractTableSchema
     }
 
     @Override
+    public NativeQueriesTable asNativeTable()
+    {
+      return new NativeQueriesTable();
+    }
+
+    @Override
     public Enumerable<Object[]> scan(
         final DataContext root,
         final List<RexNode> filters,
@@ -1388,7 +1390,7 @@ public class SystemSchema extends AbstractTableSchema
         allQueries.addAll(response.getQueries());
       }
 
-      // Determine if we need to serialize the info field (based on projection pushdown)
+      // Determine if we need to build the info field (based on projection pushdown)
       final int[] nonNullProjects = projects == null ? QUERIES_PROJECT_ALL : projects;
       final boolean includeInfo = containsIndex(nonNullProjects, QUERIES_INFO_INDEX);
 
@@ -1415,14 +1417,9 @@ public class SystemSchema extends AbstractTableSchema
       row[1] = queryInfo.engine();
       row[2] = queryInfo.state();
 
-      // Only serialize info if it's in the projection
+      // Only build info if it's in the projection.
       if (includeInfo) {
-        try {
-          row[3] = jsonMapper.writeValueAsString(queryInfo);
-        }
-        catch (JsonProcessingException e) {
-          throw new RuntimeException(e);
-        }
+        row[3] = StructuredData.wrap(jsonMapper.convertValue(queryInfo, Object.class));
       } else {
         row[3] = null;
       }

@@ -22,16 +22,21 @@ package org.apache.druid.server.system.module;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
+import com.google.inject.multibindings.Multibinder;
 import org.apache.druid.guice.DruidBinders;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.server.system.table.QueriesTableDataProvider;
+import org.apache.druid.server.system.table.QueriesTableDescriptor;
+import org.apache.druid.server.system.table.QuerySchedulerQueryInfoProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
+import org.apache.druid.server.system.table.SystemTableQueryInfoProvider;
 
 /**
- * Registers native system-table routing and the node-local server-properties supplier.
+ * Registers native system-table routing and common node-local data providers.
  *
  * <p>Table-specific integrations contribute their own entries to the native system-table multibinders.</p>
  */
@@ -48,9 +53,19 @@ public class SystemTableModule implements Module
     final MapBinder<String, SystemTableDescriptor> descriptorBinder = MapBinder.newMapBinder(binder, String.class, SystemTableDescriptor.class);
     descriptorBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                     .toInstance(new ServerPropertiesTableDescriptor());
+    descriptorBinder.addBinding(QueriesTableDescriptor.TABLE_NAME)
+                    .toInstance(new QueriesTableDescriptor());
     final MapBinder<String, SystemTableDataProvider> dataProviderBinder = MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class);
     dataProviderBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                       .to(ServerPropertiesTableDataProvider.class)
                       .in(LazySingleton.class);
+    dataProviderBinder.addBinding(QueriesTableDescriptor.TABLE_NAME)
+                      .to(QueriesTableDataProvider.class)
+                      .in(LazySingleton.class);
+
+    Multibinder.newSetBinder(binder, SystemTableQueryInfoProvider.class)
+               .addBinding()
+               .to(QuerySchedulerQueryInfoProvider.class)
+               .in(LazySingleton.class);
   }
 }

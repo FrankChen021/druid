@@ -108,15 +108,85 @@ public class QuerySchedulerTest
                                        .setDataSource(new SystemTableDataSource("tasks"))
                                        .setInterval("2000/2001")
                                        .setGranularity(Granularities.ALL)
-                                       .setContext(Map.of("queryId", "system-query"))
+                                       .setContext(
+                                           Map.of(
+                                               "queryId", "system-query",
+                                               SystemTableDataSource.CTX_NODE_QUERY, true
+                                           )
+                                       )
                                        .build();
     final SettableFuture<Object> future = SettableFuture.create();
 
     scheduler.registerQueryFuture(query, future);
 
     Assertions.assertEquals(Set.of("sys.tasks"), scheduler.getQueryDatasources(query.getId()));
+    Assertions.assertTrue(scheduler.getRunningQueryInfo().get(0).systemTableNodeQuery());
     scheduler.cancelQuery(query.getId());
     Assertions.assertTrue(future.isCancelled());
+  }
+
+  @Test
+  public void testRunningQueryInfoTracksUniqueQueriesUntilTheirLastFutureCompletes()
+  {
+    final Query<?> query = GroupByQuery.builder()
+                                       .setDataSource("foo")
+                                       .setInterval("2000/2001")
+                                       .setGranularity(Granularities.ALL)
+                                       .setContext(
+                                           Map.of(
+                                               "queryId", "native-query",
+                                               "sqlQueryId", "sql-query"
+                                           )
+                                       )
+                                       .build();
+    final SettableFuture<Object> firstFuture = SettableFuture.create();
+    final SettableFuture<Object> secondFuture = SettableFuture.create();
+
+    scheduler.registerQueryFuture(query, firstFuture);
+    scheduler.registerQueryFuture(query, secondFuture);
+
+    Assertions.assertEquals(
+        List.of(
+            new QueryScheduler.RegisteredQueryInfo(
+                "native-query",
+                "sql-query",
+                null,
+                "groupBy",
+                Set.of("foo"),
+                null,
+                false
+            )
+        ),
+        scheduler.getRunningQueryInfo()
+    );
+
+    firstFuture.set(null);
+    Assertions.assertEquals(1, scheduler.getRunningQueryInfo().size());
+    secondFuture.set(null);
+    Assertions.assertTrue(scheduler.getRunningQueryInfo().isEmpty());
+  }
+
+  @Test
+  public void testRunningQueryInfoTracksSequenceConsumptionWithoutRegisteredFuture()
+  {
+    final Query<?> query = GroupByQuery.builder()
+                                       .setDataSource("foo")
+                                       .setInterval("2000/2001")
+                                       .setGranularity(Granularities.ALL)
+                                       .setContext(Map.of("queryId", "local-query"))
+                                       .build();
+    final Sequence<String> sequence = scheduler.run(
+        query,
+        Sequences.simple(List.of("result")).map(result -> {
+          Assertions.assertEquals(1, scheduler.getRunningQueryInfo().size());
+          Assertions.assertEquals("local-query", scheduler.getRunningQueryInfo().get(0).id());
+          return result;
+        })
+    );
+
+    Assertions.assertTrue(scheduler.getRunningQueryInfo().isEmpty());
+    Assertions.assertEquals(List.of("result"), sequence.toList());
+    Assertions.assertTrue(scheduler.getRunningQueryInfo().isEmpty());
   }
 
   @BeforeEach
