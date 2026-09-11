@@ -22,7 +22,6 @@ package org.apache.druid.server.system.table;
 import com.google.inject.Inject;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.annotations.Self;
-import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryScheduler;
@@ -61,7 +60,7 @@ public class QuerySchedulerQueryInfoProvider implements SystemTableQueryInfoProv
   {
     final List<SystemTableQueryInfo> queryInfo = new ArrayList<>();
     for (final QueryScheduler.RegisteredQueryInfo registeredQuery : queryScheduler.getRunningQueryInfo()) {
-      if (registeredQuery.id().startsWith(SystemTableDataSource.NODE_QUERY_ID_PREFIX)) {
+      if (registeredQuery.systemTableNodeQuery()) {
         continue;
       }
 
@@ -94,7 +93,7 @@ public class QuerySchedulerQueryInfoProvider implements SystemTableQueryInfoProv
   {
     final Map<String, Object> info = new LinkedHashMap<>();
     info.put("queryType", queryInfo.queryType());
-    info.put("datasources", queryInfo.datasources());
+    info.put("datasources", queryInfo.datasources().stream().sorted().toList());
     if (queryInfo.sqlQueryId() != null) {
       info.put("sqlQueryId", queryInfo.sqlQueryId());
     }

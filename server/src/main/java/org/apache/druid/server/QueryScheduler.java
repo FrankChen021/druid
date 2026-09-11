@@ -46,6 +46,7 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryWatcher;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.initialization.ServerConfig;
 
 import javax.annotation.Nullable;
@@ -157,23 +158,11 @@ public class QueryScheduler implements QueryWatcher
     final Set<String> datasources = query.getDataSource().getTableNames();
     queryFutures.put(id, future);
     queryDatasources.putAll(id, datasources);
-    final RegisteredQueryInfo registeredQueryInfo = new RegisteredQueryInfo(
-        id,
-        query.getSqlQueryId(),
-        query.getSubQueryId(),
-        query.getType(),
-        Set.copyOf(datasources),
-        query.context().getString(QueryContexts.CTX_DART_QUERY_ID)
-    );
-    synchronized (runningQueryInfo) {
-      runningQueryInfo.add(registeredQueryInfo);
-    }
+    final RegisteredQueryInfo registeredQueryInfo = registerQueryInfo(query);
     future.addListener(
         () -> {
           queryFutures.remove(id, future);
-          synchronized (runningQueryInfo) {
-            runningQueryInfo.remove(registeredQueryInfo);
-          }
+          unregisterQueryInfo(registeredQueryInfo);
           for (final String datasource : datasources) {
             queryDatasources.remove(id, datasource);
           }
@@ -221,15 +210,21 @@ public class QueryScheduler implements QueryWatcher
     return Sequences.wrap(resultSequence, new SequenceWrapper()
     {
       private List<Bulkhead> bulkheads = null;
+      private RegisteredQueryInfo registeredQueryInfo = null;
+
       @Override
       public void before()
       {
         bulkheads = acquireLanes(query);
+        registeredQueryInfo = registerQueryInfo(query);
       }
 
       @Override
       public void after(boolean isDone, Throwable thrown)
       {
+        if (registeredQueryInfo != null) {
+          unregisterQueryInfo(registeredQueryInfo);
+        }
         if (bulkheads != null) {
           finishLanes(bulkheads);
         }
@@ -273,11 +268,36 @@ public class QueryScheduler implements QueryWatcher
     return queryDatasources.get(queryId);
   }
 
-  /** Returns a point-in-time view of the queries that have registered running futures on this process. */
+  /** Returns a point-in-time view of native query executions running on this process. */
   public List<RegisteredQueryInfo> getRunningQueryInfo()
   {
     synchronized (runningQueryInfo) {
       return new ArrayList<>(runningQueryInfo.elementSet());
+    }
+  }
+
+  private RegisteredQueryInfo registerQueryInfo(final Query<?> query)
+  {
+    final RegisteredQueryInfo registeredQueryInfo = new RegisteredQueryInfo(
+        query.getId(),
+        query.getSqlQueryId(),
+        query.getSubQueryId(),
+        query.getType(),
+        Set.copyOf(query.getDataSource().getTableNames()),
+        query.context().getString(QueryContexts.CTX_DART_QUERY_ID),
+        query.getDataSource() instanceof SystemTableDataSource
+        && query.context().getBoolean(SystemTableDataSource.CTX_NODE_QUERY, false)
+    );
+    synchronized (runningQueryInfo) {
+      runningQueryInfo.add(registeredQueryInfo);
+    }
+    return registeredQueryInfo;
+  }
+
+  private void unregisterQueryInfo(final RegisteredQueryInfo registeredQueryInfo)
+  {
+    synchronized (runningQueryInfo) {
+      runningQueryInfo.remove(registeredQueryInfo);
     }
   }
 
@@ -287,7 +307,8 @@ public class QueryScheduler implements QueryWatcher
       @Nullable String subQueryId,
       String queryType,
       Set<String> datasources,
-      @Nullable String dartQueryId
+      @Nullable String dartQueryId,
+      boolean systemTableNodeQuery
   )
   {
   }

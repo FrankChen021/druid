@@ -20,7 +20,6 @@
 package org.apache.druid.server.system;
 
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryScheduler;
@@ -49,7 +48,8 @@ public class QuerySchedulerQueryInfoProviderTest
                 null,
                 "scan",
                 Set.of("foo"),
-                null
+                null,
+                false
             )
         )
     );
@@ -68,33 +68,35 @@ public class QuerySchedulerQueryInfoProviderTest
     Assertions.assertEquals("localhost:8082", queryInfo.server());
     Assertions.assertEquals("broker", queryInfo.serverType());
     Assertions.assertEquals(
-        Map.of("queryType", "scan", "datasources", Set.of("foo"), "sqlQueryId", "sql-1"),
+        Map.of("queryType", "scan", "datasources", List.of("foo"), "sqlQueryId", "sql-1"),
         StructuredData.unwrap(queryInfo.info())
     );
     EasyMock.verify(scheduler);
   }
 
   @Test
-  public void testUsesNativeIdForHistoricalWorkerAndExcludesSystemTableRequest()
+  public void testUsesNativeIdForHistoricalWorkerAndExcludesOnlyExplicitSystemTableRequest()
   {
     final QueryScheduler scheduler = EasyMock.createMock(QueryScheduler.class);
     EasyMock.expect(scheduler.getRunningQueryInfo()).andReturn(
         List.of(
             new QueryScheduler.RegisteredQueryInfo(
-                "native-1",
+                "native-system-node-user-query",
                 null,
                 null,
                 "scan",
                 Set.of("foo"),
-                null
+                null,
+                false
             ),
             new QueryScheduler.RegisteredQueryInfo(
-                SystemTableDataSource.NODE_QUERY_ID_PREFIX + "internal",
+                "internal-request",
                 "sys-query",
                 null,
                 "scan",
                 Set.of("sys.queries"),
-                null
+                null,
+                true
             )
         )
     );
@@ -107,7 +109,7 @@ public class QuerySchedulerQueryInfoProviderTest
 
     final SystemTableQueryInfo queryInfo = onlyQuery(provider);
 
-    Assertions.assertEquals("native-1", queryInfo.initialQueryId());
+    Assertions.assertEquals("native-system-node-user-query", queryInfo.initialQueryId());
     Assertions.assertFalse(queryInfo.initialQuery());
     Assertions.assertEquals("historical", queryInfo.serverType());
     EasyMock.verify(scheduler);

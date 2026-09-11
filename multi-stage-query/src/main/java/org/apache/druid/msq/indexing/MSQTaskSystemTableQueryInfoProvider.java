@@ -23,9 +23,11 @@ import com.google.common.base.Optional;
 import com.google.inject.Inject;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.annotations.Self;
+import org.apache.druid.indexer.RunnerTaskState;
 import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.indexing.overlord.TaskMaster;
 import org.apache.druid.indexing.overlord.TaskQueue;
+import org.apache.druid.indexing.overlord.TaskRunner;
 import org.apache.druid.msq.sql.MSQTaskSqlEngine;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.segment.nested.StructuredData;
@@ -43,6 +45,7 @@ import java.util.stream.Collectors;
 /** Contributes active MSQ controller tasks from the local Overlord to the native {@code sys.queries} table. */
 public class MSQTaskSystemTableQueryInfoProvider implements SystemTableQueryInfoProvider
 {
+  private static final String ACCEPTED_STATE = "ACCEPTED";
   private static final String RUNNING_STATE = "RUNNING";
 
   private final TaskMaster taskMaster;
@@ -68,6 +71,7 @@ public class MSQTaskSystemTableQueryInfoProvider implements SystemTableQueryInfo
     if (!taskQueue.isPresent()) {
       return List.of();
     }
+    final TaskRunner taskRunner = taskMaster.getTaskRunner().get();
 
     final List<SystemTableQueryInfo> queryInfo = new ArrayList<>();
     for (final Task task : taskQueue.get().getActiveTasks()) {
@@ -82,7 +86,7 @@ public class MSQTaskSystemTableQueryInfoProvider implements SystemTableQueryInfo
           new SystemTableQueryInfo(
               controllerTask.getId(),
               MSQTaskSqlEngine.NAME,
-              RUNNING_STATE,
+              getState(taskRunner, controllerTask.getId()),
               makeInfo(controllerTask),
               initialQueryId,
               true,
@@ -95,6 +99,11 @@ public class MSQTaskSystemTableQueryInfoProvider implements SystemTableQueryInfo
       );
     }
     return queryInfo;
+  }
+
+  private static String getState(final TaskRunner taskRunner, final String taskId)
+  {
+    return taskRunner.getRunnerTaskState(taskId) == RunnerTaskState.RUNNING ? RUNNING_STATE : ACCEPTED_STATE;
   }
 
   private static StructuredData makeInfo(final MSQControllerTask controllerTask)

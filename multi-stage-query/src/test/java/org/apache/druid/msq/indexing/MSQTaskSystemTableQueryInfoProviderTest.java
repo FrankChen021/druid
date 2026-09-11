@@ -21,8 +21,10 @@ package org.apache.druid.msq.indexing;
 
 import com.google.common.base.Optional;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.indexer.RunnerTaskState;
 import org.apache.druid.indexing.overlord.TaskMaster;
 import org.apache.druid.indexing.overlord.TaskQueue;
+import org.apache.druid.indexing.overlord.TaskRunner;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.DruidNode;
@@ -30,6 +32,8 @@ import org.apache.druid.server.system.table.SystemTableQueryInfo;
 import org.easymock.EasyMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.List;
 import java.util.Map;
@@ -38,8 +42,9 @@ import java.util.stream.StreamSupport;
 
 public class MSQTaskSystemTableQueryInfoProviderTest
 {
-  @Test
-  public void testMapsActiveControllerTaskAsInitialQuery()
+  @ParameterizedTest
+  @EnumSource(RunnerTaskState.class)
+  public void testMapsActiveControllerTaskAsInitialQuery(final RunnerTaskState runnerTaskState)
   {
     final LegacyMSQSpec querySpec = EasyMock.createMock(LegacyMSQSpec.class);
     EasyMock.expect(querySpec.getContext()).andReturn(QueryContext.of(Map.of("sqlQueryId", "sql-1"))).anyTimes();
@@ -50,9 +55,12 @@ public class MSQTaskSystemTableQueryInfoProviderTest
     EasyMock.expect(controllerTask.getDataSource()).andReturn("__query_select").once();
     final TaskQueue taskQueue = EasyMock.createMock(TaskQueue.class);
     EasyMock.expect(taskQueue.getActiveTasks()).andReturn(List.of(controllerTask)).once();
+    final TaskRunner taskRunner = EasyMock.createMock(TaskRunner.class);
+    EasyMock.expect(taskRunner.getRunnerTaskState("query-sql-1")).andReturn(runnerTaskState).once();
     final TaskMaster taskMaster = EasyMock.createMock(TaskMaster.class);
     EasyMock.expect(taskMaster.getTaskQueue()).andReturn(Optional.of(taskQueue)).once();
-    EasyMock.replay(querySpec, controllerTask, taskQueue, taskMaster);
+    EasyMock.expect(taskMaster.getTaskRunner()).andReturn(Optional.of(taskRunner)).once();
+    EasyMock.replay(querySpec, controllerTask, taskQueue, taskRunner, taskMaster);
     final MSQTaskSystemTableQueryInfoProvider provider = new MSQTaskSystemTableQueryInfoProvider(
         taskMaster,
         new DruidNode("overlord", "localhost", false, 8090, null, true, false),
@@ -69,12 +77,13 @@ public class MSQTaskSystemTableQueryInfoProviderTest
     Assertions.assertEquals("query-sql-1", row.id());
     Assertions.assertEquals("sql-1", row.initialQueryId());
     Assertions.assertTrue(row.initialQuery());
+    Assertions.assertEquals(runnerTaskState == RunnerTaskState.RUNNING ? "RUNNING" : "ACCEPTED", row.state());
     Assertions.assertEquals("overlord", row.serverType());
     Assertions.assertEquals(
         Map.of("taskId", "query-sql-1", "queryType", MSQControllerTask.TYPE, "datasource", "__query_select"),
         StructuredData.unwrap(row.info())
     );
-    EasyMock.verify(querySpec, controllerTask, taskQueue, taskMaster);
+    EasyMock.verify(querySpec, controllerTask, taskQueue, taskRunner, taskMaster);
   }
 
   @Test
