@@ -55,11 +55,17 @@ public class MapInputRowParser
       Map<String, Object> theMap
   ) throws ParseException
   {
-    final List<String> dimensionsToUse = findDimensions(
-        timestampSpec,
-        dimensionsSpec,
-        theMap == null ? Collections.emptySet() : theMap.keySet()
-    );
+    // Flattened maps may discover fields and allocate a set on keySet(). Fixed dimensions do not need this scan.
+    final List<String> dimensionsToUse;
+    if (dimensionsSpec.hasFixedDimensions()) {
+      dimensionsToUse = dimensionsSpec.getDimensionNames();
+    } else {
+      dimensionsToUse = findDimensions(
+          timestampSpec,
+          dimensionsSpec,
+          theMap == null ? Collections.emptySet() : theMap.keySet()
+      );
+    }
 
     return parse(timestampSpec, dimensionsToUse, theMap);
   }

@@ -1,0 +1,170 @@
+diff --git a/extensions-core/kafka-indexing-service/src/main/java/org/apache/druid/data/input/kafkainput/KafkaInputReader.java b/extensions-core/kafka-indexing-service/src/main/java/org/apache/druid/data/input/kafkainput/KafkaInputReader.java
+index fa6e8684a4..1c2a31fa69 100644
+--- a/extensions-core/kafka-indexing-service/src/main/java/org/apache/druid/data/input/kafkainput/KafkaInputReader.java
++++ b/extensions-core/kafka-indexing-service/src/main/java/org/apache/druid/data/input/kafkainput/KafkaInputReader.java
+@@ -66,0 +67 @@ public class KafkaInputReader implements InputEntityReader
++  private final Map<String, Integer> metadataPositions;
+@@ -99,0 +101,6 @@ public class KafkaInputReader implements InputEntityReader
++    final Map<String, Integer> positions = new HashMap<>();
++    positions.putIfAbsent(timestampColumnName, 0);
++    positions.putIfAbsent(topicColumnName, 1);
++    positions.putIfAbsent(partitionColumnName, 2);
++    positions.putIfAbsent(offsetColumnName, 3);
++    this.metadataPositions = Collections.unmodifiableMap(positions);
+@@ -106 +113,14 @@ public class KafkaInputReader implements InputEntityReader
+-    final Map<String, Object> mergedHeaderMap = extractHeaderAndKeys(record);
++    // With no key/header parsing, snapshot only metadata values. Do not retain the record and its payload bytes.
++    // Sampling and tombstones keep their existing mutable raw-map path.
++    final Map<String, Object> mergedHeaderMap;
++    if (headerParserSupplier == null && keyParserSupplier == null && record.getRecord().value() != null) {
++      mergedHeaderMap = new MetadataMap(
++          metadataPositions,
++          record.getRecord().timestamp(),
++          record.getRecord().topic(),
++          record.getRecord().partition(),
++          record.getRecord().offset()
++      );
++    } else {
++      mergedHeaderMap = extractHeaderAndKeys(record);
++    }
+@@ -151,0 +172,61 @@ public class KafkaInputReader implements InputEntityReader
++  /** Metadata-only fallback for value rows; numeric values are boxed only if a field is read. */
++  private static class MetadataMap extends AbstractMap<String, Object>
++  {
++    private final Map<String, Integer> positions;
++    private final long timestamp;
++    private final String topic;
++    private final int partition;
++    private final long offset;
++
++    MetadataMap(
++        final Map<String, Integer> positions,
++        final long timestamp,
++        final String topic,
++        final int partition,
++        final long offset
++    )
++    {
++      this.positions = positions;
++      this.timestamp = timestamp;
++      this.topic = topic;
++      this.partition = partition;
++      this.offset = offset;
++    }
++
++    @Override
++    public Object get(final Object key)
++    {
++      final Integer position = positions.get(key);
++      if (position == null) {
++        return null;
++      }
++      // Separate returns preserve the original Long timestamp/offset and Integer partition types.
++      switch (position) {
++        case 0:
++          return timestamp;
++        case 1:
++          return topic;
++        case 2:
++          return partition;
++        case 3:
++          return offset;
++        default:
++          throw new IllegalStateException("Unknown metadata position [" + position + "]");
++      }
++    }
++
++    @Override
++    public Set<String> keySet()
++    {
++      return positions.keySet();
++    }
++
++    @Override
++    public Set<Entry<String, Object>> entrySet()
++    {
++      return keySet().stream()
++                     .map(key -> new SimpleImmutableEntry<>(key, get(key)))
++                     .collect(Collectors.toCollection(LinkedHashSet::new));
++    }
++  }
++
+diff --git a/extensions-core/kafka-indexing-service/src/test/java/org/apache/druid/data/input/kafkainput/KafkaInputFormatTest.java b/extensions-core/kafka-indexing-service/src/test/java/org/apache/druid/data/input/kafkainput/KafkaInputFormatTest.java
+index bdf323c087..1854764d2c 100644
+--- a/extensions-core/kafka-indexing-service/src/test/java/org/apache/druid/data/input/kafkainput/KafkaInputFormatTest.java
++++ b/extensions-core/kafka-indexing-service/src/test/java/org/apache/druid/data/input/kafkainput/KafkaInputFormatTest.java
+@@ -731,0 +732,74 @@ public class KafkaInputFormatTest
++  @ParameterizedTest
++  @ValueSource(strings = {"distinct", "aliases", "hashCollisions"})
++  public void testMetadataSnapshotMatchesSampleAndRetainsEarlierRows(final String names) throws IOException
++  {
++    final boolean aliases = "aliases".equals(names);
++    final boolean hashCollisions = "hashCollisions".equals(names);
++    final String timestampColumn = aliases ? "meta" : hashCollisions ? "Aa" : "recordTime";
++    final String topicColumn = aliases ? "meta" : hashCollisions ? "BB" : "recordTopic";
++    final String partitionColumn = aliases ? "meta" : "recordPartition";
++    final String offsetColumn = aliases ? "meta" : "recordOffset";
++    final KafkaInputFormat format = new KafkaInputFormat(
++        null,
++        null,
++        new JsonInputFormat(null, null, null, false, false),
++        null,
++        null,
++        timestampColumn,
++        topicColumn,
++        partitionColumn,
++        offsetColumn
++    );
++    final SettableByteEntity<KafkaRecordEntity> source = new SettableByteEntity<>();
++    final InputEntityReader reader = format.createReader(
++        new InputRowSchema(
++            new TimestampSpec("timestamp", "iso", null),
++            DimensionsSpec.builder().useSchemaDiscovery(true).build(),
++            ColumnsFilter.all()
++        ),
++        source,
++        null
++    );
++    final InputRow[] retained = new InputRow[2];
++    for (int i = 0; i < retained.length; i++) {
++      // A null value field falls back to metadata. A non-null value wins over the topic metadata.
++      final byte[] value = StringUtils.toUtf8(
++          "{\"timestamp\":\"2021-06-25\",\"" + timestampColumn + "\":null"
++          + (aliases ? "" : ",\"" + topicColumn + "\":\"value-topic\"") + "}"
++      );
++      source.setEntity(new KafkaRecordEntity(new ConsumerRecord<>(
++          "topic-" + i,
++          1000 + i,
++          10000L + i,
++          TIMESTAMP_MILLIS + i,
++          null,
++          0,
++          value.length,
++          null,
++          value,
++          new RecordHeaders(),
++          Optional.empty()
++      )));
++      try (final CloseableIterator<InputRow> rows = reader.read()) {
++        retained[i] = rows.next();
++        Assertions.assertFalse(rows.hasNext());
++      }
++      try (final CloseableIterator<InputRowListPlusRawValues> samples = reader.sample()) {
++        final InputRow expected = samples.next().getInputRows().get(0);
++        Assertions.assertEquals(expected.getDimensions(), retained[i].getDimensions());
++        for (final String column : Arrays.asList(timestampColumn, topicColumn, partitionColumn, offsetColumn)) {
++          Assertions.assertEquals(expected.getRaw(column), retained[i].getRaw(column));
++        }
++      }
++    }
++    // Moving the source to another record must not change metadata of an already emitted row.
++    Assertions.assertEquals(TIMESTAMP_MILLIS, retained[0].getRaw(timestampColumn));
++    Assertions.assertEquals(TIMESTAMP_MILLIS + 1, retained[1].getRaw(timestampColumn));
++    if (!aliases) {
++      Assertions.assertEquals("value-topic", retained[0].getRaw(topicColumn));
++      Assertions.assertEquals(1000, retained[0].getRaw(partitionColumn));
++      Assertions.assertEquals(10000L, retained[0].getRaw(offsetColumn));
++      Assertions.assertNull(retained[0].getRaw("unknownMetadata"));
++    }
++  }
++

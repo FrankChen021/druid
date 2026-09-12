@@ -1,0 +1,13 @@
+java: openjdk version "25" 2025-09-16 LTS
+javac: javac 25
+fatjar: /Users/frankchen/source/open/druid/benchmarks/target/benchmarks.jar
+fatjar-sha256: e91bbb0669eb17f8e1afc2095cd39e022c4d919318b188b5865f8199c04ba802
+baseline-repo: /tmp/druid-empty-error-benchmark
+baseline-source: /tmp/druid-empty-error-benchmark/baseline-source/IncrementalIndex.java
+baseline-source-sha256: 19d0b699fc2cc0cd7691053573e914c8fbb8887d43aa3660d141401fd95da73f
+candidate-repo: /tmp/druid-kafka-deserialization-pr
+candidate-head: 786c1f4cae8dc3c06830dae16ba8e1dabd0b6cf6
+candidate-source-sha256: 35e41fc558a3ccc6505a216659401b1faf339575196df932aae133c71f664164
+benchmark-source-sha256-measured: 1c8f27f55edbab500dc6fb6338db269b2748d192c16076c562110f045fc3faa4
+benchmark-source-sha256-final: 1c8f27f55edbab500dc6fb6338db269b2748d192c16076c562110f045fc3faa4
+classpath: /Users/frankchen/source/open/druid/benchmarks/target/benchmarks.jar

@@ -1,0 +1,24 @@
+iso-string-0|OK|1709210096123|UTC
+iso-string-1|OK|951868799999|UTC
+iso-string-2|OK|-62167219200000|UTC
+iso-string-3|OK|1709210096123|UTC
+iso-string-4|OK|1709210096000|UTC
+iso-string-5|OK|1709210096123|UTC
+iso-string-6|OK|1709181296123|UTC
+iso-string-7|OK|1709164800000|UTC
+iso-string-8|ERROR|org.joda.time.IllegalFieldValueException|Cannot parse "1900-02-29T00:00:00.000Z": Value 29 for dayOfMonth must be in the range [1,28]
+iso-string-9|ERROR|org.joda.time.IllegalFieldValueException|Cannot parse "2024-13-01T00:00:00.000Z": Value 13 for monthOfYear must be in the range [1,12]
+iso-string-10|ERROR|org.joda.time.IllegalFieldValueException|Cannot parse "2024-01-01T24:00:00.000Z": Value 24 for hourOfDay must be in the range [0,23]
+iso-string-11|ERROR|java.lang.IllegalArgumentException|Invalid format: "2024-01-01T00:00:00.00xZ" is malformed at "xZ"
+auto-string-0|OK|1709210096123|UTC
+auto-string-1|OK|951868799999|UTC
+auto-string-2|OK|1709210096123|UTC
+auto-string-3|OK|1709210096000|UTC
+auto-string-4|OK|1709181296123|UTC
+auto-string-5|OK|1709164800000|UTC
+auto-string-6|OK|1700000000123|UTC
+auto-string-7|ERROR|java.lang.IllegalArgumentException|Invalid format: "asdf"
+auto-string-8|ERROR|org.joda.time.IllegalFieldValueException|Cannot parse "1900-02-29T00:00:00.000Z": Value 29 for dayOfMonth must be in the range [1,28]
+auto-string-9|ERROR|java.lang.IllegalArgumentException|Invalid format: "2024-01-01T00:00:00.00xZ" is malformed at "xZ"
+auto-long|OK|1700000000123|UTC
+auto-integer|OK|1700000000|UTC

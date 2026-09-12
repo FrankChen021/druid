@@ -26,12 +26,14 @@ import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.IAE;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.ISODateTimeFormat;
 
+import javax.annotation.Nullable;
 import java.util.concurrent.TimeUnit;
 
 public class TimestampParser
@@ -45,6 +47,10 @@ public class TimestampParser
       final DateTimes.UtcFormatter parser = DateTimes.wrapFormatter(createAutoParser());
       return (String input) -> {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(input), "null timestamp");
+        final DateTime utcMillis = tryParseUtcMillis(input);
+        if (utcMillis != null) {
+          return utcMillis;
+        }
 
         for (int i = 0; i < input.length(); i++) {
           if (input.charAt(i) < '0' || input.charAt(i) > '9') {
@@ -68,7 +74,9 @@ public class TimestampParser
     } else if ("iso".equalsIgnoreCase(format)) {
       return input -> {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(input), "null timestamp");
-        return DateTimes.of(ParserUtils.stripQuotes(input));
+        final String timestamp = ParserUtils.stripQuotes(input);
+        final DateTime utcMillis = tryParseUtcMillis(timestamp);
+        return utcMillis == null ? DateTimes.of(timestamp) : utcMillis;
       };
     } else if ("posix".equalsIgnoreCase(format)
                || "millis".equalsIgnoreCase(format)
@@ -114,6 +122,53 @@ public class TimestampParser
     } else {
       return input -> DateTimes.utc(input.longValue());
     }
+  }
+
+  /**
+   * Avoid the general ISO parser for the common fixed-width UTC millisecond representation. Calendar validation
+   * still comes from the same ISO chronology. All other forms, including invalid dates, use the existing parser
+   * so accepted syntax and error messages remain unchanged.
+   */
+  @Nullable
+  private static DateTime tryParseUtcMillis(final String input)
+  {
+    if (input.length() != 24
+        || input.charAt(4) != '-' || input.charAt(7) != '-'
+        || input.charAt(10) != 'T' || input.charAt(13) != ':' || input.charAt(16) != ':'
+        || input.charAt(19) != '.' || input.charAt(23) != 'Z') {
+      return null;
+    }
+    final int year = parseDecimal(input, 0, 4);
+    if (year < 0) {
+      return null;
+    }
+    try {
+      return DateTimes.utc(ISOChronology.getInstanceUTC().getDateTimeMillis(
+          year,
+          parseDecimal(input, 5, 7),
+          parseDecimal(input, 8, 10),
+          parseDecimal(input, 11, 13),
+          parseDecimal(input, 14, 16),
+          parseDecimal(input, 17, 19),
+          parseDecimal(input, 20, 23)
+      ));
+    }
+    catch (IllegalArgumentException e) {
+      return null;
+    }
+  }
+
+  private static int parseDecimal(final String input, final int start, final int end)
+  {
+    int value = 0;
+    for (int i = start; i < end; i++) {
+      final int digit = input.charAt(i) - '0';
+      if (digit < 0 || digit > 9) {
+        return -1;
+      }
+      value = value * 10 + digit;
+    }
+    return value;
   }
 
   public static Function<Object, DateTime> createObjectTimestampParser(

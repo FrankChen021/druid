@@ -29,6 +29,7 @@ import org.apache.druid.data.input.InputEntityReader;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.InputRowListPlusRawValues;
 import org.apache.druid.data.input.InputRowSchema;
+import org.apache.druid.data.input.MapBasedInputRow;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.data.input.impl.JsonInputFormat;
@@ -56,8 +57,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Optional;
 
 public class KafkaInputFormatTest
@@ -681,8 +684,9 @@ public class KafkaInputFormatTest
     }
   }
 
-  @Test
-  public void testBlendedDimensionsAndNullFallback() throws IOException
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  public void testBlendedDimensionsAndNullFallback(final boolean fixedDimensions) throws IOException
   {
     final KafkaInputFormat inputFormat = new KafkaInputFormat(
         new KafkaStringHeaderFormat(null),
@@ -699,21 +703,26 @@ public class KafkaInputFormatTest
     final Headers headers = new RecordHeaders()
         .add("BB", StringUtils.toUtf8("header"))
         .add(dummy, StringUtils.toUtf8("dummy-header"));
+    final SettableByteEntity<KafkaRecordEntity> source = newSettableByteEntity(makeInputEntity(
+        null,
+        StringUtils.toUtf8("{\"timestamp\":\"2021-06-25\",\"Aa\":\"value\",\"BB\":null}"),
+        headers
+    ));
     final InputEntityReader reader = inputFormat.createReader(
         new InputRowSchema(
             new TimestampSpec("timestamp", "iso", null),
-            DimensionsSpec.builder().useSchemaDiscovery(true).build(),
+            fixedDimensions
+            ? new DimensionsSpec(DimensionsSpec.getDefaultSchemas(ImmutableList.of("Aa", "BB")))
+            : DimensionsSpec.builder().useSchemaDiscovery(true).build(),
             ColumnsFilter.all()
         ),
-        newSettableByteEntity(makeInputEntity(
-            null,
-            StringUtils.toUtf8("{\"timestamp\":\"2021-06-25\",\"Aa\":\"value\",\"BB\":null}"),
-            headers
-        )),
+        source,
         null
     );
+    final MapBasedInputRow retained;
     try (final CloseableIterator<InputRow> rows = reader.read()) {
       final InputRow row = rows.next();
+      retained = (MapBasedInputRow) row;
       Assertions.assertEquals("value", row.getRaw("Aa"));
       Assertions.assertEquals("header", row.getRaw("BB"));
       Assertions.assertEquals("dummy-header", row.getRaw(dummy));
@@ -726,6 +735,19 @@ public class KafkaInputFormatTest
       Assertions.assertEquals("header", sample.getRawValues().get("BB"));
       Assertions.assertEquals("dummy-header", sample.getRawValues().get(dummy));
       Assertions.assertFalse(sample.getInputRows().get(0).getDimensions().contains(dummy));
+      // Materialize the retained event only after the reader has advanced to another record.
+      source.setEntity(makeInputEntity(null, SIMPLE_JSON_VALUE_BYTES, new RecordHeaders()));
+      try (final CloseableIterator<InputRow> nextRows = reader.read()) {
+        Assertions.assertEquals("x", nextRows.next().getRaw("foo"));
+      }
+      final MapBasedInputRow sampled = (MapBasedInputRow) sample.getInputRows().get(0);
+      Assertions.assertEquals(
+          new ArrayList<>(sampled.getEvent().keySet()),
+          new ArrayList<>(retained.getEvent().keySet())
+      );
+      Assertions.assertEquals(new LinkedHashMap<>(sampled.getEvent()), new LinkedHashMap<>(retained.getEvent()));
+      Assertions.assertEquals("value", retained.getRaw("Aa"));
+      Assertions.assertEquals("header", retained.getRaw("BB"));
     }
   }
 
