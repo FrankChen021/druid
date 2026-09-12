@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import org.apache.druid.data.input.ColumnsFilter;
 import org.apache.druid.data.input.InputEntityReader;
 import org.apache.druid.data.input.InputRow;
+import org.apache.druid.data.input.InputRowListPlusRawValues;
 import org.apache.druid.data.input.InputRowSchema;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DimensionsSpec;
@@ -50,6 +51,8 @@ import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -621,6 +624,108 @@ public class KafkaInputFormatTest
             t.getMessage().startsWith("Timestamp[null] is unparseable! Event: {")
         );
       }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"default", "lines", "nodes"})
+  public void testJsonKeyReaderReuseAfterInvalidAndNullKeys(final String readerType) throws IOException
+  {
+    final KafkaInputFormat inputFormat = new KafkaInputFormat(
+        null,
+        new JsonInputFormat(null, null, null, "lines".equals(readerType), "nodes".equals(readerType)),
+        new JsonInputFormat(null, null, null, false, false),
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    );
+    final SettableByteEntity<KafkaRecordEntity> source = new SettableByteEntity<>();
+    final InputEntityReader reader = inputFormat.createReader(
+        new InputRowSchema(
+            new TimestampSpec("timestamp", "iso", null),
+            DimensionsSpec.builder().useSchemaDiscovery(true).build(),
+            ColumnsFilter.all()
+        ),
+        source,
+        null
+    );
+    for (int i = 0; i < 3; i++) {
+      source.setEntity(makeInputEntity(StringUtils.toUtf8("{invalid"), SIMPLE_JSON_VALUE_BYTES, new RecordHeaders()));
+      Assertions.assertThrows(ParseException.class, reader::read);
+
+      source.setEntity(makeInputEntity(null, SIMPLE_JSON_VALUE_BYTES, new RecordHeaders()));
+      try (final CloseableIterator<InputRow> rows = reader.read()) {
+        Assertions.assertNull(rows.next().getRaw("kafka.key"));
+      }
+
+      final String key = "key-" + i;
+      source.setEntity(makeInputEntity(
+          StringUtils.toUtf8("{\"key\":\"" + key + "\"}"),
+          SIMPLE_JSON_VALUE_BYTES,
+          new RecordHeaders()
+      ));
+      final InputRow previousRow;
+      try (final CloseableIterator<InputRow> rows = reader.read()) {
+        previousRow = rows.next();
+        Assertions.assertEquals(key, previousRow.getRaw("kafka.key"));
+        Assertions.assertFalse(rows.hasNext());
+      }
+      source.setEntity(makeInputEntity(SIMPLE_JSON_KEY_BYTES, SIMPLE_JSON_VALUE_BYTES, new RecordHeaders()));
+      try (final CloseableIterator<InputRowListPlusRawValues> rows = reader.sample()) {
+        Assertions.assertEquals("sampleKey", rows.next().getRawValues().get("kafka.key"));
+      }
+      Assertions.assertEquals(key, previousRow.getRaw("kafka.key"));
+    }
+  }
+
+  @Test
+  public void testBlendedDimensionsAndNullFallback() throws IOException
+  {
+    final KafkaInputFormat inputFormat = new KafkaInputFormat(
+        new KafkaStringHeaderFormat(null),
+        null,
+        new JsonInputFormat(null, null, null, false, false),
+        "",
+        null,
+        null,
+        null,
+        null,
+        null
+    );
+    final String dummy = KafkaInputFormat.DEFAULT_AUTO_TIMESTAMP_STRING;
+    final Headers headers = new RecordHeaders()
+        .add("BB", StringUtils.toUtf8("header"))
+        .add(dummy, StringUtils.toUtf8("dummy-header"));
+    final InputEntityReader reader = inputFormat.createReader(
+        new InputRowSchema(
+            new TimestampSpec("timestamp", "iso", null),
+            DimensionsSpec.builder().useSchemaDiscovery(true).build(),
+            ColumnsFilter.all()
+        ),
+        newSettableByteEntity(makeInputEntity(
+            null,
+            StringUtils.toUtf8("{\"timestamp\":\"2021-06-25\",\"Aa\":\"value\",\"BB\":null}"),
+            headers
+        )),
+        null
+    );
+    try (final CloseableIterator<InputRow> rows = reader.read()) {
+      final InputRow row = rows.next();
+      Assertions.assertEquals("value", row.getRaw("Aa"));
+      Assertions.assertEquals("header", row.getRaw("BB"));
+      Assertions.assertEquals("dummy-header", row.getRaw(dummy));
+      Assertions.assertFalse(row.getDimensions().contains(dummy));
+      // Aa and BB have identical hash codes; retain the value-first order of discovered dimensions.
+      Assertions.assertTrue(row.getDimensions().indexOf("Aa") < row.getDimensions().indexOf("BB"));
+    }
+    try (final CloseableIterator<InputRowListPlusRawValues> rows = reader.sample()) {
+      final InputRowListPlusRawValues sample = rows.next();
+      Assertions.assertEquals("header", sample.getRawValues().get("BB"));
+      Assertions.assertEquals("dummy-header", sample.getRawValues().get(dummy));
+      Assertions.assertFalse(sample.getInputRows().get(0).getDimensions().contains(dummy));
     }
   }
 
