@@ -27,6 +27,7 @@ import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.EncoderFactory;
@@ -34,6 +35,7 @@ import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.druid.data.input.AvroStreamInputFormatTest;
 import org.apache.druid.data.input.SomeAvroDatum;
 import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.common.parsers.ParseException;
 import org.apache.druid.utils.DynamicConfigProviderUtils;
 import org.hamcrest.CoreMatchers;
@@ -47,11 +49,19 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 
 public class SchemaRegistryBasedAvroBytesDecoderTest
 {
+  private static final Schema STRING_SCHEMA = new Schema.Parser().parse(
+      "{\"type\":\"record\",\"name\":\"StringEvent\",\"fields\":[{\"name\":\"value\",\"type\":\"string\"}]}"
+  );
+  private static final Schema LONG_SCHEMA = new Schema.Parser().parse(
+      "{\"type\":\"record\",\"name\":\"LongEvent\",\"fields\":[{\"name\":\"value\",\"type\":\"long\"}]}"
+  );
   private SchemaRegistryClient registry;
 
   @BeforeEach
@@ -75,6 +85,60 @@ public class SchemaRegistryBasedAvroBytesDecoderTest
 
     // Then
     Assertions.assertNotEquals(decoder.hashCode(), 0);
+  }
+
+  @Test
+  public void testReuseAfterCorruptionAndSchemaChanges() throws Exception
+  {
+    Mockito.when(registry.getSchemaById(1)).thenReturn(new AvroSchema(STRING_SCHEMA));
+    Mockito.when(registry.getSchemaById(2)).thenReturn(new AvroSchema(LONG_SCHEMA));
+    final SchemaRegistryBasedAvroBytesDecoder decoder = new SchemaRegistryBasedAvroBytesDecoder(registry);
+    final GenericRecord first = decoder.parse(message(STRING_SCHEMA, 1, "first"));
+    Assertions.assertThrows(
+        ParseException.class,
+        () -> decoder.parse(ByteBuffer.allocate(5).put((byte) 0).putInt(1).flip())
+    );
+    final GenericRecord next = decoder.parse(message(STRING_SCHEMA, 1, "next"));
+    Assertions.assertNotSame(first, next);
+    Assertions.assertEquals("next", next.get("value").toString());
+    Assertions.assertEquals(42L, decoder.parse(message(LONG_SCHEMA, 2, 42L)).get("value"));
+    Assertions.assertEquals("last", decoder.parse(message(STRING_SCHEMA, 1, "last")).get("value").toString());
+    Assertions.assertEquals("first", first.get("value").toString());
+  }
+
+  @Test
+  public void testSharedDecoderAcrossThreads() throws Exception
+  {
+    Mockito.when(registry.getSchemaById(1)).thenReturn(new AvroSchema(STRING_SCHEMA));
+    Mockito.when(registry.getSchemaById(2)).thenReturn(new AvroSchema(LONG_SCHEMA));
+    final SchemaRegistryBasedAvroBytesDecoder decoder = new SchemaRegistryBasedAvroBytesDecoder(registry);
+    final CyclicBarrier barrier = new CyclicBarrier(2);
+    try (final var executor = Execs.multiThreaded(2, "avro-decoder-test-%d")) {
+      final var first = executor.submit(() -> {
+        barrier.await();
+        for (int i = 0; i < 100; i++) {
+          Assertions.assertEquals("v" + i, decoder.parse(message(STRING_SCHEMA, 1, "v" + i)).get("value").toString());
+        }
+        return null;
+      });
+      final var second = executor.submit(() -> {
+        barrier.await();
+        for (int i = 0; i < 100; i++) {
+          Assertions.assertEquals((long) i, decoder.parse(message(LONG_SCHEMA, 2, (long) i)).get("value"));
+        }
+        return null;
+      });
+      first.get(10, TimeUnit.SECONDS);
+      second.get(10, TimeUnit.SECONDS);
+    }
+  }
+
+  private ByteBuffer message(final Schema schema, final int id, final Object value) throws IOException
+  {
+    final GenericRecord record = new GenericData.Record(schema);
+    record.put("value", value);
+    final byte[] bytes = getAvroDatum(schema, record);
+    return ByteBuffer.allocate(bytes.length + 5).put((byte) 0).putInt(id).put(bytes).flip();
   }
 
   @Test
