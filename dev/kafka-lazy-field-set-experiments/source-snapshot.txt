@@ -1,0 +1,4 @@
+baseline_commit=786c1f4cae8dc3c06830dae16ba8e1dabd0b6cf6
+candidate_source=/tmp/druid-kafka-deserialization-pr/extensions-core/kafka-indexing-service/src/main/java/org/apache/druid/data/input/kafkainput/KafkaInputReader.java
+fae3aae69987fb7cfaa6d5ce40093f1bd13f8cdae86aa38b60e57bb9ce119f30  /tmp/kafka-lazy-fields-benchmark/results/latest/baseline-source/extensions-core/kafka-indexing-service/src/main/java/org/apache/druid/data/input/kafkainput/KafkaInputReader.java
+ee2e924f995a35d64199e7d50fbe3aa832bd650d466e20c3b83628507e3a6ce1  /tmp/kafka-lazy-fields-benchmark/results/latest/candidate-source/extensions-core/kafka-indexing-service/src/main/java/org/apache/druid/data/input/kafkainput/KafkaInputReader.java

@@ -178,18 +178,26 @@ public class KafkaInputReader implements InputEntityReader
   {
     return valueParser.read().map(
         r -> {
-          final Map<String, Object> event = buildBlendedEventMap(r::getRaw, r.getDimensions(), headerKeyList);
-          // Exclude the dummy timestamp from dimensions without removing it from the event's keys.
-          final Set<String> newDimensions = Sets.difference(event.keySet(), DUMMY_TIMESTAMP_COLUMNS);
+          final boolean fixedDimensions = inputRowSchema.getDimensionsSpec().hasFixedDimensions();
+          final Map<String, Object> event = buildBlendedEventMap(
+              r::getRaw,
+              r.getDimensions(),
+              headerKeyList,
+              fixedDimensions
+          );
+          // Fixed dimensions do not need the combined value/metadata field names.
+          final List<String> dimensions = fixedDimensions
+                                          ? inputRowSchema.getDimensionsSpec().getDimensionNames()
+                                          : MapInputRowParser.findDimensions(
+                                              inputRowSchema.getTimestampSpec(),
+                                              inputRowSchema.getDimensionsSpec(),
+                                              Sets.difference(event.keySet(), DUMMY_TIMESTAMP_COLUMNS)
+                                          );
 
           final DateTime timestamp = MapInputRowParser.parseTimestamp(inputRowSchema.getTimestampSpec(), event);
           return new MapBasedInputRow(
               timestamp,
-              MapInputRowParser.findDimensions(
-                  inputRowSchema.getTimestampSpec(),
-                  inputRowSchema.getDimensionsSpec(),
-                  newDimensions
-              ),
+              dimensions,
               event
           );
         }
@@ -295,12 +303,29 @@ public class KafkaInputReader implements InputEntityReader
       Map<String, Object> fallback
   )
   {
-    // Keep the value-first insertion order used for dimension discovery, including colliding field names.
-    final Set<String> keySet = new HashSet<>(rowDimensions);
-    keySet.addAll(fallback.keySet());
+    return buildBlendedEventMap(getRowValue, rowDimensions, fallback, false);
+  }
 
+  private static Map<String, Object> buildBlendedEventMap(
+      final Function<String, Object> getRowValue,
+      final Collection<String> rowDimensions,
+      final Map<String, Object> fallback,
+      final boolean deferKeySet
+  )
+  {
     return new AbstractMap<>()
     {
+      // Publish a fully built set for retained rows; concurrent first readers may build equivalent sets.
+      private volatile Set<String> keys = deferKeySet ? null : buildKeySet();
+
+      private Set<String> buildKeySet()
+      {
+        // Preserve the existing value-first HashSet insertion order, including colliding names.
+        final Set<String> result = new HashSet<>(rowDimensions);
+        result.addAll(fallback.keySet());
+        return result;
+      }
+
       @Override
       public Object get(Object key)
       {
@@ -315,7 +340,10 @@ public class KafkaInputReader implements InputEntityReader
       @Override
       public Set<String> keySet()
       {
-        return keySet;
+        if (keys == null) {
+          keys = buildKeySet();
+        }
+        return keys;
       }
 
       @Override
