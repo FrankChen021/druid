@@ -1,0 +1,31 @@
+WARNING: Use of the three-letter time zone ID "NST" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "HST" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "ACT" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "BST" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "AET" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "IST" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "CST" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "NET" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "AGT" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "CAT" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "MIT" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "BET" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "PST" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "ART" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "JST" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "VST" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "IET" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "CNT" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "PLT" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "PNT" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "EST" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "EAT" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "ECT" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "PRT" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "CTT" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "SST" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "MST" is deprecated and it will be removed in a future release
+WARNING: Use of the three-letter time zone ID "AST" is deprecated and it will be removed in a future release
+validated sixDense
+validated sixtyFourDense
+validated sixtyFourSparse

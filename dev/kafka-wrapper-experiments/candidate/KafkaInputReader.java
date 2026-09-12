@@ -1,0 +1,443 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.druid.data.input.kafkainput;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import org.apache.druid.data.input.InputEntityReader;
+import org.apache.druid.data.input.InputRow;
+import org.apache.druid.data.input.InputRowListPlusRawValues;
+import org.apache.druid.data.input.InputRowSchema;
+import org.apache.druid.data.input.MapBasedInputRow;
+import org.apache.druid.data.input.impl.MapInputRowParser;
+import org.apache.druid.data.input.kafka.KafkaRecordEntity;
+import org.apache.druid.indexing.seekablestream.SettableByteEntity;
+import org.apache.druid.java.util.common.CloseableIterators;
+import org.apache.druid.java.util.common.Pair;
+import org.apache.druid.java.util.common.parsers.CloseableIterator;
+import org.joda.time.DateTime;
+
+import javax.annotation.Nullable;
+import java.io.IOException;
+import java.util.AbstractMap;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+public class KafkaInputReader implements InputEntityReader
+{
+  private static final Set<String> DUMMY_TIMESTAMP_COLUMNS = Collections.singleton(
+      KafkaInputFormat.DEFAULT_AUTO_TIMESTAMP_STRING
+  );
+
+  private final InputRowSchema inputRowSchema;
+  private final SettableByteEntity<KafkaRecordEntity> source;
+  private final Function<KafkaRecordEntity, KafkaHeaderReader> headerParserSupplier;
+  private final Function<KafkaRecordEntity, InputEntityReader> keyParserSupplier;
+  private final InputEntityReader valueParser;
+  private final String keyColumnName;
+  private final String timestampColumnName;
+  private final String topicColumnName;
+  private final String partitionColumnName;
+  private final String offsetColumnName;
+  private final Map<String, Integer> metadataPositions;
+
+  /**
+   * @param inputRowSchema       Actual schema from the ingestion spec
+   * @param source               kafka record containing header, key & value that is wrapped inside SettableByteEntity
+   * @param headerParserSupplier Function to get Header parser for parsing the header section, kafkaInputFormat allows users to skip header parsing section and hence an be null
+   * @param keyParserSupplier    Function to get Key parser for key section, can be null as well. Key parser supplier can also return a null key parser.
+   * @param valueParser          Value parser is a required section in kafkaInputFormat. It cannot be null.
+   * @param keyColumnName        Default key column name
+   * @param timestampColumnName  Default kafka record's timestamp column name
+   */
+  public KafkaInputReader(
+      InputRowSchema inputRowSchema,
+      SettableByteEntity<KafkaRecordEntity> source,
+      @Nullable Function<KafkaRecordEntity, KafkaHeaderReader> headerParserSupplier,
+      @Nullable Function<KafkaRecordEntity, InputEntityReader> keyParserSupplier,
+      InputEntityReader valueParser,
+      String keyColumnName,
+      String timestampColumnName,
+      String topicColumnName,
+      String partitionColumnName,
+      String offsetColumnName
+  )
+  {
+    this.inputRowSchema = inputRowSchema;
+    this.source = source;
+    this.headerParserSupplier = headerParserSupplier;
+    this.keyParserSupplier = keyParserSupplier;
+    this.valueParser = valueParser;
+    this.keyColumnName = keyColumnName;
+    this.timestampColumnName = timestampColumnName;
+    this.topicColumnName = topicColumnName;
+    this.partitionColumnName = partitionColumnName;
+    this.offsetColumnName = offsetColumnName;
+    final Map<String, Integer> positions = new HashMap<>();
+    positions.putIfAbsent(timestampColumnName, 0);
+    positions.putIfAbsent(topicColumnName, 1);
+    positions.putIfAbsent(partitionColumnName, 2);
+    positions.putIfAbsent(offsetColumnName, 3);
+    this.metadataPositions = Collections.unmodifiableMap(positions);
+  }
+
+  @Override
+  public CloseableIterator<InputRow> read() throws IOException
+  {
+    final KafkaRecordEntity record = source.getEntity();
+    // With no key/header parsing, snapshot only metadata values. Do not retain the record and its payload bytes.
+    // Sampling and tombstones keep their existing mutable raw-map path.
+    final Map<String, Object> mergedHeaderMap;
+    if (headerParserSupplier == null && keyParserSupplier == null && record.getRecord().value() != null) {
+      mergedHeaderMap = new MetadataMap(
+          metadataPositions,
+          record.getRecord().timestamp(),
+          record.getRecord().topic(),
+          record.getRecord().partition(),
+          record.getRecord().offset()
+      );
+    } else {
+      mergedHeaderMap = extractHeaderAndKeys(record);
+    }
+
+    // Ignore tombstone records that have null values.
+    if (record.getRecord().value() != null) {
+      return buildBlendedRows(valueParser, mergedHeaderMap);
+    } else {
+      return CloseableIterators.withEmptyBaggage(buildInputRowsForMap(mergedHeaderMap).iterator());
+    }
+  }
+
+  @Override
+  public CloseableIterator<InputRowListPlusRawValues> sample() throws IOException
+  {
+    final KafkaRecordEntity record = source.getEntity();
+    InputRowListPlusRawValues keysAndHeader = extractHeaderAndKeysSample(record);
+    if (record.getRecord().value() != null) {
+      return buildBlendedRowsSample(valueParser, keysAndHeader.getRawValues());
+    } else {
+      final List<InputRowListPlusRawValues> rows = Collections.singletonList(keysAndHeader);
+      return CloseableIterators.withEmptyBaggage(rows.iterator());
+    }
+  }
+
+  private Map<String, Object> extractHeader(KafkaRecordEntity record)
+  {
+    final Map<String, Object> mergedHeaderMap = new HashMap<>();
+    if (headerParserSupplier != null) {
+      KafkaHeaderReader headerParser = headerParserSupplier.apply(record);
+      List<Pair<String, Object>> headerList = headerParser.read();
+      for (Pair<String, Object> ele : headerList) {
+        mergedHeaderMap.put(ele.lhs, ele.rhs);
+      }
+    }
+
+    // Add kafka record timestamp to the mergelist, we will skip record timestamp if the same key exists already in
+    // the header list
+    mergedHeaderMap.putIfAbsent(timestampColumnName, record.getRecord().timestamp());
+
+    // Add kafka record topic to the mergelist, only if the key doesn't already exist
+    mergedHeaderMap.putIfAbsent(topicColumnName, record.getRecord().topic());
+    mergedHeaderMap.putIfAbsent(partitionColumnName, record.getRecord().partition());
+    mergedHeaderMap.putIfAbsent(offsetColumnName, record.getRecord().offset());
+
+    return mergedHeaderMap;
+  }
+
+  /** Metadata-only fallback for value rows; numeric values are boxed only if a field is read. */
+  private static class MetadataMap extends AbstractMap<String, Object>
+  {
+    private final Map<String, Integer> positions;
+    private final long timestamp;
+    private final String topic;
+    private final int partition;
+    private final long offset;
+
+    MetadataMap(
+        final Map<String, Integer> positions,
+        final long timestamp,
+        final String topic,
+        final int partition,
+        final long offset
+    )
+    {
+      this.positions = positions;
+      this.timestamp = timestamp;
+      this.topic = topic;
+      this.partition = partition;
+      this.offset = offset;
+    }
+
+    @Override
+    public Object get(final Object key)
+    {
+      final Integer position = positions.get(key);
+      if (position == null) {
+        return null;
+      }
+      // Separate returns preserve the original Long timestamp/offset and Integer partition types.
+      switch (position) {
+        case 0:
+          return timestamp;
+        case 1:
+          return topic;
+        case 2:
+          return partition;
+        case 3:
+          return offset;
+        default:
+          throw new IllegalStateException("Unknown metadata position [" + position + "]");
+      }
+    }
+
+    @Override
+    public Set<String> keySet()
+    {
+      return positions.keySet();
+    }
+
+    @Override
+    public Set<Entry<String, Object>> entrySet()
+    {
+      return keySet().stream()
+                     .map(key -> new SimpleImmutableEntry<>(key, get(key)))
+                     .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+  }
+
+  private Map<String, Object> extractHeaderAndKeys(KafkaRecordEntity record) throws IOException
+  {
+    final Map<String, Object> mergedHeaderMap = extractHeader(record);
+    final InputEntityReader keyParser = (keyParserSupplier == null) ? null : keyParserSupplier.apply(record);
+    if (keyParser != null) {
+      try (CloseableIterator<InputRow> keyIterator = keyParser.read()) {
+        // Key currently only takes the first row and ignores the rest.
+        if (keyIterator.hasNext()) {
+          final InputRow keyRow = keyIterator.next();
+          // Add the key to the mergeList only if the key string is not already present
+          mergedHeaderMap.computeIfAbsent(keyColumnName, ignored -> getFirstValue(keyRow));
+        }
+      }
+      catch (ClassCastException e) {
+        throw new IOException(
+            "Unsupported keyFormat. KafkaInputformat only supports input format that return MapBasedInputRow rows"
+        );
+      }
+    }
+    return mergedHeaderMap;
+  }
+
+  private CloseableIterator<InputRow> buildBlendedRows(
+      InputEntityReader valueParser,
+      Map<String, Object> headerKeyList
+  ) throws IOException
+  {
+    return valueParser.read().map(
+        r -> {
+          final Map<String, Object> event = buildBlendedEventMap(r::getRaw, r.getDimensions(), headerKeyList);
+          // Exclude the dummy timestamp from dimensions without removing it from the event's keys.
+          final Set<String> newDimensions = Sets.difference(event.keySet(), DUMMY_TIMESTAMP_COLUMNS);
+
+          final DateTime timestamp = MapInputRowParser.parseTimestamp(inputRowSchema.getTimestampSpec(), event);
+          return new MapBasedInputRow(
+              timestamp,
+              MapInputRowParser.findDimensions(
+                  inputRowSchema.getTimestampSpec(),
+                  inputRowSchema.getDimensionsSpec(),
+                  newDimensions
+              ),
+              event
+          );
+        }
+    );
+  }
+
+  private InputRowListPlusRawValues extractHeaderAndKeysSample(KafkaRecordEntity record) throws IOException
+  {
+    Map<String, Object> mergedHeaderMap = extractHeader(record);
+    InputEntityReader keyParser = (keyParserSupplier == null) ? null : keyParserSupplier.apply(record);
+    if (keyParser != null) {
+      try (CloseableIterator<InputRowListPlusRawValues> keyIterator = keyParser.sample()) {
+        // Key currently only takes the first row and ignores the rest.
+        if (keyIterator.hasNext()) {
+          // Return type for the key parser should be of type MapBasedInputRow
+          // Parsers returning other types are not compatible currently.
+          InputRowListPlusRawValues keyRow = keyIterator.next();
+          // Add the key to the mergeList only if the key string is not already present
+          mergedHeaderMap.putIfAbsent(
+              keyColumnName,
+              keyRow.getRawValues().entrySet().stream().findFirst().get().getValue()
+          );
+          return InputRowListPlusRawValues.of(buildInputRowsForMap(mergedHeaderMap), mergedHeaderMap);
+        }
+      }
+      catch (ClassCastException e) {
+        throw new IOException(
+            "Unsupported keyFormat. KafkaInputformat only supports input format that return MapBasedInputRow rows"
+        );
+      }
+    }
+    return InputRowListPlusRawValues.of(buildInputRowsForMap(mergedHeaderMap), mergedHeaderMap);
+  }
+
+  private CloseableIterator<InputRowListPlusRawValues> buildBlendedRowsSample(
+      InputEntityReader valueParser,
+      Map<String, Object> headerKeyList
+  ) throws IOException
+  {
+    return valueParser.sample().map(
+        rowAndValues -> {
+          if (rowAndValues.getParseException() != null) {
+            return rowAndValues;
+          }
+          List<InputRow> newInputRows = Lists.newArrayListWithCapacity(rowAndValues.getInputRows().size());
+          List<Map<String, Object>> newRawRows = Lists.newArrayListWithCapacity(rowAndValues.getRawValues().size());
+
+          for (Map<String, Object> raw : rowAndValues.getRawValuesList()) {
+            newRawRows.add(buildBlendedEventMap(raw::get, raw.keySet(), headerKeyList));
+          }
+          for (InputRow r : rowAndValues.getInputRows()) {
+            if (r != null) {
+              final Map<String, Object> event = buildBlendedEventMap(
+                  r::getRaw,
+                  r.getDimensions(),
+                  headerKeyList
+              );
+              final Set<String> newDimensions = Sets.difference(event.keySet(), DUMMY_TIMESTAMP_COLUMNS);
+              newInputRows.add(
+                  new MapBasedInputRow(
+                      inputRowSchema.getTimestampSpec().extractTimestamp(event),
+                      MapInputRowParser.findDimensions(
+                          inputRowSchema.getTimestampSpec(),
+                          inputRowSchema.getDimensionsSpec(),
+                          newDimensions
+                      ),
+                      event
+                  )
+              );
+            }
+          }
+          return InputRowListPlusRawValues.ofList(newRawRows, newInputRows, null);
+        }
+    );
+  }
+
+  private List<InputRow> buildInputRowsForMap(Map<String, Object> headerKeyList)
+  {
+    return Collections.singletonList(
+        new MapBasedInputRow(
+            inputRowSchema.getTimestampSpec().extractTimestamp(headerKeyList),
+            MapInputRowParser.findDimensions(
+                inputRowSchema.getTimestampSpec(),
+                inputRowSchema.getDimensionsSpec(),
+                headerKeyList.keySet()
+            ),
+            headerKeyList
+        )
+    );
+  }
+
+  /**
+   * Builds a map that blends two {@link Map}, presenting the combined keyset of both maps, and preferring to read
+   * from the first map and falling back to the second map if the value is not present.
+   * <p>
+   * This strategy is used rather than just copying the values of the keyset into a new map so that any 'flattening'
+   * machinery (such as {@link Map} created by {@link org.apache.druid.java.util.common.parsers.ObjectFlatteners}) is
+   * still in place to be lazily evaluated instead of eagerly copying.
+   */
+  private static Map<String, Object> buildBlendedEventMap(
+      Function<String, Object> getRowValue,
+      Collection<String> rowDimensions,
+      Map<String, Object> fallback
+  )
+  {
+    // Keep the value-first insertion order used for dimension discovery, including colliding field names.
+    final Set<String> keySet = new HashSet<>(rowDimensions);
+    keySet.addAll(fallback.keySet());
+
+    return new AbstractMap<>()
+    {
+      @Override
+      public Object get(Object key)
+      {
+        final String skey = (String) key;
+        final Object val = getRowValue.apply(skey);
+        if (val == null) {
+          return fallback.get(skey);
+        }
+        return val;
+      }
+
+      @Override
+      public Set<String> keySet()
+      {
+        return keySet;
+      }
+
+      @Override
+      public Set<Entry<String, Object>> entrySet()
+      {
+        return keySet().stream()
+                       .map(
+                           field -> new Entry<String, Object>()
+                           {
+                             @Override
+                             public String getKey()
+                             {
+                               return field;
+                             }
+
+                             @Override
+                             public Object getValue()
+                             {
+                               return get(field);
+                             }
+
+                             @Override
+                             public Object setValue(final Object value)
+                             {
+                               throw new UnsupportedOperationException();
+                             }
+                           }
+                       )
+                       .collect(Collectors.toCollection(LinkedHashSet::new));
+      }
+    };
+  }
+
+  /**
+   * Get the first value from an {@link InputRow}. This is the first element from {@link InputRow#getDimensions()}
+   * if there are any. If there are not any, returns null. This method is used to extract keys.
+   */
+  @Nullable
+  static Object getFirstValue(final InputRow row)
+  {
+    final List<String> dimensions = row.getDimensions();
+    return !dimensions.isEmpty() ? row.getRaw(dimensions.get(0)) : null;
+  }
+}

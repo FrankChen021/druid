@@ -21,15 +21,66 @@ package org.apache.druid.java.util.common.parsers;
 
 import com.google.common.base.Function;
 import org.apache.druid.java.util.common.DateTimes;
+import org.apache.druid.java.util.common.StringUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.TimeZone;
 
 public class TimestampParserTest
 {
+  @ParameterizedTest
+  @ValueSource(strings = {"iso", "auto"})
+  public void testUtcMillisecondsMatchGeneralParser(final String format)
+  {
+    final Function<String, DateTime> parser = TimestampParser.createTimestampParser(format);
+    for (final int year : new int[]{0, 1, 4, 100, 400, 1582, 1900, 1969, 1970, 2000, 2024, 9999}) {
+      for (final int month : new int[]{1, 2, 3, 12}) {
+        for (final int day : new int[]{1, 28}) {
+          for (final int hour : new int[]{0, 23}) {
+            final String input = StringUtils.format("%04d-%02d-%02dT%02d:59:58.123Z", year, month, day, hour);
+            Assertions.assertEquals(DateTimes.of(input), parser.apply(input), input);
+          }
+        }
+      }
+    }
+    Assertions.assertEquals(DateTimes.of("2000-02-29T23:59:59.999Z"), parser.apply("2000-02-29T23:59:59.999Z"));
+    Assertions.assertEquals(DateTimes.of("2024-02-29T00:00:00.000Z"), parser.apply("2024-02-29T00:00:00.000Z"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {
+      "2024-02-29", "2024-02-29T12:34:56Z", "2024-02-29T12:34:56.1Z", "2024-02-29T12:34:56.123456Z",
+      "2024-02-29T12:34:56.123+08:00", "2024-02-29T12:34:56.123-05:30", "-0001-01-01T00:00:00.000Z",
+      " \"2024-02-29T12:34:56.123Z\" ", "1700000000123", "2024-02-29t12:34:56.123z",
+      "1900-02-29T00:00:00.000Z", "2023-02-29T00:00:00.000Z", "2024-13-01T00:00:00.000Z",
+      "2024-00-01T00:00:00.000Z", "2024-01-00T00:00:00.000Z", "2024-01-32T00:00:00.000Z",
+      "2024-01-01T24:00:00.000Z", "2024-01-01T00:60:00.000Z", "2024-01-01T00:00:60.000Z",
+      "2024-01-01T00:00:00.00xZ", "x024-01-01T00:00:00.000Z", "2024-x1-01T00:00:00.000Z"
+  })
+  public void testIsoFallbackPreservesResultsAndErrors(final String input)
+  {
+    final Function<String, DateTime> parser = TimestampParser.createTimestampParser("iso");
+    final DateTime expected;
+    try {
+      expected = DateTimes.of(ParserUtils.stripQuotes(input));
+    }
+    catch (IllegalArgumentException expectedError) {
+      final IllegalArgumentException actualError = Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> parser.apply(input)
+      );
+      Assertions.assertEquals(expectedError.getClass(), actualError.getClass());
+      Assertions.assertEquals(expectedError.getMessage(), actualError.getMessage());
+      return;
+    }
+    Assertions.assertEquals(expected, parser.apply(input));
+  }
+
   @Test
   public void testStripQuotes()
   {
