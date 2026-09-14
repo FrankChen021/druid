@@ -34,3 +34,21 @@ Checkstyle passed for processing, indexing-service, Kafka, Avro, Protobuf and be
 Known review item: SchemaRegistryBasedAvroBytesDecoder has no explicit ThreadLocal.remove or close hook. Message bytes are cleared after decoding, but last-schema reader state can remain on long-lived worker threads. This earlier lifecycle concern remains unresolved. The PR is not claimed merge-ready on that basis.
 
 Rejected metadata snapshot and token-materialization candidates are archived references, not enabled production changes. Full project tests, a running Druid cluster and end-to-end broker-to-index throughput were not measured.
+
+## CI follow-up, 2026-09-14
+
+CI on `b99da25a38` exposed three default-locale `String.format` calls in two new benchmark classes and 18 archived artifacts missing ASF license headers. The formatting calls now use Druid's locale-stable `StringUtils.format`; they construct fixtures outside the timed path. License headers were added without changing the archived payloads or benchmark measurements. The archived patch still parses, and the timestamp parity files remain identical.
+
+The earlier forbidden-API checks covered production modules but missed the benchmark module, and Apache RAT had not been run. The corrected source export passes `mvn -o -N -Prat apache-rat:check`.
+
+The failed unit-test shards ended with `minio/minio:latest` image downloads returning Docker HTTP 404 / pull access denied. Other reported assertion failures passed on CI's automatic retries. These external image-download failures remain unresolved; this follow-up does not claim a green full CI run.
+
+Benchmark compilation and production/test forbidden-API checks passed for the 17-module benchmark reactor. Benchmark Checkstyle passed separately:
+
+```sh
+mvn -o test-compile forbiddenapis:check forbiddenapis:testCheck -pl benchmarks -am \
+  -DskipTests -Dpmd.skip=true -Dcheckstyle.skip=true -Dweb.console.skip=true -T1C
+mvn -o checkstyle:check -pl benchmarks
+```
+
+PMD was skipped after a local PMD StackOverflowError; dependency Checkstyle was separated after prolonged XPath evaluation in unchanged SQL sources. These commands validate the specific CI fixes, not the entire static-check workflow.

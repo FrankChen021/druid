@@ -30,6 +30,7 @@ import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.data.input.kafka.KafkaRecordEntity;
 import org.apache.druid.data.input.kafkainput.KafkaInputFormat;
 import org.apache.druid.indexing.seekablestream.SettableByteEntity;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.internals.RecordHeaders;
@@ -291,7 +292,7 @@ public class KafkaInputFormatReadBenchmark
   {
     final List<String> fields = new ArrayList<>(count);
     for (int i = 0; i < count; i++) {
-      fields.add(String.format("field%02d", i));
+      fields.add(StringUtils.format("field%02d", i));
     }
     return Collections.unmodifiableList(fields);
   }
@@ -324,7 +325,7 @@ public class KafkaInputFormatReadBenchmark
     prefix.append("{\"timestamp\":\"").append(timestampText).append("\"");
     for (int i = 0; i < fields.size() - 1; i++) {
       final String field = fields.get(i);
-      prefix.append(",\"").append(field).append("\":\"value").append(String.format("%02d", i)).append("\"");
+      prefix.append(",\"").append(field).append("\":\"value").append(StringUtils.format("%02d", i)).append("\"");
     }
     prefix.append(",\"").append(lastField).append("\":\"");
     final String suffix = "\"}";

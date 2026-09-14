@@ -37,6 +37,7 @@ import org.apache.druid.data.input.impl.MapInputRowParser;
 import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.indexing.seekablestream.SettableByteEntity;
 import org.apache.druid.java.util.common.DateTimes;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.java.util.common.parsers.JSONFlattenerMaker;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -303,7 +304,7 @@ public class JsonValueMaterializationBenchmark
       allFields.add("active");
       if (wide) {
         for (int i = 0; i < fieldCount; i++) {
-          final String field = String.format("f%02d", i);
+          final String field = StringUtils.format("f%02d", i);
           allFields.add(field);
           json.append(',');
           appendWideField(json, field, i);
