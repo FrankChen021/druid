@@ -52,3 +52,19 @@ mvn -o checkstyle:check -pl benchmarks
 ```
 
 PMD was skipped after a local PMD StackOverflowError; dependency Checkstyle was separated after prolonged XPath evaluation in unchanged SQL sources. These commands validate the specific CI fixes, not the entire static-check workflow.
+
+## Dependency analysis follow-up, 2026-09-17
+
+CI on `e75f502b70` passed packaging, strict compilation, OpenRewrite and CodeQL, but dependency analysis found four libraries used directly by benchmarks and available only transitively. `benchmarks/pom.xml` now declares Protobuf (also required by generated compile sources), Avro, Kafka clients and the Confluent schema-registry client, using the existing shared versions.
+
+Compilation and dependency analysis passed for the benchmark reactor with CI's strict dependency flags:
+
+```sh
+mvn -o test-compile dependency:analyze -pl benchmarks -am \
+  -DoutputXML=true -DignoreNonCompile=true -DfailOnWarning=true \
+  -DskipTests -Pskip-static-checks -Dweb.console.skip=true -T1C
+```
+
+All seven failed test jobs on that revision (six unit shards and Docker tests) ended in MinIO image-download failures, affecting 20 tests. This build-only correction does not resolve the external image availability problem or change performance measurements.
+
+Maven reactor `validate` also passed with PMD and Checkstyle skipped, including dependency enforcement. A standalone module validation initially resolved incompatible locally installed snapshot POMs; validation with `-am` uses this PR's reactor and passed.
