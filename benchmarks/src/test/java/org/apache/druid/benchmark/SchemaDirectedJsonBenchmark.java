@@ -33,6 +33,7 @@ import org.apache.druid.data.input.impl.LongDimensionSchema;
 import org.apache.druid.data.input.impl.StringDimensionSchema;
 import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.indexing.seekablestream.SettableByteEntity;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.java.util.common.parsers.JSONPathSpec;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
@@ -511,10 +512,10 @@ public class SchemaDirectedJsonBenchmark
       builder.append(",\"padding\":\"");
     } else {
       for (int padding = 0; padding < PADDING_FIELD_COUNT - 1; padding++) {
-        builder.append(",\"padding").append(String.format("%02d", padding)).append("\":");
+        builder.append(",\"padding").append(StringUtils.format("%02d", padding)).append("\":");
         builder.append("\"unused\"");
       }
-      builder.append(",\"padding").append(String.format("%02d", PADDING_FIELD_COUNT - 1)).append("\":\"");
+      builder.append(",\"padding").append(StringUtils.format("%02d", PADDING_FIELD_COUNT - 1)).append("\":\"");
     }
 
     final int closingBytes = 2;

@@ -27,6 +27,7 @@ import org.apache.druid.data.input.InputEntityReader;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.InputRowListPlusRawValues;
 import org.apache.druid.data.input.InputRowSchema;
+import org.apache.druid.data.input.MapBasedInputRow;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.java.util.common.parsers.JSONPathFieldSpec;
@@ -115,6 +116,32 @@ public class SchemaDirectedJsonReaderTest extends InitializedNullHandlingTest
           }
         }
       }
+    }
+  }
+
+  public static Stream<String> orderedRecords()
+  {
+    return Stream.of(
+        "{\"ts\":\"2021-06-25\",\"s\":\"first\",\"n\":2,\"amount\":\"notanumber\"}",
+        "{\"amount\":\"notanumber\",\"n\":2,\"s\":\"first\",\"ts\":\"2021-06-25\"}",
+        "{\"s\":null,\"ts\":\"2021-06-25\",\"n\":2,\"s\":\"last\"}",
+        "{\"s\":\"first\",\"ts\":\"2021-06-25\",\"n\":2,\"s\":null}"
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource("orderedRecords")
+  public void testEventReportingPreservesInputOrder(final String json) throws Exception
+  {
+    for (final boolean keepNulls : List.of(false, true)) {
+      final ByteEntity source = new ByteEntity(StringUtils.toUtf8(json));
+      final MapBasedInputRow expected = (MapBasedInputRow) read(
+          new JsonReader(schema(), source, JSONPathSpec.DEFAULT, new ObjectMapper(), keepNulls)
+      ).get(0);
+      final MapBasedInputRow actual = (MapBasedInputRow) read(
+          new SchemaDirectedJsonReader(schema(), source, new ObjectMapper(), keepNulls)
+      ).get(0);
+      Assertions.assertEquals(expected.getEvent().toString(), actual.getEvent().toString());
     }
   }
 

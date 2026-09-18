@@ -86,7 +86,8 @@ class SchemaDirectedJsonReader extends JsonReader
             throw new UnsupportedOperationException("Use the tree reader for this record");
           }
           final Object[] values = new Object[positions.size()];
-          final boolean[] present = new boolean[positions.size()];
+          final int[] fieldOrder = new int[positions.size()];
+          int fieldCount = 0;
           while (parser.nextToken() != JsonToken.END_OBJECT) {
             if (parser.currentToken() != JsonToken.FIELD_NAME) {
               throw new UnsupportedOperationException("Use the tree reader for this record");
@@ -130,13 +131,15 @@ class SchemaDirectedJsonReader extends JsonReader
                   throw new UnsupportedOperationException("Use the tree reader for this record");
               }
               values[position] = value;
-              present[position] = keepNullColumns || value != null;
+              if (fieldOrder[position] == 0) {
+                fieldOrder[position] = ++fieldCount;
+              }
             }
           }
           rows.add(MapInputRowParser.parse(
               schema.getTimestampSpec(),
               schema.getDimensionsSpec().getDimensionNames(),
-              new SlotMap(positions, values, present)
+              new SlotMap(positions, values, fieldOrder, keepNullColumns)
           ));
         }
       }
@@ -161,13 +164,20 @@ class SchemaDirectedJsonReader extends JsonReader
   {
     private final Map<String, Integer> positions;
     private final Object[] values;
-    private final boolean[] present;
+    private final int[] fieldOrder;
+    private final boolean keepNullColumns;
 
-    SlotMap(final Map<String, Integer> positions, final Object[] values, final boolean[] present)
+    SlotMap(
+        final Map<String, Integer> positions,
+        final Object[] values,
+        final int[] fieldOrder,
+        final boolean keepNullColumns
+    )
     {
       this.positions = positions;
       this.values = values;
-      this.present = present;
+      this.fieldOrder = fieldOrder;
+      this.keepNullColumns = keepNullColumns;
     }
 
     @Override
@@ -180,10 +190,21 @@ class SchemaDirectedJsonReader extends JsonReader
     @Override
     public Set<Entry<String, Object>> entrySet()
     {
-      final Set<Entry<String, Object>> entries = new LinkedHashSet<>();
+      // Preserve JSON encounter order for downstream parse-error input reporting.
+      final String[] orderedFields = new String[positions.size()];
       for (final Entry<String, Integer> field : positions.entrySet()) {
-        if (present[field.getValue()]) {
-          entries.add(new SimpleImmutableEntry<>(field.getKey(), values[field.getValue()]));
+        final int order = fieldOrder[field.getValue()];
+        if (order != 0) {
+          orderedFields[order - 1] = field.getKey();
+        }
+      }
+      final Set<Entry<String, Object>> entries = new LinkedHashSet<>();
+      for (final String field : orderedFields) {
+        if (field != null) {
+          final Object value = values[positions.get(field)];
+          if (keepNullColumns || value != null) {
+            entries.add(new SimpleImmutableEntry<>(field, value));
+          }
         }
       }
       return entries;
