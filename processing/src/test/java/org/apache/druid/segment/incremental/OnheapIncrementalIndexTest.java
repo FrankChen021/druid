@@ -21,7 +21,9 @@ package org.apache.druid.segment.incremental;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import nl.jqno.equalsverifier.EqualsVerifier;
+import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.MapBasedInputRow;
 import org.apache.druid.data.input.impl.AggregateProjectionSpec;
 import org.apache.druid.data.input.impl.DimensionsSpec;
@@ -30,24 +32,42 @@ import org.apache.druid.data.input.impl.LongDimensionSchema;
 import org.apache.druid.data.input.impl.StringDimensionSchema;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.DateTimes;
+import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.common.granularity.Granularities;
+import org.apache.druid.math.expr.Expr;
+import org.apache.druid.math.expr.ExprEval;
+import org.apache.druid.math.expr.Parser;
+import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.expression.TestExprMacroTable;
+import org.apache.druid.segment.ColumnSelectorFactory;
+import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.IndexBuilder;
+import org.apache.druid.segment.TestColumnSelectorFactory;
 import org.apache.druid.segment.TestHelper;
+import org.apache.druid.segment.TestObjectColumnSelector;
 import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.virtual.ExpressionPlan;
+import org.apache.druid.segment.virtual.ExpressionSelectors;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
+import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.joda.time.DateTime;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
-public class OnheapIncrementalIndexTest
+public class OnheapIncrementalIndexTest extends InitializedNullHandlingTest
 {
   private static final ObjectMapper MAPPER = TestHelper.makeJsonMapper();
 
@@ -507,5 +527,200 @@ public class OnheapIncrementalIndexTest
         + minTimestamp + "]",
         t.getMessage()
     );
+  }
+
+  @Test
+  public void testExpressionPlanCacheUsesExpressionIdentity()
+  {
+    final OnheapIncrementalIndex.CachingColumnSelectorFactory selectorFactory = makeCachingColumnSelectorFactory();
+    final Expr expression = Parser.parse("value", TestExprMacroTable.INSTANCE);
+    final Expr structurallyEqualExpression = Parser.parse("value", TestExprMacroTable.INSTANCE);
+    final Expr differentExpression = Parser.parse("other", TestExprMacroTable.INSTANCE);
+
+    Assertions.assertNotSame(expression, structurallyEqualExpression);
+
+    final ExpressionPlan firstPlan = selectorFactory.getExpressionPlan(expression);
+    final ExpressionPlan sameExpressionPlan = selectorFactory.getExpressionPlan(expression);
+    Assertions.assertNotSame(firstPlan, sameExpressionPlan);
+    Assertions.assertSame(expression, firstPlan.getExpression());
+    Assertions.assertSame(expression, sameExpressionPlan.getExpression());
+
+    final ExpressionPlan structurallyEqualPlan = selectorFactory.getExpressionPlan(structurallyEqualExpression);
+    Assertions.assertNotSame(firstPlan, structurallyEqualPlan);
+    Assertions.assertSame(structurallyEqualExpression, structurallyEqualPlan.getExpression());
+
+    final ExpressionPlan differentPlan = selectorFactory.getExpressionPlan(differentExpression);
+    Assertions.assertNotSame(structurallyEqualPlan, differentPlan);
+    Assertions.assertSame(differentExpression, differentPlan.getExpression());
+
+    Assertions.assertNotSame(firstPlan, selectorFactory.getExpressionPlan(expression));
+    Assertions.assertNotSame(structurallyEqualPlan, selectorFactory.getExpressionPlan(structurallyEqualExpression));
+    Assertions.assertNotSame(differentPlan, selectorFactory.getExpressionPlan(differentExpression));
+
+    final Expr functionExpression = Parser.parse("value + 1", TestExprMacroTable.INSTANCE);
+    final ExpressionPlan functionPlan = selectorFactory.getExpressionPlan(functionExpression);
+    final ExpressionPlan sameFunctionPlan = selectorFactory.getExpressionPlan(functionExpression);
+    Assertions.assertNotSame(functionPlan, sameFunctionPlan);
+    Assertions.assertNotSame(functionPlan.getExpression(), sameFunctionPlan.getExpression());
+
+    final Expr constantExpression = Parser.parse("'constant'", TestExprMacroTable.INSTANCE);
+    final ExpressionPlan firstConstantPlan = selectorFactory.getExpressionPlan(constantExpression);
+    final ExpressionPlan secondConstantPlan = selectorFactory.getExpressionPlan(constantExpression);
+    Assertions.assertNotSame(firstConstantPlan.getExpression(), secondConstantPlan.getExpression());
+  }
+
+  @Test
+  public void testExpressionPlanCacheIsSafeForConcurrentReplacement() throws Exception
+  {
+    final OnheapIncrementalIndex.CachingColumnSelectorFactory selectorFactory = makeCachingColumnSelectorFactory();
+    final Expr firstExpression = Parser.parse("value", TestExprMacroTable.INSTANCE);
+    final Expr secondExpression = Parser.parse("other", TestExprMacroTable.INSTANCE);
+    final int threadCount = 8;
+    final int iterationsPerThread = 2_000;
+    final CountDownLatch startLatch = new CountDownLatch(1);
+    final ExecutorService executor = Execs.multiThreaded(threadCount, "expression-plan-cache-test-%d");
+
+    try {
+      final List<Future<?>> futures = new ArrayList<>(threadCount);
+      for (int threadNumber = 0; threadNumber < threadCount; threadNumber++) {
+        final int thread = threadNumber;
+        futures.add(executor.submit(() -> {
+          startLatch.await();
+          for (int iteration = 0; iteration < iterationsPerThread; iteration++) {
+            final Expr expectedExpression = ((thread + iteration) & 1) == 0 ? firstExpression : secondExpression;
+            final ExpressionPlan plan = selectorFactory.getExpressionPlan(expectedExpression);
+            Assertions.assertSame(expectedExpression, plan.getExpression());
+          }
+          return null;
+        }));
+      }
+
+      startLatch.countDown();
+      for (final Future<?> future : futures) {
+        future.get(30, TimeUnit.SECONDS);
+      }
+    }
+    finally {
+      executor.shutdownNow();
+      Assertions.assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS));
+    }
+  }
+
+  @Test
+  public void testExpressionFactorizationDoesNotShareMutableState()
+  {
+    final OnheapIncrementalIndex.CachingColumnSelectorFactory selectorFactory = makeCachingColumnSelectorFactory();
+    final Expr expression = Parser.parse("value + 1", TestExprMacroTable.INSTANCE);
+
+    final ColumnValueSelector<?> firstSelector = ExpressionSelectors.makeExprEvalSelector(selectorFactory, expression);
+    final ColumnValueSelector<?> secondSelector = ExpressionSelectors.makeExprEvalSelector(selectorFactory, expression);
+    Assertions.assertNotSame(firstSelector, secondSelector);
+
+    final Expr constantExpression = Parser.parse("'constant'", TestExprMacroTable.INSTANCE);
+    final ColumnValueSelector<ExprEval> firstConstantSelector =
+        ExpressionSelectors.makeExprEvalSelector(selectorFactory, constantExpression);
+    final ColumnValueSelector<ExprEval> secondConstantSelector =
+        ExpressionSelectors.makeExprEvalSelector(selectorFactory, constantExpression);
+    final ColumnValueSelector<ExprEval> thirdConstantSelector =
+        ExpressionSelectors.makeExprEvalSelector(selectorFactory, constantExpression);
+    Assertions.assertNotSame(firstConstantSelector.getObject(), secondConstantSelector.getObject());
+    Assertions.assertNotSame(secondConstantSelector.getObject(), thirdConstantSelector.getObject());
+
+    final AggregatorFactory aggregatorFactory = new LongSumAggregatorFactory(
+        "sum",
+        null,
+        "value + 1",
+        TestExprMacroTable.INSTANCE
+    );
+    final Aggregator firstAggregator = aggregatorFactory.factorize(selectorFactory);
+    final Aggregator secondAggregator = aggregatorFactory.factorize(selectorFactory);
+
+    Assertions.assertNotSame(firstAggregator, secondAggregator);
+    firstAggregator.aggregate();
+    Assertions.assertEquals(2L, firstAggregator.getLong());
+    Assertions.assertTrue(secondAggregator.isNull());
+  }
+
+  @Test
+  public void testExpressionIngestionProducesExpectedResults()
+  {
+    final int rowCount = 10_000;
+    final int rollupKeyCount = 100;
+    final List<InputRow> rows = new ArrayList<>(rowCount);
+    long expectedSum = 0L;
+    for (int rowNumber = 0; rowNumber < rowCount; rowNumber++) {
+      final long value = rowNumber % 100;
+      rows.add(
+          new MapBasedInputRow(
+              0L,
+              Collections.singletonList("key"),
+              ImmutableMap.of(
+                  "key", "key-" + rowNumber % rollupKeyCount,
+                  "value", value
+              )
+          )
+      );
+      expectedSum += value + 1;
+    }
+
+    final OnheapIncrementalIndex index = (OnheapIncrementalIndex) new OnheapIncrementalIndex.Builder()
+        .setIndexSchema(
+            new IncrementalIndexSchema.Builder()
+                .withDimensionsSpec(new DimensionsSpec(Collections.singletonList(new StringDimensionSchema("key"))))
+                .withMetrics(
+                    new LongSumAggregatorFactory(
+                        "sum",
+                        null,
+                        "value + 1",
+                        TestExprMacroTable.INSTANCE
+                    )
+                )
+                .withRollup(true)
+                .build()
+        )
+        .setMaxRowCount(rowCount + 1)
+        .build();
+
+    try {
+      for (final InputRow row : rows) {
+        index.add(row);
+      }
+
+      long actualSum = 0L;
+      for (final IncrementalIndexRow row : index.getFacts().keySet()) {
+        actualSum += index.getMetricLongValue(row.getRowIndex(), 0);
+      }
+
+      Assertions.assertEquals(rollupKeyCount, index.numRows());
+      Assertions.assertEquals(expectedSum, actualSum);
+    }
+    finally {
+      index.close();
+    }
+  }
+
+  private static OnheapIncrementalIndex.CachingColumnSelectorFactory makeCachingColumnSelectorFactory()
+  {
+    final TestObjectColumnSelector<Long> valueSelector = new TestObjectColumnSelector<Long>()
+    {
+      @Override
+      public Class<Long> classOfObject()
+      {
+        return Long.class;
+      }
+
+      @Override
+      public Long getObject()
+      {
+        return 1L;
+      }
+    };
+
+    final ColumnSelectorFactory delegate = new TestColumnSelectorFactory()
+        .addColumnSelector("value", valueSelector)
+        .addCapabilities("value", null)
+        .addColumnSelector("other", valueSelector)
+        .addCapabilities("other", null);
+    return new OnheapIncrementalIndex.CachingColumnSelectorFactory(delegate);
   }
 }
