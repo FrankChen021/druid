@@ -305,6 +305,7 @@ public class KafkaRecordSupplier implements RecordSupplier<KafkaTopicPartition, 
                                      + " Check that the topic exists in Kafka cluster", stream);
         }
       }
+
       if (partitionIds != null) {
         final Set<Integer> missing = new TreeSet<>(partitionIds);
         allPartitions.forEach(partition -> missing.remove(partition.partition()));
@@ -313,6 +314,7 @@ public class KafkaRecordSupplier implements RecordSupplier<KafkaTopicPartition, 
         }
       }
       return allPartitions.stream()
+                          // Keep all discovered partitions unless a fixed selection is configured.
                           .filter(p -> partitionIds == null || partitionIds.contains(p.partition()))
                           .map(p -> new KafkaTopicPartition(multiTopic, p.topic(), p.partition()))
                           .collect(Collectors.toSet());

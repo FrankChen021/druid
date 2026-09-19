@@ -170,6 +170,7 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
   @Override
   protected boolean isTaskPartitionSetCurrent(int taskGroupId, Set<KafkaTopicPartition> taskPartitions)
   {
+    // Replace adopted readers on either expansion or narrowing so every current group reads exactly its selected partitions.
     return getIoConfig().getPartitionIds() == null || taskPartitions.equals(partitionGroups.get(taskGroupId));
   }
 
@@ -316,11 +317,13 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
   @Override
   protected Map<KafkaTopicPartition, Long> getHighestCurrentOffsets()
   {
-    final Map<KafkaTopicPartition, Long> offsets = new HashMap<>(super.getHighestCurrentOffsets());
     final Set<Integer> selected = getIoConfig().getPartitionIds();
-    if (selected != null) {
-      offsets.keySet().removeIf(partition -> !selected.contains(partition.partition()));
+    if (selected == null) {
+      return super.getHighestCurrentOffsets();
     }
+    final Map<KafkaTopicPartition, Long> offsets = new HashMap<>(super.getHighestCurrentOffsets());
+    // Exclude saved offsets and publishing tasks outside the selection from reporting without changing stored metadata.
+    offsets.keySet().removeIf(partition -> !selected.contains(partition.partition()));
     return offsets;
   }
 
