@@ -594,6 +594,7 @@ export interface IoConfig {
   appendToExisting?: boolean;
   topic?: string;
   topicPattern?: string;
+  partitionIds?: number[];
   consumerProperties?: any;
   replicas?: number;
   taskCount?: number;
@@ -1161,6 +1162,12 @@ export function getIoConfigFormFields(ingestionComboType: IngestionComboType): F
           info: 'The name of the Kafka topic to ingest from.',
         },
         {
+          name: 'partitionIds',
+          type: 'json',
+          defined: ioConfig => ioConfig.type === 'kafka' && Boolean(ioConfig.topic),
+          info: 'Optional JSON array of partition IDs, such as [0, 2]. Omit to read all partitions. IDs must exist when Kafka metadata is discovered.',
+        },
+        {
           name: 'topicPattern',
           type: 'string',
           required: true,
@@ -1339,6 +1346,16 @@ export function issueWithIoConfig(
 
     case 'kafka':
       if (!ioConfig.topic && !ioConfig.topicPattern) return 'must have a topic or topicPattern';
+      if (ioConfig.partitionIds != null) {
+        if (ioConfig.topicPattern) return 'partitionIds requires a single topic';
+        if (
+          !Array.isArray(ioConfig.partitionIds) ||
+          !ioConfig.partitionIds.length ||
+          ioConfig.partitionIds.some(id => !Number.isInteger(id) || id < 0)
+        ) {
+          return 'partitionIds must be a nonempty array of nonnegative integers';
+        }
+      }
       break;
 
     case 'kinesis':

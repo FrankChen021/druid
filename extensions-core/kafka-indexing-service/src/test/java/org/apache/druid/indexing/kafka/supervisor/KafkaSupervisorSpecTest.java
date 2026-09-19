@@ -50,6 +50,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -575,6 +576,14 @@ public class KafkaSupervisorSpecTest
     Assertions.assertEquals("metrics", backfill.getSpec().getIOConfig().getTopic());
     Assertions.assertEquals(2, backfill.getSpec().getIOConfig().getTaskCount());
     Assertions.assertEquals(boundedStreamConfig, backfill.getSpec().getIOConfig().getBoundedStreamConfig());
+
+    final KafkaSupervisorSpec selectedSpec = spec.toBuilder()
+        .ioConfig(spec.getIoConfig().toBuilder().withPartitionIds(Set.of(0)).build()).build();
+    final BoundedStreamConfig selectedRange = new BoundedStreamConfig(Map.of("0", 100L), Map.of("0", 500L));
+    final KafkaSupervisorSpec selectedBackfill = selectedSpec.createBackfillSpec("selected-backfill", selectedRange, 1);
+    Assertions.assertNull(selectedBackfill.getIoConfig().getPartitionIds());
+    Assertions.assertEquals(selectedRange, selectedBackfill.getIoConfig().getBoundedStreamConfig());
+    Assertions.assertEquals(Set.of(0), selectedSpec.getIoConfig().getPartitionIds());
   }
 
   private KafkaSupervisorSpec getSpec(String topic, String topicPattern)
