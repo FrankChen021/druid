@@ -27,10 +27,12 @@ import com.google.common.collect.ImmutableMap;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import nl.jqno.equalsverifier.Warning;
 import org.apache.druid.data.input.InputFormat;
+import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.indexing.kafka.KafkaConsumerConfigs;
 import org.apache.druid.indexing.kafka.KafkaIndexTaskModule;
 import org.apache.druid.indexing.kafka.KafkaRecordSupplier;
+import org.apache.druid.indexing.overlord.supervisor.SupervisorSpecUpdateAction;
 import org.apache.druid.indexing.seekablestream.extension.KafkaConfigOverrides;
 import org.apache.druid.indexing.seekablestream.supervisor.BoundedStreamConfig;
 import org.apache.druid.indexing.seekablestream.supervisor.IdleConfig;
@@ -48,6 +50,7 @@ import org.junit.jupiter.api.function.Executable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import static org.easymock.EasyMock.createMock;
 
@@ -59,6 +62,106 @@ public class KafkaSupervisorIOConfigTest
   {
     mapper = new DefaultObjectMapper();
     mapper.registerModules(new KafkaIndexTaskModule().getJacksonModules());
+  }
+
+  @Test
+  public void testPartitionSelectionSerdeAndUpdate() throws Exception
+  {
+    final KafkaSupervisorIOConfig config = mapper.readValue(
+        "{\"topic\":\"events\",\"consumerProperties\":{\"bootstrap.servers\":\"localhost:9092\"},"
+        + "\"partitionIds\":[5,0,2,0]}",
+        KafkaSupervisorIOConfig.class
+    );
+    Assertions.assertEquals(Set.of(0, 2, 5), config.getPartitionIds());
+    Assertions.assertEquals("[0,2,5]", mapper.writeValueAsString(config.getPartitionIds()));
+    Assertions.assertEquals(config, config.toBuilder().build());
+    Assertions.assertEquals(config, mapper.readValue(mapper.writeValueAsString(config), KafkaSupervisorIOConfig.class));
+    Assertions.assertThrows(UnsupportedOperationException.class, () -> config.getPartitionIds().add(7));
+    final KafkaSupervisorIOConfig changed = config.toBuilder().withPartitionIds(Set.of(0, 2)).build();
+    Assertions.assertNotEquals(config, changed);
+    final KafkaSupervisorSpec spec = new KafkaSupervisorSpecBuilder()
+        .withDataSchema(schema -> schema.withTimestamp(new TimestampSpec("timestamp", "auto", null)))
+        .withIoConfig(io -> io.copyFrom(config))
+        .build("diagnostic", "events");
+    Assertions.assertEquals(
+        SupervisorSpecUpdateAction.RESTART_SUPERVISOR_AND_TASKS,
+        spec.getActionOnUpdateTo(spec.toBuilder().ioConfig(changed).build())
+    );
+  }
+
+  @Test
+  public void testLegacyConstructorDefaultsToAllPartitions()
+  {
+    final KafkaSupervisorIOConfig config = new KafkaSupervisorIOConfig(
+        "events",
+        null,
+        null,
+        null,
+        null,
+        null,
+        Map.of("bootstrap.servers", "localhost:9092"),
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    );
+    Assertions.assertNull(config.getPartitionIds());
+    Assertions.assertEquals(config, config.toBuilder().build());
+  }
+
+  @Test
+  public void testPartitionSelectionSurvivesAutoscalerUpdates() throws Exception
+  {
+    final LagBasedAutoScalerConfig autoscaler = mapper.readValue(
+        "{\"enableTaskAutoScaler\":true,\"taskCountMin\":1,\"taskCountMax\":4}",
+        LagBasedAutoScalerConfig.class
+    );
+    final KafkaSupervisorSpec spec = new KafkaSupervisorSpecBuilder()
+        .withDataSchema(schema -> schema.withTimestamp(TimestampSpec.DEFAULT))
+        .withIoConfig(io -> io.withConsumerProperties(Map.of("bootstrap.servers", "localhost:9092"))
+                             .withPartitionIds(Set.of(0, 2)).withAutoScalerConfig(autoscaler))
+        .build("diagnostic", "events");
+    final KafkaSupervisorSpec scaled = spec.toBuilder().taskCount(2).build();
+    Assertions.assertEquals(Set.of(0, 2), scaled.getIoConfig().getPartitionIds());
+    Assertions.assertEquals(SupervisorSpecUpdateAction.NONE, spec.getActionOnUpdateTo(scaled));
+    final KafkaSupervisorSpec narrowed = scaled.toBuilder()
+        .ioConfig(scaled.getIoConfig().toBuilder().withPartitionIds(Set.of(0)).build()).build();
+    Assertions.assertEquals(
+        SupervisorSpecUpdateAction.RESTART_SUPERVISOR_AND_TASKS,
+        spec.getActionOnUpdateTo(narrowed)
+    );
+    Assertions.assertEquals(Set.of(0), narrowed.getIoConfig().getPartitionIds());
+  }
+
+  @Test
+  public void testInvalidPartitionSelection() throws Exception
+  {
+    for (final String ids : new String[]{"[]", "[-1]", "[null]"}) {
+      Assertions.assertThrows(JsonMappingException.class, () -> mapper.readValue(
+          "{\"topic\":\"events\",\"consumerProperties\":{\"bootstrap.servers\":\"localhost:9092\"},"
+          + "\"partitionIds\":" + ids + "}",
+          KafkaSupervisorIOConfig.class
+      ));
+    }
+    final KafkaIOConfigBuilder builder = new KafkaIOConfigBuilder()
+        .withTopic("events")
+        .withConsumerProperties(Map.of("bootstrap.servers", "localhost:9092"))
+        .withPartitionIds(Set.of(0));
+    Assertions.assertThrows(DruidException.class, () -> builder.withTopic(null).withTopicPattern("events.*").build());
+    Assertions.assertThrows(DruidException.class, () -> builder.withTopic("events").withTopicPattern(null)
+        .withBoundedStreamConfig(new BoundedStreamConfig(Map.of(0, 0L), Map.of(0, 10L))).build());
   }
 
   @Test
@@ -81,6 +184,7 @@ public class KafkaSupervisorIOConfigTest
 
     Assertions.assertEquals("my-topic", config.getTopic());
     Assertions.assertNull(config.getTopicPattern());
+    Assertions.assertNull(config.getPartitionIds());
     Assertions.assertEquals(1, (int) config.getReplicas());
     Assertions.assertEquals(1, (int) config.getTaskCount());
     Assertions.assertNull(config.getStopTaskCount());
@@ -352,6 +456,7 @@ public class KafkaSupervisorIOConfigTest
         null,
         false,
         null,
+        null,
         null
     );
     String ioConfig = mapper.writeValueAsString(kafkaSupervisorIOConfig);
@@ -388,6 +493,7 @@ public class KafkaSupervisorIOConfigTest
         null,
         null,
         false,
+        null,
         null,
         null
     );
@@ -454,6 +560,7 @@ public class KafkaSupervisorIOConfigTest
         null,
         false,
         null,
+        null,
         null
     );
   }
@@ -490,6 +597,7 @@ public class KafkaSupervisorIOConfigTest
         mapper.convertValue(idleConfig, IdleConfig.class),
         null,
         false,
+        null,
         null,
         null
     );
@@ -616,7 +724,8 @@ public class KafkaSupervisorIOConfigTest
         null,
         false,
         null,
-        boundedConfig
+        boundedConfig,
+        null
     );
 
     String json = mapper.writeValueAsString(original);

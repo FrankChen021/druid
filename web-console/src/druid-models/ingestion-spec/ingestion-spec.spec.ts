@@ -27,11 +27,24 @@ import {
   guessColumnTypeFromSampleResponse,
   guessKafkaInputFormat,
   guessSimpleInputFormat,
+  issueWithIoConfig,
   updateSchemaWithSample,
   upgradeSpec,
 } from './ingestion-spec';
 
 describe('ingestion-spec', () => {
+  it('validates Kafka partition selection without contacting Kafka', () => {
+    const ioConfig = { type: 'kafka', topic: 'events' };
+    expect(issueWithIoConfig(ioConfig, true)).toBeUndefined();
+    expect(issueWithIoConfig({ ...ioConfig, partitionIds: [0, 2] }, true)).toBeUndefined();
+    for (const partitionIds of [[], [-1], [0.5], [NaN]]) {
+      expect(issueWithIoConfig({ ...ioConfig, partitionIds }, true)).toBeDefined();
+    }
+    expect(
+      issueWithIoConfig({ ...ioConfig, topicPattern: 'events.*', partitionIds: [0] }, true),
+    ).toBeDefined();
+  });
+
   it('upgrades / downgrades task spec 1', () => {
     const oldTaskSpec = {
       type: 'index_parallel',
