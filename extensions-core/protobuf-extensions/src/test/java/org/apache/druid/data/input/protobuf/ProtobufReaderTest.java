@@ -20,18 +20,24 @@
 package org.apache.druid.data.input.protobuf;
 
 import com.google.common.collect.Lists;
+import com.google.protobuf.DynamicMessage;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.InputRowSchema;
+import org.apache.druid.data.input.impl.ByteEntity;
 import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.data.input.impl.StringDimensionSchema;
 import org.apache.druid.data.input.impl.TimestampSpec;
+import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.java.util.common.parsers.JSONPathFieldSpec;
 import org.apache.druid.java.util.common.parsers.JSONPathFieldType;
 import org.apache.druid.java.util.common.parsers.JSONPathSpec;
 import org.joda.time.DateTime;
 import org.joda.time.chrono.ISOChronology;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.ByteBuffer;
 
@@ -86,6 +92,61 @@ public class ProtobufReaderTest
     InputRow row = reader.parseInputRows(decoder.parse(buffer)).get(0);
 
     ProtobufInputFormatTest.verifyNestedData(row, dateTime);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"heap", "slice", "direct", "readonly"})
+  public void testBufferBoundsAndRepeatedReads(final String kind) throws Exception
+  {
+    final DateTime dateTime = new DateTime(2012, 7, 12, 9, 30, ISOChronology.getInstanceUTC());
+    final byte[] bytes = ProtobufInputFormatTest.buildFlatData(dateTime).toByteArray();
+    final ByteBuffer storage = "direct".equals(kind)
+                               ? ByteBuffer.allocateDirect(bytes.length + 7)
+                               : ByteBuffer.allocate(bytes.length + 7);
+    storage.position(3);
+    storage.put(bytes);
+    storage.limit(storage.position());
+    storage.position("slice".equals(kind) ? 2 : 3);
+    final ByteBuffer buffer;
+    if ("slice".equals(kind)) {
+      buffer = storage.slice();
+      buffer.position(1);
+    } else {
+      buffer = "readonly".equals(kind) ? storage.asReadOnlyBuffer() : storage;
+    }
+    buffer.mark();
+    final int position = buffer.position();
+    final ProtobufReader reader = new ProtobufReader(inputRowSchema, new ByteEntity(buffer), decoder, flattenSpec);
+    for (int i = 0; i < 2; i++) {
+      try (final CloseableIterator<InputRow> rows = reader.read()) {
+        ProtobufInputFormatTest.verifyFlatData(rows.next(), dateTime, false);
+        Assertions.assertFalse(rows.hasNext());
+      }
+    }
+    buffer.reset();
+    Assertions.assertEquals(position, buffer.position());
+    final byte[] remaining = new byte[buffer.remaining()];
+    buffer.duplicate().get(remaining);
+    Assertions.assertArrayEquals(bytes, remaining);
+  }
+
+  @Test
+  public void testCustomDecoderReceivesPrivateCopy() throws Exception
+  {
+    final DateTime dateTime = new DateTime(2012, 7, 12, 9, 30, ISOChronology.getInstanceUTC());
+    final byte[] bytes = ProtobufInputFormatTest.buildFlatData(dateTime).toByteArray();
+    final byte[] original = bytes.clone();
+    final DynamicMessage message = decoder.parse(ByteBuffer.wrap(bytes));
+    final ProtobufBytesDecoder customDecoder = buffer -> {
+      buffer.put(0, (byte) 0);
+      return message;
+    };
+    final ProtobufReader reader =
+        new ProtobufReader(inputRowSchema, new ByteEntity(bytes), customDecoder, flattenSpec);
+    try (final CloseableIterator<InputRow> rows = reader.read()) {
+      ProtobufInputFormatTest.verifyFlatData(rows.next(), dateTime, false);
+    }
+    Assertions.assertArrayEquals(original, bytes);
   }
 
   @Test

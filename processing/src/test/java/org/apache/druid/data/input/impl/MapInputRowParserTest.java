@@ -28,6 +28,10 @@ import org.apache.druid.java.util.common.parsers.ParseException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.AbstractMap;
+import java.util.Map;
+import java.util.Set;
+
 public class MapInputRowParserTest
 {
 
@@ -120,6 +124,38 @@ public class MapInputRowParserTest
     Assertions.assertEquals(DateTimes.of("2020-01-01"), inputRow.getTimestamp());
     Assertions.assertEquals(ImmutableList.of("val1"), inputRow.getDimension("dim"));
     Assertions.assertEquals(10, inputRow.getMetric("met"));
+  }
+
+  @Test
+  public void testFixedDimensionsDoNotEnumerateFields()
+  {
+    final Map<String, Object> values = ImmutableMap.of("time", "2020-01-01", "dim", "value", "met", 10);
+    final Map<String, Object> lazyMap = new AbstractMap<>()
+    {
+      @Override
+      public Object get(final Object key)
+      {
+        return values.get(key);
+      }
+
+      @Override
+      public Set<String> keySet()
+      {
+        throw new AssertionError("Fixed dimensions must not request discovered fields");
+      }
+
+      @Override
+      public Set<Entry<String, Object>> entrySet()
+      {
+        throw new AssertionError("Fixed dimensions must not enumerate input fields");
+      }
+    };
+    final InputRow row = MapInputRowParser.parse(timestampSpec, dimensionsSpec, lazyMap);
+    Assertions.assertEquals(ImmutableList.of("dim"), row.getDimensions());
+    Assertions.assertEquals(DateTimes.of("2020-01-01"), row.getTimestamp());
+    Assertions.assertEquals("value", row.getRaw("dim"));
+    // Avoiding discovery must not discard fields used by metrics or transforms.
+    Assertions.assertEquals(10, row.getMetric("met"));
   }
 
   @Test
