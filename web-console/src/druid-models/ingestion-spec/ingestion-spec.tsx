@@ -1163,9 +1163,11 @@ export function getIoConfigFormFields(ingestionComboType: IngestionComboType): F
         },
         {
           name: 'partitionIds',
-          type: 'json',
+          type: 'string-array',
           defined: ioConfig => ioConfig.type === 'kafka' && Boolean(ioConfig.topic),
-          info: 'Optional JSON array of partition IDs, such as [0, 2]. Omit to read all partitions. IDs must exist when Kafka metadata is discovered.',
+          placeholder: '1,2,3',
+          valueAdjustment: partitionIds => partitionIds?.map(Number),
+          info: 'Optional comma-separated partition IDs, such as 0,2. Omit to read all partitions. IDs must exist when Kafka metadata is discovered.',
         },
         {
           name: 'topicPattern',

@@ -23,6 +23,7 @@ import {
   adjustId,
   cleanSpec,
   DEFAULT_FORCE_SEGMENT_SORT_BY_TIME,
+  getIoConfigFormFields,
   guessColumnTypeFromInput,
   guessColumnTypeFromSampleResponse,
   guessKafkaInputFormat,
@@ -43,6 +44,16 @@ describe('ingestion-spec', () => {
     expect(
       issueWithIoConfig({ ...ioConfig, topicPattern: 'events.*', partitionIds: [0] }, true),
     ).toBeDefined();
+  });
+
+  it('accepts comma-separated Kafka partition IDs in the form', () => {
+    const partitionIdsField = getIoConfigFormFields('kafka').find(
+      field => field.name === 'partitionIds',
+    );
+
+    expect(partitionIdsField?.type).toBe('string-array');
+    expect(partitionIdsField?.valueAdjustment?.(['1', '2', '3'])).toEqual([1, 2, 3]);
+    expect(partitionIdsField?.valueAdjustment?.(undefined)).toBeUndefined();
   });
 
   it('upgrades / downgrades task spec 1', () => {
