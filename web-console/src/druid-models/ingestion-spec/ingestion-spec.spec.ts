@@ -52,8 +52,17 @@ describe('ingestion-spec', () => {
     );
 
     expect(partitionIdsField?.type).toBe('string-array');
+    expect(partitionIdsField?.placeholder).toBe('Optional; comma-separated, e.g. 0, 2');
     expect(partitionIdsField?.valueAdjustment?.(['1', '2', '3'])).toEqual([1, 2, 3]);
+    expect(partitionIdsField?.valueAdjustment?.([])).toBeUndefined();
     expect(partitionIdsField?.valueAdjustment?.(undefined)).toBeUndefined();
+
+    const hideInMore = partitionIdsField?.hideInMore;
+    expect(typeof hideInMore).toBe('function');
+    if (typeof hideInMore === 'function') {
+      expect(hideInMore({})).toBe(true);
+      expect(hideInMore({ partitionIds: [1] })).toBe(false);
+    }
   });
 
   it('upgrades / downgrades task spec 1', () => {

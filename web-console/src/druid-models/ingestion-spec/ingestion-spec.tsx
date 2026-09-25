@@ -1163,10 +1163,13 @@ export function getIoConfigFormFields(ingestionComboType: IngestionComboType): F
         },
         {
           name: 'partitionIds',
+          label: 'Partition IDs',
           type: 'string-array',
           defined: ioConfig => ioConfig.type === 'kafka' && Boolean(ioConfig.topic),
-          placeholder: '1,2,3',
-          valueAdjustment: partitionIds => partitionIds?.map(Number),
+          placeholder: 'Optional; comma-separated, e.g. 0, 2',
+          hideInMore: ioConfig => ioConfig.partitionIds == null,
+          valueAdjustment: partitionIds =>
+            partitionIds?.length ? partitionIds.map(Number) : undefined,
           info: 'Optional comma-separated partition IDs, such as 0,2. Omit to read all partitions. IDs must exist when Kafka metadata is discovered.',
         },
         {
