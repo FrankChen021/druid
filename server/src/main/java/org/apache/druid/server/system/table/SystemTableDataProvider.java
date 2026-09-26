@@ -27,7 +27,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Supplies storage-prefiltered rows authorized for the internal caller of one native system table.
+ * Supplies storage-prefiltered rows authorized for the internal caller of one system-table datasource.
  * The implementation is deployed in related service.
  * For example, the data provider of sys.tasks is deployed in overlord module
  * */

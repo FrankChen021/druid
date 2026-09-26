@@ -58,20 +58,19 @@ public interface SqlEngine
   boolean featureAvailable(EngineFeature feature);
 
   /**
-   * Whether this engine can execute the native representation of a particular system table. Engines that support all
-   * registered native system tables can rely on this default implementation. Engines with a narrower execution path
-   * should override it so unsupported tables remain on the Bindable fallback path.
+   * Whether this engine can execute a particular table as a {@code SystemTableDataSource}. Engines opt in per table so
+   * unsupported tables remain on the Bindable fallback path.
    */
-  default boolean supportsNativeSystemTable(final String tableName)
+  default boolean supportsSystemTableDataSource(final String tableName)
   {
     return false;
   }
 
   /**
-   * Additional resources required when this engine executes a system table through its native path. These resources
-   * are attached to the SQL statement before execution so cancellation is authorized consistently with the query.
+   * Additional resources required when this engine executes a system-table datasource. These resources are attached
+   * to the SQL statement before execution so cancellation is authorized consistently with the query.
    */
-  default Set<ResourceAction> getNativeSystemTableResourceActions(final String tableName)
+  default Set<ResourceAction> getSystemTableDataSourceResourceActions(final String tableName)
   {
     return Set.of();
   }

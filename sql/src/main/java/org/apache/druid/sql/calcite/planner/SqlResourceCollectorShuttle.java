@@ -102,9 +102,9 @@ public class SqlResourceCollectorShuttle extends SqlShuttle
           }
 
           if (schema.equals(NamedSystemSchema.NAME)
-              && plannerContext.getEngine().supportsNativeSystemTable(resourceName)) {
+              && plannerContext.getEngine().supportsSystemTableDataSource(resourceName)) {
             resourceActions.addAll(
-                plannerContext.getEngine().getNativeSystemTableResourceActions(resourceName)
+                plannerContext.getEngine().getSystemTableDataSourceResourceActions(resourceName)
             );
           }
 

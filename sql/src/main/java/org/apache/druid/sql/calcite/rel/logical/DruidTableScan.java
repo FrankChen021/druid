@@ -110,8 +110,8 @@ public class DruidTableScan extends TableScan implements DruidLogicalNode, Sourc
     final RelOptTable table = getTable();
     DruidTable druidTable = table.unwrap(DruidTable.class);
     if (druidTable == null) {
-      // QueryHandler has already selected native planning; this decoupled stage only needs the native representation.
-      druidTable = SystemSchema.getNativeSystemTable(table);
+      // QueryHandler has already selected datasource planning; this decoupled stage only needs its DruidTable.
+      druidTable = SystemSchema.getSystemTableDataSourceTable(table);
     }
     Preconditions.checkNotNull(druidTable, "DruidTable may not be null");
     return druidTable;

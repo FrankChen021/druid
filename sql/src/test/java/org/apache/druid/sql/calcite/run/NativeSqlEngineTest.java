@@ -27,10 +27,10 @@ public class NativeSqlEngineTest
 {
   /** The native engine declines Dart system-table planning instead of throwing during capability discovery. */
   @Test
-  public void testDoesNotSupportNativeSystemTables()
+  public void testDoesNotSupportSystemTableDataSource()
   {
     final NativeSqlEngine engine = new NativeSqlEngine(null, null, (SqlStatementFactory) null);
 
-    Assertions.assertFalse(engine.supportsNativeSystemTable("server_properties"));
+    Assertions.assertFalse(engine.supportsSystemTableDataSource("server_properties"));
   }
 }

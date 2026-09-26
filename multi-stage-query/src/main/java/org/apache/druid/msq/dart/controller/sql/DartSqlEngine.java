@@ -181,15 +181,15 @@ public class DartSqlEngine implements SqlEngine
   }
 
   @Override
-  public boolean supportsNativeSystemTable(final String tableName)
+  public boolean supportsSystemTableDataSource(final String tableName)
   {
     return ServerPropertiesTableDescriptor.TABLE_NAME.equals(tableName);
   }
 
   @Override
-  public Set<ResourceAction> getNativeSystemTableResourceActions(final String tableName)
+  public Set<ResourceAction> getSystemTableDataSourceResourceActions(final String tableName)
   {
-    return supportsNativeSystemTable(tableName)
+    return supportsSystemTableDataSource(tableName)
            ? Set.of(new ResourceAction(Resource.STATE_RESOURCE, Action.READ))
            : Set.of();
   }

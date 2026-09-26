@@ -36,9 +36,9 @@ import org.apache.druid.sql.calcite.schema.SystemSchema;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/// Converts a native system table that Calcite has represented as a [Bindables.BindableTableScan]. Calcite may push
+/// Converts a system-table datasource that Calcite has represented as a [Bindables.BindableTableScan]. Calcite may push
 /// filters and projections into this node for a `ProjectableFilterableTable`; they must be restored as Druid logical
-/// nodes so native query generation can process them.
+/// nodes so Druid query generation can process them.
 ///
 /// This rule is used only by the **DECOUPLED** planner. The coupled planner converts a regular table scan through
 /// `DruidTableScanRule` before Calcite produces a `BindableTableScan`.
@@ -69,8 +69,8 @@ public class DruidBindableTableScanRule extends ConverterRule
   public boolean matches(final RelOptRuleCall call)
   {
     final Bindables.BindableTableScan scan = call.rel(0);
-    // QueryHandler has already selected native planning; only native-capable system tables can use this conversion.
-    return SystemSchema.getNativeSystemTable(scan.getTable()) != null;
+    // QueryHandler has already selected datasource planning; only tables advertising that capability can use this rule.
+    return SystemSchema.getSystemTableDataSourceTable(scan.getTable()) != null;
   }
 
   @Override

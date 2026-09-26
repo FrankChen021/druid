@@ -276,10 +276,10 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
       {
         if (node instanceof TableScan) {
           RelOptTable table = node.getTable();
-          // This is the routing point that decides whether a system table uses Bindable or native planning.
+          // This is the routing point that decides whether a system table uses Bindable or datasource planning.
           if ((table.unwrap(ScannableTable.class) != null || table.unwrap(ProjectableFilterableTable.class) != null)
               && table.unwrap(DruidTable.class) == null
-              && !SystemSchema.canUseNativeSystemTable(table, plannerContext)) {
+              && !SystemSchema.canUseSystemTableDataSource(table, plannerContext)) {
             found.add(table);
             return;
           }

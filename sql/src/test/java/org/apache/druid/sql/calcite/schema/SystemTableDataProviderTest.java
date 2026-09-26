@@ -35,7 +35,7 @@ public class SystemTableDataProviderTest
   @Test
   public void testNativeTablesExposeSystemMetadata()
   {
-    final NativeServerPropertiesTable serverProperties = new NativeServerPropertiesTable();
+    final ServerPropertiesDataSourceTable serverProperties = new ServerPropertiesDataSourceTable();
     Assertions.assertEquals(
         "server_properties",
         ((SystemTableDataSource) serverProperties.getDataSource()).getTable()
@@ -54,11 +54,11 @@ public class SystemTableDataProviderTest
     final SqlEngine incapableEngine = EasyMock.createMock(SqlEngine.class);
     final SqlEngine enabledEngine = EasyMock.createMock(SqlEngine.class);
     EasyMock.expect(table.getQualifiedName()).andStubReturn(List.of("sys", "server_properties"));
-    EasyMock.expect(table.unwrap(NativeSystemTable.class)).andReturn(NativeServerPropertiesTable::new).times(2);
+    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(ServerPropertiesDataSourceTable::new).times(2);
     EasyMock.expect(incapableContext.getEngine()).andReturn(incapableEngine).once();
-    EasyMock.expect(incapableEngine.supportsNativeSystemTable("server_properties")).andReturn(false).once();
+    EasyMock.expect(incapableEngine.supportsSystemTableDataSource("server_properties")).andReturn(false).once();
     EasyMock.expect(enabledContext.getEngine()).andReturn(enabledEngine).once();
-    EasyMock.expect(enabledEngine.supportsNativeSystemTable("server_properties")).andReturn(true).once();
+    EasyMock.expect(enabledEngine.supportsSystemTableDataSource("server_properties")).andReturn(true).once();
     EasyMock.replay(
         table,
         incapableContext,
@@ -67,8 +67,8 @@ public class SystemTableDataProviderTest
         enabledEngine
     );
 
-    Assertions.assertFalse(SystemSchema.canUseNativeSystemTable(table, incapableContext));
-    Assertions.assertTrue(SystemSchema.canUseNativeSystemTable(table, enabledContext));
+    Assertions.assertFalse(SystemSchema.canUseSystemTableDataSource(table, incapableContext));
+    Assertions.assertTrue(SystemSchema.canUseSystemTableDataSource(table, enabledContext));
 
     EasyMock.verify(
         table,
@@ -83,10 +83,10 @@ public class SystemTableDataProviderTest
   public void testSystemSchemaGetsNativeRepresentation()
   {
     final RelOptTable table = EasyMock.createMock(RelOptTable.class);
-    EasyMock.expect(table.unwrap(NativeSystemTable.class)).andReturn(NativeServerPropertiesTable::new).once();
+    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(ServerPropertiesDataSourceTable::new).once();
     EasyMock.replay(table);
 
-    Assertions.assertInstanceOf(NativeServerPropertiesTable.class, SystemSchema.getNativeSystemTable(table));
+    Assertions.assertInstanceOf(ServerPropertiesDataSourceTable.class, SystemSchema.getSystemTableDataSourceTable(table));
     EasyMock.verify(table);
   }
 
@@ -94,10 +94,10 @@ public class SystemTableDataProviderTest
   public void testSystemSchemaRejectsTableWithoutNativeCapability()
   {
     final RelOptTable table = EasyMock.createMock(RelOptTable.class);
-    EasyMock.expect(table.unwrap(NativeSystemTable.class)).andReturn(null).once();
+    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(null).once();
     EasyMock.replay(table);
 
-    Assertions.assertNull(SystemSchema.getNativeSystemTable(table));
+    Assertions.assertNull(SystemSchema.getSystemTableDataSourceTable(table));
     EasyMock.verify(table);
   }
 
@@ -106,10 +106,10 @@ public class SystemTableDataProviderTest
   {
     final RelOptTable table = EasyMock.createMock(RelOptTable.class);
     EasyMock.expect(table.getQualifiedName()).andStubReturn(List.of("sys", "tasks"));
-    EasyMock.expect(table.unwrap(NativeSystemTable.class)).andReturn(null).once();
+    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(null).once();
     EasyMock.replay(table);
 
-    Assertions.assertNull(SystemSchema.getNativeSystemTable(table));
+    Assertions.assertNull(SystemSchema.getSystemTableDataSourceTable(table));
     EasyMock.verify(table);
   }
 }
