@@ -29,6 +29,7 @@ import org.apache.druid.common.utils.IdUtils;
 import org.apache.druid.data.input.kafka.KafkaRecordEntity;
 import org.apache.druid.data.input.kafka.KafkaTopicPartition;
 import org.apache.druid.error.DruidException;
+import org.apache.druid.error.InvalidInput;
 import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.indexing.common.task.TaskResource;
 import org.apache.druid.indexing.kafka.KafkaDataSourceMetadata;
@@ -97,6 +98,7 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
   private static final Long END_OF_PARTITION = Long.MAX_VALUE;
 
   private final Pattern pattern;
+  private int lastPartitionSelectionTaskCount = -1;
   private volatile Map<KafkaTopicPartition, Long> partitionToTimeLag;
 
   private final KafkaSupervisorSpec spec;
@@ -138,18 +140,63 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
         sortingMapper,
         spec.getIoConfig().getConfigOverrides(),
         spec.getIoConfig().isMultiTopic(),
-        null
+        null,
+        spec.getIoConfig().getPartitionIds()
     );
   }
 
   @Override
   protected int getTaskGroupIdForPartition(KafkaTopicPartition partitionId)
   {
-    Integer taskCount = spec.getIoConfig().getTaskCount();
+    final int taskCount = spec.getIoConfig().getTaskCount();
+    final Set<Integer> selected = spec.getIoConfig().getPartitionIds();
+    if (selected != null && lastPartitionSelectionTaskCount != taskCount) {
+      lastPartitionSelectionTaskCount = taskCount;
+      final long occupiedGroups = selected.stream().map(id -> id % taskCount).distinct().count();
+      if (occupiedGroups < taskCount) {
+        log.warn(
+            "Selected partition IDs [%s] occupy [%d] task groups with configured task count [%d]",
+            selected, occupiedGroups, taskCount
+        );
+      }
+    }
     if (partitionId.isMultiTopicPartition()) {
       return Math.abs(31 * partitionId.topic().hashCode() + partitionId.partition()) % taskCount;
     } else {
       return partitionId.partition() % taskCount;
+    }
+  }
+
+  @Override
+  protected boolean isTaskPartitionSetCurrent(int taskGroupId, Set<KafkaTopicPartition> taskPartitions)
+  {
+    // Replace adopted readers on either expansion or narrowing so every current group reads exactly its selected partitions.
+    return getIoConfig().getPartitionIds() == null || taskPartitions.equals(partitionGroups.get(taskGroupId));
+  }
+
+  @Override
+  protected void validatePartitionReset(@Nullable DataSourceMetadata metadata)
+  {
+    final Set<Integer> selected = getIoConfig().getPartitionIds();
+    if (selected == null || metadata == null) {
+      return;
+    }
+    if (!(metadata instanceof KafkaDataSourceMetadata)) {
+      throw InvalidInput.exception("Partition reset requires Kafka metadata for supervisor [%s]", spec.getId());
+    }
+    final KafkaDataSourceMetadata kafkaMetadata = (KafkaDataSourceMetadata) metadata;
+    final SeekableStreamSequenceNumbers<KafkaTopicPartition, Long> sequences = kafkaMetadata.getSeekableStreamSequenceNumbers();
+    if (sequences == null || !getIoConfig().getStream().equals(sequences.getStream())) {
+      throw InvalidInput.exception("Partition reset must specify offsets for topic [%s]", getIoConfig().getStream());
+    }
+    final Set<KafkaTopicPartition> excluded = sequences.getPartitionSequenceNumberMap().keySet().stream()
+                                                     .filter(p -> p.isMultiTopicPartition() || !selected.contains(p.partition()))
+                                                     .collect(Collectors.toSet());
+    if (!excluded.isEmpty()) {
+      throw InvalidInput.exception(
+          "Cannot reset excluded or topic-qualified partitions [%s] for supervisor [%s] with partition IDs [%s]",
+          excluded, spec.getId(), selected
+      );
     }
   }
 
@@ -265,6 +312,19 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
       ));
     }
     return taskList;
+  }
+
+  @Override
+  protected Map<KafkaTopicPartition, Long> getHighestCurrentOffsets()
+  {
+    final Set<Integer> selected = getIoConfig().getPartitionIds();
+    if (selected == null) {
+      return super.getHighestCurrentOffsets();
+    }
+    final Map<KafkaTopicPartition, Long> offsets = new HashMap<>(super.getHighestCurrentOffsets());
+    // Exclude saved offsets and publishing tasks outside the selection from reporting without changing stored metadata.
+    offsets.keySet().removeIf(partition -> !selected.contains(partition.partition()));
+    return offsets;
   }
 
   @Override
