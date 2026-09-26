@@ -26,8 +26,11 @@ import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.multibindings.OptionalBinder;
+import org.apache.druid.collections.BlockingPool;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.JsonConfigProvider;
@@ -35,32 +38,39 @@ import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.annotations.LoadScope;
+import org.apache.druid.guice.annotations.Merging;
 import org.apache.druid.initialization.DruidModule;
 import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.common.concurrent.ScheduledExecutors;
 import org.apache.druid.msq.dart.Dart;
-import org.apache.druid.msq.dart.DartResourcePermissionMapper;
 import org.apache.druid.msq.dart.controller.ControllerMessageListener;
 import org.apache.druid.msq.dart.controller.ControllerThreadPool;
+import org.apache.druid.msq.dart.controller.DartBrokerMessageRelays;
 import org.apache.druid.msq.dart.controller.DartControllerContextFactory;
 import org.apache.druid.msq.dart.controller.DartControllerContextFactoryImpl;
 import org.apache.druid.msq.dart.controller.DartControllerRegistry;
 import org.apache.druid.msq.dart.controller.DartMessageRelayFactoryImpl;
 import org.apache.druid.msq.dart.controller.DartMessageRelays;
+import org.apache.druid.msq.dart.controller.DartSystemTableInputSpecSlicerProvider;
 import org.apache.druid.msq.dart.controller.DartTableInputSpecSlicerProvider;
 import org.apache.druid.msq.dart.controller.http.DartQueryInfo;
 import org.apache.druid.msq.dart.controller.sql.DartSqlClientFactory;
 import org.apache.druid.msq.dart.controller.sql.DartSqlClientFactoryImpl;
 import org.apache.druid.msq.dart.controller.sql.DartSqlClients;
 import org.apache.druid.msq.dart.controller.sql.DartSqlEngine;
+import org.apache.druid.msq.dart.worker.DartProcessingBuffersProvider;
+import org.apache.druid.msq.exec.ProcessingBuffersProvider;
 import org.apache.druid.msq.guice.MSQBinders;
-import org.apache.druid.msq.rpc.ResourcePermissionMapper;
+import org.apache.druid.msq.querykit.datasource.SystemTableDataSourcePlanner;
 import org.apache.druid.query.DefaultQueryConfig;
+import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.QueryConfigProvider;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.SqlToolbox;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 
+import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -89,6 +99,7 @@ public class DartControllerModule implements DruidModule
     {
       JsonConfigProvider.bind(binder, DartModules.DART_PROPERTY_BASE + ".controller", DartControllerConfig.class);
       JsonConfigProvider.bind(binder, DartModules.DART_PROPERTY_BASE + ".query", DefaultQueryConfig.class, Dart.class);
+      binder.install(new DartSystemTableModule());
       // Dart uses its own static DefaultQueryConfig rather than BrokerViewOfBrokerConfig because
       // DartSqlEngine.initContextMap() manages context merging independently for Dart queries.
       binder.bind(Key.get(QueryConfigProvider.class, Dart.class))
@@ -96,6 +107,12 @@ public class DartControllerModule implements DruidModule
 
       LifecycleModule.register(binder, DartSqlClients.class);
       LifecycleModule.register(binder, DartMessageRelays.class);
+      LifecycleModule.register(binder, DartBrokerMessageRelays.class);
+
+      OptionalBinder.newOptionalBinder(binder, Key.get(ProcessingBuffersProvider.class, Dart.class))
+                    .setDefault()
+                    .toProvider(EmbeddedWorkerProcessingBuffersProvider.class)
+                    .in(LazySingleton.class);
 
       binder.bind(ControllerMessageListener.class).in(LazySingleton.class);
       binder.bind(DartControllerRegistry.class).in(LazySingleton.class);
@@ -106,9 +123,6 @@ public class DartControllerModule implements DruidModule
       binder.bind(DartSqlClientFactory.class)
             .to(DartSqlClientFactoryImpl.class)
             .in(LazySingleton.class);
-      binder.bind(ResourcePermissionMapper.class)
-            .annotatedWith(Dart.class)
-            .to(DartResourcePermissionMapper.class);
       Multibinder.newSetBinder(binder, SqlEngine.class)
                  .addBinding()
                  .to(DartSqlEngine.class)
@@ -117,6 +131,13 @@ public class DartControllerModule implements DruidModule
                 .addBinding()
                 .to(DartTableInputSpecSlicerProvider.class)
                 .in(LazySingleton.class);
+      MSQBinders.inputSpecSlicerProviderBinder(binder, Dart.class)
+                .addBinding()
+                .to(DartSystemTableInputSpecSlicerProvider.class)
+                .in(LazySingleton.class);
+      MSQBinders.dataSourcePlannerBinder(binder)
+                .addBinding(SystemTableDataSource.class)
+                .to(SystemTableDataSourcePlanner.class);
     }
 
     @Provides
@@ -135,6 +156,38 @@ public class DartControllerModule implements DruidModule
     )
     {
       return new DartMessageRelays(discoveryProvider, messageRelayFactory);
+    }
+
+    @Provides
+    @ManageLifecycle
+    public DartBrokerMessageRelays makeBrokerMessageRelays(
+        final DruidNodeDiscoveryProvider discoveryProvider,
+        final DartMessageRelayFactoryImpl messageRelayFactory
+    )
+    {
+      return new DartBrokerMessageRelays(discoveryProvider, messageRelayFactory);
+    }
+
+    public static class EmbeddedWorkerProcessingBuffersProvider implements Provider<ProcessingBuffersProvider>
+    {
+      private final BlockingPool<ByteBuffer> mergeBufferPool;
+      private final DruidProcessingConfig processingConfig;
+
+      @Inject
+      public EmbeddedWorkerProcessingBuffersProvider(
+          @Merging final BlockingPool<ByteBuffer> mergeBufferPool,
+          final DruidProcessingConfig processingConfig
+      )
+      {
+        this.mergeBufferPool = mergeBufferPool;
+        this.processingConfig = processingConfig;
+      }
+
+      @Override
+      public ProcessingBuffersProvider get()
+      {
+        return new DartProcessingBuffersProvider(mergeBufferPool, processingConfig.getNumThreads());
+      }
     }
 
     @Provides

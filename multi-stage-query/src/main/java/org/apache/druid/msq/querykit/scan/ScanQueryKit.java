@@ -26,7 +26,9 @@ import org.apache.druid.frame.key.KeyColumn;
 import org.apache.druid.frame.key.KeyOrder;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.granularity.Granularity;
+import org.apache.druid.msq.input.InputSpec;
 import org.apache.druid.msq.input.stage.StageInputSpec;
+import org.apache.druid.msq.input.system.SystemTableInputSpec;
 import org.apache.druid.msq.kernel.MixShuffleSpec;
 import org.apache.druid.msq.kernel.QueryDefinition;
 import org.apache.druid.msq.kernel.QueryDefinitionBuilder;
@@ -150,6 +152,11 @@ public class ScanQueryKit implements QueryKit<ScanQuery>
         // need it to be populated to do its own shuffling later.
         scanShuffleSpec = MixShuffleSpec.instance();
       }
+    } else if (canUseMixShuffleForUnorderedSystemTableScan(dataSourcePlan.getInputSpecs(), queryToRun)) {
+      // The synthetic partition-boost column normally makes the final result shuffle a global sort, even when the
+      // SQL query has no ordering requirement. System-table scans have no segment-ordering contract to preserve, so
+      // a mixed single partition is sufficient and avoids sorting every returned row.
+      scanShuffleSpec = MixShuffleSpec.instance();
     } else {
       // If there is no limit spec, apply the final shuffling here itself. This will ensure partition sizes etc are respected.
       scanShuffleSpec = finalShuffleSpec;
@@ -157,7 +164,13 @@ public class ScanQueryKit implements QueryKit<ScanQuery>
 
     queryDefBuilder.add(
         StageDefinition.builder(Math.max(minStageNumber, queryDefBuilder.getNextStageNumber()))
-                       .inputs(dataSourcePlan.getInputSpecs())
+                       .inputs(
+                           SystemTableInputSpec.addSourceHints(
+                               dataSourcePlan.getInputSpecs(),
+                               queryToRun,
+                               sourceLimit(queryToRun)
+                           )
+                       )
                        .broadcastInputs(dataSourcePlan.getBroadcastInputs())
                        .shuffleSpec(scanShuffleSpec)
                        .signature(signatureToUse)
@@ -182,5 +195,26 @@ public class ScanQueryKit implements QueryKit<ScanQuery>
     }
 
     return queryDefBuilder.build();
+  }
+
+  static long sourceLimit(final ScanQuery query)
+  {
+    // An unordered per-source limit is safe only when the final result is also unordered. Ordered queries require
+    // every source row to reach the global sort; otherwise a locally discarded row could belong to the global top K.
+    if (!query.isLimited() || !query.getOrderBys().isEmpty()) {
+      return Long.MAX_VALUE;
+    }
+    final long sourceLimit = query.getScanRowsOffset() + query.getScanRowsLimit();
+    return sourceLimit > 0 ? sourceLimit : Long.MAX_VALUE;
+  }
+
+  static boolean canUseMixShuffleForUnorderedSystemTableScan(
+      final List<InputSpec> inputSpecs,
+      final ScanQuery query
+  )
+  {
+    return query.getOrderBys().isEmpty()
+           && inputSpecs.size() == 1
+           && inputSpecs.get(0) instanceof SystemTableInputSpec;
   }
 }

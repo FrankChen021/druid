@@ -55,6 +55,7 @@ import org.apache.druid.query.Order;
 import org.apache.druid.query.OrderBy;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryDataSource;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.UnnestDataSource;
 import org.apache.druid.query.aggregation.AggregatorFactory;
@@ -69,12 +70,20 @@ import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.having.DimFilterHavingSpec;
 import org.apache.druid.query.groupby.orderby.DefaultLimitSpec;
 import org.apache.druid.query.groupby.orderby.OrderByColumnSpec;
+import org.apache.druid.query.operator.AbstractPartitioningOperatorFactory;
+import org.apache.druid.query.operator.AbstractSortOperatorFactory;
 import org.apache.druid.query.operator.ColumnWithDirection;
 import org.apache.druid.query.operator.ColumnWithDirection.Direction;
 import org.apache.druid.query.operator.NaiveSortOperatorFactory;
 import org.apache.druid.query.operator.OperatorFactory;
 import org.apache.druid.query.operator.ScanOperatorFactory;
 import org.apache.druid.query.operator.WindowOperatorQuery;
+import org.apache.druid.query.operator.window.ComposingProcessor;
+import org.apache.druid.query.operator.window.Processor;
+import org.apache.druid.query.operator.window.WindowFramedAggregateProcessor;
+import org.apache.druid.query.operator.window.WindowOperatorFactory;
+import org.apache.druid.query.operator.window.ranking.WindowRankingProcessorBase;
+import org.apache.druid.query.operator.window.value.WindowValueProcessorBase;
 import org.apache.druid.query.ordering.StringComparator;
 import org.apache.druid.query.planning.ExecutionVertex;
 import org.apache.druid.query.scan.ScanQuery;
@@ -108,6 +117,7 @@ import org.joda.time.Interval;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -1511,6 +1521,18 @@ public class DruidQuery
       return null;
     }
 
+    if (dataSource instanceof SystemTableDataSource
+        && (filter != null
+            || (selectProjection != null && selectProjection.getOutputRowSignature().size() > 0)
+            || !virtualColumnRegistry.isEmpty()
+            || windowing.getOperators().stream().anyMatch(DruidQuery::windowOperatorHasSourceDependencies))) {
+      // A direct system-table input has no physical segment signature from which the MSQ window query kit can recover
+      // columns used only by filters, projections, virtual expressions, ordering, partitioning, or window processors.
+      // Plan those shapes over a Scan subquery, which explicitly carries the source dependencies. A dependency-free
+      // window (for example ROW_NUMBER() OVER ()) can remain direct; its query kit preserves the source signature.
+      return null;
+    }
+
     // all virtual cols are needed - these columns are only referenced from the aggregates
     VirtualColumns virtualColumns = virtualColumnRegistry.build(Collections.emptySet());
     final List<OperatorFactory> operators;
@@ -1545,6 +1567,37 @@ public class DruidQuery
         operators,
         pushLeafOperator ? null : ImmutableList.of()
     );
+  }
+
+  private static boolean windowOperatorHasSourceDependencies(final OperatorFactory operator)
+  {
+    if (operator instanceof AbstractSortOperatorFactory sortOperator) {
+      return !sortOperator.getSortColumns().isEmpty();
+    } else if (operator instanceof AbstractPartitioningOperatorFactory partitioningOperator) {
+      return !partitioningOperator.getPartitionColumns().isEmpty();
+    } else if (operator instanceof WindowOperatorFactory windowOperator) {
+      return windowProcessorHasSourceDependencies(windowOperator.getProcessor());
+    } else {
+      return true;
+    }
+  }
+
+  private static boolean windowProcessorHasSourceDependencies(final Processor processor)
+  {
+    if (processor instanceof WindowValueProcessorBase) {
+      return true;
+    } else if (processor instanceof WindowRankingProcessorBase rankingProcessor) {
+      return !rankingProcessor.getGroupingCols().isEmpty();
+    } else if (processor instanceof WindowFramedAggregateProcessor aggregateProcessor) {
+      return aggregateProcessor.getAggregations() != null
+             && Arrays.stream(aggregateProcessor.getAggregations()).anyMatch(
+                 aggregation -> !aggregation.requiredFields().isEmpty()
+             );
+    } else if (processor instanceof ComposingProcessor composingProcessor) {
+      return Arrays.stream(composingProcessor.getProcessors()).anyMatch(DruidQuery::windowProcessorHasSourceDependencies);
+    } else {
+      return false;
+    }
   }
 
   /**

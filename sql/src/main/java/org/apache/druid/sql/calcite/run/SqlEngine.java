@@ -27,6 +27,7 @@ import org.apache.druid.error.DruidException;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationResult;
+import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.destination.IngestDestination;
@@ -37,6 +38,7 @@ import org.apache.druid.sql.http.QueryInfo;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Engine for running SQL queries.
@@ -54,6 +56,24 @@ public interface SqlEngine
    * parameters.
    */
   boolean featureAvailable(EngineFeature feature);
+
+  /**
+   * Whether this engine can execute a particular table as a {@code SystemTableDataSource}. Engines opt in per table so
+   * unsupported tables remain on the Bindable fallback path.
+   */
+  default boolean supportsSystemTableDataSource(final String tableName)
+  {
+    return false;
+  }
+
+  /**
+   * Additional resources required when this engine executes a system-table datasource. These resources are attached
+   * to the SQL statement before execution so cancellation is authorized consistently with the query.
+   */
+  default Set<ResourceAction> getSystemTableDataSourceResourceActions(final String tableName)
+  {
+    return Set.of();
+  }
 
   /**
    * Validates a provided query context. Returns quietly if the context is OK; throws {@link ValidationException}

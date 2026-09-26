@@ -56,12 +56,14 @@ import org.apache.druid.msq.indexing.report.MSQTaskReport;
 import org.apache.druid.msq.kernel.controller.ControllerQueryKernelConfig;
 import org.apache.druid.msq.querykit.DataSourcePlanners;
 import org.apache.druid.msq.querykit.MultiQueryKit;
+import org.apache.druid.msq.querykit.datasource.SystemTableDataSourcePlanner;
 import org.apache.druid.msq.sql.DartQueryKitSpecFactory;
 import org.apache.druid.msq.test.MSQTestBase;
 import org.apache.druid.msq.test.MSQTestControllerContext;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryStackTests;
@@ -73,6 +75,7 @@ import org.apache.druid.server.mocks.MockAsyncContext;
 import org.apache.druid.server.mocks.MockHttpServletResponse;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
+import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.sql.SqlLifecycleManager;
 import org.apache.druid.sql.SqlToolbox;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
@@ -269,12 +272,19 @@ public class DartSqlResourceTest extends MSQTestBase
                 )
             )
         ),
-        new DartQueryKitSpecFactory(new DataSourcePlanners(Map.of())),
+        new DartQueryKitSpecFactory(
+            new DataSourcePlanners(Map.of(SystemTableDataSource.class, new SystemTableDataSourcePlanner()))
+        ),
         injector.getInstance(MultiQueryKit.class),
         new ServerConfig(),
         new DefaultQueryConfig(ImmutableMap.of("foo", "bar")),
         toolbox,
-        dartSqlClients
+        dartSqlClients,
+        CalciteTests.TEST_AUTHORIZER_MAPPER,
+        Map.of(
+            ServerPropertiesTableDescriptor.TABLE_NAME,
+            new ServerPropertiesTableDescriptor()
+        )
     );
 
     sqlResource = new SqlResource(

@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Injector;
 import org.apache.druid.client.TimelineServerView;
 import org.apache.druid.error.DruidException;
+import org.apache.druid.error.InvalidInput;
 import org.apache.druid.indexing.common.TaskLockType;
 import org.apache.druid.indexing.common.actions.TaskActionClient;
 import org.apache.druid.java.util.common.io.Closer;
@@ -38,19 +39,27 @@ import org.apache.druid.msq.exec.SegmentSource;
 import org.apache.druid.msq.exec.WorkerFailureListener;
 import org.apache.druid.msq.exec.WorkerManager;
 import org.apache.druid.msq.indexing.IndexerControllerContext;
+import org.apache.druid.msq.indexing.LegacyMSQSpec;
 import org.apache.druid.msq.indexing.MSQSpec;
+import org.apache.druid.msq.indexing.QueryDefMSQSpec;
 import org.apache.druid.msq.indexing.destination.TaskReportMSQDestination;
 import org.apache.druid.msq.input.InputSpecSlicerProvider;
+import org.apache.druid.msq.input.stage.StageInputSpec;
+import org.apache.druid.msq.input.system.SystemTableInputSpec;
 import org.apache.druid.msq.kernel.controller.ControllerQueryKernelConfig;
 import org.apache.druid.msq.util.MultiStageQueryContext;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.coordination.DruidServerMetadata;
 import org.apache.druid.server.coordination.ServerType;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -130,17 +139,33 @@ public class DartControllerContext implements ControllerContext
     // allowed to float. If a segment moves to a new server that isn't part of our list after the WorkerManager is
     // created, we won't be able to find a valid server for certain segments. This isn't expected to be a problem,
     // since the serverView is referenced shortly after the worker list is created.
-    final List<String> workerIds = new ArrayList<>(servers.size());
-    for (final DruidServerMetadata server : servers) {
-      if (server.getType() == ServerType.HISTORICAL) {
-        workerIds.add(WorkerId.fromDruidServerMetadata(server, queryId()).toString());
+    final List<String> workerIds;
+    if (containsSystemTable(querySpec)) {
+      if (!usesOnlySystemTables(querySpec)) {
+        throw InvalidInput.exception("Dart system-table queries cannot mix system tables with other datasources");
       }
+      // Worker zero is the Broker fallback for control-plane nodes that do not run a Dart worker. Historical sources
+      // are processed by their co-located workers, so filters and partial aggregation run where rows are produced.
+      final LinkedHashSet<String> systemTableWorkerIds = new LinkedHashSet<>();
+      systemTableWorkerIds.add(WorkerId.fromDruidNode(selfNode, queryId()).toString());
+      servers.stream()
+             .filter(server -> server.getType() == ServerType.HISTORICAL)
+             .sorted(Comparator.comparing(DruidServerMetadata::getHost))
+             .map(server -> WorkerId.fromDruidServerMetadata(server, queryId()).toString())
+             .forEach(systemTableWorkerIds::add);
+      workerIds = new ArrayList<>(systemTableWorkerIds);
+    } else {
+      workerIds = new ArrayList<>(servers.size());
+      for (final DruidServerMetadata server : servers) {
+        if (server.getType() == ServerType.HISTORICAL) {
+          workerIds.add(WorkerId.fromDruidServerMetadata(server, queryId()).toString());
+        }
+      }
+      // Shuffle workerIds, so we don't bias towards specific servers when running multiple queries concurrently. For
+      // any given query, lower-numbered workers tend to do more work, because the controller prefers using
+      // lower-numbered workers when maxWorkerCount for a stage is less than the total number of workers.
+      Collections.shuffle(workerIds);
     }
-
-    // Shuffle workerIds, so we don't bias towards specific servers when running multiple queries concurrently. For any
-    // given query, lower-numbered workers tend to do more work, because the controller prefers using lower-numbered
-    // workers when maxWorkerCount for a stage is less than the total number of workers.
-    Collections.shuffle(workerIds);
 
     final ControllerMemoryParameters memoryParameters =
         ControllerMemoryParameters.createProductionInstance(
@@ -164,6 +189,61 @@ public class DartControllerContext implements ControllerContext
         .maxRetainedPartitionSketchBytes(memoryParameters.getPartitionStatisticsMaxRetainedBytes())
         .workerContextMap(IndexerControllerContext.makeWorkerContextMap(querySpec, false, maxConcurrentStages))
         .build();
+  }
+
+  private static boolean containsSystemTable(final MSQSpec querySpec)
+  {
+    if (querySpec instanceof LegacyMSQSpec legacyMSQSpec) {
+      return containsSystemTable(legacyMSQSpec.getQuery().getDataSource());
+    } else if (querySpec instanceof QueryDefMSQSpec queryDefMSQSpec) {
+      return queryDefMSQSpec.getQueryDef()
+                            .getStageDefinitions()
+                            .stream()
+                            .flatMap(stage -> stage.getInputSpecs().stream())
+                            .anyMatch(SystemTableInputSpec.class::isInstance);
+    } else {
+      return false;
+    }
+  }
+
+  private static boolean containsSystemTable(final DataSource dataSource)
+  {
+    if (dataSource instanceof SystemTableDataSource) {
+      return true;
+    }
+    for (final DataSource child : dataSource.getChildren()) {
+      if (containsSystemTable(child)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean usesOnlySystemTables(final MSQSpec querySpec)
+  {
+    if (querySpec instanceof LegacyMSQSpec legacyMSQSpec) {
+      return usesOnlySystemTables(legacyMSQSpec.getQuery().getDataSource());
+    } else if (querySpec instanceof QueryDefMSQSpec queryDefMSQSpec) {
+      return queryDefMSQSpec.getQueryDef()
+                            .getStageDefinitions()
+                            .stream()
+                            .flatMap(stage -> stage.getInputSpecs().stream())
+                            .filter(inputSpec -> !(inputSpec instanceof StageInputSpec))
+                            .allMatch(SystemTableInputSpec.class::isInstance);
+    } else {
+      return false;
+    }
+  }
+
+  private static boolean usesOnlySystemTables(final DataSource dataSource)
+  {
+    if (dataSource instanceof SystemTableDataSource) {
+      return true;
+    }
+    if (dataSource.getChildren().isEmpty()) {
+      return false;
+    }
+    return dataSource.getChildren().stream().allMatch(DartControllerContext::usesOnlySystemTables);
   }
 
   @Override
