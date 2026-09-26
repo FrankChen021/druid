@@ -886,11 +886,10 @@ public class WorkerImpl implements Worker
    */
   private ExecutorService makeProcessingPool()
   {
-    final QueryProcessingPool queryProcessingPool = context.injector().getInstance(QueryProcessingPool.class);
     final int priority = 0;
 
     return new DecoratedExecutorService(
-        queryProcessingPool,
+        context.processingExecutor(),
         new DecoratedExecutorService.Decorator()
         {
           @Override

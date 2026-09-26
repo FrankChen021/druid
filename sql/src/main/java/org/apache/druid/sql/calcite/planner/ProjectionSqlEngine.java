@@ -83,6 +83,7 @@ public class ProjectionSqlEngine implements SqlEngine
       case TIME_BOUNDARY_QUERY:
       case GROUPBY_IMPLICITLY_SORTS:
       case ALLOW_BINDABLE_PLAN:
+      case NATIVE_SYSTEM_TABLES:
         return false;
 
       // The body has no FROM clause, so it can only read the table it belongs to.

@@ -60,6 +60,7 @@ import org.apache.druid.guice.ServerTypeConfig;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.msq.dart.guice.DartControllerMemoryManagementModule;
 import org.apache.druid.msq.dart.guice.DartControllerModule;
+import org.apache.druid.msq.dart.guice.DartEmbeddedWorkerModule;
 import org.apache.druid.msq.guice.MSQDurableStorageModule;
 import org.apache.druid.msq.guice.MSQExternalDataSourceModule;
 import org.apache.druid.msq.guice.MSQIndexingModule;
@@ -205,6 +206,8 @@ public class CliBroker extends ServerRunnable
         new MSQSqlModule(),
         new SqlTaskModule(),
         new DartControllerModule(),
+        // Dart uses a Broker-local worker for system-table inputs, so those queries remain usable without Historicals.
+        new DartEmbeddedWorkerModule(),
         new DartControllerMemoryManagementModule(),
         new BrokerRealtimeSelectorModule()
     );

@@ -61,6 +61,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Dart implementation of {@link WorkerContext}.
@@ -93,6 +94,7 @@ public class DartWorkerContext implements WorkerContext
   private final QueryContext queryContext;
   private final ServiceEmitter emitter;
   private final int threadCount;
+  private final ExecutorService processingExecutor;
 
   /**
    * Worker-local segment load-ahead count from {@link DartWorkerConfig#getSegmentLoadAheadCount()}, or null if unset.
@@ -130,7 +132,8 @@ public class DartWorkerContext implements WorkerContext
       final QueryContext queryContext,
       final DataServerQueryHandlerFactory dataServerQueryHandlerFactory,
       final ServiceEmitter emitter,
-      final List<InputSliceReaderProvider> inputSliceReaderProviders
+      final List<InputSliceReaderProvider> inputSliceReaderProviders,
+      final ExecutorService processingExecutor
   )
   {
     this.queryId = queryId;
@@ -153,12 +156,12 @@ public class DartWorkerContext implements WorkerContext
     this.queryContext = Preconditions.checkNotNull(queryContext, "queryContext");
     this.emitter = emitter;
     this.inputSliceReaderProviders = inputSliceReaderProviders;
+    this.processingExecutor = processingExecutor;
 
     // Compute thread count once in constructor
     final int baseThreadCount = processingConfig.getNumThreads();
     final Integer maxThreads = MultiStageQueryContext.getMaxThreads(queryContext);
     this.threadCount = (maxThreads != null && maxThreads > 0) ? Math.min(baseThreadCount, maxThreads) : baseThreadCount;
-
     // Worker-local segment load-ahead config from this worker's DartWorkerConfig.
     this.segmentLoadAheadCountConfig = workerConfig.getSegmentLoadAheadCount();
   }
@@ -197,6 +200,12 @@ public class DartWorkerContext implements WorkerContext
   public List<InputSliceReaderProvider> inputSliceReaderProviders()
   {
     return inputSliceReaderProviders;
+  }
+
+  @Override
+  public ExecutorService processingExecutor()
+  {
+    return processingExecutor;
   }
 
   @Override

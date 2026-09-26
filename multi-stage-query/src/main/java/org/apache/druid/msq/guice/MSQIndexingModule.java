@@ -94,6 +94,8 @@ import org.apache.druid.msq.input.lookup.LookupInputSlice;
 import org.apache.druid.msq.input.lookup.LookupInputSpec;
 import org.apache.druid.msq.input.stage.StageInputSlice;
 import org.apache.druid.msq.input.stage.StageInputSpec;
+import org.apache.druid.msq.input.system.SystemTableInputSlice;
+import org.apache.druid.msq.input.system.SystemTableInputSpec;
 import org.apache.druid.msq.input.table.SegmentsInputSlice;
 import org.apache.druid.msq.input.table.TableInputSpec;
 import org.apache.druid.msq.kernel.NilExtraInfoHolder;
@@ -212,6 +214,7 @@ public class MSQIndexingModule implements DruidModule
         InlineInputSpec.class,
         LookupInputSpec.class,
         StageInputSpec.class,
+        SystemTableInputSpec.class,
         TableInputSpec.class,
 
         // InputSlice classes
@@ -221,6 +224,7 @@ public class MSQIndexingModule implements DruidModule
         NilInputSlice.class,
         SegmentsInputSlice.class,
         StageInputSlice.class,
+        SystemTableInputSlice.class,
 
         // Other
         PassthroughAggregatorFactory.class,

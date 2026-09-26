@@ -22,16 +22,24 @@ package org.apache.druid.msq.dart.controller;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.client.BrokerServerView;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.msq.dart.worker.WorkerId;
 import org.apache.druid.msq.exec.MemoryIntrospector;
 import org.apache.druid.msq.exec.MemoryIntrospectorImpl;
 import org.apache.druid.msq.indexing.LegacyMSQSpec;
+import org.apache.druid.msq.indexing.QueryDefMSQSpec;
 import org.apache.druid.msq.indexing.destination.TaskReportMSQDestination;
+import org.apache.druid.msq.input.system.SystemTableInputSpec;
+import org.apache.druid.msq.kernel.QueryDefinition;
+import org.apache.druid.msq.kernel.StageDefinition;
 import org.apache.druid.msq.kernel.controller.ControllerQueryKernelConfig;
 import org.apache.druid.msq.util.MultiStageQueryContext;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.query.TableDataSource;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.coordination.DruidServerMetadata;
 import org.apache.druid.server.coordination.ServerType;
@@ -95,6 +103,8 @@ public class DartControllerContextTest
     Mockito.when(serverView.getDruidServerMetadatas()).thenReturn(SERVERS);
     Mockito.when(querySpec.getDestination()).thenReturn(TaskReportMSQDestination.instance());
     Mockito.when(querySpec.getContext()).thenReturn(queryContext);
+    Mockito.when(querySpec.getQuery()).thenReturn(query);
+    Mockito.when(query.getDataSource()).thenReturn(new TableDataSource("foo"));
   }
 
   @AfterEach
@@ -133,6 +143,101 @@ public class DartControllerContextTest
             WorkerId.fromDruidServerMetadata(SERVERS.get(1), QUERY_ID).toString()
         ),
         queryKernelConfig.getWorkerIds().stream().sorted().collect(Collectors.toList())
+    );
+  }
+
+  /** A system-table query uses the Broker fallback plus discovered Historical workers. */
+  @Test
+  public void test_queryKernelConfig_systemTableUsesBrokerWorker()
+  {
+    Mockito.when(query.getDataSource()).thenReturn(new SystemTableDataSource("server_properties"));
+    final DartControllerContext controllerContext = new DartControllerContext(
+        null,
+        null,
+        SELF_NODE,
+        null,
+        memoryIntrospector,
+        serverView,
+        List.of(),
+        null,
+        queryContext
+    );
+
+    Assertions.assertEquals(
+        List.of(
+            WorkerId.fromDruidNode(SELF_NODE, QUERY_ID).toString(),
+            WorkerId.fromDruidServerMetadata(SERVERS.get(0), QUERY_ID).toString(),
+            WorkerId.fromDruidServerMetadata(SERVERS.get(1), QUERY_ID).toString()
+        ),
+        controllerContext.queryKernelConfig(querySpec).getWorkerIds()
+    );
+  }
+
+  /** A coupled preplanned query recognizes its system-table input spec and uses the same distributed worker set. */
+  @Test
+  public void test_queryKernelConfig_preplannedSystemTableUsesBrokerWorker()
+  {
+    final QueryDefMSQSpec preplannedQuerySpec = Mockito.mock(QueryDefMSQSpec.class);
+    final QueryDefinition queryDefinition = Mockito.mock(QueryDefinition.class);
+    final StageDefinition stageDefinition = Mockito.mock(StageDefinition.class);
+    Mockito.when(preplannedQuerySpec.getDestination()).thenReturn(TaskReportMSQDestination.instance());
+    Mockito.when(preplannedQuerySpec.getContext()).thenReturn(queryContext);
+    Mockito.when(preplannedQuerySpec.getQueryDef()).thenReturn(queryDefinition);
+    Mockito.when(queryDefinition.getStageDefinitions()).thenReturn(List.of(stageDefinition));
+    Mockito.when(stageDefinition.getInputSpecs()).thenReturn(
+        List.of(new SystemTableInputSpec("server_properties"))
+    );
+
+    final DartControllerContext controllerContext = new DartControllerContext(
+        null,
+        null,
+        SELF_NODE,
+        null,
+        memoryIntrospector,
+        serverView,
+        List.of(),
+        null,
+        queryContext
+    );
+
+    Assertions.assertEquals(
+        List.of(
+            WorkerId.fromDruidNode(SELF_NODE, QUERY_ID).toString(),
+            WorkerId.fromDruidServerMetadata(SERVERS.get(0), QUERY_ID).toString(),
+            WorkerId.fromDruidServerMetadata(SERVERS.get(1), QUERY_ID).toString()
+        ),
+        controllerContext.queryKernelConfig(preplannedQuerySpec).getWorkerIds()
+    );
+  }
+
+  /** The initial Dart integration rejects mixed system and segment datasources instead of misrouting the latter. */
+  @Test
+  public void test_queryKernelConfig_mixedSystemAndSegmentDataSourcesAreRejected()
+  {
+    final DataSource compositeDataSource = Mockito.mock(DataSource.class);
+    Mockito.when(compositeDataSource.getChildren()).thenReturn(
+        List.of(new SystemTableDataSource("server_properties"), new TableDataSource("foo"))
+    );
+    Mockito.when(query.getDataSource()).thenReturn(compositeDataSource);
+    final DartControllerContext controllerContext = new DartControllerContext(
+        null,
+        null,
+        SELF_NODE,
+        null,
+        memoryIntrospector,
+        serverView,
+        List.of(),
+        null,
+        queryContext
+    );
+
+    final DruidException exception = Assertions.assertThrows(
+        DruidException.class,
+        () -> controllerContext.queryKernelConfig(querySpec)
+    );
+    Assertions.assertEquals(
+        "Dart system-table queries cannot mix system tables with other datasources",
+        exception.getMessage()
     );
   }
 }

@@ -151,6 +151,7 @@ public class MSQTaskSqlEngine implements SqlEngine
   {
     switch (feature) {
       case ALLOW_BINDABLE_PLAN:
+      case NATIVE_SYSTEM_TABLES:
       case ALLOW_BROADCAST_RIGHTY_JOIN:
       case TIMESERIES_QUERY:
       case TOPN_QUERY:

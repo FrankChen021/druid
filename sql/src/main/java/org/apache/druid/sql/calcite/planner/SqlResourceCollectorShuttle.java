@@ -33,6 +33,7 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.calcite.expression.AuthorizableOperator;
 import org.apache.druid.sql.calcite.schema.NamedLookupSchema;
+import org.apache.druid.sql.calcite.schema.NamedSystemSchema;
 import org.apache.druid.sql.calcite.view.ViewManager;
 
 import java.util.HashSet;
@@ -98,6 +99,13 @@ public class SqlResourceCollectorShuttle extends SqlShuttle
           // Add the lookup name to the set of lookups to selectively load.
           if (schema.equals(NamedLookupSchema.NAME)) {
             plannerContext.addLookupToLoad(resourceName);
+          }
+
+          if (schema.equals(NamedSystemSchema.NAME)
+              && plannerContext.getEngine().supportsNativeSystemTable(resourceName)) {
+            resourceActions.addAll(
+                plannerContext.getEngine().getNativeSystemTableResourceActions(resourceName)
+            );
           }
 
           final Resource resource = plannerContext.getSchemaResource(schema, resourceName);

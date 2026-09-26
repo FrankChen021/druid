@@ -73,6 +73,7 @@ public class ViewSqlEngine implements SqlEngine
       case CAN_INSERT:
       case CAN_REPLACE:
       case CAN_DDL:
+      case NATIVE_SYSTEM_TABLES:
         return false;
 
       // Simplify planning by sticking to basic query types.
