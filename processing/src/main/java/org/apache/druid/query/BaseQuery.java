@@ -23,7 +23,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import org.apache.druid.guice.annotations.ExtensionPoint;
 import org.apache.druid.java.util.common.Intervals;
@@ -57,9 +56,6 @@ public abstract class BaseQuery<T> implements Query<T>
     }
   }
 
-  public static final String QUERY_ID = "queryId";
-  public static final String SUB_QUERY_ID = "subQueryId";
-  public static final String SQL_QUERY_ID = "sqlQueryId";
   private final DataSource dataSource;
   private final QueryContext context;
   private final QuerySegmentSpec querySegmentSpec;
@@ -213,14 +209,14 @@ public abstract class BaseQuery<T> implements Query<T>
   @Override
   public Query<T> withSubQueryId(String subQueryId)
   {
-    return withOverriddenContext(ImmutableMap.of(SUB_QUERY_ID, subQueryId));
+    return withOverriddenContext(QueryContextParameters.SUB_QUERY_ID, subQueryId);
   }
 
   @Nullable
   @Override
   public String getSubQueryId()
   {
-    return context().getString(SUB_QUERY_ID);
+    return context().get(QueryContextParameters.SUB_QUERY_ID);
   }
 
   @Override
@@ -232,7 +228,7 @@ public abstract class BaseQuery<T> implements Query<T>
   @Override
   public Query<T> withSqlQueryId(String sqlQueryId)
   {
-    return withOverriddenContext(ImmutableMap.of(SQL_QUERY_ID, sqlQueryId));
+    return withOverriddenContext(QueryContextParameters.SQL_QUERY_ID, sqlQueryId);
   }
 
   @Override

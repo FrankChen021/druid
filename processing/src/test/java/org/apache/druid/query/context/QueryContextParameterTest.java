@@ -83,6 +83,28 @@ class QueryContextParameterTest
   }
 
   @Test
+  void testParseOrDefault()
+  {
+    final QueryContextParameter<Integer> parameter = QueryContextParameter
+        .builder("maxThings", Integer.class, value -> QueryContexts.getAsInt("maxThings", value))
+        .defaultValue(10)
+        .build();
+
+    assertEquals(12, parameter.parseOrDefault("12"));
+    assertEquals(10, parameter.parseOrDefault(null));
+  }
+
+  @Test
+  void testParseOrDefaultRequiresDeclaredDefault()
+  {
+    final QueryContextParameter<String> parameter = QueryContextParameter
+        .builder("tag", String.class, value -> (String) value)
+        .build();
+
+    assertThrows(ISE.class, () -> parameter.parseOrDefault(null));
+  }
+
+  @Test
   void testValidatorRejectsParsedValue()
   {
     final QueryContextParameter<Integer> parameter = QueryContextParameter
@@ -107,7 +129,7 @@ class QueryContextParameterTest
             Integer.class,
             value -> {
               parserCalled.set(true);
-              return QueryContexts.getAsInt("maxThings", value);
+              return Integer.parseInt((String) value);
             }
         )
         .build();
@@ -120,28 +142,6 @@ class QueryContextParameterTest
 
     assertEquals(1, parameter.parse("1"));
     assertTrue(parserCalled.get());
-  }
-
-  @Test
-  void testParseOrDefault()
-  {
-    final QueryContextParameter<Integer> parameter = QueryContextParameter
-        .builder("maxThings", Integer.class, value -> QueryContexts.getAsInt("maxThings", value))
-        .defaultValue(10)
-        .build();
-
-    assertEquals(12, parameter.parseOrDefault("12"));
-    assertEquals(10, parameter.parseOrDefault(null));
-  }
-
-  @Test
-  void testParseOrDefaultRequiresDeclaredDefault()
-  {
-    final QueryContextParameter<String> parameter = QueryContextParameter
-        .builder("tag", String.class, value -> (String) value)
-        .build();
-
-    assertThrows(ISE.class, () -> parameter.parseOrDefault(null));
   }
 
   @Test
@@ -184,7 +184,7 @@ class QueryContextParameterTest
         .builder("required", String.class, ignored -> null)
         .nullable(false)
         .build();
-    assertThrows(IAE.class, () -> nullProducingParser.parse(42));
+    assertThrows(IAE.class, () -> nullProducingParser.parse(1));
   }
 
   @Test
@@ -223,6 +223,36 @@ class QueryContextParameterTest
     assertEquals("Use `newTag` instead.", parameter.getDeprecationMessage().orElseThrow());
     assertTrue(parameter.getDefaultValue().isEmpty());
     assertTrue(parameter.getDocumentation().isEmpty());
+  }
+
+  @Test
+  void testInternalParameterGetsGeneratedDocumentation()
+  {
+    final QueryContextParameter<String> parameter = QueryContextParameter
+        .builder("internalParameter", String.class, value -> String.valueOf(value))
+        .internal()
+        .since("39.0.0")
+        .build();
+
+    assertTrue(parameter.isInternal());
+    final ParameterDocumentation documentation = parameter.getDocumentation().orElseThrow();
+    assertEquals(
+        "System generated description: Internal query context parameter `internalParameter`.",
+        documentation.getDescription()
+    );
+    assertEquals("39.0.0", documentation.getSince().orElseThrow());
+  }
+
+  @Test
+  void testInternalParameterRequiresSince()
+  {
+    assertThrows(
+        IAE.class,
+        () -> QueryContextParameter
+            .builder("internalParameter", String.class, value -> String.valueOf(value))
+            .internal()
+            .build()
+    );
   }
 
   @Test
