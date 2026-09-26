@@ -34,6 +34,9 @@ public class SystemTableDataSource extends LeafDataSource
 {
   public static final String NODE_QUERY_ID_PREFIX = "native-system-node-";
 
+  /** Marks server-generated node requests so they are not reported as user queries by {@code sys.queries}. */
+  public static final String CTX_NODE_QUERY = "systemTableNodeQuery";
+
   private final String table;
 
   @JsonCreator

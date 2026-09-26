@@ -320,7 +320,9 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
             BaseQuery.QUERY_ID,
             nodeQueryId,
             QueryContexts.QUERY_RESOURCE_ID,
-            nodeResourceId
+            nodeResourceId,
+            SystemTableDataSource.CTX_NODE_QUERY,
+            true
         )
     );
     final QueryRunner<ScanResultValue> nodeRunner;

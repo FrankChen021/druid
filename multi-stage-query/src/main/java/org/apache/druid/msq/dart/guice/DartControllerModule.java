@@ -53,10 +53,12 @@ import org.apache.druid.msq.dart.controller.sql.DartSqlClientFactory;
 import org.apache.druid.msq.dart.controller.sql.DartSqlClientFactoryImpl;
 import org.apache.druid.msq.dart.controller.sql.DartSqlClients;
 import org.apache.druid.msq.dart.controller.sql.DartSqlEngine;
+import org.apache.druid.msq.dart.controller.sql.DartSystemTableQueryInfoProvider;
 import org.apache.druid.msq.guice.MSQBinders;
 import org.apache.druid.msq.rpc.ResourcePermissionMapper;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.QueryConfigProvider;
+import org.apache.druid.server.system.table.SystemTableQueryInfoProvider;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.SqlToolbox;
 import org.apache.druid.sql.calcite.run.SqlEngine;
@@ -112,6 +114,10 @@ public class DartControllerModule implements DruidModule
       Multibinder.newSetBinder(binder, SqlEngine.class)
                  .addBinding()
                  .to(DartSqlEngine.class)
+                 .in(LazySingleton.class);
+      Multibinder.newSetBinder(binder, SystemTableQueryInfoProvider.class)
+                 .addBinding()
+                 .to(DartSystemTableQueryInfoProvider.class)
                  .in(LazySingleton.class);
       MSQBinders.inputSpecSlicerProviderBinder(binder, Dart.class)
                 .addBinding()

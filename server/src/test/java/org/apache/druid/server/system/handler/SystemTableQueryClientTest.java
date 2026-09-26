@@ -26,6 +26,7 @@ import org.apache.druid.client.DirectDruidClientFactory;
 import org.apache.druid.client.DruidServer;
 import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.guice.BuiltInTypesModule;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.JodaUtils;
@@ -65,10 +66,12 @@ import org.apache.druid.query.operator.WindowOperatorQuery;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.query.spec.LegacySegmentSpec;
+import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.join.JoinType;
+import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryScheduler;
@@ -81,6 +84,9 @@ import org.apache.druid.server.security.Escalator;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
+import org.apache.druid.server.system.table.QueriesTableDataProvider;
+import org.apache.druid.server.system.table.QueriesTableDescriptor;
+import org.apache.druid.server.system.table.QuerySchedulerQueryInfoProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableRoutingMode;
@@ -112,6 +118,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class SystemTableQueryClientTest
 {
@@ -388,6 +395,73 @@ public class SystemTableQueryClientTest
       Assertions.assertEquals(2, result.size());
       Assertions.assertArrayEquals(new Object[]{"first"}, result.get(0));
       Assertions.assertArrayEquals(new Object[]{"second"}, result.get(1));
+    }
+    finally {
+      consumerExecutor.shutdownNow();
+      cancellationExecutor.shutdownNow();
+    }
+  }
+
+  /** Broker fanout merges query rows from two HTTP nodes and preserves {@code COMPLEX<json>} values. */
+  @Test
+  public void testQueriesFanoutRoundTripsNestedInfoAcrossHttpNodes() throws Exception
+  {
+    final ObjectMapper objectMapper = TestHelper.makeJsonMapper();
+    objectMapper.registerModules(BuiltInTypesModule.getJacksonModulesList());
+    final DelayedHttpClient httpClient = new DelayedHttpClient(2);
+    final ScheduledExecutorService cancellationExecutor = Executors.newSingleThreadScheduledExecutor();
+    final ExecutorService consumerExecutor = Executors.newSingleThreadExecutor();
+    final QueriesTableDescriptor descriptor = new QueriesTableDescriptor();
+    try {
+      final SystemTableQueryClient client = makeDirectClientBackedClient(
+          descriptor,
+          List.of(testNode(8082), testNode(8083)),
+          objectMapper,
+          httpClient,
+          cancellationExecutor,
+          Mockito.mock(QueryScheduler.class)
+      );
+      final ScanQuery query = query(descriptor, Collections.emptyMap());
+      final CompletableFuture<List<ScanResultValue>> resultFuture = CompletableFuture.supplyAsync(
+          () -> client.createRunner(query, AUTHENTICATION_RESULT, false)
+                      .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
+                      .toList(),
+          consumerExecutor
+      );
+
+      Assertions.assertTrue(httpClient.awaitRequests());
+      httpClient.respond(
+          0,
+          objectMapper.writeValueAsBytes(
+              List.of(queryScanResult(descriptor, queryRow("broker-query", 8082, NodeRole.BROKER)))
+          )
+      );
+      httpClient.respond(
+          1,
+          objectMapper.writeValueAsBytes(
+              List.of(queryScanResult(descriptor, queryRow("historical-query", 8083, NodeRole.HISTORICAL)))
+          )
+      );
+
+      final List<Object[]> rows = resultFuture.get(10, TimeUnit.SECONDS)
+                                              .stream()
+                                              .flatMap(result -> ((List<?>) result.getEvents()).stream())
+                                              .map(
+                                                  event -> event instanceof Object[]
+                                                           ? (Object[]) event
+                                                           : ((List<?>) event).toArray()
+                                              )
+                                              .toList();
+      Assertions.assertEquals(2, rows.size());
+      Assertions.assertEquals(
+          Set.of("broker-query", "historical-query"),
+          rows.stream().map(row -> row[0]).collect(Collectors.toSet())
+      );
+      for (final Object[] row : rows) {
+        Assertions.assertInstanceOf(Map.class, StructuredData.unwrap(row[3]));
+        Assertions.assertEquals("scan", ((Map<?, ?>) StructuredData.unwrap(row[3])).get("queryType"));
+        Assertions.assertInstanceOf(List.class, ((Map<?, ?>) StructuredData.unwrap(row[3])).get("datasources"));
+      }
     }
     finally {
       consumerExecutor.shutdownNow();
@@ -708,6 +782,7 @@ public class SystemTableQueryClientTest
           .toList();
 
     Assertions.assertFalse(capturedNodeQuery.get().context().isBySegment());
+    Assertions.assertTrue(capturedNodeQuery.get().context().getBoolean(SystemTableDataSource.CTX_NODE_QUERY, false));
   }
 
   /** A node query with {@code timeout = 0} retains Druid's no-timeout semantics. */
@@ -1260,6 +1335,41 @@ public class SystemTableQueryClientTest
   private static ScanResultValue scanResult(final Object[]... rows)
   {
     return new ScanResultValue(null, List.of("value"), List.of(rows));
+  }
+
+  private static ScanResultValue queryScanResult(
+      final QueriesTableDescriptor descriptor,
+      final Object[] row
+  )
+  {
+    return new ScanResultValue(null, descriptor.getRowSignature().getColumnNames(), List.of((Object) row));
+  }
+
+  private static Object[] queryRow(final String id, final int port, final NodeRole nodeRole)
+  {
+    final QueryScheduler scheduler = Mockito.mock(QueryScheduler.class);
+    Mockito.when(scheduler.getRunningQueryInfo()).thenReturn(
+        List.of(
+            new QueryScheduler.RegisteredQueryInfo(
+                id,
+                "initial-query",
+                null,
+                "scan",
+                Set.of("foo"),
+                null,
+                false
+            )
+        )
+    );
+    final QuerySchedulerQueryInfoProvider queryInfoProvider = new QuerySchedulerQueryInfoProvider(
+        scheduler,
+        new DruidNode(nodeRole.getJsonName(), "localhost", false, port, null, true, false),
+        Set.of(nodeRole)
+    );
+    return new QueriesTableDataProvider(Set.of(queryInfoProvider))
+        .getRows(Collections.emptyList(), AUTHENTICATION_RESULT)
+        .iterator()
+        .next();
   }
 
   private static Object[] taskRow(final String taskId)

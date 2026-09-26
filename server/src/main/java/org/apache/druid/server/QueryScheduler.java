@@ -21,7 +21,9 @@ package org.apache.druid.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multimaps;
+import com.google.common.collect.Multiset;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.github.resilience4j.bulkhead.Bulkhead;
@@ -40,11 +42,15 @@ import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryCapacityExceededException;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryWatcher;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.initialization.ServerConfig;
 
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -98,6 +104,8 @@ public class QueryScheduler implements QueryWatcher
    * but it is OK in most cases since they will be cleaned up once the query is done.
    */
   private final SetMultimap<String, String> queryDatasources;
+  @GuardedBy("runningQueryInfo")
+  private final Multiset<RegisteredQueryInfo> runningQueryInfo;
   private final ServiceEmitter emitter;
 
   public QueryScheduler(
@@ -112,6 +120,7 @@ public class QueryScheduler implements QueryWatcher
     this.laningStrategy = laningStrategy;
     this.queryFutures = Multimaps.synchronizedSetMultimap(HashMultimap.create());
     this.queryDatasources = Multimaps.synchronizedSetMultimap(HashMultimap.create());
+    this.runningQueryInfo = HashMultiset.create();
     // if totalNumThreads is above 0 and less than druid.server.http.numThreads and
     // requests are not being queued by Jetty, enforce total limit
     final boolean limitTotal;
@@ -149,10 +158,12 @@ public class QueryScheduler implements QueryWatcher
     final Set<String> datasources = query.getDataSource().getTableNames();
     queryFutures.put(id, future);
     queryDatasources.putAll(id, datasources);
+    final RegisteredQueryInfo registeredQueryInfo = registerQueryInfo(query);
     future.addListener(
         () -> {
           queryFutures.remove(id, future);
-          for (String datasource : datasources) {
+          unregisterQueryInfo(registeredQueryInfo);
+          for (final String datasource : datasources) {
             queryDatasources.remove(id, datasource);
           }
         },
@@ -199,15 +210,21 @@ public class QueryScheduler implements QueryWatcher
     return Sequences.wrap(resultSequence, new SequenceWrapper()
     {
       private List<Bulkhead> bulkheads = null;
+      private RegisteredQueryInfo registeredQueryInfo = null;
+
       @Override
       public void before()
       {
         bulkheads = acquireLanes(query);
+        registeredQueryInfo = registerQueryInfo(query);
       }
 
       @Override
       public void after(boolean isDone, Throwable thrown)
       {
+        if (registeredQueryInfo != null) {
+          unregisterQueryInfo(registeredQueryInfo);
+        }
         if (bulkheads != null) {
           finishLanes(bulkheads);
         }
@@ -249,6 +266,51 @@ public class QueryScheduler implements QueryWatcher
   public Set<String> getQueryDatasources(final String queryId)
   {
     return queryDatasources.get(queryId);
+  }
+
+  /** Returns a point-in-time view of native query executions running on this process. */
+  public List<RegisteredQueryInfo> getRunningQueryInfo()
+  {
+    synchronized (runningQueryInfo) {
+      return new ArrayList<>(runningQueryInfo.elementSet());
+    }
+  }
+
+  private RegisteredQueryInfo registerQueryInfo(final Query<?> query)
+  {
+    final RegisteredQueryInfo registeredQueryInfo = new RegisteredQueryInfo(
+        query.getId(),
+        query.getSqlQueryId(),
+        query.getSubQueryId(),
+        query.getType(),
+        Set.copyOf(query.getDataSource().getTableNames()),
+        query.context().getString(QueryContexts.CTX_DART_QUERY_ID),
+        query.getDataSource() instanceof SystemTableDataSource
+        && query.context().getBoolean(SystemTableDataSource.CTX_NODE_QUERY, false)
+    );
+    synchronized (runningQueryInfo) {
+      runningQueryInfo.add(registeredQueryInfo);
+    }
+    return registeredQueryInfo;
+  }
+
+  private void unregisterQueryInfo(final RegisteredQueryInfo registeredQueryInfo)
+  {
+    synchronized (runningQueryInfo) {
+      runningQueryInfo.remove(registeredQueryInfo);
+    }
+  }
+
+  public record RegisteredQueryInfo(
+      String id,
+      @Nullable String sqlQueryId,
+      @Nullable String subQueryId,
+      String queryType,
+      Set<String> datasources,
+      @Nullable String dartQueryId,
+      boolean systemTableNodeQuery
+  )
+  {
   }
 
   /**

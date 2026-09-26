@@ -22,6 +22,7 @@ package org.apache.druid.sql.calcite.schema;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.schema.Schema;
 import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.sql.calcite.run.SqlEngine;
@@ -44,6 +45,16 @@ public class SystemTableDataProviderTest
     Assertions.assertFalse(serverProperties.isJoinable());
     Assertions.assertFalse(serverProperties.isBroadcast());
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, serverProperties.getJdbcTableType());
+
+    final NativeQueriesTable queries = new NativeQueriesTable();
+    Assertions.assertEquals(
+        "queries",
+        ((SystemTableDataSource) queries.getDataSource()).getTable()
+    );
+    Assertions.assertFalse(queries.isJoinable());
+    Assertions.assertFalse(queries.isBroadcast());
+    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, queries.getJdbcTableType());
+    Assertions.assertEquals(ColumnType.NESTED_DATA, queries.getRowSignature().getColumnType("info").orElseThrow());
   }
 
   @Test
