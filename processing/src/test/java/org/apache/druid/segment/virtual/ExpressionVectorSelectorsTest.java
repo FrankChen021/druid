@@ -103,6 +103,7 @@ public class ExpressionVectorSelectorsTest extends InitializedNullHandlingTest
       "float2",
       "double2",
       "string3",
+      "upper(string2)",
       "string1 + string3",
       "concat(string1, string2, string3)",
       "concat(string1, 'x')",
@@ -240,10 +241,14 @@ public class ExpressionVectorSelectorsTest extends InitializedNullHandlingTest
                                                             .makeSingleValueDimensionSelector(
                                                                 DefaultDimensionSpec.of("v")
                                                             );
+        final VectorObjectSelector objectSelector = cursor.getColumnSelectorFactory().makeObjectSelector("v");
         while (!cursor.isDone()) {
           int[] row = selector.getRowVector();
+          final Object[] objects = objectSelector.getObjectVector();
           for (int i = 0; i < selector.getCurrentVectorSize(); i++, rowCount++) {
-            results.add(selector.lookupName(row[i]));
+            final String value = selector.lookupName(row[i]);
+            Assertions.assertEquals(value, objects[i]);
+            results.add(value);
           }
           cursor.advance();
         }
