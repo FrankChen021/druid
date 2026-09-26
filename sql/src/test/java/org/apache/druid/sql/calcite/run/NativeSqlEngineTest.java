@@ -31,7 +31,6 @@ public class NativeSqlEngineTest
   {
     final NativeSqlEngine engine = new NativeSqlEngine(null, null, (SqlStatementFactory) null);
 
-    Assertions.assertFalse(engine.featureAvailable(EngineFeature.NATIVE_SYSTEM_TABLES));
     Assertions.assertFalse(engine.supportsNativeSystemTable("server_properties"));
   }
 }

@@ -82,11 +82,6 @@ public enum EngineFeature
   ALLOW_BINDABLE_PLAN,
 
   /**
-   * Planner may represent a native-capable system table as a Druid datasource instead of a Bindable table.
-   */
-  NATIVE_SYSTEM_TABLES,
-
-  /**
    * Queries can use GROUPING SETS.
    */
   GROUPING_SETS,

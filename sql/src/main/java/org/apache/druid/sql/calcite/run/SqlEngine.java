@@ -64,7 +64,7 @@ public interface SqlEngine
    */
   default boolean supportsNativeSystemTable(final String tableName)
   {
-    return featureAvailable(EngineFeature.NATIVE_SYSTEM_TABLES);
+    return false;
   }
 
   /**

@@ -282,14 +282,13 @@ public class DartSystemTableInputSliceReaderTest
     final SystemTableDescriptor descriptor = Mockito.mock(SystemTableDescriptor.class);
     Mockito.when(descriptor.getRowSignature()).thenReturn(ServerPropertiesTableDescriptor.ROW_SIGNATURE);
     Mockito.when(descriptor.getRowAuthorizer()).thenReturn((rows, authenticationResult, authorizerMapper) -> rows);
-    Mockito.when(descriptor.getNodeFailureRow(Mockito.any(), Mockito.anySet(), Mockito.any()))
-           .thenAnswer(
-               invocation -> delegate.getNodeFailureRow(
-                   invocation.getArgument(0),
-                   invocation.getArgument(1),
-                   invocation.getArgument(2)
-               )
-           );
+    Mockito.when(descriptor.getNodeFailureRow(Mockito.any(), Mockito.anySet(), Mockito.any())).thenAnswer(
+        invocation -> delegate.getNodeFailureRow(
+            invocation.getArgument(0),
+            invocation.getArgument(1),
+            invocation.getArgument(2)
+        )
+    );
     return descriptor;
   }
 

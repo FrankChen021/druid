@@ -1591,8 +1591,8 @@ public class DruidQuery
     } else if (processor instanceof WindowFramedAggregateProcessor aggregateProcessor) {
       return aggregateProcessor.getAggregations() != null
              && Arrays.stream(aggregateProcessor.getAggregations()).anyMatch(
-          aggregation -> !aggregation.requiredFields().isEmpty()
-      );
+                 aggregation -> !aggregation.requiredFields().isEmpty()
+             );
     } else if (processor instanceof ComposingProcessor composingProcessor) {
       return Arrays.stream(composingProcessor.getProcessors()).anyMatch(DruidQuery::windowProcessorHasSourceDependencies);
     } else {

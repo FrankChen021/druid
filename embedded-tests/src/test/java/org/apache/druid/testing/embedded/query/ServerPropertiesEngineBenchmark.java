@@ -30,6 +30,7 @@ import org.apache.druid.testing.embedded.EmbeddedHistorical;
 import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,8 +42,10 @@ import java.util.concurrent.TimeUnit;
  * Manual end-to-end benchmark comparing the traditional Bindable path of the native SQL engine and the distributed
  * Dart path for a large
  * {@code sys.server_properties} table. The class name intentionally does not end in {@code Test}, so it is not part
- * of the normal embedded-test suite. Run it explicitly with {@code -Dtest=ServerPropertiesEngineBenchmark}.
+ * of the normal embedded-test suite. Run it explicitly with
+ * {@code -Ddruid.test.benchmark=true -Dtest=ServerPropertiesEngineBenchmark}.
  */
+@EnabledIfSystemProperty(named = "druid.test.benchmark", matches = "true")
 public class ServerPropertiesEngineBenchmark extends EmbeddedClusterTestBase
 {
   private static final Logger LOG = new Logger(ServerPropertiesEngineBenchmark.class);
