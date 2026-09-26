@@ -27,8 +27,8 @@ import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import org.apache.druid.client.SegmentServerSelector;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryPlus;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.server.QueryLaningStrategy;
 
 import java.util.Optional;
@@ -68,13 +68,11 @@ public class HiLoQueryLaningStrategy implements QueryLaningStrategy
   public <T> Optional<String> computeLane(QueryPlus<T> query, Set<SegmentServerSelector> segments)
   {
     final Query<T> theQuery = query.getQuery();
-    // QueryContexts.getPriority gives a default, but it can parse the value to integer. Before calling QueryContexts.getPriority
-    // we make sure that priority has been set.
-    Integer priority = null;
     final QueryContext queryContext = theQuery.context();
-    if (null != queryContext.get(QueryContexts.PRIORITY_KEY)) {
-      priority = queryContext.getPriority();
-    }
+    // has() distinguishes an omitted parameter from a supplied one, while get() preserves explicit-null-as-unset.
+    final Integer priority = queryContext.has(QueryContextParameters.PRIORITY)
+                             ? queryContext.get(QueryContextParameters.PRIORITY)
+                             : null;
     final String lane = queryContext.getLane();
     if (lane == null && priority != null && priority < 0) {
       return Optional.of(LOW);
