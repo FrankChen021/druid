@@ -32,8 +32,6 @@ import java.util.Set;
  */
 public class SystemTableDataSource extends LeafDataSource
 {
-  public static final String NODE_QUERY_ID_PREFIX = "native-system-node-";
-
   private final String table;
 
   @JsonCreator

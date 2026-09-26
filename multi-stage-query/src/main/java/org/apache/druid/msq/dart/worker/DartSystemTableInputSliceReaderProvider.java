@@ -61,7 +61,7 @@ public class DartSystemTableInputSliceReaderProvider implements InputSliceReader
   @Override
   public InputSliceReader createReader(final FrameContext frameContext, final QueryContext queryContext)
   {
-    // Resolve native system-table bindings only for this input type. Ordinary Dart worker tests do not need them.
+    // Resolve system-table bindings only for this input type. Ordinary Dart worker tests do not need them.
     return new DartSystemTableInputSliceReader(
         injector.getInstance(Key.get(HttpClient.class, EscalatedGlobal.class)),
         injector.getInstance(ObjectMapper.class),

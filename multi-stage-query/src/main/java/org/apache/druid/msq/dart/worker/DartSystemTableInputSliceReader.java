@@ -23,6 +23,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.timeout.ReadTimeoutException;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.RE;
 import org.apache.druid.java.util.common.guava.LazySequence;
@@ -46,6 +47,7 @@ import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.segment.RowBasedSegment;
 import org.apache.druid.segment.Segment;
@@ -73,6 +75,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 /** Reads assigned system-table sources as a lazy row segment for a Dart stage. */
@@ -86,7 +89,6 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
   private final AuthenticationResult escalatedAuthenticationResult;
   private final AuthorizerMapper authorizerMapper;
   private final QueryContext queryContext;
-  private final List<ListenableFuture<?>> remoteRequests = new ArrayList<>();
 
   public DartSystemTableInputSliceReader(
       final HttpClient httpClient,
@@ -124,9 +126,10 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
     }
 
     final Projection projection = makeProjection(descriptor.getRowSignature(), systemTableSlice.getColumns());
+    final RemoteRequestTracker remoteRequestTracker = new RemoteRequestTracker();
     final Sequence<Object[]> rows = Sequences.withBaggage(
-        new LazySequence<>(() -> makeRows(systemTableSlice, descriptor, projection)),
-        (Closeable) this::cancelRemoteRequests
+        new LazySequence<>(() -> makeRows(systemTableSlice, descriptor, projection, remoteRequestTracker)),
+        (Closeable) remoteRequestTracker::cancelAll
     );
     final InlineDataSource rowAdapterSource = InlineDataSource.fromIterable(List.of(), projection.signature());
     final Segment segment = new RowBasedSegment<>(rows, rowAdapterSource.rowAdapter(), projection.signature());
@@ -146,7 +149,8 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
   private Sequence<Object[]> makeRows(
       final SystemTableInputSlice slice,
       final SystemTableDescriptor descriptor,
-      final Projection projection
+      final Projection projection,
+      final RemoteRequestTracker remoteRequestTracker
   )
   {
     final List<Sequence<Object[]>> sourceSequences = new ArrayList<>();
@@ -158,7 +162,7 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
           throw new IllegalStateException("Remote Dart system-table reads are not implemented for sys." + slice.getTable());
         }
         final ListenableFuture<StringFullResponseHolder> request = startRemoteRequest(source);
-        remoteRequests.add(request);
+        remoteRequestTracker.track(request);
         sourceSequences.add(new LazySequence<>(() -> remoteRows(slice, source, descriptor, projection, request)));
       }
     }
@@ -256,6 +260,9 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
       );
     }
     catch (Exception e) {
+      if (isTimeoutFailure(e)) {
+        throw timeoutException(source);
+      }
       throw new RE(e, "Unable to request sys.server_properties from node[%s]", source.getNode());
     }
   }
@@ -267,6 +274,12 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
       final Throwable failure
   )
   {
+    if (isTimeoutFailure(failure)) {
+      if (failure instanceof QueryTimeoutException queryTimeoutException) {
+        throw queryTimeoutException;
+      }
+      throw timeoutException(source);
+    }
     if (!SystemTableNodeFailure.isAvailabilityFailure(failure)) {
       throw failure instanceof RuntimeException
             ? (RuntimeException) failure
@@ -298,10 +311,25 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
     };
   }
 
-  private void cancelRemoteRequests()
+  private static QueryTimeoutException timeoutException(final SystemTableSource source)
   {
-    remoteRequests.forEach(request -> request.cancel(true));
-    remoteRequests.clear();
+    return new QueryTimeoutException(
+        "Timed out while reading sys.server_properties from node[" + source.getNode().getHostAndPortToUse() + "]"
+    );
+  }
+
+  private static boolean isTimeoutFailure(final Throwable failure)
+  {
+    Throwable current = failure;
+    while (current != null) {
+      if (current instanceof QueryTimeoutException
+          || current instanceof TimeoutException
+          || current instanceof ReadTimeoutException) {
+        return true;
+      }
+      current = current.getCause();
+    }
+    return false;
   }
 
   private static Duration remainingTimeout(final QueryContext queryContext)
@@ -354,6 +382,33 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
         projected[i] = row[indexes[i]];
       }
       return projected;
+    }
+  }
+
+  /** Tracks the requests belonging to one attached slice and closes requests that race with slice cleanup. */
+  static class RemoteRequestTracker
+  {
+    private final List<ListenableFuture<?>> requests = new ArrayList<>();
+    private boolean closed;
+
+    synchronized void track(final ListenableFuture<?> request)
+    {
+      if (closed) {
+        request.cancel(true);
+      } else {
+        requests.add(request);
+      }
+    }
+
+    void cancelAll()
+    {
+      final List<ListenableFuture<?>> requestsToCancel;
+      synchronized (this) {
+        closed = true;
+        requestsToCancel = List.copyOf(requests);
+        requests.clear();
+      }
+      requestsToCancel.forEach(request -> request.cancel(true));
     }
   }
 }

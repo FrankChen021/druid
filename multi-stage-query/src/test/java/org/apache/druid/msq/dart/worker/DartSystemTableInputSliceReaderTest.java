@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.timeout.ReadTimeoutException;
 import org.apache.druid.common.guava.FutureUtils;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.jackson.DefaultObjectMapper;
@@ -35,6 +36,7 @@ import org.apache.druid.msq.input.PhysicalInputSlice;
 import org.apache.druid.msq.input.system.SystemTableInputSlice;
 import org.apache.druid.msq.input.system.SystemTableSource;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.CursorBuildSpec;
@@ -193,6 +195,38 @@ public class DartSystemTableInputSliceReaderTest
             )
         )
     );
+  }
+
+  /** A remote HTTP read timeout retains query-timeout semantics rather than becoming an availability row. */
+  @Test
+  public void testAttachPropagatesRemoteTimeoutAsQueryTimeout()
+  {
+    final HttpClient httpClient = Mockito.mock(HttpClient.class);
+    Mockito.when(httpClient.go(Mockito.any(), Mockito.any(), Mockito.any()))
+           .thenReturn(Futures.immediateFailedFuture(new ReadTimeoutException()));
+    final PhysicalInputSlice inputSlice = reader(httpClient, Map.of()).attach(
+        0,
+        slice(List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL)), null, null, Long.MAX_VALUE),
+        new CounterTracker(false),
+        ignored -> {
+        }
+    );
+
+    Assertions.assertThrows(QueryTimeoutException.class, () -> consume(inputSlice));
+  }
+
+  /** A request added concurrently after slice cleanup is cancelled immediately. */
+  @Test
+  public void testRemoteRequestTrackerCancelsRequestAddedAfterClose()
+  {
+    final DartSystemTableInputSliceReader.RemoteRequestTracker tracker =
+        new DartSystemTableInputSliceReader.RemoteRequestTracker();
+    final SettableFuture<StringFullResponseHolder> request = SettableFuture.create();
+
+    tracker.cancelAll();
+    tracker.track(request);
+
+    Assertions.assertTrue(request.isCancelled());
   }
 
   private static DartSystemTableInputSliceReader reader(
