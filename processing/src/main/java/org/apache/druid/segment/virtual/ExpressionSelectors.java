@@ -133,7 +133,22 @@ public class ExpressionSelectors
       Expr expression
   )
   {
-    ExpressionPlan plan = ExpressionPlanner.plan(
+    if (columnSelectorFactory instanceof ExprEvalSelectorCache) {
+      return ((ExprEvalSelectorCache) columnSelectorFactory).getOrCreateExprEvalSelector(expression);
+    }
+    return makeExprEvalSelectorUncached(columnSelectorFactory, expression);
+  }
+
+  /**
+   * Makes an uncached expression selector. Used by {@link ExprEvalSelectorCache} implementations to avoid recursively
+   * calling back into the cache.
+   */
+  public static ColumnValueSelector<ExprEval> makeExprEvalSelectorUncached(
+      ColumnSelectorFactory columnSelectorFactory,
+      Expr expression
+  )
+  {
+    final ExpressionPlan plan = ExpressionPlanner.plan(
         columnSelectorFactory,
         Expr.singleThreaded(expression, columnSelectorFactory)
     );
@@ -234,7 +249,6 @@ public class ExpressionSelectors
       }
     }
   }
-
 
   /**
    * Returns whether an expression can be applied to unique values of a particular column (like those in a dictionary)
