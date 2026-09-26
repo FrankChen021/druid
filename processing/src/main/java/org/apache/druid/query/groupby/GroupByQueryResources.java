@@ -30,6 +30,7 @@ import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.dimension.DimensionSpec;
+import org.apache.druid.query.groupby.epinephelinae.MergeMemoryLease;
 import org.apache.druid.segment.Segment;
 
 import javax.annotation.Nullable;
@@ -134,9 +135,21 @@ public class GroupByQueryResources implements Closeable
 
   private final Deque<ByteBuffer> mergingQueryRunnerMergeBuffers = new ArrayDeque<>();
 
+  @Nullable
+  private final MergeMemoryLease mergingQueryRunnerMergeMemoryLease;
+
   public GroupByQueryResources(
       @Nullable List<ReferenceCountingResourceHolder<ByteBuffer>> toolchestMergeBuffersHolders,
       @Nullable List<ReferenceCountingResourceHolder<ByteBuffer>> mergingQueryRunnerMergeBuffersHolders
+  )
+  {
+    this(toolchestMergeBuffersHolders, mergingQueryRunnerMergeBuffersHolders, null);
+  }
+
+  public GroupByQueryResources(
+      @Nullable List<ReferenceCountingResourceHolder<ByteBuffer>> toolchestMergeBuffersHolders,
+      @Nullable List<ReferenceCountingResourceHolder<ByteBuffer>> mergingQueryRunnerMergeBuffersHolders,
+      @Nullable MergeMemoryLease mergingQueryRunnerMergeMemoryLease
   )
   {
     this.toolchestMergeBuffersHolders = toolchestMergeBuffersHolders;
@@ -147,6 +160,7 @@ public class GroupByQueryResources implements Closeable
     if (mergingQueryRunnerMergeBuffersHolders != null) {
       mergingQueryRunnerMergeBuffersHolders.forEach(holder -> mergingQueryRunnerMergeBuffers.add(holder.get()));
     }
+    this.mergingQueryRunnerMergeMemoryLease = mergingQueryRunnerMergeMemoryLease;
   }
 
   /**
@@ -171,6 +185,12 @@ public class GroupByQueryResources implements Closeable
   public int getNumMergingQueryRunnerMergeBuffers()
   {
     return mergingQueryRunnerMergeBuffers.size();
+  }
+
+  @Nullable
+  public MergeMemoryLease getMergingQueryRunnerMergeMemoryLease()
+  {
+    return mergingQueryRunnerMergeMemoryLease;
   }
 
   /**
@@ -228,6 +248,10 @@ public class GroupByQueryResources implements Closeable
         );
       }
       mergingQueryRunnerMergeBuffersHolders.forEach(ReferenceCountingResourceHolder::close);
+    }
+
+    if (mergingQueryRunnerMergeMemoryLease != null) {
+      mergingQueryRunnerMergeMemoryLease.close();
     }
   }
 }

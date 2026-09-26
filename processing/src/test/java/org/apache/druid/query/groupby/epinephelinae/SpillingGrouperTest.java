@@ -160,6 +160,49 @@ public class SpillingGrouperTest extends InitializedNullHandlingTest
   }
 
   @Test
+  public void testPagedGrouperSpillsResetsAndRetries() throws IOException
+  {
+    final File storageDir = temporaryFolder.newFolder();
+    final GroupByStatsProvider.PerQueryStats stats = new GroupByStatsProvider.PerQueryStats();
+    final int numKeys = 20;
+    final int repetitions = 3;
+    try (SpillingGrouper<IntKey> grouper = makeGrouper(
+        256,
+        new LimitedTemporaryStorage(storageDir, 1024 * 1024, 100, new GroupByStatsProvider.PerQueryStats()),
+        1,
+        stats,
+        true,
+        true
+    )) {
+      for (int repetition = 0; repetition < repetitions; repetition++) {
+        for (int key = 0; key < numKeys; key++) {
+          Assertions.assertTrue(grouper.aggregate(new IntKey(key)).isOk());
+        }
+      }
+
+      final Map<Integer, Long> counts = new HashMap<>();
+      try (CloseableIterator<Grouper.Entry<IntKey>> iterator = grouper.iterator(true)) {
+        int previousKey = -1;
+        while (iterator.hasNext()) {
+          final Grouper.Entry<IntKey> entry = iterator.next();
+          final int key = entry.getKey().intValue();
+          Assertions.assertTrue(key >= previousKey);
+          previousKey = key;
+          Assertions.assertEquals(entry.getValues()[0], entry.getValues()[1]);
+          counts.merge(key, (Long) entry.getValues()[1], Long::sum);
+        }
+      }
+      Assertions.assertTrue(storageDir.listFiles().length > 0, "paged aggregation should have spilled");
+      Assertions.assertEquals(numKeys, counts.size());
+      for (int key = 0; key < numKeys; key++) {
+        Assertions.assertEquals((long) repetitions, counts.get(key));
+      }
+    }
+    Assertions.assertTrue(stats.getSpilledBytes() > 0);
+    Assertions.assertEquals(1.0, stats.getSpillProximity(), 0.0);
+  }
+
+  @Test
   public void testSmallSpillsAreBatched() throws IOException
   {
     final File storageDir = temporaryFolder.newFolder();
@@ -532,6 +575,18 @@ public class SpillingGrouperTest extends InitializedNullHandlingTest
       boolean init
   )
   {
+    return makeGrouper(bufferSize, temporaryStorage, minSpillFileSize, perQueryStats, init, false);
+  }
+
+  private SpillingGrouper<IntKey> makeGrouper(
+      int bufferSize,
+      LimitedTemporaryStorage temporaryStorage,
+      long minSpillFileSize,
+      GroupByStatsProvider.PerQueryStats perQueryStats,
+      boolean init,
+      boolean usePagedAggregationHashTable
+  )
+  {
     final GroupByTestColumnSelectorFactory columnSelectorFactory = GrouperTestUtil.newColumnSelectorFactory();
     columnSelectorFactory.setRow(new MapBasedRow(0, ImmutableMap.of("value", 1L)));
 
@@ -550,7 +605,9 @@ public class SpillingGrouperTest extends InitializedNullHandlingTest
         false,
         bufferSize,
         minSpillFileSize,
-        perQueryStats
+        perQueryStats,
+        usePagedAggregationHashTable,
+        64
     );
     if (init) {
       grouper.init();

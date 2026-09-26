@@ -205,6 +205,45 @@ public class RowBasedGrouperHelper
       final GroupByStatsProvider.PerQueryStats perQueryStats
   )
   {
+    return createGrouperAccumulatorPair(
+        query,
+        subquery,
+        config,
+        processingConfig,
+        bufferSupplier,
+        combineBufferHolder,
+        concurrencyHint,
+        temporaryStorage,
+        spillMapper,
+        grouperSorter,
+        priority,
+        hasQueryTimeout,
+        queryTimeoutAt,
+        mergeBufferSize,
+        perQueryStats,
+        null
+    );
+  }
+
+  public static Pair<Grouper<RowBasedKey>, Accumulator<AggregateResult, ResultRow>> createGrouperAccumulatorPair(
+      final GroupByQuery query,
+      @Nullable final GroupByQuery subquery,
+      final GroupByQueryConfig config,
+      final DruidProcessingConfig processingConfig,
+      @Nullable final Supplier<ByteBuffer> bufferSupplier,
+      @Nullable final ReferenceCountingResourceHolder<ByteBuffer> combineBufferHolder,
+      final int concurrencyHint,
+      final LimitedTemporaryStorage temporaryStorage,
+      final ObjectMapper spillMapper,
+      @Nullable final ListeningExecutorService grouperSorter,
+      final int priority,
+      final boolean hasQueryTimeout,
+      final long queryTimeoutAt,
+      final int mergeBufferSize,
+      final GroupByStatsProvider.PerQueryStats perQueryStats,
+      @Nullable final MergeMemoryLease mergeMemoryLease
+  )
+  {
     // concurrencyHint >= 1 for concurrent groupers, -1 for single-threaded
     Preconditions.checkArgument(concurrencyHint >= 1 || concurrencyHint == -1, "invalid concurrencyHint");
 
@@ -267,9 +306,25 @@ public class RowBasedGrouperHelper
     );
 
     final Grouper<RowBasedKey> grouper;
-    if (concurrencyHint == -1) {
+    if (mergeMemoryLease != null && concurrencyHint == -1) {
       grouper = new SpillingGrouper<>(
-          bufferSupplier,
+          mergeMemoryLease,
+          keySerdeFactory,
+          columnSelectorFactory,
+          aggregatorFactories,
+          querySpecificConfig.getBufferGrouperMaxSize(),
+          querySpecificConfig.getBufferGrouperMaxLoadFactor(),
+          querySpecificConfig.getBufferGrouperInitialBuckets(),
+          temporaryStorage,
+          spillMapper,
+          true,
+          sortHasNonGroupingFields,
+          querySpecificConfig.getMinSpillFileSize(),
+          perQueryStats
+      );
+    } else if (concurrencyHint == -1) {
+      grouper = new SpillingGrouper<>(
+          Preconditions.checkNotNull(bufferSupplier),
           keySerdeFactory,
           columnSelectorFactory,
           aggregatorFactories,
@@ -283,7 +338,9 @@ public class RowBasedGrouperHelper
           sortHasNonGroupingFields,
           mergeBufferSize,
           querySpecificConfig.getMinSpillFileSize(),
-          perQueryStats
+          perQueryStats,
+          querySpecificConfig.isPagedAggregationHashTableEnabled(),
+          querySpecificConfig.getPagedAggregationHashTablePageSize()
       );
     } else {
       final Grouper.KeySerdeFactory<RowBasedKey> combineKeySerdeFactory = new RowBasedKeySerdeFactory(
@@ -296,25 +353,38 @@ public class RowBasedGrouperHelper
           limitSpec
       );
 
-      grouper = new ConcurrentGrouper<>(
-          querySpecificConfig,
-          bufferSupplier,
-          combineBufferHolder,
-          keySerdeFactory,
-          combineKeySerdeFactory,
-          columnSelectorFactory,
-          aggregatorFactories,
-          temporaryStorage,
-          spillMapper,
-          concurrencyHint,
-          limitSpec,
-          sortHasNonGroupingFields,
-          grouperSorter,
-          priority,
-          hasQueryTimeout,
-          queryTimeoutAt,
-          perQueryStats
-      );
+      grouper = mergeMemoryLease == null
+                ? new ConcurrentGrouper<>(
+                    querySpecificConfig,
+                    Preconditions.checkNotNull(bufferSupplier),
+                    combineBufferHolder,
+                    keySerdeFactory,
+                    combineKeySerdeFactory,
+                    columnSelectorFactory,
+                    aggregatorFactories,
+                    temporaryStorage,
+                    spillMapper,
+                    concurrencyHint,
+                    limitSpec,
+                    sortHasNonGroupingFields,
+                    grouperSorter,
+                    priority,
+                    hasQueryTimeout,
+                    queryTimeoutAt,
+                    perQueryStats
+                )
+                : new PagedConcurrentGrouper<>(
+                    querySpecificConfig,
+                    mergeMemoryLease,
+                    keySerdeFactory,
+                    columnSelectorFactory,
+                    aggregatorFactories,
+                    temporaryStorage,
+                    spillMapper,
+                    concurrencyHint,
+                    sortHasNonGroupingFields,
+                    perQueryStats
+                );
     }
 
     final int keySize = includeTimestamp ? query.getDimensions().size() + 1 : query.getDimensions().size();
