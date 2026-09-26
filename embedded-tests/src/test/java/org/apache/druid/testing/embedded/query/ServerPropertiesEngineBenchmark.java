@@ -19,6 +19,7 @@
 
 package org.apache.druid.testing.embedded.query;
 
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.msq.dart.controller.sql.DartSqlEngine;
 import org.apache.druid.query.QueryContexts;
@@ -56,7 +57,7 @@ public class ServerPropertiesEngineBenchmark extends EmbeddedClusterTestBase
   private static final String AGGREGATE_SQL_FORMAT =
       "SELECT COUNT(*), COUNT(DISTINCT property) "
       + "FROM sys.server_properties WHERE property LIKE '" + PROPERTY_PREFIX + "%%'";
-  private static final String AGGREGATE_SQL = AGGREGATE_SQL_FORMAT.replace("%%", "%");
+  private static final String AGGREGATE_SQL = StringUtils.replace(AGGREGATE_SQL_FORMAT, "%%", "%");
   private static final String SCAN_SQL = "SELECT * FROM sys.server_properties";
 
   private final EmbeddedBroker broker = new EmbeddedBroker()
@@ -224,7 +225,7 @@ public class ServerPropertiesEngineBenchmark extends EmbeddedClusterTestBase
     @Override
     public String toString()
     {
-      return String.format(
+      return StringUtils.format(
           "mean=%.2f ms, median=%.2f ms, min=%.2f ms, max=%.2f ms",
           meanMillis,
           medianMillis,

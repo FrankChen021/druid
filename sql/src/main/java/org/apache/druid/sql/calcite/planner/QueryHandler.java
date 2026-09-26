@@ -61,7 +61,6 @@ import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.emitter.EmittingLogger;
-import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.SystemTableDataSource;
@@ -73,6 +72,7 @@ import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.calcite.planner.querygen.DruidQueryGenerator;
 import org.apache.druid.sql.calcite.rel.DruidConvention;
 import org.apache.druid.sql.calcite.rel.DruidQuery;
+import org.apache.druid.sql.calcite.rel.DruidQueryRel;
 import org.apache.druid.sql.calcite.rel.DruidRel;
 import org.apache.druid.sql.calcite.rel.DruidUnionRel;
 import org.apache.druid.sql.calcite.rel.logical.DruidLogicalConvention;
@@ -619,8 +619,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
           // SQL resource action unless direct system-table authorization is enabled, and must not make this
           // datasource-resource sanity check fail. This is a no-op for plans without a system-table datasource.
           removeSystemTableNames(
-              // The explain form of an outer query uses a dummy datasource and hides its inner system table.
-              druidRel.toDruidQuery(false).getQuery().getDataSource(),
+              druidRel,
               authorizationTrackedDataSourceNames
           );
         }
@@ -638,12 +637,13 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
     }
   }
 
-  private static void removeSystemTableNames(final DataSource dataSource, final Set<String> dataSourceNames)
+  private static void removeSystemTableNames(final RelNode relNode, final Set<String> dataSourceNames)
   {
-    if (dataSource instanceof SystemTableDataSource) {
-      dataSourceNames.removeAll(dataSource.getTableNames());
+    if (relNode instanceof DruidQueryRel queryRel
+        && queryRel.getDruidTable().getDataSource() instanceof SystemTableDataSource) {
+      dataSourceNames.removeAll(queryRel.getDataSourceNames());
     }
-    dataSource.getChildren().forEach(child -> removeSystemTableNames(child, dataSourceNames));
+    relNode.getInputs().forEach(child -> removeSystemTableNames(child, dataSourceNames));
   }
 
   /**
