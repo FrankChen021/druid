@@ -21,20 +21,15 @@ package org.apache.druid.server.system.table;
 
 import org.apache.druid.query.Query;
 import org.apache.druid.query.filter.AndDimFilter;
-import org.apache.druid.query.filter.BoundDimFilter;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.InDimFilter;
-import org.apache.druid.query.filter.LikeDimFilter;
-import org.apache.druid.query.filter.NotDimFilter;
 import org.apache.druid.query.filter.OrDimFilter;
-import org.apache.druid.query.filter.RangeFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.filter.TypedInFilter;
 import org.apache.druid.query.operator.OperatorFactory;
 import org.apache.druid.query.operator.ScanOperatorFactory;
 import org.apache.druid.query.operator.WindowOperatorQuery;
-import org.apache.druid.query.ordering.StringComparators;
 import org.apache.druid.segment.column.ColumnType;
 
 import javax.annotation.Nullable;
@@ -163,53 +158,6 @@ public record SystemTablePushdownFilter(String key, @Nullable String value)
         }
         yield supported && !rewrittenFields.isEmpty() && hasSingleColumn(rewrittenFields)
               ? new OrDimFilter(rewrittenFields)
-              : null;
-      }
-      case LikeDimFilter like -> {
-        final String mappedColumn = columnMappings.get(like.getDimension());
-        yield mappedColumn != null && like.getExtractionFn() == null && like.getEscape() == null
-              ? new LikeDimFilter(mappedColumn, like.getPattern(), null, null)
-              : null;
-      }
-      case NotDimFilter not -> {
-        final DimFilter rewrittenField = rewriteSupportedFilter(not.getField(), columnMappings);
-        yield rewrittenField != null
-              && (isStringValuesFilter(rewrittenField) || rewrittenField instanceof LikeDimFilter)
-              ? new NotDimFilter(rewrittenField)
-              : null;
-      }
-      case BoundDimFilter bound -> {
-        final String mappedColumn = columnMappings.get(bound.getDimension());
-        yield mappedColumn != null
-              && bound.getExtractionFn() == null
-              && StringComparators.LEXICOGRAPHIC.equals(bound.getOrdering())
-              ? new BoundDimFilter(
-                  mappedColumn,
-                  bound.getLower(),
-                  bound.getUpper(),
-                  bound.isLowerStrict(),
-                  bound.isUpperStrict(),
-                  null,
-                  null,
-                  StringComparators.LEXICOGRAPHIC
-              )
-              : null;
-      }
-      case RangeFilter range -> {
-        final String mappedColumn = columnMappings.get(range.getColumn());
-        yield mappedColumn != null
-              && ColumnType.STRING.equals(range.getMatchValueType())
-              && (range.getLower() == null || range.getLower() instanceof String)
-              && (range.getUpper() == null || range.getUpper() instanceof String)
-              ? new RangeFilter(
-                  mappedColumn,
-                  ColumnType.STRING,
-                  range.getLower(),
-                  range.getUpper(),
-                  range.isLowerOpen(),
-                  range.isUpperOpen(),
-                  null
-              )
               : null;
       }
       default -> null;
