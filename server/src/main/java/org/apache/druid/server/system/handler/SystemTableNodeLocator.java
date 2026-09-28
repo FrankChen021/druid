@@ -33,13 +33,13 @@ import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
-import org.apache.druid.server.system.table.SystemTableRoutingMode;
 
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -77,31 +77,42 @@ public class SystemTableNodeLocator
   /** Resolves the source nodes for a system table before the supplied absolute query deadline. */
   public List<SystemTableNode> locate(final SystemTableDescriptor descriptor, final long queryFailTime)
   {
-    if (descriptor.getRoutingMode() == SystemTableRoutingMode.ALL_NODES) {
-      return discoverAllNodes(descriptor);
-    }
+    return switch (descriptor.getRoutingMode()) {
+      case ALL_NODES -> discoverNodes(descriptor.getNodeRoles());
+      case LEADER_ONLY -> locateLeader(descriptor, queryFailTime);
+    };
+  }
 
+  private List<SystemTableNode> locateLeader(final SystemTableDescriptor descriptor, final long queryFailTime)
+  {
     final NodeRole leaderRole = Iterables.getOnlyElement(descriptor.getNodeRoles());
     final URI leaderUri = findLeader(leaderRole, queryFailTime);
     // Resolve leadership before taking the discovery snapshot. A leader election may complete while discovery still
-    // contains the previous membership, so taking the snapshot first can reject a valid newly elected leader.
-    return discoverAllNodes(descriptor).stream()
-                     .filter(node -> sameServer(leaderUri, node.getDiscoveryNode().getDruidNode().getUriToUse()))
-                     .findFirst()
-                     .map(List::of)
-                     .orElseThrow(
-                         () -> new ISE(
-                             "Current leader[%s] for role[%s] is not present in service discovery",
-                             leaderUri,
-                             leaderRole
-                         )
-                     );
+    // contains the previous membership, so taking the snapshot first can reject a valid newly elected leader. The
+    // discovery API exposes a role snapshot rather than a lookup by URI, so inspect only the leader's role here.
+    return discoverNodes(Set.of(leaderRole))
+        .stream()
+        .filter(
+            node -> sameServer(
+                leaderUri,
+                node.getDiscoveryNode().getDruidNode().getUriToUse()
+            )
+        )
+        .findFirst()
+        .map(List::of)
+        .orElseThrow(
+            () -> new ISE(
+                "Current leader[%s] for role[%s] is not present in service discovery",
+                leaderUri,
+                leaderRole
+            )
+        );
   }
 
-  private List<SystemTableNode> discoverAllNodes(final SystemTableDescriptor descriptor)
+  private List<SystemTableNode> discoverNodes(final Set<NodeRole> nodeRoles)
   {
     final Map<String, SystemTableNode> nodes = new LinkedHashMap<>();
-    for (final NodeRole nodeRole : descriptor.getNodeRoles()) {
+    for (final NodeRole nodeRole : nodeRoles) {
       for (final DiscoveryDruidNode node : discoveryProvider.getForNodeRole(nodeRole).getAllNodes()) {
         nodes.computeIfAbsent(
             node.getDruidNode().getHostAndPortToUse(),

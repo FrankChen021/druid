@@ -58,8 +58,6 @@ import org.apache.druid.server.coordination.ServerType;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -139,32 +137,24 @@ public class DartControllerContext implements ControllerContext
     // allowed to float. If a segment moves to a new server that isn't part of our list after the WorkerManager is
     // created, we won't be able to find a valid server for certain segments. This isn't expected to be a problem,
     // since the serverView is referenced shortly after the worker list is created.
-    final List<String> workerIds;
+    final List<String> workerIds = new ArrayList<>(servers.size());
+    for (final DruidServerMetadata server : servers) {
+      if (server.getType() == ServerType.HISTORICAL) {
+        workerIds.add(WorkerId.fromDruidServerMetadata(server, queryId()).toString());
+      }
+    }
+    // Shuffle workerIds, so we don't bias towards specific servers when running multiple queries concurrently. For
+    // any given query, lower-numbered workers tend to do more work, because the controller prefers using
+    // lower-numbered workers when maxWorkerCount for a stage is less than the total number of workers.
+    Collections.shuffle(workerIds);
+
     if (containsSystemTable(querySpec)) {
       if (!usesOnlySystemTables(querySpec)) {
         throw InvalidInput.exception("Dart system-table queries cannot mix system tables with other datasources");
       }
       // Worker zero is the Broker fallback for control-plane nodes that do not run a Dart worker. Historical sources
       // are processed by their co-located workers, so filters and partial aggregation run where rows are produced.
-      final LinkedHashSet<String> systemTableWorkerIds = new LinkedHashSet<>();
-      systemTableWorkerIds.add(WorkerId.fromDruidNode(selfNode, queryId()).toString());
-      servers.stream()
-             .filter(server -> server.getType() == ServerType.HISTORICAL)
-             .sorted(Comparator.comparing(DruidServerMetadata::getHost))
-             .map(server -> WorkerId.fromDruidServerMetadata(server, queryId()).toString())
-             .forEach(systemTableWorkerIds::add);
-      workerIds = new ArrayList<>(systemTableWorkerIds);
-    } else {
-      workerIds = new ArrayList<>(servers.size());
-      for (final DruidServerMetadata server : servers) {
-        if (server.getType() == ServerType.HISTORICAL) {
-          workerIds.add(WorkerId.fromDruidServerMetadata(server, queryId()).toString());
-        }
-      }
-      // Shuffle workerIds, so we don't bias towards specific servers when running multiple queries concurrently. For
-      // any given query, lower-numbered workers tend to do more work, because the controller prefers using
-      // lower-numbered workers when maxWorkerCount for a stage is less than the total number of workers.
-      Collections.shuffle(workerIds);
+      workerIds.add(0, WorkerId.fromDruidNode(selfNode, queryId()).toString());
     }
 
     final ControllerMemoryParameters memoryParameters =

@@ -59,7 +59,6 @@ import org.apache.druid.server.security.AuthorizationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
-import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.sql.SqlLifecycleManager;
 import org.apache.druid.sql.SqlStatementFactory;
@@ -183,7 +182,7 @@ public class DartSqlEngine implements SqlEngine
   @Override
   public boolean supportsSystemTableDataSource(final String tableName)
   {
-    return ServerPropertiesTableDescriptor.TABLE_NAME.equals(tableName);
+    return systemTableDescriptors.containsKey(tableName);
   }
 
   @Override

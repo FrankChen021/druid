@@ -52,6 +52,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class DartControllerContextTest
@@ -146,7 +147,7 @@ public class DartControllerContextTest
     );
   }
 
-  /** A system-table query uses the Broker fallback plus discovered Historical workers. */
+  /** A system-table query uses the Broker fallback plus only the discovered Historical workers. */
   @Test
   public void test_queryKernelConfig_systemTableUsesBrokerWorker()
   {
@@ -163,13 +164,15 @@ public class DartControllerContextTest
         queryContext
     );
 
+    final List<String> workerIds = controllerContext.queryKernelConfig(querySpec).getWorkerIds();
+    Assertions.assertEquals(3, workerIds.size());
+    Assertions.assertEquals(WorkerId.fromDruidNode(SELF_NODE, QUERY_ID).toString(), workerIds.get(0));
     Assertions.assertEquals(
-        List.of(
-            WorkerId.fromDruidNode(SELF_NODE, QUERY_ID).toString(),
+        Set.of(
             WorkerId.fromDruidServerMetadata(SERVERS.get(0), QUERY_ID).toString(),
             WorkerId.fromDruidServerMetadata(SERVERS.get(1), QUERY_ID).toString()
         ),
-        controllerContext.queryKernelConfig(querySpec).getWorkerIds()
+        Set.copyOf(workerIds.subList(1, workerIds.size()))
     );
   }
 
@@ -200,13 +203,15 @@ public class DartControllerContextTest
         queryContext
     );
 
+    final List<String> workerIds = controllerContext.queryKernelConfig(preplannedQuerySpec).getWorkerIds();
+    Assertions.assertEquals(3, workerIds.size());
+    Assertions.assertEquals(WorkerId.fromDruidNode(SELF_NODE, QUERY_ID).toString(), workerIds.get(0));
     Assertions.assertEquals(
-        List.of(
-            WorkerId.fromDruidNode(SELF_NODE, QUERY_ID).toString(),
+        Set.of(
             WorkerId.fromDruidServerMetadata(SERVERS.get(0), QUERY_ID).toString(),
             WorkerId.fromDruidServerMetadata(SERVERS.get(1), QUERY_ID).toString()
         ),
-        controllerContext.queryKernelConfig(preplannedQuerySpec).getWorkerIds()
+        Set.copyOf(workerIds.subList(1, workerIds.size()))
     );
   }
 

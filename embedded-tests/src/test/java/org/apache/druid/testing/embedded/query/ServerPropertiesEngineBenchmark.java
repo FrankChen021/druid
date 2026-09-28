@@ -19,6 +19,7 @@
 
 package org.apache.druid.testing.embedded.query;
 
+import com.google.common.primitives.Ints;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.msq.dart.controller.sql.DartSqlEngine;
@@ -176,9 +177,13 @@ public class ServerPropertiesEngineBenchmark extends EmbeddedClusterTestBase
   private void runAggregateAndVerify(final Map<String, Object> queryContext)
   {
     final String[] result = cluster.runSql(AGGREGATE_SQL_FORMAT, queryContext).split(",");
-    Assertions.assertEquals(PROPERTY_COUNT, Integer.parseInt(result[0]));
-    Assertions.assertTrue(Integer.parseInt(result[1]) > PROPERTY_COUNT * 0.9);
-    Assertions.assertTrue(Integer.parseInt(result[1]) < PROPERTY_COUNT * 1.1);
+    final Integer rowCount = Ints.tryParse(result[0]);
+    final Integer distinctPropertyCount = Ints.tryParse(result[1]);
+    Assertions.assertNotNull(rowCount);
+    Assertions.assertNotNull(distinctPropertyCount);
+    Assertions.assertEquals(PROPERTY_COUNT, rowCount);
+    Assertions.assertTrue(distinctPropertyCount > PROPERTY_COUNT * 0.9);
+    Assertions.assertTrue(distinctPropertyCount < PROPERTY_COUNT * 1.1);
   }
 
   private long measureScan(final Map<String, Object> queryContext, final int expectedRows)
