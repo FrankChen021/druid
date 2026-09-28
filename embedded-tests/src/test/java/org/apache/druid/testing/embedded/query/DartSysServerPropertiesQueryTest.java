@@ -19,6 +19,7 @@
 
 package org.apache.druid.testing.embedded.query;
 
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.msq.dart.controller.sql.DartSqlEngine;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.server.QueryResource;
@@ -251,7 +252,8 @@ public class DartSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
 
   private static String systemTableScanQuery(final String propertyName)
   {
-    return """
+    return StringUtils.format(
+        """
         {
           "queryType": "scan",
           "dataSource": {"type": "systemTable", "table": "server_properties"},
@@ -260,7 +262,9 @@ public class DartSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
           "columns": ["property", "value"],
           "filter": {"type": "selector", "dimension": "property", "value": "%s"}
         }
-        """.formatted(propertyName);
+        """,
+        propertyName
+    );
   }
 
   private static Map<String, Object> dartQueryContext(final String plannerStrategy)

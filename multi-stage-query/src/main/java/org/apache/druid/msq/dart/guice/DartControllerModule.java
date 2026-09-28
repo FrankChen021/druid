@@ -28,6 +28,7 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
+import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.OptionalBinder;
 import org.apache.druid.collections.BlockingPool;
@@ -66,6 +67,7 @@ import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.QueryConfigProvider;
 import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.SqlToolbox;
 import org.apache.druid.sql.calcite.run.SqlEngine;
@@ -103,6 +105,8 @@ public class DartControllerModule implements DruidModule
       // DartSqlEngine.initContextMap() manages context merging independently for Dart queries.
       binder.bind(Key.get(QueryConfigProvider.class, Dart.class))
             .to(Key.get(DefaultQueryConfig.class, Dart.class));
+      // Keep Dart usable when no system tables are registered. SystemTableModule contributes supported descriptors.
+      MapBinder.newMapBinder(binder, String.class, SystemTableDescriptor.class);
 
       LifecycleModule.register(binder, DartSqlClients.class);
       LifecycleModule.register(binder, DartMessageRelays.class);
