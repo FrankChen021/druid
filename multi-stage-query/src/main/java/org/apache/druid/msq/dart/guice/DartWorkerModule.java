@@ -95,7 +95,6 @@ public class DartWorkerModule implements DruidModule
   public void configure(Binder binder)
   {
     if (DartModules.isDartEnabled(properties)) {
-      binder.install(new DartSystemTableModule());
       binder.install(actualModule());
     }
   }

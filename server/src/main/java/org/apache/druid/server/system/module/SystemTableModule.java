@@ -17,23 +17,31 @@
  * under the License.
  */
 
-package org.apache.druid.msq.dart.guice;
+package org.apache.druid.server.system.module;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
+import org.apache.druid.guice.DruidBinders;
 import org.apache.druid.guice.LazySingleton;
+import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.server.system.handler.SystemTableQueryHandler;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 
-/** Registers the system-table implementations that Dart can distribute. */
-public class DartSystemTableModule implements Module
+/** Registers generic node-local execution and common system-table implementations. */
+public class SystemTableModule implements Module
 {
   @Override
   public void configure(final Binder binder)
   {
+    DruidBinders.dataSourceQueryHandlerBinder(binder)
+                .addBinding(SystemTableDataSource.class)
+                .to(SystemTableQueryHandler.class)
+                .in(LazySingleton.class);
+
     MapBinder.newMapBinder(binder, String.class, SystemTableDescriptor.class)
              .addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
              .to(ServerPropertiesTableDescriptor.class)

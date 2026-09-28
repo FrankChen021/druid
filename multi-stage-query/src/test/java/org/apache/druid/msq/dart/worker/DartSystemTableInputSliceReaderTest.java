@@ -19,25 +19,39 @@
 
 package org.apache.druid.msq.dart.worker;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.smile.SmileFactory;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.http.DefaultHttpContent;
 import io.netty.handler.codec.http.DefaultHttpResponse;
+import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.ReadTimeoutException;
 import org.apache.druid.common.guava.FutureUtils;
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.jackson.DefaultObjectMapper;
-import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.Request;
-import org.apache.druid.java.util.http.client.response.StringFullResponseHolder;
+import org.apache.druid.java.util.http.client.response.ClientResponse;
+import org.apache.druid.java.util.http.client.response.HttpResponseHandler;
 import org.apache.druid.msq.counters.CounterTracker;
 import org.apache.druid.msq.input.PhysicalInputSlice;
 import org.apache.druid.msq.input.system.SystemTableInputSlice;
 import org.apache.druid.msq.input.system.SystemTableSource;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryTimeoutException;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.query.scan.ScanQuery;
+import org.apache.druid.query.scan.ScanResultValue;
+import org.apache.druid.rpc.RequestBuilder;
+import org.apache.druid.rpc.RpcException;
+import org.apache.druid.rpc.ServiceClient;
+import org.apache.druid.rpc.ServiceClientFactory;
+import org.apache.druid.rpc.ServiceLocation;
+import org.apache.druid.rpc.ServiceRetryPolicy;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.CursorBuildSpec;
 import org.apache.druid.segment.CursorFactory;
@@ -48,6 +62,7 @@ import org.apache.druid.segment.loading.AcquireMode;
 import org.apache.druid.segment.loading.AcquireSegmentAction;
 import org.apache.druid.segment.loading.AcquireSegmentResult;
 import org.apache.druid.server.DruidNode;
+import org.apache.druid.server.QueryResource;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
@@ -59,11 +74,15 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.net.SocketException;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -78,7 +97,7 @@ public class DartSystemTableInputSliceReaderTest
   @Test
   public void testAttachReadsLocalProviderDirectly()
   {
-    final HttpClient httpClient = Mockito.mock(HttpClient.class);
+    final RemoteHarness remote = new RemoteHarness();
     final SystemTableDataProvider provider = Mockito.mock(SystemTableDataProvider.class);
     Mockito.when(provider.getPushdownFilters()).thenReturn(List.of(new SystemTablePushdownFilter("server", null)));
     Mockito.when(provider.getRows(Mockito.anyList(), Mockito.any())).thenReturn(
@@ -87,7 +106,7 @@ public class DartSystemTableInputSliceReaderTest
     final SelectorDimFilter filter = new SelectorDimFilter("server", BROKER.getHostAndPortToUse(), null);
 
     consume(
-        reader(httpClient, Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, provider)).attach(
+        reader(remote, Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, provider)).attach(
             0,
             slice(List.of(source(BROKER, NodeRole.BROKER)), filter, List.of("server"), Long.MAX_VALUE),
             new CounterTracker(false),
@@ -99,19 +118,35 @@ public class DartSystemTableInputSliceReaderTest
     final ArgumentCaptor<List<org.apache.druid.query.filter.DimFilter>> filters = ArgumentCaptor.forClass(List.class);
     Mockito.verify(provider).getRows(filters.capture(), Mockito.any());
     Assertions.assertEquals(List.of(filter), filters.getValue());
-    Mockito.verifyNoInteractions(httpClient);
+    Assertions.assertTrue(remote.requests.isEmpty());
   }
 
-  /** Remote server properties are read from the existing status endpoint, not from the native-query endpoint. */
+  /** A remote source is read through a generic system-table scan on {@code /druid/v2/}. */
   @Test
-  public void testAttachReadsRemoteStatusProperties()
+  public void testAttachReadsRemoteNativeScan() throws IOException
   {
-    final HttpClient httpClient = Mockito.mock(HttpClient.class);
-    Mockito.when(httpClient.go(Mockito.any(), Mockito.any(), Mockito.any()))
-           .thenReturn(Futures.immediateFuture(response(HttpResponseStatus.OK, "{\"key\":\"value\"}")));
+    final RemoteHarness remote = new RemoteHarness();
+    remote.respond(
+        List.of(
+            new ScanResultValue(
+                null,
+                List.of("server", "server_type", "service", "property", "value", "error_message"),
+                List.of(
+                    Arrays.asList(
+                        HISTORICAL_ONE.getHostAndPortToUse(),
+                        "historical",
+                        "[historical]",
+                        "key",
+                        "value",
+                        null
+                    )
+                )
+            )
+        )
+    );
 
     consume(
-        reader(httpClient, Map.of()).attach(
+        reader(remote, Map.of()).attach(
             0,
             slice(List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL)), null, null, Long.MAX_VALUE),
             new CounterTracker(false),
@@ -120,28 +155,43 @@ public class DartSystemTableInputSliceReaderTest
         )
     );
 
-    final ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    Mockito.verify(httpClient).go(requestCaptor.capture(), Mockito.any(), Mockito.any());
-    Assertions.assertEquals("/status/properties", requestCaptor.getValue().getUrl().getPath());
+    Assertions.assertEquals(1, remote.requests.size());
+    final Request request = remote.requests.get(0).build(ServiceLocation.fromDruidNode(HISTORICAL_ONE));
+    Assertions.assertEquals("/druid/v2/", request.getUrl().getPath());
+    Assertions.assertTrue(
+        request.getHeaders().get(QueryResource.HEADER_NATIVE_QUERY_ROUTE)
+               .contains(QueryResource.NATIVE_QUERY_ROUTE_LOCAL)
+    );
+    final ScanQuery query = remote.smileMapper.readValue(request.getContent().array(), ScanQuery.class);
+    Assertions.assertEquals(
+        new SystemTableDataSource(ServerPropertiesTableDescriptor.TABLE_NAME),
+        query.getDataSource()
+    );
+    Assertions.assertNotNull(query.getId());
   }
 
-  /** All remote status requests start before the reader waits for the first response. */
+  /** All remote native-query requests start before the reader waits for the first response. */
   @Test
-  public void testAttachStartsRemoteRequestsTogether()
+  public void testAttachStartsRemoteRequestsTogether() throws IOException
   {
-    final HttpClient httpClient = Mockito.mock(HttpClient.class);
-    final SettableFuture<StringFullResponseHolder> firstResponse = SettableFuture.create();
+    final RemoteHarness remote = new RemoteHarness();
+    final SettableFuture<byte[]> firstResponse = SettableFuture.create();
     final AtomicInteger requestsStarted = new AtomicInteger();
-    Mockito.when(httpClient.go(Mockito.any(), Mockito.any(), Mockito.any())).thenAnswer(invocation -> {
-      if (requestsStarted.incrementAndGet() == 1) {
-        return firstResponse;
+    remote.responses.add(firstResponse);
+    remote.responses.add(Futures.immediateFuture(remote.responseBytes("second")));
+    remote.onRequest = () -> {
+      if (requestsStarted.incrementAndGet() == 2) {
+        try {
+          firstResponse.set(remote.responseBytes("first"));
+        }
+        catch (IOException e) {
+          firstResponse.setException(e);
+        }
       }
-      firstResponse.set(response(HttpResponseStatus.OK, "{\"first\":\"value\"}"));
-      return Futures.immediateFuture(response(HttpResponseStatus.OK, "{\"second\":\"value\"}"));
-    });
+    };
 
     consume(
-        reader(httpClient, Map.of()).attach(
+        reader(remote, Map.of()).attach(
             0,
             slice(
                 List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL), source(HISTORICAL_TWO, NodeRole.HISTORICAL)),
@@ -158,14 +208,13 @@ public class DartSystemTableInputSliceReaderTest
     Assertions.assertEquals(2, requestsStarted.get());
   }
 
-  /** Authorization and other non-availability HTTP failures fail the query rather than becoming data rows. */
+  /** Authorization and other non-availability endpoint failures fail the query rather than becoming data rows. */
   @Test
-  public void testAttachPropagatesHttpFailure()
+  public void testAttachPropagatesEndpointFailure()
   {
-    final HttpClient httpClient = Mockito.mock(HttpClient.class);
-    Mockito.when(httpClient.go(Mockito.any(), Mockito.any(), Mockito.any()))
-           .thenReturn(Futures.immediateFuture(response(HttpResponseStatus.FORBIDDEN, "forbidden")));
-    final PhysicalInputSlice inputSlice = reader(httpClient, Map.of()).attach(
+    final RemoteHarness remote = new RemoteHarness();
+    remote.fail(new RpcException("forbidden"));
+    final PhysicalInputSlice inputSlice = reader(remote, Map.of()).attach(
         0,
         slice(List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL)), null, null, Long.MAX_VALUE),
         new CounterTracker(false),
@@ -180,13 +229,12 @@ public class DartSystemTableInputSliceReaderTest
   @Test
   public void testAttachRecoversNodeAvailabilityFailure()
   {
-    final HttpClient httpClient = Mockito.mock(HttpClient.class);
-    Mockito.when(httpClient.go(Mockito.any(), Mockito.any(), Mockito.any()))
-           .thenReturn(Futures.immediateFailedFuture(new SocketException("connection refused")));
+    final RemoteHarness remote = new RemoteHarness();
+    remote.fail(new SocketException("connection refused"));
 
     Assertions.assertDoesNotThrow(
         () -> consume(
-            reader(httpClient, Map.of()).attach(
+            reader(remote, Map.of()).attach(
                 0,
                 slice(List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL)), null, null, Long.MAX_VALUE),
                 new CounterTracker(false),
@@ -197,14 +245,13 @@ public class DartSystemTableInputSliceReaderTest
     );
   }
 
-  /** A remote HTTP read timeout retains query-timeout semantics rather than becoming an availability row. */
+  /** A remote native-query timeout retains query-timeout semantics rather than becoming an availability row. */
   @Test
   public void testAttachPropagatesRemoteTimeoutAsQueryTimeout()
   {
-    final HttpClient httpClient = Mockito.mock(HttpClient.class);
-    Mockito.when(httpClient.go(Mockito.any(), Mockito.any(), Mockito.any()))
-           .thenReturn(Futures.immediateFailedFuture(new ReadTimeoutException()));
-    final PhysicalInputSlice inputSlice = reader(httpClient, Map.of()).attach(
+    final RemoteHarness remote = new RemoteHarness();
+    remote.fail(new ReadTimeoutException());
+    final PhysicalInputSlice inputSlice = reader(remote, Map.of()).attach(
         0,
         slice(List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL)), null, null, Long.MAX_VALUE),
         new CounterTracker(false),
@@ -215,28 +262,32 @@ public class DartSystemTableInputSliceReaderTest
     Assertions.assertThrows(QueryTimeoutException.class, () -> consume(inputSlice));
   }
 
-  /** A request added concurrently after slice cleanup is cancelled immediately. */
+  /** A request added concurrently after slice cleanup is cancelled and its closer is closed immediately. */
   @Test
-  public void testRemoteRequestTrackerCancelsRequestAddedAfterClose()
+  public void testRemoteRequestTrackerCancelsRequestAddedAfterClose() throws IOException
   {
     final DartSystemTableInputSliceReader.RemoteRequestTracker tracker =
         new DartSystemTableInputSliceReader.RemoteRequestTracker();
-    final SettableFuture<StringFullResponseHolder> request = SettableFuture.create();
+    final SettableFuture<Object> request = SettableFuture.create();
+    final org.apache.druid.java.util.common.io.Closer closer = Mockito.spy(
+        org.apache.druid.java.util.common.io.Closer.create()
+    );
 
     tracker.cancelAll();
-    tracker.track(request);
+    tracker.track(request, closer);
 
     Assertions.assertTrue(request.isCancelled());
+    Mockito.verify(closer).close();
   }
 
   private static DartSystemTableInputSliceReader reader(
-      final HttpClient httpClient,
+      final RemoteHarness remote,
       final Map<String, SystemTableDataProvider> providers
   )
   {
     return new DartSystemTableInputSliceReader(
-        httpClient,
-        new DefaultObjectMapper(),
+        remote.serviceClientFactory,
+        remote.smileMapper,
         Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, DESCRIPTOR),
         providers,
         BROKER,
@@ -244,14 +295,6 @@ public class DartSystemTableInputSliceReaderTest
         Mockito.mock(AuthorizerMapper.class),
         QueryContext.empty()
     );
-  }
-
-  private static StringFullResponseHolder response(final HttpResponseStatus status, final String content)
-  {
-    return new StringFullResponseHolder(
-        new DefaultHttpResponse(HttpVersion.HTTP_1_1, status),
-        StandardCharsets.UTF_8
-    ).addChunk(content);
   }
 
   private static SystemTableInputSlice slice(
@@ -318,5 +361,96 @@ public class DartSystemTableInputSliceReaderTest
   private static DruidNode node(final String service, final int port)
   {
     return new DruidNode(service, "localhost", false, port, -1, true, false);
+  }
+
+  private static class RemoteHarness
+  {
+    private final ObjectMapper smileMapper = new org.apache.druid.jackson.DefaultObjectMapper(new SmileFactory(), null);
+    private final Queue<ListenableFuture<byte[]>> responses = new ArrayDeque<>();
+    private final List<RequestBuilder> requests = new ArrayList<>();
+    private final ServiceClient serviceClient = new ServiceClient()
+    {
+      @Override
+      public <IntermediateType, FinalType> ListenableFuture<FinalType> asyncRequest(
+          final RequestBuilder requestBuilder,
+          final HttpResponseHandler<IntermediateType, FinalType> handler
+      )
+      {
+        final Request request = requestBuilder.build(ServiceLocation.fromDruidNode(HISTORICAL_ONE));
+        if (HttpMethod.DELETE.equals(request.getMethod())) {
+          return Futures.immediateFuture(null);
+        }
+        requests.add(requestBuilder);
+        onRequest.run();
+        final ListenableFuture<byte[]> response = responses.remove();
+        return Futures.transform(response, bytes -> handleResponse(handler, bytes), Runnable::run);
+      }
+
+      @Override
+      public ServiceClient withRetryPolicy(final ServiceRetryPolicy retryPolicy)
+      {
+        return this;
+      }
+    };
+    private final ServiceClientFactory serviceClientFactory = (serviceName, serviceLocator, retryPolicy) -> serviceClient;
+    private Runnable onRequest = () -> {
+    };
+
+    private void respond(final List<ScanResultValue> response) throws IOException
+    {
+      responses.add(Futures.immediateFuture(smileMapper.writeValueAsBytes(response)));
+    }
+
+    private byte[] responseBytes(final String value) throws IOException
+    {
+      return smileMapper.writeValueAsBytes(
+          List.of(
+              new ScanResultValue(
+                  null,
+                  List.of("server", "server_type", "service", "property", "value", "error_message"),
+                  List.of(
+                      Arrays.asList(
+                          HISTORICAL_ONE.getHostAndPortToUse(),
+                          "historical",
+                          "[historical]",
+                          value,
+                          value,
+                          null
+                      )
+                  )
+              )
+          )
+      );
+    }
+
+    private void fail(final Throwable throwable)
+    {
+      responses.add(Futures.immediateFailedFuture(throwable));
+    }
+
+    private static <IntermediateType, FinalType> FinalType handleResponse(
+        final HttpResponseHandler<IntermediateType, FinalType> handler,
+        final byte[] bytes
+    )
+    {
+      ClientResponse<IntermediateType> response = handler.handleResponse(
+          new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK),
+          new HttpResponseHandler.TrafficCop()
+          {
+            @Override
+            public long resume(final long chunkNum)
+            {
+              return 0;
+            }
+
+            @Override
+            public void abort()
+            {
+            }
+          }
+      );
+      response = handler.handleChunk(response, new DefaultHttpContent(Unpooled.wrappedBuffer(bytes)), 1);
+      return handler.done(response).getObj();
+    }
   }
 }

@@ -43,6 +43,7 @@ import org.apache.druid.rpc.ServiceClient;
 import org.apache.druid.rpc.ServiceClientFactory;
 import org.apache.druid.rpc.ServiceLocation;
 import org.apache.druid.rpc.ServiceRetryPolicy;
+import org.apache.druid.server.QueryResource;
 import org.apache.druid.utils.CloseableUtils;
 import org.joda.time.Duration;
 
@@ -60,12 +61,24 @@ public class DataServerClient
   private final ServiceClient serviceClient;
   private final ObjectMapper objectMapper;
   private final ServiceLocation serviceLocation;
+  private final boolean routeLocally;
 
   public DataServerClient(
       ServiceClientFactory serviceClientFactory,
       ServiceLocation serviceLocation,
       ObjectMapper objectMapper,
       ServiceRetryPolicy retryPolicy
+  )
+  {
+    this(serviceClientFactory, serviceLocation, objectMapper, retryPolicy, false);
+  }
+
+  public DataServerClient(
+      ServiceClientFactory serviceClientFactory,
+      ServiceLocation serviceLocation,
+      ObjectMapper objectMapper,
+      ServiceRetryPolicy retryPolicy,
+      boolean routeLocally
   )
   {
     this.serviceClient = serviceClientFactory.makeClient(
@@ -75,6 +88,7 @@ public class DataServerClient
     );
     this.serviceLocation = serviceLocation;
     this.objectMapper = objectMapper;
+    this.routeLocally = routeLocally;
   }
 
   /**
@@ -93,6 +107,9 @@ public class DataServerClient
   )
   {
     RequestBuilder requestBuilder = new RequestBuilder(HttpMethod.POST, BASE_PATH);
+    if (routeLocally) {
+      requestBuilder.header(QueryResource.HEADER_NATIVE_QUERY_ROUTE, QueryResource.NATIVE_QUERY_ROUTE_LOCAL);
+    }
     final boolean isSmile = objectMapper.getFactory() instanceof SmileFactory;
     if (isSmile) {
       requestBuilder = requestBuilder.smileContent(objectMapper, query);
@@ -103,31 +120,23 @@ public class DataServerClient
     if (log.isDebugEnabled()) {
       log.debug("Sending request to servers for query[%s], request[%s]", query.getId(), requestBuilder);
     }
-    ListenableFuture<InputStream> resultStreamFuture = serviceClient.asyncRequest(
+    final DataServerResponseHandler responseHandler = new DataServerResponseHandler(
+        query,
+        responseContext,
+        objectMapper
+    );
+    final ListenableFuture<InputStream> resultStreamFuture = serviceClient.asyncRequest(
         requestBuilder,
-        new DataServerResponseHandler(query, responseContext, objectMapper)
+        responseHandler
     );
 
-    closer.register(() -> resultStreamFuture.cancel(true));
-    Futures.addCallback(
-        resultStreamFuture,
-        new FutureCallback<>()
-        {
-          @Override
-          public void onSuccess(InputStream result)
-          {
-            // Do nothing
+    closer.register(
+        () -> {
+          if (!responseHandler.isDone()) {
+            resultStreamFuture.cancel(true);
+            cancelQuery(query.getId());
           }
-
-          @Override
-          public void onFailure(Throwable t)
-          {
-            if (resultStreamFuture.isCancelled()) {
-              cancelQuery(query.getId());
-            }
-          }
-        },
-        Execs.directExecutor()
+        }
     );
 
     return FutureUtils.transform(
@@ -166,8 +175,14 @@ public class DataServerClient
 
     final String cancelPath = BASE_PATH + queryId;
 
+    final RequestBuilder requestBuilder = new RequestBuilder(HttpMethod.DELETE, cancelPath)
+        .timeout(CANCELLATION_TIMEOUT);
+    if (routeLocally) {
+      requestBuilder.header(QueryResource.HEADER_NATIVE_QUERY_ROUTE, QueryResource.NATIVE_QUERY_ROUTE_LOCAL);
+    }
+
     final ListenableFuture<Void> cancelFuture = serviceClient.asyncRequest(
-        new RequestBuilder(HttpMethod.DELETE, cancelPath).timeout(CANCELLATION_TIMEOUT),
+        requestBuilder,
         IgnoreHttpResponseHandler.INSTANCE
     );
 

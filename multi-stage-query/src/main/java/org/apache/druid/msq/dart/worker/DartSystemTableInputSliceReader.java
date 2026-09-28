@@ -19,20 +19,17 @@
 
 package org.apache.druid.msq.dart.worker;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.timeout.ReadTimeoutException;
+import org.apache.druid.discovery.DataServerClient;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.RE;
 import org.apache.druid.java.util.common.guava.LazySequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
-import org.apache.druid.java.util.http.client.HttpClient;
-import org.apache.druid.java.util.http.client.Request;
-import org.apache.druid.java.util.http.client.response.StringFullResponseHandler;
-import org.apache.druid.java.util.http.client.response.StringFullResponseHolder;
+import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.msq.counters.CounterNames;
 import org.apache.druid.msq.counters.CounterTracker;
 import org.apache.druid.msq.input.AdaptedLoadableSegment;
@@ -43,12 +40,19 @@ import org.apache.druid.msq.input.PhysicalInputSlice;
 import org.apache.druid.msq.input.stage.ReadablePartitions;
 import org.apache.druid.msq.input.system.SystemTableInputSlice;
 import org.apache.druid.msq.input.system.SystemTableSource;
-import org.apache.druid.msq.util.MultiStageQueryContext;
+import org.apache.druid.query.BaseQuery;
+import org.apache.druid.query.Druids;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.QueryContext;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.SegmentDescriptor;
+import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.query.context.DefaultResponseContext;
+import org.apache.druid.query.scan.ScanQuery;
+import org.apache.druid.query.scan.ScanResultValue;
+import org.apache.druid.rpc.ServiceClientFactory;
+import org.apache.druid.rpc.ServiceLocation;
+import org.apache.druid.rpc.StandardRetryPolicy;
 import org.apache.druid.segment.RowBasedSegment;
 import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.column.RowSignature;
@@ -57,22 +61,17 @@ import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.system.SystemTableNodeFailure;
 import org.apache.druid.server.system.handler.SystemTableNodeLocator;
-import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTablePushdownFilter;
-import org.joda.time.DateTime;
-import org.joda.time.Duration;
 
-import javax.servlet.http.HttpServletResponse;
 import java.io.Closeable;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -81,8 +80,8 @@ import java.util.function.Consumer;
 /** Reads assigned system-table sources as a lazy row segment for a Dart stage. */
 public class DartSystemTableInputSliceReader implements InputSliceReader
 {
-  private final HttpClient httpClient;
-  private final ObjectMapper jsonMapper;
+  private final ServiceClientFactory serviceClientFactory;
+  private final ObjectMapper smileMapper;
   private final Map<String, SystemTableDescriptor> tableDescriptors;
   private final Map<String, SystemTableDataProvider> dataProviders;
   private final DruidNode selfNode;
@@ -91,8 +90,8 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
   private final QueryContext queryContext;
 
   public DartSystemTableInputSliceReader(
-      final HttpClient httpClient,
-      final ObjectMapper jsonMapper,
+      final ServiceClientFactory serviceClientFactory,
+      final ObjectMapper smileMapper,
       final Map<String, SystemTableDescriptor> tableDescriptors,
       final Map<String, SystemTableDataProvider> dataProviders,
       final DruidNode selfNode,
@@ -101,8 +100,8 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
       final QueryContext queryContext
   )
   {
-    this.httpClient = httpClient;
-    this.jsonMapper = jsonMapper;
+    this.serviceClientFactory = serviceClientFactory;
+    this.smileMapper = smileMapper;
     this.tableDescriptors = tableDescriptors;
     this.dataProviders = dataProviders;
     this.selfNode = selfNode;
@@ -158,11 +157,9 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
       if (SystemTableNodeLocator.sameServer(selfNode.getUriToUse(), source.getNode().getUriToUse())) {
         sourceSequences.add(localRows(slice, descriptor, projection));
       } else {
-        if (!ServerPropertiesTableDescriptor.TABLE_NAME.equals(slice.getTable())) {
-          throw new IllegalStateException("Remote Dart system-table reads are not implemented for sys." + slice.getTable());
-        }
-        final ListenableFuture<StringFullResponseHolder> request = startRemoteRequest(source);
-        remoteRequestTracker.track(request);
+        final Closer closer = Closer.create();
+        final ListenableFuture<Sequence<ScanResultValue>> request = startRemoteRequest(slice, source, projection, closer);
+        remoteRequestTracker.track(request, closer);
         sourceSequences.add(new LazySequence<>(() -> remoteRows(slice, source, descriptor, projection, request)));
       }
     }
@@ -199,40 +196,11 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
       final SystemTableSource source,
       final SystemTableDescriptor descriptor,
       final Projection projection,
-      final ListenableFuture<StringFullResponseHolder> request
+      final ListenableFuture<Sequence<ScanResultValue>> request
   )
   {
     try {
-      final StringFullResponseHolder response = request.get();
-      if (response.getStatus().code() != HttpServletResponse.SC_OK) {
-        throw new RE(
-            "Node[%s] returned HTTP status[%s] while reading sys.%s",
-            source.getNode().getHostAndPortToUse(),
-            response.getStatus(),
-            slice.getTable()
-        );
-      }
-      final Map<String, String> properties = new TreeMap<>(
-          jsonMapper.readValue(response.getContent(), new TypeReference<Map<String, String>>() {})
-      );
-      final List<Object[]> rows = new ArrayList<>();
-      final String nodeRoles = source.getNodeRoles()
-                                     .stream()
-                                     .map(role -> role.getJsonName())
-                                     .sorted()
-                                     .toList()
-                                     .toString();
-      if (properties.isEmpty()) {
-        rows.add(projection.apply(serverPropertiesRow(source, nodeRoles, null, null, null)));
-      } else {
-        properties.forEach(
-            (property, value) -> rows.add(
-                projection.apply(serverPropertiesRow(source, nodeRoles, property, value, null))
-            )
-        );
-      }
-      final Sequence<Object[]> sequence = Sequences.simple(rows);
-      return slice.getFilter() == null ? sequence.limit(slice.getLimit()) : sequence;
+      return request.get().flatMap(DartSystemTableInputSliceReader::rowsFromScanResult);
     }
     catch (InterruptedException e) {
       Thread.currentThread().interrupt();
@@ -249,22 +217,51 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
     }
   }
 
-  private ListenableFuture<StringFullResponseHolder> startRemoteRequest(final SystemTableSource source)
+  private ListenableFuture<Sequence<ScanResultValue>> startRemoteRequest(
+      final SystemTableInputSlice slice,
+      final SystemTableSource source,
+      final Projection projection,
+      final Closer closer
+  )
   {
     try {
-      final URL url = source.getNode().getUriToUse().resolve("/status/properties").toURL();
-      return httpClient.go(
-          new Request(HttpMethod.GET, url),
-          new StringFullResponseHandler(StandardCharsets.UTF_8),
-          remainingTimeout(queryContext)
+      final ScanQuery query = Druids.newScanQueryBuilder()
+                                    .dataSource(new SystemTableDataSource(slice.getTable()))
+                                    .eternityInterval()
+                                    .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                    .filters(slice.getFilter())
+                                    .virtualColumns(slice.getVirtualColumns())
+                                    .columns(projection.signature())
+                                    .limit(slice.getLimit())
+                                    .context(
+                                        BaseQuery.computeOverriddenContext(
+                                            queryContext.asMap(),
+                                            Map.of(BaseQuery.QUERY_ID, UUID.randomUUID().toString())
+                                        )
+                                    )
+                                    .build();
+      final DataServerClient client = new DataServerClient(
+          serviceClientFactory,
+          ServiceLocation.fromDruidNode(source.getNode()),
+          smileMapper,
+          StandardRetryPolicy.noRetries(),
+          true
       );
+      final JavaType resultType = smileMapper.getTypeFactory().constructType(ScanResultValue.class);
+      return client.run(query, new DefaultResponseContext(), resultType, closer);
     }
     catch (Exception e) {
       if (isTimeoutFailure(e)) {
         throw timeoutException(source);
       }
-      throw new RE(e, "Unable to request sys.server_properties from node[%s]", source.getNode());
+      throw new RE(e, "Unable to request sys.%s from node[%s]", slice.getTable(), source.getNode());
     }
+  }
+
+  private static Sequence<Object[]> rowsFromScanResult(final ScanResultValue scanResult)
+  {
+    return Sequences.simple((List<?>) scanResult.getEvents())
+                    .map(event -> event instanceof Object[] ? (Object[]) event : ((List<?>) event).toArray());
   }
 
   private static Sequence<Object[]> recoverRemoteFailure(
@@ -293,24 +290,6 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
                      .orElseGet(() -> Sequences.<Object[]>empty());
   }
 
-  private static Object[] serverPropertiesRow(
-      final SystemTableSource source,
-      final String nodeRoles,
-      final String property,
-      final String value,
-      final String error
-  )
-  {
-    return new Object[]{
-        source.getNode().getHostAndPortToUse(),
-        source.getNode().getServiceName(),
-        nodeRoles,
-        property,
-        value,
-        error
-    };
-  }
-
   private static QueryTimeoutException timeoutException(final SystemTableSource source)
   {
     return new QueryTimeoutException(
@@ -330,19 +309,6 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
       current = current.getCause();
     }
     return false;
-  }
-
-  private static Duration remainingTimeout(final QueryContext queryContext)
-  {
-    DateTime deadline = MultiStageQueryContext.getQueryDeadline(queryContext);
-    if (deadline == null) {
-      final long timeout = queryContext.getTimeout(QueryContexts.NO_TIMEOUT);
-      if (timeout == QueryContexts.NO_TIMEOUT) {
-        return null;
-      }
-      deadline = MultiStageQueryContext.getStartTime(queryContext).plus(timeout);
-    }
-    return Duration.millis(Math.max(1, deadline.getMillis() - System.currentTimeMillis()));
   }
 
   private static Projection makeProjection(
@@ -389,26 +355,43 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
   static class RemoteRequestTracker
   {
     private final List<ListenableFuture<?>> requests = new ArrayList<>();
+    private final List<Closer> closers = new ArrayList<>();
     private boolean closed;
 
-    synchronized void track(final ListenableFuture<?> request)
+    synchronized void track(final ListenableFuture<?> request, final Closer closer)
     {
       if (closed) {
         request.cancel(true);
+        close(closer);
       } else {
         requests.add(request);
+        closers.add(closer);
       }
     }
 
     void cancelAll()
     {
       final List<ListenableFuture<?>> requestsToCancel;
+      final List<Closer> closersToClose;
       synchronized (this) {
         closed = true;
         requestsToCancel = List.copyOf(requests);
+        closersToClose = List.copyOf(closers);
         requests.clear();
+        closers.clear();
       }
       requestsToCancel.forEach(request -> request.cancel(true));
+      closersToClose.forEach(RemoteRequestTracker::close);
+    }
+
+    private static void close(final Closer closer)
+    {
+      try {
+        closer.close();
+      }
+      catch (IOException e) {
+        throw new RE(e, "Unable to close a remote system-table request");
+      }
     }
   }
 }

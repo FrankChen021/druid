@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.name.Names;
-import com.google.inject.util.Modules;
 import org.apache.druid.client.BrokerSegmentWatcherConfig;
 import org.apache.druid.client.BrokerServerView;
 import org.apache.druid.client.BrokerViewOfBrokerConfig;
@@ -45,17 +44,15 @@ import org.apache.druid.client.selector.StrictTierSelectorStrategyConfig;
 import org.apache.druid.client.selector.TierSelectorStrategy;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.BrokerProcessingModule;
+import org.apache.druid.guice.BrokerQueryResourceModule;
 import org.apache.druid.guice.BrokerServiceModule;
 import org.apache.druid.guice.CacheModule;
 import org.apache.druid.guice.Jerseys;
-import org.apache.druid.guice.JoinableFactoryModule;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ManageLifecycle;
-import org.apache.druid.guice.QueryRunnerFactoryModule;
-import org.apache.druid.guice.QueryableModule;
-import org.apache.druid.guice.SegmentWranglerModule;
+import org.apache.druid.guice.NativeQueryEngineModule;
 import org.apache.druid.guice.ServerTypeConfig;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.msq.dart.guice.DartControllerMemoryManagementModule;
@@ -71,10 +68,8 @@ import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.RetryQueryRunnerConfig;
 import org.apache.druid.query.lookup.LookupModule;
 import org.apache.druid.server.BrokerDynamicConfigResource;
-import org.apache.druid.server.BrokerQueryResource;
 import org.apache.druid.server.ClientInfoResource;
 import org.apache.druid.server.ClientQuerySegmentWalker;
-import org.apache.druid.server.ResponseContextConfig;
 import org.apache.druid.server.SegmentManager;
 import org.apache.druid.server.SubqueryGuardrailHelper;
 import org.apache.druid.server.SubqueryGuardrailHelperProvider;
@@ -85,7 +80,6 @@ import org.apache.druid.server.http.HistoricalResource;
 import org.apache.druid.server.http.SegmentListerResource;
 import org.apache.druid.server.http.SelfDiscoveryResource;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
-import org.apache.druid.server.metrics.QueryCountStatsProvider;
 import org.apache.druid.server.metrics.SubqueryCountStatsProvider;
 import org.apache.druid.server.router.TieredBrokerConfig;
 import org.apache.druid.sql.calcite.schema.MetadataSegmentView;
@@ -122,12 +116,13 @@ public class CliBroker extends ServerRunnable
   {
     return ImmutableList.of(
         new BrokerProcessingModule(),
-        new QueryableModule(),
-        Modules.override(new QueryRunnerFactoryModule()).with(
-            overrideBinder -> overrideBinder.bind(QueryConfigProvider.class).to(BrokerViewOfBrokerConfig.class)
-        ),
-        new SegmentWranglerModule(),
-        new JoinableFactoryModule(),
+        NativeQueryEngineModule.builder()
+                               .withOverrideModule(
+                                   overrideBinder -> overrideBinder.bind(QueryConfigProvider.class)
+                                                                   .to(BrokerViewOfBrokerConfig.class)
+                               )
+                               .withQueryResourceModule(new BrokerQueryResourceModule())
+                               .build(),
         new BrokerServiceModule(),
         binder -> {
           validateCentralizedDatasourceSchemaConfig(getProperties());
@@ -138,8 +133,6 @@ public class CliBroker extends ServerRunnable
           binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8082);
           binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(8282);
           binder.bindConstant().annotatedWith(PruneLoadSpec.class).to(true);
-          binder.bind(ResponseContextConfig.class).toInstance(ResponseContextConfig.newConfig(false));
-
           binder.bind(CachingClusteredClient.class).in(LazySingleton.class);
           LifecycleModule.register(binder, BrokerServerView.class);
           LifecycleModule.register(binder, MetadataSegmentView.class);
@@ -163,16 +156,11 @@ public class CliBroker extends ServerRunnable
           binder.bind(QuerySegmentWalker.class).to(ClientQuerySegmentWalker.class).in(LazySingleton.class);
           binder.bind(JettyServerInitializer.class).to(QueryJettyServerInitializer.class).in(LazySingleton.class);
 
-          binder.bind(BrokerQueryResource.class).in(LazySingleton.class);
-          Jerseys.addResource(binder, BrokerQueryResource.class);
           binder.bind(SubqueryGuardrailHelper.class).toProvider(SubqueryGuardrailHelperProvider.class);
-          binder.bind(QueryCountStatsProvider.class).to(BrokerQueryResource.class).in(LazySingleton.class);
           binder.bind(SubqueryCountStatsProvider.class).toInstance(new SubqueryCountStatsProvider());
           Jerseys.addResource(binder, BrokerResource.class);
           Jerseys.addResource(binder, ClientInfoResource.class);
           Jerseys.addResource(binder, BrokerDynamicConfigResource.class);
-
-          LifecycleModule.register(binder, BrokerQueryResource.class);
 
           Jerseys.addResource(binder, HttpServerInventoryViewResource.class);
 
@@ -206,9 +194,8 @@ public class CliBroker extends ServerRunnable
         new MSQSqlModule(),
         new SqlTaskModule(),
         new DartControllerModule(),
-        // Dart uses a Broker-local worker for system-table inputs, so those queries remain usable without Historicals.
-        new DartEmbeddedWorkerModule(),
         new DartControllerMemoryManagementModule(),
+        new DartEmbeddedWorkerModule(),
         new BrokerRealtimeSelectorModule()
     );
   }

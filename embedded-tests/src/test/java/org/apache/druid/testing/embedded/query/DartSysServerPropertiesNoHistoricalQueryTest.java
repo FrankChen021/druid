@@ -26,7 +26,8 @@ import org.apache.druid.testing.embedded.EmbeddedCoordinator;
 import org.apache.druid.testing.embedded.EmbeddedDruidCluster;
 import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Map;
 
@@ -58,14 +59,23 @@ public class DartSysServerPropertiesNoHistoricalQueryTest extends EmbeddedCluste
    * <p>A Dart system-table query remains executable through the embedded Broker worker when the cluster has no
    * Historical workers.</p>
    */
-  @Test
-  public void testBrokerWorkerExecutesWithoutHistorical()
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @ValueSource(strings = {
+      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED,
+      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
+  })
+  public void testBrokerWorkerExecutesWithoutHistorical(final String plannerStrategy)
   {
     final String result = cluster.runSql(
         "SELECT COUNT(*), COUNT(DISTINCT service_name) "
         + "FROM sys.server_properties "
         + "WHERE property IN ('" + BROKER_PROPERTY + "', '" + COORDINATOR_PROPERTY + "')",
-        Map.of(QueryContexts.ENGINE, DartSqlEngine.NAME)
+        Map.of(
+            QueryContexts.ENGINE,
+            DartSqlEngine.NAME,
+            QueryContexts.CTX_NATIVE_QUERY_SQL_PLANNING_MODE,
+            plannerStrategy
+        )
     );
 
     Assertions.assertEquals("2,2", result);

@@ -26,13 +26,14 @@ import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
 import org.apache.druid.guice.annotations.EscalatedGlobal;
 import org.apache.druid.guice.annotations.Self;
-import org.apache.druid.java.util.http.client.HttpClient;
+import org.apache.druid.guice.annotations.Smile;
 import org.apache.druid.msq.exec.FrameContext;
 import org.apache.druid.msq.input.InputSlice;
 import org.apache.druid.msq.input.InputSliceReader;
 import org.apache.druid.msq.input.InputSliceReaderProvider;
 import org.apache.druid.msq.input.system.SystemTableInputSlice;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.rpc.ServiceClientFactory;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.Escalator;
@@ -63,8 +64,8 @@ public class DartSystemTableInputSliceReaderProvider implements InputSliceReader
   {
     // Resolve system-table bindings only for this input type. Ordinary Dart worker tests do not need them.
     return new DartSystemTableInputSliceReader(
-        injector.getInstance(Key.get(HttpClient.class, EscalatedGlobal.class)),
-        injector.getInstance(ObjectMapper.class),
+        injector.getInstance(Key.get(ServiceClientFactory.class, EscalatedGlobal.class)),
+        injector.getInstance(Key.get(ObjectMapper.class, Smile.class)),
         injector.getInstance(Key.get(new TypeLiteral<Map<String, SystemTableDescriptor>>() {})),
         injector.getInstance(Key.get(new TypeLiteral<Map<String, SystemTableDataProvider>>() {})),
         injector.getInstance(Key.get(DruidNode.class, Self.class)),
