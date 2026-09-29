@@ -22,6 +22,7 @@ package org.apache.druid.indexing.kafka.supervisor;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSortedSet;
 import org.apache.druid.common.config.Configs;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.error.InvalidInput;
@@ -36,11 +37,9 @@ import org.joda.time.DateTime;
 import org.joda.time.Period;
 
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeSet;
 
 public class KafkaSupervisorIOConfig extends SeekableStreamSupervisorIOConfig
 {
@@ -59,7 +58,7 @@ public class KafkaSupervisorIOConfig extends SeekableStreamSupervisorIOConfig
   private final String topic;
   private final String topicPattern;
   @Nullable
-  private final Set<Integer> partitionIds;
+  private final ImmutableSortedSet<Integer> partitionIds;
   private final boolean emitTimeLagMetrics;
 
   /**
@@ -185,7 +184,7 @@ public class KafkaSupervisorIOConfig extends SeekableStreamSupervisorIOConfig
         throw InvalidInput.exception("partitionIds requires a single topic and cannot be combined with boundedStreamConfig");
       }
     }
-    this.partitionIds = partitionIds == null ? null : Collections.unmodifiableSet(new TreeSet<>(partitionIds));
+    this.partitionIds = partitionIds == null ? null : ImmutableSortedSet.copyOf(partitionIds);
     this.emitTimeLagMetrics = Configs.valueOrDefault(emitTimeLagMetrics, false);
   }
 

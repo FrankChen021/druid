@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import nl.jqno.equalsverifier.EqualsVerifier;
 import nl.jqno.equalsverifier.Warning;
 import org.apache.druid.data.input.InputFormat;
@@ -134,15 +135,15 @@ public class KafkaSupervisorIOConfigTest
                              .withPartitionIds(Set.of(0, 2)).withAutoScalerConfig(autoscaler))
         .build("diagnostic", "events");
     final KafkaSupervisorSpec scaled = spec.toBuilder().taskCount(2).build();
-    Assertions.assertEquals(Set.of(0, 2), scaled.getIoConfig().getPartitionIds());
+    Assertions.assertEquals(Set.of(0, 2), scaled.getSpec().getIOConfig().getPartitionIds());
     Assertions.assertEquals(SupervisorSpecUpdateAction.NONE, spec.getActionOnUpdateTo(scaled));
     final KafkaSupervisorSpec narrowed = scaled.toBuilder()
-        .ioConfig(scaled.getIoConfig().toBuilder().withPartitionIds(Set.of(0)).build()).build();
+        .ioConfig(scaled.getSpec().getIOConfig().toBuilder().withPartitionIds(Set.of(0)).build()).build();
     Assertions.assertEquals(
         SupervisorSpecUpdateAction.RESTART_SUPERVISOR_AND_TASKS,
         spec.getActionOnUpdateTo(narrowed)
     );
-    Assertions.assertEquals(Set.of(0), narrowed.getIoConfig().getPartitionIds());
+    Assertions.assertEquals(Set.of(0), narrowed.getSpec().getIOConfig().getPartitionIds());
   }
 
   @Test
@@ -791,6 +792,7 @@ public class KafkaSupervisorIOConfigTest
                   .withIgnoredFields("taskCountExplicit", "autoScalerEnabled")
                   .suppress(Warning.NONFINAL_FIELDS)
                   .withPrefabValues(Optional.class, Optional.of("a"), Optional.of("b"))
+                  .withPrefabValues(ImmutableSortedSet.class, ImmutableSortedSet.of(0), ImmutableSortedSet.of(1))
                   .withPrefabValues(InputFormat.class, createMock(InputFormat.class), createMock(InputFormat.class))
                   .withPrefabValues(AutoScalerConfig.class, createMock(AutoScalerConfig.class), createMock(AutoScalerConfig.class))
                   .withPrefabValues(LagAggregator.class, createMock(LagAggregator.class), createMock(LagAggregator.class))
