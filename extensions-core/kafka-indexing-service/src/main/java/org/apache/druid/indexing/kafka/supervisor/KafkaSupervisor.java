@@ -98,6 +98,7 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
   private static final Long END_OF_PARTITION = Long.MAX_VALUE;
 
   private final Pattern pattern;
+  private final Map<Integer, Integer> selectedPartitionRanks;
   private int lastPartitionSelectionTaskCount = -1;
   private volatile Map<KafkaTopicPartition, Long> partitionToTimeLag;
 
@@ -130,6 +131,18 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
 
     this.spec = spec;
     this.pattern = getIoConfig().isMultiTopic() ? Pattern.compile(getIoConfig().getStream()) : null;
+    final Set<Integer> selected = getIoConfig().getPartitionIds();
+    if (selected == null) {
+      this.selectedPartitionRanks = Map.of();
+    } else {
+      final List<Integer> sorted = new ArrayList<>(selected);
+      Collections.sort(sorted);
+      final Map<Integer, Integer> ranks = new HashMap<>();
+      for (int rank = 0; rank < sorted.size(); rank++) {
+        ranks.put(sorted.get(rank), rank);
+      }
+      this.selectedPartitionRanks = Map.copyOf(ranks);
+    }
   }
 
   @Override
@@ -152,7 +165,7 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
     final Set<Integer> selected = spec.getSpec().getIOConfig().getPartitionIds();
     if (selected != null && lastPartitionSelectionTaskCount != taskCount) {
       lastPartitionSelectionTaskCount = taskCount;
-      final long occupiedGroups = selected.stream().map(id -> id % taskCount).distinct().count();
+      final int occupiedGroups = Math.min(selected.size(), taskCount);
       if (occupiedGroups < taskCount) {
         log.warn(
             "Selected partition IDs [%s] occupy [%d] task groups with configured task count [%d]",
@@ -163,6 +176,11 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
     if (partitionId.isMultiTopicPartition()) {
       return Math.abs(31 * partitionId.topic().hashCode() + partitionId.partition()) % taskCount;
     } else {
+      final Integer rank = selectedPartitionRanks.get(partitionId.partition());
+      if (rank != null) {
+        return rank % taskCount;
+      }
+      // An adopted task can still refer to a partition excluded by this supervisor.
       return partitionId.partition() % taskCount;
     }
   }
@@ -323,6 +341,18 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
     }
     final Map<KafkaTopicPartition, Long> offsets = new HashMap<>(super.getHighestCurrentOffsets());
     // Exclude saved offsets and publishing tasks outside the selection from reporting without changing stored metadata.
+    offsets.keySet().removeIf(partition -> !selected.contains(partition.partition()));
+    return offsets;
+  }
+
+  @Override
+  public Map<KafkaTopicPartition, Long> getOffsetsFromMetadataStorageForCurrentPartitions()
+  {
+    final Set<Integer> selected = getIoConfig().getPartitionIds();
+    if (selected == null) {
+      return getOffsetsFromMetadataStorage();
+    }
+    final Map<KafkaTopicPartition, Long> offsets = new HashMap<>(getOffsetsFromMetadataStorage());
     offsets.keySet().removeIf(partition -> !selected.contains(partition.partition()));
     return offsets;
   }

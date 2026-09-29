@@ -516,8 +516,8 @@ Duplicate IDs are normalized and list order does not matter.
 
 New topic partitions outside the selection are ignored.
 Omit `partitionIds` or set it to null to restore discovery of all partitions.
-Task grouping continues to use `partitionId % taskCount`: `[0, 3, 6]` with three tasks uses only one group.
-Druid warns when the selection leaves task groups unused.
+Selected partitions are assigned to task groups by their position in the sorted selection: `[0, 3, 6]` with three tasks uses three groups.
+If there are fewer selected partitions than tasks, Druid warns that some task groups are unused.
 
 Selection changes replace incompatible readers asynchronously.
 Previously ingested rows remain, and already publishing tasks may finish; the update does not provide an instantaneous cutoff.

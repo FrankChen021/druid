@@ -458,7 +458,7 @@ public class SupervisorManager implements SupervisorStatsProvider
     Map<?, ?> endOffsets = streamSupervisor.getLatestSequencesFromStream();
 
     log.info("Capturing checkpointed offsets for supervisor[%s]", id);
-    Map<?, ?> startOffsets = streamSupervisor.getOffsetsFromMetadataStorage();
+    Map<?, ?> startOffsets = streamSupervisor.getOffsetsFromMetadataStorageForCurrentPartitions();
 
     if (endOffsets == null || endOffsets.isEmpty()) {
       throw new ISE("Skipping reset: Failed to get latest offsets from stream for supervisor[%s]", id);
@@ -472,9 +472,6 @@ public class SupervisorManager implements SupervisorStatsProvider
     try {
       Map<String, Object> normalizedStartOffsets = jsonMapper.readValue(jsonMapper.writeValueAsString(startOffsets), Map.class);
       Map<String, Object> normalizedEndOffsets = jsonMapper.readValue(jsonMapper.writeValueAsString(endOffsets), Map.class);
-      // Metadata may retain offsets for partitions excluded from the current ingestion selection.
-      // Only backfill partitions with a captured end offset; do not alter the stored metadata.
-      normalizedStartOffsets.keySet().retainAll(normalizedEndOffsets.keySet());
       BoundedStreamConfig boundedStreamConfig = new BoundedStreamConfig(normalizedStartOffsets, normalizedEndOffsets);
       SupervisorSpec backfillSpec = streamSpec.createBackfillSpec(backfillSupervisorId, boundedStreamConfig, backfillTaskCount);
       createOrUpdateAndStartSupervisor(backfillSpec, false);

@@ -1444,7 +1444,7 @@ public class SupervisorManagerTest extends EasyMockSupport
     streamSupervisor.updatePartitionLagFromStream();
     EasyMock.expectLastCall().once();
     EasyMock.expect(streamSupervisor.getLatestSequencesFromStream()).andReturn(ImmutableMap.of("0", 100L)).once();
-    EasyMock.expect(streamSupervisor.getOffsetsFromMetadataStorage()).andReturn(ImmutableMap.of()).once();
+    EasyMock.expect(streamSupervisor.getOffsetsFromMetadataStorageForCurrentPartitions()).andReturn(ImmutableMap.of()).once();
     EasyMock.replay(streamSupervisor, streamSpec, ioConfig);
     Assertions.assertThrows(
         IllegalStateException.class,
@@ -1455,13 +1455,13 @@ public class SupervisorManagerTest extends EasyMockSupport
   }
 
   @Test
-  public void testResetToLatestAndBackfillRetainsOnlyCapturedPartitions() throws Exception
+  public void testResetToLatestAndBackfillUsesCurrentPartitionOffsets() throws Exception
   {
     final SeekableStreamSupervisor streamSupervisor = EasyMock.createMock(SeekableStreamSupervisor.class);
     final SeekableStreamSupervisorSpec streamSpec = EasyMock.createMock(SeekableStreamSupervisorSpec.class);
     final SeekableStreamSupervisorIOConfig ioConfig = EasyMock.createMock(SeekableStreamSupervisorIOConfig.class);
     final SeekableStreamDataSourceMetadata resetMetadata = EasyMock.createMock(SeekableStreamDataSourceMetadata.class);
-    final Map<String, Long> storedOffsets = ImmutableMap.of("0", 10L, "1", 20L);
+    final Map<String, Long> startOffsets = ImmutableMap.of("0", 10L);
     final Map<String, Long> latestOffsets = ImmutableMap.of("0", 100L);
     final Capture<BoundedStreamConfig> bounded = Capture.newInstance();
 
@@ -1476,7 +1476,7 @@ public class SupervisorManagerTest extends EasyMockSupport
     EasyMock.expect(streamSupervisor.getState()).andReturn(SupervisorStateManager.BasicState.RUNNING);
     streamSupervisor.updatePartitionLagFromStream();
     EasyMock.expect(streamSupervisor.getLatestSequencesFromStream()).andReturn(latestOffsets);
-    EasyMock.expect(streamSupervisor.getOffsetsFromMetadataStorage()).andReturn(storedOffsets);
+    EasyMock.expect(streamSupervisor.getOffsetsFromMetadataStorageForCurrentPartitions()).andReturn(startOffsets);
     EasyMock.expect(streamSpec.createBackfillSpec(EasyMock.anyString(), EasyMock.capture(bounded), EasyMock.eq(2)))
             .andAnswer(() -> new TestBackfillSupervisorSpec(
                 EasyMock.getCurrentArgument(0),
@@ -1502,10 +1502,35 @@ public class SupervisorManagerTest extends EasyMockSupport
 
     Assertions.assertEquals(Map.of("0", 10), bounded.getValue().getStartSequenceNumbers());
     Assertions.assertEquals(Map.of("0", 100), bounded.getValue().getEndSequenceNumbers());
-    Assertions.assertEquals(ImmutableMap.of("0", 10L, "1", 20L), storedOffsets);
     Assertions.assertTrue(manager.getSupervisorSpec((String) result.get("backfillSupervisorId")).isPresent());
     verifyAll();
     EasyMock.verify(streamSupervisor, streamSpec, ioConfig, resetMetadata);
+  }
+
+  @Test
+  public void testResetToLatestAndBackfillRejectsMismatchedCurrentPartitions() throws Exception
+  {
+    final SeekableStreamSupervisor streamSupervisor = EasyMock.createMock(SeekableStreamSupervisor.class);
+    final SeekableStreamSupervisorSpec streamSpec = EasyMock.createMock(SeekableStreamSupervisorSpec.class);
+    final SeekableStreamSupervisorIOConfig ioConfig = EasyMock.createMock(SeekableStreamSupervisorIOConfig.class);
+
+    EasyMock.expect(metadataSupervisorManager.getLatest()).andReturn(ImmutableMap.of());
+    EasyMock.expect(streamSupervisor.getIoConfig()).andReturn(ioConfig).anyTimes();
+    EasyMock.expect(ioConfig.isUseEarliestSequenceNumber()).andReturn(false);
+    EasyMock.expect(streamSpec.getContext()).andReturn(ImmutableMap.of("useConcurrentLocks", true));
+    EasyMock.expect(streamSupervisor.getState()).andReturn(SupervisorStateManager.BasicState.RUNNING);
+    streamSupervisor.updatePartitionLagFromStream();
+    EasyMock.expect(streamSupervisor.getLatestSequencesFromStream()).andReturn(ImmutableMap.of("0", 100L));
+    EasyMock.expect(streamSupervisor.getOffsetsFromMetadataStorageForCurrentPartitions())
+            .andReturn(ImmutableMap.of("0", 10L, "1", 20L));
+    replayAll();
+    EasyMock.replay(streamSupervisor, streamSpec, ioConfig);
+    manager.start();
+    getSupervisorsMap().put("id1", Pair.of(streamSupervisor, streamSpec));
+
+    Assertions.assertThrows(DruidException.class, () -> manager.resetToLatestAndBackfill("id1", 2));
+    verifyAll();
+    EasyMock.verify(streamSupervisor, streamSpec, ioConfig);
   }
 
   @Test
