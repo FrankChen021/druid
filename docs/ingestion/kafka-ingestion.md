@@ -503,33 +503,30 @@ Set `partitionIds` in the supervisor's `ioConfig` to consume only specific parti
 }
 ```
 
-This fragment can be used to investigate production data in a separate diagnostic
-supervisor and datasource without ingesting the entire topic again. The diagnostic
-supervisor maintains its own offsets. Selected partitions are not necessarily a
-representative sample, and selecting partitions does not limit their throughput.
+This fragment can be used to investigate production data in a separate diagnostic supervisor and datasource without ingesting the entire topic again.
+The diagnostic supervisor maintains its own offsets.
+Selected partitions are not necessarily a representative sample, and selecting partitions does not limit their throughput.
 Additional ingestion still consumes Kafka and Druid resources.
 
-Druid validates IDs against Kafka `partitionsFor(topic)` metadata during discovery,
-including discovery for sampling and monitoring. Spec parsing does not contact Kafka.
-Missing IDs produce a supervisor error and are retried; a new supervisor does not
-start with only part of its selection. Empty lists, negative IDs, and null elements
-are invalid. Duplicate IDs are normalized and list order does not matter.
+Druid validates IDs against Kafka `partitionsFor(topic)` metadata during discovery, including discovery for sampling and monitoring.
+Spec parsing does not contact Kafka.
+Missing IDs produce a supervisor error and are retried; a new supervisor does not start with only part of its selection.
+Empty lists, negative IDs, and null elements are invalid.
+Duplicate IDs are normalized and list order does not matter.
 
-New topic partitions outside the selection are ignored. Omit `partitionIds` or set
-it to null to restore discovery of all partitions. Task grouping continues to use
-`partitionId % taskCount`: `[0, 3, 6]` with three tasks uses only one group. Druid
-warns when the selection leaves task groups unused.
+New topic partitions outside the selection are ignored.
+Omit `partitionIds` or set it to null to restore discovery of all partitions.
+Task grouping continues to use `partitionId % taskCount`: `[0, 3, 6]` with three tasks uses only one group.
+Druid warns when the selection leaves task groups unused.
 
-Selection changes replace incompatible readers asynchronously. Previously ingested
-rows remain, and already publishing tasks may finish; the update does not provide
-an instantaneous cutoff. Retained and re-added partitions resume from saved offsets
-when available. Otherwise, the existing `useEarliestOffset` behavior applies.
+Selection changes replace incompatible readers asynchronously.
+Previously ingested rows remain, and already publishing tasks may finish; the update does not provide an instantaneous cutoff.
+Retained and re-added partitions resume from saved offsets when available.
+Otherwise, the existing `useEarliestOffset` behavior applies.
 
-Scoped reset requests reject IDs outside the selection. If an excluded partition's
-saved offset has expired and automatic offset reset is disabled, first re-add the
-partition, then issue a scoped reset after the unavailable-offset error, or set an
-explicitly chosen available offset using `resetOffsets`. A full supervisor reset
-still clears all saved offsets, including those of excluded partitions.
+Scoped reset requests reject IDs outside the selection.
+If an excluded partition's saved offset has expired and automatic offset reset is disabled, first re-add the partition, then issue a scoped reset after the unavailable-offset error, or set an explicitly chosen available offset using `resetOffsets`.
+A full supervisor reset still clears all saved offsets, including those of excluded partitions.
 
 ## Deployment notes on Kafka partitions and Druid segments
 
