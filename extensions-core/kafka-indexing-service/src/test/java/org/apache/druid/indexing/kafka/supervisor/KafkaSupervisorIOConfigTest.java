@@ -119,6 +119,7 @@ public class KafkaSupervisorIOConfigTest
         null
     );
     Assertions.assertNull(config.getPartitionIds());
+    Assertions.assertFalse(mapper.valueToTree(config).has("partitionIds"));
     Assertions.assertEquals(config, config.toBuilder().build());
   }
 
@@ -149,7 +150,7 @@ public class KafkaSupervisorIOConfigTest
   @Test
   public void testInvalidPartitionSelection() throws Exception
   {
-    for (final String ids : new String[]{"[]", "[-1]", "[null]"}) {
+    for (final String ids : new String[]{"[]", "[-1]", "[null]", "[0.5]", "[1.0]", "[\"1\"]", "[true]", "[2147483648]"}) {
       Assertions.assertThrows(JsonMappingException.class, () -> mapper.readValue(
           "{\"topic\":\"events\",\"consumerProperties\":{\"bootstrap.servers\":\"localhost:9092\"},"
           + "\"partitionIds\":" + ids + "}",

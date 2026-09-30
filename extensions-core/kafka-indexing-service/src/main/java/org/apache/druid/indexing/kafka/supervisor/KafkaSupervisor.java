@@ -99,7 +99,7 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
 
   private final Pattern pattern;
   private final Map<Integer, Integer> selectedPartitionRanks;
-  private int lastPartitionSelectionTaskCount = -1;
+  private volatile int lastPartitionSelectionTaskCount = -1;
   private volatile Map<KafkaTopicPartition, Long> partitionToTimeLag;
 
   private final KafkaSupervisorSpec spec;
@@ -188,8 +188,13 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
   @Override
   protected boolean isTaskPartitionSetCurrent(int taskGroupId, Set<KafkaTopicPartition> taskPartitions)
   {
-    // Replace adopted readers on either expansion or narrowing so every current group reads exactly its selected partitions.
-    return getIoConfig().getPartitionIds() == null || taskPartitions.equals(partitionGroups.get(taskGroupId));
+    if (getIoConfig().getPartitionIds() == null) {
+      // Check adopted readers when removing a selection, but preserve the normal repartition delay after startup.
+      if (stateManager.isAtLeastOneSuccessfulRun() || !partitionGroups.containsKey(taskGroupId)) {
+        return true;
+      }
+    }
+    return taskPartitions.equals(partitionGroups.get(taskGroupId));
   }
 
   @Override

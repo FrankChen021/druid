@@ -20,7 +20,13 @@
 package org.apache.druid.indexing.kafka.supervisor;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedSet;
 import org.apache.druid.common.config.Configs;
@@ -37,6 +43,7 @@ import org.joda.time.DateTime;
 import org.joda.time.Period;
 
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -143,7 +150,8 @@ public class KafkaSupervisorIOConfig extends SeekableStreamSupervisorIOConfig
       @Nullable @JsonProperty("emitTimeLagMetrics") Boolean emitTimeLagMetrics,
       @Nullable @JsonProperty("serverPriorityToReplicas") Map<Integer, Integer> serverPriorityToReplicas,
       @Nullable @JsonProperty("boundedStreamConfig") BoundedStreamConfig boundedStreamConfig,
-      @Nullable @JsonProperty("partitionIds") Set<Integer> partitionIds
+      @Nullable @JsonProperty("partitionIds")
+      @JsonDeserialize(contentUsing = PartitionIdDeserializer.class) Set<Integer> partitionIds
   )
   {
     super(
@@ -208,9 +216,22 @@ public class KafkaSupervisorIOConfig extends SeekableStreamSupervisorIOConfig
 
   @Nullable
   @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public Set<Integer> getPartitionIds()
   {
     return partitionIds;
+  }
+
+  public static class PartitionIdDeserializer extends JsonDeserializer<Integer>
+  {
+    @Override
+    public Integer deserialize(final JsonParser parser, final DeserializationContext context) throws IOException
+    {
+      if (!parser.hasToken(JsonToken.VALUE_NUMBER_INT)) {
+        return context.reportInputMismatch(Integer.class, "partitionIds must contain JSON integers");
+      }
+      return parser.getIntValue();
+    }
   }
 
   @JsonProperty
