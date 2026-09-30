@@ -28,7 +28,11 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.QueryResourceId;
+import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
+import org.apache.druid.query.groupby.epinephelinae.BlockingPoolMergeMemoryBackingAllocator;
+import org.apache.druid.query.groupby.epinephelinae.MergeMemoryManager;
+import org.apache.druid.segment.TestHelper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -41,6 +45,103 @@ import java.util.concurrent.TimeUnit;
 
 public class GroupByResourcesReservationPoolTest
 {
+  @Test
+  public void testPagedPathReservesPagesInsteadOfWholeQueryBuffer()
+  {
+    final GroupByQueryConfig config = TestHelper.makeJsonMapper().convertValue(
+        ImmutableMap.of(
+            "enablePagedAggregationHashTable", true,
+            "pagedAggregationHashTablePageSize", 16,
+            "bufferGrouperInitialBuckets", 4
+        ),
+        GroupByQueryConfig.class
+    );
+    final DefaultBlockingPool<ByteBuffer> pool = new DefaultBlockingPool<>(() -> ByteBuffer.allocateDirect(128), 1);
+    final MergeMemoryManager manager = new MergeMemoryManager(
+        new BlockingPoolMergeMemoryBackingAllocator(pool, 128),
+        16
+    );
+    final GroupByResourcesReservationPool reservationPool = new GroupByResourcesReservationPool(
+        pool,
+        config,
+        manager,
+        2
+    );
+    final QueryResourceId id = new QueryResourceId("paged");
+    final GroupByQuery query = QUERY.withOverriddenContext(
+        ImmutableMap.of(GroupByQueryConfig.CTX_KEY_USE_PAGED_AGGREGATION_HASH_TABLE, true)
+    );
+
+    reservationPool.reserve(id, query, true, new GroupByStatsProvider.PerQueryStats());
+    final GroupByQueryResources resources = reservationPool.fetch(id);
+    Assertions.assertNotNull(resources);
+    Assertions.assertNotNull(resources.getMergingQueryRunnerMergeMemoryLease());
+    Assertions.assertEquals(0, resources.getNumMergingQueryRunnerMergeBuffers());
+    Assertions.assertEquals(1, pool.getUsedResourcesCount());
+
+    reservationPool.clean(id);
+    Assertions.assertEquals(0, pool.getUsedResourcesCount());
+  }
+
+  @Test
+  public void testPagedPathRejectsMaximumBelowLaneMinimum()
+  {
+    final GroupByQueryConfig config = TestHelper.makeJsonMapper().convertValue(
+        ImmutableMap.of(
+            "enablePagedAggregationHashTable", true,
+            "pagedAggregationHashTablePageSize", 16,
+            "pagedAggregationHashTableMaxSize", 48,
+            "bufferGrouperInitialBuckets", 4
+        ),
+        GroupByQueryConfig.class
+    );
+    final DefaultBlockingPool<ByteBuffer> pool = new DefaultBlockingPool<>(() -> ByteBuffer.allocateDirect(128), 1);
+    final GroupByResourcesReservationPool reservationPool = new GroupByResourcesReservationPool(
+        pool,
+        config,
+        new MergeMemoryManager(new BlockingPoolMergeMemoryBackingAllocator(pool, 128), 16),
+        2
+    );
+    final QueryResourceId id = new QueryResourceId("paged");
+    final GroupByQuery query = QUERY.withOverriddenContext(
+        ImmutableMap.of(GroupByQueryConfig.CTX_KEY_USE_PAGED_AGGREGATION_HASH_TABLE, true)
+    );
+
+    Assertions.assertThrows(
+        ResourceLimitExceededException.class,
+        () -> reservationPool.reserve(id, query, true, new GroupByStatsProvider.PerQueryStats())
+    );
+    Assertions.assertNull(reservationPool.fetch(id));
+    Assertions.assertEquals(0, pool.getUsedResourcesCount());
+  }
+
+  @Test
+  public void testConstructorWithoutManagerRetainsWholeBufferPath()
+  {
+    final GroupByQueryConfig config = TestHelper.makeJsonMapper().convertValue(
+        ImmutableMap.of(
+            "enablePagedAggregationHashTable", true,
+            "pagedAggregationHashTablePageSize", 16,
+            "bufferGrouperInitialBuckets", 4
+        ),
+        GroupByQueryConfig.class
+    );
+    final DefaultBlockingPool<ByteBuffer> pool = new DefaultBlockingPool<>(() -> ByteBuffer.allocateDirect(128), 1);
+    final GroupByResourcesReservationPool reservationPool = new GroupByResourcesReservationPool(pool, config);
+    final QueryResourceId id = new QueryResourceId("legacy");
+    final GroupByQuery query = QUERY.withOverriddenContext(
+        ImmutableMap.of(GroupByQueryConfig.CTX_KEY_USE_PAGED_AGGREGATION_HASH_TABLE, true)
+    );
+
+    reservationPool.reserve(id, query, true, new GroupByStatsProvider.PerQueryStats());
+    final GroupByQueryResources resources = reservationPool.fetch(id);
+    Assertions.assertNotNull(resources);
+    Assertions.assertNull(resources.getMergingQueryRunnerMergeMemoryLease());
+    Assertions.assertEquals(1, resources.getNumMergingQueryRunnerMergeBuffers());
+
+    reservationPool.clean(id);
+    Assertions.assertEquals(0, pool.getUsedResourcesCount());
+  }
 
   /**
    * CONFIG + QUERY require exactly 1 merge buffer to succeed if 'willMergeRunners' is true while allocating the resources

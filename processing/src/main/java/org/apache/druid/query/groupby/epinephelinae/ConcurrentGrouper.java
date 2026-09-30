@@ -98,6 +98,8 @@ public class ConcurrentGrouper<KeyType> implements Grouper<KeyType>
   private final boolean mergeThreadLocal;
   private final long minSpillFileSize;
   private final GroupByStatsProvider.PerQueryStats perQueryStats;
+  private final boolean usePagedAggregationHashTable;
+  private final int pagedAggregationHashTablePageSize;
 
   private volatile boolean initialized = false;
 
@@ -144,7 +146,9 @@ public class ConcurrentGrouper<KeyType> implements Grouper<KeyType>
         groupByQueryConfig.getNumParallelCombineThreads(),
         groupByQueryConfig.isMergeThreadLocal(),
         groupByQueryConfig.getMinSpillFileSize(),
-        perQueryStats
+        perQueryStats,
+        groupByQueryConfig.isPagedAggregationHashTableEnabled(),
+        groupByQueryConfig.getPagedAggregationHashTablePageSize()
     );
   }
 
@@ -172,6 +176,63 @@ public class ConcurrentGrouper<KeyType> implements Grouper<KeyType>
       final boolean mergeThreadLocal,
       final long minSpillFileSize,
       final GroupByStatsProvider.PerQueryStats perQueryStats
+  )
+  {
+    this(
+        bufferSupplier,
+        combineBufferHolder,
+        keySerdeFactory,
+        combineKeySerdeFactory,
+        columnSelectorFactory,
+        aggregatorFactories,
+        bufferGrouperMaxSize,
+        bufferGrouperMaxLoadFactor,
+        bufferGrouperInitialBuckets,
+        temporaryStorage,
+        spillMapper,
+        concurrencyHint,
+        limitSpec,
+        sortHasNonGroupingFields,
+        executor,
+        priority,
+        hasQueryTimeout,
+        queryTimeoutAt,
+        intermediateCombineDegree,
+        numParallelCombineThreads,
+        mergeThreadLocal,
+        minSpillFileSize,
+        perQueryStats,
+        false,
+        0
+    );
+  }
+
+  ConcurrentGrouper(
+      final Supplier<ByteBuffer> bufferSupplier,
+      @Nullable final ReferenceCountingResourceHolder<ByteBuffer> combineBufferHolder,
+      final KeySerdeFactory<KeyType> keySerdeFactory,
+      final KeySerdeFactory<KeyType> combineKeySerdeFactory,
+      final ColumnSelectorFactory columnSelectorFactory,
+      final AggregatorFactory[] aggregatorFactories,
+      final int bufferGrouperMaxSize,
+      final float bufferGrouperMaxLoadFactor,
+      final int bufferGrouperInitialBuckets,
+      final LimitedTemporaryStorage temporaryStorage,
+      final ObjectMapper spillMapper,
+      final int concurrencyHint,
+      final DefaultLimitSpec limitSpec,
+      final boolean sortHasNonGroupingFields,
+      final ListeningExecutorService executor,
+      final int priority,
+      final boolean hasQueryTimeout,
+      final long queryTimeoutAt,
+      final int intermediateCombineDegree,
+      final int numParallelCombineThreads,
+      final boolean mergeThreadLocal,
+      final long minSpillFileSize,
+      final GroupByStatsProvider.PerQueryStats perQueryStats,
+      final boolean usePagedAggregationHashTable,
+      final int pagedAggregationHashTablePageSize
   )
   {
     Preconditions.checkArgument(concurrencyHint > 0, "concurrencyHint > 0");
@@ -223,6 +284,8 @@ public class ConcurrentGrouper<KeyType> implements Grouper<KeyType>
     this.mergeThreadLocal = mergeThreadLocal;
     this.minSpillFileSize = minSpillFileSize;
     this.perQueryStats = perQueryStats;
+    this.usePagedAggregationHashTable = usePagedAggregationHashTable;
+    this.pagedAggregationHashTablePageSize = pagedAggregationHashTablePageSize;
   }
 
   @Override
@@ -251,7 +314,9 @@ public class ConcurrentGrouper<KeyType> implements Grouper<KeyType>
                 sortHasNonGroupingFields,
                 sliceSize,
                 minSpillFileSize,
-                perQueryStats
+                perQueryStats,
+                usePagedAggregationHashTable,
+                pagedAggregationHashTablePageSize
             );
             grouper.init();
             groupers.add(grouper);

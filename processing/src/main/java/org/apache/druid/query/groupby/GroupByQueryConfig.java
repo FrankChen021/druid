@@ -46,6 +46,8 @@ public class GroupByQueryConfig
   public static final String CTX_KEY_ARRAY_RESULT_ROWS = "resultAsArray";
   public static final String CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING = "groupByEnableMultiValueUnnesting";
   public static final String CTX_KEY_BUFFER_GROUPER_MAX_SIZE = "bufferGrouperMaxSize";
+  public static final String CTX_KEY_USE_PAGED_AGGREGATION_HASH_TABLE = "usePagedAggregationHashTable";
+  public static final String CTX_KEY_PAGED_AGGREGATION_HASH_TABLE_MAX_SIZE = "pagedAggregationHashTableMaxSize";
   public static final String CTX_KEY_DEFER_EXPRESSION_DIMENSIONS = "deferExpressionDimensions";
   private static final String CTX_KEY_IS_SINGLE_THREADED = "groupByIsSingleThreaded";
   private static final String CTX_KEY_BUFFER_GROUPER_INITIAL_BUCKETS = "bufferGrouperInitialBuckets";
@@ -59,6 +61,8 @@ public class GroupByQueryConfig
   private static final String CTX_KEY_INTERMEDIATE_COMBINE_DEGREE = "intermediateCombineDegree";
   private static final String CTX_KEY_NUM_PARALLEL_COMBINE_THREADS = "numParallelCombineThreads";
   private static final String CTX_KEY_MERGE_THREAD_LOCAL = "mergeThreadLocal";
+
+  private static final int DEFAULT_PAGED_AGGREGATION_HASH_TABLE_PAGE_SIZE = 1024 * 1024;
 
   // Constants for sizing merging and selector dictionaries. Rationale for these constants:
   //  1) In no case do we want total aggregate dictionary size to exceed 40% of max memory.
@@ -138,6 +142,17 @@ public class GroupByQueryConfig
 
   @JsonProperty
   private boolean mergeThreadLocal = false;
+
+  @JsonProperty
+  private boolean enablePagedAggregationHashTable = false;
+
+  @JsonProperty
+  private HumanReadableBytes pagedAggregationHashTablePageSize = HumanReadableBytes.valueOf(
+      DEFAULT_PAGED_AGGREGATION_HASH_TABLE_PAGE_SIZE
+  );
+
+  @JsonProperty
+  private HumanReadableBytes pagedAggregationHashTableMaxSize = HumanReadableBytes.valueOf(0);
 
   @JsonProperty
   private DeferExpressionDimensions deferExpressionDimensions = DeferExpressionDimensions.FIXED_WIDTH_NON_NUMERIC;
@@ -310,6 +325,21 @@ public class GroupByQueryConfig
     return mergeThreadLocal;
   }
 
+  public boolean isPagedAggregationHashTableEnabled()
+  {
+    return enablePagedAggregationHashTable;
+  }
+
+  public int getPagedAggregationHashTablePageSize()
+  {
+    return pagedAggregationHashTablePageSize.getBytesInInt();
+  }
+
+  public long getPagedAggregationHashTableMaxSize()
+  {
+    return pagedAggregationHashTableMaxSize.getBytes();
+  }
+
   public DeferExpressionDimensions getDeferExpressionDimensions()
   {
     return deferExpressionDimensions;
@@ -397,6 +427,29 @@ public class GroupByQueryConfig
         getNumParallelCombineThreads()
     );
     newConfig.mergeThreadLocal = queryContext.getBoolean(CTX_KEY_MERGE_THREAD_LOCAL, isMergeThreadLocal());
+    newConfig.enablePagedAggregationHashTable = enablePagedAggregationHashTable
+                                                    && !query.isApplyLimitPushDown()
+                                                    && queryContext.getBoolean(
+                                                        CTX_KEY_USE_PAGED_AGGREGATION_HASH_TABLE,
+                                                        false
+                                                    );
+    if (newConfig.enablePagedAggregationHashTable) {
+      // Each PagedAggregationHashTable has one writer lane. This avoids the synchronized hash-routed update path.
+      newConfig.mergeThreadLocal = true;
+    }
+    newConfig.pagedAggregationHashTablePageSize = pagedAggregationHashTablePageSize;
+    final long configuredPagedMaximum = getPagedAggregationHashTableMaxSize();
+    final long requestedPagedMaximum = queryContext.getHumanReadableBytes(
+        CTX_KEY_PAGED_AGGREGATION_HASH_TABLE_MAX_SIZE,
+        configuredPagedMaximum
+    ).getBytes();
+    newConfig.pagedAggregationHashTableMaxSize = HumanReadableBytes.valueOf(
+        configuredPagedMaximum == 0
+        ? requestedPagedMaximum
+        : requestedPagedMaximum == 0
+          ? configuredPagedMaximum
+          : Math.min(configuredPagedMaximum, requestedPagedMaximum)
+    );
     newConfig.deferExpressionDimensions =
         Optional.ofNullable(queryContext.getString(CTX_KEY_DEFER_EXPRESSION_DIMENSIONS))
                 .map(DeferExpressionDimensions::fromString)
@@ -431,6 +484,9 @@ public class GroupByQueryConfig
            ", forcePushDownNestedQuery=" + forcePushDownNestedQuery +
            ", enableMultiValueUnnesting=" + enableMultiValueUnnesting +
            ", mergeThreadLocal=" + mergeThreadLocal +
+           ", enablePagedAggregationHashTable=" + enablePagedAggregationHashTable +
+           ", pagedAggregationHashTableMaxSize=" + pagedAggregationHashTableMaxSize +
+           ", pagedAggregationHashTablePageSize=" + pagedAggregationHashTablePageSize +
            ", deferExpressionDimensions=" + deferExpressionDimensions +
            '}';
   }

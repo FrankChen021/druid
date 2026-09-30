@@ -42,6 +42,7 @@ import org.apache.druid.query.groupby.GroupByStatsProvider;
 import org.apache.druid.query.groupby.orderby.DefaultLimitSpec;
 import org.apache.druid.segment.ColumnSelectorFactory;
 
+import javax.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -59,7 +60,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Grouper based around a single underlying {@link BufferHashGrouper}. Not thread-safe.
+ * Grouper based around a single underlying in-memory grouper. Not thread-safe.
  *
  * When the underlying grouper is full, its contents are sorted and written to temporary files using "spillMapper".
  */
@@ -75,7 +76,7 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
       "Maximum number of spill files reached for this query. Try raising druid.query.groupBy.maxSpillFileCount."
   );
 
-  private final AbstractBufferHashGrouper<KeyType> grouper;
+  private final SpillableGrouper<KeyType> grouper;
   private final KeySerde<KeyType> keySerde;
   private final LimitedTemporaryStorage temporaryStorage;
   private final ObjectMapper spillMapper;
@@ -119,15 +120,160 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
       final GroupByStatsProvider.PerQueryStats perQueryStats
   )
   {
+    this(
+        bufferSupplier,
+        keySerdeFactory,
+        columnSelectorFactory,
+        aggregatorFactories,
+        bufferGrouperMaxSize,
+        bufferGrouperMaxLoadFactor,
+        bufferGrouperInitialBuckets,
+        temporaryStorage,
+        spillMapper,
+        spillingAllowed,
+        limitSpec,
+        sortHasNonGroupingFields,
+        mergeBufferSize,
+        minSpillFileSize,
+        perQueryStats,
+        false,
+        0
+    );
+  }
+
+  public SpillingGrouper(
+      final Supplier<ByteBuffer> bufferSupplier,
+      final KeySerdeFactory<KeyType> keySerdeFactory,
+      final ColumnSelectorFactory columnSelectorFactory,
+      final AggregatorFactory[] aggregatorFactories,
+      final int bufferGrouperMaxSize,
+      final float bufferGrouperMaxLoadFactor,
+      final int bufferGrouperInitialBuckets,
+      final LimitedTemporaryStorage temporaryStorage,
+      final ObjectMapper spillMapper,
+      final boolean spillingAllowed,
+      final DefaultLimitSpec limitSpec,
+      final boolean sortHasNonGroupingFields,
+      final int mergeBufferSize,
+      final long minSpillFileSize,
+      final GroupByStatsProvider.PerQueryStats perQueryStats,
+      final boolean usePagedAggregationHashTable,
+      final int pagedAggregationHashTablePageSize
+  )
+  {
+    this(
+        bufferSupplier,
+        null,
+        keySerdeFactory,
+        columnSelectorFactory,
+        aggregatorFactories,
+        bufferGrouperMaxSize,
+        bufferGrouperMaxLoadFactor,
+        bufferGrouperInitialBuckets,
+        temporaryStorage,
+        spillMapper,
+        spillingAllowed,
+        limitSpec,
+        sortHasNonGroupingFields,
+        mergeBufferSize,
+        minSpillFileSize,
+        perQueryStats,
+        usePagedAggregationHashTable,
+        pagedAggregationHashTablePageSize
+    );
+  }
+
+  public SpillingGrouper(
+      final MergeMemoryLease memoryLease,
+      final KeySerdeFactory<KeyType> keySerdeFactory,
+      final ColumnSelectorFactory columnSelectorFactory,
+      final AggregatorFactory[] aggregatorFactories,
+      final int bufferGrouperMaxSize,
+      final float bufferGrouperMaxLoadFactor,
+      final int bufferGrouperInitialBuckets,
+      final LimitedTemporaryStorage temporaryStorage,
+      final ObjectMapper spillMapper,
+      final boolean spillingAllowed,
+      final boolean sortHasNonGroupingFields,
+      final long minSpillFileSize,
+      final GroupByStatsProvider.PerQueryStats perQueryStats
+  )
+  {
+    this(
+        null,
+        memoryLease,
+        keySerdeFactory,
+        columnSelectorFactory,
+        aggregatorFactories,
+        bufferGrouperMaxSize,
+        bufferGrouperMaxLoadFactor,
+        bufferGrouperInitialBuckets,
+        temporaryStorage,
+        spillMapper,
+        spillingAllowed,
+        null,
+        sortHasNonGroupingFields,
+        memoryLease.pageSize(),
+        minSpillFileSize,
+        perQueryStats,
+        true,
+        memoryLease.pageSize()
+    );
+  }
+
+  private SpillingGrouper(
+      @Nullable final Supplier<ByteBuffer> bufferSupplier,
+      @Nullable final MergeMemoryLease memoryLease,
+      final KeySerdeFactory<KeyType> keySerdeFactory,
+      final ColumnSelectorFactory columnSelectorFactory,
+      final AggregatorFactory[] aggregatorFactories,
+      final int bufferGrouperMaxSize,
+      final float bufferGrouperMaxLoadFactor,
+      final int bufferGrouperInitialBuckets,
+      final LimitedTemporaryStorage temporaryStorage,
+      final ObjectMapper spillMapper,
+      final boolean spillingAllowed,
+      @Nullable final DefaultLimitSpec limitSpec,
+      final boolean sortHasNonGroupingFields,
+      final int mergeBufferSize,
+      final long minSpillFileSize,
+      final GroupByStatsProvider.PerQueryStats perQueryStats,
+      final boolean usePagedAggregationHashTable,
+      final int pagedAggregationHashTablePageSize
+  )
+  {
     this.keySerde = keySerdeFactory.factorize();
     this.keyObjComparator = keySerdeFactory.objectComparator(false);
     this.defaultOrderKeyObjComparator = keySerdeFactory.objectComparator(true);
-    if (limitSpec != null) {
+    if (usePagedAggregationHashTable && limitSpec == null) {
+      final AggregatorAdapters adapters = AggregatorAdapters.factorizeBuffered(
+          columnSelectorFactory,
+          Arrays.asList(aggregatorFactories)
+      );
+      this.grouper = memoryLease == null
+                     ? new PagedAggregationHashTable<>(
+                         Preconditions.checkNotNull(bufferSupplier),
+                         keySerde,
+                         adapters,
+                         bufferGrouperMaxSize,
+                         bufferGrouperMaxLoadFactor,
+                         bufferGrouperInitialBuckets,
+                         pagedAggregationHashTablePageSize
+                     )
+                     : new AdaptivePagedAggregationHashTable<>(
+                         memoryLease,
+                         keySerde,
+                         adapters,
+                         bufferGrouperMaxSize,
+                         bufferGrouperMaxLoadFactor,
+                         bufferGrouperInitialBuckets
+                     );
+    } else if (limitSpec != null) {
       // Sanity check; must not have "offset" at this point.
       Preconditions.checkState(!limitSpec.isOffset(), "Cannot push down offsets");
 
       LimitedBufferHashGrouper<KeyType> limitGrouper = new LimitedBufferHashGrouper<>(
-          bufferSupplier,
+          Preconditions.checkNotNull(bufferSupplier),
           keySerde,
           AggregatorAdapters.factorizeBuffered(columnSelectorFactory, Arrays.asList(aggregatorFactories)),
           bufferGrouperMaxSize,
@@ -149,7 +295,7 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
         // If sortHasNonGroupingFields is false, then the OrderBy fields are all in the grouping key, so we
         // can use that ordering.
         this.grouper = new BufferHashGrouper<>(
-            bufferSupplier,
+            Preconditions.checkNotNull(bufferSupplier),
             keySerde,
             AggregatorAdapters.factorizeBuffered(columnSelectorFactory, Arrays.asList(aggregatorFactories)),
             bufferGrouperMaxSize,
@@ -162,7 +308,7 @@ public class SpillingGrouper<KeyType> implements Grouper<KeyType>
       }
     } else {
       this.grouper = new BufferHashGrouper<>(
-          bufferSupplier,
+          Preconditions.checkNotNull(bufferSupplier),
           keySerde,
           AggregatorAdapters.factorizeBuffered(columnSelectorFactory, Arrays.asList(aggregatorFactories)),
           bufferGrouperMaxSize,

@@ -203,12 +203,21 @@ public class GroupByMergingQueryRunner implements QueryRunner<ResultRow>
               // If parallelCombine is enabled, we need two merge buffers for parallel aggregating and parallel combining
               final int numMergeBuffers = querySpecificConfig.getNumParallelCombineThreads() > 1 ? 2 : 1;
 
-              final List<ReferenceCountingResourceHolder<ByteBuffer>> mergeBufferHolders =
-                  getMergeBuffersHolder(query, numMergeBuffers);
+              final GroupByQueryResources queryResources = getQueryResources(query);
+              final MergeMemoryLease mergeMemoryLease = queryResources.getMergingQueryRunnerMergeMemoryLease();
+              final List<ReferenceCountingResourceHolder<ByteBuffer>> mergeBufferHolders = mergeMemoryLease == null
+                                                                                           ? getMergeBuffersHolder(
+                                                                                               queryResources,
+                                                                                               numMergeBuffers
+                                                                                           )
+                                                                                           : new ArrayList<>();
               resources.registerAll(mergeBufferHolders);
 
-              final ReferenceCountingResourceHolder<ByteBuffer> mergeBufferHolder = mergeBufferHolders.get(0);
-              final ReferenceCountingResourceHolder<ByteBuffer> combineBufferHolder = numMergeBuffers == 2 ?
+              final ReferenceCountingResourceHolder<ByteBuffer> mergeBufferHolder = mergeMemoryLease == null
+                                                                                     ? mergeBufferHolders.get(0)
+                                                                                     : null;
+              final ReferenceCountingResourceHolder<ByteBuffer> combineBufferHolder = numMergeBuffers == 2 &&
+                                                                                       mergeMemoryLease == null ?
                                                                                       mergeBufferHolders.get(1) :
                                                                                       null;
 
@@ -218,9 +227,9 @@ public class GroupByMergingQueryRunner implements QueryRunner<ResultRow>
                       null,
                       config,
                       processingConfig,
-                      Suppliers.ofInstance(mergeBufferHolder.get()),
+                      mergeBufferHolder == null ? null : Suppliers.ofInstance(mergeBufferHolder.get()),
                       combineBufferHolder,
-                      concurrencyHint,
+                      mergeMemoryLease != null && isSingleThreaded ? 1 : concurrencyHint,
                       temporaryStorage,
                       spillMapper,
                       queryProcessingPool, // Passed as executor service
@@ -228,7 +237,8 @@ public class GroupByMergingQueryRunner implements QueryRunner<ResultRow>
                       hasTimeout,
                       timeoutAt,
                       mergeBufferSize,
-                      perQueryStats
+                      perQueryStats,
+                      mergeMemoryLease
                   );
               final Grouper<RowBasedKey> grouper = pair.lhs;
               final Accumulator<AggregateResult, ResultRow> accumulator = pair.rhs;
@@ -258,7 +268,9 @@ public class GroupByMergingQueryRunner implements QueryRunner<ResultRow>
                                   try (
                                       // These variables are used to close releasers automatically.
                                       @SuppressWarnings("unused")
-                                      Closeable bufferReleaser = mergeBufferHolder.increment();
+                                      Closeable bufferReleaser = mergeBufferHolder == null
+                                                                 ? () -> { }
+                                                                 : mergeBufferHolder.increment();
                                       @SuppressWarnings("unused")
                                       Closeable grouperReleaser = grouperHolder.increment()
                                   ) {
@@ -334,10 +346,10 @@ public class GroupByMergingQueryRunner implements QueryRunner<ResultRow>
     );
   }
 
-  private List<ReferenceCountingResourceHolder<ByteBuffer>> getMergeBuffersHolder(GroupByQuery query, int numBuffers)
+  private GroupByQueryResources getQueryResources(final GroupByQuery query)
   {
-    QueryResourceId queryResourceId = query.context().getQueryResourceId();
-    GroupByQueryResources resource = groupByResourcesReservationPool.fetch(queryResourceId);
+    final QueryResourceId queryResourceId = query.context().getQueryResourceId();
+    final GroupByQueryResources resource = groupByResourcesReservationPool.fetch(queryResourceId);
     if (resource == null) {
       throw DruidException.defensive(
           "Expected merge buffers to be reserved in the reservation pool for the query resource id [%s] however while executing "
@@ -345,6 +357,14 @@ public class GroupByMergingQueryRunner implements QueryRunner<ResultRow>
           queryResourceId
       );
     }
+    return resource;
+  }
+
+  private List<ReferenceCountingResourceHolder<ByteBuffer>> getMergeBuffersHolder(
+      final GroupByQueryResources resource,
+      final int numBuffers
+  )
+  {
     if (numBuffers > resource.getNumMergingQueryRunnerMergeBuffers()) {
       // Defensive exception, because we should have acquired the correct number of merge buffers beforehand, or
       // thrown an RLE in the caller of the runner

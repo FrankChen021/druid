@@ -49,6 +49,8 @@ import org.apache.druid.query.PrioritizedExecutorService;
 import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.groupby.GroupByQueryConfig;
 import org.apache.druid.query.groupby.GroupByResourcesReservationPool;
+import org.apache.druid.query.groupby.epinephelinae.BlockingPoolMergeMemoryBackingAllocator;
+import org.apache.druid.query.groupby.epinephelinae.MergeMemoryManager;
 import org.apache.druid.server.metrics.MetricsModule;
 import org.apache.druid.utils.RuntimeInfo;
 
@@ -111,12 +113,34 @@ public class DruidProcessingModule implements Module
   @Provides
   @LazySingleton
   @Merging
-  public GroupByResourcesReservationPool getGroupByResourcesReservationPool(
+  public MergeMemoryManager getMergeMemoryManager(
       @Merging BlockingPool<ByteBuffer> mergeBufferPool,
-      GroupByQueryConfig groupByQueryConfig
+      GroupByQueryConfig groupByQueryConfig,
+      DruidProcessingConfig processingConfig
   )
   {
-    return new GroupByResourcesReservationPool(mergeBufferPool, groupByQueryConfig);
+    return new MergeMemoryManager(
+        new BlockingPoolMergeMemoryBackingAllocator(mergeBufferPool, processingConfig.intermediateComputeSizeBytes()),
+        groupByQueryConfig.getPagedAggregationHashTablePageSize()
+    );
+  }
+
+  @Provides
+  @LazySingleton
+  @Merging
+  public GroupByResourcesReservationPool getGroupByResourcesReservationPool(
+      @Merging BlockingPool<ByteBuffer> mergeBufferPool,
+      GroupByQueryConfig groupByQueryConfig,
+      @Merging MergeMemoryManager mergeMemoryManager,
+      DruidProcessingConfig processingConfig
+  )
+  {
+    return new GroupByResourcesReservationPool(
+        mergeBufferPool,
+        groupByQueryConfig,
+        mergeMemoryManager,
+        processingConfig.getNumThreads()
+    );
   }
 
   public static void registerConfigsAndMonitor(Binder binder)
