@@ -340,6 +340,32 @@ public class SystemTableQueryClientTest
     );
   }
 
+  @Test
+  public void testTransportColumnsAreRemovedBeforeQueryExecution()
+  {
+    final SystemTableDescriptor descriptor = new TransportSystemTableDescriptor();
+    final AtomicReference<ScanQuery> nodeQuery = new AtomicReference<>();
+    final SystemTableQueryClient client = makeClient(
+        descriptor,
+        List.of(testNode()),
+        (queryPlus, responseContext) -> {
+          nodeQuery.set((ScanQuery) queryPlus.getQuery());
+          return Sequences.simple(List.of(scanResult(new Object[]{"public", "internal"})));
+        }
+    );
+    final ScanQuery query = query(descriptor, Collections.emptyMap());
+
+    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT, false)
+                                                .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
+                                                .toList();
+
+    Assertions.assertEquals(descriptor.getTransportRowSignature().getColumnNames(), nodeQuery.get().getColumns());
+    Assertions.assertArrayEquals(
+        new Object[]{"public"},
+        (Object[]) ((List<?>) results.get(0).getEvents()).get(0)
+    );
+  }
+
   /** Delayed node responses verify concurrent fanout through the real {@link DirectDruidClient} transport path. */
   @Test
   public void testDirectClientsStartRequestsBeforeWaitingForDelayedResponses() throws Exception
@@ -1420,6 +1446,26 @@ public class SystemTableQueryClientTest
     public SystemTableRoutingMode getRoutingMode()
     {
       return SystemTableRoutingMode.LEADER_ONLY;
+    }
+  }
+
+  private static class TransportSystemTableDescriptor extends TestSystemTableDescriptor
+  {
+    private static final RowSignature TRANSPORT_ROW_SIGNATURE = RowSignature.builder()
+                                                                            .add("value", null)
+                                                                            .add("internal", ColumnType.STRING)
+                                                                            .build();
+
+    @Override
+    public RowSignature getTransportRowSignature()
+    {
+      return TRANSPORT_ROW_SIGNATURE;
+    }
+
+    @Override
+    public Object[] toPublicRow(final Object[] transportRow)
+    {
+      return new Object[]{transportRow[0]};
     }
   }
 }
