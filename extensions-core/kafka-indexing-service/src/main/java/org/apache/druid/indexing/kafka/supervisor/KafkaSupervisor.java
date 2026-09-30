@@ -154,15 +154,15 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
         spec.getIoConfig().getConfigOverrides(),
         spec.getIoConfig().isMultiTopic(),
         null,
-        spec.getSpec().getIOConfig().getPartitionIds()
+        spec.getIoConfig().getPartitionIds()
     );
   }
 
   @Override
   protected int getTaskGroupIdForPartition(KafkaTopicPartition partitionId)
   {
-    final int taskCount = spec.getSpec().getIOConfig().getTaskCount();
-    final Set<Integer> selected = spec.getSpec().getIOConfig().getPartitionIds();
+    final int taskCount = spec.getIoConfig().getTaskCount();
+    final Set<Integer> selected = spec.getIoConfig().getPartitionIds();
     if (selected != null && lastPartitionSelectionTaskCount != taskCount) {
       lastPartitionSelectionTaskCount = taskCount;
       final int occupiedGroups = Math.min(selected.size(), taskCount);
