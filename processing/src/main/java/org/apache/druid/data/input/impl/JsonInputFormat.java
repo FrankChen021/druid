@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonParser.Feature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.data.input.ColumnsFilter;
 import org.apache.druid.data.input.InputEntity;
 import org.apache.druid.data.input.InputEntityReader;
 import org.apache.druid.data.input.InputFormat;
@@ -166,6 +167,11 @@ public class JsonInputFormat extends NestedInputFormat
       return new JsonLineReader(inputRowSchema, source, getFlattenSpec(), objectMapper, isKeepNullColumns());
     } else if (this.useJsonNodeReader) {
       return new JsonNodeReader(inputRowSchema, source, getFlattenSpec(), objectMapper, isKeepNullColumns());
+    } else if (inputRowSchema.getDimensionsSpec().hasFixedDimensions()
+               && inputRowSchema.getColumnsFilter() instanceof ColumnsFilter.InclusionBased
+               && (getFlattenSpec() == null
+                   || (getFlattenSpec().isUseFieldDiscovery() && getFlattenSpec().getFields().isEmpty()))) {
+      return new SchemaDirectedJsonReader(inputRowSchema, source, objectMapper, isKeepNullColumns());
     } else {
       return new JsonReader(inputRowSchema, source, getFlattenSpec(), objectMapper, isKeepNullColumns());
     }
