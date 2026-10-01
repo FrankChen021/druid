@@ -31,7 +31,6 @@ import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.ReadTimeoutException;
-import org.apache.druid.common.guava.FutureUtils;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.http.client.response.ClientResponse;
@@ -81,7 +80,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -339,14 +337,14 @@ public class DartSystemTableInputSliceReaderTest
   {
     final AcquireSegmentAction action = physicalInputSlice.getLoadableSegments().get(0).acquire(AcquireMode.FULL);
     try (action) {
-      final AcquireSegmentResult acquireResult = FutureUtils.getUnchecked(action.getSegmentFuture(), false);
-      final Optional<Segment> segmentReference = acquireResult.getReferenceProvider().acquireReference();
-      Assertions.assertTrue(segmentReference.isPresent());
-      try (Segment segment = segmentReference.orElseThrow();
-           CursorHolder holder = segment.as(CursorFactory.class).makeCursorHolder(CursorBuildSpec.FULL_SCAN)) {
-        final Cursor cursor = holder.asCursor();
-        while (cursor != null && !cursor.isDone()) {
-          cursor.advance();
+      action.await();
+      try (AcquireSegmentResult acquireResult = action.release()) {
+        final Segment segment = acquireResult.getSegment().orElseThrow();
+        try (CursorHolder holder = segment.as(CursorFactory.class).makeCursorHolder(CursorBuildSpec.FULL_SCAN)) {
+          final Cursor cursor = holder.asCursor();
+          while (cursor != null && !cursor.isDone()) {
+            cursor.advance();
+          }
         }
       }
     }

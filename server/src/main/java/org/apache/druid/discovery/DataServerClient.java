@@ -29,6 +29,7 @@ import io.netty.handler.codec.http.HttpMethod;
 import org.apache.druid.client.JsonParserIterator;
 import org.apache.druid.common.guava.FutureUtils;
 import org.apache.druid.error.DruidException;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
@@ -173,7 +174,7 @@ public class DataServerClient
       throw DruidException.defensive("Null queryId");
     }
 
-    final String cancelPath = BASE_PATH + queryId;
+    final String cancelPath = BASE_PATH + StringUtils.urlEncode(queryId);
 
     final RequestBuilder requestBuilder = new RequestBuilder(HttpMethod.DELETE, cancelPath)
         .timeout(CANCELLATION_TIMEOUT);
