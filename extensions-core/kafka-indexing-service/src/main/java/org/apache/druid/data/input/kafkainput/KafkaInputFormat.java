@@ -38,6 +38,7 @@ import org.apache.druid.java.util.common.DateTimes;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.util.Objects;
+import java.util.function.Function;
 
 public class KafkaInputFormat implements InputFormat
 {
@@ -103,33 +104,50 @@ public class KafkaInputFormat implements InputFormat
       settableByteEntitySource = new SettableByteEntity<>();
       settableByteEntitySource.setEntity((KafkaRecordEntity) source);
     }
-    InputRowSchema newInputRowSchema = new InputRowSchema(
+    final InputRowSchema newInputRowSchema = new InputRowSchema(
         dummyTimestampSpec,
         inputRowSchema.getDimensionsSpec(),
         inputRowSchema.getColumnsFilter(),
         inputRowSchema.getMetricNames()
     );
+    // Normalize once: normalizing a JSON format constructs an ObjectMapper and its deserialization caches.
+    final InputFormat keyInputFormat = keyFormat == null ? null : JsonInputFormat.withLineSplittable(keyFormat, false);
+    // For keys, discover all fields; in KafkaInputReader we will pick the first one.
+    final InputRowSchema keyInputRowSchema = keyInputFormat == null ? null : new InputRowSchema(
+        dummyTimestampSpec,
+        DimensionsSpec.builder().useSchemaDiscovery(true).build(),
+        ColumnsFilter.all()
+    );
+    final Function<KafkaRecordEntity, InputEntityReader> keyReaderSupplier;
+    if (keyInputFormat == null) {
+      keyReaderSupplier = null;
+    } else if (keyInputFormat.getClass() == JsonInputFormat.class) {
+      // JSON readers can be reused across records, just like the streaming value reader. Other formats may
+      // retain per-entity state (for example CSV headers), so keep creating their readers separately.
+      final SettableByteEntity<ByteEntity> keySource = new SettableByteEntity<>();
+      final InputEntityReader keyReader = keyInputFormat.createReader(keyInputRowSchema, keySource, temporaryDirectory);
+      keyReaderSupplier = record -> {
+        final byte[] key = record.getRecord().key();
+        if (key == null) {
+          return null;
+        }
+        keySource.setEntity(new ByteEntity(key));
+        return keyReader;
+      };
+    } else {
+      keyReaderSupplier = record -> record.getRecord().key() == null ? null : keyInputFormat.createReader(
+          keyInputRowSchema,
+          new ByteEntity(record.getRecord().key()),
+          temporaryDirectory
+      );
+    }
     return new KafkaInputReader(
         inputRowSchema,
         settableByteEntitySource,
         (headerFormat == null) ?
             null :
             record -> headerFormat.createReader(record.getRecord().headers(), headerColumnPrefix),
-        (keyFormat == null) ?
-            null :
-            record ->
-                (record.getRecord().key() == null) ?
-                    null :
-                    JsonInputFormat.withLineSplittable(keyFormat, false).createReader(
-                        // for keys, discover all fields; in KafkaInputReader we will pick the first one.
-                        new InputRowSchema(
-                            dummyTimestampSpec,
-                            DimensionsSpec.builder().useSchemaDiscovery(true).build(),
-                            ColumnsFilter.all()
-                        ),
-                        new ByteEntity(record.getRecord().key()),
-                        temporaryDirectory
-                    ),
+        keyReaderSupplier,
         JsonInputFormat.withLineSplittable(valueFormat, false).createReader(
             newInputRowSchema,
             source,

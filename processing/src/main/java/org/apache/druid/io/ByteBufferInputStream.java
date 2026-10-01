@@ -38,6 +38,15 @@ public final class ByteBufferInputStream extends InputStream
     this.buffer = buffer;
   }
 
+  /**
+   * Returns a view of the remaining bytes without advancing this stream. The view has an independent position
+   * and limit. Callers must not modify its contents or retain it beyond the lifetime of the input bytes.
+   */
+  public ByteBuffer getBuffer()
+  {
+    return buffer.duplicate();
+  }
+
   @Override
   public int read()
   {

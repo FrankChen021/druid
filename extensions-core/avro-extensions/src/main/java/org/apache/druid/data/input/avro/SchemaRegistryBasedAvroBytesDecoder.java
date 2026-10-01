@@ -32,6 +32,7 @@ import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientExcept
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.druid.guice.annotations.Json;
@@ -54,6 +55,7 @@ public class SchemaRegistryBasedAvroBytesDecoder implements AvroBytesDecoder
   private final Map<String, Object> config;
   private final Map<String, Object> headers;
   private final ObjectMapper jsonMapper;
+  private final ThreadLocal<DecoderState> decoderState = ThreadLocal.withInitial(DecoderState::new);
   public static final String DRUID_DYNAMIC_CONFIG_PROVIDER_KEY = "druid.dynamic.config.provider";
 
   @JsonCreator
@@ -171,12 +173,35 @@ public class SchemaRegistryBasedAvroBytesDecoder implements AvroBytesDecoder
     if (schema == null) {
       throw new ParseException(null, "No Avro schema id[%s] in registry", id);
     }
-    DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
     try {
-      return reader.read(null, DecoderFactory.get().binaryDecoder(bytes.array(), offset, length, null));
+      return decoderState.get().read(schema, bytes.array(), offset, length);
     }
     catch (Exception e) {
       throw new ParseException(null, e, "Failed to decode Avro message for schema id[%s]", id);
+    }
+  }
+
+  /** Bounded per-thread state: retain only the most recently used schema, never a decoded record or input bytes. */
+  private static class DecoderState
+  {
+    private static final byte[] EMPTY_BYTES = new byte[0];
+    private Schema schema;
+    private DatumReader<GenericRecord> reader;
+    private BinaryDecoder decoder;
+
+    GenericRecord read(final Schema newSchema, final byte[] bytes, final int offset, final int length) throws IOException
+    {
+      if (reader == null || schema != newSchema) {
+        schema = newSchema;
+        reader = new GenericDatumReader<>(newSchema);
+      }
+      decoder = DecoderFactory.get().binaryDecoder(bytes, offset, length, decoder);
+      try {
+        return reader.read(null, decoder);
+      }
+      finally {
+        decoder = DecoderFactory.get().binaryDecoder(EMPTY_BYTES, decoder);
+      }
     }
   }
 

@@ -120,7 +120,7 @@ public class JsonReader extends IntermediateRowParsingReader<InputEntity>
   protected List<InputRow> parseInputRows(InputEntity entity) throws IOException, ParseException
   {
     final List<InputRow> inputRows = new ArrayList<>();
-    try (JsonParser parser = jsonFactory.createParser(entity.open())) {
+    try (final JsonParser parser = JsonReaderUtils.createParser(jsonFactory, entity)) {
       final MappingIterator<JsonNode> delegate = mapper.readValues(parser, JsonNode.class);
       while (delegate.hasNext()) {
         final JsonNode row = delegate.next();
@@ -154,7 +154,7 @@ public class JsonReader extends IntermediateRowParsingReader<InputEntity>
   @Override
   protected List<Map<String, Object>> toMap(InputEntity entity) throws IOException
   {
-    try (JsonParser parser = jsonFactory.createParser(entity.open())) {
+    try (final JsonParser parser = JsonReaderUtils.createParser(jsonFactory, entity)) {
       final MappingIterator<Map> delegate = mapper.readValues(parser, Map.class);
       return FluentIterable.from(() -> delegate)
                            .transform(map -> (Map<String, Object>) map)

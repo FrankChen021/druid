@@ -29,6 +29,7 @@ import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.InputRowSchema;
 import org.apache.druid.data.input.IntermediateRowParsingReader;
 import org.apache.druid.data.input.impl.MapInputRowParser;
+import org.apache.druid.io.ByteBufferInputStream;
 import org.apache.druid.java.util.common.CloseableIterators;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.java.util.common.parsers.JSONPathSpec;
@@ -37,6 +38,7 @@ import org.apache.druid.java.util.common.parsers.ObjectFlatteners;
 import org.apache.druid.java.util.common.parsers.ParseException;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
@@ -48,6 +50,7 @@ public class ProtobufReader extends IntermediateRowParsingReader<DynamicMessage>
   private final InputEntity source;
   private final ObjectFlattener<Map<String, Object>> recordFlattener;
   private final ProtobufBytesDecoder protobufBytesDecoder;
+  private final boolean useSharedBuffer;
 
   ProtobufReader(
       InputRowSchema inputRowSchema,
@@ -63,14 +66,26 @@ public class ProtobufReader extends IntermediateRowParsingReader<DynamicMessage>
     );
     this.source = source;
     this.protobufBytesDecoder = protobufBytesDecoder;
+    // Keep a private copy for custom decoders, which may modify the input bytes.
+    this.useSharedBuffer = protobufBytesDecoder.getClass() == InlineDescriptorProtobufBytesDecoder.class
+                           || protobufBytesDecoder.getClass() == FileBasedProtobufBytesDecoder.class
+                           || protobufBytesDecoder.getClass() == SchemaRegistryBasedProtobufBytesDecoder.class;
   }
 
   @Override
   protected CloseableIterator<DynamicMessage> intermediateRowIterator() throws IOException
   {
-    return CloseableIterators.withEmptyBaggage(
-        Iterators.singletonIterator(protobufBytesDecoder.parse(ByteBuffer.wrap(IOUtils.toByteArray(source.open()))))
-    );
+    final DynamicMessage record;
+    try (final InputStream stream = source.open()) {
+      final ByteBuffer buffer = useSharedBuffer && stream instanceof ByteBufferInputStream
+                                ? ((ByteBufferInputStream) stream).getBuffer()
+                                : null;
+      final ByteBuffer bytes = buffer != null && buffer.hasArray()
+                               ? buffer.slice()
+                               : ByteBuffer.wrap(IOUtils.toByteArray(stream));
+      record = protobufBytesDecoder.parse(bytes);
+    }
+    return CloseableIterators.withEmptyBaggage(Iterators.singletonIterator(record));
   }
 
   @Override
