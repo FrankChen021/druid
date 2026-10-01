@@ -519,7 +519,8 @@ Omit `partitionIds` or set it to null to restore discovery of all partitions.
 Selected partitions are assigned to task groups by their position in the sorted selection: `[0, 3, 6]` with three tasks uses three groups.
 If there are fewer selected partitions than tasks, Druid warns that some task groups are unused.
 
-Selection changes replace incompatible readers asynchronously.
+Submitting a supervisor spec that changes or removes `partitionIds` requests managed readers to finish and publish, then restarts the supervisor with the updated selection.
+Supervisors with an explicit selection also replace incompatible adopted readers on restart.
 Previously ingested rows remain, and already publishing tasks may finish; the update does not provide an instantaneous cutoff.
 Retained and re-added partitions resume from saved offsets when available.
 Otherwise, the existing `useEarliestOffset` behavior applies.

@@ -188,13 +188,9 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
   @Override
   protected boolean isTaskPartitionSetCurrent(int taskGroupId, Set<KafkaTopicPartition> taskPartitions)
   {
-    if (getIoConfig().getPartitionIds() == null) {
-      // Check adopted readers when removing a selection, but preserve the normal repartition delay after startup.
-      if (stateManager.isAtLeastOneSuccessfulRun() || !partitionGroups.containsKey(taskGroupId)) {
-        return true;
-      }
-    }
-    return taskPartitions.equals(partitionGroups.get(taskGroupId));
+    // Removing a selection is handled by the spec-update restart, which requests existing readers to publish.
+    // All-partition supervisors must still adopt readers that predate ordinary topic partition growth.
+    return getIoConfig().getPartitionIds() == null || taskPartitions.equals(partitionGroups.get(taskGroupId));
   }
 
   @Override
