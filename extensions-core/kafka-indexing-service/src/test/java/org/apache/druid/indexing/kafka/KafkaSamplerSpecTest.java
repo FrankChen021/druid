@@ -143,6 +143,7 @@ public class KafkaSamplerSpecTest extends InitializedNullHandlingTest
         new InputSourceSampler(OBJECT_MAPPER),
         OBJECT_MAPPER
     ).sample();
+
     Assertions.assertEquals(1, response.getNumRowsIndexed());
     Assertions.assertEquals("selected", response.getData().get(0).getParsed().get("dim1"));
   }

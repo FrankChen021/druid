@@ -73,23 +73,27 @@ public class KafkaSupervisorIOConfigTest
         + "\"partitionIds\":[5,0,2,0]}",
         KafkaSupervisorIOConfig.class
     );
+
     Assertions.assertEquals(Set.of(0, 2, 5), config.getPartitionIds());
     Assertions.assertEquals("[0,2,5]", mapper.writeValueAsString(config.getPartitionIds()));
     Assertions.assertEquals(config, config.toBuilder().build());
     Assertions.assertEquals(config, mapper.readValue(mapper.writeValueAsString(config), KafkaSupervisorIOConfig.class));
     Assertions.assertThrows(UnsupportedOperationException.class, () -> config.getPartitionIds().add(7));
     final KafkaSupervisorIOConfig changed = config.toBuilder().withPartitionIds(Set.of(0, 2)).build();
+
     Assertions.assertNotEquals(config, changed);
     final KafkaSupervisorSpec spec = new KafkaSupervisorSpecBuilder()
         .withDataSchema(schema -> schema.withTimestamp(new TimestampSpec("timestamp", "auto", null)))
         .withIoConfig(io -> io.copyFrom(config))
         .build("diagnostic", "events");
+
     Assertions.assertEquals(
         SupervisorSpecUpdateAction.RESTART_SUPERVISOR_AND_TASKS,
         spec.getActionOnUpdateTo(spec.toBuilder().ioConfig(changed).build())
     );
     final KafkaSupervisorSpec allPartitions = spec.toBuilder()
         .ioConfig(config.toBuilder().withPartitionIds(null).build()).build();
+
     Assertions.assertNull(allPartitions.getSpec().getIOConfig().getPartitionIds());
     Assertions.assertEquals(
         SupervisorSpecUpdateAction.RESTART_SUPERVISOR_AND_TASKS,
@@ -125,6 +129,7 @@ public class KafkaSupervisorIOConfigTest
         null,
         null
     );
+
     Assertions.assertNull(config.getPartitionIds());
     Assertions.assertFalse(mapper.valueToTree(config).has("partitionIds"));
     Assertions.assertEquals(config, config.toBuilder().build());
@@ -143,10 +148,12 @@ public class KafkaSupervisorIOConfigTest
                              .withPartitionIds(Set.of(0, 2)).withAutoScalerConfig(autoscaler))
         .build("diagnostic", "events");
     final KafkaSupervisorSpec scaled = spec.toBuilder().taskCount(2).build();
+
     Assertions.assertEquals(Set.of(0, 2), scaled.getSpec().getIOConfig().getPartitionIds());
     Assertions.assertEquals(SupervisorSpecUpdateAction.NONE, spec.getActionOnUpdateTo(scaled));
     final KafkaSupervisorSpec narrowed = scaled.toBuilder()
         .ioConfig(scaled.getSpec().getIOConfig().toBuilder().withPartitionIds(Set.of(0)).build()).build();
+
     Assertions.assertEquals(
         SupervisorSpecUpdateAction.RESTART_SUPERVISOR_AND_TASKS,
         spec.getActionOnUpdateTo(narrowed)
@@ -168,6 +175,7 @@ public class KafkaSupervisorIOConfigTest
         .withTopic("events")
         .withConsumerProperties(Map.of("bootstrap.servers", "localhost:9092"))
         .withPartitionIds(Set.of(0));
+
     Assertions.assertThrows(DruidException.class, () -> builder.withTopic(null).withTopicPattern("events.*").build());
     Assertions.assertThrows(DruidException.class, () -> builder.withTopic("events").withTopicPattern(null)
         .withBoundedStreamConfig(new BoundedStreamConfig(Map.of(0, 0L), Map.of(0, 10L))).build());

@@ -553,6 +553,7 @@ public class KafkaSupervisorTest extends EasyMockSupport
     );
     supervisor.runInternal();
     final Set<KafkaTopicPartition> selected = singlePartitionMap(topic, 0, 0L, 2, 0L).keySet();
+
     Assertions.assertEquals(
         Set.of(Set.of(new KafkaTopicPartition(false, topic, 0)), Set.of(new KafkaTopicPartition(false, topic, 2))),
         captured.getValues().stream()
@@ -563,8 +564,10 @@ public class KafkaSupervisorTest extends EasyMockSupport
         task.getIOConfig().getStartSequenceNumbers().getPartitionSequenceNumberMap().keySet(),
         task.getIOConfig().getEndSequenceNumbers().getPartitionSequenceNumberMap().keySet()
     ));
+
     Assertions.assertEquals(2, supervisor.getPartitionCount());
     supervisor.updatePartitionLagFromStream();
+
     Assertions.assertEquals(selected, supervisor.getPartitionRecordLag().keySet());
     verifyAll();
   }
@@ -609,6 +612,7 @@ public class KafkaSupervisorTest extends EasyMockSupport
     supervisor.start();
     supervisor.runInternal();
     supervisor.runInternal();
+
     Assertions.assertTrue(supervisor.getPartitionGroups().isEmpty());
     Assertions.assertFalse(supervisor.getStateManager().isAtLeastOneSuccessfulRun());
     Assertions.assertTrue(supervisor.getStateManager().getExceptionEvents().toString().contains("99"));
@@ -632,6 +636,7 @@ public class KafkaSupervisorTest extends EasyMockSupport
     replayAll();
     supervisor.start();
     supervisor.runInternal();
+
     Assertions.assertTrue(supervisor.getStateManager().getExceptionEvents().toString().contains("no longer available"));
     // Strict mocks ensure no task was submitted and no metadata reset occurred.
     verifyAll();
@@ -4972,6 +4977,7 @@ public class KafkaSupervisorTest extends EasyMockSupport
     supervisor.start();
     supervisor.runInternal();
     verifyAll();
+
     Assertions.assertTrue(supervisor.getStateManager().isAtLeastOneSuccessfulRun());
     Assertions.assertEquals(3, supervisor.getPartitionGroups().get(0).size());
     Assertions.assertEquals(1, supervisor.getActiveTaskGroupsCount());
@@ -4985,9 +4991,11 @@ public class KafkaSupervisorTest extends EasyMockSupport
     final Set<KafkaTopicPartition> allPartitions = singlePartitionMap(topic, 0, 0L, 1, 0L, 2, 0L).keySet();
     final Set<KafkaTopicPartition> narrowPartitions = singlePartitionMap(topic, 0, 0L).keySet();
     supervisor.getPartitionGroups().put(0, allPartitions);
+
     Assertions.assertTrue(supervisor.isTaskPartitionSetCurrent(0, narrowPartitions));
     Assertions.assertTrue(supervisor.isTaskPartitionSetCurrent(0, allPartitions));
     supervisor.getStateManager().markRunFinished();
+
     Assertions.assertTrue(supervisor.isTaskPartitionSetCurrent(0, narrowPartitions));
   }
 
@@ -5009,6 +5017,7 @@ public class KafkaSupervisorTest extends EasyMockSupport
     );
     final Set<KafkaTopicPartition> expected = singlePartitionMap(topic, 0, 0L, 2, 0L).keySet();
     selected.getPartitionGroups().put(0, expected);
+
     Assertions.assertTrue(selected.isTaskPartitionSetCurrent(0, expected));
     Assertions.assertFalse(selected.isTaskPartitionSetCurrent(0, singlePartitionMap(topic, 0, 0L).keySet()));
     Assertions.assertFalse(selected.isTaskPartitionSetCurrent(0, singlePartitionMap(topic, 0, 0L, 2, 0L, 4, 0L).keySet()));
@@ -5060,6 +5069,7 @@ public class KafkaSupervisorTest extends EasyMockSupport
           ),
           KafkaDataSourceMetadata.class
       );
+
       Assertions.assertThrows(DruidException.class, () -> selected.reset(metadata));
       Assertions.assertThrows(DruidException.class, () -> selected.resetOffsets(metadata));
       Assertions.assertThrows(DruidException.class, () -> selected.resetInternal(metadata));

@@ -99,7 +99,6 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
 
   private final Pattern pattern;
   private final Map<Integer, Integer> selectedPartitionRanks;
-  private volatile int lastPartitionSelectionTaskCount = -1;
   private volatile Map<KafkaTopicPartition, Long> partitionToTimeLag;
 
   private final KafkaSupervisorSpec spec;
@@ -162,17 +161,6 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
   protected int getTaskGroupIdForPartition(KafkaTopicPartition partitionId)
   {
     final int taskCount = spec.getIoConfig().getTaskCount();
-    final int selectedPartitionCount = selectedPartitionRanks.size();
-    if (selectedPartitionCount > 0 && lastPartitionSelectionTaskCount != taskCount) {
-      lastPartitionSelectionTaskCount = taskCount;
-      final int occupiedGroups = Math.min(selectedPartitionCount, taskCount);
-      if (occupiedGroups < taskCount) {
-        log.warn(
-            "Selected partition IDs [%s] occupy [%d] task groups with configured task count [%d]",
-            getIoConfig().getPartitionIds(), occupiedGroups, taskCount
-        );
-      }
-    }
     if (partitionId.isMultiTopicPartition()) {
       return Math.abs(31 * partitionId.topic().hashCode() + partitionId.partition()) % taskCount;
     } else {
@@ -193,6 +181,10 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
     return selectedPartitionRanks.isEmpty() || taskPartitions.equals(partitionGroups.get(taskGroupId));
   }
 
+  /**
+   * With {@code partitionIds} set, rejects resets naming a different topic or any partition outside the selection.
+   * A full reset (null metadata) is always allowed.
+   */
   @Override
   protected void validatePartitionReset(@Nullable DataSourceMetadata metadata)
   {
@@ -333,6 +325,7 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
     return taskList;
   }
 
+  /** Keeps offsets for the configured partitions only. */
   @Override
   protected Map<KafkaTopicPartition, Long> getHighestCurrentOffsets()
   {
@@ -341,11 +334,11 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
       return super.getHighestCurrentOffsets();
     }
     final Map<KafkaTopicPartition, Long> offsets = new HashMap<>(super.getHighestCurrentOffsets());
-    // Exclude saved offsets and publishing tasks outside the selection from reporting without changing stored metadata.
     offsets.keySet().removeIf(partition -> !selected.contains(partition.partition()));
     return offsets;
   }
 
+  /** Keeps offsets for the configured partitions only. */
   @Override
   public Map<KafkaTopicPartition, Long> getOffsetsFromMetadataStorageForCurrentPartitions()
   {

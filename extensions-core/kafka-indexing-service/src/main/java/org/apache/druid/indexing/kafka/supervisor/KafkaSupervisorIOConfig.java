@@ -224,6 +224,7 @@ public class KafkaSupervisorIOConfig extends SeekableStreamSupervisorIOConfig
     return partitionIds == null ? null : Collections.unmodifiableSet(new TreeSet<>(partitionIds));
   }
 
+  /** Rejects non-integer JSON values (e.g. 1.0, "1", true) that Jackson would otherwise coerce to an integer. */
   public static class PartitionIdDeserializer extends JsonDeserializer<Integer>
   {
     @Override

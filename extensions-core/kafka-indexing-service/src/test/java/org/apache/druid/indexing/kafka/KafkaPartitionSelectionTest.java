@@ -47,10 +47,12 @@ public class KafkaPartitionSelectionTest
     replay(consumer);
     final KafkaRecordSupplier supplier = new KafkaRecordSupplier(consumer, false, null, Set.of(0, 2));
     final StreamException error = Assertions.assertThrows(StreamException.class, () -> supplier.getPartitionIds("events"));
+
     Assertions.assertTrue(error.getMessage().contains("[2]"));
     final Set<KafkaTopicPartition> selected = Set.of(
         new KafkaTopicPartition(false, "events", 0), new KafkaTopicPartition(false, "events", 2)
     );
+
     Assertions.assertEquals(selected, supplier.getPartitionIds("events"));
     Assertions.assertEquals(selected, supplier.getPartitionIds("events"));
     verify(consumer);

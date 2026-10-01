@@ -581,6 +581,7 @@ public class KafkaSupervisorSpecTest
         .ioConfig(spec.getSpec().getIOConfig().toBuilder().withPartitionIds(Set.of(0)).build()).build();
     final BoundedStreamConfig selectedRange = new BoundedStreamConfig(Map.of("0", 100L), Map.of("0", 500L));
     final KafkaSupervisorSpec selectedBackfill = selectedSpec.createBackfillSpec("selected-backfill", selectedRange, 1);
+
     Assertions.assertNull(selectedBackfill.getSpec().getIOConfig().getPartitionIds());
     Assertions.assertEquals(selectedRange, selectedBackfill.getSpec().getIOConfig().getBoundedStreamConfig());
     Assertions.assertEquals(Set.of(0), selectedSpec.getSpec().getIOConfig().getPartitionIds());

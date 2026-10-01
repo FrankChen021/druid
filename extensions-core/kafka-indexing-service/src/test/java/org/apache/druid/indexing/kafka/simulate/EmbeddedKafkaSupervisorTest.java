@@ -122,6 +122,7 @@ public class EmbeddedKafkaSupervisorTest extends EmbeddedClusterTestBase
     kafkaServer.produceRecordsToTopic(records);
     waitForSelectedRows(dataSource, 4);
     waitForSelectedRows(diagnostic, 1);
+
     Assertions.assertEquals("4", cluster.runSql("SELECT COUNT(*) FROM %s", dataSource));
     Assertions.assertEquals("1", cluster.runSql("SELECT COUNT(*) FROM %s", diagnostic));
     Assertions.assertEquals("0", cluster.runSql("SELECT COUNT(*) FROM %s WHERE item != 'p1'", diagnostic));
@@ -135,6 +136,7 @@ public class EmbeddedKafkaSupervisorTest extends EmbeddedClusterTestBase
         .build(diagnostic, topic);
     cluster.callApi().postSupervisor(expanded);
     waitForSelectedRows(diagnostic, 2);
+
     Assertions.assertEquals("2", cluster.runSql("SELECT COUNT(*) FROM %s", diagnostic));
     Assertions.assertEquals("0", cluster.runSql("SELECT COUNT(*) FROM %s WHERE item = 'p2'", diagnostic));
 
@@ -150,6 +152,7 @@ public class EmbeddedKafkaSupervisorTest extends EmbeddedClusterTestBase
     }
     kafkaServer.produceRecordsToTopic(records);
     waitForSelectedRows(dataSource, 8);
+
     Assertions.assertEquals("8", cluster.runSql("SELECT COUNT(*) FROM %s", dataSource));
     cluster.callApi().postSupervisor(productionSpec.createSuspendedSpec());
   }

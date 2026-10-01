@@ -517,7 +517,6 @@ Duplicate IDs are normalized and list order does not matter.
 New topic partitions outside the selection are ignored.
 Omit `partitionIds` or set it to null to restore discovery of all partitions.
 Selected partitions are assigned to task groups by their position in the sorted selection: `[0, 3, 6]` with three tasks uses three groups.
-If there are fewer selected partitions than tasks, Druid warns that some task groups are unused.
 
 Submitting a supervisor spec that changes or removes `partitionIds` requests managed readers to finish and publish, then restarts the supervisor with the updated selection.
 Supervisors with an explicit selection also replace incompatible adopted readers on restart.

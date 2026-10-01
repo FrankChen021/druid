@@ -3096,6 +3096,7 @@ public abstract class SeekableStreamSupervisor<PartitionIdType, SequenceOffsetTy
     );
   }
 
+  /** Whether a task's partitions match what its group now owns; if not, the task is replaced. Default: always true. */
   protected boolean isTaskPartitionSetCurrent(int taskGroupId, Set<PartitionIdType> taskPartitions)
   {
     return true;
