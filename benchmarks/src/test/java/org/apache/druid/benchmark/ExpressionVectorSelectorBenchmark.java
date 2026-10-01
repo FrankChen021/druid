@@ -39,6 +39,7 @@ import org.apache.druid.segment.generator.GeneratorBasicSchemas;
 import org.apache.druid.segment.generator.GeneratorSchemaInfo;
 import org.apache.druid.segment.generator.SegmentGenerator;
 import org.apache.druid.segment.vector.VectorCursor;
+import org.apache.druid.segment.vector.VectorObjectSelector;
 import org.apache.druid.segment.vector.VectorValueSelector;
 import org.apache.druid.segment.virtual.ExpressionVectorSelectorsTest;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
@@ -86,6 +87,8 @@ public class ExpressionVectorSelectorBenchmark
       "min(double4, double1)",
       "cos(float3)",
       "sin(long4)",
+      "upper(string2)",
+      "upper(string5)",
       "parse_long(string1)",
       "parse_long(string1) * double3",
       "parse_long(string5) * parse_long(string1)",
@@ -165,6 +168,12 @@ public class ExpressionVectorSelectorBenchmark
             blackhole.consume(selector.getNullVector());
             cursor.advance();
           }
+        }
+      } else {
+        final VectorObjectSelector selector = cursor.getColumnSelectorFactory().makeObjectSelector("v");
+        while (!cursor.isDone()) {
+          blackhole.consume(selector.getObjectVector());
+          cursor.advance();
         }
       }
     } else {
