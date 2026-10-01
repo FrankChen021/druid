@@ -19,6 +19,7 @@
 
 package org.apache.druid.server.http;
 
+import org.apache.druid.server.QueryResource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,14 +57,13 @@ public class RedirectFilterTest
   {
     redirectFilter = new RedirectFilter(redirectInfo);
     Mockito.when(request.getRequestURI()).thenReturn(REQUEST_URI);
-    Mockito.when(request.getQueryString()).thenReturn(QUERY_STRING);
-    Mockito.when(redirectInfo.doLocal(REQUEST_URI)).thenReturn(false);
   }
 
   @Test
   public void testRedirect() throws Exception
   {
     final String location = "https://leader.example:8081" + REQUEST_URI + "?" + QUERY_STRING + "#result";
+    Mockito.when(request.getQueryString()).thenReturn(QUERY_STRING);
     Mockito.when(redirectInfo.getRedirectURL(QUERY_STRING, REQUEST_URI)).thenReturn(URI.create(location).toURL());
 
     redirectFilter.doFilter(request, response, filterChain);
@@ -77,6 +77,7 @@ public class RedirectFilterTest
   public void testRedirectPreservesEncodedNewlines() throws Exception
   {
     final String location = "https://leader.example/path%0D%0Avalue?query=%0a";
+    Mockito.when(request.getQueryString()).thenReturn(QUERY_STRING);
     Mockito.when(redirectInfo.getRedirectURL(QUERY_STRING, REQUEST_URI)).thenReturn(URI.create(location).toURL());
 
     redirectFilter.doFilter(request, response, filterChain);
@@ -84,6 +85,20 @@ public class RedirectFilterTest
     Mockito.verify(response).setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
     Mockito.verify(response).setHeader("Location", location);
     Mockito.verifyNoInteractions(filterChain);
+  }
+
+  /** An internal native-query request explicitly routed to this node bypasses leader redirection. */
+  @Test
+  public void testLocalNativeQueryBypassesRedirect() throws Exception
+  {
+    Mockito.when(request.getRequestURI()).thenReturn("/druid/v2/");
+    Mockito.when(request.getHeader(QueryResource.HEADER_NATIVE_QUERY_ROUTE))
+           .thenReturn(QueryResource.NATIVE_QUERY_ROUTE_LOCAL);
+
+    redirectFilter.doFilter(request, response, filterChain);
+
+    Mockito.verify(filterChain).doFilter(request, response);
+    Mockito.verifyNoInteractions(response);
   }
 
   @Test
@@ -100,6 +115,7 @@ public class RedirectFilterTest
 
   private void assertInvalidRedirect(String location) throws Exception
   {
+    Mockito.when(request.getQueryString()).thenReturn(QUERY_STRING);
     Mockito.when(redirectInfo.getRedirectURL(QUERY_STRING, REQUEST_URI)).thenReturn(urlWithExternalForm(location));
 
     redirectFilter.doFilter(request, response, filterChain);

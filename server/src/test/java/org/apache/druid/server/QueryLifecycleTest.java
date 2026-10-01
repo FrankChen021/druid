@@ -47,7 +47,9 @@ import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.RestrictedDataSource;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.TableDataSource;
+import org.apache.druid.query.UnionDataSource;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.NullFilter;
@@ -129,6 +131,9 @@ public class QueryLifecycleTest
   @Nullable
   BrokerViewOfBrokerConfig brokerViewOfBrokerConfig;
 
+  @Bind
+  Map<Class<? extends DataSource>, DataSourceQueryHandler> dataSourceQueryHandlers;
+
   QueryMetrics metrics;
   AuthenticationResult authenticationResult;
 
@@ -156,6 +161,7 @@ public class QueryLifecycleTest
     authenticationResult = EasyMock.createMock(AuthenticationResult.class);
     authConfig = new AuthConfig();
     policyEnforcer = NoopPolicyEnforcer.instance();
+    dataSourceQueryHandlers = new HashMap<>();
 
     injector = Guice.createInjector(
         BoundFieldModule.of(this),
@@ -204,6 +210,42 @@ public class QueryLifecycleTest
 
     QueryLifecycle lifecycle = createLifecycle();
     lifecycle.runSimple(query, authenticationResult, AuthorizationResult.ALLOW_NO_RESTRICTION);
+  }
+
+  @Test
+  public void testCompositeDataSourceDoesNotUseDescendantHandler()
+  {
+    final DataSourceQueryHandler systemTableHandler = EasyMock.createMock(DataSourceQueryHandler.class);
+    dataSourceQueryHandlers.put(SystemTableDataSource.class, systemTableHandler);
+    final TimeseriesQuery compositeQuery = Druids.newTimeseriesQueryBuilder()
+                                                 .dataSource(
+                                                     new UnionDataSource(
+                                                         ImmutableList.of(
+                                                             new SystemTableDataSource("server_properties"),
+                                                             new TableDataSource(DATASOURCE)
+                                                         )
+                                                     )
+                                                 )
+                                                 .intervals(ImmutableList.of(Intervals.ETERNITY))
+                                                 .aggregators(new CountAggregatorFactory("chocula"))
+                                                 .build();
+
+    EasyMock.expect(queryConfig.getContext()).andReturn(ImmutableMap.of()).anyTimes();
+    EasyMock.expect(authenticationResult.getIdentity()).andReturn(IDENTITY).anyTimes();
+    EasyMock.expect(conglomerate.getToolChest(EasyMock.anyObject())).andReturn(toolChest).once();
+    EasyMock.expect(texasRanger.getQueryRunnerForIntervals(EasyMock.anyObject(), EasyMock.anyObject()))
+            .andReturn(runner)
+            .once();
+    EasyMock.expect(runner.run(EasyMock.anyObject(), EasyMock.anyObject())).andReturn(Sequences.empty()).once();
+    EasyMock.replay(systemTableHandler);
+    replayAll();
+
+    createLifecycle().runSimple(
+        compositeQuery,
+        authenticationResult,
+        AuthorizationResult.ALLOW_NO_RESTRICTION
+    );
+    EasyMock.verify(systemTableHandler);
   }
 
   @Test

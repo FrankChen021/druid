@@ -43,6 +43,8 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.jackson.JacksonModule;
+import org.apache.druid.msq.dart.guice.DartModules;
+import org.apache.druid.msq.dart.worker.DartWorkerRunner;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -52,6 +54,16 @@ import java.util.Set;
 
 public class CliBrokerTest
 {
+
+  /** Dart-enabled Brokers provide the embedded worker required by system-table queries. */
+  @Test
+  public void testDartEnabledBrokerProvidesEmbeddedWorker()
+  {
+    final Properties properties = new Properties();
+    properties.setProperty(DartModules.DART_ENABLED_PROPERTY, "true");
+
+    Assertions.assertNotNull(makeBrokerInjector(properties).getInstance(DartWorkerRunner.class));
+  }
 
   @Test
   public void testDefaultServerSelectorStrategy()

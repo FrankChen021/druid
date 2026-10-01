@@ -20,6 +20,7 @@
 package org.apache.druid.msq.dart.controller.sql;
 
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.frame.Frame;
 import org.apache.druid.indexer.report.TaskReport;
 import org.apache.druid.io.LimitedOutputStream;
@@ -47,10 +48,14 @@ import org.apache.druid.msq.indexing.error.CancellationReason;
 import org.apache.druid.msq.querykit.MultiQueryKit;
 import org.apache.druid.msq.sql.MSQTaskQueryMaker;
 import org.apache.druid.msq.util.SqlStatementResourceHelper;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.server.QueryResponse;
+import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.sql.calcite.planner.ColumnMappings;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.planner.QueryUtils;
@@ -61,6 +66,7 @@ import org.apache.druid.sql.calcite.run.SqlResults;
 import java.io.ByteArrayOutputStream;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
@@ -96,6 +102,8 @@ public class DartQueryMaker implements QueryMaker
 
   final QueryKitSpecFactory queryKitSpecFactory;
   final MultiQueryKit queryKit;
+  private final AuthorizerMapper authorizerMapper;
+  private final Map<String, SystemTableDescriptor> systemTableDescriptors;
 
   public DartQueryMaker(
       List<Entry<Integer, String>> fieldMapping,
@@ -105,7 +113,9 @@ public class DartQueryMaker implements QueryMaker
       DartControllerConfig controllerConfig,
       ControllerThreadPool controllerThreadPool,
       QueryKitSpecFactory queryKitSpecFactory,
-      MultiQueryKit queryKit
+      MultiQueryKit queryKit,
+      AuthorizerMapper authorizerMapper,
+      Map<String, SystemTableDescriptor> systemTableDescriptors
   )
   {
     this.fieldMapping = fieldMapping;
@@ -116,11 +126,14 @@ public class DartQueryMaker implements QueryMaker
     this.controllerThreadPool = controllerThreadPool;
     this.queryKitSpecFactory = queryKitSpecFactory;
     this.queryKit = queryKit;
+    this.authorizerMapper = authorizerMapper;
+    this.systemTableDescriptors = systemTableDescriptors;
   }
 
   @Override
   public QueryResponse<Object[]> runQuery(DruidQuery druidQuery)
   {
+    authorizeSystemTables(druidQuery.getQuery().getDataSource());
     ColumnMappings columnMappings = QueryUtils.buildColumnMappings(fieldMapping, druidQuery.getOutputRowSignature());
     final LegacyMSQSpec querySpec = MSQTaskQueryMaker.buildLegacyMSQSpec(
         null,
@@ -134,6 +147,25 @@ public class DartQueryMaker implements QueryMaker
     final ResultsContext resultsContext = MSQTaskQueryMaker.makeResultsContext(druidQuery, fieldMapping, plannerContext);
 
     return runLegacyMSQSpec(querySpec, druidQuery.getQuery().context(), resultsContext);
+  }
+
+  void authorizeSystemTables(final DataSource dataSource)
+  {
+    if (dataSource instanceof SystemTableDataSource systemTableDataSource) {
+      final SystemTableDescriptor descriptor = systemTableDescriptors.get(systemTableDataSource.getTable());
+      if (descriptor == null) {
+        throw DruidException.defensive(
+            "No descriptor is registered for system table[%s]",
+            systemTableDataSource.getTable()
+        );
+      }
+      descriptor.getRowAuthorizer().filterAuthorizedRows(
+          Collections.emptyList(),
+          plannerContext.getAuthenticationResult(),
+          authorizerMapper
+      );
+    }
+    dataSource.getChildren().forEach(this::authorizeSystemTables);
   }
 
   public static ResultsContext makeResultsContext(

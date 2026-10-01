@@ -25,11 +25,19 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
+import org.apache.druid.client.TestHttpClient;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.io.Closer;
+import org.apache.druid.java.util.http.client.Request;
+import org.apache.druid.java.util.http.client.response.ClientResponse;
+import org.apache.druid.java.util.http.client.response.HttpResponseHandler;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.context.DefaultResponseContext;
@@ -39,8 +47,10 @@ import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.query.spec.MultipleSpecificSegmentSpec;
 import org.apache.druid.rpc.MockServiceClient;
 import org.apache.druid.rpc.RequestBuilder;
+import org.apache.druid.rpc.ServiceClient;
 import org.apache.druid.rpc.ServiceClientFactory;
 import org.apache.druid.rpc.ServiceLocation;
+import org.apache.druid.rpc.ServiceRetryPolicy;
 import org.apache.druid.rpc.StandardRetryPolicy;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.server.QueryResource;
@@ -50,6 +60,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -60,6 +71,7 @@ import static org.mockito.Mockito.mock;
 public class DataServerClientTest
 {
   private static final SegmentDescriptor SEGMENT_1 = new SegmentDescriptor(Intervals.of("2003/2004"), "v0", 1);
+  private static final ServiceLocation LOCAL_SERVICE_LOCATION = new ServiceLocation("localhost", 8083, -1, "");
   private MockServiceClient serviceClient;
   private ObjectMapper jsonMapper;
   private ScanQuery query;
@@ -173,6 +185,65 @@ public class DataServerClientTest
             jsonMapper.getTypeFactory().constructType(ScanResultValue.class),
             Closer.create()
         ).get().toList()
+    );
+  }
+
+  /** A node-local query cancellation is sent to the same node-local {@code /druid/v2} endpoint. */
+  @Test
+  public void testNodeLocalCancellationCarriesRoutingHeader() throws Exception
+  {
+    final List<RequestBuilder> requests = new ArrayList<>();
+    final ServiceClient localServiceClient = new ServiceClient()
+    {
+      @Override
+      @SuppressWarnings("unchecked")
+      public <IntermediateType, FinalType> ListenableFuture<FinalType> asyncRequest(
+          final RequestBuilder requestBuilder,
+          final HttpResponseHandler<IntermediateType, FinalType> handler
+      )
+      {
+        requests.add(requestBuilder);
+        if (HttpMethod.POST.equals(requestBuilder.build(LOCAL_SERVICE_LOCATION).getMethod())) {
+          final ClientResponse<IntermediateType> response = handler.handleResponse(
+              new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK),
+              TestHttpClient.NOOP_TRAFFIC_COP
+          );
+          return Futures.immediateFuture((FinalType) response.getObj());
+        }
+        return (ListenableFuture<FinalType>) Futures.immediateVoidFuture();
+      }
+
+      @Override
+      public ServiceClient withRetryPolicy(final ServiceRetryPolicy retryPolicy)
+      {
+        return this;
+      }
+    };
+    final DataServerClient localTarget = new DataServerClient(
+        (serviceName, serviceLocator, retryPolicy) -> localServiceClient,
+        LOCAL_SERVICE_LOCATION,
+        jsonMapper,
+        StandardRetryPolicy.noRetries(),
+        true
+    );
+    final ScanQuery identifiedQuery = (ScanQuery) query.withId("local-query-id");
+    final Closer closer = Closer.create();
+
+    localTarget.run(
+        identifiedQuery,
+        DefaultResponseContext.createEmpty(),
+        jsonMapper.getTypeFactory().constructType(ScanResultValue.class),
+        closer
+    );
+    closer.close();
+
+    Assertions.assertEquals(2, requests.size());
+    final Request cancelRequest = requests.get(1).build(LOCAL_SERVICE_LOCATION);
+    Assertions.assertEquals(HttpMethod.DELETE, cancelRequest.getMethod());
+    Assertions.assertEquals("/druid/v2/local-query-id", cancelRequest.getUrl().getPath());
+    Assertions.assertTrue(
+        cancelRequest.getHeaders().get(QueryResource.HEADER_NATIVE_QUERY_ROUTE)
+                     .contains(QueryResource.NATIVE_QUERY_ROUTE_LOCAL)
     );
   }
 

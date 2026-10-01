@@ -208,6 +208,11 @@ public class DataServerResponseHandler implements HttpResponseHandler<InputStrea
     return ClientResponse.finished(clientResponse.getObj());
   }
 
+  boolean isDone()
+  {
+    return done.get();
+  }
+
   @Override
   public void exceptionCaught(ClientResponse<InputStream> clientResponse, Throwable e)
   {
