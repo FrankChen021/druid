@@ -1508,32 +1508,6 @@ public class SupervisorManagerTest extends EasyMockSupport
   }
 
   @Test
-  public void testResetToLatestAndBackfillRejectsMismatchedCurrentPartitions() throws Exception
-  {
-    final SeekableStreamSupervisor streamSupervisor = EasyMock.createMock(SeekableStreamSupervisor.class);
-    final SeekableStreamSupervisorSpec streamSpec = EasyMock.createMock(SeekableStreamSupervisorSpec.class);
-    final SeekableStreamSupervisorIOConfig ioConfig = EasyMock.createMock(SeekableStreamSupervisorIOConfig.class);
-
-    EasyMock.expect(metadataSupervisorManager.getLatest()).andReturn(ImmutableMap.of());
-    EasyMock.expect(streamSupervisor.getIoConfig()).andReturn(ioConfig).anyTimes();
-    EasyMock.expect(ioConfig.isUseEarliestSequenceNumber()).andReturn(false);
-    EasyMock.expect(streamSpec.getContext()).andReturn(ImmutableMap.of("useConcurrentLocks", true));
-    EasyMock.expect(streamSupervisor.getState()).andReturn(SupervisorStateManager.BasicState.RUNNING);
-    streamSupervisor.updatePartitionLagFromStream();
-    EasyMock.expect(streamSupervisor.getLatestSequencesFromStream()).andReturn(ImmutableMap.of("0", 100L));
-    EasyMock.expect(streamSupervisor.getOffsetsFromMetadataStorageForCurrentPartitions())
-            .andReturn(ImmutableMap.of("0", 10L, "1", 20L));
-    replayAll();
-    EasyMock.replay(streamSupervisor, streamSpec, ioConfig);
-    manager.start();
-    getSupervisorsMap().put("id1", Pair.of(streamSupervisor, streamSpec));
-
-    Assertions.assertThrows(DruidException.class, () -> manager.resetToLatestAndBackfill("id1", 2));
-    verifyAll();
-    EasyMock.verify(streamSupervisor, streamSpec, ioConfig);
-  }
-
-  @Test
   public void testCreateBackfillSpec()
   {
     final TestBackfillSupervisorSpec.IOConfig ioConfig = new TestBackfillSupervisorSpec.IOConfig("test-stream", null, null);

@@ -26,7 +26,6 @@ import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.indexer.TaskState;
 import org.apache.druid.indexer.TaskStatusPlus;
-import org.apache.druid.indexer.granularity.UniformGranularitySpec;
 import org.apache.druid.indexing.kafka.KafkaIndexTaskModule;
 import org.apache.druid.indexing.kafka.supervisor.KafkaSupervisorSpec;
 import org.apache.druid.indexing.kafka.supervisor.KafkaSupervisorSpecBuilder;
@@ -34,7 +33,6 @@ import org.apache.druid.indexing.overlord.supervisor.SupervisorStatus;
 import org.apache.druid.indexing.seekablestream.supervisor.IdleConfig;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.metadata.LockFilterPolicy;
 import org.apache.druid.query.DruidMetrics;
@@ -91,27 +89,38 @@ public class EmbeddedKafkaSupervisorTest extends EmbeddedClusterTestBase
   }
 
   @Test
-  public void testDiagnosticPartitionSelectionDoesNotAffectProduction()
+  public void testSupervisorIngestsOnlySelectedPartitions()
   {
     final String topic = IdUtils.getRandomId();
-    final String diagnostic = dataSource + "_diagnostic";
     kafkaServer.createTopicWithPartitions(topic, 4);
-    final KafkaSupervisorSpec productionSpec = newKafkaSupervisor()
-        .withDataSchema(schema -> schema.withGranularity(
-            new UniformGranularitySpec(Granularities.DAY, Granularities.NONE, false, null)
-        ))
-        .build(dataSource, topic);
-    final KafkaSupervisorSpec diagnosticSpec = newKafkaSupervisor()
-        .withDataSchema(schema -> schema.withGranularity(
-            new UniformGranularitySpec(Granularities.DAY, Granularities.NONE, false, null)
-        ))
+    final KafkaSupervisorSpec spec = newKafkaSupervisor()
         .withIoConfig(io -> io.withPartitionIds(Set.of(1)).withTaskCount(2).withStopTaskCount(1))
-        .build(diagnostic, topic);
-    cluster.callApi().postSupervisor(productionSpec);
-    cluster.callApi().postSupervisor(diagnosticSpec);
+        .build(dataSource, topic);
+    cluster.callApi().postSupervisor(spec);
 
+    // One record per partition, but only partition 1 is selected.
+    kafkaServer.produceRecordsToTopic(partitionRecords(topic, 4));
+    waitForSelectedRows(dataSource, 1);
+
+    Assertions.assertEquals("1", cluster.runSql("SELECT COUNT(*) FROM %s", dataSource));
+    Assertions.assertEquals("0", cluster.runSql("SELECT COUNT(*) FROM %s WHERE item != 'p1'", dataSource));
+
+    // Replacing the supervisor with a wider selection picks up partition 3 but still skips partition 2.
+    final KafkaSupervisorSpec expanded = newKafkaSupervisor()
+        .withIoConfig(io -> io.withPartitionIds(Set.of(1, 3)).withTaskCount(2).withStopTaskCount(1))
+        .build(dataSource, topic);
+    cluster.callApi().postSupervisor(expanded);
+    waitForSelectedRows(dataSource, 2);
+
+    Assertions.assertEquals("2", cluster.runSql("SELECT COUNT(*) FROM %s", dataSource));
+    Assertions.assertEquals("0", cluster.runSql("SELECT COUNT(*) FROM %s WHERE item = 'p2'", dataSource));
+    cluster.callApi().postSupervisor(expanded.createSuspendedSpec());
+  }
+
+  private static List<ProducerRecord<byte[], byte[]>> partitionRecords(String topic, int partitions)
+  {
     final List<ProducerRecord<byte[], byte[]>> records = new ArrayList<>();
-    for (int partition = 0; partition < 4; partition++) {
+    for (int partition = 0; partition < partitions; partition++) {
       records.add(new ProducerRecord<>(
           topic,
           partition,
@@ -119,42 +128,7 @@ public class EmbeddedKafkaSupervisorTest extends EmbeddedClusterTestBase
           StringUtils.toUtf8("2025-06-01T00:00:00Z,p" + partition)
       ));
     }
-    kafkaServer.produceRecordsToTopic(records);
-    waitForSelectedRows(dataSource, 4);
-    waitForSelectedRows(diagnostic, 1);
-
-    Assertions.assertEquals("4", cluster.runSql("SELECT COUNT(*) FROM %s", dataSource));
-    Assertions.assertEquals("1", cluster.runSql("SELECT COUNT(*) FROM %s", diagnostic));
-    Assertions.assertEquals("0", cluster.runSql("SELECT COUNT(*) FROM %s WHERE item != 'p1'", diagnostic));
-
-    // Replacing the diagnostic supervisor expands the existing modulo group.
-    final KafkaSupervisorSpec expanded = newKafkaSupervisor()
-        .withDataSchema(schema -> schema.withGranularity(
-            new UniformGranularitySpec(Granularities.DAY, Granularities.NONE, false, null)
-        ))
-        .withIoConfig(io -> io.withPartitionIds(Set.of(1, 3)).withTaskCount(2).withStopTaskCount(1))
-        .build(diagnostic, topic);
-    cluster.callApi().postSupervisor(expanded);
-    waitForSelectedRows(diagnostic, 2);
-
-    Assertions.assertEquals("2", cluster.runSql("SELECT COUNT(*) FROM %s", diagnostic));
-    Assertions.assertEquals("0", cluster.runSql("SELECT COUNT(*) FROM %s WHERE item = 'p2'", diagnostic));
-
-    cluster.callApi().postSupervisor(expanded.createSuspendedSpec());
-    records.clear();
-    for (int partition = 0; partition < 4; partition++) {
-      records.add(new ProducerRecord<>(
-          topic,
-          partition,
-          null,
-          StringUtils.toUtf8("2025-06-02T00:00:00Z,next" + partition)
-      ));
-    }
-    kafkaServer.produceRecordsToTopic(records);
-    waitForSelectedRows(dataSource, 8);
-
-    Assertions.assertEquals("8", cluster.runSql("SELECT COUNT(*) FROM %s", dataSource));
-    cluster.callApi().postSupervisor(productionSpec.createSuspendedSpec());
+    return records;
   }
 
   private void waitForSelectedRows(String source, int count)

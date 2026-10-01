@@ -68,32 +68,37 @@ public class KafkaSupervisorIOConfigTest
   @Test
   public void testPartitionSelectionSerdeAndUpdate() throws Exception
   {
+    // Duplicates and ordering are normalized into a sorted set.
     final KafkaSupervisorIOConfig config = mapper.readValue(
         "{\"topic\":\"events\",\"consumerProperties\":{\"bootstrap.servers\":\"localhost:9092\"},"
         + "\"partitionIds\":[5,0,2,0]}",
         KafkaSupervisorIOConfig.class
     );
-
     Assertions.assertEquals(Set.of(0, 2, 5), config.getPartitionIds());
+
+    // Serialized in sorted order; survives builder copy and JSON round trip; the selection is immutable.
     Assertions.assertEquals("[0,2,5]", mapper.writeValueAsString(config.getPartitionIds()));
     Assertions.assertEquals(config, config.toBuilder().build());
     Assertions.assertEquals(config, mapper.readValue(mapper.writeValueAsString(config), KafkaSupervisorIOConfig.class));
     Assertions.assertThrows(UnsupportedOperationException.class, () -> config.getPartitionIds().add(7));
-    final KafkaSupervisorIOConfig changed = config.toBuilder().withPartitionIds(Set.of(0, 2)).build();
 
+    // A different selection makes the config unequal.
+    final KafkaSupervisorIOConfig changed = config.toBuilder().withPartitionIds(Set.of(0, 2)).build();
     Assertions.assertNotEquals(config, changed);
+
+    // Changing the selection restarts the supervisor and its tasks.
     final KafkaSupervisorSpec spec = new KafkaSupervisorSpecBuilder()
         .withDataSchema(schema -> schema.withTimestamp(new TimestampSpec("timestamp", "auto", null)))
         .withIoConfig(io -> io.copyFrom(config))
         .build("diagnostic", "events");
-
     Assertions.assertEquals(
         SupervisorSpecUpdateAction.RESTART_SUPERVISOR_AND_TASKS,
         spec.getActionOnUpdateTo(spec.toBuilder().ioConfig(changed).build())
     );
+
+    // Removing the selection (back to all partitions) also restarts the supervisor and its tasks.
     final KafkaSupervisorSpec allPartitions = spec.toBuilder()
         .ioConfig(config.toBuilder().withPartitionIds(null).build()).build();
-
     Assertions.assertNull(allPartitions.getSpec().getIOConfig().getPartitionIds());
     Assertions.assertEquals(
         SupervisorSpecUpdateAction.RESTART_SUPERVISOR_AND_TASKS,
@@ -162,23 +167,52 @@ public class KafkaSupervisorIOConfigTest
   }
 
   @Test
-  public void testInvalidPartitionSelection() throws Exception
-  {
+  public void testInvalidPartitionIds() {
     for (final String ids : new String[]{"[]", "[-1]", "[null]", "[0.5]", "[1.0]", "[\"1\"]", "[true]", "[2147483648]"}) {
-      Assertions.assertThrows(JsonMappingException.class, () -> mapper.readValue(
-          "{\"topic\":\"events\",\"consumerProperties\":{\"bootstrap.servers\":\"localhost:9092\"},"
-          + "\"partitionIds\":" + ids + "}",
-          KafkaSupervisorIOConfig.class
-      ));
+      Assertions.assertThrows(
+          JsonMappingException.class,
+          () -> mapper.readValue(
+              """
+              {
+                "topic": "events",
+                "consumerProperties": {"bootstrap.servers": "localhost:9092"},
+                "partitionIds": %s
+              }
+              """.formatted(ids),
+              KafkaSupervisorIOConfig.class
+          )
+      );
     }
-    final KafkaIOConfigBuilder builder = new KafkaIOConfigBuilder()
-        .withTopic("events")
-        .withConsumerProperties(Map.of("bootstrap.servers", "localhost:9092"))
-        .withPartitionIds(Set.of(0));
+  }
 
-    Assertions.assertThrows(DruidException.class, () -> builder.withTopic(null).withTopicPattern("events.*").build());
-    Assertions.assertThrows(DruidException.class, () -> builder.withTopic("events").withTopicPattern(null)
-        .withBoundedStreamConfig(new BoundedStreamConfig(Map.of(0, 0L), Map.of(0, 10L))).build());
+  @Test
+  public void testPartitionIdsRequireSingleTopicWithoutBoundedStream()
+  {
+    final String expectedMessage =
+        "partitionIds requires a single topic and cannot be combined with boundedStreamConfig";
+
+    // Rejected with topicPattern, which reads multiple topics.
+    final DruidException withTopicPattern = Assertions.assertThrows(
+        DruidException.class,
+        () -> new KafkaIOConfigBuilder()
+            .withTopicPattern("events.*")
+            .withConsumerProperties(Map.of("bootstrap.servers", "localhost:9092"))
+            .withPartitionIds(Set.of(0))
+            .build()
+    );
+    Assertions.assertEquals(expectedMessage, withTopicPattern.getMessage());
+
+    // Rejected with boundedStreamConfig.
+    final DruidException withBoundedStream = Assertions.assertThrows(
+        DruidException.class,
+        () -> new KafkaIOConfigBuilder()
+            .withTopic("events")
+            .withConsumerProperties(Map.of("bootstrap.servers", "localhost:9092"))
+            .withPartitionIds(Set.of(0))
+            .withBoundedStreamConfig(new BoundedStreamConfig(Map.of(0, 0L), Map.of(0, 10L)))
+            .build()
+    );
+    Assertions.assertEquals(expectedMessage, withBoundedStream.getMessage());
   }
 
   @Test
