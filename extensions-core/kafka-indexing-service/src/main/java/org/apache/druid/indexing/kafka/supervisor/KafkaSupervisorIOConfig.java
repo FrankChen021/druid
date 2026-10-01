@@ -44,9 +44,11 @@ import org.joda.time.Period;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 
 public class KafkaSupervisorIOConfig extends SeekableStreamSupervisorIOConfig
 {
@@ -219,7 +221,7 @@ public class KafkaSupervisorIOConfig extends SeekableStreamSupervisorIOConfig
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public Set<Integer> getPartitionIds()
   {
-    return partitionIds;
+    return partitionIds == null ? null : Collections.unmodifiableSet(new TreeSet<>(partitionIds));
   }
 
   public static class PartitionIdDeserializer extends JsonDeserializer<Integer>

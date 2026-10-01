@@ -90,7 +90,7 @@ public class KafkaSupervisorIOConfigTest
     );
     final KafkaSupervisorSpec allPartitions = spec.toBuilder()
         .ioConfig(config.toBuilder().withPartitionIds(null).build()).build();
-    Assertions.assertNull(allPartitions.getIoConfig().getPartitionIds());
+    Assertions.assertNull(allPartitions.getSpec().getIOConfig().getPartitionIds());
     Assertions.assertEquals(
         SupervisorSpecUpdateAction.RESTART_SUPERVISOR_AND_TASKS,
         spec.getActionOnUpdateTo(allPartitions)

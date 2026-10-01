@@ -154,7 +154,7 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
         spec.getIoConfig().getConfigOverrides(),
         spec.getIoConfig().isMultiTopic(),
         null,
-        spec.getIoConfig().getPartitionIds()
+        spec.getSpec().getIOConfig().getPartitionIds()
     );
   }
 
@@ -162,14 +162,14 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
   protected int getTaskGroupIdForPartition(KafkaTopicPartition partitionId)
   {
     final int taskCount = spec.getIoConfig().getTaskCount();
-    final Set<Integer> selected = spec.getIoConfig().getPartitionIds();
-    if (selected != null && lastPartitionSelectionTaskCount != taskCount) {
+    final int selectedPartitionCount = selectedPartitionRanks.size();
+    if (selectedPartitionCount > 0 && lastPartitionSelectionTaskCount != taskCount) {
       lastPartitionSelectionTaskCount = taskCount;
-      final int occupiedGroups = Math.min(selected.size(), taskCount);
+      final int occupiedGroups = Math.min(selectedPartitionCount, taskCount);
       if (occupiedGroups < taskCount) {
         log.warn(
             "Selected partition IDs [%s] occupy [%d] task groups with configured task count [%d]",
-            selected, occupiedGroups, taskCount
+            getIoConfig().getPartitionIds(), occupiedGroups, taskCount
         );
       }
     }
@@ -190,7 +190,7 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
   {
     // Removing a selection is handled by the spec-update restart, which requests existing readers to publish.
     // All-partition supervisors must still adopt readers that predate ordinary topic partition growth.
-    return getIoConfig().getPartitionIds() == null || taskPartitions.equals(partitionGroups.get(taskGroupId));
+    return selectedPartitionRanks.isEmpty() || taskPartitions.equals(partitionGroups.get(taskGroupId));
   }
 
   @Override
