@@ -521,7 +521,8 @@ If there are fewer selected partitions than tasks, Druid warns that some task gr
 
 Submitting a supervisor spec that changes or removes `partitionIds` requests managed readers to finish and publish, then restarts the supervisor with the updated selection.
 Supervisors with an explicit selection also replace incompatible adopted readers on restart.
-Previously ingested rows remain, and already publishing tasks may finish; the update does not provide an instantaneous cutoff.
+Narrowing `partitionIds` does not delete previously ingested rows from partitions removed from the selection.
+Already publishing tasks may finish; the update does not provide an instantaneous cutoff.
 Retained and re-added partitions resume from saved offsets when available.
 Otherwise, the existing `useEarliestOffset` behavior applies.
 
