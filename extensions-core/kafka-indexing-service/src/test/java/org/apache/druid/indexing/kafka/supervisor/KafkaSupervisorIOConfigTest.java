@@ -168,7 +168,7 @@ public class KafkaSupervisorIOConfigTest
 
   @Test
   public void testInvalidPartitionIds() {
-    for (final String ids : new String[]{"[]", "[-1]", "[null]", "[0.5]", "[1.0]", "[\"1\"]", "[true]", "[2147483648]"}) {
+    for (final String ids : new String[]{"[]", "[-1]", "[null]", "[0.5]", "[1.0]", "[\"abc\"]", "[true]", "[2147483648]"}) {
       Assertions.assertThrows(
           JsonMappingException.class,
           () -> mapper.readValue(

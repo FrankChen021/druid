@@ -42,18 +42,29 @@ public class StrictIntegerDeserializerTest
   }
 
   @Test
+  public void testAcceptsStringsHoldingIntegers() throws Exception
+  {
+    final Holder holder = mapper.readValue("{\"ids\":[\"1\", \"-2\"]}", Holder.class);
+
+    Assertions.assertEquals(List.of(1, -2), holder.ids);
+  }
+
+  @Test
   public void testRejectsNonIntegersAndReportsTheValue()
   {
     assertRejected("0.5", "VALUE_NUMBER_FLOAT [0.5]");
     assertRejected("1.0", "VALUE_NUMBER_FLOAT [1.0]");
-    assertRejected("\"1\"", "VALUE_STRING [1]");
     assertRejected("true", "VALUE_TRUE [true]");
+    assertRejected("\"abc\"", "VALUE_STRING [abc]");
+    assertRejected("\"0.5\"", "VALUE_STRING [0.5]");
+    assertRejected("\"\"", "VALUE_STRING []");
   }
 
   @Test
   public void testRejectsOutOfRangeIntegers()
   {
     Assertions.assertThrows(JsonMappingException.class, () -> mapper.readValue("{\"ids\":[2147483648]}", Holder.class));
+    assertRejected("\"2147483648\"", "VALUE_STRING [2147483648]");
   }
 
   private void assertRejected(String json, String expectedValueDescription)

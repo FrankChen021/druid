@@ -98,7 +98,12 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
   private static final Long END_OF_PARTITION = Long.MAX_VALUE;
 
   private final Pattern pattern;
+
+  /// Position of each selected partition ID in the sorted `partitionIds`, e.g. `[0, 3, 6]` gives `{0=0, 3=1, 6=2}`.
+  /// Used to spread selected partitions evenly across task groups (`rank % taskCount`), where
+  /// `partition % taskCount` could put them all in one group. Empty when no selection is configured.
   private final Map<Integer, Integer> selectedPartitionRanks;
+
   private volatile Map<KafkaTopicPartition, Long> partitionToTimeLag;
 
   private final KafkaSupervisorSpec spec;
@@ -137,8 +142,8 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
       final List<Integer> sorted = new ArrayList<>(selected);
       Collections.sort(sorted);
       final Map<Integer, Integer> ranks = new HashMap<>();
-      for (int rank = 0; rank < sorted.size(); rank++) {
-        ranks.put(sorted.get(rank), rank);
+      for (int i = 0; i < sorted.size(); i++) {
+        ranks.put(sorted.get(i), i);
       }
       this.selectedPartitionRanks = Map.copyOf(ranks);
     }
@@ -192,14 +197,16 @@ public class KafkaSupervisor extends SeekableStreamSupervisor<KafkaTopicPartitio
     if (selected == null || metadata == null) {
       return;
     }
-    if (!(metadata instanceof KafkaDataSourceMetadata)) {
+
+    if (!(metadata instanceof KafkaDataSourceMetadata kafkaMetadata)) {
       throw InvalidInput.exception("Partition reset requires Kafka metadata for supervisor [%s]", spec.getId());
     }
-    final KafkaDataSourceMetadata kafkaMetadata = (KafkaDataSourceMetadata) metadata;
+
     final SeekableStreamSequenceNumbers<KafkaTopicPartition, Long> sequences = kafkaMetadata.getSeekableStreamSequenceNumbers();
     if (sequences == null || !getIoConfig().getStream().equals(sequences.getStream())) {
       throw InvalidInput.exception("Partition reset must specify offsets for topic [%s]", getIoConfig().getStream());
     }
+
     final Set<KafkaTopicPartition> excluded = sequences.getPartitionSequenceNumberMap().keySet().stream()
                                                      .filter(p -> p.isMultiTopicPartition() || !selected.contains(p.partition()))
                                                      .collect(Collectors.toSet());

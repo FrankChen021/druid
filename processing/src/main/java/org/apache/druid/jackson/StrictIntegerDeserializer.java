@@ -27,8 +27,9 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import java.io.IOException;
 
 /**
- * Deserializes an {@link Integer} from a JSON integer only. Unlike Jackson's default, it rejects values that would be
- * silently coerced, such as {@code 0.5}, {@code 1.0} and {@code "1"}.
+ * Deserializes an {@link Integer} from a JSON integer or a string holding an integer, such as {@code 1} or
+ * {@code "1"}. Unlike Jackson's default, it rejects values that would be silently truncated, such as {@code 0.5} and
+ * {@code 1.0}.
  * <p>
  * Use it with {@code @JsonDeserialize(using = ...)} on a field, or {@code contentUsing = ...} on a collection.
  */
@@ -37,14 +38,22 @@ public class StrictIntegerDeserializer extends JsonDeserializer<Integer>
   @Override
   public Integer deserialize(final JsonParser parser, final DeserializationContext context) throws IOException
   {
-    if (!parser.hasToken(JsonToken.VALUE_NUMBER_INT)) {
-      return context.reportInputMismatch(
-          Integer.class,
-          "Expected a JSON integer but got %s [%s]",
-          parser.currentToken(),
-          parser.getText()
-      );
+    if (parser.hasToken(JsonToken.VALUE_NUMBER_INT)) {
+      return parser.getIntValue();
     }
-    return parser.getIntValue();
+    if (parser.hasToken(JsonToken.VALUE_STRING)) {
+      try {
+        return Integer.parseInt(parser.getText());
+      }
+      catch (NumberFormatException ignored) {
+        // Fall through to report the offending value.
+      }
+    }
+    return context.reportInputMismatch(
+        Integer.class,
+        "Expected a JSON integer but got %s [%s]",
+        parser.currentToken(),
+        parser.getText()
+    );
   }
 }
