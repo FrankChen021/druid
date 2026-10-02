@@ -42,6 +42,7 @@ import org.apache.druid.indexing.seekablestream.supervisor.autoscaler.AutoScaler
 import org.apache.druid.indexing.seekablestream.supervisor.autoscaler.LagBasedAutoScalerConfig;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.DateTimes;
+import org.apache.druid.java.util.common.StringUtils;
 import org.joda.time.Duration;
 import org.joda.time.Period;
 import org.junit.jupiter.api.Assertions;
@@ -167,18 +168,22 @@ public class KafkaSupervisorIOConfigTest
   }
 
   @Test
-  public void testInvalidPartitionIds() {
+  public void testInvalidPartitionIds()
+  {
     for (final String ids : new String[]{"[]", "[-1]", "[null]", "[0.5]", "[1.0]", "[\"abc\"]", "[true]", "[2147483648]"}) {
       Assertions.assertThrows(
           JsonMappingException.class,
           () -> mapper.readValue(
-              """
-              {
-                "topic": "events",
-                "consumerProperties": {"bootstrap.servers": "localhost:9092"},
-                "partitionIds": %s
-              }
-              """.formatted(ids),
+              StringUtils.format(
+                  """
+                  {
+                    "topic": "events",
+                    "consumerProperties": {"bootstrap.servers": "localhost:9092"},
+                    "partitionIds": %s
+                  }
+                  """,
+                  ids
+              ),
               KafkaSupervisorIOConfig.class
           )
       );
