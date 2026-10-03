@@ -43,7 +43,7 @@ public interface RemoteDruidAuthentication
     @Override
     public RemoteDruidHttpClient createClient(final int connectTimeout, final int readTimeout)
     {
-      return new RemoteDruidHttpClient.UrlConnectionClient(null, null, connectTimeout, readTimeout);
+      return new RemoteDruidHttpClient.DruidHttpClient(null, null, connectTimeout, readTimeout);
     }
 
     @Override
@@ -89,7 +89,7 @@ public interface RemoteDruidAuthentication
     @Override
     public RemoteDruidHttpClient createClient(final int connectTimeout, final int readTimeout)
     {
-      return new RemoteDruidHttpClient.UrlConnectionClient(username, password, connectTimeout, readTimeout);
+      return new RemoteDruidHttpClient.DruidHttpClient(username, password, connectTimeout, readTimeout);
     }
 
     @Override

@@ -889,6 +889,7 @@ The target processes performing planning and ingestion must be able to reach the
 This input source follows the existing HTTP ingestion trust model: grant ingestion permissions to trusted users and restrict outbound network access as needed.
 It accepts HTTP and HTTPS, subject to `druid.ingestion.http.allowedProtocols`, and does not restrict destination hosts or IP addresses.
 Requests do not follow redirects.
+The built-in transport uses Druid's pooled HTTP client with backpressure to bound queued response data.
 See [Security overview](../operations/security-overview.md) for deployment guidance.
 
 You can also use `EXTERN` with an explicit row signature. The input format is fixed; use the JSON string `'null'`:
