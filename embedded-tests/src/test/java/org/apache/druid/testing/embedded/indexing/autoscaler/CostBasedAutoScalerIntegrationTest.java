@@ -145,14 +145,11 @@ public class CostBasedAutoScalerIntegrationTest extends StreamIndexTestBase
     // triggering the cost function to recommend more tasks.
     final int lowInitialTaskCount = 1;
 
-    // Produce additional records to create a backlog / lag
-    // This ensures tasks are busy processing (low idle ratio)
-    backgroundPublishExecutor = Executors.newSingleThreadExecutor();
-    backgroundPublishExecutor.submit(() -> {
-      for (int i = 0; i < 500; ++i) {
-        publish1kRecords(topic, true);
-      }
-    });
+    // Create a fixed 10k-record backlog before starting the supervisor. This keeps the test deterministic while
+    // ensuring that the single initial task is busy processing and has a low idle ratio.
+    for (int i = 0; i < 10; ++i) {
+      publish1kRecords(topic, false);
+    }
 
     // These values were carefully handpicked to allow that test to pass stably.
     final CostBasedAutoScalerConfig autoScalerConfig = CostBasedAutoScalerConfig
