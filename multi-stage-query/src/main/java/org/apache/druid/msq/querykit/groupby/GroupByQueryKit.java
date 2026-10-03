@@ -36,7 +36,6 @@ import org.apache.druid.msq.kernel.QueryDefinitionBuilder;
 import org.apache.druid.msq.kernel.ShuffleSpec;
 import org.apache.druid.msq.kernel.StageDefinition;
 import org.apache.druid.msq.querykit.DataSourcePlan;
-import org.apache.druid.msq.querykit.InputSourcePlanning;
 import org.apache.druid.msq.querykit.QueryKit;
 import org.apache.druid.msq.querykit.QueryKitSpec;
 import org.apache.druid.msq.querykit.QueryKitUtils;
@@ -83,8 +82,9 @@ public class GroupByQueryKit implements QueryKit<GroupByQuery>
     final DataSourcePlan dataSourcePlan = DataSourcePlan.forDataSource(
         queryKitSpec,
         originalQuery.context(),
-        InputSourcePlanning.optimize(originalQuery.getDataSource(), originalQuery.getFilter()),
+        originalQuery.getDataSource(),
         originalQuery.getQuerySegmentSpec(),
+        originalQuery.getFilter(),
         minStageNumber,
         false
     );

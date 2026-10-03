@@ -24,11 +24,14 @@ import it.unimi.dsi.fastutil.ints.IntSets;
 import org.apache.druid.msq.input.external.ExternalInputSpec;
 import org.apache.druid.msq.querykit.DataSourcePlan;
 import org.apache.druid.msq.querykit.DataSourcePlanner;
+import org.apache.druid.msq.querykit.InputSourcePlanning;
 import org.apache.druid.msq.querykit.QueryKitSpec;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 
+import javax.annotation.Nullable;
 import java.util.Collections;
 
 /**
@@ -59,6 +62,28 @@ public class ExternalDataSourcePlanner implements DataSourcePlanner<ExternalData
         ),
         broadcast ? IntOpenHashSet.of(0) : IntSets.emptySet(),
         null
+    );
+  }
+
+  /// Optimizes eligible external input predicates before constructing the datasource and its input specification.
+  @Override
+  public DataSourcePlan planDataSource(
+      final QueryKitSpec queryKitSpec,
+      final QueryContext queryContext,
+      final ExternalDataSource dataSource,
+      final QuerySegmentSpec querySegmentSpec,
+      @Nullable final DimFilter filter,
+      final int minStageNumber,
+      final boolean broadcast
+  )
+  {
+    return planDataSource(
+        queryKitSpec,
+        queryContext,
+        (ExternalDataSource) InputSourcePlanning.optimize(dataSource, filter),
+        querySegmentSpec,
+        minStageNumber,
+        broadcast
     );
   }
 }
