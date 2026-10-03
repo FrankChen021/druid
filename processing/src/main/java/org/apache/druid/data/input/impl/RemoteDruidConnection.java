@@ -29,7 +29,7 @@ import java.net.URI;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-/** Per-ingestion endpoint, outbound authentication, and bounded HTTP settings. */
+/// Per-ingestion endpoint, outbound authentication, and bounded HTTP settings.
 public class RemoteDruidConnection
 {
   private static final Pattern TRAILING_SLASHES = Pattern.compile("/+$");

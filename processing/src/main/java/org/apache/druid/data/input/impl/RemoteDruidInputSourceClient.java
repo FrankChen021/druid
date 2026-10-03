@@ -53,7 +53,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** Downloads and validates a complete response before any rows can enter an ingestion pipeline. */
+/// Downloads and validates a complete response before any rows can enter an ingestion pipeline.
 class RemoteDruidInputSourceClient implements AutoCloseable
 {
   private static final Logger LOG = new Logger(RemoteDruidInputSourceClient.class);
@@ -283,7 +283,7 @@ class RemoteDruidInputSourceClient implements AutoCloseable
     return factory;
   }
 
-  /** Bound both encoded size and object count before constructing a row tree. */
+  /// Bound both encoded size and object count before constructing a row tree.
   private JsonNode readBoundedArray(final JsonParser parser) throws IOException
   {
     require(parser.currentToken() == JsonToken.START_ARRAY);
@@ -454,7 +454,7 @@ class RemoteDruidInputSourceClient implements AutoCloseable
     }
   }
 
-  /** Checks cancellation during parser refills, including a single long string or whitespace token. */
+  /// Checks cancellation during parser refills, including a single long string or whitespace token.
   static class InterruptibleInputStream extends FilterInputStream
   {
     InterruptibleInputStream(final InputStream in)

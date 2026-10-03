@@ -26,7 +26,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.base.Preconditions;
 import org.apache.druid.metadata.PasswordProvider;
 
-/** Outbound authentication provider. Extensions can register additional Jackson subtypes. */
+/// Outbound authentication provider. Extensions can register additional Jackson subtypes.
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes({
     @JsonSubTypes.Type(name = "none", value = RemoteDruidAuthentication.None.class),
@@ -34,6 +34,8 @@ import org.apache.druid.metadata.PasswordProvider;
 })
 public interface RemoteDruidAuthentication
 {
+  /// Creates an authenticated transport with connection and read timeouts in milliseconds.
+  /// The caller closes the client after the operation and closes each response before closing the client.
   RemoteDruidHttpClient createClient(int connectTimeout, int readTimeout);
 
   class None implements RemoteDruidAuthentication

@@ -60,7 +60,7 @@ import java.util.Set;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
-/** Reads stored rows through a remote cluster's native query endpoint. */
+/// Reads stored rows through a remote cluster's native query endpoint.
 public class RemoteDruidInputSource extends AbstractInputSource implements SplittableInputSource<Interval>
 {
   public static final String TYPE_KEY = "remoteDruid";

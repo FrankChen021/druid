@@ -31,9 +31,10 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.util.Base64;
 
-/** Transport boundary allows authentication providers to perform more than header decoration. */
+/// Transport boundary allows authentication providers to perform more than header decoration.
 public interface RemoteDruidHttpClient extends AutoCloseable
 {
+  /// Executes a request without following redirects. The caller must close the returned response.
   Response execute(URI endpoint, String method, @Nullable byte[] body) throws IOException;
 
   @Override
@@ -42,6 +43,7 @@ public interface RemoteDruidHttpClient extends AutoCloseable
     // The URL connection transport has no resources beyond each response.
   }
 
+  /// A response whose body and transport resources remain valid until it is closed.
   interface Response extends AutoCloseable
   {
     int status();

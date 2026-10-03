@@ -35,13 +35,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-/** Narrow remote time intervals, retaining the original target-side filter. */
+/// Narrow remote time intervals, retaining the original target-side filter.
 public class RemoteDruidInputSourcePlanning
 {
   private RemoteDruidInputSourcePlanning()
   {
   }
 
+  /// Applies eligible `__time` predicates to the remote input source.
+  /// The caller must retain the original filter for evaluation on the target cluster.
   public static DataSource pushDown(final DataSource dataSource, @Nullable final DimFilter filter)
   {
     if (!(dataSource instanceof ExternalDataSource external)

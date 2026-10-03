@@ -42,7 +42,7 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/** Exercises the SQL planner, HTTP native queries, MSQ workers, and target segment publication together. */
+/// Exercises the SQL planner, HTTP native queries, MSQ workers, and target segment publication together.
 public class MSQRemoteDruidInputSourceTest extends MSQTestBase
 {
   private final List<JsonNode> requests = new CopyOnWriteArrayList<>();

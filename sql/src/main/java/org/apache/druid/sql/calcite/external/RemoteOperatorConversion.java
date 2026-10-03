@@ -55,7 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** SQL-friendly remote Druid input, with an optional explicit EXTEND schema. */
+/// SQL-friendly remote Druid input, with an optional explicit `EXTEND` schema.
 public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversion
 {
   public static final String FUNCTION_NAME = "remote";
