@@ -36,6 +36,7 @@ import org.apache.druid.msq.querykit.DataSourcePlan;
 import org.apache.druid.msq.querykit.QueryKit;
 import org.apache.druid.msq.querykit.QueryKitSpec;
 import org.apache.druid.msq.querykit.QueryKitUtils;
+import org.apache.druid.msq.querykit.RemoteDruidInputSourcePlanning;
 import org.apache.druid.msq.querykit.ShuffleSpecFactories;
 import org.apache.druid.msq.querykit.ShuffleSpecFactory;
 import org.apache.druid.msq.querykit.common.OffsetLimitStageProcessor;
@@ -86,7 +87,7 @@ public class ScanQueryKit implements QueryKit<ScanQuery>
     final DataSourcePlan dataSourcePlan = DataSourcePlan.forDataSource(
         queryKitSpec,
         originalQuery.context(),
-        originalQuery.getDataSource(),
+        RemoteDruidInputSourcePlanning.pushDown(originalQuery.getDataSource(), originalQuery.getFilter()),
         originalQuery.getQuerySegmentSpec(),
         minStageNumber,
         false
