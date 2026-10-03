@@ -35,16 +35,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-/// Narrow remote time intervals, retaining the original target-side filter.
-public class RemoteDruidInputSourcePlanning
+/// Optimizes external input sources using query predicates while retaining target-side filtering.
+public class InputSourcePlanning
 {
-  private RemoteDruidInputSourcePlanning()
+  private InputSourcePlanning()
   {
   }
 
-  /// Applies eligible `__time` predicates to the remote input source.
+  /// Optimizes an input source for the supplied filter.
+  /// Currently applies eligible `__time` predicates to remote Druid input sources; other sources are unchanged.
   /// The caller must retain the original filter for evaluation on the target cluster.
-  public static DataSource pushDown(final DataSource dataSource, @Nullable final DimFilter filter)
+  public static DataSource optimize(final DataSource dataSource, @Nullable final DimFilter filter)
   {
     if (!(dataSource instanceof ExternalDataSource external)
         || !(external.getInputSource() instanceof RemoteDruidInputSource remote) || filter == null

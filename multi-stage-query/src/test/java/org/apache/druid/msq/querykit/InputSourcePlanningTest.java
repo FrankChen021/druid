@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
 import java.net.URI;
 import java.util.List;
 
-public class RemoteDruidInputSourcePlanningTest
+public class InputSourcePlanningTest
 {
   private final ExternalDataSource external = new ExternalDataSource(
       new RemoteDruidInputSource(
@@ -79,7 +79,7 @@ public class RemoteDruidInputSourcePlanningTest
     final RemoteDruidInputSource source = planned(new AndDimFilter(List.of(time, expression)));
     Assertions.assertEquals(List.of(Intervals.utc(1000, 2000)), source.getIntervals());
     Assertions.assertNull(source.getFilter());
-    Assertions.assertSame(external, RemoteDruidInputSourcePlanning.pushDown(external, expression));
+    Assertions.assertSame(external, InputSourcePlanning.optimize(external, expression));
   }
 
   @Test
@@ -87,9 +87,9 @@ public class RemoteDruidInputSourcePlanningTest
   {
     final DimFilter time = new RangeFilter("__time", ColumnType.LONG, 1000L, 2000L, false, true, null);
     final DimFilter virtual = new EqualityFilter("v0", ColumnType.STRING, "keep", null);
-    Assertions.assertSame(external, RemoteDruidInputSourcePlanning.pushDown(external, virtual));
-    Assertions.assertSame(external, RemoteDruidInputSourcePlanning.pushDown(external, new OrDimFilter(List.of(time, virtual))));
-    Assertions.assertSame(external, RemoteDruidInputSourcePlanning.pushDown(external, null));
+    Assertions.assertSame(external, InputSourcePlanning.optimize(external, virtual));
+    Assertions.assertSame(external, InputSourcePlanning.optimize(external, new OrDimFilter(List.of(time, virtual))));
+    Assertions.assertSame(external, InputSourcePlanning.optimize(external, null));
   }
 
   @Test
@@ -100,7 +100,7 @@ public class RemoteDruidInputSourcePlanningTest
         null,
         RowSignature.builder().add("__time", ColumnType.STRING).build()
     );
-    Assertions.assertSame(coercedTime, RemoteDruidInputSourcePlanning.pushDown(
+    Assertions.assertSame(coercedTime, InputSourcePlanning.optimize(
         coercedTime,
         new EqualityFilter("__time", ColumnType.STRING, "1000", null)
     ));
@@ -108,7 +108,7 @@ public class RemoteDruidInputSourcePlanningTest
 
   private RemoteDruidInputSource planned(final DimFilter filter)
   {
-    final DataSource planned = RemoteDruidInputSourcePlanning.pushDown(external, filter);
+    final DataSource planned = InputSourcePlanning.optimize(external, filter);
     return (RemoteDruidInputSource) ((ExternalDataSource) planned).getInputSource();
   }
   @Test
@@ -118,12 +118,12 @@ public class RemoteDruidInputSourcePlanningTest
         new EqualityFilter("__time", ColumnType.LONG, 1500L, null),
         new SelectorDimFilter("__time", "1500", null)
     )) {
-      final ExternalDataSource pushed = (ExternalDataSource) RemoteDruidInputSourcePlanning.pushDown(external, filter);
+      final ExternalDataSource pushed = (ExternalDataSource) InputSourcePlanning.optimize(external, filter);
       final RemoteDruidInputSource source = (RemoteDruidInputSource) pushed.getInputSource();
       Assertions.assertEquals(List.of(Intervals.utc(1500, 1501)), source.getIntervals());
       Assertions.assertNull(source.getFilter());
     }
-    Assertions.assertSame(external, RemoteDruidInputSourcePlanning.pushDown(
+    Assertions.assertSame(external, InputSourcePlanning.optimize(
         external,
         new SelectorDimFilter("__time", "1500", IdentityExtractionFn.getInstance())
     ));
