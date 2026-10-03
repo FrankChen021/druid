@@ -156,6 +156,11 @@ public class PlannerToolbox
     return plannerConfig;
   }
 
+  public AuthorizerMapper getAuthorizerMapper()
+  {
+    return authorizerMapper;
+  }
+
   public AuthConfig getAuthConfig()
   {
     return authConfig;

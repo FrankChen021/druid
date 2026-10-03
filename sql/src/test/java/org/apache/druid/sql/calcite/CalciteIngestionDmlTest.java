@@ -54,6 +54,7 @@ import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.SqlQueryPlus;
 import org.apache.druid.sql.calcite.CalciteIngestionDmlTest.IngestionDmlComponentSupplier;
+import org.apache.druid.sql.calcite.external.DruidOperatorConversion;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
 import org.apache.druid.sql.calcite.external.HttpOperatorConversion;
@@ -192,6 +193,7 @@ public class CalciteIngestionDmlTest extends BaseCalciteQueryTest
         // Enable the extended table functions for testing even though these
         // are not enabled in production in Druid 26.
         SqlBindings.addOperatorConversion(binder, HttpOperatorConversion.class);
+        SqlBindings.addOperatorConversion(binder, DruidOperatorConversion.class);
         SqlBindings.addOperatorConversion(binder, InlineOperatorConversion.class);
         SqlBindings.addOperatorConversion(binder, LocalOperatorConversion.class);
       }

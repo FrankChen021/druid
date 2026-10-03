@@ -30,6 +30,7 @@ import org.apache.druid.msq.kernel.QueryDefinitionBuilder;
 import org.apache.druid.msq.kernel.StageDefinition;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 
@@ -93,6 +94,29 @@ public class DataSourcePlan
       final boolean broadcast
   )
   {
+    return forDataSource(queryKitSpec, queryContext, dataSource, querySegmentSpec, null, minStageNumber, broadcast);
+  }
+
+  /// Builds a datasource plan with an optional filter for input optimization.
+  /// The caller must retain the filter in the query because planners may use only eligible predicates or ignore it.
+  ///
+  /// @param queryKitSpec reference for recursive planning
+  /// @param queryContext query context
+  /// @param dataSource datasource to plan
+  /// @param querySegmentSpec intervals for mandatory pruning, as in the overload without a filter
+  /// @param filter optional query filter for input optimization
+  /// @param minStageNumber starting stage number for subqueries
+  /// @param broadcast whether the plan should broadcast data for this datasource
+  public static DataSourcePlan forDataSource(
+      final QueryKitSpec queryKitSpec,
+      final QueryContext queryContext,
+      final DataSource dataSource,
+      final QuerySegmentSpec querySegmentSpec,
+      @Nullable final DimFilter filter,
+      final int minStageNumber,
+      final boolean broadcast
+  )
+  {
     //noinspection rawtypes
     final DataSourcePlanner planner = queryKitSpec.getDataSourcePlanners().getPlanner(dataSource.getClass());
     if (planner == null) {
@@ -105,6 +129,7 @@ public class DataSourcePlan
         queryContext,
         dataSource,
         querySegmentSpec,
+        filter,
         minStageNumber,
         broadcast
     );

@@ -28,6 +28,7 @@ import org.apache.druid.data.input.InputSource;
 import org.apache.druid.query.LeafDataSource;
 import org.apache.druid.segment.column.RowSignature;
 
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
@@ -44,18 +45,22 @@ import java.util.Set;
 public class ExternalDataSource extends LeafDataSource
 {
   private final InputSource inputSource;
+  @Nullable
   private final InputFormat inputFormat;
   private final RowSignature signature;
 
   @JsonCreator
   public ExternalDataSource(
       @JsonProperty("inputSource") final InputSource inputSource,
-      @JsonProperty("inputFormat") final InputFormat inputFormat,
+      @JsonProperty("inputFormat") @Nullable final InputFormat inputFormat,
       @JsonProperty("signature") final RowSignature signature
   )
   {
     this.inputSource = Preconditions.checkNotNull(inputSource, "inputSource");
-    this.inputFormat = Preconditions.checkNotNull(inputFormat, "inputFormat");
+    this.inputFormat = inputFormat;
+    if (inputSource.needsFormat()) {
+      Preconditions.checkNotNull(inputFormat, "inputFormat");
+    }
     this.signature = Preconditions.checkNotNull(signature, "signature");
   }
 
@@ -65,6 +70,7 @@ public class ExternalDataSource extends LeafDataSource
     return inputSource;
   }
 
+  @Nullable
   @JsonProperty
   public InputFormat getInputFormat()
   {

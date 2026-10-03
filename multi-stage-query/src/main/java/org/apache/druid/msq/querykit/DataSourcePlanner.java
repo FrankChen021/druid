@@ -23,7 +23,10 @@ import com.google.inject.Binder;
 import org.apache.druid.msq.guice.MSQBinders;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.QuerySegmentSpec;
+
+import javax.annotation.Nullable;
 
 /**
  * Builds a {@link DataSourcePlan} for a particular class of {@link DataSource}. Register with
@@ -50,4 +53,20 @@ public interface DataSourcePlanner<T extends DataSource>
       int minStageNumber,
       boolean broadcast
   );
+
+  /// Plans a datasource with an optional filter for input optimization.
+  /// The caller retains the query filter. The default implementation ignores it and delegates to the existing planner.
+  /// Implementations must decide whether predicates can safely be propagated to their inputs.
+  default DataSourcePlan planDataSource(
+      final QueryKitSpec queryKitSpec,
+      final QueryContext queryContext,
+      final T dataSource,
+      final QuerySegmentSpec querySegmentSpec,
+      @Nullable final DimFilter filter,
+      final int minStageNumber,
+      final boolean broadcast
+  )
+  {
+    return planDataSource(queryKitSpec, queryContext, dataSource, querySegmentSpec, minStageNumber, broadcast);
+  }
 }

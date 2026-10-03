@@ -824,6 +824,118 @@ Set this value in `maxNumConcurrentSubTasks` in `tuningConfig` based on the seco
 
 For more information on the `maxNumConcurrentSubTasks` field, see [Implementation considerations](native-batch.md#implementation-considerations).
 
+## Remote Druid input source
+
+The experimental `remoteDruid` input source reads stored rows through another Druid cluster's Router or Broker native query API.
+It supports MSQ ingestion through the `DRUID` table function and does not require access to the source cluster's deep storage.
+Provide the source cluster endpoint directly; no named connection configuration is required.
+The endpoint can be a cluster base URL or a native query URL ending in `/druid/v2`.
+
+For example, submit this SQL to the target MSQ task API:
+
+```sql
+INSERT INTO events_copy
+SELECT *
+FROM TABLE(
+  DRUID(
+    endpoint => 'https://source-router.example',
+    dataSource => 'events'
+  )
+)
+WHERE a = 'keep'
+PARTITIONED BY DAY
+```
+
+Omitting `EXTEND` discovers the schema during SQL planning using a native `segmentMetadata` query over all source intervals.
+Discovery supports primitive and primitive-array columns. Empty, ambiguous, or unsupported metadata fails planning.
+To skip schema discovery or select a subset of columns, provide an explicit schema:
+
+```sql
+INSERT INTO events_copy
+SELECT *
+FROM TABLE(
+  DRUID(
+    endpoint => 'https://source-router.example',
+    dataSource => 'events',
+    authType => 'basic',
+    username => 'reader',
+    password => ?
+  )
+) EXTEND (__time BIGINT, a VARCHAR, bytes BIGINT)
+WHERE a = 'keep'
+PARTITIONED BY DAY
+```
+
+Bind the password through the SQL task API's `parameters` field, or provide a SQL string literal.
+As with credentials in the existing HTTP input source, binding does not prevent credentials from being stored in task specifications.
+Restrict access to query records and task metadata containing credentials.
+
+|Parameter|Description|Required|
+|---------|-----------|--------|
+|`endpoint`|HTTP(S) endpoint of the source Router or Broker.|yes|
+|`dataSource`|Source datasource to query.|yes|
+|`authType`|`none` (default) or `basic`. `none` rejects credentials; `basic` requires both `username` and `password`.|no|
+|`username`|HTTP Basic authentication username.|for `basic`|
+|`password`|HTTP Basic authentication password.|for `basic`|
+|`intervals`|Array of ISO-8601 intervals restricting the source read. Overlapping intervals are combined.|no|
+|`splitDurationMillis`|Maximum duration of an input split in milliseconds. Default: `3600000` (one hour).|no|
+|`connectTimeoutMillis`|HTTP connection timeout in milliseconds. Default: `10000`.|no|
+|`readTimeoutMillis`|HTTP read and source query timeout in milliseconds. Default: `30000`.|no|
+|`maxRetries`|Maximum retries per request, from `0` to `10`. Default: `2`.|no|
+|`maxResponseBytes`|Limit for each downloaded response and normalized row file. Default: `268435456` (256 MiB).|no|
+
+The source identity must have read access to the requested datasource. Target users need the applicable `EXTERNAL` read permission.
+The target processes performing planning and ingestion must be able to reach the source endpoint.
+This input source follows the existing HTTP ingestion trust model: grant ingestion permissions to trusted users and restrict outbound network access as needed.
+It accepts HTTP and HTTPS, subject to `druid.ingestion.http.allowedProtocols`, and does not restrict destination hosts or IP addresses.
+Requests do not follow redirects.
+The built-in transport uses Druid's pooled HTTP client with backpressure to bound queued response data.
+See [Security overview](../operations/security-overview.md) for deployment guidance.
+
+You can also use `EXTERN` with an explicit row signature. The input format is fixed; use the JSON string `'null'`:
+
+```sql
+SELECT *
+FROM TABLE(
+  EXTERN(
+    '{"type":"remoteDruid","connection":{"endpoint":"https://source-router.example"},"dataSource":"events"}',
+    'null',
+    '[{"name":"__time","type":"long"},{"name":"a","type":"string"}]'
+  )
+)
+```
+
+The input specification's `connection` object contains `endpoint`, optional `authentication`, `connectTimeout`, `readTimeout`, `maxRetries`, and `maxResponseBytes`.
+For Basic authentication, use `"authentication":{"type":"basic","username":"reader","password":"password"}`.
+Authentication providers create the HTTP transport; extensions can register additional provider subtypes for use through `EXTERN`.
+The source specification also accepts `intervals`, `splitDurationMillis`, and an optional native `filter` applied on the source.
+
+The controller discovers the source datasource's minimum and maximum timestamps using a `timeBoundary` query.
+It intersects that range with any explicit intervals and eligible SQL time predicates, then assigns disjoint splits to workers.
+The inclusive maximum timestamp is included by extending the exclusive end of the range by one millisecond.
+An empty source produces no input splits. At most 10000 splits are allowed; increase `splitDurationMillis` for longer histories.
+
+For direct external scans, eligible predicates on `__time` narrow the source intervals when it is declared as `LONG`.
+Eligible conjuncts of `AND` are handled independently. Other SQL predicates, including `a = 'keep'` in the example, run on the target.
+This preserves SQL behavior when the external schema coerces source column types.
+The original SQL filter is retained on the target even when time predicates narrow source intervals.
+
+Each worker downloads and validates a complete Scan response before feeding its rows to MSQ.
+Scan responses must use UTF-8 JSON.
+Rows and Scan column lists are parsed individually, with limits of 1 MiB of encoded JSON and 100,000 JSON tokens per row (including primitive-array elements).
+Schema discovery responses are limited to 1 MiB; use an explicit `EXTEND` schema if metadata exceeds this limit.
+These limits bound reader allocations, but MSQ processing and concurrent readers still require task heap capacity.
+A worker can temporarily hold both the downloaded response and normalized row file, so allow up to twice `maxResponseBytes` per active read.
+Oversized reads fail with an instruction to use smaller intervals.
+Transient failures are retried before rows are exposed. Authentication failures, redirects, and response-size violations are not retried.
+Failed requests are canceled on the source when possible. Cancellation of a blocked network read can take up to the configured timeout.
+
+This MVP requires stable, queryable source intervals for the duration of ingestion.
+Schema and time-bound discovery are not a snapshot: source ingestion or replacement can change results between queries and retries.
+It transfers stored rows, including any existing rollup, rather than reconstructing original events.
+Use `REPLACE` over the copied time range for repeatable backfills; rerunning a successful `INSERT` appends rows again.
+Complex metrics such as sketches and nested columns are not supported by this MVP.
+
 ## SQL input source
 
 :::info[Required extension]
