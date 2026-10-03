@@ -200,7 +200,7 @@ public class RemoteDruidInputSource extends AbstractInputSource implements Split
       return Stream.empty();
     }
     if (split) {
-      return intervals.stream().map(InputSplit::new);
+      return Preconditions.checkNotNull(intervals, "A split needs an interval").stream().map(InputSplit::new);
     }
     final Interval extent;
     try (final RemoteDruidInputSourceClient client = client()) {

@@ -20,6 +20,7 @@
 package org.apache.druid.data.input.impl;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -260,18 +261,22 @@ class RemoteDruidInputSourceClient implements AutoCloseable
 
   private JsonFactory responseFactory(final boolean canonicalize)
   {
-    final JsonFactory factory = mapper.getFactory().copy();
+    final JsonFactory original = mapper.getFactory();
     // Normalization needs the UTF-8 parser's byte offsets and bounds field names separately.
     // Raw validation must not cache arbitrary field names across the complete response.
-    if (!canonicalize) {
-      factory.disable(JsonFactory.Feature.CANONICALIZE_FIELD_NAMES);
-    }
-    factory.disable(JsonFactory.Feature.INTERN_FIELD_NAMES);
-    factory.setStreamReadConstraints(factory.streamReadConstraints().rebuild()
-                                            .maxStringLength(Math.min(factory.streamReadConstraints().getMaxStringLength(), MAX_ROW_BYTES))
-                                            .maxNameLength(Math.min(factory.streamReadConstraints().getMaxNameLength(), MAX_ROW_BYTES))
-                                            .maxNestingDepth(Math.min(factory.streamReadConstraints().getMaxNestingDepth(), 64))
-                                            .build());
+    final JsonFactory factory = new JsonFactoryBuilder(original)
+        .configure(
+            JsonFactory.Feature.CANONICALIZE_FIELD_NAMES,
+            canonicalize && original.isEnabled(JsonFactory.Feature.CANONICALIZE_FIELD_NAMES)
+        )
+        .disable(JsonFactory.Feature.INTERN_FIELD_NAMES)
+        .streamReadConstraints(original.streamReadConstraints().rebuild()
+                                       .maxStringLength(Math.min(original.streamReadConstraints().getMaxStringLength(), MAX_ROW_BYTES))
+                                       .maxNameLength(Math.min(original.streamReadConstraints().getMaxNameLength(), MAX_ROW_BYTES))
+                                       .maxNestingDepth(Math.min(original.streamReadConstraints().getMaxNestingDepth(), 64))
+                                       .build())
+        .build();
+    factory.setCodec(mapper);
     return factory;
   }
 
