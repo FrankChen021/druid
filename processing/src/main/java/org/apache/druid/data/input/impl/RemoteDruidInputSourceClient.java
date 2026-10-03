@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
 import org.apache.druid.java.util.common.Intervals;
+import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
@@ -55,6 +56,8 @@ import java.util.UUID;
 /** Downloads and validates a complete response before any rows can enter an ingestion pipeline. */
 class RemoteDruidInputSourceClient implements AutoCloseable
 {
+  private static final Logger LOG = new Logger(RemoteDruidInputSourceClient.class);
+
   static final int MAX_ROW_BYTES = 1024 * 1024;
   static final int MAX_ROW_TOKENS = 100_000;
   static final int MAX_METADATA_BYTES = 1024 * 1024;
@@ -432,7 +435,8 @@ class RemoteDruidInputSourceClient implements AutoCloseable
       // Best effort. The source query also has a bounded timeout.
     }
     catch (Exception ignored) {
-      // Preserve the original failure.
+      // Preserve the original failure and avoid logging provider exceptions that may contain credentials.
+      LOG.debug("Unable to cancel remote Druid query[%s]", queryId);
     }
   }
 
