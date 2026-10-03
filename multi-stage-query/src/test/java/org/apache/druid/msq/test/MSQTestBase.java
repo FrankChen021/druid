@@ -192,12 +192,12 @@ import org.apache.druid.sql.SqlToolbox;
 import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
 import org.apache.druid.sql.calcite.SqlTestFrameworkConfig;
 import org.apache.druid.sql.calcite.TempDirProducer;
+import org.apache.druid.sql.calcite.external.DruidOperatorConversion;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
 import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
 import org.apache.druid.sql.calcite.external.HttpOperatorConversion;
 import org.apache.druid.sql.calcite.external.InlineOperatorConversion;
 import org.apache.druid.sql.calcite.external.LocalOperatorConversion;
-import org.apache.druid.sql.calcite.external.RemoteOperatorConversion;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
 import org.apache.druid.sql.calcite.planner.CatalogResolver;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
@@ -440,7 +440,7 @@ public class MSQTestBase extends BaseCalciteQueryTest
         BuiltInTypesModule.registerHandlersAndSerde();
         SqlBindings.addOperatorConversion(binder, ExternalOperatorConversion.class);
         SqlBindings.addOperatorConversion(binder, HttpOperatorConversion.class);
-        SqlBindings.addOperatorConversion(binder, RemoteOperatorConversion.class);
+        SqlBindings.addOperatorConversion(binder, DruidOperatorConversion.class);
         SqlBindings.addOperatorConversion(binder, InlineOperatorConversion.class);
         SqlBindings.addOperatorConversion(binder, LocalOperatorConversion.class);
       }

@@ -83,7 +83,7 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
 
   private String external()
   {
-    return "TABLE(REMOTE(endpoint => 'http://localhost:" + server.getAddress().getPort()
+    return "TABLE(DRUID(endpoint => 'http://localhost:" + server.getAddress().getPort()
            + "', dataSource => 'foo', splitDurationMillis => 31536000000))"
            + " EXTEND (__time BIGINT, dim1 VARCHAR, cnt BIGINT)";
   }
@@ -140,7 +140,7 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testBasicAuthenticationAndDiscoveredSchemaWithBoundPassword()
   {
     expectedAuthorization = "Basic cmVhZGVyOnNlY3JldA==";
-    final String remote = "TABLE(REMOTE(endpoint => 'http://localhost:" + server.getAddress().getPort()
+    final String remote = "TABLE(DRUID(endpoint => 'http://localhost:" + server.getAddress().getPort()
                           + "/druid/v2/', dataSource => 'foo', authType => 'basic', username => 'reader', password => ?,"
                           + " splitDurationMillis => 31536000000))";
     testIngestQuery()

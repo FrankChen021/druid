@@ -827,7 +827,7 @@ For more information on the `maxNumConcurrentSubTasks` field, see [Implementatio
 ## Remote Druid input source
 
 The experimental `remoteDruid` input source reads stored rows through another Druid cluster's Router or Broker native query API.
-It supports MSQ ingestion through the `REMOTE` table function and does not require access to the source cluster's deep storage.
+It supports MSQ ingestion through the `DRUID` table function and does not require access to the source cluster's deep storage.
 Provide the source cluster endpoint directly; no named connection configuration is required.
 The endpoint can be a cluster base URL or a native query URL ending in `/druid/v2`.
 
@@ -837,7 +837,7 @@ For example, submit this SQL to the target MSQ task API:
 INSERT INTO events_copy
 SELECT *
 FROM TABLE(
-  REMOTE(
+  DRUID(
     endpoint => 'https://source-router.example',
     dataSource => 'events'
   )
@@ -854,7 +854,7 @@ To skip schema discovery or select a subset of columns, provide an explicit sche
 INSERT INTO events_copy
 SELECT *
 FROM TABLE(
-  REMOTE(
+  DRUID(
     endpoint => 'https://source-router.example',
     dataSource => 'events',
     authType => 'basic',

@@ -55,13 +55,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/// SQL-friendly remote Druid input, with an optional explicit `EXTEND` schema.
-public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversion
+/// The `DRUID` table function for remote Druid input, with an optional explicit `EXTEND` schema.
+public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversion
 {
-  public static final String FUNCTION_NAME = "remote";
+  public static final String FUNCTION_NAME = "druid";
 
   @Inject
-  public RemoteOperatorConversion(final HttpInputSourceConfig config, @Json final ObjectMapper mapper)
+  public DruidOperatorConversion(final HttpInputSourceConfig config, @Json final ObjectMapper mapper)
   {
     super(new RemoteTableMacro(new DruidTableMacro(FUNCTION_NAME, new RemoteTableFunction(config), mapper)));
   }
@@ -201,12 +201,12 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
         }
       }
       if (!ColumnType.LONG.equals(signature.getColumnType("__time").orElse(null))) {
-        throw new IAE("REMOTE requires an __time column of type BIGINT");
+        throw new IAE("DRUID requires an __time column of type BIGINT");
       }
       for (final String name : signature.getColumnNames()) {
         final ColumnType type = signature.getColumnType(name).orElse(null);
         if (type == null || !(type.isPrimitive() || type.isPrimitiveArray())) {
-          throw new IAE("REMOTE supports only primitive and primitive-array columns");
+          throw new IAE("DRUID supports only primitive and primitive-array columns");
         }
       }
       return new ExternalTableSpec(source, null, signature, source::getTypes);

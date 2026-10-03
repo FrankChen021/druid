@@ -55,9 +55,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class RemoteOperatorConversionTest
+public class DruidOperatorConversionTest
 {
-  private final DruidTableMacro macro = (DruidTableMacro) ((BaseUserDefinedTableMacro) new RemoteOperatorConversion(
+  private final DruidTableMacro macro = (DruidTableMacro) ((BaseUserDefinedTableMacro) new DruidOperatorConversion(
       new HttpInputSourceConfig(null, null), new DefaultObjectMapper()
   ).calciteOperator()).macro;
 
@@ -157,7 +157,7 @@ public class RemoteOperatorConversionTest
       Mockito.when(validator.getPlannerContext()).thenReturn(context);
       final SqlCallBinding binding = Mockito.mock(SqlCallBinding.class);
       Mockito.when(binding.getValidator()).thenReturn(validator);
-      final BaseUserDefinedTableMacro operator = (BaseUserDefinedTableMacro) new RemoteOperatorConversion(
+      final BaseUserDefinedTableMacro operator = (BaseUserDefinedTableMacro) new DruidOperatorConversion(
           new HttpInputSourceConfig(null, null), new DefaultObjectMapper()
       ).calciteOperator();
       final DruidUserDefinedTableMacro remote = (DruidUserDefinedTableMacro) operator;
