@@ -88,6 +88,7 @@ import org.apache.druid.msq.input.NilInputSlice;
 import org.apache.druid.msq.input.NilInputSource;
 import org.apache.druid.msq.input.external.ExternalInputSlice;
 import org.apache.druid.msq.input.external.ExternalInputSpec;
+import org.apache.druid.msq.input.external.RemoteDruidFrameInputSpecSlicerProvider;
 import org.apache.druid.msq.input.inline.InlineInputSlice;
 import org.apache.druid.msq.input.inline.InlineInputSpec;
 import org.apache.druid.msq.input.lookup.LookupInputSlice;
@@ -260,6 +261,11 @@ public class MSQIndexingModule implements DruidModule
     MSQBinders.inputSpecSlicerProviderBinder(binder, IndexingService.class)
               .addBinding()
               .to(IndexerTableInputSpecSlicerProvider.class)
+              .in(LazySingleton.class);
+
+    MSQBinders.inputSpecSlicerProviderBinder(binder, IndexingService.class)
+              .addBinding()
+              .to(RemoteDruidFrameInputSpecSlicerProvider.class)
               .in(LazySingleton.class);
 
     MSQBinders.inputSliceReaderProviderBinder(binder, IndexingService.class)

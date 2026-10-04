@@ -936,6 +936,47 @@ It transfers stored rows, including any existing rollup, rather than reconstruct
 Use `REPLACE` over the copied time range for repeatable backfills; rerunning a successful `INSERT` appends rows again.
 Complex metrics such as sketches and nested columns are not supported by this MVP.
 
+### Remote Druid input source with MSQ
+
+The remote source can execute a supported `SELECT` on the source cluster's MSQ engine before transferring its result.
+Set the target SQL query context `remoteDruidBackend` to `msq`; the default `native` backend preserves the existing execution path.
+Both source and target clusters must run a Druid version that supports remote-frame protocol version 1.
+Neither cluster needs durable MSQ storage for this path.
+
+For example, include the query context when submitting the target SQL task:
+
+```json
+{
+  "query": "INSERT INTO events_by_day SELECT TIME_FLOOR(__time, 'P1D') AS __time, country, COUNT(*) AS rows FROM TABLE(DRUID(endpoint => 'https://source-router.example', dataSource => 'events')) GROUP BY TIME_FLOOR(__time, 'P1D'), country PARTITIONED BY DAY",
+  "context": {
+    "remoteDruidBackend": "msq"
+  }
+}
+```
+
+In MSQ mode, the source cluster runs one `SELECT` for the remote table. Projection, filters, expressions, `GROUP BY`,
+aggregates, and `HAVING` run on the source; the target reads the resulting frame partitions and performs ingestion,
+including `PARTITIONED BY` and `CLUSTERED BY`. Declared external column types are applied as casts before source-side
+filters and aggregation. An `intervals` argument restricts the source read once, before global aggregation.
+
+The first version supports one remote Druid table and primitive or supported primitive-array result columns. It rejects
+joins, unions, multiple remote tables, local/remote mixes, subqueries, window functions, `ORDER BY`, and `LIMIT` during
+planning, before it submits a source query. Use the `native` backend when a query needs one of these shapes.
+
+The target controller submits the source query once and assigns each manifest partition to one target worker. Source
+frame files stay on the source workers' local disk until the target query finishes or cancels. The default lease is two
+minutes and each renewal can request at most ten minutes; the target renews while its input readers may need the source
+frames. The source releases files after the target controller closes its input slicer, or after the lease expires if the
+target fails. Source failure or cancellation also stops retained workers. The source worker disks must have room for the
+complete SELECT result. The source SELECT has a 25-minute default timeout; an explicit source
+`timeout` query context may set another positive value up to 24 hours. Source worker loss during a transfer fails ingestion. A reconnect resumes from the target file's accepted byte offset.
+If a target worker must retry the input, it can reread the same pinned source attempt while the session remains leased;
+Druid does not rerun the source `SELECT` after submission.
+
+The source SQL API uses the configured endpoint and the same `none` or HTTP Basic authentication settings as the
+native remote input source. Source datasource read authorization and target external-read authorization still apply.
+Keep the target query's external-resource access restricted to trusted ingestion users.
+
 ## SQL input source
 
 :::info[Required extension]

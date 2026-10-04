@@ -510,5 +510,48 @@ public class ControllerHolderTest
     {
       return QueryContext.empty();
     }
+
+    @Override
+    @Nullable
+    public LiveFramesSession.SessionInfo getLiveFramesSessionInfo()
+    {
+      return null;
+    }
+
+    @Override
+    public boolean renewLiveFramesLease(final long leaseMillis)
+    {
+      return false;
+    }
+
+    @Override
+    public boolean isLiveFramesSessionOwnedBy(@Nullable final String identity)
+    {
+      return false;
+    }
+
+    @Override
+    public void releaseLiveFramesSession()
+    {
+    }
+
+    @Override
+    @Nullable
+    public LiveFramesSession.PartitionLocation getLiveFramesPartitionLocation(final String partitionId)
+    {
+      return null;
+    }
+
+    @Override
+    @Nullable
+    public LiveFramesSession.PartitionLocation beginLiveFramesPartitionRead(final String partitionId)
+    {
+      return null;
+    }
+
+    @Override
+    public void endLiveFramesPartitionRead(final String readId)
+    {
+    }
   }
 }

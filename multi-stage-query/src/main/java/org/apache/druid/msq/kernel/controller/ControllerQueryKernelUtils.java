@@ -30,6 +30,7 @@ import org.apache.druid.msq.input.stage.StageInputSpec;
 import org.apache.druid.msq.kernel.QueryDefinition;
 import org.apache.druid.msq.kernel.StageDefinition;
 import org.apache.druid.msq.kernel.StageId;
+import org.apache.druid.msq.util.MultiStageQueryContext;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -348,6 +349,12 @@ public class ControllerQueryKernelUtils
   )
   {
     final boolean isFinalStage = queryDef.getFinalStageDefinition().getStageNumber() == stageNumber;
+
+    if (isFinalStage
+        && (selectDestination == MSQSelectDestination.LIVEFRAMES
+            || queryDef.getContext().getBoolean(MultiStageQueryContext.CTX_REMOTE_FRAMES_DESTINATION, false))) {
+      return OutputChannelMode.LOCAL_STORAGE;
+    }
 
     if (isFinalStage && selectDestination == MSQSelectDestination.DURABLESTORAGE) {
       return OutputChannelMode.DURABLE_STORAGE_QUERY_RESULTS;

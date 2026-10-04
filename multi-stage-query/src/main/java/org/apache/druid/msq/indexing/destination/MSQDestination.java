@@ -32,6 +32,7 @@ import java.util.Optional;
 @JsonSubTypes(value = {
     @JsonSubTypes.Type(name = DataSourceMSQDestination.TYPE, value = DataSourceMSQDestination.class),
     @JsonSubTypes.Type(name = TaskReportMSQDestination.TYPE, value = TaskReportMSQDestination.class),
+    @JsonSubTypes.Type(name = LiveFramesMSQDestination.TYPE, value = LiveFramesMSQDestination.class),
     @JsonSubTypes.Type(name = ExportMSQDestination.TYPE, value = ExportMSQDestination.class),
     @JsonSubTypes.Type(name = DurableStorageMSQDestination.TYPE, value = DurableStorageMSQDestination.class)
 })

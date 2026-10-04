@@ -61,6 +61,7 @@ import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.sql.calcite.rel.DruidQuery;
 import org.apache.druid.sql.calcite.run.EngineFeature;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.sql.calcite.run.QueryMaker;
@@ -86,10 +87,12 @@ public class MSQTaskSqlEngine implements SqlEngine
                   .add(QueryKitUtils.CTX_TIME_COLUMN_NAME)
                   .add(DruidSqlIngest.SQL_EXPORT_FILE_FORMAT)
                   .add(MultiStageQueryContext.CTX_IS_REINDEX)
+                  .add(MultiStageQueryContext.CTX_REMOTE_FRAMES_DESTINATION)
                   .build();
 
   public static final List<String> TASK_STRUCT_FIELD_NAMES = ImmutableList.of("TASK");
   public static final String NAME = "msq-task";
+  public static final String CTX_REMOTE_DRUID_BACKEND = "remoteDruidBackend";
 
   private final OverlordClient overlordClient;
   private final ObjectMapper jsonMapper;
@@ -124,6 +127,7 @@ public class MSQTaskSqlEngine implements SqlEngine
   public void validateContext(Map<String, Object> queryContext)
   {
     SqlEngines.validateNoSpecialContextKeys(queryContext, SYSTEM_CONTEXT_PARAMETERS);
+    remoteDruidBackend(queryContext.get(CTX_REMOTE_DRUID_BACKEND));
   }
 
   @Override
@@ -183,6 +187,10 @@ public class MSQTaskSqlEngine implements SqlEngine
   {
     validateSelect(plannerContext);
 
+    if (useRemoteDruidMsq(plannerContext)) {
+      return buildRemoteDruidQueryMaker(null, relRoot, plannerContext);
+    }
+
     return new MSQTaskQueryMaker(
         null,
         overlordClient,
@@ -212,6 +220,10 @@ public class MSQTaskSqlEngine implements SqlEngine
         plannerContext
     );
 
+    if (useRemoteDruidMsq(plannerContext)) {
+      return buildRemoteDruidQueryMaker(destination, relRoot, plannerContext);
+    }
+
     return new MSQTaskQueryMaker(
         destination,
         overlordClient,
@@ -225,6 +237,45 @@ public class MSQTaskSqlEngine implements SqlEngine
   public SqlStatementFactory getSqlStatementFactory()
   {
     return new SqlStatementFactory(sqlToolbox.withEngine(this));
+  }
+
+  private QueryMaker buildRemoteDruidQueryMaker(
+      @Nullable final IngestDestination destination,
+      final RelRoot relRoot,
+      final PlannerContext plannerContext
+  )
+  {
+    final DruidQuery remoteFramesQuery = RemoteDruidSelectPlanner.plan(relRoot, plannerContext);
+    return new RemoteDruidQueryMaker(
+        new MSQTaskQueryMaker(
+            destination,
+            overlordClient,
+            plannerContext,
+            relRoot.fields,
+            terminalStageSpecFactory
+        ),
+        remoteFramesQuery
+    );
+  }
+
+  private static boolean useRemoteDruidMsq(final PlannerContext plannerContext)
+  {
+    return "msq".equals(remoteDruidBackend(plannerContext.queryContextMap().get(CTX_REMOTE_DRUID_BACKEND)));
+  }
+
+  @Nullable
+  private static String remoteDruidBackend(@Nullable final Object backend)
+  {
+    if (backend == null) {
+      return "native";
+    }
+    if (!(backend instanceof String) || !("native".equals(backend) || "msq".equals(backend))) {
+      throw InvalidInput.exception(
+          "Query context [%s] must be either [native] or [msq]",
+          CTX_REMOTE_DRUID_BACKEND
+      );
+    }
+    return (String) backend;
   }
 
   /**

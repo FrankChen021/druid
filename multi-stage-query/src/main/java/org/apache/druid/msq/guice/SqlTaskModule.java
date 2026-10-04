@@ -25,6 +25,7 @@ import org.apache.druid.guice.Jerseys;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.annotations.LoadScope;
 import org.apache.druid.initialization.DruidModule;
+import org.apache.druid.msq.sql.resources.RemoteDruidFrameResource;
 import org.apache.druid.msq.sql.resources.SqlStatementResource;
 import org.apache.druid.msq.sql.resources.SqlTaskResource;
 
@@ -42,5 +43,7 @@ public class SqlTaskModule implements DruidModule
     Jerseys.addResource(binder, SqlTaskResource.class);
     LifecycleModule.register(binder, SqlStatementResource.class);
     Jerseys.addResource(binder, SqlStatementResource.class);
+    LifecycleModule.register(binder, RemoteDruidFrameResource.class);
+    Jerseys.addResource(binder, RemoteDruidFrameResource.class);
   }
 }

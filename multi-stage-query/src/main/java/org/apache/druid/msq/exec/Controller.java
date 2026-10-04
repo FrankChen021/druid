@@ -138,4 +138,28 @@ public interface Controller
   ControllerContext getControllerContext();
 
   QueryContext getQueryContext();
+
+  /// Returns the remote-frame session snapshot, or null for a different destination.
+  @Nullable
+  LiveFramesSession.SessionInfo getLiveFramesSessionInfo();
+
+  /// Extends a remote-frame session lease using source-cluster time.
+  boolean renewLiveFramesLease(long leaseMillis);
+
+  /// Returns whether the supplied authenticated identity owns this controller's remote-frame session.
+  boolean isLiveFramesSessionOwnedBy(@Nullable String identity);
+
+  /// Idempotently releases a remote-frame session and unblocks final-stage cleanup.
+  void releaseLiveFramesSession();
+
+  /// Resolves an opaque manifest partition to source-local worker routing details.
+  @Nullable
+  LiveFramesSession.PartitionLocation getLiveFramesPartitionLocation(String partitionId);
+
+  /// Starts a bounded response for one source-local partition.
+  @Nullable
+  LiveFramesSession.PartitionLocation beginLiveFramesPartitionRead(String partitionId);
+
+  /// Ends a bounded source partition response.
+  void endLiveFramesPartitionRead(String readId);
 }

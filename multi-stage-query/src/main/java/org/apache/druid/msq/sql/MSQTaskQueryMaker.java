@@ -51,6 +51,7 @@ import org.apache.druid.msq.indexing.QueryDefMSQSpec;
 import org.apache.druid.msq.indexing.destination.DataSourceMSQDestination;
 import org.apache.druid.msq.indexing.destination.DurableStorageMSQDestination;
 import org.apache.druid.msq.indexing.destination.ExportMSQDestination;
+import org.apache.druid.msq.indexing.destination.LiveFramesMSQDestination;
 import org.apache.druid.msq.indexing.destination.MSQDestination;
 import org.apache.druid.msq.indexing.destination.MSQSelectDestination;
 import org.apache.druid.msq.indexing.destination.MSQTerminalStageSpecFactory;
@@ -243,7 +244,14 @@ public class MSQTaskQueryMaker implements QueryMaker
       );
     } else {
       final MSQSelectDestination msqSelectDestination = MultiStageQueryContext.getSelectDestination(sqlQueryContext);
-      if (msqSelectDestination.equals(MSQSelectDestination.TASKREPORT)) {
+      if (LiveFramesRequestContext.isActive()) {
+        destination = LiveFramesMSQDestination.instance();
+      } else if (msqSelectDestination.equals(MSQSelectDestination.LIVEFRAMES)) {
+        throw InvalidInput.exception(
+            "Select destination [%s] is reserved for the remote-frame API",
+            msqSelectDestination.getName()
+        );
+      } else if (msqSelectDestination.equals(MSQSelectDestination.TASKREPORT)) {
         destination = TaskReportMSQDestination.instance();
       } else if (msqSelectDestination.equals(MSQSelectDestination.DURABLESTORAGE)) {
         destination = DurableStorageMSQDestination.instance();
@@ -284,6 +292,11 @@ public class MSQTaskQueryMaker implements QueryMaker
     if (MSQControllerTask.isReplaceInputDataSourceTask(query, destination)) {
       context.put(MultiStageQueryContext.CTX_IS_REINDEX, true);
     }
+
+    context.put(
+        MultiStageQueryContext.CTX_REMOTE_FRAMES_DESTINATION,
+        MSQControllerTask.writeFinalResultsToLiveFrames(destination)
+    );
 
     context.put(USER_KEY, plannerContext.getAuthenticationResult().getIdentity());
 

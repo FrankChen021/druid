@@ -255,6 +255,30 @@ public class RemoteDruidInputSource extends AbstractInputSource implements Split
     }
   }
 
+  /// Creates a remote-frame input source using this connection's existing authentication and HTTP restrictions.
+  public RemoteDruidFrameInputSource asFrameInputSource(
+      final String sql,
+      final String clientRequestId,
+      final Map<String, Object> sourceContext,
+      final RowSignature expectedSignature
+  )
+  {
+    return new RemoteDruidFrameInputSource(
+        connection,
+        sql,
+        clientRequestId,
+        sourceContext,
+        expectedSignature,
+        null,
+        null,
+        null,
+        null,
+        null,
+        config,
+        mapper
+    );
+  }
+
   private RemoteDruidInputSourceClient client()
   {
     return new RemoteDruidInputSourceClient(connection, mapper);

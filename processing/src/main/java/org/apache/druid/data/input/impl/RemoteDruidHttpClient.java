@@ -62,6 +62,13 @@ public interface RemoteDruidHttpClient extends AutoCloseable
   {
     int status();
 
+    /// Returns a response header value when the transport exposes response metadata.
+    @Nullable
+    default String header(final String name)
+    {
+      return null;
+    }
+
     InputStream body() throws IOException;
 
     @Override
@@ -178,6 +185,12 @@ public interface RemoteDruidHttpClient extends AutoCloseable
           }
 
           @Override
+          public String header(final String name)
+          {
+            return holder.getResponse().headers().get(name);
+          }
+
+          @Override
           public InputStream body()
           {
             return stream;
@@ -213,10 +226,11 @@ public interface RemoteDruidHttpClient extends AutoCloseable
   }
 
   /// Adds backpressure and early-close cancellation to Druid's streaming response handler.
-  class StreamingResponseHandler extends InputStreamFullResponseHandler
+  /// Applies a fixed queue bound and aborts the HTTP request when its consumer closes early.
+  static final class StreamingResponseHandler extends InputStreamFullResponseHandler
   {
-    private static final int READ_SIZE = 8192;
-    private static final int MAX_QUEUED_BYTES = 64 * 1024;
+    static final int READ_SIZE = 8192;
+    static final int MAX_QUEUED_BYTES = 64 * 1024;
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicLong queuedBytes = new AtomicLong();
     @Nullable
@@ -263,7 +277,7 @@ public interface RemoteDruidHttpClient extends AutoCloseable
       return super.done(response);
     }
 
-    private synchronized void resume(final long consumed)
+    synchronized void resume(final long consumed)
     {
       final long remaining = queuedBytes.addAndGet(-consumed);
       final TrafficCop cop = trafficCop;
@@ -272,13 +286,18 @@ public interface RemoteDruidHttpClient extends AutoCloseable
       }
     }
 
-    private synchronized void close()
+    synchronized void close()
     {
       closed.set(true);
       final TrafficCop cop = trafficCop;
       if (cop != null && !complete) {
         cop.abort();
       }
+    }
+
+    long getQueuedBytes()
+    {
+      return queuedBytes.get();
     }
   }
 }
