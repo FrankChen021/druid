@@ -104,6 +104,37 @@ public final class RemoteDruidSelectPlanner
   {
   }
 
+  /// Detects remote table inputs before native lowering, including inputs inside unsupported joins or unions.
+  public static boolean containsRemoteDruidTable(final RelNode root)
+  {
+    final boolean[] found = {false};
+    new RelVisitor()
+    {
+      @Override
+      public void visit(final RelNode node, final int ordinal, @Nullable final RelNode parent)
+      {
+        if (node instanceof ExternalTableScan scan
+            && scan.getDruidTable().getDataSource() instanceof ExternalDataSource external
+            && external.getInputSource() instanceof RemoteDruidInputSource) {
+          found[0] = true;
+        }
+        for (final RexNode expression : expressions(node)) {
+          expression.accept(new RexVisitorImpl<Void>(true)
+          {
+            @Override
+            public Void visitSubQuery(final RexSubQuery subQuery)
+            {
+              found[0] |= containsRemoteDruidTable(subQuery.rel);
+              return super.visitSubQuery(subQuery);
+            }
+          });
+        }
+        super.visit(node, ordinal, parent);
+      }
+    }.go(root);
+    return found[0];
+  }
+
   /// Creates a target query that scans one source-side SELECT result without repeating its operators.
   public static DruidQuery plan(final RelRoot relRoot, final PlannerContext plannerContext)
   {
@@ -152,7 +183,7 @@ public final class RemoteDruidSelectPlanner
   )
   {
     if (!targetClustering && !relRoot.collation.getFieldCollations().isEmpty()) {
-      throw InvalidInput.exception("remoteDruidBackend[msq] does not support ORDER BY");
+      throw InvalidInput.exception("Remote Druid MSQ does not support ORDER BY");
     }
 
     final List<ExternalTableScan> scans = new ArrayList<>();
@@ -162,12 +193,12 @@ public final class RemoteDruidSelectPlanner
       public void visit(final RelNode node, final int ordinal, @Nullable final RelNode parent)
       {
         if (node instanceof Sort || node instanceof Window) {
-          throw InvalidInput.exception("remoteDruidBackend[msq] does not support ORDER BY, LIMIT, or window functions");
+          throw InvalidInput.exception("Remote Druid MSQ does not support ORDER BY, LIMIT, or window functions");
         }
         if (!(node instanceof ExternalTableScan || node instanceof Project || node instanceof Filter
               || node instanceof Aggregate || node instanceof Calc)) {
           throw InvalidInput.exception(
-              "remoteDruidBackend[msq] supports one remote Druid table with projection, filters, and aggregation"
+              "Remote Druid MSQ supports one remote Druid table with projection, filters, and aggregation"
           );
         }
         for (final RexNode expression : expressions(node)) {
@@ -176,13 +207,13 @@ public final class RemoteDruidSelectPlanner
             @Override
             public Void visitOver(final RexOver over)
             {
-              throw InvalidInput.exception("remoteDruidBackend[msq] does not support window functions");
+              throw InvalidInput.exception("Remote Druid MSQ does not support window functions");
             }
 
             @Override
             public Void visitSubQuery(final RexSubQuery subQuery)
             {
-              throw InvalidInput.exception("remoteDruidBackend[msq] does not support relational subqueries");
+              throw InvalidInput.exception("Remote Druid MSQ does not support relational subqueries");
             }
           });
         }
@@ -194,15 +225,15 @@ public final class RemoteDruidSelectPlanner
     }.go(root);
 
     if (scans.size() != 1) {
-      throw InvalidInput.exception("remoteDruidBackend[msq] requires exactly one remote Druid table");
+      throw InvalidInput.exception("Remote Druid MSQ requires exactly one remote Druid table");
     }
     if (!(scans.get(0).getDruidTable().getDataSource() instanceof ExternalDataSource)) {
-      throw InvalidInput.exception("remoteDruidBackend[msq] requires a TABLE(DRUID(...)) input");
+      throw InvalidInput.exception("Remote Druid MSQ requires a TABLE(DRUID(...)) input");
     }
     final ExternalDataSource externalDataSource =
         (ExternalDataSource) scans.get(0).getDruidTable().getDataSource();
     if (!(externalDataSource.getInputSource() instanceof RemoteDruidInputSource)) {
-      throw InvalidInput.exception("remoteDruidBackend[msq] requires a TABLE(DRUID(...)) input");
+      throw InvalidInput.exception("Remote Druid MSQ requires a TABLE(DRUID(...)) input");
     }
     return new ScanInfo((RemoteDruidInputSource) externalDataSource.getInputSource());
   }
@@ -251,7 +282,7 @@ public final class RemoteDruidSelectPlanner
   private static void validateNoLimit(final Sort sort)
   {
     if (sort.fetch != null || sort.offset != null) {
-      throw InvalidInput.exception("remoteDruidBackend[msq] does not support LIMIT or OFFSET");
+      throw InvalidInput.exception("Remote Druid MSQ does not support LIMIT or OFFSET");
     }
   }
 

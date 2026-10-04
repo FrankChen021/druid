@@ -92,7 +92,6 @@ public class MSQTaskSqlEngine implements SqlEngine
 
   public static final List<String> TASK_STRUCT_FIELD_NAMES = ImmutableList.of("TASK");
   public static final String NAME = "msq-task";
-  public static final String CTX_REMOTE_DRUID_BACKEND = "remoteDruidBackend";
 
   private final OverlordClient overlordClient;
   private final ObjectMapper jsonMapper;
@@ -127,7 +126,6 @@ public class MSQTaskSqlEngine implements SqlEngine
   public void validateContext(Map<String, Object> queryContext)
   {
     SqlEngines.validateNoSpecialContextKeys(queryContext, SYSTEM_CONTEXT_PARAMETERS);
-    remoteDruidBackend(queryContext.get(CTX_REMOTE_DRUID_BACKEND));
   }
 
   @Override
@@ -187,7 +185,7 @@ public class MSQTaskSqlEngine implements SqlEngine
   {
     validateSelect(plannerContext);
 
-    if (useRemoteDruidMsq(plannerContext)) {
+    if (RemoteDruidSelectPlanner.containsRemoteDruidTable(relRoot.rel)) {
       return buildRemoteDruidQueryMaker(null, relRoot, plannerContext);
     }
 
@@ -220,7 +218,7 @@ public class MSQTaskSqlEngine implements SqlEngine
         plannerContext
     );
 
-    if (useRemoteDruidMsq(plannerContext)) {
+    if (RemoteDruidSelectPlanner.containsRemoteDruidTable(relRoot.rel)) {
       return buildRemoteDruidQueryMaker(destination, relRoot, plannerContext);
     }
 
@@ -256,26 +254,6 @@ public class MSQTaskSqlEngine implements SqlEngine
         ),
         remoteFramesQuery
     );
-  }
-
-  private static boolean useRemoteDruidMsq(final PlannerContext plannerContext)
-  {
-    return "msq".equals(remoteDruidBackend(plannerContext.queryContextMap().get(CTX_REMOTE_DRUID_BACKEND)));
-  }
-
-  @Nullable
-  private static String remoteDruidBackend(@Nullable final Object backend)
-  {
-    if (backend == null) {
-      return "native";
-    }
-    if (!(backend instanceof String) || !("native".equals(backend) || "msq".equals(backend))) {
-      throw InvalidInput.exception(
-          "Query context [%s] must be either [native] or [msq]",
-          CTX_REMOTE_DRUID_BACKEND
-      );
-    }
-    return (String) backend;
   }
 
   /**

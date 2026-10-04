@@ -117,7 +117,6 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
           new Parameter("username", ParameterType.VARCHAR, true),
           new Parameter("password", ParameterType.VARCHAR, true),
           new Parameter("intervals", ParameterType.VARCHAR_ARRAY, true),
-          new Parameter("splitDurationMillis", ParameterType.BIGINT, true),
           new Parameter("connectTimeoutMillis", ParameterType.BIGINT, true),
           new Parameter("readTimeoutMillis", ParameterType.BIGINT, true),
           new Parameter("maxRetries", ParameterType.BIGINT, true),
@@ -179,9 +178,6 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
           connection,
           CatalogUtils.getString(args, "dataSource"),
           intervals,
-          longArg(args, "splitDurationMillis"),
-          null,
-          false,
           config,
           jsonMapper
       );

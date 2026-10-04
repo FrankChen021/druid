@@ -129,7 +129,6 @@ public class DruidOperatorConversionTest
         Map.of("readTimeoutMillis", Long.MAX_VALUE),
         Map.of("maxResponseBytes", 0L),
         Map.of("maxRetries", -1L),
-        Map.of("splitDurationMillis", 0L),
         Map.of("intervals", List.of("invalid"))
     )) {
       Assertions.assertThrows(IllegalArgumentException.class, () -> apply(options, schema(SqlTypeName.BIGINT)));

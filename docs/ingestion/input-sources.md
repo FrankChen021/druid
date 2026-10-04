@@ -826,7 +826,7 @@ For more information on the `maxNumConcurrentSubTasks` field, see [Implementatio
 
 ## Remote Druid input source
 
-The experimental `remoteDruid` input source reads stored rows through another Druid cluster's Router or Broker native query API.
+The experimental `remoteDruid` input source executes a `SELECT` on another Druid cluster's MSQ engine and reads its binary frame results over HTTP.
 It supports MSQ ingestion through the `DRUID` table function and does not require access to the source cluster's deep storage.
 Provide the source cluster endpoint directly; no named connection configuration is required.
 The endpoint can be a cluster base URL or a native query URL ending in `/druid/v2`.
@@ -878,11 +878,10 @@ Restrict access to query records and task metadata containing credentials.
 |`username`|HTTP Basic authentication username.|for `basic`|
 |`password`|HTTP Basic authentication password.|for `basic`|
 |`intervals`|Array of ISO-8601 intervals restricting the source read. Overlapping intervals are combined.|no|
-|`splitDurationMillis`|Maximum duration of an input split in milliseconds. Default: `3600000` (one hour).|no|
 |`connectTimeoutMillis`|HTTP connection timeout in milliseconds. Default: `10000`.|no|
-|`readTimeoutMillis`|HTTP read and source query timeout in milliseconds. Default: `30000`.|no|
+|`readTimeoutMillis`|HTTP read timeout in milliseconds. Default: `30000`.|no|
 |`maxRetries`|Maximum retries per request, from `0` to `10`. Default: `2`.|no|
-|`maxResponseBytes`|Limit for each downloaded response and normalized row file. Default: `268435456` (256 MiB).|no|
+|`maxResponseBytes`|Limit for each downloaded frame partition. Default: `268435456` (256 MiB).|no|
 
 The source identity must have read access to the requested datasource. Target users need the applicable `EXTERNAL` read permission.
 The target processes performing planning and ingestion must be able to reach the source endpoint.
@@ -908,67 +907,44 @@ FROM TABLE(
 The input specification's `connection` object contains `endpoint`, optional `authentication`, `connectTimeout`, `readTimeout`, `maxRetries`, and `maxResponseBytes`.
 For Basic authentication, use `"authentication":{"type":"basic","username":"reader","password":"password"}`.
 Authentication providers create the HTTP transport; extensions can register additional provider subtypes for use through `EXTERN`.
-The source specification also accepts `intervals`, `splitDurationMillis`, and an optional native `filter` applied on the source.
-
-The controller discovers the source datasource's minimum and maximum timestamps using a `timeBoundary` query.
-It intersects that range with any explicit intervals and eligible SQL time predicates, then assigns disjoint splits to workers.
-The inclusive maximum timestamp is included by extending the exclusive end of the range by one millisecond.
-An empty source produces no input splits. At most 10000 splits are allowed; increase `splitDurationMillis` for longer histories.
-
-For direct external scans, eligible predicates on `__time` narrow the source intervals when it is declared as `LONG`.
-Eligible conjuncts of `AND` are handled independently. Other SQL predicates, including `a = 'keep'` in the example, run on the target.
-This preserves SQL behavior when the external schema coerces source column types.
-The original SQL filter is retained on the target even when time predicates narrow source intervals.
-
-Each worker downloads and validates a complete Scan response before feeding its rows to MSQ.
-Scan responses must use UTF-8 JSON.
-Rows and Scan column lists are parsed individually, with limits of 1 MiB of encoded JSON and 100,000 JSON tokens per row (including primitive-array elements).
+The source specification also accepts `intervals`. Native Scan reads, native input filters, and interval-duration splitting are not supported.
 Schema discovery responses are limited to 1 MiB; use an explicit `EXTEND` schema if metadata exceeds this limit.
-These limits bound reader allocations, but MSQ processing and concurrent readers still require task heap capacity.
-A worker can temporarily hold both the downloaded response and normalized row file, so allow up to twice `maxResponseBytes` per active read.
-Oversized reads fail with an instruction to use smaller intervals.
-Transient failures are retried before rows are exposed. Authentication failures, redirects, and response-size violations are not retried.
-Failed requests are canceled on the source when possible. Cancellation of a blocked network read can take up to the configured timeout.
-
-This MVP requires stable, queryable source intervals for the duration of ingestion.
-Schema and time-bound discovery are not a snapshot: source ingestion or replacement can change results between queries and retries.
-It transfers stored rows, including any existing rollup, rather than reconstructing original events.
-Use `REPLACE` over the copied time range for repeatable backfills; rerunning a successful `INSERT` appends rows again.
+Schema discovery and source SELECT execution are not a snapshot: source ingestion or replacement can change data between them.
+The source reads stored rows, including any existing rollup, rather than reconstructing original events.
 Complex metrics such as sketches and nested columns are not supported by this MVP.
 
 ### Remote Druid input source with MSQ
 
-The remote source can execute a supported `SELECT` on the source cluster's MSQ engine before transferring its result.
-Set the target SQL query context `remoteDruidBackend` to `msq`; the default `native` backend preserves the existing execution path.
+The remote source executes a supported `SELECT` on the source cluster's MSQ engine before transferring its result.
+This is the only remote read path; no backend-selection query context is needed.
 Both source and target clusters must run a Druid version that supports remote-frame protocol version 1.
 Neither cluster needs durable MSQ storage for this path.
 
-For example, include the query context when submitting the target SQL task:
+For example, submit this SQL to the target MSQ task API:
 
-```json
-{
-  "query": "INSERT INTO events_by_day SELECT TIME_FLOOR(__time, 'P1D') AS __time, country, COUNT(*) AS rows FROM TABLE(DRUID(endpoint => 'https://source-router.example', dataSource => 'events')) GROUP BY TIME_FLOOR(__time, 'P1D'), country PARTITIONED BY DAY",
-  "context": {
-    "remoteDruidBackend": "msq"
-  }
-}
+```sql
+INSERT INTO events_by_day
+SELECT TIME_FLOOR(__time, 'P1D') AS __time, country, COUNT(*) AS rows
+FROM TABLE(DRUID(endpoint => 'https://source-router.example', dataSource => 'events'))
+GROUP BY TIME_FLOOR(__time, 'P1D'), country
+PARTITIONED BY DAY
 ```
 
-In MSQ mode, the source cluster runs one `SELECT` for the remote table. Projection, filters, expressions, `GROUP BY`,
+The source cluster runs one `SELECT` for the remote table. Projection, filters, expressions, `GROUP BY`,
 aggregates, and `HAVING` run on the source; the target reads the resulting frame partitions and performs ingestion,
 including `PARTITIONED BY` and `CLUSTERED BY`. Declared external column types are applied as casts before source-side
 filters and aggregation. An `intervals` argument restricts the source read once, before global aggregation.
 
 The first version supports one remote Druid table and primitive or supported primitive-array result columns. It rejects
 joins, unions, multiple remote tables, local/remote mixes, subqueries, window functions, `ORDER BY`, and `LIMIT` during
-planning, before it submits a source query. Use the `native` backend when a query needs one of these shapes.
+planning, before it submits a source query.
 
 The target controller submits the source query once and assigns each manifest partition to one target worker. Source
 frame files stay on the source workers' local disk until the target query finishes or cancels. The default lease is two
 minutes and each renewal can request at most ten minutes; the target renews while its input readers may need the source
 frames. The source releases files after the target controller closes its input slicer, or after the lease expires if the
 target fails. Source failure or cancellation also stops retained workers. The source worker disks must have room for the
-complete SELECT result. The source SELECT has a 25-minute default timeout; an explicit source
+complete SELECT result. The source SELECT has a default timeout of 25 minutes; an explicit source
 `timeout` query context may set another positive value up to 24 hours. Source worker loss during a transfer fails ingestion. A reconnect resumes from the target file's accepted byte offset.
 If a target worker must retry the input, it can reread the same pinned source attempt while the session remains leased;
 Druid does not rerun the source `SELECT` after submission.

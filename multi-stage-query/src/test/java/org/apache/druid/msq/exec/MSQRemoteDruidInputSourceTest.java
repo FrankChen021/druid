@@ -126,7 +126,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/// Exercises the SQL planner, HTTP native queries, MSQ workers, and target segment publication together.
+/// Exercises remote SQL planning, source MSQ frames, target workers, and segment publication together.
 public class MSQRemoteDruidInputSourceTest extends MSQTestBase
 {
   private final List<JsonNode> requests = new CopyOnWriteArrayList<>();
@@ -173,6 +173,7 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
         }
         final JsonNode request = objectMapper.readTree(exchange.getRequestBody());
         requests.add(request);
+        Assertions.assertEquals("segmentMetadata", request.path("queryType").asText());
         final Query<?> parsed = objectMapper.treeToValue(request, Query.class);
         // Expose the fixture's three primitive columns in native schema discovery.
         final Query<?> query = parsed instanceof SegmentMetadataQuery metadata
@@ -195,7 +196,7 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   private String external()
   {
     return "TABLE(DRUID(endpoint => 'http://localhost:" + server.getAddress().getPort()
-           + "', dataSource => 'foo', splitDurationMillis => 31536000000))"
+           + "', dataSource => 'foo'))"
            + " EXTEND (__time BIGINT, dim1 VARCHAR, cnt BIGINT)";
   }
 
@@ -217,8 +218,7 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   private String externalBasic()
   {
     return "TABLE(DRUID(endpoint => 'http://localhost:" + server.getAddress().getPort()
-           + "', dataSource => 'foo', authType => 'basic', username => 'reader', password => 'secret',"
-           + " splitDurationMillis => 31536000000))"
+           + "', dataSource => 'foo', authType => 'basic', username => 'reader', password => 'secret'))"
            + " EXTEND (__time BIGINT, dim1 VARCHAR, cnt BIGINT)";
   }
 
@@ -768,59 +768,9 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   }
 
   @Test
-  public void testInsertSelectStarWithFilterAndDiscoveredIntervals()
-  {
-    testIngestQuery()
-        .setSql("INSERT INTO foo1 SELECT * FROM " + external() + " WHERE dim1 = 'abc' PARTITIONED BY DAY")
-        .setExpectedDataSource("foo1")
-        .setExpectedRowSignature(RowSignature.builder().add("__time", ColumnType.LONG)
-                                             .add("dim1", ColumnType.STRING).add("cnt", ColumnType.LONG).build())
-        .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), "abc", 1L}))
-        .verifyResults();
-    Assertions.assertFalse(requests.stream().anyMatch(r -> "segmentMetadata".equals(r.path("queryType").asText())));
-    Assertions.assertEquals(1, requests.stream().filter(r -> "timeBoundary".equals(r.path("queryType").asText())).count());
-    final List<JsonNode> scans = requests.stream().filter(r -> "scan".equals(r.path("queryType").asText())).toList();
-    Assertions.assertEquals(2, scans.size());
-    Assertions.assertTrue(scans.stream().allMatch(r -> r.path("filter").isMissingNode()));
-  }
-
-  @Test
-  public void testTimePredicateNarrowsRemoteRead()
-  {
-    testIngestQuery()
-        .setSql("INSERT INTO foo1 SELECT * FROM " + external()
-                + " WHERE __time >= TIMESTAMP '2001-01-03 00:00:00' PARTITIONED BY DAY")
-        .setExpectedDataSource("foo1")
-        .setExpectedRowSignature(RowSignature.builder().add("__time", ColumnType.LONG)
-                                             .add("dim1", ColumnType.STRING).add("cnt", ColumnType.LONG).build())
-        .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), "abc", 1L}))
-        .verifyResults();
-    final List<JsonNode> scans = requests.stream().filter(r -> "scan".equals(r.path("queryType").asText())).toList();
-    Assertions.assertEquals(1, scans.size());
-    Assertions.assertTrue(scans.get(0).path("intervals").get(0).asText().startsWith("2001-01-03T00:00:00.000Z/"));
-  }
-
-  @Test
-  public void testGroupByWithLocalFilter()
-  {
-    testIngestQuery()
-        .setSql("INSERT INTO foo1 SELECT TIMESTAMP '2001-01-03 00:00:00' AS __time, cnt, SUM(cnt) AS sum_cnt FROM "
-                + external() + " WHERE dim1 IN ('2', 'abc') GROUP BY cnt PARTITIONED BY DAY")
-        .setExpectedDataSource("foo1")
-        .setExpectedRowSignature(RowSignature.builder().add("__time", ColumnType.LONG)
-                                             .add("cnt", ColumnType.LONG).add("sum_cnt", ColumnType.LONG).build())
-        .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), 1L, 2L}))
-        .verifyResults();
-    final List<JsonNode> scans = requests.stream().filter(r -> "scan".equals(r.path("queryType").asText())).toList();
-    Assertions.assertEquals(2, scans.size());
-    Assertions.assertTrue(scans.stream().allMatch(r -> r.path("filter").isMissingNode()));
-  }
-
-  @Test
-  public void testRemoteMsqBackendExecutesGroupedSelectBeforeTransferringFrames()
+  public void testRemoteMsqExecutesGroupedSelectBeforeTransferringFrames()
   {
     final Map<String, Object> queryContext = new HashMap<>(DEFAULT_MSQ_CONTEXT);
-    queryContext.put("remoteDruidBackend", "msq");
     testIngestQuery()
         .setSql("INSERT INTO foo1 SELECT TIMESTAMP '2001-01-03 00:00:00' AS __time, cnt, SUM(cnt) AS sum_cnt FROM "
                 + external() + " WHERE dim1 IN ('2', 'abc') GROUP BY cnt HAVING SUM(cnt) > 1 PARTITIONED BY DAY")
@@ -845,7 +795,6 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testRemoteMsqGroupsAcrossSourceIntervalsWithOneGlobalFilter()
   {
     final Map<String, Object> queryContext = new HashMap<>(DEFAULT_MSQ_CONTEXT);
-    queryContext.put("remoteDruidBackend", "msq");
     testIngestQuery()
         .setSql("INSERT INTO foo1 SELECT TIMESTAMP '2001-01-03 00:00:00' AS __time, "
                 + "CAST(NULL AS VARCHAR) AS null_value, cnt AS group_key, "
@@ -879,7 +828,6 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
     remoteSourceDefaultTimeZone = "America/Los_Angeles";
     try {
       final Map<String, Object> queryContext = new HashMap<>(DEFAULT_MSQ_CONTEXT);
-      queryContext.put("remoteDruidBackend", "msq");
       testIngestQuery()
           .setSql("INSERT INTO foo1 SELECT TIMESTAMP '2001-01-03 00:00:00' AS __time, "
                   + "CAST(NULL AS VARCHAR) AS null_value, cnt AS group_key, "
@@ -908,7 +856,6 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testRemoteMsqAssignsMultipleFramePartitionsOnce()
   {
     final Map<String, Object> queryContext = new HashMap<>(DEFAULT_MSQ_CONTEXT);
-    queryContext.put("remoteDruidBackend", "msq");
     testIngestQuery()
         .setSql("INSERT INTO foo1 SELECT __time, dim1, cnt FROM " + external()
                 + " WHERE dim1 <> '' PARTITIONED BY DAY")
@@ -936,7 +883,6 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testRemoteMsqKeepsClusterByOnTheTarget()
   {
     final Map<String, Object> queryContext = new HashMap<>(DEFAULT_MSQ_CONTEXT);
-    queryContext.put("remoteDruidBackend", "msq");
     testIngestQuery()
         .setSql("INSERT INTO foo1 SELECT __time, dim1, cnt FROM " + external()
                 + " WHERE dim1 <> '' PARTITIONED BY DAY CLUSTERED BY dim1")
@@ -966,7 +912,6 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testRemoteMsqReleasesAnEmptySourceResult()
   {
     final Map<String, Object> queryContext = new HashMap<>(DEFAULT_MSQ_CONTEXT);
-    queryContext.put("remoteDruidBackend", "msq");
     testIngestQuery()
         .setSql("INSERT INTO foo1 SELECT * FROM " + external() + " WHERE dim1 = 'no-such-row' PARTITIONED BY DAY")
         .setQueryContext(queryContext)
@@ -1113,7 +1058,6 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
 
     try {
       final Map<String, Object> queryContext = new HashMap<>(DEFAULT_MSQ_CONTEXT);
-      queryContext.put("remoteDruidBackend", "msq");
       testIngestQuery()
           .setSql("INSERT INTO foo1 SELECT TIMESTAMP '2001-01-03 00:00:00' AS __time, "
                   + "CAST(NULL AS VARCHAR) AS null_value, cnt AS group_key, "
@@ -1168,7 +1112,6 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testRejectsUnsupportedOrderByBeforeSubmittingRemoteSourceQuery()
   {
     final Map<String, Object> queryContext = new HashMap<>(DEFAULT_MSQ_CONTEXT);
-    queryContext.put("remoteDruidBackend", "msq");
     testIngestQuery()
         .setSql("INSERT INTO foo1 SELECT * FROM " + external() + " ORDER BY cnt PARTITIONED BY DAY")
         .setQueryContext(queryContext)
@@ -1204,7 +1147,6 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   private void assertRemoteMsqPlanningRejected(final String selectSql)
   {
     final Map<String, Object> queryContext = new HashMap<>(DEFAULT_MSQ_CONTEXT);
-    queryContext.put("remoteDruidBackend", "msq");
     testIngestQuery()
         .setSql("INSERT INTO foo1 " + selectSql + " PARTITIONED BY DAY")
         .setQueryContext(queryContext)
@@ -1222,8 +1164,7 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   {
     expectedAuthorization = "Basic cmVhZGVyOnNlY3JldA==";
     final String remote = "TABLE(DRUID(endpoint => 'http://localhost:" + server.getAddress().getPort()
-                          + "/druid/v2/', dataSource => 'foo', authType => 'basic', username => 'reader', password => ?,"
-                          + " splitDurationMillis => 31536000000))";
+                          + "/druid/v2/', dataSource => 'foo', authType => 'basic', username => 'reader', password => ?))";
     testIngestQuery()
         .setSql("INSERT INTO foo1 SELECT * FROM " + remote + " WHERE dim1 = 'abc' PARTITIONED BY DAY")
         .setDynamicParameters(List.of(TypedValue.ofLocal(ColumnMetaData.Rep.STRING, "secret")))
@@ -1233,7 +1174,7 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
         .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), 1L, "abc"}))
         .verifyResults();
     Assertions.assertTrue(requests.stream().anyMatch(r -> "segmentMetadata".equals(r.path("queryType").asText())));
-    Assertions.assertEquals(2, requests.stream().filter(r -> "scan".equals(r.path("queryType").asText())).count());
+    Assertions.assertEquals(1, remoteFrameSubmissions.get());
   }
 
 }
