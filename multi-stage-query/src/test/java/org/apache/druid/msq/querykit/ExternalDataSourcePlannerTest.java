@@ -25,7 +25,7 @@ import org.apache.druid.data.input.impl.RemoteDruidInputSource;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.math.expr.ExprMacroTable;
-import org.apache.druid.query.DataSource;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.extraction.IdentityExtractionFn;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.DimFilter;
@@ -34,6 +34,7 @@ import org.apache.druid.query.filter.ExpressionDimFilter;
 import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.query.filter.RangeFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.external.ExternalDataSource;
@@ -42,8 +43,9 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
-public class InputSourcePlanningTest
+public class ExternalDataSourcePlannerTest
 {
   private final ExternalDataSource external = new ExternalDataSource(
       new RemoteDruidInputSource(
@@ -79,7 +81,7 @@ public class InputSourcePlanningTest
     final RemoteDruidInputSource source = planned(new AndDimFilter(List.of(time, expression)));
     Assertions.assertEquals(List.of(Intervals.utc(1000, 2000)), source.getIntervals());
     Assertions.assertNull(source.getFilter());
-    Assertions.assertSame(external, InputSourcePlanning.optimize(external, expression));
+    Assertions.assertSame(external, plan(external, expression));
   }
 
   @Test
@@ -87,9 +89,9 @@ public class InputSourcePlanningTest
   {
     final DimFilter time = new RangeFilter("__time", ColumnType.LONG, 1000L, 2000L, false, true, null);
     final DimFilter virtual = new EqualityFilter("v0", ColumnType.STRING, "keep", null);
-    Assertions.assertSame(external, InputSourcePlanning.optimize(external, virtual));
-    Assertions.assertSame(external, InputSourcePlanning.optimize(external, new OrDimFilter(List.of(time, virtual))));
-    Assertions.assertSame(external, InputSourcePlanning.optimize(external, null));
+    Assertions.assertSame(external, plan(external, virtual));
+    Assertions.assertSame(external, plan(external, new OrDimFilter(List.of(time, virtual))));
+    Assertions.assertSame(external, plan(external, null));
   }
 
   @Test
@@ -100,7 +102,7 @@ public class InputSourcePlanningTest
         null,
         RowSignature.builder().add("__time", ColumnType.STRING).build()
     );
-    Assertions.assertSame(coercedTime, InputSourcePlanning.optimize(
+    Assertions.assertSame(coercedTime, plan(
         coercedTime,
         new EqualityFilter("__time", ColumnType.STRING, "1000", null)
     ));
@@ -108,8 +110,7 @@ public class InputSourcePlanningTest
 
   private RemoteDruidInputSource planned(final DimFilter filter)
   {
-    final DataSource planned = InputSourcePlanning.optimize(external, filter);
-    return (RemoteDruidInputSource) ((ExternalDataSource) planned).getInputSource();
+    return (RemoteDruidInputSource) plan(external, filter).getInputSource();
   }
   @Test
   public void testTimeEqualityAndSelectorPushDown()
@@ -118,15 +119,28 @@ public class InputSourcePlanningTest
         new EqualityFilter("__time", ColumnType.LONG, 1500L, null),
         new SelectorDimFilter("__time", "1500", null)
     )) {
-      final ExternalDataSource pushed = (ExternalDataSource) InputSourcePlanning.optimize(external, filter);
+      final ExternalDataSource pushed = plan(external, filter);
       final RemoteDruidInputSource source = (RemoteDruidInputSource) pushed.getInputSource();
       Assertions.assertEquals(List.of(Intervals.utc(1500, 1501)), source.getIntervals());
       Assertions.assertNull(source.getFilter());
     }
-    Assertions.assertSame(external, InputSourcePlanning.optimize(
+    Assertions.assertSame(external, plan(
         external,
         new SelectorDimFilter("__time", "1500", IdentityExtractionFn.getInstance())
     ));
+  }
+
+  private ExternalDataSource plan(final ExternalDataSource dataSource, final DimFilter filter)
+  {
+    return (ExternalDataSource) DataSourcePlan.forDataSource(
+        new QueryKitSpec(null, new DataSourcePlanners(Map.of()), "queryId"),
+        QueryContext.empty(),
+        dataSource,
+        new MultipleIntervalSegmentSpec(List.of(Intervals.ETERNITY)),
+        filter,
+        0,
+        false
+    ).getNewDataSource();
   }
 
 }
