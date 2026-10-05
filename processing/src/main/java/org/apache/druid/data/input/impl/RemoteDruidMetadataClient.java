@@ -25,10 +25,15 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
+import org.joda.time.DateTime;
+import org.joda.time.Interval;
+
+import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.FilterInputStream;
@@ -44,10 +49,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/// Discovers remote column types using bounded metadata requests; it does not read datasource rows.
-class RemoteDruidSchemaClient implements AutoCloseable
+/// Discovers remote column types and time bounds using bounded metadata requests; it does not read datasource rows.
+class RemoteDruidMetadataClient implements AutoCloseable
 {
-  private static final Logger LOG = new Logger(RemoteDruidSchemaClient.class);
+  private static final Logger LOG = new Logger(RemoteDruidMetadataClient.class);
 
   static final int MAX_METADATA_BYTES = 1024 * 1024;
 
@@ -55,7 +60,7 @@ class RemoteDruidSchemaClient implements AutoCloseable
   private final ObjectMapper mapper;
   private final RemoteDruidHttpClient httpClient;
 
-  RemoteDruidSchemaClient(final RemoteDruidConnection connection, final ObjectMapper mapper)
+  RemoteDruidMetadataClient(final RemoteDruidConnection connection, final ObjectMapper mapper)
   {
     this.connection = connection;
     this.mapper = mapper;
@@ -73,7 +78,7 @@ class RemoteDruidSchemaClient implements AutoCloseable
     final File response = download(Map.of(
         "queryType", "segmentMetadata", "dataSource", dataSource,
         "intervals", List.of(Intervals.ETERNITY.toString()), "merge", true, "analysisTypes", List.of()
-    ), Math.min(connection.getMaxResponseBytes(), MAX_METADATA_BYTES));
+    ), MAX_METADATA_BYTES);
     try {
       final JsonNode result = mapper.readTree(response);
       require(result.isArray() && result.size() == 1 && result.get(0).path("columns").isObject());
@@ -104,6 +109,35 @@ class RemoteDruidSchemaClient implements AutoCloseable
       final RowSignature resolved = signature.build();
       require(ColumnType.LONG.equals(resolved.getColumnType("__time").orElse(null)));
       return resolved;
+    }
+    finally {
+      Files.deleteIfExists(response.toPath());
+    }
+  }
+
+  /// Returns the half-open interval covering every row of the remote datasource, or null if it has no rows.
+  @Nullable
+  Interval discoverTimeBounds(final String dataSource) throws IOException
+  {
+    final File response = download(
+        Map.of("queryType", "timeBoundary", "dataSource", dataSource),
+        MAX_METADATA_BYTES
+    );
+    try {
+      final JsonNode result = mapper.readTree(response);
+      require(result.isArray());
+      if (result.isEmpty()) {
+        return null;
+      }
+      final JsonNode bounds = result.get(0).path("result");
+      require(bounds.path("minTime").isTextual() && bounds.path("maxTime").isTextual());
+      final DateTime minTime = DateTimes.of(bounds.get("minTime").textValue());
+      final DateTime maxTime = DateTimes.of(bounds.get("maxTime").textValue());
+      require(!maxTime.isBefore(minTime));
+      return new Interval(minTime, maxTime.plus(1));
+    }
+    catch (IllegalArgumentException e) {
+      throw new IOException("Invalid remote Druid time boundary response");
     }
     finally {
       Files.deleteIfExists(response.toPath());

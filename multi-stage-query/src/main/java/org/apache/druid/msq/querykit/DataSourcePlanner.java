@@ -19,6 +19,8 @@
 
 package org.apache.druid.msq.querykit;
 
+import com.google.inject.Binder;
+import org.apache.druid.msq.guice.MSQBinders;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.spec.QuerySegmentSpec;

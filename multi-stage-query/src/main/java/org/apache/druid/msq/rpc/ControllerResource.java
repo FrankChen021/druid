@@ -19,24 +19,19 @@
 
 package org.apache.druid.msq.rpc;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.druid.indexer.report.TaskReport;
 import org.apache.druid.msq.counters.CounterSnapshots;
 import org.apache.druid.msq.counters.CounterSnapshotsTree;
 import org.apache.druid.msq.exec.Controller;
 import org.apache.druid.msq.exec.ControllerClient;
-import org.apache.druid.msq.exec.LiveFramesSession;
 import org.apache.druid.msq.indexing.MSQTaskList;
 import org.apache.druid.msq.indexing.error.MSQErrorReport;
 import org.apache.druid.msq.kernel.StageId;
 import org.apache.druid.msq.statistics.PartialKeyStatisticsInformation;
 import org.apache.druid.server.security.AuthorizerMapper;
 
-import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -45,7 +40,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-
 import java.util.List;
 
 public class ControllerResource
@@ -219,137 +213,5 @@ public class ControllerResource
       return Response.status(Response.Status.NOT_FOUND).build();
     }
     return Response.ok(reports).build();
-  }
-
-  /// Reads status for an owner-authenticated remote-frame session.
-  @GET
-  @Path("/remoteFrames/status/{queryId}")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response httpGetLiveFramesStatus(
-      @PathParam("queryId") final String queryId,
-      @javax.ws.rs.QueryParam("identity") @Nullable final String identity,
-      @Context final HttpServletRequest req
-  )
-  {
-    MSQResourceUtils.authorizeAdminRequest(permissionMapper, authorizerMapper, req);
-    final LiveFramesSession.SessionInfo sessionInfo = controller.getLiveFramesSessionInfo();
-    if (sessionInfo == null || !sessionInfo.getQueryId().equals(queryId) || !controller.isLiveFramesSessionOwnedBy(identity)) {
-      return Response.status(Response.Status.NOT_FOUND).build();
-    }
-    return Response.ok(sessionInfo).build();
-  }
-
-  /// Renews the bounded lease of an owner-authenticated remote-frame session.
-  @POST
-  @Path("/remoteFrames/lease/{queryId}")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response httpRenewLiveFramesLease(
-      final LiveFramesLeaseRequest leaseRequest,
-      @PathParam("queryId") final String queryId,
-      @Context final HttpServletRequest req
-  )
-  {
-    MSQResourceUtils.authorizeAdminRequest(permissionMapper, authorizerMapper, req);
-    final LiveFramesSession.SessionInfo sessionInfo = controller.getLiveFramesSessionInfo();
-    if (sessionInfo == null || !sessionInfo.getQueryId().equals(queryId)
-        || !controller.isLiveFramesSessionOwnedBy(leaseRequest.getIdentity())) {
-      return Response.status(Response.Status.NOT_FOUND).build();
-    }
-    try {
-      return Response.ok(controller.renewLiveFramesLease(leaseRequest.getLeaseMillis())).build();
-    }
-    catch (IllegalArgumentException e) {
-      return Response.status(Response.Status.BAD_REQUEST).build();
-    }
-  }
-
-  /// Releases an owner-authenticated remote-frame session and permits final-stage cleanup.
-  @DELETE
-  @Path("/remoteFrames/{queryId}")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response httpReleaseLiveFramesSession(
-      @PathParam("queryId") final String queryId,
-      @javax.ws.rs.QueryParam("identity") @Nullable final String identity,
-      @Context final HttpServletRequest req
-  )
-  {
-    MSQResourceUtils.authorizeAdminRequest(permissionMapper, authorizerMapper, req);
-    final LiveFramesSession.SessionInfo sessionInfo = controller.getLiveFramesSessionInfo();
-    if (sessionInfo == null || !sessionInfo.getQueryId().equals(queryId) || !controller.isLiveFramesSessionOwnedBy(identity)) {
-      return Response.status(Response.Status.NOT_FOUND).build();
-    }
-    controller.releaseLiveFramesSession();
-    return Response.status(Response.Status.ACCEPTED).build();
-  }
-
-  /// Resolves a public partition identifier to source-internal worker routing details.
-  @GET
-  @Path("/remoteFrames/partitions/{queryId}/{partitionId}")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response httpGetLiveFramesPartitionLocation(
-      @PathParam("queryId") final String queryId,
-      @PathParam("partitionId") final String partitionId,
-      @javax.ws.rs.QueryParam("identity") @Nullable final String identity,
-      @Context final HttpServletRequest req
-  )
-  {
-    MSQResourceUtils.authorizeAdminRequest(permissionMapper, authorizerMapper, req);
-    final LiveFramesSession.SessionInfo sessionInfo = controller.getLiveFramesSessionInfo();
-    if (sessionInfo == null || !sessionInfo.getQueryId().equals(queryId) || !controller.isLiveFramesSessionOwnedBy(identity)) {
-      return Response.status(Response.Status.NOT_FOUND).build();
-    }
-    final LiveFramesSession.PartitionLocation location = controller.beginLiveFramesPartitionRead(partitionId);
-    return location == null ? Response.status(Response.Status.NOT_FOUND).build() : Response.ok(location).build();
-  }
-
-  /// Closes an owner-authenticated bounded partition response.
-  @DELETE
-  @Path("/remoteFrames/partitionReads/{queryId}/{readId}")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response httpEndLiveFramesPartitionRead(
-      @PathParam("queryId") final String queryId,
-      @PathParam("readId") final String readId,
-      @javax.ws.rs.QueryParam("identity") @Nullable final String identity,
-      @Context final HttpServletRequest req
-  )
-  {
-    MSQResourceUtils.authorizeAdminRequest(permissionMapper, authorizerMapper, req);
-    final LiveFramesSession.SessionInfo sessionInfo = controller.getLiveFramesSessionInfo();
-    if (sessionInfo == null || !sessionInfo.getQueryId().equals(queryId)
-        || !controller.isLiveFramesSessionOwnedBy(identity)) {
-      return Response.status(Response.Status.NOT_FOUND).build();
-    }
-    controller.endLiveFramesPartitionRead(readId);
-    return Response.status(Response.Status.ACCEPTED).build();
-  }
-
-  /// Identity and lease duration for an internal lease renewal request.
-  public static class LiveFramesLeaseRequest
-  {
-    private final String identity;
-    private final long leaseMillis;
-
-    @JsonCreator
-    public LiveFramesLeaseRequest(
-        @JsonProperty("identity") final String identity,
-        @JsonProperty("leaseMillis") final long leaseMillis
-    )
-    {
-      this.identity = identity;
-      this.leaseMillis = leaseMillis;
-    }
-
-    @JsonProperty
-    public String getIdentity()
-    {
-      return identity;
-    }
-
-    @JsonProperty
-    public long getLeaseMillis()
-    {
-      return leaseMillis;
-    }
   }
 }

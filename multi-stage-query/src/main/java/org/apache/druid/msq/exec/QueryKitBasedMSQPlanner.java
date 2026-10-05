@@ -183,10 +183,24 @@ public class QueryKitBasedMSQPlanner
                     .build();
     } else if (MSQControllerTask.writeFinalResultsToTaskReport(destination)) {
       return queryDef;
-    } else if (MSQControllerTask.writeFinalResultsToLiveFrames(destination)) {
-      return addResultStageIfRequired(queryDef);
     } else if (MSQControllerTask.writeFinalStageResultsToDurableStorage(destination)) {
-      return addResultStageIfRequired(queryDef);
+
+      // attaching new query results stage if the final stage does sort during shuffle so that results are ordered.
+      StageDefinition finalShuffleStageDef = queryDef.getFinalStageDefinition();
+      if (finalShuffleStageDef.doesSortDuringShuffle()) {
+        final QueryDefinitionBuilder builder = QueryDefinition.builder(queryKitSpec.getQueryId());
+        builder.addAll(queryDef);
+        builder.add(StageDefinition.builder(queryDef.getNextStageNumber())
+                                   .inputs(new StageInputSpec(queryDef.getFinalStageDefinition().getStageNumber()))
+                                   .maxWorkerCount(tuningConfig.getMaxNumWorkers())
+                                   .signature(finalShuffleStageDef.getSignature())
+                                   .shuffleSpec(null)
+                                   .processor(new QueryResultStageProcessor())
+        );
+        return builder.build();
+      } else {
+        return queryDef;
+      }
     } else if (MSQControllerTask.isExport(destination)) {
       final ExportMSQDestination exportMSQDestination = (ExportMSQDestination) destination;
       final ExportStorageProvider exportStorageProvider = exportMSQDestination.getExportStorageProvider();
@@ -211,27 +225,6 @@ public class QueryKitBasedMSQPlanner
     } else {
       throw new ISE("Unsupported destination [%s]", destination);
     }
-  }
-
-  private QueryDefinition addResultStageIfRequired(final QueryDefinition queryDef)
-  {
-    // A sorted shuffle partition may be striped across workers; collect it into one file-backed worker output
-    // before exposing the final stage as independently readable remote-frame partitions.
-    final StageDefinition finalStage = queryDef.getFinalStageDefinition();
-    if (!finalStage.doesSortDuringShuffle()) {
-      return queryDef;
-    }
-
-    final QueryDefinitionBuilder builder = QueryDefinition.builder(queryKitSpec.getQueryId());
-    builder.addAll(queryDef);
-    builder.add(StageDefinition.builder(queryDef.getNextStageNumber())
-                               .inputs(new StageInputSpec(finalStage.getStageNumber()))
-                               .maxWorkerCount(tuningConfig.getMaxNumWorkers())
-                               .signature(finalStage.getSignature())
-                               .shuffleSpec(null)
-                               .processor(new QueryResultStageProcessor())
-    );
-    return builder.build();
   }
 
   private ShuffleSpecFactory makeResultShuffleSpecFacory()

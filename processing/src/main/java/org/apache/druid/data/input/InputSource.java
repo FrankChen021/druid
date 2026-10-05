@@ -27,8 +27,8 @@ import org.apache.druid.data.input.impl.CombiningInputSource;
 import org.apache.druid.data.input.impl.HttpInputSource;
 import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.data.input.impl.LocalInputSource;
-import org.apache.druid.data.input.impl.RemoteDruidFrameInputSource;
 import org.apache.druid.data.input.impl.RemoteDruidInputSource;
+import org.apache.druid.data.input.impl.RemoteDruidSqlInputSource;
 import org.apache.druid.guice.annotations.UnstableApi;
 import org.apache.druid.java.util.common.UOE;
 
@@ -58,7 +58,7 @@ import java.util.Set;
 @JsonSubTypes(value = {
     @Type(name = LocalInputSource.TYPE_KEY, value = LocalInputSource.class),
     @Type(name = RemoteDruidInputSource.TYPE_KEY, value = RemoteDruidInputSource.class),
-    @Type(name = RemoteDruidFrameInputSource.TYPE_KEY, value = RemoteDruidFrameInputSource.class),
+    @Type(name = RemoteDruidSqlInputSource.TYPE_KEY, value = RemoteDruidSqlInputSource.class),
     @Type(name = HttpInputSource.TYPE_KEY, value = HttpInputSource.class),
     @Type(name = InlineInputSource.TYPE_KEY, value = InlineInputSource.class),
     @Type(name = CombiningInputSource.TYPE_KEY, value = CombiningInputSource.class)

@@ -29,11 +29,13 @@ import org.apache.druid.data.input.AbstractInputSource;
 import org.apache.druid.data.input.InputRowSchema;
 import org.apache.druid.data.input.InputSourceReader;
 import org.apache.druid.guice.annotations.Json;
+import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.segment.column.RowSignature;
 import org.joda.time.Interval;
+import org.joda.time.Period;
 
 import javax.annotation.Nullable;
 
@@ -44,7 +46,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/// Describes a remote Druid table that SQL planning converts into a source MSQ SELECT and frame input.
+/// Describes a remote Druid table referenced by the `DRUID` table function. SQL planning replaces each scan of it with
+/// a [RemoteDruidSqlInputSource] that runs the pushed-down SELECT on the source cluster; it is never read directly.
 public class RemoteDruidInputSource extends AbstractInputSource
 {
   public static final String TYPE_KEY = "remoteDruid";
@@ -52,6 +55,9 @@ public class RemoteDruidInputSource extends AbstractInputSource
   private final String dataSource;
   @Nullable
   private final List<Interval> intervals;
+  private final String engine;
+  @Nullable
+  private final Period splitDuration;
   private final HttpInputSourceConfig config;
   private final ObjectMapper mapper;
 
@@ -60,6 +66,8 @@ public class RemoteDruidInputSource extends AbstractInputSource
       @JsonProperty("connection") final RemoteDruidConnection connection,
       @JsonProperty("dataSource") final String dataSource,
       @JsonProperty("intervals") @Nullable final List<Interval> intervals,
+      @JsonProperty("engine") @Nullable final String engine,
+      @JsonProperty("splitDuration") @Nullable final Period splitDuration,
       @JacksonInject final HttpInputSourceConfig config,
       @JacksonInject @Json final ObjectMapper mapper
   )
@@ -71,6 +79,17 @@ public class RemoteDruidInputSource extends AbstractInputSource
                      : List.copyOf(JodaUtils.condenseIntervals(
                          intervals.stream().filter(i -> i.toDurationMillis() > 0).toList()
                      ));
+    this.engine = engine == null ? RemoteDruidSqlInputSource.ENGINE_DART : engine;
+    this.splitDuration = splitDuration;
+    Preconditions.checkArgument(
+        RemoteDruidSqlInputSource.ENGINES.contains(this.engine),
+        "Remote Druid engine must be one of %s",
+        RemoteDruidSqlInputSource.ENGINES
+    );
+    Preconditions.checkArgument(
+        splitDuration == null || DateTimes.EPOCH.plus(splitDuration).isAfter(DateTimes.EPOCH),
+        "splitDuration must be positive"
+    );
     this.config = Preconditions.checkNotNull(config, "config");
     this.mapper = Preconditions.checkNotNull(mapper, "mapper");
     Preconditions.checkArgument(Set.of("http", "https").contains(StringUtils.toLowerCase(connection.getEndpoint().getScheme())),
@@ -97,6 +116,19 @@ public class RemoteDruidInputSource extends AbstractInputSource
     return intervals;
   }
 
+  @JsonProperty
+  public String getEngine()
+  {
+    return engine;
+  }
+
+  @JsonProperty
+  @Nullable
+  public Period getSplitDuration()
+  {
+    return splitDuration;
+  }
+
   @JsonIgnore
   @Override
   public Set<String> getTypes()
@@ -119,29 +151,37 @@ public class RemoteDruidInputSource extends AbstractInputSource
   /// Discovers primitive column types for SQL planning when no explicit EXTEND schema is provided.
   public RowSignature discoverSchema() throws IOException
   {
-    try (final RemoteDruidSchemaClient client = new RemoteDruidSchemaClient(connection, mapper)) {
+    try (final RemoteDruidMetadataClient client = new RemoteDruidMetadataClient(connection, mapper)) {
       return client.discoverSchema(dataSource);
     }
   }
 
-  /// Creates a remote-frame input source using this connection's existing authentication and HTTP restrictions.
-  public RemoteDruidFrameInputSource asFrameInputSource(
+  /// Creates the input source that streams one pushed-down source SELECT through this connection.
+  ///
+  /// @param sql                 source SQL; when `timeRangeParameters` is set, it filters `__time` on two
+  ///                            `BIGINT` epoch-millisecond parameters, `[start, end)`
+  /// @param signature           output columns, in the order of the SQL result
+  /// @param timestampColumns    output columns that the source returns as SQL timestamps
+  /// @param context             source query context
+  public RemoteDruidSqlInputSource toSqlInputSource(
       final String sql,
-      final String clientRequestId,
-      final Map<String, Object> sourceContext,
-      final RowSignature expectedSignature
+      final boolean timeRangeParameters,
+      final RowSignature signature,
+      final List<String> timestampColumns,
+      final Map<String, Object> context
   )
   {
-    return new RemoteDruidFrameInputSource(
+    return new RemoteDruidSqlInputSource(
         connection,
+        dataSource,
         sql,
-        clientRequestId,
-        sourceContext,
-        expectedSignature,
-        null,
-        null,
-        null,
-        null,
+        engine,
+        context,
+        signature,
+        timestampColumns,
+        timeRangeParameters,
+        timeRangeParameters ? intervals : null,
+        timeRangeParameters ? splitDuration : null,
         null,
         config,
         mapper
@@ -152,7 +192,7 @@ public class RemoteDruidInputSource extends AbstractInputSource
   @Override
   protected InputSourceReader fixedFormatReader(final InputRowSchema schema, @Nullable final File temporaryDirectory)
   {
-    throw new UOE("Remote Druid tables must be read through MSQ SQL using TABLE(DRUID(...)) or TABLE(EXTERN(...))");
+    throw new UOE("Remote Druid tables must be read through SQL using TABLE(DRUID(...))");
   }
 
   @Override
@@ -165,13 +205,14 @@ public class RemoteDruidInputSource extends AbstractInputSource
       return false;
     }
     return connection.equals(that.connection) && dataSource.equals(that.dataSource)
-           && Objects.equals(intervals, that.intervals);
+           && Objects.equals(intervals, that.intervals) && engine.equals(that.engine)
+           && Objects.equals(splitDuration, that.splitDuration);
   }
 
   @Override
   public int hashCode()
   {
-    return Objects.hash(connection, dataSource, intervals);
+    return Objects.hash(connection, dataSource, intervals, engine, splitDuration);
   }
 
   @Override

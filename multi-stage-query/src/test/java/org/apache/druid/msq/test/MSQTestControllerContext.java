@@ -21,7 +21,6 @@ package org.apache.druid.msq.test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -67,8 +66,6 @@ import org.apache.druid.msq.indexing.MSQWorkerTask;
 import org.apache.druid.msq.indexing.MSQWorkerTaskLauncher;
 import org.apache.druid.msq.indexing.MSQWorkerTaskLauncher.MSQWorkerTaskLauncherConfig;
 import org.apache.druid.msq.input.InputSpecSlicerProvider;
-import org.apache.druid.msq.input.external.RemoteDruidFrameInputSpecSlicerProvider;
-import org.apache.druid.msq.kernel.StageId;
 import org.apache.druid.msq.kernel.controller.ControllerQueryKernelConfig;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.QueryContext;
@@ -81,10 +78,8 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 import javax.annotation.Nullable;
-
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -148,29 +143,6 @@ public class MSQTestControllerContext implements ControllerContext, DartControll
     this.workerMemoryParameters = workerMemoryParameters;
     this.taskLockType = taskLockType;
     this.queryContext = queryContext;
-  }
-
-  /// Reads retained worker stage output for a live-frame lifecycle test.
-  public byte[] readStageOutput(
-      final String workerTaskId,
-      final StageId stageId,
-      final int partitionNumber,
-      final long offset
-  ) throws IOException
-  {
-    final WorkerRunRef workerRunRef = inMemoryWorkers.get(workerTaskId);
-    if (workerRunRef == null) {
-      throw new ISE("Test worker[%s] is no longer running", workerTaskId);
-    }
-    try (final InputStream inputStream = FutureUtils.getUnchecked(
-        workerRunRef.worker().readStageOutput(stageId, partitionNumber, offset),
-        true
-    )) {
-      if (inputStream == null) {
-        throw new ISE("Test worker[%s] has no output for stage[%s] partition[%s]", workerTaskId, stageId, partitionNumber);
-      }
-      return ByteStreams.toByteArray(inputStream);
-    }
   }
 
   public MSQTestControllerContext(
@@ -446,10 +418,7 @@ public class MSQTestControllerContext implements ControllerContext, DartControll
   @Override
   public List<InputSpecSlicerProvider> inputSpecSlicerProviders()
   {
-    return List.of(
-        new IndexerTableInputSpecSlicerProvider(coordinatorClient),
-        new RemoteDruidFrameInputSpecSlicerProvider()
-    );
+    return List.of(new IndexerTableInputSpecSlicerProvider(coordinatorClient));
   }
 
   @Override

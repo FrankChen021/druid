@@ -37,7 +37,6 @@ public class RemoteDruidConnection
   private final RemoteDruidAuthentication authentication;
   private final int connectTimeout;
   private final int readTimeout;
-  private final long maxResponseBytes;
   private final int maxRetries;
 
   @JsonCreator
@@ -46,7 +45,6 @@ public class RemoteDruidConnection
       @JsonProperty("authentication") @Nullable final RemoteDruidAuthentication authentication,
       @JsonProperty("connectTimeout") @Nullable final Integer connectTimeout,
       @JsonProperty("readTimeout") @Nullable final Integer readTimeout,
-      @JsonProperty("maxResponseBytes") @Nullable final Long maxResponseBytes,
       @JsonProperty("maxRetries") @Nullable final Integer maxRetries
   )
   {
@@ -57,11 +55,10 @@ public class RemoteDruidConnection
     this.endpoint = URI.create(value.endsWith("/druid/v2") ? value : value + "/druid/v2");
     this.authentication = authentication == null ? new RemoteDruidAuthentication.None() : authentication;
     this.connectTimeout = connectTimeout == null ? 10_000 : connectTimeout;
-    this.readTimeout = readTimeout == null ? 30_000 : readTimeout;
-    this.maxResponseBytes = maxResponseBytes == null ? 256L * 1024 * 1024 : maxResponseBytes;
+    // Streamed SQL results may not produce a byte until the source finishes an aggregation.
+    this.readTimeout = readTimeout == null ? 300_000 : readTimeout;
     this.maxRetries = maxRetries == null ? 2 : maxRetries;
     Preconditions.checkArgument(this.connectTimeout > 0 && this.readTimeout > 0, "Timeouts must be positive");
-    Preconditions.checkArgument(this.maxResponseBytes > 0, "maxResponseBytes must be positive");
     Preconditions.checkArgument(this.maxRetries >= 0 && this.maxRetries <= 10, "maxRetries must be between 0 and 10");
   }
 
@@ -90,12 +87,6 @@ public class RemoteDruidConnection
   }
 
   @JsonProperty
-  public long getMaxResponseBytes()
-  {
-    return maxResponseBytes;
-  }
-
-  @JsonProperty
   public int getMaxRetries()
   {
     return maxRetries;
@@ -106,12 +97,12 @@ public class RemoteDruidConnection
   {
     return other instanceof RemoteDruidConnection that && endpoint.equals(that.endpoint)
            && authentication.equals(that.authentication) && connectTimeout == that.connectTimeout
-           && readTimeout == that.readTimeout && maxResponseBytes == that.maxResponseBytes && maxRetries == that.maxRetries;
+           && readTimeout == that.readTimeout && maxRetries == that.maxRetries;
   }
 
   @Override
   public int hashCode()
   {
-    return Objects.hash(endpoint, authentication, connectTimeout, readTimeout, maxResponseBytes, maxRetries);
+    return Objects.hash(endpoint, authentication, connectTimeout, readTimeout, maxRetries);
   }
 }

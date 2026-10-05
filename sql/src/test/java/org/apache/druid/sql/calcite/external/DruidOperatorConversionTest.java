@@ -32,6 +32,7 @@ import org.apache.druid.data.input.impl.RemoteDruidAuthentication;
 import org.apache.druid.data.input.impl.RemoteDruidConnection;
 import org.apache.druid.data.input.impl.RemoteDruidInputSource;
 import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.metadata.EnvironmentVariablePasswordProvider;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -77,9 +78,14 @@ public class DruidOperatorConversionTest
     ), SqlParserPos.ZERO);
   }
 
+  private static RemoteDruidInputSource inputSource(final TranslatableTable table)
+  {
+    return (RemoteDruidInputSource) ((ExternalDataSource) ((ExternalTable) table).getDataSource()).getInputSource();
+  }
+
   private static RemoteDruidConnection connection(final TranslatableTable table)
   {
-    return ((RemoteDruidInputSource) ((ExternalDataSource) ((ExternalTable) table).getDataSource()).getInputSource()).getConnection();
+    return inputSource(table).getConnection();
   }
 
   @Test
@@ -90,7 +96,7 @@ public class DruidOperatorConversionTest
     Assertions.assertEquals(URI.create("https://source.example/druid/v2"), anonymous.getEndpoint());
     final RemoteDruidConnection basic = connection(apply(Map.of(
         "authType", "basic", "username", "reader", "password", "secret",
-        "connectTimeoutMillis", 123L, "readTimeoutMillis", 456L, "maxResponseBytes", 789L, "maxRetries", 0L
+        "connectTimeoutMillis", 123L, "readTimeoutMillis", 456L, "maxRetries", 0L
     ), schema(SqlTypeName.BIGINT)));
     final RemoteDruidAuthentication.Basic authentication = Assertions.assertInstanceOf(
         RemoteDruidAuthentication.Basic.class,
@@ -100,8 +106,43 @@ public class DruidOperatorConversionTest
     Assertions.assertEquals("secret", authentication.getPassword().getPassword());
     Assertions.assertEquals(123, basic.getConnectTimeout());
     Assertions.assertEquals(456, basic.getReadTimeout());
-    Assertions.assertEquals(789, basic.getMaxResponseBytes());
     Assertions.assertEquals(0, basic.getMaxRetries());
+  }
+
+  @Test
+  public void testEngineAndSplitDuration()
+  {
+    final RemoteDruidInputSource defaults = inputSource(apply(Map.of(), schema(SqlTypeName.BIGINT)));
+    Assertions.assertEquals("msq-dart", defaults.getEngine());
+    Assertions.assertNull(defaults.getSplitDuration());
+    final RemoteDruidInputSource configured = inputSource(apply(
+        Map.of("engine", "native", "splitDuration", "P1D"),
+        schema(SqlTypeName.BIGINT)
+    ));
+    Assertions.assertEquals("native", configured.getEngine());
+    Assertions.assertEquals(org.joda.time.Period.days(1), configured.getSplitDuration());
+  }
+
+  @Test
+  public void testPasswordProviders()
+  {
+    final RemoteDruidAuthentication.Basic envVar = (RemoteDruidAuthentication.Basic) connection(apply(
+        Map.of("authType", "basic", "username", "reader", "passwordEnvVar", "SOURCE_PASSWORD"),
+        schema(SqlTypeName.BIGINT)
+    )).getAuthentication();
+    Assertions.assertEquals(
+        new EnvironmentVariablePasswordProvider("SOURCE_PASSWORD"),
+        envVar.getPassword()
+    );
+    final RemoteDruidAuthentication.Basic provider = (RemoteDruidAuthentication.Basic) connection(apply(
+        Map.of(
+            "authType", "basic",
+            "username", "reader",
+            "passwordProvider", "{\"type\":\"environment\",\"variable\":\"OTHER_PASSWORD\"}"
+        ),
+        schema(SqlTypeName.BIGINT)
+    )).getAuthentication();
+    Assertions.assertEquals(new EnvironmentVariablePasswordProvider("OTHER_PASSWORD"), provider.getPassword());
   }
 
   @Test
@@ -111,7 +152,10 @@ public class DruidOperatorConversionTest
         Map.of("username", "reader", "password", "secret"),
         Map.of("authType", "basic", "username", "reader"),
         Map.of("authType", "basic", "password", "secret"),
-        Map.of("authType", "unsupported", "password", "secret")
+        Map.of("authType", "unsupported", "password", "secret"),
+        Map.of("authType", "basic", "username", "reader", "password", "secret", "passwordEnvVar", "SECRET_VAR"),
+        Map.of("username", "reader", "passwordEnvVar", "SECRET_VAR"),
+        Map.of("authType", "basic", "username", "reader", "passwordProvider", "{\"password\": \"secret\"")
     )) {
       final IllegalArgumentException exception = Assertions.assertThrows(
           IllegalArgumentException.class,
@@ -127,7 +171,9 @@ public class DruidOperatorConversionTest
     for (final Map<String, Object> options : List.<Map<String, Object>>of(
         Map.of("connectTimeoutMillis", 0L),
         Map.of("readTimeoutMillis", Long.MAX_VALUE),
-        Map.of("maxResponseBytes", 0L),
+        Map.of("engine", "unknown"),
+        Map.of("splitDuration", "not-a-period"),
+        Map.of("splitDuration", "PT0S"),
         Map.of("maxRetries", -1L),
         Map.of("intervals", List.of("invalid"))
     )) {

@@ -148,7 +148,6 @@ import org.apache.druid.msq.input.inline.InlineInputSpec;
 import org.apache.druid.msq.input.inline.InlineInputSpecSlicer;
 import org.apache.druid.msq.input.lookup.LookupInputSpec;
 import org.apache.druid.msq.input.lookup.LookupInputSpecSlicer;
-import org.apache.druid.msq.input.stage.ReadablePartition;
 import org.apache.druid.msq.input.stage.StageInputSpec;
 import org.apache.druid.msq.input.stage.StageInputSpecSlicer;
 import org.apache.druid.msq.kernel.QueryDefinition;
@@ -163,7 +162,6 @@ import org.apache.druid.msq.querykit.MultiQueryKit;
 import org.apache.druid.msq.querykit.QueryKitUtils;
 import org.apache.druid.msq.shuffle.input.DurableStorageInputChannelFactory;
 import org.apache.druid.msq.shuffle.input.WorkerInputChannelFactory;
-import org.apache.druid.msq.sql.MSQTaskQueryMaker;
 import org.apache.druid.msq.statistics.ClusterByStatisticsCollector;
 import org.apache.druid.msq.statistics.PartialKeyStatisticsInformation;
 import org.apache.druid.msq.util.IntervalUtils;
@@ -203,7 +201,6 @@ import org.joda.time.DateTimeUtils;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -239,8 +236,6 @@ public class ControllerImpl implements Controller
   private final Query<?> legacyQuery;
   private final ResultsContext resultsContext;
   private final ControllerContext context;
-  @Nullable
-  private final LiveFramesSession liveFramesSession;
   private volatile ControllerQueryKernelConfig queryKernelConfig;
 
   /**
@@ -340,7 +335,6 @@ public class ControllerImpl implements Controller
     this.resultsContext = Preconditions.checkNotNull(resultsContext, "resultsContext");
     this.context = Preconditions.checkNotNull(controllerContext, "controllerContext");
     this.queryKitSpecFactory = queryKitSpecFactory;
-    this.liveFramesSession = makeLiveFramesSession(querySpec, controllerContext);
   }
 
 
@@ -356,24 +350,6 @@ public class ControllerImpl implements Controller
     this.resultsContext = Preconditions.checkNotNull(resultsContext, "resultsContext");
     this.context = Preconditions.checkNotNull(controllerContext, "controllerContext");
     this.queryKitSpecFactory = queryKitSpecFactory;
-    this.liveFramesSession = makeLiveFramesSession(querySpec, controllerContext);
-  }
-
-  @Nullable
-  private static LiveFramesSession makeLiveFramesSession(
-      final MSQSpec querySpec,
-      final ControllerContext controllerContext
-  )
-  {
-    if (!MSQControllerTask.writeFinalResultsToLiveFrames(querySpec.getDestination())) {
-      return null;
-    }
-
-    final String owner = querySpec.getContext().getString(MSQTaskQueryMaker.USER_KEY, null);
-    if (owner == null) {
-      throw new IAE("Remote frame queries require an authenticated owner");
-    }
-    return new LiveFramesSession(controllerContext.queryId(), owner);
   }
 
 
@@ -391,9 +367,6 @@ public class ControllerImpl implements Controller
       reportPayload = runInternal(queryListener, closer);
     }
     catch (Throwable e) {
-      if (liveFramesSession != null) {
-        liveFramesSession.fail();
-      }
       log.error(e, "Controller internal execution encountered exception.");
       queryListener.onQueryComplete(makeStatusReportForException(e));
       throw e;
@@ -413,9 +386,6 @@ public class ControllerImpl implements Controller
   @Override
   public void stop(CancellationReason reason, @Nullable Throwable cause)
   {
-    if (liveFramesSession != null) {
-      liveFramesSession.cancel();
-    }
     final QueryDefinition queryDef = queryDefRef.get();
 
     // stopGracefully() is called when the containing process is terminated, or when the task is canceled.
@@ -455,9 +425,6 @@ public class ControllerImpl implements Controller
 
     try {
       // Planning-related: convert the native query from MSQSpec into a multi-stage QueryDefinition.
-      if (liveFramesSession != null) {
-        liveFramesSession.markRunning();
-      }
       this.queryStartTime = DateTimes.nowUtc();
       context.registerController(this, closer);
       queryDef = initializeQueryDefAndState();
@@ -475,8 +442,7 @@ public class ControllerImpl implements Controller
       final InputSpecSlicerFactory inputSpecSlicerFactory = makeInputSpecSlicerFactory(
           context,
           workerManager.getWorkerIds(),
-          getQueryContext(),
-          closer
+          getQueryContext()
       );
 
       final Pair<ControllerQueryKernel, ListenableFuture<?>> queryRunResult =
@@ -512,9 +478,6 @@ public class ControllerImpl implements Controller
       taskStateForReport = TaskState.SUCCESS;
       errorForReport = null;
     } else {
-      if (liveFramesSession != null) {
-        liveFramesSession.fail();
-      }
       // Query failure. Generate an error report and log the error(s) we encountered.
       final String selfHost = MSQTasks.getHostFromSelfNode(selfDruidNode);
       final MSQErrorReport controllerError;
@@ -1436,61 +1399,6 @@ public class ControllerImpl implements Controller
   }
 
   @Override
-  @Nullable
-  public LiveFramesSession.SessionInfo getLiveFramesSessionInfo()
-  {
-    return liveFramesSession == null ? null : liveFramesSession.getInfo();
-  }
-
-  @Override
-  public boolean renewLiveFramesLease(final long leaseMillis)
-  {
-    return liveFramesSession != null && liveFramesSession.renewLease(leaseMillis);
-  }
-
-  @Override
-  public boolean isLiveFramesSessionOwnedBy(@Nullable final String identity)
-  {
-    return liveFramesSession != null && liveFramesSession.isOwnedBy(identity);
-  }
-
-  @Override
-  public void releaseLiveFramesSession()
-  {
-    if (liveFramesSession == null) {
-      return;
-    }
-
-    final String state = liveFramesSession.getInfo().getState();
-    liveFramesSession.release();
-    if ("submitted".equals(state) || "running".equals(state)) {
-      stop(CancellationReason.USER_REQUEST, null);
-    }
-  }
-
-  @Override
-  @Nullable
-  public LiveFramesSession.PartitionLocation getLiveFramesPartitionLocation(final String partitionId)
-  {
-    return liveFramesSession == null ? null : liveFramesSession.getPartitionLocation(partitionId);
-  }
-
-  @Override
-  @Nullable
-  public LiveFramesSession.PartitionLocation beginLiveFramesPartitionRead(final String partitionId)
-  {
-    return liveFramesSession == null ? null : liveFramesSession.beginPartitionRead(partitionId);
-  }
-
-  @Override
-  public void endLiveFramesPartitionRead(final String readId)
-  {
-    if (liveFramesSession != null) {
-      liveFramesSession.endPartitionRead(readId);
-    }
-  }
-
-  @Override
   public boolean hasWorker(String workerId)
   {
     if (workerManager == null) {
@@ -2285,19 +2193,9 @@ public class ControllerImpl implements Controller
   private static InputSpecSlicerFactory makeInputSpecSlicerFactory(
       final ControllerContext controllerContext,
       final List<String> workerIds,
-      final QueryContext queryContext,
-      final Closer closer
+      final QueryContext queryContext
   )
   {
-    final Map<Class<? extends InputSpec>, InputSpecSlicer> providerSlicers = new LinkedHashMap<>();
-    for (final InputSpecSlicerProvider slicerProvider : controllerContext.inputSpecSlicerProviders()) {
-      final InputSpecSlicer slicer = slicerProvider.createSlicer(controllerContext, queryContext, workerIds);
-      if (slicer instanceof java.io.Closeable) {
-        closer.register((java.io.Closeable) slicer);
-      }
-      providerSlicers.put(slicerProvider.specClass(), slicer);
-    }
-
     return (stagePartitionsMap, stageOutputChannelModeMap) -> {
       Map<Class<? extends InputSpec>, InputSpecSlicer> slicers = new LinkedHashMap<>();
 
@@ -2307,7 +2205,12 @@ public class ControllerImpl implements Controller
       slicers.put(LookupInputSpec.class, new LookupInputSpecSlicer());
 
       // Context-supplied providers override the default ones, so they get added last.
-      slicers.putAll(providerSlicers);
+      for (final InputSpecSlicerProvider slicerProvider : controllerContext.inputSpecSlicerProviders()) {
+        slicers.put(
+            slicerProvider.specClass(),
+            slicerProvider.createSlicer(controllerContext, queryContext, workerIds)
+        );
+      }
 
       return new MapInputSpecSlicer(slicers);
     };
@@ -2521,82 +2424,8 @@ public class ControllerImpl implements Controller
       }
 
       updateLiveReportMaps();
-      if (liveFramesSession != null) {
-        publishLiveFramesManifest(queryDef, queryKernel);
-        liveFramesSession.awaitRelease();
-        cleanupLiveFramesStageOutputs(queryDef, queryKernel);
-      }
       cleanUpEffectivelyFinishedStages();
       return Pair.of(queryKernel, workerTaskLauncherFuture);
-    }
-
-    private void cleanupLiveFramesStageOutputs(
-        final QueryDefinition queryDef,
-        final ControllerQueryKernel queryKernel
-    )
-    {
-      final StageId finalStageId = queryDef.getFinalStageDefinition().getId();
-      log.info(
-          "Query [%s] releasing retained remote-frame output for stage[%d].",
-          queryDef.getQueryId(),
-          finalStageId.getStageNumber()
-      );
-      contactWorkersForStage(
-          queryKernel,
-          queryKernel.getWorkerInputsForStage(finalStageId).workers(),
-          (netClient, workerId, workerNumber) -> netClient.postCleanupStage(workerId, finalStageId),
-          (workerId, workerNumber) -> {},
-          false
-      );
-    }
-
-    private void publishLiveFramesManifest(
-        final QueryDefinition queryDef,
-        final ControllerQueryKernel queryKernel
-    )
-    {
-      final StageDefinition finalStage = queryDef.getFinalStageDefinition();
-      final StageId finalStageId = finalStage.getId();
-      final RowSignature sourceSignature = finalStage.getSignature();
-      final Map<String, List<String>> columnMapping = new LinkedHashMap<>();
-      final ColumnMappings columnMappings = querySpec.getColumnMappings();
-
-      if (columnMappings == null) {
-        for (final String columnName : sourceSignature.getColumnNames()) {
-          columnMapping.put(columnName, List.of(columnName));
-        }
-      } else {
-        for (final org.apache.druid.sql.calcite.planner.ColumnMapping mapping : columnMappings.getMappings()) {
-          if (sourceSignature.getColumnType(mapping.getQueryColumn()).isEmpty()) {
-            throw new ISE("Remote frame output column[%s] is missing from the final stage", mapping.getQueryColumn());
-          }
-          columnMapping.computeIfAbsent(mapping.getQueryColumn(), ignored -> new ArrayList<>())
-                       .add(mapping.getOutputColumn());
-        }
-      }
-
-      final List<String> workerIds = getWorkerIds();
-      final List<LiveFramesSession.PartitionLocation> locations = new ArrayList<>();
-      for (final ReadablePartition readablePartition : queryKernel.getResultPartitionsForStage(finalStageId)) {
-        if (readablePartition.getWorkerNumbers().size() != 1) {
-          throw new ISE(
-              "Remote frame result partition[%d] is still striped across %d workers",
-              readablePartition.getPartitionNumber(),
-              readablePartition.getWorkerNumbers().size()
-          );
-        }
-        for (final int workerNumber : readablePartition.getWorkerNumbers()) {
-          if (workerNumber < 0 || workerNumber >= workerIds.size()) {
-            throw new ISE("Invalid worker number[%d] in remote frame result", workerNumber);
-          }
-          locations.add(new LiveFramesSession.PartitionLocation(
-              workerIds.get(workerNumber),
-              readablePartition.getPartitionNumber()
-          ));
-        }
-      }
-
-      liveFramesSession.markReady(finalStageId, sourceSignature, columnMapping, locations);
     }
 
     private void checkForErrorsInSketchFetcher()
@@ -3004,13 +2833,6 @@ public class ControllerImpl implements Controller
       final StageId finalStageId = queryDef.getFinalStageDefinition().getId();
       boolean didSomething = false;
       for (final StageId stageId : queryKernel.getEffectivelyFinishedStageIds()) {
-        if (liveFramesSession != null && finalStageId.equals(stageId)) {
-          // Mark the query complete while retaining final worker files until the bounded lease ends.
-          queryKernel.finishStage(stageId, true);
-          didSomething = true;
-          continue;
-        }
-
         if (finalStageId.equals(stageId)
             && queryListener.readResults()
             && (queryResultsReaderFuture == null || !queryResultsReaderFuture.isDone())) {

@@ -40,10 +40,7 @@ public enum MSQSelectDestination
   /**
    * Writes the results as frame files to durable storage. Task report can be truncated to a preview.
    */
-  DURABLESTORAGE("durableStorage"),
-
-  /// Retains final frames on source workers for a bounded remote reader lease.
-  LIVEFRAMES("liveFrames");
+  DURABLESTORAGE("durableStorage");
 
   private final String name;
 

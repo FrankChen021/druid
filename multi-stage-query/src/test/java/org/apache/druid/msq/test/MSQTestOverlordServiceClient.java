@@ -71,7 +71,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiConsumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -86,8 +85,6 @@ public class MSQTestOverlordServiceClient extends NoopOverlordClient
 
   private final Map<String, MSQTestTaskDetails> taskDetailsByTaskId = new HashMap<>();
   private final Map<String, MSQTestTaskDetails> taskDetailsByQueryId = new HashMap<>();
-  @Nullable
-  private volatile BiConsumer<ControllerImpl, MSQTestControllerContext> controllerRegistrationHook;
 
   public static final DateTime CREATED_TIME = DateTimes.of("2023-05-31T12:00Z");
   public static final DateTime QUEUE_INSERTION_TIME = DateTimes.of("2023-05-31T12:01Z");
@@ -152,14 +149,6 @@ public class MSQTestOverlordServiceClient extends NoopOverlordClient
     this.emitter = new StubServiceEmitter();
   }
 
-  /// Installs a callback invoked after the test controller and worker context are created.
-  public void setControllerRegistrationHook(
-      @Nullable final BiConsumer<ControllerImpl, MSQTestControllerContext> registrationHook
-  )
-  {
-    this.controllerRegistrationHook = registrationHook;
-  }
-
   @Override
   public ListenableFuture<Void> runTask(String taskId, Object taskObject)
   {
@@ -193,10 +182,6 @@ public class MSQTestOverlordServiceClient extends NoopOverlordClient
       );
 
       testTaskDetails.addController(controller);
-      final BiConsumer<ControllerImpl, MSQTestControllerContext> registrationHook = controllerRegistrationHook;
-      if (registrationHook != null) {
-        registrationHook.accept(controller, Preconditions.checkNotNull(msqTestControllerContext));
-      }
 
       final ResultsContext resultsContext = new ResultsContext(cTask.getSqlTypeNames(), cTask.getSqlResultsContext());
       queryListener =
@@ -332,7 +317,7 @@ public class MSQTestOverlordServiceClient extends NoopOverlordClient
   }
 
   @Nullable
-  public MSQControllerTask getMSQControllerTask(String id)
+  MSQControllerTask getMSQControllerTask(String id)
   {
     MSQTestTaskDetails details = taskDetailsByTaskId.get(id);
     return details.controllerTask;

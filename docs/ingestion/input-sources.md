@@ -826,25 +826,24 @@ For more information on the `maxNumConcurrentSubTasks` field, see [Implementatio
 
 ## Remote Druid input source
 
-The experimental `remoteDruid` input source executes a `SELECT` on another Druid cluster's MSQ engine and reads its binary frame results over HTTP.
-It supports MSQ ingestion through the `DRUID` table function and does not require access to the source cluster's deep storage.
-Provide the source cluster endpoint directly; no named connection configuration is required.
-The endpoint can be a cluster base URL or a native query URL ending in `/druid/v2`.
+The experimental `DRUID` table function lets MSQ ingestion read from a datasource on another Druid cluster through
+that cluster's SQL API. During SQL planning, Druid pushes the projections, filters, and aggregations directly above the
+remote table into a `SELECT` that runs on the source cluster. The target reads the streamed result and performs the rest
+of the query, including joins, `PARTITIONED BY`, and `CLUSTERED BY`. The source cluster needs no tasks, durable storage,
+or deep-storage access from the target.
 
 For example, submit this SQL to the target MSQ task API:
 
 ```sql
-INSERT INTO events_copy
-SELECT *
-FROM TABLE(
-  DRUID(
-    endpoint => 'https://source-router.example',
-    dataSource => 'events'
-  )
-)
-WHERE a = 'keep'
+INSERT INTO events_by_day
+SELECT TIME_FLOOR(__time, 'P1D') AS __time, country, COUNT(*) AS "rows"
+FROM TABLE(DRUID(endpoint => 'https://source-router.example', dataSource => 'events'))
+WHERE country <> 'unknown'
+GROUP BY 1, 2
 PARTITIONED BY DAY
 ```
+
+`EXPLAIN PLAN FOR` shows the pushed-down source SQL in the `sql` field of the `remoteDruidSql` input source.
 
 Omitting `EXTEND` discovers the schema during SQL planning using a native `segmentMetadata` query over all source intervals.
 Discovery supports primitive and primitive-array columns. Empty, ambiguous, or unsupported metadata fails planning.
@@ -859,39 +858,64 @@ FROM TABLE(
     dataSource => 'events',
     authType => 'basic',
     username => 'reader',
-    password => ?
+    passwordEnvVar => 'SOURCE_DRUID_PASSWORD',
+    splitDuration => 'P1D'
   )
 ) EXTEND (__time BIGINT, a VARCHAR, bytes BIGINT)
 WHERE a = 'keep'
 PARTITIONED BY DAY
 ```
 
-Bind the password through the SQL task API's `parameters` field, or provide a SQL string literal.
-As with credentials in the existing HTTP input source, binding does not prevent credentials from being stored in task specifications.
-Restrict access to query records and task metadata containing credentials.
+Provide the password with `passwordEnvVar` or `passwordProvider` so that only a reference to the secret appears in
+task specifications and `EXPLAIN` output. Each Broker, Indexer, and Peon that plans or runs the ingestion resolves the
+reference itself, so the environment variable or provider must be available on all of them. A plain `password`, even
+one bound through the SQL `parameters` field, is stored in task specifications and shown by `EXPLAIN`.
 
 |Parameter|Description|Required|
 |---------|-----------|--------|
 |`endpoint`|HTTP(S) endpoint of the source Router or Broker.|yes|
 |`dataSource`|Source datasource to query.|yes|
+|`engine`|Source SQL engine: `msq-dart` (default) or `native`. Dart must be enabled on the source cluster.|no|
+|`splitDuration`|ISO-8601 period, such as `P1D`. Reads without aggregation are split into time ranges of this length that target workers read in parallel.|no|
+|`intervals`|Array of ISO-8601 intervals restricting the source read. Overlapping intervals are combined.|no|
 |`authType`|`none` (default) or `basic`. `none` rejects credentials; `basic` requires both `username` and `password`.|no|
 |`username`|HTTP Basic authentication username.|for `basic`|
-|`password`|HTTP Basic authentication password.|for `basic`|
-|`intervals`|Array of ISO-8601 intervals restricting the source read. Overlapping intervals are combined.|no|
+|`passwordEnvVar`|Name of the environment variable holding the HTTP Basic authentication password.|for `basic`, one of the password options|
+|`passwordProvider`|JSON [password provider](../operations/password-provider.md) specification, such as `{"type":"environment","variable":"SOURCE_DRUID_PASSWORD"}`.|for `basic`, one of the password options|
+|`password`|HTTP Basic authentication password, stored as given.|for `basic`, one of the password options|
 |`connectTimeoutMillis`|HTTP connection timeout in milliseconds. Default: `10000`.|no|
-|`readTimeoutMillis`|HTTP read timeout in milliseconds. Default: `30000`.|no|
-|`maxRetries`|Maximum retries per request, from `0` to `10`. Default: `2`.|no|
-|`maxResponseBytes`|Limit for each downloaded frame partition. Default: `268435456` (256 MiB).|no|
+|`readTimeoutMillis`|Maximum time in milliseconds to wait for response data, including the time the source takes to produce its first row. Default: `300000`.|no|
+|`maxRetries`|Maximum retries of a source request that fails before returning its first row, from `0` to `10`. Default: `2`.|no|
 
-The source identity must have read access to the requested datasource. Target users need the applicable `EXTERNAL` read permission.
-The target processes performing planning and ingestion must be able to reach the source endpoint.
-This input source follows the existing HTTP ingestion trust model: grant ingestion permissions to trusted users and restrict outbound network access as needed.
-It accepts HTTP and HTTPS, subject to `druid.ingestion.http.allowedProtocols`, and does not restrict destination hosts or IP addresses.
-Requests do not follow redirects.
-The built-in transport uses Druid's pooled HTTP client with backpressure to bound queued response data.
+### Pushdown and splitting
+
+Projections, filters, expressions, `GROUP BY`, aggregates, and `HAVING` directly above the remote table run on the
+source. `LOOKUP` calls, window functions, `ORDER BY`, `LIMIT`, joins, and unions run on the target. Filters above a
+join are pushed into the remote side when possible. The source evaluates SQL with the target query's `sqlTimeZone`
+and current timestamp.
+
+Without aggregation, the target splits the read into independent time ranges. It discovers the source time bounds with
+a native `timeBoundary` query, intersects them with `intervals`, and divides them by `splitDuration`, up to 10,000 ranges.
+Each range is one source SQL query with `__time` bounds passed as SQL parameters. With aggregation, the source runs a
+single query and `splitDuration` does not apply.
+
+Each source query streams `arrayLines` results. A request that fails before returning its first row is retried;
+a failure after that fails the target worker, which MSQ fault tolerance can retry. Source reads are not a snapshot:
+ingestion or replacement on the source can change data between range queries.
+
+The source reads stored rows, including any existing rollup, rather than reconstructing original events.
+Complex metrics such as sketches and nested columns are not supported.
+
+### Security
+
+The source identity must have read access to the requested datasource. Target users need the applicable `EXTERNAL`
+read permission. The target processes performing planning and ingestion must be able to reach the source endpoint.
+This input source follows the existing HTTP ingestion trust model: grant ingestion permissions to trusted users and
+restrict outbound network access as needed. It accepts HTTP and HTTPS, subject to `druid.ingestion.http.allowedProtocols`,
+and does not restrict destination hosts or IP addresses. Requests do not follow redirects.
 See [Security overview](../operations/security-overview.md) for deployment guidance.
 
-You can also use `EXTERN` with an explicit row signature. The input format is fixed; use the JSON string `'null'`:
+You can also reference a remote table with `EXTERN` and an explicit row signature. The input format is fixed; use the JSON string `'null'`:
 
 ```sql
 SELECT *
@@ -904,54 +928,9 @@ FROM TABLE(
 )
 ```
 
-The input specification's `connection` object contains `endpoint`, optional `authentication`, `connectTimeout`, `readTimeout`, `maxRetries`, and `maxResponseBytes`.
-For Basic authentication, use `"authentication":{"type":"basic","username":"reader","password":"password"}`.
-Authentication providers create the HTTP transport; extensions can register additional provider subtypes for use through `EXTERN`.
-The source specification also accepts `intervals`. Native Scan reads, native input filters, and interval-duration splitting are not supported.
-Schema discovery responses are limited to 1 MiB; use an explicit `EXTEND` schema if metadata exceeds this limit.
-Schema discovery and source SELECT execution are not a snapshot: source ingestion or replacement can change data between them.
-The source reads stored rows, including any existing rollup, rather than reconstructing original events.
-Complex metrics such as sketches and nested columns are not supported by this MVP.
-
-### Remote Druid input source with MSQ
-
-The remote source executes a supported `SELECT` on the source cluster's MSQ engine before transferring its result.
-This is the only remote read path; no backend-selection query context is needed.
-Both source and target clusters must run a Druid version that supports remote-frame protocol version 1.
-Neither cluster needs durable MSQ storage for this path.
-
-For example, submit this SQL to the target MSQ task API:
-
-```sql
-INSERT INTO events_by_day
-SELECT TIME_FLOOR(__time, 'P1D') AS __time, country, COUNT(*) AS rows
-FROM TABLE(DRUID(endpoint => 'https://source-router.example', dataSource => 'events'))
-GROUP BY TIME_FLOOR(__time, 'P1D'), country
-PARTITIONED BY DAY
-```
-
-The source cluster runs one `SELECT` for the remote table. Projection, filters, expressions, `GROUP BY`,
-aggregates, and `HAVING` run on the source; the target reads the resulting frame partitions and performs ingestion,
-including `PARTITIONED BY` and `CLUSTERED BY`. Declared external column types are applied as casts before source-side
-filters and aggregation. An `intervals` argument restricts the source read once, before global aggregation.
-
-The first version supports one remote Druid table and primitive or supported primitive-array result columns. It rejects
-joins, unions, multiple remote tables, local/remote mixes, subqueries, window functions, `ORDER BY`, and `LIMIT` during
-planning, before it submits a source query.
-
-The target controller submits the source query once and assigns each manifest partition to one target worker. Source
-frame files stay on the source workers' local disk until the target query finishes or cancels. The default lease is two
-minutes and each renewal can request at most ten minutes; the target renews while its input readers may need the source
-frames. The source releases files after the target controller closes its input slicer, or after the lease expires if the
-target fails. Source failure or cancellation also stops retained workers. The source worker disks must have room for the
-complete SELECT result. The source SELECT has a default timeout of 25 minutes; an explicit source
-`timeout` query context may set another positive value up to 24 hours. Source worker loss during a transfer fails ingestion. A reconnect resumes from the target file's accepted byte offset.
-If a target worker must retry the input, it can reread the same pinned source attempt while the session remains leased;
-Druid does not rerun the source `SELECT` after submission.
-
-The source SQL API uses the configured endpoint and the same `none` or HTTP Basic authentication settings as the
-native remote input source. Source datasource read authorization and target external-read authorization still apply.
-Keep the target query's external-resource access restricted to trusted ingestion users.
+The `connection` object contains `endpoint`, optional `authentication`, `connectTimeout`, `readTimeout`, and `maxRetries`.
+For Basic authentication, use `"authentication":{"type":"basic","username":"reader","password":{"type":"environment","variable":"SOURCE_DRUID_PASSWORD"}}`.
+Extensions can register additional authentication provider subtypes for use through `EXTERN`.
 
 ## SQL input source
 

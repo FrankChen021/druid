@@ -38,6 +38,8 @@ import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.metadata.DefaultPasswordProvider;
+import org.apache.druid.metadata.EnvironmentVariablePasswordProvider;
+import org.apache.druid.metadata.PasswordProvider;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.AuthorizationUtils;
@@ -46,6 +48,7 @@ import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.calcite.planner.DruidSqlValidator;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.joda.time.Interval;
+import org.joda.time.Period;
 
 import javax.annotation.Nullable;
 
@@ -53,7 +56,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /// The `DRUID` table function for remote Druid input, with an optional explicit `EXTEND` schema.
 public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversion
@@ -116,11 +121,14 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
           new Parameter("authType", ParameterType.VARCHAR, true),
           new Parameter("username", ParameterType.VARCHAR, true),
           new Parameter("password", ParameterType.VARCHAR, true),
+          new Parameter("passwordEnvVar", ParameterType.VARCHAR, true),
+          new Parameter("passwordProvider", ParameterType.VARCHAR, true),
           new Parameter("intervals", ParameterType.VARCHAR_ARRAY, true),
           new Parameter("connectTimeoutMillis", ParameterType.BIGINT, true),
           new Parameter("readTimeoutMillis", ParameterType.BIGINT, true),
           new Parameter("maxRetries", ParameterType.BIGINT, true),
-          new Parameter("maxResponseBytes", ParameterType.BIGINT, true)
+          new Parameter("engine", ParameterType.VARCHAR, true),
+          new Parameter("splitDuration", ParameterType.VARCHAR, true)
       ));
       this.config = config;
     }
@@ -134,7 +142,7 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
     )
     {
       final String username = CatalogUtils.getString(args, "username");
-      final String password = CatalogUtils.getString(args, "password");
+      final PasswordProvider password = passwordProvider(args, jsonMapper);
       final String requestedAuthType = CatalogUtils.getString(args, "authType");
       final String authType = requestedAuthType == null ? "none" : requestedAuthType;
       final RemoteDruidAuthentication authentication;
@@ -145,9 +153,9 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
         authentication = new RemoteDruidAuthentication.None();
       } else if ("basic".equals(authType)) {
         if (username == null || password == null) {
-          throw new IAE("Authentication type [basic] requires username and password");
+          throw new IAE("Authentication type [basic] requires username and one of password, passwordEnvVar, or passwordProvider");
         }
-        authentication = new RemoteDruidAuthentication.Basic(username, new DefaultPasswordProvider(password));
+        authentication = new RemoteDruidAuthentication.Basic(username, password);
       } else {
         throw new IAE("Unsupported remote authentication type");
       }
@@ -163,7 +171,6 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
           authentication,
           integerArg(args, "connectTimeoutMillis"),
           integerArg(args, "readTimeoutMillis"),
-          longArg(args, "maxResponseBytes"),
           integerArg(args, "maxRetries")
       );
       final List<String> intervalStrings = CatalogUtils.getStringArray(args, "intervals");
@@ -174,10 +181,20 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
       catch (RuntimeException e) {
         throw new IAE("Invalid remote Druid intervals");
       }
+      final String splitDurationString = CatalogUtils.getString(args, "splitDuration");
+      final Period splitDuration;
+      try {
+        splitDuration = splitDurationString == null ? null : new Period(splitDurationString);
+      }
+      catch (RuntimeException e) {
+        throw new IAE("Invalid remote Druid splitDuration; use an ISO-8601 period such as P1D");
+      }
       final RemoteDruidInputSource source = new RemoteDruidInputSource(
           connection,
           CatalogUtils.getString(args, "dataSource"),
           intervals,
+          CatalogUtils.getString(args, "engine"),
+          splitDuration,
           config,
           jsonMapper
       );
@@ -206,6 +223,36 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
         }
       }
       return new ExternalTableSpec(source, null, signature, source::getTypes);
+    }
+
+    /// Resolves at most one of `password` (stored as given), `passwordEnvVar`, or `passwordProvider` (a JSON
+    /// [PasswordProvider] spec). Only the latter two keep the secret out of EXPLAIN output and task specifications.
+    @Nullable
+    private static PasswordProvider passwordProvider(final Map<String, Object> args, final ObjectMapper jsonMapper)
+    {
+      final String password = CatalogUtils.getString(args, "password");
+      final String passwordEnvVar = CatalogUtils.getString(args, "passwordEnvVar");
+      final String passwordProvider = CatalogUtils.getString(args, "passwordProvider");
+      final long provided = Stream.of(password, passwordEnvVar, passwordProvider).filter(Objects::nonNull).count();
+      if (provided > 1) {
+        throw new IAE("Specify at most one of password, passwordEnvVar, or passwordProvider");
+      }
+      if (password != null) {
+        return new DefaultPasswordProvider(password);
+      }
+      if (passwordEnvVar != null) {
+        return new EnvironmentVariablePasswordProvider(passwordEnvVar);
+      }
+      if (passwordProvider != null) {
+        try {
+          return jsonMapper.readValue(passwordProvider, PasswordProvider.class);
+        }
+        catch (Exception e) {
+          // Do not include the specification, which may contain a secret.
+          throw new IAE("Invalid remote Druid passwordProvider; expected a JSON password provider specification");
+        }
+      }
+      return null;
     }
 
     @Nullable

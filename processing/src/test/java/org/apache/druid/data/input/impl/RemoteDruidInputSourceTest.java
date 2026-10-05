@@ -82,7 +82,7 @@ public class RemoteDruidInputSourceTest
       }
     });
     server.start();
-    config = config(1024 * 1024, 1);
+    config = config(1);
     mapper.setInjectableValues(new InjectableValues.Std()
                                   .addValue(HttpInputSourceConfig.class, new HttpInputSourceConfig(null, null))
                                   .addValue(ObjectMapper.class, mapper));
@@ -94,26 +94,26 @@ public class RemoteDruidInputSourceTest
     server.stop(0);
   }
 
-  private RemoteDruidConnection config(final long maxBytes, final int retries)
+  private RemoteDruidConnection config(final int retries)
   {
     return new RemoteDruidConnection(
         URI.create("http://localhost:" + server.getAddress().getPort()),
         new RemoteDruidAuthentication.Basic("user", new DefaultPasswordProvider("secret")),
-        1000, 1000, maxBytes, retries
+        1000, 1000, retries
     );
   }
 
   private RemoteDruidInputSource source(final List<Interval> intervals)
   {
-    return new RemoteDruidInputSource(config, "events", intervals,
+    return new RemoteDruidInputSource(config, "events", intervals, null, null,
                                       new HttpInputSourceConfig(null, null), mapper);
   }
 
   @Test
   public void testLargeSchemaRequiresExplicitExtend() throws IOException
   {
-    config = config(4 * 1024 * 1024, 2);
-    metadataResponse.set(metadataResponse.get() + " ".repeat(RemoteDruidSchemaClient.MAX_METADATA_BYTES));
+    config = config(2);
+    metadataResponse.set(metadataResponse.get() + " ".repeat(RemoteDruidMetadataClient.MAX_METADATA_BYTES));
     final IOException exception = Assertions.assertThrows(IOException.class, () -> source(null).discoverSchema());
     Assertions.assertTrue(exception.getMessage().contains("explicit EXTEND"));
     Assertions.assertEquals(1, requests.size());
@@ -149,7 +149,7 @@ public class RemoteDruidInputSourceTest
           return read;
         }
       };
-      try (final InputStream in = new RemoteDruidSchemaClient.InterruptibleInputStream(interrupted);
+      try (final InputStream in = new RemoteDruidMetadataClient.InterruptibleInputStream(interrupted);
            final JsonParser parser = mapper.getFactory().createParser(in)) {
         // No token-level interruption checks: the stream must stop Jackson's internal skipping/refill loop.
         Assertions.assertThrows(InterruptedIOException.class, () -> {
@@ -169,11 +169,29 @@ public class RemoteDruidInputSourceTest
   public void testConfigurationRejectsCredentialUrlsAndInvalidLimits()
   {
     Assertions.assertThrows(IllegalArgumentException.class, () -> new RemoteDruidConnection(
-        URI.create("http://secret@localhost/druid/v2"), null, null, null, null, null
+        URI.create("http://secret@localhost/druid/v2"), null, null, null, null
     ));
-    Assertions.assertThrows(IllegalArgumentException.class, () -> config(0, 1));
-    Assertions.assertThrows(IllegalArgumentException.class, () -> config(100, -1));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> config(-1));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> new RemoteDruidInputSource(
+        config,
+        "events",
+        null,
+        "unknown",
+        null,
+        new HttpInputSourceConfig(null, null),
+        mapper
+    ));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> new RemoteDruidInputSource(
+        config,
+        "events",
+        null,
+        null,
+        org.joda.time.Period.ZERO,
+        new HttpInputSourceConfig(null, null),
+        mapper
+    ));
   }
+
   @Test
   public void testSchemaDiscoveryAndUnsupportedMetadata() throws IOException
   {
@@ -201,22 +219,28 @@ public class RemoteDruidInputSourceTest
         config,
         "events",
         null,
+        null,
+        null,
         new HttpInputSourceConfig(java.util.Set.of("https"), null),
         mapper
     ));
     final RemoteDruidConnection file = new RemoteDruidConnection(
-        URI.create("file://localhost/tmp/data"), null, null, null, null, null
+        URI.create("file://localhost/tmp/data"), null, null, null, null
     );
     Assertions.assertThrows(IllegalArgumentException.class, () -> new RemoteDruidInputSource(
         file,
         "events",
         null,
+        null,
+        null,
         new HttpInputSourceConfig(java.util.Set.of("file"), null),
         mapper
     ));
     Assertions.assertDoesNotThrow(() -> new RemoteDruidInputSource(
-        new RemoteDruidConnection(URI.create("HTTPS://source.example"), null, null, null, null, null),
+        new RemoteDruidConnection(URI.create("HTTPS://source.example"), null, null, null, null),
         "events",
+        null,
+        null,
         null,
         new HttpInputSourceConfig(null, null),
         mapper
@@ -246,12 +270,11 @@ public class RemoteDruidInputSourceTest
         closedClients.incrementAndGet();
       }
     };
-    config = new RemoteDruidConnection(config.getEndpoint(), observed, 1000, 1000, 1024L * 1024, 0);
+    config = new RemoteDruidConnection(config.getEndpoint(), observed, 1000, 1000, 0);
     source(null).discoverSchema();
     Assertions.assertEquals(1, closedClients.get());
     metadataResponse.set("[]");
     Assertions.assertThrows(IOException.class, () -> source(null).discoverSchema());
     Assertions.assertEquals(2, closedClients.get());
   }
-
 }

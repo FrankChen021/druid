@@ -121,7 +121,12 @@ public interface RemoteDruidHttpClient extends AutoCloseable
     {
       final Request request = new Request(HttpMethod.valueOf(method), endpoint.toURL());
       if (username != null && password != null) {
-        request.setBasicAuthentication(username, password.getPassword());
+        // Resolved per request, so that providers such as environment variables are read where the request runs.
+        final String resolvedPassword = password.getPassword();
+        if (resolvedPassword == null) {
+          throw new IOException("Remote Druid password provider did not return a password on this server");
+        }
+        request.setBasicAuthentication(username, resolvedPassword);
       }
       if (body != null) {
         request.setContent("application/json", body);

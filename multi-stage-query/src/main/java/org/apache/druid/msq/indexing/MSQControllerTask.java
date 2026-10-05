@@ -54,7 +54,6 @@ import org.apache.druid.msq.exec.ResultsContext;
 import org.apache.druid.msq.indexing.destination.DataSourceMSQDestination;
 import org.apache.druid.msq.indexing.destination.DurableStorageMSQDestination;
 import org.apache.druid.msq.indexing.destination.ExportMSQDestination;
-import org.apache.druid.msq.indexing.destination.LiveFramesMSQDestination;
 import org.apache.druid.msq.indexing.destination.MSQDestination;
 import org.apache.druid.msq.indexing.destination.TaskReportMSQDestination;
 import org.apache.druid.msq.indexing.error.CancellationReason;
@@ -405,12 +404,6 @@ public class MSQControllerTask extends AbstractTask implements ClientTaskQuery, 
   public static boolean writeFinalResultsToTaskReport(final MSQDestination destination)
   {
     return destination instanceof TaskReportMSQDestination;
-  }
-
-  /// Returns whether this query retains final worker frames for a remote reader.
-  public static boolean writeFinalResultsToLiveFrames(final MSQDestination destination)
-  {
-    return destination instanceof LiveFramesMSQDestination;
   }
 
   /**
