@@ -405,8 +405,9 @@ public abstract class BaseLeafStageProcessor extends BasicStageProcessor
   {
     return slices.stream().anyMatch(
         slice ->
-            slice instanceof ExternalInputSlice
-            && ((ExternalInputSlice) slice).getInputFormat().getClass().getName().contains("Parquet")
+            slice instanceof ExternalInputSlice external
+            && external.getInputFormat() != null
+            && external.getInputFormat().getClass().getName().contains("Parquet")
     );
   }
 }

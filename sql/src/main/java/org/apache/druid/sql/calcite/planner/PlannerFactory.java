@@ -264,6 +264,7 @@ public class PlannerFactory extends PlannerToolbox
     }
   }
 
+  @Override
   public AuthorizerMapper getAuthorizerMapper()
   {
     return authorizerMapper;
