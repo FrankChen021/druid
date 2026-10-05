@@ -54,8 +54,10 @@ public class RemoteDruidInputSourceTest
   private final List<String> canceledQueries = new CopyOnWriteArrayList<>();
   private final AtomicInteger status = new AtomicInteger(200);
   private final AtomicReference<String> metadataResponse = new AtomicReference<>(
-      "[{\"columns\":{\"__time\":{\"typeSignature\":\"LONG\"},"
-      + "\"a\":{\"type\":\"STRING\"},\"values\":{\"typeSignature\":\"ARRAY<LONG>\"}}}]"
+      """
+      [{"columns":{"__time":{"typeSignature":"LONG"},
+                   "a":{"type":"STRING"},
+                   "values":{"typeSignature":"ARRAY<LONG>"}}}]"""
   );
   private HttpServer server;
   private RemoteDruidConnection config;

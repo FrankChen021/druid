@@ -170,9 +170,13 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
 
   private String remote(final String extraArguments)
   {
-    return "TABLE(DRUID(endpoint => 'http://localhost:" + server.getAddress().getPort()
-           + "', dataSource => 'foo'" + extraArguments + "))"
-           + " EXTEND (__time BIGINT, dim1 VARCHAR, cnt BIGINT)";
+    return StringUtils.format(
+        """
+        TABLE(DRUID(endpoint => 'http://localhost:%d', dataSource => 'foo'%s))
+          EXTEND (__time BIGINT, dim1 VARCHAR, cnt BIGINT)""",
+        server.getAddress().getPort(),
+        extraArguments
+    );
   }
 
   private String sourceSql(final int request)
@@ -184,8 +188,14 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testFiltersOnSourceAndReadsTimeRangesInParallel()
   {
     testIngestQuery()
-        .setSql("INSERT INTO foo1 SELECT __time, dim1, cnt FROM " + remote(", splitDuration => 'P1Y'")
-                + " WHERE dim1 <> '' PARTITIONED BY DAY")
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT __time, dim1, cnt FROM %s
+            WHERE dim1 <> ''
+            PARTITIONED BY DAY""",
+            remote(", splitDuration => 'P1Y'")
+        ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
         .setExpectedDataSource("foo1")
         .setExpectedRowSignature(FOO_SIGNATURE)
@@ -212,9 +222,16 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testAggregatesOnSourceInOneQuery()
   {
     testIngestQuery()
-        .setSql("INSERT INTO foo1 SELECT TIMESTAMP '2001-01-03 00:00:00' AS __time, cnt, SUM(cnt) AS sum_cnt FROM "
-                + remote(", splitDuration => 'P1D'")
-                + " WHERE dim1 IN ('2', 'abc') GROUP BY cnt HAVING SUM(cnt) > 1 PARTITIONED BY DAY")
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT TIMESTAMP '2001-01-03 00:00:00' AS __time, cnt, SUM(cnt) AS sum_cnt FROM %s
+            WHERE dim1 IN ('2', 'abc')
+            GROUP BY cnt
+            HAVING SUM(cnt) > 1
+            PARTITIONED BY DAY""",
+            remote(", splitDuration => 'P1D'")
+        ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
         .setExpectedDataSource("foo1")
         .setExpectedRowSignature(RowSignature.builder().add("__time", ColumnType.LONG)
@@ -233,9 +250,14 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testAggregatesWithinRequestedIntervals()
   {
     testIngestQuery()
-        .setSql("INSERT INTO foo1 SELECT TIMESTAMP '2001-01-03 00:00:00' AS __time, cnt, SUM(cnt) AS sum_cnt FROM "
-                + remote(", intervals => ARRAY['2000-01-02/2000-01-03', '2001-01-01/2001-01-02']")
-                + " GROUP BY cnt PARTITIONED BY DAY")
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT TIMESTAMP '2001-01-03 00:00:00' AS __time, cnt, SUM(cnt) AS sum_cnt FROM %s
+            GROUP BY cnt
+            PARTITIONED BY DAY""",
+            remote(", intervals => ARRAY['2000-01-02/2000-01-03', '2001-01-01/2001-01-02']")
+        ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
         .setExpectedDataSource("foo1")
         .setExpectedRowSignature(RowSignature.builder().add("__time", ColumnType.LONG)
@@ -254,8 +276,15 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
     final Map<String, Object> context = new HashMap<>(DEFAULT_MSQ_CONTEXT);
     context.put("sqlTimeZone", "Asia/Shanghai");
     testIngestQuery()
-        .setSql("INSERT INTO foo1 SELECT TIME_FLOOR(__time, 'P1D') AS __time, COUNT(*) AS cnt FROM " + remote("")
-                + " WHERE __time >= TIMESTAMP '2001-01-01 00:00:00' GROUP BY 1 PARTITIONED BY DAY")
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT TIME_FLOOR(__time, 'P1D') AS __time, COUNT(*) AS cnt FROM %s
+            WHERE __time >= TIMESTAMP '2001-01-01 00:00:00'
+            GROUP BY 1
+            PARTITIONED BY DAY""",
+            remote("")
+        ))
         .setQueryContext(context)
         .setExpectedDataSource("foo1")
         .setExpectedRowSignature(RowSignature.builder().add("__time", ColumnType.LONG).add("cnt", ColumnType.LONG).build())
@@ -274,8 +303,15 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testKeepsClusterByOnTheTarget()
   {
     testIngestQuery()
-        .setSql("INSERT INTO foo1 SELECT __time, dim1, cnt FROM " + remote("")
-                + " WHERE dim1 <> '' PARTITIONED BY DAY CLUSTERED BY dim1")
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT __time, dim1, cnt FROM %s
+            WHERE dim1 <> ''
+            PARTITIONED BY DAY
+            CLUSTERED BY dim1""",
+            remote("")
+        ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
         .setExpectedDataSource("foo1")
         .setExpectedRowSignature(FOO_SIGNATURE)
@@ -295,7 +331,7 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testEmptySourceResult()
   {
     testIngestQuery()
-        .setSql("INSERT INTO foo1 SELECT * FROM " + remote("") + " WHERE dim1 = 'no-such-row' PARTITIONED BY DAY")
+        .setSql(StringUtils.format("INSERT INTO foo1 SELECT * FROM %s WHERE dim1 = 'no-such-row' PARTITIONED BY DAY", remote("")))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
         .setExpectedDataSource("foo1")
         .setExpectedRowSignature(FOO_SIGNATURE)
@@ -308,9 +344,15 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testSourceErrorFailsIngestion()
   {
     testIngestQuery()
-        .setSql("INSERT INTO foo1 SELECT __time, no_such_column FROM "
-                + "TABLE(DRUID(endpoint => 'http://localhost:" + server.getAddress().getPort() + "', dataSource => 'foo'))"
-                + " EXTEND (__time BIGINT, no_such_column VARCHAR) PARTITIONED BY DAY")
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT __time, no_such_column
+            FROM TABLE(DRUID(endpoint => 'http://localhost:%d', dataSource => 'foo'))
+              EXTEND (__time BIGINT, no_such_column VARCHAR)
+            PARTITIONED BY DAY""",
+            server.getAddress().getPort()
+        ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
         .setExpectedExecutionErrorMatcher(e -> {
           Throwable cause = e;
@@ -329,10 +371,14 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testBasicAuthenticationAndDiscoveredSchemaWithBoundPassword()
   {
     expectedAuthorization = "Basic cmVhZGVyOnNlY3JldA==";
-    final String remote = "TABLE(DRUID(endpoint => 'http://localhost:" + server.getAddress().getPort()
-                          + "/druid/v2/', dataSource => 'foo', authType => 'basic', username => 'reader', password => ?))";
+    final String remote = StringUtils.format(
+        """
+        TABLE(DRUID(endpoint => 'http://localhost:%d/druid/v2/', dataSource => 'foo',
+                    authType => 'basic', username => 'reader', password => ?))""",
+        server.getAddress().getPort()
+    );
     testIngestQuery()
-        .setSql("INSERT INTO foo1 SELECT * FROM " + remote + " WHERE dim1 = 'abc' PARTITIONED BY DAY")
+        .setSql(StringUtils.format("INSERT INTO foo1 SELECT * FROM %s WHERE dim1 = 'abc' PARTITIONED BY DAY", remote))
         .setDynamicParameters(List.of(TypedValue.ofLocal(ColumnMetaData.Rep.STRING, "secret")))
         .setExpectedDataSource("foo1")
         .setExpectedRowSignature(RowSignature.builder().add("__time", ColumnType.LONG)
@@ -348,8 +394,15 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void testJoinWithLocalTableStaysOnTarget()
   {
     testIngestQuery()
-        .setSql("INSERT INTO foo1 SELECT r.__time, r.dim1, f.dim2 FROM " + remote("") + " r"
-                + " INNER JOIN foo f ON r.dim1 = f.dim1 WHERE r.dim1 IN ('1', 'def') PARTITIONED BY DAY")
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT r.__time, r.dim1, f.dim2
+            FROM %s r INNER JOIN foo f ON r.dim1 = f.dim1
+            WHERE r.dim1 IN ('1', 'def')
+            PARTITIONED BY DAY""",
+            remote("")
+        ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
         .setExpectedDataSource("foo1")
         .setExpectedRowSignature(RowSignature.builder().add("__time", ColumnType.LONG)

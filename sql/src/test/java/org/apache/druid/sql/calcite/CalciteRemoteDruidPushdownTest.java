@@ -34,13 +34,19 @@ import java.util.List;
 /// Verifies that EXPLAIN shows the remote Druid SQL that runs on the source cluster and the target-side remainder.
 public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
 {
-  private static final String REMOTE =
-      "TABLE(DRUID(endpoint => 'https://source.example', dataSource => 'events'%s))"
-      + " EXTEND (__time BIGINT, a VARCHAR, m BIGINT)";
+  private static final String REMOTE = """
+      TABLE(DRUID(endpoint => 'https://source.example', dataSource => 'events'%s))
+        EXTEND (__time BIGINT, a VARCHAR, m BIGINT)""";
 
   private static String remote(final String extraArguments)
   {
     return StringUtils.format(REMOTE, extraArguments);
+  }
+
+  /// Plans an INSERT whose SELECT is the format string applied to the remote table.
+  private JsonNode explainInsert(final String select, final String extraArguments)
+  {
+    return explain(StringUtils.format("INSERT INTO dst %s PARTITIONED BY DAY", StringUtils.format(select, remote(extraArguments))));
   }
 
   private JsonNode explain(final String sql)
@@ -75,17 +81,15 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
   @Test
   public void testFilterAndProjectionArePushedDownAndSplittable()
   {
-    final JsonNode query = explain(
-        "INSERT INTO dst SELECT __time, UPPER(a) AS ua, m * 2 AS m2 FROM " + remote("")
-        + " WHERE m > 3 PARTITIONED BY DAY"
-    );
+    final JsonNode query = explainInsert("SELECT __time, UPPER(a) AS ua, m * 2 AS m2 FROM %s WHERE m > 3", "");
     final JsonNode inputSource = remoteInputSource(query.path("dataSource"));
     Assertions.assertEquals(
-        "SELECT \"__time\", UPPER(\"a\") AS \"ua\", \"m\" * 2 AS \"m2\"\n"
-        + "FROM (SELECT \"__time\", \"a\", \"m\"\n"
-        + "FROM \"events\"\n"
-        + "WHERE \"__time\" >= MILLIS_TO_TIMESTAMP(?) AND \"__time\" < MILLIS_TO_TIMESTAMP(?)) AS \"t\"\n"
-        + "WHERE \"m\" > 3",
+        """
+        SELECT "__time", UPPER("a") AS "ua", "m" * 2 AS "m2"
+        FROM (SELECT "__time", "a", "m"
+        FROM "events"
+        WHERE "__time" >= MILLIS_TO_TIMESTAMP(?) AND "__time" < MILLIS_TO_TIMESTAMP(?)) AS "t"
+        WHERE "m" > 3""",
         inputSource.path("sql").asText()
     );
     Assertions.assertTrue(inputSource.path("timeRangeParameters").asBoolean());
@@ -99,19 +103,19 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
   @Test
   public void testAggregationIsPushedDownWithLiteralIntervals()
   {
-    final JsonNode query = explain(
-        "INSERT INTO dst SELECT TIME_FLOOR(__time, 'PT1H') AS __time, a, SUM(m) AS m FROM "
-        + remote(", intervals => ARRAY['2000-01-01/2000-01-02'], splitDuration => 'PT1H'")
-        + " WHERE a <> 'z' GROUP BY 1, 2 PARTITIONED BY DAY"
+    final JsonNode query = explainInsert(
+        "SELECT TIME_FLOOR(__time, 'PT1H') AS __time, a, SUM(m) AS m FROM %s WHERE a <> 'z' GROUP BY 1, 2",
+        ", intervals => ARRAY['2000-01-01/2000-01-02'], splitDuration => 'PT1H'"
     );
     final JsonNode inputSource = remoteInputSource(query.path("dataSource"));
     Assertions.assertEquals(
-        "SELECT TIME_FLOOR(\"__time\", 'PT1H') AS \"__time\", \"a\", SUM(\"m\") AS \"m\"\n"
-        + "FROM (SELECT \"__time\", \"a\", \"m\"\n"
-        + "FROM \"events\"\n"
-        + "WHERE \"__time\" >= MILLIS_TO_TIMESTAMP(946684800000) AND \"__time\" < MILLIS_TO_TIMESTAMP(946771200000)) AS \"t\"\n"
-        + "WHERE \"a\" <> 'z'\n"
-        + "GROUP BY TIME_FLOOR(\"__time\", 'PT1H'), \"a\"",
+        """
+        SELECT TIME_FLOOR("__time", 'PT1H') AS "__time", "a", SUM("m") AS "m"
+        FROM (SELECT "__time", "a", "m"
+        FROM "events"
+        WHERE "__time" >= MILLIS_TO_TIMESTAMP(946684800000) AND "__time" < MILLIS_TO_TIMESTAMP(946771200000)) AS "t"
+        WHERE "a" <> 'z'
+        GROUP BY TIME_FLOOR("__time", 'PT1H'), "a\"""",
         inputSource.path("sql").asText()
     );
     // Aggregates over disjoint time ranges cannot be concatenated, so the read is not split.
@@ -123,9 +127,9 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
   @Test
   public void testJoinStaysOnTarget()
   {
-    final JsonNode query = explain(
-        "INSERT INTO dst SELECT r.__time, r.a, f.dim2 FROM " + remote("") + " r INNER JOIN foo f ON r.a = f.dim1"
-        + " WHERE r.m > 1 PARTITIONED BY DAY"
+    final JsonNode query = explainInsert(
+        "SELECT r.__time, r.a, f.dim2 FROM %s r INNER JOIN foo f ON r.a = f.dim1 WHERE r.m > 1",
+        ""
     );
     Assertions.assertEquals("join", query.path("dataSource").path("type").asText());
     final JsonNode inputSource = remoteInputSource(query.path("dataSource").path("left"));
@@ -136,9 +140,7 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
   @Test
   public void testLookupStaysOnTarget()
   {
-    final JsonNode query = explain(
-        "INSERT INTO dst SELECT __time, LOOKUP(a, 'lookyloo') AS l FROM " + remote("") + " PARTITIONED BY DAY"
-    );
+    final JsonNode query = explainInsert("SELECT __time, LOOKUP(a, 'lookyloo') AS l FROM %s", "");
     final JsonNode inputSource = remoteInputSource(query.path("dataSource"));
     Assertions.assertFalse(inputSource.path("sql").asText().contains("LOOKUP"), inputSource.toString());
     Assertions.assertTrue(query.toString().contains("lookyloo"), query.toString());
@@ -147,14 +149,14 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
   @Test
   public void testPasswordEnvVarKeepsSecretOutOfPlan()
   {
-    final JsonNode query = explain(
-        "INSERT INTO dst SELECT * FROM "
-        + remote(", authType => 'basic', username => 'reader', passwordEnvVar => 'SOURCE_PASSWORD'")
-        + " PARTITIONED BY DAY"
+    final JsonNode query = explainInsert(
+        "SELECT * FROM %s",
+        ", authType => 'basic', username => 'reader', passwordEnvVar => 'SOURCE_PASSWORD'"
     );
     final JsonNode authentication = remoteInputSource(query.path("dataSource")).path("connection").path("authentication");
     Assertions.assertEquals(
-        "{\"type\":\"basic\",\"username\":\"reader\",\"password\":{\"type\":\"environment\",\"variable\":\"SOURCE_PASSWORD\"}}",
+        """
+        {"type":"basic","username":"reader","password":{"type":"environment","variable":"SOURCE_PASSWORD"}}""",
         authentication.toString()
     );
   }
@@ -163,16 +165,21 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
   public void testKeywordColumnNamesAreQuoted()
   {
     final JsonNode query = explain(
-        "INSERT INTO dst SELECT __time, \"user\", \"value\" FROM TABLE(DRUID(endpoint => 'https://source.example',"
-        + " dataSource => 'events')) EXTEND (__time BIGINT, \"user\" VARCHAR, \"value\" BIGINT, \"date\" VARCHAR)"
-        + " WHERE \"user\" <> 'bot' PARTITIONED BY DAY"
+        """
+        INSERT INTO dst
+        SELECT __time, "user", "value"
+        FROM TABLE(DRUID(endpoint => 'https://source.example', dataSource => 'events'))
+          EXTEND (__time BIGINT, "user" VARCHAR, "value" BIGINT, "date" VARCHAR)
+        WHERE "user" <> 'bot'
+        PARTITIONED BY DAY"""
     );
     Assertions.assertEquals(
-        "SELECT \"__time\", \"user\", \"value\"\n"
-        + "FROM (SELECT \"__time\", \"user\", \"value\", \"date\"\n"
-        + "FROM \"events\"\n"
-        + "WHERE \"__time\" >= MILLIS_TO_TIMESTAMP(?) AND \"__time\" < MILLIS_TO_TIMESTAMP(?)) AS \"t\"\n"
-        + "WHERE \"user\" <> 'bot'",
+        """
+        SELECT "__time", "user", "value"
+        FROM (SELECT "__time", "user", "value", "date"
+        FROM "events"
+        WHERE "__time" >= MILLIS_TO_TIMESTAMP(?) AND "__time" < MILLIS_TO_TIMESTAMP(?)) AS "t"
+        WHERE "user" <> 'bot'""",
         remoteInputSource(query.path("dataSource")).path("sql").asText()
     );
   }
@@ -180,17 +187,17 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
   @Test
   public void testCredentialsAreNotPartOfSourceSql()
   {
-    final JsonNode query = explain(
-        "INSERT INTO dst SELECT * FROM "
-        + remote(", authType => 'basic', username => 'reader', password => 'secret', engine => 'native'")
-        + " PARTITIONED BY DAY"
+    final JsonNode query = explainInsert(
+        "SELECT * FROM %s",
+        ", authType => 'basic', username => 'reader', password => 'secret', engine => 'native'"
     );
     final JsonNode inputSource = remoteInputSource(query.path("dataSource"));
     Assertions.assertEquals("native", inputSource.path("engine").asText());
     Assertions.assertEquals(
-        "SELECT \"__time\", \"a\", \"m\"\n"
-        + "FROM \"events\"\n"
-        + "WHERE \"__time\" >= MILLIS_TO_TIMESTAMP(?) AND \"__time\" < MILLIS_TO_TIMESTAMP(?)",
+        """
+        SELECT "__time", "a", "m"
+        FROM "events"
+        WHERE "__time" >= MILLIS_TO_TIMESTAMP(?) AND "__time" < MILLIS_TO_TIMESTAMP(?)""",
         inputSource.path("sql").asText()
     );
   }

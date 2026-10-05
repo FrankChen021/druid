@@ -71,8 +71,9 @@ public class RemoteDruidSqlInputSourceTest
   private final List<String> canceledQueries = new CopyOnWriteArrayList<>();
   private final Queue<Response> sqlResponses = new ConcurrentLinkedQueue<>();
   private volatile String timeBoundaryResponse =
-      "[{\"timestamp\":\"2020-01-01T00:00:00.000Z\",\"result\":"
-      + "{\"minTime\":\"2020-01-01T00:00:00.000Z\",\"maxTime\":\"2020-01-03T05:00:00.000Z\"}}]";
+      """
+      [{"timestamp":"2020-01-01T00:00:00.000Z",
+        "result":{"minTime":"2020-01-01T00:00:00.000Z","maxTime":"2020-01-03T05:00:00.000Z"}}]""";
   private HttpServer server;
   private RemoteDruidConnection connection;
 
@@ -168,10 +169,11 @@ public class RemoteDruidSqlInputSourceTest
   {
     sqlResponses.add(new Response(
         200,
-        HEADER
-        + "[\"2020-01-01T08:00:00.000+08:00\",\"x\",true,[1,2]]\n"
-        + "[\"2020-01-02T00:00:00.000Z\",null,false,null]\n"
-        + "\n"
+        HEADER + """
+            ["2020-01-01T08:00:00.000+08:00","x",true,[1,2]]
+            ["2020-01-02T00:00:00.000Z",null,false,null]
+
+            """
     ));
     final List<InputRow> rows = read(source(false, null, null));
 
