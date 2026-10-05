@@ -103,9 +103,11 @@ public class EmbeddedRemoteDruidIngestionTest extends EmbeddedClusterTestBase
     cluster.callApi().waitForTaskToSucceed(taskStatus.getTaskId(), overlord.latchableEmitter());
   }
 
-  private void ingestAndVerify(final String insertSql, final String verifySql, final String expectedCsv)
+  /// Inserts the result of `selectSql` into the target datasource, then checks it with `verifySql`, whose `%s` is
+  /// the target datasource.
+  private void ingestAndVerify(final String selectSql, final String verifySql, final String expectedCsv)
   {
-    runTask(insertSql);
+    runTask(StringUtils.format("INSERT INTO %s\n%s\nPARTITIONED BY DAY", targetDataSource, selectSql));
     cluster.callApi().waitForAllSegmentsToBeAvailable(targetDataSource, coordinator, broker);
     cluster.callApi().verifySqlQuery(verifySql, targetDataSource, expectedCsv);
   }
@@ -115,8 +117,7 @@ public class EmbeddedRemoteDruidIngestionTest extends EmbeddedClusterTestBase
   {
     ingestAndVerify(
         StringUtils.format(
-            "INSERT INTO %s SELECT __time, page, added FROM %s WHERE namespace = 'article' PARTITIONED BY DAY",
-            targetDataSource,
+            "SELECT __time, page, added FROM %s WHERE namespace = 'article'",
             remote(", splitDuration => 'PT2H'")
         ),
         "SELECT __time, page, added FROM %s ORDER BY __time",
@@ -132,12 +133,9 @@ public class EmbeddedRemoteDruidIngestionTest extends EmbeddedClusterTestBase
     ingestAndVerify(
         StringUtils.format(
             """
-            INSERT INTO %s
             SELECT TIME_FLOOR(__time, 'P1D') AS __time, namespace, SUM(added) AS added, COUNT(*) AS cnt
             FROM %s EXTEND (__time BIGINT, namespace VARCHAR, added BIGINT)
-            GROUP BY 1, 2
-            PARTITIONED BY DAY""",
-            targetDataSource,
+            GROUP BY 1, 2""",
             remote("")
         ),
         "SELECT __time, namespace, SUM(added), SUM(cnt) FROM %s GROUP BY 1, 2",
@@ -153,12 +151,9 @@ public class EmbeddedRemoteDruidIngestionTest extends EmbeddedClusterTestBase
     ingestAndVerify(
         StringUtils.format(
             """
-            INSERT INTO %s
             SELECT r.__time, r.page, l.namespace
             FROM %s r INNER JOIN %s l ON r.page = l.page
-            WHERE r.delta > 0
-            PARTITIONED BY DAY""",
-            targetDataSource,
+            WHERE r.delta > 0""",
             remote(", engine => 'native'"),
             dataSource
         ),
