@@ -36,7 +36,8 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
 {
   private static final String REMOTE = """
       TABLE(DRUID(endpoint => 'https://source.example', dataSource => 'events'%s))
-        EXTEND (__time BIGINT, a VARCHAR, m BIGINT)""";
+        EXTEND (__time BIGINT, a VARCHAR, m BIGINT)
+      """;
 
   private static String remote(final String extraArguments)
   {
@@ -89,7 +90,8 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
         FROM (SELECT "__time", "a", "m"
         FROM "events"
         WHERE "__time" >= MILLIS_TO_TIMESTAMP(?) AND "__time" < MILLIS_TO_TIMESTAMP(?)) AS "t"
-        WHERE "m" > 3""",
+        WHERE "m" > 3\
+        """,
         inputSource.path("sql").asText()
     );
     Assertions.assertTrue(inputSource.path("timeRangeParameters").asBoolean());
@@ -115,7 +117,8 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
         FROM "events"
         WHERE "__time" >= MILLIS_TO_TIMESTAMP(946684800000) AND "__time" < MILLIS_TO_TIMESTAMP(946771200000)) AS "t"
         WHERE "a" <> 'z'
-        GROUP BY TIME_FLOOR("__time", 'PT1H'), "a\"""",
+        GROUP BY TIME_FLOOR("__time", 'PT1H'), "a"\
+        """,
         inputSource.path("sql").asText()
     );
     // Aggregates over disjoint time ranges cannot be concatenated, so the read is not split.
@@ -156,7 +159,8 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     final JsonNode authentication = remoteInputSource(query.path("dataSource")).path("connection").path("authentication");
     Assertions.assertEquals(
         """
-        {"type":"basic","username":"reader","password":{"type":"environment","variable":"SOURCE_PASSWORD"}}""",
+        {"type":"basic","username":"reader","password":{"type":"environment","variable":"SOURCE_PASSWORD"}}\
+        """,
         authentication.toString()
     );
   }
@@ -171,7 +175,8 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
         FROM TABLE(DRUID(endpoint => 'https://source.example', dataSource => 'events'))
           EXTEND (__time BIGINT, "user" VARCHAR, "value" BIGINT, "date" VARCHAR)
         WHERE "user" <> 'bot'
-        PARTITIONED BY DAY"""
+        PARTITIONED BY DAY
+        """
     );
     Assertions.assertEquals(
         """
@@ -179,7 +184,8 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
         FROM (SELECT "__time", "user", "value", "date"
         FROM "events"
         WHERE "__time" >= MILLIS_TO_TIMESTAMP(?) AND "__time" < MILLIS_TO_TIMESTAMP(?)) AS "t"
-        WHERE "user" <> 'bot'""",
+        WHERE "user" <> 'bot'\
+        """,
         remoteInputSource(query.path("dataSource")).path("sql").asText()
     );
   }
@@ -197,7 +203,8 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
         """
         SELECT "__time", "a", "m"
         FROM "events"
-        WHERE "__time" >= MILLIS_TO_TIMESTAMP(?) AND "__time" < MILLIS_TO_TIMESTAMP(?)""",
+        WHERE "__time" >= MILLIS_TO_TIMESTAMP(?) AND "__time" < MILLIS_TO_TIMESTAMP(?)\
+        """,
         inputSource.path("sql").asText()
     );
   }

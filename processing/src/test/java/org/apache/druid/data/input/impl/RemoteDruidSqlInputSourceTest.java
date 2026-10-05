@@ -73,7 +73,8 @@ public class RemoteDruidSqlInputSourceTest
   private volatile String timeBoundaryResponse =
       """
       [{"timestamp":"2020-01-01T00:00:00.000Z",
-        "result":{"minTime":"2020-01-01T00:00:00.000Z","maxTime":"2020-01-03T05:00:00.000Z"}}]""";
+        "result":{"minTime":"2020-01-01T00:00:00.000Z","maxTime":"2020-01-03T05:00:00.000Z"}}]
+      """;
   private HttpServer server;
   private RemoteDruidConnection connection;
 

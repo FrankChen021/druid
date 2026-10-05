@@ -123,7 +123,8 @@ public class EmbeddedRemoteDruidIngestionTest extends EmbeddedClusterTestBase
         "SELECT __time, page, added FROM %s ORDER BY __time",
         """
         2013-08-31T01:02:33.000Z,Gypsy Danger,57
-        2013-08-31T07:11:21.000Z,Cherno Alpha,123"""
+        2013-08-31T07:11:21.000Z,Cherno Alpha,123\
+        """
     );
   }
 
@@ -135,13 +136,15 @@ public class EmbeddedRemoteDruidIngestionTest extends EmbeddedClusterTestBase
             """
             SELECT TIME_FLOOR(__time, 'P1D') AS __time, namespace, SUM(added) AS added, COUNT(*) AS cnt
             FROM %s EXTEND (__time BIGINT, namespace VARCHAR, added BIGINT)
-            GROUP BY 1, 2""",
+            GROUP BY 1, 2
+            """,
             remote("")
         ),
         "SELECT __time, namespace, SUM(added), SUM(cnt) FROM %s GROUP BY 1, 2",
         """
         2013-08-31T00:00:00.000Z,article,180,2
-        2013-08-31T00:00:00.000Z,wikipedia,459,1"""
+        2013-08-31T00:00:00.000Z,wikipedia,459,1\
+        """
     );
   }
 
@@ -153,14 +156,16 @@ public class EmbeddedRemoteDruidIngestionTest extends EmbeddedClusterTestBase
             """
             SELECT r.__time, r.page, l.namespace
             FROM %s r INNER JOIN %s l ON r.page = l.page
-            WHERE r.delta > 0""",
+            WHERE r.delta > 0
+            """,
             remote(", engine => 'native'"),
             dataSource
         ),
         "SELECT __time, page, namespace FROM %s ORDER BY __time",
         """
         2013-08-31T03:32:45.000Z,Striker Eureka,wikipedia
-        2013-08-31T07:11:21.000Z,Cherno Alpha,article"""
+        2013-08-31T07:11:21.000Z,Cherno Alpha,article\
+        """
     );
   }
 }

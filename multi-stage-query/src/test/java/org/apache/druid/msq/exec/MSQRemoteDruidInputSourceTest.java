@@ -173,7 +173,8 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
     return StringUtils.format(
         """
         TABLE(DRUID(endpoint => 'http://localhost:%d', dataSource => 'foo'%s))
-          EXTEND (__time BIGINT, dim1 VARCHAR, cnt BIGINT)""",
+          EXTEND (__time BIGINT, dim1 VARCHAR, cnt BIGINT)
+        """,
         server.getAddress().getPort(),
         extraArguments
     );
@@ -193,7 +194,8 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
             INSERT INTO foo1
             SELECT __time, dim1, cnt FROM %s
             WHERE dim1 <> ''
-            PARTITIONED BY DAY""",
+            PARTITIONED BY DAY
+            """,
             remote(", splitDuration => 'P1Y'")
         ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
@@ -229,7 +231,8 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
             WHERE dim1 IN ('2', 'abc')
             GROUP BY cnt
             HAVING SUM(cnt) > 1
-            PARTITIONED BY DAY""",
+            PARTITIONED BY DAY
+            """,
             remote(", splitDuration => 'P1D'")
         ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
@@ -255,7 +258,8 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
             INSERT INTO foo1
             SELECT TIMESTAMP '2001-01-03 00:00:00' AS __time, cnt, SUM(cnt) AS sum_cnt FROM %s
             GROUP BY cnt
-            PARTITIONED BY DAY""",
+            PARTITIONED BY DAY
+            """,
             remote(", intervals => ARRAY['2000-01-02/2000-01-03', '2001-01-01/2001-01-02']")
         ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
@@ -282,7 +286,8 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
             SELECT TIME_FLOOR(__time, 'P1D') AS __time, COUNT(*) AS cnt FROM %s
             WHERE __time >= TIMESTAMP '2001-01-01 00:00:00'
             GROUP BY 1
-            PARTITIONED BY DAY""",
+            PARTITIONED BY DAY
+            """,
             remote("")
         ))
         .setQueryContext(context)
@@ -309,7 +314,8 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
             SELECT __time, dim1, cnt FROM %s
             WHERE dim1 <> ''
             PARTITIONED BY DAY
-            CLUSTERED BY dim1""",
+            CLUSTERED BY dim1
+            """,
             remote("")
         ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
@@ -350,7 +356,8 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
             SELECT __time, no_such_column
             FROM TABLE(DRUID(endpoint => 'http://localhost:%d', dataSource => 'foo'))
               EXTEND (__time BIGINT, no_such_column VARCHAR)
-            PARTITIONED BY DAY""",
+            PARTITIONED BY DAY
+            """,
             server.getAddress().getPort()
         ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
@@ -374,7 +381,8 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
     final String remote = StringUtils.format(
         """
         TABLE(DRUID(endpoint => 'http://localhost:%d/druid/v2/', dataSource => 'foo',
-                    authType => 'basic', username => 'reader', password => ?))""",
+                    authType => 'basic', username => 'reader', password => ?))
+        """,
         server.getAddress().getPort()
     );
     testIngestQuery()
@@ -400,7 +408,8 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
             SELECT r.__time, r.dim1, f.dim2
             FROM %s r INNER JOIN foo f ON r.dim1 = f.dim1
             WHERE r.dim1 IN ('1', 'def')
-            PARTITIONED BY DAY""",
+            PARTITIONED BY DAY
+            """,
             remote("")
         ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)

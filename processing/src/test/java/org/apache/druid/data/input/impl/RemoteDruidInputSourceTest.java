@@ -57,7 +57,8 @@ public class RemoteDruidInputSourceTest
       """
       [{"columns":{"__time":{"typeSignature":"LONG"},
                    "a":{"type":"STRING"},
-                   "values":{"typeSignature":"ARRAY<LONG>"}}}]"""
+                   "values":{"typeSignature":"ARRAY<LONG>"}}}]
+      """
   );
   private HttpServer server;
   private RemoteDruidConnection config;
