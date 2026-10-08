@@ -25,6 +25,8 @@ import com.google.inject.multibindings.MapBinder;
 import org.apache.druid.guice.DruidBinders;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.server.system.table.ConfigurationTableDataProvider;
+import org.apache.druid.server.system.table.ConfigurationTableDescriptor;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
@@ -64,8 +66,13 @@ public class SystemTableModule implements Module
     final MapBinder<String, SystemTableDescriptor> descriptorBinder = DruidBinders.systemTableDescriptorBinder(binder);
     descriptorBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                     .toInstance(new ServerPropertiesTableDescriptor());
+    descriptorBinder.addBinding(ConfigurationTableDescriptor.TABLE_NAME)
+                    .toInstance(new ConfigurationTableDescriptor());
     final MapBinder<String, SystemTableDataProvider> dataProviderBinder =
         MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class);
+    dataProviderBinder.addBinding(ConfigurationTableDescriptor.TABLE_NAME)
+                      .to(ConfigurationTableDataProvider.class)
+                      .in(LazySingleton.class);
     dataProviderBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                       .to(ServerPropertiesTableDataProvider.class)
                       .in(LazySingleton.class);
