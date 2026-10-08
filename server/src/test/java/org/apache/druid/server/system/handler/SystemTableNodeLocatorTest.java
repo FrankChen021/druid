@@ -20,7 +20,6 @@
 package org.apache.druid.server.system.handler;
 
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.discovery.DiscoveryDruidNode;
@@ -40,8 +39,6 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 public class SystemTableNodeLocatorTest
@@ -135,16 +132,13 @@ public class SystemTableNodeLocatorTest
 
   /** A leader lookup that exceeds the remaining query time is cancelled and reported as a query timeout. */
   @Test
-  public void testLocateLeaderTimeoutCancelsFuture() throws Exception
+  public void testLocateLeaderTimeoutCancelsFuture()
   {
     final DruidNodeDiscoveryProvider discoveryProvider = Mockito.mock(DruidNodeDiscoveryProvider.class);
     final CoordinatorClient coordinatorClient = Mockito.mock(CoordinatorClient.class);
     final OverlordClient overlordClient = Mockito.mock(OverlordClient.class);
-    @SuppressWarnings("unchecked")
-    final ListenableFuture<URI> leaderFuture = Mockito.mock(ListenableFuture.class);
+    final SettableFuture<URI> leaderFuture = SettableFuture.create();
     Mockito.when(overlordClient.findCurrentLeader()).thenReturn(leaderFuture);
-    Mockito.when(leaderFuture.get(Mockito.anyLong(), Mockito.eq(TimeUnit.MILLISECONDS)))
-           .thenThrow(new TimeoutException());
     final SystemTableDescriptor descriptor = descriptor(
         SystemTableRoutingMode.LEADER_ONLY,
         Set.of(NodeRole.OVERLORD)
@@ -154,11 +148,11 @@ public class SystemTableNodeLocatorTest
         QueryTimeoutException.class,
         () -> new SystemTableNodeLocator(discoveryProvider, coordinatorClient, overlordClient).locate(
             descriptor,
-            Long.MAX_VALUE
+            System.currentTimeMillis() + 500
         )
     );
 
-    Mockito.verify(leaderFuture).cancel(true);
+    Assertions.assertTrue(leaderFuture.isCancelled());
     Mockito.verifyNoInteractions(discoveryProvider, coordinatorClient);
   }
 
