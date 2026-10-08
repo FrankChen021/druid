@@ -24,7 +24,6 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.msq.dart.controller.sql.DartSqlEngine;
 import org.apache.druid.query.QueryContexts;
-import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.testing.embedded.EmbeddedBroker;
 import org.apache.druid.testing.embedded.EmbeddedCoordinator;
 import org.apache.druid.testing.embedded.EmbeddedDruidCluster;
@@ -41,10 +40,9 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Manual end-to-end benchmark comparing the traditional Bindable path of the native SQL engine and the distributed
- * Dart path for a large
- * {@code sys.server_properties} table. The class name intentionally does not end in {@code Test}, so it is not part
- * of the normal embedded-test suite. Run it explicitly with
+ * Manual end-to-end benchmark for the distributed Dart path over a large {@code sys.server_properties} table. The
+ * class name intentionally does not end in {@code Test}, so it is not part of the normal embedded-test suite. Run it
+ * explicitly with
  * {@code -Ddruid.test.benchmark=true -Dtest=ServerPropertiesEngineBenchmark}.
  */
 @EnabledIfSystemProperty(named = "druid.test.benchmark", matches = "true")
@@ -79,91 +77,60 @@ public class ServerPropertiesEngineBenchmark extends EmbeddedClusterTestBase
   }
 
   @Test
-  public void benchmarkNativeAndDart()
+  public void benchmarkDart()
   {
-    final Map<String, Object> nativeContext = queryContext(NativeSqlEngine.NAME);
     final Map<String, Object> dartContext = queryContext(DartSqlEngine.NAME);
 
     for (int i = 0; i < WARMUP_ITERATIONS; i++) {
-      runAggregateAndVerify(nativeContext);
       runAggregateAndVerify(dartContext);
     }
 
-    final List<Long> nativeNanos = new ArrayList<>(MEASUREMENT_ITERATIONS);
     final List<Long> dartNanos = new ArrayList<>(MEASUREMENT_ITERATIONS);
     for (int i = 0; i < MEASUREMENT_ITERATIONS; i++) {
-      // Alternate the order to reduce bias from GC and other process-wide activity.
-      if ((i & 1) == 0) {
-        nativeNanos.add(measureAggregate(nativeContext));
-        dartNanos.add(measureAggregate(dartContext));
-      } else {
-        dartNanos.add(measureAggregate(dartContext));
-        nativeNanos.add(measureAggregate(nativeContext));
-      }
+      dartNanos.add(measureAggregate(dartContext));
     }
 
-    logResults("aggregate", AGGREGATE_SQL, PROPERTY_COUNT, nativeNanos, dartNanos);
+    logResults("aggregate", AGGREGATE_SQL, PROPERTY_COUNT, dartNanos);
 
-    final int nativeScanRows = runScanAndCountRows(nativeContext);
     final int dartScanRows = runScanAndCountRows(dartContext);
-    Assertions.assertTrue(nativeScanRows > PROPERTY_COUNT);
     Assertions.assertTrue(dartScanRows > PROPERTY_COUNT);
 
-    nativeNanos.clear();
     dartNanos.clear();
     for (int i = 0; i < MEASUREMENT_ITERATIONS; i++) {
-      if ((i & 1) == 0) {
-        nativeNanos.add(measureScan(nativeContext, nativeScanRows));
-        dartNanos.add(measureScan(dartContext, dartScanRows));
-      } else {
-        dartNanos.add(measureScan(dartContext, dartScanRows));
-        nativeNanos.add(measureScan(nativeContext, nativeScanRows));
-      }
+      dartNanos.add(measureScan(dartContext, dartScanRows));
     }
 
-    logScanResults(nativeScanRows, dartScanRows, nativeNanos, dartNanos);
+    logScanResults(dartScanRows, dartNanos);
   }
 
   private static void logResults(
       final String workload,
       final String sql,
       final int rowCount,
-      final List<Long> nativeNanos,
       final List<Long> dartNanos
   )
   {
-    final BenchmarkResult nativeResult = BenchmarkResult.from(nativeNanos);
     final BenchmarkResult dartResult = BenchmarkResult.from(dartNanos);
     LOG.info(
-        "sys.server_properties benchmark: workload[%s], rows[%,d], query[%s], native[%s], dart[%s], "
-        + "dart/native median ratio[%.2f]",
+        "sys.server_properties Dart benchmark: workload[%s], rows[%,d], query[%s], result[%s]",
         workload,
         rowCount,
         sql,
-        nativeResult,
-        dartResult,
-        dartResult.medianMillis() / nativeResult.medianMillis()
+        dartResult
     );
   }
 
   private static void logScanResults(
-      final int nativeRowCount,
       final int dartRowCount,
-      final List<Long> nativeNanos,
       final List<Long> dartNanos
   )
   {
-    final BenchmarkResult nativeResult = BenchmarkResult.from(nativeNanos);
     final BenchmarkResult dartResult = BenchmarkResult.from(dartNanos);
     LOG.info(
-        "sys.server_properties benchmark: workload[full scan], native rows[%,d], dart rows[%,d], query[%s], "
-        + "native[%s], dart[%s], dart/native median ratio[%.2f]",
-        nativeRowCount,
+        "sys.server_properties Dart benchmark: workload[full scan], rows[%,d], query[%s], result[%s]",
         dartRowCount,
         SCAN_SQL,
-        nativeResult,
-        dartResult,
-        dartResult.medianMillis() / nativeResult.medianMillis()
+        dartResult
     );
   }
 
