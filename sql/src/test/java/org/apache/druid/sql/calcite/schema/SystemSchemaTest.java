@@ -575,12 +575,12 @@ public class SystemSchemaTest extends CalciteTestBase
     );
 
     Assertions.assertEquals(
-        ImmutableSet.of("segments", "servers", "server_segments", "tasks", "supervisors", "server_properties"),
+        ImmutableSet.of("segments", "servers", "server_segments", "tasks", "supervisors", "server_properties", "configuration"),
         schema.getTableNames()
     );
 
     Assertions.assertEquals(
-        ImmutableSet.of("segments", "servers", "server_segments", "tasks", "supervisors", "server_properties"),
+        ImmutableSet.of("segments", "servers", "server_segments", "tasks", "supervisors", "server_properties", "configuration"),
         schema.tables().getNames(LikePattern.any())
     );
 

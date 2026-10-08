@@ -211,7 +211,7 @@ public class JsonConfigProvider<T> implements Provider<T>
   private Properties props;
   private JsonConfigurator configurator;
 
-  private T retVal = null;
+  private volatile T retVal = null;
 
   public JsonConfigProvider(
       String propertyBase,
@@ -232,6 +232,24 @@ public class JsonConfigProvider<T> implements Provider<T>
   {
     this.props = props;
     this.configurator = configurator;
+  }
+
+  /** Property prefix for diagnostics; inspecting it does not initialize the configuration. */
+  public String getPropertyBase()
+  {
+    return propertyBase;
+  }
+
+  public Class<T> getConfigClass()
+  {
+    return classToProvide;
+  }
+
+  /** Returns the already configured object, or null without invoking the provider. */
+  @Nullable
+  public T getInitializedConfig()
+  {
+    return retVal;
   }
 
   @Override
