@@ -24,11 +24,16 @@ import org.apache.calcite.schema.Schema;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.SqlEngine;
+import org.apache.druid.sql.calcite.table.DruidTable;
 import org.easymock.EasyMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 public class SystemTableDataProviderTest
 {
@@ -79,37 +84,37 @@ public class SystemTableDataProviderTest
     );
   }
 
-  @Test
-  public void testSystemSchemaGetsNativeRepresentation()
+  @ParameterizedTest
+  @MethodSource("systemTableRepresentations")
+  public void testSystemSchemaGetsOnlyRegisteredRepresentation(
+      final List<String> qualifiedName,
+      final SystemTableDataSourceTable capability,
+      final boolean expectedPresent
+  )
   {
     final RelOptTable table = EasyMock.createMock(RelOptTable.class);
-    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(ServerPropertiesDataSourceTable::new).once();
+    EasyMock.expect(table.getQualifiedName()).andStubReturn(qualifiedName);
+    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(capability).once();
     EasyMock.replay(table);
 
-    Assertions.assertInstanceOf(ServerPropertiesDataSourceTable.class, SystemSchema.getSystemTableDataSourceTable(table));
+    final DruidTable nativeTable = SystemSchema.getSystemTableDataSourceTable(table);
+    if (expectedPresent) {
+      Assertions.assertInstanceOf(ServerPropertiesDataSourceTable.class, nativeTable);
+    } else {
+      Assertions.assertNull(nativeTable);
+    }
     EasyMock.verify(table);
   }
 
-  @Test
-  public void testSystemSchemaRejectsTableWithoutNativeCapability()
+  private static Stream<Arguments> systemTableRepresentations()
   {
-    final RelOptTable table = EasyMock.createMock(RelOptTable.class);
-    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(null).once();
-    EasyMock.replay(table);
-
-    Assertions.assertNull(SystemSchema.getSystemTableDataSourceTable(table));
-    EasyMock.verify(table);
-  }
-
-  @Test
-  public void testQualifiedNameAloneDoesNotEnableNativeExecution()
-  {
-    final RelOptTable table = EasyMock.createMock(RelOptTable.class);
-    EasyMock.expect(table.getQualifiedName()).andStubReturn(List.of("sys", "tasks"));
-    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(null).once();
-    EasyMock.replay(table);
-
-    Assertions.assertNull(SystemSchema.getSystemTableDataSourceTable(table));
-    EasyMock.verify(table);
+    return Stream.of(
+        Arguments.of(
+            List.of("sys", "server_properties"),
+            (SystemTableDataSourceTable) ServerPropertiesDataSourceTable::new,
+            true
+        ),
+        Arguments.of(List.of("sys", "tasks"), null, false)
+    );
   }
 }

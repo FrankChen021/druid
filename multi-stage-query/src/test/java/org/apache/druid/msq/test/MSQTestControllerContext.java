@@ -252,7 +252,7 @@ public class MSQTestControllerContext implements ControllerContext, DartControll
         workerStorageParameters = WorkerStorageParameters.createInstanceForTests(Long.MAX_VALUE);
       }
 
-      final MSQTestWorkerContext workerContext = makeWorkerContext(
+      final MSQTestWorkerContext workerContext = new MSQTestWorkerContext(
           task.getId(),
           inMemoryWorkers,
           controller,
@@ -361,32 +361,6 @@ public class MSQTestControllerContext implements ControllerContext, DartControll
       return Futures.immediateFuture(null);
     }
   };
-
-  /** Creates the in-memory worker context. Tests may override this to install additional input readers. */
-  protected MSQTestWorkerContext makeWorkerContext(
-      final String workerId,
-      final Map<String, WorkerRunRef> workers,
-      final Controller queryController,
-      final ObjectMapper objectMapper,
-      final Injector workerInjector,
-      final WorkerMemoryParameters memoryParameters,
-      final WorkerStorageParameters storageParameters,
-      final ServiceEmitter emitter,
-      @Nullable final CoordinatorClient workerCoordinatorClient
-  )
-  {
-    return new MSQTestWorkerContext(
-        workerId,
-        workers,
-        queryController,
-        objectMapper,
-        workerInjector,
-        memoryParameters,
-        storageParameters,
-        emitter,
-        workerCoordinatorClient
-    );
-  }
 
   @Override
   public String queryId()
