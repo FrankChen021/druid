@@ -429,8 +429,12 @@ appears as `PT120S`; a period of one month remains `P1M`, without conversion to 
 The `configured_value` column retains the original input, and `value_type` retains the declared Java type.
 These types also support null values and metadata for objects that have not been initialized.
 
-Nested configuration beans are expanded into property paths. Maps, lists, arrays, interfaces, recursive
-object references, and other unsupported values have status `UNSUPPORTED`; the table does not invoke arbitrary
+Jackson name-based type selectors, such as `druid.cache.type`, are included even when they are not bean fields.
+For initialized configurations, their effective values identify the selected implementation, including defaults.
+
+Nested configuration beans are expanded into property paths. When an initialized configuration contains a null
+nested bean, its supported leaf properties have null effective values with status `AVAILABLE`.
+Maps, lists, arrays, interfaces, recursive object references, and other unsupported values have status `UNSUPPORTED`; the table does not invoke arbitrary
 object serialization code. For properties supplied inside a parent JSON object, `configured_value` can be null even when
 an explicit value was supplied. There is no general default-value or configuration-file provenance column.
 

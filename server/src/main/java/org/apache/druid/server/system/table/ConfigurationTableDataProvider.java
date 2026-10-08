@@ -21,12 +21,15 @@ package org.apache.druid.server.system.table;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
+import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.google.inject.Binding;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
@@ -141,9 +144,18 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
         final String base = provider.getPropertyBase();
         final String prefix = base.endsWith(".") ? base.substring(0, base.length() - 1) : base;
         try {
-          appendProperties(rows, prefix, configClass, binding.getKey().toString(), config, configClass, new HashSet<>());
+          appendProperties(
+              rows,
+              prefix,
+              configClass,
+              binding.getKey().toString(),
+              config,
+              provider.getConfigClass(),
+              config == null ? "NOT_INITIALIZED" : "AVAILABLE",
+              new HashSet<>()
+          );
         }
-        catch (final RuntimeException e) {
+        catch (final JsonMappingException | RuntimeException e) {
           rows.add(row(
               prefix,
               configClass,
@@ -167,16 +179,43 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
       final Class<?> configClass,
       final String binding,
       @Nullable final Object config,
-      final Class<?> type,
+      final Class<?> declaredType,
+      final String valueStatus,
       final Set<Class<?>> ancestors
-  )
+  ) throws JsonMappingException
   {
+    final Class<?> type = config == null ? declaredType : config.getClass();
     final List<BeanPropertyDefinition> definitions = mapper.getDeserializationConfig()
         .introspect(mapper.constructType(type)).findProperties().stream()
         .filter(BeanPropertyDefinition::couldDeserialize).toList();
-    if (!ancestors.add(type) || definitions.isEmpty()) {
+    if (!ancestors.add(type)) {
       rows.add(row(prefix, configClass, binding, type.getTypeName(), null, null, "UNSUPPORTED", null));
       return;
+    }
+    final TypeSerializer typeSerializer = mapper.getSerializerProviderInstance()
+        .findTypeSerializer(mapper.constructType(declaredType));
+    final boolean hasTypeProperty = typeSerializer != null
+                                   && typeSerializer.getTypeIdResolver().getMechanism() == JsonTypeInfo.Id.NAME
+                                   && (typeSerializer.getTypeInclusion() == JsonTypeInfo.As.PROPERTY
+                                       || typeSerializer.getTypeInclusion() == JsonTypeInfo.As.EXISTING_PROPERTY);
+    if (hasTypeProperty && definitions.stream().noneMatch(p -> p.getName().equals(typeSerializer.getPropertyName()))) {
+      final String name = prefix + "." + typeSerializer.getPropertyName();
+      final boolean hidden = serverConfig.getHiddenProperties().stream().anyMatch(
+          key -> StringUtils.toLowerCase(name).contains(StringUtils.toLowerCase(key))
+      );
+      rows.add(row(
+          name,
+          configClass,
+          binding,
+          String.class.getName(),
+          hidden ? null : properties.getProperty(name),
+          hidden || config == null ? null : typeSerializer.getTypeIdResolver().idFromValue(config),
+          hidden ? "REDACTED" : valueStatus,
+          null
+      ));
+    }
+    if (definitions.isEmpty() && !hasTypeProperty) {
+      rows.add(row(prefix, configClass, binding, type.getTypeName(), null, null, "UNSUPPORTED", null));
     }
     // Druid's mapper disables automatic getter discovery. Enable it only for reading already known input
     // properties, so helper getters cannot introduce extra configuration paths.
@@ -229,14 +268,23 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
               propertyType.toCanonical(),
               properties.getProperty(name),
               scalarValue(value),
-              config == null ? "NOT_INITIALIZED" : accessor == null ? "UNSUPPORTED" : "AVAILABLE",
+              accessor == null ? "UNSUPPORTED" : valueStatus,
               null
           ));
         } else {
-          appendProperties(rows, name, configClass, binding, value, value == null ? rawType : value.getClass(), ancestors);
+          appendProperties(
+              rows,
+              name,
+              configClass,
+              binding,
+              value,
+              rawType,
+              accessor == null ? "UNSUPPORTED" : valueStatus,
+              ancestors
+          );
         }
       }
-      catch (final RuntimeException e) {
+      catch (final JsonMappingException | RuntimeException e) {
         rows.add(row(
             name,
             configClass,

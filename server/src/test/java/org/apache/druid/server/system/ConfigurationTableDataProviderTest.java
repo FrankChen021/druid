@@ -30,6 +30,7 @@ import com.google.inject.name.Names;
 import com.google.inject.util.Modules;
 import jakarta.validation.Validation;
 import org.apache.druid.client.DruidServerConfig;
+import org.apache.druid.client.cache.CacheProvider;
 import org.apache.druid.client.cache.CaffeineCacheConfig;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.DruidGuiceExtensions;
@@ -44,6 +45,8 @@ import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.coordinator.config.HttpLoadQueuePeonConfig;
+import org.apache.druid.server.log.NoopRequestLoggerProvider;
+import org.apache.druid.server.log.RequestLoggerProvider;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -81,6 +84,45 @@ public class ConfigurationTableDataProviderTest
     Assertions.assertEquals("NOT_INITIALIZED", find(rows, "druid.example.threads")[9]);
     Assertions.assertEquals("NOT_INITIALIZED", find(rows, "druid.example.nested.renamed")[9]);
     Assertions.assertTrue(rows.stream().noneMatch(row -> row[3].equals("druid.example.ignored")));
+  }
+
+  @Test
+  public void testInitializedNullNestedBeanHasAvailableNullLeaves()
+  {
+    final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.nullNested", NullNestedConfig.class));
+    final List<Object[]> before = rows(provider(injector, allowAll));
+    Assertions.assertEquals("NOT_INITIALIZED", find(before, "druid.nullNested.nested.renamed")[9]);
+    injector.getInstance(NullNestedConfig.class);
+    assertValue(rows(provider(injector, allowAll)), "druid.nullNested.nested.renamed", null, null, String.class);
+  }
+
+  @Test
+  public void testPolymorphicTypeSelectorBeforeAndAfterInitialization()
+  {
+    properties.setProperty("druid.cache.type", "caffeine");
+    final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.cache", CacheProvider.class));
+    final Object[] before = find(rows(provider(injector, allowAll)), "druid.cache.type");
+    Assertions.assertEquals("caffeine", before[7]);
+    Assertions.assertNull(before[8]);
+    Assertions.assertEquals("NOT_INITIALIZED", before[9]);
+    injector.getInstance(CacheProvider.class);
+    assertValue(rows(provider(injector, allowAll)), "druid.cache.type", "caffeine", "caffeine", String.class);
+  }
+
+  @Test
+  public void testDefaultPolymorphicTypeWithoutBeanProperties()
+  {
+    mapper.registerSubtypes(NoopRequestLoggerProvider.class);
+    final Injector injector = injector(binder -> JsonConfigProvider.bindWithDefault(
+        binder,
+        "druid.request.logging",
+        RequestLoggerProvider.class,
+        NoopRequestLoggerProvider.class
+    ));
+    injector.getInstance(RequestLoggerProvider.class);
+    final List<Object[]> rows = rows(provider(injector, allowAll));
+    assertValue(rows, "druid.request.logging.type", null, "noop", String.class);
+    Assertions.assertTrue(rows.stream().noneMatch(row -> "druid.request.logging".equals(row[3])));
   }
 
   @Test
@@ -361,6 +403,12 @@ public class ConfigurationTableDataProviderTest
     private final Period tokenPeriod = Period.ZERO;
     @JsonProperty
     private final HumanReadableBytes keyBytes = HumanReadableBytes.ZERO;
+  }
+
+  public static class NullNestedConfig
+  {
+    @JsonProperty
+    private final NestedConfig nested = null;
   }
 
   public static class NestedConfig
