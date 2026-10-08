@@ -36,6 +36,7 @@ import org.apache.druid.client.DruidServerConfig;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.annotations.Self;
+import org.apache.druid.java.util.common.HumanReadableBytes;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.metadata.DynamicConfigProvider;
 import org.apache.druid.metadata.PasswordProvider;
@@ -45,6 +46,8 @@ import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
+import org.joda.time.Duration;
+import org.joda.time.Period;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -225,7 +228,7 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
               binding,
               propertyType.toCanonical(),
               properties.getProperty(name),
-              value instanceof Enum<?> enumValue ? enumValue.name() : value == null ? null : String.valueOf(value),
+              scalarValue(value),
               config == null ? "NOT_INITIALIZED" : accessor == null ? "UNSUPPORTED" : "AVAILABLE",
               null
           ));
@@ -253,7 +256,30 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
   {
     return type.isPrimitive() || type == String.class || type == Boolean.class || type == Character.class
            || type == Integer.class || type == Long.class || type == Double.class || type == Float.class
-           || type == Short.class || type == Byte.class || type.isEnum();
+           || type == Short.class || type == Byte.class || type.isEnum()
+           || type == Duration.class || type == Period.class || type == HumanReadableBytes.class;
+  }
+
+  /** Converts supported value objects directly, without invoking Jackson or custom object serializers. */
+  @Nullable
+  private static String scalarValue(@Nullable final Object value)
+  {
+    if (value == null) {
+      return null;
+    }
+    if (value instanceof HumanReadableBytes bytes) {
+      return Long.toString(bytes.getBytes());
+    }
+    if (value instanceof Duration duration) {
+      return duration.toString();
+    }
+    if (value instanceof Period period) {
+      return period.toString();
+    }
+    if (value instanceof Enum<?> enumValue) {
+      return enumValue.name();
+    }
+    return String.valueOf(value);
   }
 
   private Object[] row(

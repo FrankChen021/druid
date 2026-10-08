@@ -30,16 +30,20 @@ import com.google.inject.name.Names;
 import com.google.inject.util.Modules;
 import jakarta.validation.Validation;
 import org.apache.druid.client.DruidServerConfig;
+import org.apache.druid.client.cache.CaffeineCacheConfig;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.DruidGuiceExtensions;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.JsonConfigurator;
 import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.java.util.common.HumanReadableBytes;
+import org.apache.druid.metadata.MetadataRuleManagerConfig;
 import org.apache.druid.metadata.PasswordProvider;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.server.DruidNode;
+import org.apache.druid.server.coordinator.config.HttpLoadQueuePeonConfig;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -49,6 +53,8 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.table.ConfigurationTableDataProvider;
 import org.apache.druid.server.system.table.ConfigurationTableDescriptor;
+import org.joda.time.Duration;
+import org.joda.time.Period;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -94,6 +100,78 @@ public class ConfigurationTableDataProviderTest
     Assertions.assertEquals("localhost:8080", nested[0]);
     Assertions.assertEquals("overlord", nested[1]);
     Assertions.assertEquals("[overlord]", nested[2]);
+  }
+
+  @Test
+  public void testCommonValueTypesInRealConfigurationClasses()
+  {
+    properties.setProperty("druid.coordinator.loadqueuepeon.http.hostTimeout", "PT2M");
+    properties.setProperty("druid.manager.rules.pollDuration", "P1M");
+    properties.setProperty("druid.cache.sizeInBytes", "2MiB");
+    final Injector injector = injector(binder -> {
+      JsonConfigProvider.bind(binder, "druid.coordinator.loadqueuepeon.http", HttpLoadQueuePeonConfig.class);
+      JsonConfigProvider.bind(binder, "druid.manager.rules", MetadataRuleManagerConfig.class);
+      JsonConfigProvider.bind(binder, "druid.cache", CaffeineCacheConfig.class);
+    });
+    injector.getInstance(HttpLoadQueuePeonConfig.class);
+    injector.getInstance(MetadataRuleManagerConfig.class);
+    injector.getInstance(CaffeineCacheConfig.class);
+    final List<Object[]> rows = rows(provider(injector, allowAll));
+    assertValue(rows, "druid.coordinator.loadqueuepeon.http.hostTimeout", "PT2M", "PT120S", Duration.class);
+    assertValue(rows, "druid.coordinator.loadqueuepeon.http.repeatDelay", null, "PT60S", Duration.class);
+    assertValue(rows, "druid.manager.rules.pollDuration", "P1M", "P1M", Period.class);
+    assertValue(rows, "druid.manager.rules.alertThreshold", null, "PT10M", Period.class);
+    assertValue(rows, "druid.cache.sizeInBytes", "2MiB", "2097152", HumanReadableBytes.class);
+  }
+
+  @Test
+  public void testValueTypesReadFieldsAndPreserveNullValues()
+  {
+    final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.values", ValueConfig.class));
+    injector.getInstance(ValueConfig.class);
+    final List<Object[]> rows = rows(provider(injector, allowAll));
+    assertValue(rows, "druid.values.duration", null, "PT0S", Duration.class);
+    assertValue(rows, "druid.values.period", null, "PT0S", Period.class);
+    assertValue(rows, "druid.values.bytes", null, "-1", HumanReadableBytes.class);
+    assertValue(rows, "druid.values.nullDuration", null, null, Duration.class);
+    assertValue(rows, "druid.values.nullPeriod", null, null, Period.class);
+    assertValue(rows, "druid.values.nullBytes", null, null, HumanReadableBytes.class);
+  }
+
+  @Test
+  public void testValueTypesRemainUninitializedAndRedacted()
+  {
+    final JsonConfigProvider<ValueConfig> configProvider = JsonConfigProvider.of("druid.values", ValueConfig.class);
+    final Injector injector = injector(binder -> binder.bind(ValueConfig.class).toProvider(configProvider));
+    final List<Object[]> rows = rows(provider(injector, allowAll));
+    Assertions.assertNull(configProvider.getInitializedConfig());
+    for (final String name : List.of("duration", "period", "bytes")) {
+      final Object[] row = find(rows, "druid.values." + name);
+      Assertions.assertEquals("NOT_INITIALIZED", row[9]);
+      Assertions.assertNull(row[8]);
+    }
+    for (final String name : List.of("passwordDuration", "tokenPeriod", "keyBytes")) {
+      final Object[] row = find(rows, "druid.values." + name);
+      Assertions.assertEquals("REDACTED", row[9]);
+      Assertions.assertNull(row[7]);
+      Assertions.assertNull(row[8]);
+    }
+  }
+
+  private static void assertValue(
+      final List<Object[]> rows,
+      final String property,
+      final String configured,
+      final String effective,
+      final Class<?> type
+  )
+  {
+    final Object[] row = find(rows, property);
+    Assertions.assertEquals(type.getName(), row[6]);
+    Assertions.assertEquals(configured, row[7]);
+    Assertions.assertEquals(effective, row[8]);
+    Assertions.assertEquals("AVAILABLE", row[9]);
+    Assertions.assertTrue(rows.stream().noneMatch(r -> ((String) r[3]).startsWith(property + ".")));
   }
 
   @Test
@@ -261,6 +339,28 @@ public class ConfigurationTableDataProviderTest
     {
       throw new IllegalStateException("secret");
     }
+  }
+
+  public static class ValueConfig
+  {
+    @JsonProperty
+    private final Duration duration = Duration.ZERO;
+    @JsonProperty
+    private final Period period = Period.ZERO;
+    @JsonProperty
+    private final HumanReadableBytes bytes = HumanReadableBytes.valueOf(-1);
+    @JsonProperty
+    private final Duration nullDuration = null;
+    @JsonProperty
+    private final Period nullPeriod = null;
+    @JsonProperty
+    private final HumanReadableBytes nullBytes = null;
+    @JsonProperty
+    private final Duration passwordDuration = Duration.ZERO;
+    @JsonProperty
+    private final Period tokenPeriod = Period.ZERO;
+    @JsonProperty
+    private final HumanReadableBytes keyBytes = HumanReadableBytes.ZERO;
   }
 
   public static class NestedConfig
