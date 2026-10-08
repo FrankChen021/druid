@@ -423,6 +423,12 @@ but their values have status `NOT_INITIALIZED`. Initialized objects expose defau
 the same getters used by callers where available. A null value with status `AVAILABLE` is a configuration value,
 not an inspection failure. Values computed elsewhere by a service are not included.
 
+The Joda-Time `Duration` and `Period` types are exposed as scalar ISO-8601 strings. A duration of two minutes
+appears as `PT120S`; a period of one month remains `P1M`, without conversion to a fixed duration.
+`HumanReadableBytes` values are exposed as decimal byte counts, so a configured `2MiB` appears as `2097152`.
+The `configured_value` column retains the original input, and `value_type` retains the declared Java type.
+These types also support null values and metadata for objects that have not been initialized.
+
 Nested configuration beans are expanded into property paths. Maps, lists, arrays, interfaces, recursive
 object references, and other unsupported values have status `UNSUPPORTED`; the table does not invoke arbitrary
 object serialization code. For properties supplied inside a parent JSON object, `configured_value` can be null even when
