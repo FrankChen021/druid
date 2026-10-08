@@ -39,6 +39,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.extraction.MapLookupExtractor;
 import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.query.lookup.LookupExtractionFn;
@@ -83,16 +84,6 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
    */
   public static final String CTX_MAX_OPTIMIZE_COUNT = "maxOptimizeCountForDruidReverseLookupRule";
 
-  /**
-   * Context parameter to prevent creating too-large IN filters as a result of reverse lookups.
-   */
-  public static final String CTX_THRESHOLD = "sqlReverseLookupThreshold";
-
-  /**
-   * Context parameter for tests, to allow us to force the case where we avoid creating a bunch of ORs.
-   */
-  public static final int DEFAULT_THRESHOLD = 10000;
-
   private final PlannerContext plannerContext;
 
   public ReverseLookupRule(final PlannerContext plannerContext)
@@ -110,7 +101,7 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
     final int maxInSize =
         Math.min(
             plannerContext.queryContext().getInSubQueryThreshold(),
-            plannerContext.queryContext().getInt(CTX_THRESHOLD, DEFAULT_THRESHOLD)
+            plannerContext.queryContext().getOrDefault(QueryContextParameters.SQL_REVERSE_LOOKUP_THRESHOLD)
         );
     final ReverseLookupShuttle reverseLookupShuttle = new ReverseLookupShuttle(
         plannerContext,

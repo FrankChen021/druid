@@ -48,6 +48,30 @@ import java.util.function.Function;
  */
 public final class QueryContextParameter<T>
 {
+  /**
+   * Who a query context parameter is intended for. Visibility is independent of documentation metadata: parameters of
+   * every visibility carry a description.
+   */
+  public enum Visibility
+  {
+    /**
+     * A user-facing parameter that is part of the documented contract and is rendered in the generated documentation.
+     */
+    PUBLIC,
+
+    /**
+     * A user-settable parameter, such as a switch for debugging, testing or tuning, that is not part of the documented
+     * contract. It is left out of the generated documentation and may change or be removed without notice.
+     */
+    HIDDEN,
+
+    /**
+     * A parameter that Druid sets itself to coordinate between services. It is left out of the generated documentation
+     * and users can't set it with a SQL {@code SET} statement.
+     */
+    INTERNAL
+  }
+
   @FunctionalInterface
   public interface ValueParser<T>
   {
@@ -84,10 +108,15 @@ public final class QueryContextParameter<T>
   private final Class<T> valueType;
   private final ValueParser<T> parser;
   private final List<ParameterConstraint<T>> constraints;
-  private final Optional<T> defaultValue;
+  @Nullable
+  private final T defaultValue;
   private final boolean nullable;
-  private final Optional<String> deprecationMessage;
-  private final Optional<ParameterDocumentation> documentation;
+  private final Visibility visibility;
+  @Nullable
+  private final String since;
+  @Nullable
+  private final String deprecationMessage;
+  private final ParameterDocumentation documentation;
 
   private QueryContextParameter(final Builder<T> builder)
   {
@@ -95,16 +124,23 @@ public final class QueryContextParameter<T>
     this.valueType = builder.valueType;
     this.parser = builder.parser;
     this.constraints = List.copyOf(builder.constraints);
-    this.defaultValue = Optional.ofNullable(builder.defaultValue);
+    this.defaultValue = builder.defaultValue;
     this.nullable = builder.nullable;
-    this.deprecationMessage = Optional.ofNullable(builder.deprecationMessage);
-    this.documentation = builder.documentationBuilder == null
-                         ? Optional.empty()
-                         : Optional.of(builder.documentationBuilder.build());
+    this.visibility = builder.visibility;
+    this.since = builder.since;
+    this.deprecationMessage = builder.deprecationMessage;
 
-    if (defaultValue.isPresent()) {
+    if (!builder.hasDescription) {
+      throw new IAE("Query context parameter [%s] must have a description", name);
+    }
+    if (since != null) {
+      builder.documentationBuilder.since(since);
+    }
+    this.documentation = builder.documentationBuilder.build();
+
+    if (defaultValue != null) {
       try {
-        validate(defaultValue.get());
+        validate(defaultValue);
       }
       catch (BadQueryContextException e) {
         // An invalid declared default is a programming error, not a bad user-supplied value.
@@ -197,7 +233,7 @@ public final class QueryContextParameter<T>
     if (parsed != null) {
       return parsed;
     }
-    return defaultValue.orElseThrow(
+    return getDefaultValue().orElseThrow(
         () -> new ISE("Query context parameter [%s] has no declared default", name)
     );
   }
@@ -233,7 +269,7 @@ public final class QueryContextParameter<T>
    */
   public Optional<T> getDefaultValue()
   {
-    return defaultValue;
+    return Optional.ofNullable(defaultValue);
   }
 
   public boolean isNullable()
@@ -241,17 +277,33 @@ public final class QueryContextParameter<T>
     return nullable;
   }
 
-  public boolean isDeprecated()
+  public Visibility getVisibility()
   {
-    return deprecationMessage.isPresent();
+    return visibility;
   }
 
-  public Optional<String> getDeprecationMessage()
+  /**
+   * Returns the Druid version that introduced this parameter, if declared. Available regardless of whether the
+   * parameter has public documentation.
+   */
+  @Nullable
+  public String getSince()
+  {
+    return since;
+  }
+
+  public boolean isDeprecated()
+  {
+    return deprecationMessage != null;
+  }
+
+  @Nullable
+  public String getDeprecationMessage()
   {
     return deprecationMessage;
   }
 
-  public Optional<ParameterDocumentation> getDocumentation()
+  public ParameterDocumentation getDocumentation()
   {
     return documentation;
   }
@@ -312,10 +364,14 @@ public final class QueryContextParameter<T>
     private T defaultValue;
     // Query context maps historically permit explicit null values, so preserve that behavior unless declared otherwise.
     private boolean nullable = true;
+    private Visibility visibility = Visibility.PUBLIC;
     @Nullable
     private String deprecationMessage;
     @Nullable
     private ParameterDocumentation.Builder documentationBuilder;
+    private boolean hasDescription;
+    @Nullable
+    private String since;
 
     private Builder(final String name, final Class<T> valueType, final ValueParser<T> parser)
     {
@@ -346,6 +402,12 @@ public final class QueryContextParameter<T>
       return this;
     }
 
+    public Builder<T> visibility(final Visibility visibility)
+    {
+      this.visibility = Objects.requireNonNull(visibility, "visibility");
+      return this;
+    }
+
     public Builder<T> deprecated(final String deprecationMessage)
     {
       this.deprecationMessage = Objects.requireNonNull(deprecationMessage, "deprecationMessage");
@@ -366,6 +428,7 @@ public final class QueryContextParameter<T>
     public Builder<T> description(final String description)
     {
       documentationBuilder().description(description);
+      hasDescription = true;
       return this;
     }
 
@@ -401,7 +464,10 @@ public final class QueryContextParameter<T>
 
     public Builder<T> since(final String since)
     {
-      documentationBuilder().since(since);
+      this.since = Objects.requireNonNull(since, "since");
+      if (since.isBlank()) {
+        throw new IAE("Query context parameter since must not be blank");
+      }
       return this;
     }
 

@@ -185,6 +185,11 @@ public class QueryContexts
   public static final int DEFAULT_VECTOR_SIZE = 512;
   public static final int DEFAULT_PRIORITY = 0;
   public static final int DEFAULT_UNCOVERED_INTERVALS_LIMIT = 0;
+  /**
+   * @deprecated Use the declared default of {@link org.apache.druid.query.context.QueryContextParameters#DEFAULT_TIMEOUT}
+   * instead, for example {@link QueryContext#getOrDefault(QueryContextParameter)}.
+   */
+  @Deprecated
   public static final long DEFAULT_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(5);
   public static final long NO_TIMEOUT = 0;
   public static final boolean DEFAULT_ENABLE_PARALLEL_MERGE = true;
