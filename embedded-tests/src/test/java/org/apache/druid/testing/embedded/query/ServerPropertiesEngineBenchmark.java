@@ -57,7 +57,9 @@ public class ServerPropertiesEngineBenchmark extends EmbeddedClusterTestBase
       "SELECT COUNT(*), COUNT(DISTINCT property) "
       + "FROM sys.server_properties WHERE property LIKE '" + PROPERTY_PREFIX + "%%'";
   private static final String AGGREGATE_SQL = StringUtils.replace(AGGREGATE_SQL_FORMAT, "%%", "%");
+  private static final String EXACT_AGGREGATE_SQL = "SET useApproximateCountDistinct = false; " + AGGREGATE_SQL;
   private static final String SCAN_SQL = "SELECT * FROM sys.server_properties";
+  private static final String ORDERED_SCAN_SQL = SCAN_SQL + " ORDER BY property, server";
 
   private final EmbeddedBroker broker = new EmbeddedBroker()
       .setServerMemory(1_000_000_000L)
@@ -76,98 +78,106 @@ public class ServerPropertiesEngineBenchmark extends EmbeddedClusterTestBase
                                .addServer(historical);
   }
 
+  /** Compare one-stage execution and two-stage pipelining on the same 100K-row aggregate and scan workloads. */
   @Test
   public void benchmarkDart()
   {
-    final Map<String, Object> dartContext = queryContext(DartSqlEngine.NAME);
+    final Map<Integer, Map<String, Object>> contexts = Map.of(
+        1, Map.of(QueryContexts.ENGINE, DartSqlEngine.NAME, "maxConcurrentStages", 1),
+        2, Map.of(QueryContexts.ENGINE, DartSqlEngine.NAME, "maxConcurrentStages", 2)
+    );
+    final int scanRows = runScanAndCountRows(SCAN_SQL, contexts.get(1));
+    Assertions.assertTrue(scanRows > PROPERTY_COUNT);
 
-    for (int i = 0; i < WARMUP_ITERATIONS; i++) {
-      runAggregateAndVerify(dartContext);
+    for (final String sql : List.of(AGGREGATE_SQL, EXACT_AGGREGATE_SQL, SCAN_SQL, ORDERED_SCAN_SQL)) {
+      for (int i = 0; i < WARMUP_ITERATIONS; i++) {
+        for (final int stages : List.of(1, 2)) {
+          measureWorkload(sql, contexts.get(stages), scanRows);
+        }
+      }
+      final Map<Integer, List<Long>> samples = Map.of(
+          1, new ArrayList<>(MEASUREMENT_ITERATIONS),
+          2, new ArrayList<>(MEASUREMENT_ITERATIONS)
+      );
+      // Alternate which setting runs first so compilation and cache warming do not consistently favor one setting.
+      for (int i = 0; i < MEASUREMENT_ITERATIONS; i++) {
+        for (final int stages : i % 2 == 0 ? List.of(1, 2) : List.of(2, 1)) {
+          samples.get(stages).add(measureWorkload(sql, contexts.get(stages), scanRows));
+        }
+      }
+      for (final int stages : List.of(1, 2)) {
+        final boolean aggregate = sql.endsWith(AGGREGATE_SQL);
+        logResults(
+            aggregate ? "aggregate" : "scan",
+            sql,
+            aggregate ? PROPERTY_COUNT : scanRows,
+            stages,
+            samples.get(stages)
+        );
+      }
     }
+  }
 
-    final List<Long> dartNanos = new ArrayList<>(MEASUREMENT_ITERATIONS);
-    for (int i = 0; i < MEASUREMENT_ITERATIONS; i++) {
-      dartNanos.add(measureAggregate(dartContext));
-    }
-
-    logResults("aggregate", AGGREGATE_SQL, PROPERTY_COUNT, dartNanos);
-
-    final int dartScanRows = runScanAndCountRows(dartContext);
-    Assertions.assertTrue(dartScanRows > PROPERTY_COUNT);
-
-    dartNanos.clear();
-    for (int i = 0; i < MEASUREMENT_ITERATIONS; i++) {
-      dartNanos.add(measureScan(dartContext, dartScanRows));
-    }
-
-    logScanResults(dartScanRows, dartNanos);
+  private long measureWorkload(final String sql, final Map<String, Object> context, final int scanRows)
+  {
+    return sql.endsWith(AGGREGATE_SQL) ? measureAggregate(sql, context) : measureScan(sql, context, scanRows);
   }
 
   private static void logResults(
       final String workload,
       final String sql,
       final int rowCount,
+      final int maxConcurrentStages,
       final List<Long> dartNanos
   )
   {
     final BenchmarkResult dartResult = BenchmarkResult.from(dartNanos);
     LOG.info(
-        "sys.server_properties Dart benchmark: workload[%s], rows[%,d], query[%s], result[%s]",
+        "sys.server_properties Dart benchmark: workload[%s], rows[%,d], maxConcurrentStages[%d], query[%s], result[%s]",
         workload,
         rowCount,
+        maxConcurrentStages,
         sql,
         dartResult
     );
   }
 
-  private static void logScanResults(
-      final int dartRowCount,
-      final List<Long> dartNanos
-  )
-  {
-    final BenchmarkResult dartResult = BenchmarkResult.from(dartNanos);
-    LOG.info(
-        "sys.server_properties Dart benchmark: workload[full scan], rows[%,d], query[%s], result[%s]",
-        dartRowCount,
-        SCAN_SQL,
-        dartResult
-    );
-  }
-
-  private long measureAggregate(final Map<String, Object> queryContext)
+  private long measureAggregate(final String sql, final Map<String, Object> queryContext)
   {
     final long start = System.nanoTime();
-    runAggregateAndVerify(queryContext);
+    runAggregateAndVerify(EXACT_AGGREGATE_SQL.equals(sql), queryContext);
     return System.nanoTime() - start;
   }
 
-  private void runAggregateAndVerify(final Map<String, Object> queryContext)
+  private void runAggregateAndVerify(final boolean exact, final Map<String, Object> queryContext)
   {
-    final String[] result = cluster.runSql(AGGREGATE_SQL_FORMAT, queryContext).split(",");
+    final String sql = exact
+                       ? "SET useApproximateCountDistinct = false; " + AGGREGATE_SQL_FORMAT
+                       : AGGREGATE_SQL_FORMAT;
+    final String[] result = cluster.runSql(sql, queryContext).split(",");
     final Integer rowCount = Ints.tryParse(result[0]);
     final Integer distinctPropertyCount = Ints.tryParse(result[1]);
     Assertions.assertNotNull(rowCount);
     Assertions.assertNotNull(distinctPropertyCount);
     Assertions.assertEquals(PROPERTY_COUNT, rowCount);
-    Assertions.assertTrue(distinctPropertyCount > PROPERTY_COUNT * 0.9);
-    Assertions.assertTrue(distinctPropertyCount < PROPERTY_COUNT * 1.1);
+    if (exact) {
+      Assertions.assertEquals(PROPERTY_COUNT, distinctPropertyCount);
+    } else {
+      Assertions.assertTrue(distinctPropertyCount > PROPERTY_COUNT * 0.9);
+      Assertions.assertTrue(distinctPropertyCount < PROPERTY_COUNT * 1.1);
+    }
   }
 
-  private long measureScan(final Map<String, Object> queryContext, final int expectedRows)
+  private long measureScan(final String sql, final Map<String, Object> queryContext, final int expectedRows)
   {
     final long start = System.nanoTime();
-    Assertions.assertEquals(expectedRows, runScanAndCountRows(queryContext));
+    Assertions.assertEquals(expectedRows, runScanAndCountRows(sql, queryContext));
     return System.nanoTime() - start;
   }
 
-  private int runScanAndCountRows(final Map<String, Object> queryContext)
+  private int runScanAndCountRows(final String sql, final Map<String, Object> queryContext)
   {
-    return Math.toIntExact(cluster.runSql(SCAN_SQL, queryContext).lines().count());
-  }
-
-  private static Map<String, Object> queryContext(final String engine)
-  {
-    return Map.of(QueryContexts.ENGINE, engine);
+    return Math.toIntExact(cluster.runSql(sql, queryContext).lines().count());
   }
 
   private static EmbeddedHistorical makeHistorical()

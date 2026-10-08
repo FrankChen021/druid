@@ -27,6 +27,7 @@ import org.apache.druid.msq.dart.worker.WorkerId;
 import org.apache.druid.msq.exec.MemoryIntrospector;
 import org.apache.druid.msq.exec.MemoryIntrospectorImpl;
 import org.apache.druid.msq.indexing.LegacyMSQSpec;
+import org.apache.druid.msq.indexing.MSQSpec;
 import org.apache.druid.msq.indexing.QueryDefMSQSpec;
 import org.apache.druid.msq.indexing.destination.TaskReportMSQDestination;
 import org.apache.druid.msq.input.system.SystemTableInputSpec;
@@ -47,11 +48,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -144,6 +148,70 @@ public class DartControllerContextTest
             WorkerId.fromDruidServerMetadata(SERVERS.get(1), QUERY_ID).toString()
         ),
         queryKernelConfig.getWorkerIds().stream().sorted().collect(Collectors.toList())
+    );
+  }
+
+  /** All queries default to two concurrent stages; explicit context values override this in both planning modes. */
+  @ParameterizedTest
+  @CsvSource({
+      "false, false, 0, 2",
+      "true, false, 0, 2",
+      "true, true, 0, 2",
+      "true, false, 1, 1",
+      "true, true, 1, 1",
+      "true, false, 2, 2",
+      "true, true, 2, 2"
+  })
+  public void test_queryKernelConfig_stageLimit(
+      final boolean systemTable,
+      final boolean preplanned,
+      final int configuredStages,
+      final int expectedStages
+  )
+  {
+    final QueryContext context = QueryContext.of(
+        configuredStages == 0
+        ? Map.of(QueryContexts.CTX_DART_QUERY_ID, QUERY_ID)
+        : Map.of(
+            QueryContexts.CTX_DART_QUERY_ID, QUERY_ID,
+            MultiStageQueryContext.CTX_MAX_CONCURRENT_STAGES, configuredStages
+        )
+    );
+    final MSQSpec spec;
+    if (preplanned) {
+      final QueryDefMSQSpec preplannedSpec = Mockito.mock(QueryDefMSQSpec.class);
+      final QueryDefinition definition = Mockito.mock(QueryDefinition.class);
+      final StageDefinition stage = Mockito.mock(StageDefinition.class);
+      Mockito.when(preplannedSpec.getContext()).thenReturn(context);
+      Mockito.when(preplannedSpec.getDestination()).thenReturn(TaskReportMSQDestination.instance());
+      Mockito.when(preplannedSpec.getQueryDef()).thenReturn(definition);
+      Mockito.when(definition.getStageDefinitions()).thenReturn(List.of(stage));
+      Mockito.when(stage.getInputSpecs()).thenReturn(List.of(new SystemTableInputSpec("server_properties")));
+      spec = preplannedSpec;
+    } else {
+      Mockito.when(querySpec.getContext()).thenReturn(context);
+      if (systemTable) {
+        Mockito.when(query.getDataSource()).thenReturn(new SystemTableDataSource("server_properties"));
+      }
+      spec = querySpec;
+    }
+    final ControllerQueryKernelConfig config = new DartControllerContext(
+        null,
+        null,
+        SELF_NODE,
+        null,
+        memoryIntrospector,
+        serverView,
+        List.of(),
+        null,
+        context
+    ).queryKernelConfig(spec);
+
+    Assertions.assertEquals(expectedStages, config.getMaxConcurrentStages());
+    Assertions.assertEquals(expectedStages > 1, config.isPipeline());
+    Assertions.assertEquals(
+        expectedStages,
+        config.getWorkerContextMap().get(MultiStageQueryContext.CTX_MAX_CONCURRENT_STAGES)
     );
   }
 

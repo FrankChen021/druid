@@ -35,6 +35,7 @@ import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.net.URI;
@@ -42,6 +43,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class DartSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
@@ -175,6 +179,81 @@ public class DartSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
         String.join("\n", ROUTER_SERVICE + ",router", HISTORICAL_SERVICE + ",historical"),
         result
     );
+  }
+
+  /**
+   * Scans, grouped and nested aggregates, self-joins, windows, and ordered LIMIT/OFFSET queries agree with
+   * the default two-stage pipeline and an explicit single-stage setting in both planner modes.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @ValueSource(strings = {
+      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED,
+      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
+  })
+  public void testStageConcurrencyAcrossWorkloads(final String plannerStrategy)
+  {
+    final Map<String, Object> defaultContext = new HashMap<>(dartQueryContext(plannerStrategy));
+    defaultContext.put("useApproximateCountDistinct", false);
+    final Map<String, Object> singleStageContext = new HashMap<>(defaultContext);
+    singleStageContext.put("maxConcurrentStages", 1);
+    final String filteredTable = "SELECT * FROM sys.server_properties WHERE property LIKE '"
+                                 + PROPERTY_PREFIX + "%%'";
+    final List<String> queries = new ArrayList<>(List.of(
+        "SELECT service_name, property, \"value\" FROM (" + filteredTable + ") ORDER BY service_name",
+        "SELECT COUNT(DISTINCT server), COUNT(DISTINCT property) FROM (" + filteredTable + ")",
+        "SELECT \"value\", COUNT(*), COUNT(DISTINCT server) FROM (" + filteredTable + ") "
+        + "GROUP BY \"value\" HAVING COUNT(*) > 0 ORDER BY \"value\"",
+        "SELECT SUM(n), COUNT(*) FROM (SELECT service_name, COUNT(*) AS n FROM (" + filteredTable
+        + ") GROUP BY service_name)",
+        "SELECT a.service_name, COUNT(*) FROM (" + filteredTable + ") a "
+        + "JOIN (" + filteredTable + ") b ON a.server = b.server GROUP BY a.service_name ORDER BY a.service_name",
+        "SELECT service_name FROM (" + filteredTable + ") ORDER BY service_name DESC LIMIT 2 OFFSET 1"
+    ));
+    // Window planning is currently available only in coupled mode.
+    if (QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED.equals(plannerStrategy)) {
+      queries.add(
+          "SELECT service_name, ROW_NUMBER() OVER (PARTITION BY node_roles ORDER BY service_name) "
+          + "FROM (" + filteredTable + ") ORDER BY service_name"
+      );
+    }
+
+    for (final String sql : queries) {
+      final String singleStageResult = cluster.runSql(sql, singleStageContext);
+      Assertions.assertFalse(singleStageResult.isEmpty(), sql);
+      Assertions.assertEquals(singleStageResult, cluster.runSql(sql, defaultContext), sql);
+    }
+  }
+
+  /** Unsupported UNION ALL and decoupled window plans fail before execution with either stage-concurrency setting. */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @CsvSource({
+      "COUPLED, false, Union operation is only supported between regular tables",
+      "DECOUPLED, false, DruidUnion",
+      "DECOUPLED, true, DruidWindow"
+  })
+  public void testPlanningLimitationsDoNotDependOnStageConcurrency(
+      final String plannerStrategy,
+      final boolean window,
+      final String expectedMessage
+  )
+  {
+    final String sql = window
+                       ? "SELECT service_name, ROW_NUMBER() OVER (PARTITION BY node_roles ORDER BY service_name) "
+                         + "FROM sys.server_properties ORDER BY service_name"
+                       : "SELECT service_name FROM sys.server_properties "
+                         + "UNION ALL SELECT service_name FROM sys.server_properties";
+    final Map<String, Object> context = new HashMap<>(dartQueryContext(plannerStrategy));
+    final RuntimeException defaultFailure = Assertions.assertThrows(
+        RuntimeException.class,
+        () -> cluster.runSql(sql, context)
+    );
+    Assertions.assertTrue(defaultFailure.getMessage().contains(expectedMessage), defaultFailure.getMessage());
+    context.put("maxConcurrentStages", 1);
+    final RuntimeException singleStageFailure = Assertions.assertThrows(
+        RuntimeException.class,
+        () -> cluster.runSql(sql, context)
+    );
+    Assertions.assertTrue(singleStageFailure.getMessage().contains(expectedMessage), singleStageFailure.getMessage());
   }
 
   /** Every node role serves an internal {@code ScanQuery(SystemTableDataSource)} through the standard endpoint. */
