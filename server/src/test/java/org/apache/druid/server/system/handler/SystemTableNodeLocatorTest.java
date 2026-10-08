@@ -20,11 +20,14 @@
 package org.apache.druid.server.system.handler;
 
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscovery;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
@@ -37,6 +40,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 public class SystemTableNodeLocatorTest
@@ -103,6 +108,58 @@ public class SystemTableNodeLocatorTest
     Mockito.verify(discoveryProvider).getForNodeRole(NodeRole.OVERLORD);
     Mockito.verifyNoMoreInteractions(discoveryProvider);
     Mockito.verifyNoInteractions(coordinatorClient);
+  }
+
+  /** An already expired query deadline cancels leader discovery before consulting service discovery. */
+  @Test
+  public void testLocateLeaderWithExpiredDeadlineCancelsFuture()
+  {
+    final DruidNodeDiscoveryProvider discoveryProvider = Mockito.mock(DruidNodeDiscoveryProvider.class);
+    final CoordinatorClient coordinatorClient = Mockito.mock(CoordinatorClient.class);
+    final OverlordClient overlordClient = Mockito.mock(OverlordClient.class);
+    final SettableFuture<URI> leaderFuture = SettableFuture.create();
+    Mockito.when(overlordClient.findCurrentLeader()).thenReturn(leaderFuture);
+    final SystemTableDescriptor descriptor = descriptor(
+        SystemTableRoutingMode.LEADER_ONLY,
+        Set.of(NodeRole.OVERLORD)
+    );
+
+    Assertions.assertThrows(
+        QueryTimeoutException.class,
+        () -> new SystemTableNodeLocator(discoveryProvider, coordinatorClient, overlordClient).locate(descriptor, 0)
+    );
+
+    Assertions.assertTrue(leaderFuture.isCancelled());
+    Mockito.verifyNoInteractions(discoveryProvider, coordinatorClient);
+  }
+
+  /** A leader lookup that exceeds the remaining query time is cancelled and reported as a query timeout. */
+  @Test
+  public void testLocateLeaderTimeoutCancelsFuture() throws Exception
+  {
+    final DruidNodeDiscoveryProvider discoveryProvider = Mockito.mock(DruidNodeDiscoveryProvider.class);
+    final CoordinatorClient coordinatorClient = Mockito.mock(CoordinatorClient.class);
+    final OverlordClient overlordClient = Mockito.mock(OverlordClient.class);
+    @SuppressWarnings("unchecked")
+    final ListenableFuture<URI> leaderFuture = Mockito.mock(ListenableFuture.class);
+    Mockito.when(overlordClient.findCurrentLeader()).thenReturn(leaderFuture);
+    Mockito.when(leaderFuture.get(Mockito.anyLong(), Mockito.eq(TimeUnit.MILLISECONDS)))
+           .thenThrow(new TimeoutException());
+    final SystemTableDescriptor descriptor = descriptor(
+        SystemTableRoutingMode.LEADER_ONLY,
+        Set.of(NodeRole.OVERLORD)
+    );
+
+    Assertions.assertThrows(
+        QueryTimeoutException.class,
+        () -> new SystemTableNodeLocator(discoveryProvider, coordinatorClient, overlordClient).locate(
+            descriptor,
+            Long.MAX_VALUE
+        )
+    );
+
+    Mockito.verify(leaderFuture).cancel(true);
+    Mockito.verifyNoInteractions(discoveryProvider, coordinatorClient);
   }
 
   private static SystemTableDescriptor descriptor(

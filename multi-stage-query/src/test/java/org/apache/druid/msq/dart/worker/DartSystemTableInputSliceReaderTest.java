@@ -32,6 +32,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.ReadTimeoutException;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.java.util.common.RE;
 import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.http.client.response.ClientResponse;
 import org.apache.druid.java.util.http.client.response.HttpResponseHandler;
@@ -51,6 +52,8 @@ import org.apache.druid.rpc.ServiceClient;
 import org.apache.druid.rpc.ServiceClientFactory;
 import org.apache.druid.rpc.ServiceLocation;
 import org.apache.druid.rpc.ServiceRetryPolicy;
+import org.apache.druid.segment.ColumnSelectorFactory;
+import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.CursorBuildSpec;
 import org.apache.druid.segment.CursorFactory;
@@ -220,7 +223,12 @@ public class DartSystemTableInputSliceReaderTest
         }
     );
 
-    Assertions.assertThrows(RuntimeException.class, () -> consume(inputSlice));
+    final RE exception = Assertions.assertThrows(
+        RE.class,
+        () -> consume(inputSlice)
+    );
+    Assertions.assertInstanceOf(RpcException.class, exception.getCause());
+    Assertions.assertEquals("forbidden", exception.getCause().getMessage());
   }
 
   /** A node transport failure is represented by the descriptor's availability row. */
@@ -230,16 +238,22 @@ public class DartSystemTableInputSliceReaderTest
     final RemoteHarness remote = new RemoteHarness();
     remote.fail(new SocketException("connection refused"));
 
-    Assertions.assertDoesNotThrow(
-        () -> consume(
-            reader(remote, Map.of()).attach(
-                0,
-                slice(List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL)), null, null, Long.MAX_VALUE),
-                new CounterTracker(false),
-                ignored -> {
-                }
-            )
-        )
+    final PhysicalInputSlice inputSlice = reader(remote, Map.of()).attach(
+        0,
+        slice(
+            List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL)),
+            null,
+            List.of("server", "error_message"),
+            Long.MAX_VALUE
+        ),
+        new CounterTracker(false),
+        ignored -> {
+        }
+    );
+
+    Assertions.assertEquals(
+        List.of(List.of(HISTORICAL_ONE.getHostAndPortToUse(), "connection refused")),
+        readRows(inputSlice, List.of("server", "error_message"))
     );
   }
 
@@ -276,6 +290,52 @@ public class DartSystemTableInputSliceReaderTest
 
     Assertions.assertTrue(request.isCancelled());
     Mockito.verify(closer).close();
+  }
+
+  /** Closing a partially consumed slice cancels every in-flight request and its node-local native query. */
+  @Test
+  public void testClosingActiveSliceCancelsAllRemoteRequests() throws Exception
+  {
+    final RemoteHarness remote = new RemoteHarness();
+    remote.responses.add(Futures.immediateFuture(remote.responseBytes("first")));
+    final SettableFuture<byte[]> pendingResponse = SettableFuture.create();
+    remote.responses.add(pendingResponse);
+    final PhysicalInputSlice inputSlice = reader(remote, Map.of()).attach(
+        0,
+        slice(
+            List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL), source(HISTORICAL_TWO, NodeRole.HISTORICAL)),
+            null,
+            null,
+            Long.MAX_VALUE
+        ),
+        new CounterTracker(false),
+        ignored -> {
+        }
+    );
+
+    final AcquireSegmentAction action = inputSlice.getLoadableSegments().get(0).acquire(AcquireMode.FULL);
+    try (action) {
+      action.await();
+      try (AcquireSegmentResult acquireResult = action.release()) {
+        final Segment segment = acquireResult.getSegment().orElseThrow();
+        try (CursorHolder holder = segment.as(CursorFactory.class).makeCursorHolder(CursorBuildSpec.FULL_SCAN)) {
+          final Cursor cursor = holder.asCursor();
+          Assertions.assertFalse(cursor.isDone());
+          Assertions.assertFalse(pendingResponse.isCancelled());
+        }
+      }
+    }
+
+    Assertions.assertTrue(pendingResponse.isCancelled());
+    Assertions.assertEquals(1, remote.cancellationRequests.size());
+    for (final RequestBuilder cancellationRequest : remote.cancellationRequests) {
+      final Request request = cancellationRequest.build(ServiceLocation.fromDruidNode(HISTORICAL_ONE));
+      Assertions.assertEquals(HttpMethod.DELETE, request.getMethod());
+      Assertions.assertTrue(
+          request.getHeaders().get(QueryResource.HEADER_NATIVE_QUERY_ROUTE)
+                 .contains(QueryResource.NATIVE_QUERY_ROUTE_LOCAL)
+      );
+    }
   }
 
   private static DartSystemTableInputSliceReader reader(
@@ -356,6 +416,44 @@ public class DartSystemTableInputSliceReaderTest
     }
   }
 
+  private static List<List<Object>> readRows(
+      final PhysicalInputSlice physicalInputSlice,
+      final List<String> columns
+  )
+  {
+    final List<List<Object>> rows = new ArrayList<>();
+    final AcquireSegmentAction action = physicalInputSlice.getLoadableSegments().get(0).acquire(AcquireMode.FULL);
+    try (action) {
+      action.await();
+      try (AcquireSegmentResult acquireResult = action.release()) {
+        final Segment segment = acquireResult.getSegment().orElseThrow();
+        try (CursorHolder holder = segment.as(CursorFactory.class).makeCursorHolder(CursorBuildSpec.FULL_SCAN)) {
+          final Cursor cursor = holder.asCursor();
+          if (cursor == null) {
+            return rows;
+          }
+          final ColumnSelectorFactory selectorFactory = cursor.getColumnSelectorFactory();
+          final List<ColumnValueSelector<?>> selectors = new ArrayList<>();
+          for (final String column : columns) {
+            selectors.add(selectorFactory.makeColumnValueSelector(column));
+          }
+          while (!cursor.isDone()) {
+            final List<Object> row = new ArrayList<>(selectors.size());
+            for (final ColumnValueSelector<?> selector : selectors) {
+              row.add(selector.getObject());
+            }
+            rows.add(row);
+            cursor.advance();
+          }
+        }
+      }
+    }
+    catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    return rows;
+  }
+
   private static DruidNode node(final String service, final int port)
   {
     return new DruidNode(service, "localhost", false, port, -1, true, false);
@@ -366,6 +464,7 @@ public class DartSystemTableInputSliceReaderTest
     private final ObjectMapper smileMapper = new org.apache.druid.jackson.DefaultObjectMapper(new SmileFactory(), null);
     private final Queue<ListenableFuture<byte[]>> responses = new ArrayDeque<>();
     private final List<RequestBuilder> requests = new ArrayList<>();
+    private final List<RequestBuilder> cancellationRequests = new ArrayList<>();
     private final ServiceClient serviceClient = new ServiceClient()
     {
       @Override
@@ -376,6 +475,7 @@ public class DartSystemTableInputSliceReaderTest
       {
         final Request request = requestBuilder.build(ServiceLocation.fromDruidNode(HISTORICAL_ONE));
         if (HttpMethod.DELETE.equals(request.getMethod())) {
+          cancellationRequests.add(requestBuilder);
           return Futures.immediateFuture(null);
         }
         requests.add(requestBuilder);
