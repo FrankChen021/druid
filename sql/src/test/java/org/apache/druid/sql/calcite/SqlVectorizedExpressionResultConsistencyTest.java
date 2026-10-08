@@ -20,7 +20,6 @@
 package org.apache.druid.sql.calcite;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularities;
@@ -29,8 +28,10 @@ import org.apache.druid.java.util.common.guava.Yielder;
 import org.apache.druid.java.util.common.guava.Yielders;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.generator.GeneratorBasicSchemas;
@@ -62,7 +63,6 @@ import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -188,13 +188,17 @@ public class SqlVectorizedExpressionResultConsistencyTest extends InitializedNul
 
   public static void testQuery(SqlEngine engine, PlannerFactory plannerFactory, String query)
   {
-    final Map<String, Object> vector = ImmutableMap.of(
-            QueryContexts.VECTORIZE_KEY, "force",
-            QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY, "force"
+    final Map<String, Object> vector = QueryContext.ofMap(
+        QueryContextParameters.VECTORIZE,
+        QueryContexts.Vectorize.FORCE,
+        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+        QueryContexts.Vectorize.FORCE
     );
-    final Map<String, Object> nonvector = ImmutableMap.of(
-            QueryContexts.VECTORIZE_KEY, "false",
-            QueryContexts.VECTORIZE_VIRTUAL_COLUMNS_KEY, "false"
+    final Map<String, Object> nonvector = QueryContext.ofMap(
+        QueryContextParameters.VECTORIZE,
+        QueryContexts.Vectorize.FALSE,
+        QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS,
+        QueryContexts.Vectorize.FALSE
     );
 
     try (
