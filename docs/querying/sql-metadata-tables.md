@@ -168,6 +168,7 @@ execution:
 
 |Table|Source of rows|
 |-----|--------------|
+|[`sys.configuration`](#configuration-table)|Configuration properties registered through `JsonConfigProvider` on discovered Druid processes. Requires native execution.|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Filters on `server` and `service_name` can avoid reading properties from nodes that don't match.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
@@ -385,6 +386,88 @@ For example, to retrieve properties for a specific server, use the query
 ```sql
 SELECT * FROM sys.server_properties WHERE server='192.168.1.1:8081'
 ```
+
+### CONFIGURATION table
+
+The `sys.configuration` table lists properties registered through `JsonConfigProvider` on each discovered Druid
+process, including properties absent from runtime property files. It requires the native SQL engine and
+`useNativeQueryForSystemTables=true`. There is no SQL-layer fallback for this table. The user must have `READ`
+permission on the `CONFIG` resource, in addition to any configured system-table permissions.
+
+|Column|Type|Notes|
+|------|-----|-----|
+|`server`|VARCHAR|Host and port of the process|
+|`service_name`|VARCHAR|Service name of the process|
+|`node_roles`|VARCHAR|List of roles performed by the process|
+|`property`|VARCHAR|Full configuration property path, using Jackson property names|
+|`config_class`|VARCHAR|Configuration class inspected on this process; null when multiple classes consume the same path|
+|`value_type`|VARCHAR|Declared Java type of the property|
+|`configured_value`|VARCHAR|Loaded value at this exact property path, before variable substitution. Null if absent or withheld.|
+|`effective_value`|VARCHAR|Plain scalar text or JSON text for supported collections, read from the initialized getter or field|
+|`value_status`|VARCHAR|`AVAILABLE`, `NOT_INITIALIZED`, `REDACTED`, `UNSUPPORTED`, `CONFLICT`, or `ERROR`|
+|`error_message`|VARCHAR|Generic diagnostic for an inspection or node failure; null otherwise|
+
+For example:
+
+```sql
+SET useNativeQueryForSystemTables = 'true';
+SELECT server, property, configured_value, effective_value, value_status
+FROM sys.configuration
+WHERE property LIKE 'druid.indexer.tasklock.%'
+ORDER BY server, property;
+```
+
+Reading this table does not initialize unused configuration objects. Their property names and types remain visible,
+but their values have status `NOT_INITIALIZED`. Initialized objects expose defaults and configured values through
+the same getters used by callers where available. A null value with status `AVAILABLE` is a configuration value,
+not an inspection failure. Values computed elsewhere by a service are not included.
+
+The Joda-Time `Duration` and `Period` types are exposed as scalar ISO-8601 strings. A duration of two minutes
+appears as `PT120S`; a period of one month remains `P1M`, without conversion to a fixed duration.
+`HumanReadableBytes` values are exposed as readable strings in binary units with two decimal places,
+so a configured `2MiB` appears as `2.00 MiB`. Values below 1024 bytes use whole bytes, including `-1 B`
+for a negative sentinel value.
+The `configured_value` column retains the original input, and `value_type` retains the declared Java type.
+These types also support null values and metadata for objects that have not been initialized.
+
+Scalar values use plain text without embedded JSON quotation marks: for example, `PT0S`, `2.00 MiB`, `3`,
+and `true`. Sets, lists, and arrays of supported scalar types are serialized as JSON text, such as `["a","b"]`
+or `[1,2]`. Empty collections use `[]`, and null collections remain SQL null.
+Set element order follows the configuration object's iteration order. Collections of arbitrary objects and maps remain unsupported.
+
+Use SQL JSON functions to extract values, for example:
+
+```sql
+SELECT property, JSON_VALUE(PARSE_JSON(effective_value), '$[0]') AS first_value
+FROM sys.configuration
+WHERE property = 'druid.server.hiddenProperties';
+```
+
+Jackson name-based type selectors, such as `druid.cache.type`, are included even when they are not bean fields.
+For initialized configurations, their effective values identify the selected implementation, including defaults.
+
+Nested configuration beans are expanded into property paths. When an initialized configuration contains a null
+nested bean, its supported leaf properties have null effective values with status `AVAILABLE`.
+Maps, collections of unsupported elements, interfaces, recursive object references, and other unsupported values
+have status `UNSUPPORTED`; the table does not invoke arbitrary object serialization code. For properties supplied inside a parent JSON object, `configured_value` can be null even when
+an explicit value was supplied. There is no general default-value or configuration-file provenance column.
+
+Properties matching `druid.server.hiddenProperties` are redacted on their owning process before values are read.
+Password providers, dynamic configuration providers, and write-only properties are also redacted. Redacted rows retain names and types, but contain
+neither configured nor effective values. Keep the hidden-property list up to date for extension-specific secrets.
+
+Each property path appears once per process. Multiple Guice consumers, such as `Client` and `EscalatedClient`,
+are combined when the property type, configured and effective text, inspection status, and diagnostic agree.
+If consumers disagree, the row has status `CONFLICT`, null configured and effective values, and a generic diagnostic.
+The `config_class` and `value_type` columns are null when their respective metadata differs across consumers.
+The table inspects installed bindings, so overridden bindings are excluded. It does not catalog direct Java property reads,
+objects bound with `bindInstance`, manually created providers outside the injector, dynamic configuration stored in
+the metadata database, task specifications, or extensions not loaded into a process.
+
+Results are observations from individual processes, not an atomic cluster snapshot. An unreachable process
+produces an `ERROR` row with its server identity and a null property. Filters on `server` and `service_name` can
+avoid inspecting configurations on processes that do not match. A property filter also excludes failure rows
+whose property is null; query without that filter to inspect node failures.
 
 ### QUERIES table
 

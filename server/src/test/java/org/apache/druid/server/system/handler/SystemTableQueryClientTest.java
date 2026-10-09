@@ -88,6 +88,8 @@ import org.joda.time.Duration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
@@ -640,8 +642,9 @@ public class SystemTableQueryClientTest
   }
 
   /** A window leaf filter also carries its leaf virtual columns into the node scan. */
-  @Test
-  public void testWindowLeafFilterCarriesVirtualColumns()
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testWindowLeafFilterWithAndWithoutVirtualColumns(final boolean hasVirtualColumns)
   {
     final SystemTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
     final AtomicReference<ScanQuery> capturedNodeQuery = new AtomicReference<>();
@@ -668,10 +671,10 @@ public class SystemTableQueryClientTest
         List.of(
             new ScanOperatorFactory(
                 null,
-                new SelectorDimFilter("upper_property", "MATCH", null),
+                new SelectorDimFilter(hasVirtualColumns ? "upper_property" : "property", "MATCH", null),
                 null,
                 null,
-                VirtualColumns.create(virtualColumn),
+                hasVirtualColumns ? VirtualColumns.create(virtualColumn) : null,
                 null
             )
         )
@@ -682,7 +685,7 @@ public class SystemTableQueryClientTest
           .toList();
 
     Assertions.assertEquals(
-        VirtualColumns.create(virtualColumn),
+        hasVirtualColumns ? VirtualColumns.create(virtualColumn) : VirtualColumns.EMPTY,
         capturedNodeQuery.get().getVirtualColumns()
     );
   }

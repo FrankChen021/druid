@@ -74,6 +74,7 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.ConfigurationTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
@@ -350,6 +351,7 @@ public class SystemSchema extends AbstractTableSchema
       case SERVER_SEGMENTS_TABLE -> new ServerSegmentsTable(serverView, authorizerMapper, authenticationResult);
       case TASKS_TABLE -> new TasksTable(overlordClient, authorizerMapper, authenticationResult);
       case SUPERVISOR_TABLE -> new SupervisorsTable(overlordClient, authorizerMapper, authenticationResult);
+      case ConfigurationTableDescriptor.TABLE_NAME -> new SystemConfigurationTable();
       case SystemServerPropertiesTable.TABLE_NAME -> new SystemServerPropertiesTable(
           druidNodeDiscoveryProvider,
           authorizerMapper,
