@@ -142,6 +142,30 @@ public class NativeSysConfigurationQueryTest extends EmbeddedClusterTestBase
     );
   }
 
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @ValueSource(strings = {
+      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED,
+      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
+  })
+  public void testHttpPropertiesAppearOnceAndBindingColumnIsAbsent(final String plannerStrategy)
+  {
+    final String[] counts = cluster.runSql(
+        "SELECT COUNT(*), COUNT(DISTINCT property) FROM sys.configuration "
+        + "WHERE service_name = 'druid/broker' AND property LIKE 'druid.broker.http.%%'",
+        nativeQueryContext(plannerStrategy)
+    ).split(",");
+    Assertions.assertTrue(Long.parseLong(counts[0]) > 0);
+    Assertions.assertEquals(counts[0], counts[1]);
+    Assertions.assertEquals(
+        "",
+        cluster.runSql(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'sys' "
+            + "AND TABLE_NAME = 'configuration' AND COLUMN_NAME = 'binding'",
+            nativeQueryContext(plannerStrategy)
+        )
+    );
+  }
+
   private static Map<String, Object> nativeQueryContext(final String plannerStrategy)
   {
     return Map.of(

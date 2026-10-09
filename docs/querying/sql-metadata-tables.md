@@ -400,12 +400,11 @@ permission on the `CONFIG` resource, in addition to any configured system-table 
 |`service_name`|VARCHAR|Service name of the process|
 |`node_roles`|VARCHAR|List of roles performed by the process|
 |`property`|VARCHAR|Full configuration property path, using Jackson property names|
-|`config_class`|VARCHAR|Configuration class inspected on this process|
-|`binding`|VARCHAR|Guice binding key, including its annotation when present|
+|`config_class`|VARCHAR|Configuration class inspected on this process; null when multiple classes consume the same path|
 |`value_type`|VARCHAR|Declared Java type of the property|
 |`configured_value`|VARCHAR|Loaded value at this exact property path, before variable substitution. Null if absent or withheld.|
 |`effective_value`|VARCHAR|Plain scalar text or JSON text for supported collections, read from the initialized getter or field|
-|`value_status`|VARCHAR|`AVAILABLE`, `NOT_INITIALIZED`, `REDACTED`, `UNSUPPORTED`, or `ERROR`|
+|`value_status`|VARCHAR|`AVAILABLE`, `NOT_INITIALIZED`, `REDACTED`, `UNSUPPORTED`, `CONFLICT`, or `ERROR`|
 |`error_message`|VARCHAR|Generic diagnostic for an inspection or node failure; null otherwise|
 
 For example:
@@ -457,8 +456,11 @@ Properties matching `druid.server.hiddenProperties` are redacted on their owning
 Password providers, dynamic configuration providers, and write-only properties are also redacted. Redacted rows retain names and types, but contain
 neither configured nor effective values. Keep the hidden-property list up to date for extension-specific secrets.
 
-Each binding remains separate, including annotated bindings and multiple classes sharing a prefix. The table
-inspects installed bindings, so overridden bindings are excluded. It does not catalog direct Java property reads,
+Each property path appears once per process. Multiple Guice consumers, such as `Client` and `EscalatedClient`,
+are combined when the property type, configured and effective text, inspection status, and diagnostic agree.
+If consumers disagree, the row has status `CONFLICT`, null configured and effective values, and a generic diagnostic.
+The `config_class` and `value_type` columns are null when their respective metadata differs across consumers.
+The table inspects installed bindings, so overridden bindings are excluded. It does not catalog direct Java property reads,
 objects bound with `bindInstance`, manually created providers outside the injector, dynamic configuration stored in
 the metadata database, task specifications, or extensions not loaded into a process.
 

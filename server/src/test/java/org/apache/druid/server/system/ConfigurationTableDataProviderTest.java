@@ -36,6 +36,9 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.DruidGuiceExtensions;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.JsonConfigurator;
+import org.apache.druid.guice.annotations.Client;
+import org.apache.druid.guice.annotations.EscalatedClient;
+import org.apache.druid.guice.http.DruidHttpClientConfig;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.HumanReadableBytes;
 import org.apache.druid.metadata.MetadataRuleManagerConfig;
@@ -82,8 +85,8 @@ public class ConfigurationTableDataProviderTest
     final Injector injector = injector(binder -> binder.bind(ExampleConfig.class).toProvider(configProvider));
     final List<Object[]> rows = rows(provider(injector, allowAll));
     Assertions.assertNull(configProvider.getInitializedConfig());
-    Assertions.assertEquals("NOT_INITIALIZED", find(rows, "druid.example.threads")[9]);
-    Assertions.assertEquals("NOT_INITIALIZED", find(rows, "druid.example.nested.renamed")[9]);
+    Assertions.assertEquals("NOT_INITIALIZED", find(rows, "druid.example.threads")[8]);
+    Assertions.assertEquals("NOT_INITIALIZED", find(rows, "druid.example.nested.renamed")[8]);
     Assertions.assertTrue(rows.stream().noneMatch(row -> row[3].equals("druid.example.ignored")));
   }
 
@@ -92,7 +95,7 @@ public class ConfigurationTableDataProviderTest
   {
     final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.nullNested", NullNestedConfig.class));
     final List<Object[]> before = rows(provider(injector, allowAll));
-    Assertions.assertEquals("NOT_INITIALIZED", find(before, "druid.nullNested.nested.renamed")[9]);
+    Assertions.assertEquals("NOT_INITIALIZED", find(before, "druid.nullNested.nested.renamed")[8]);
     injector.getInstance(NullNestedConfig.class);
     assertValue(rows(provider(injector, allowAll)), "druid.nullNested.nested.renamed", null, null, String.class);
   }
@@ -103,9 +106,9 @@ public class ConfigurationTableDataProviderTest
     properties.setProperty("druid.cache.type", "caffeine");
     final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.cache", CacheProvider.class));
     final Object[] before = find(rows(provider(injector, allowAll)), "druid.cache.type");
-    Assertions.assertEquals("caffeine", before[7]);
-    Assertions.assertNull(before[8]);
-    Assertions.assertEquals("NOT_INITIALIZED", before[9]);
+    Assertions.assertEquals("caffeine", before[6]);
+    Assertions.assertNull(before[7]);
+    Assertions.assertEquals("NOT_INITIALIZED", before[8]);
     injector.getInstance(CacheProvider.class);
     assertValue(rows(provider(injector, allowAll)), "druid.cache.type", "caffeine", "caffeine", String.class);
   }
@@ -135,7 +138,7 @@ public class ConfigurationTableDataProviderTest
     final List<Object[]> rows = rows(provider(injector, allowAll));
     Assertions.assertEquals(ColumnType.STRING, ConfigurationTableDescriptor.ROW_SIGNATURE.getColumnType("effective_value").orElseThrow());
     assertTextValue(rows, "names", "[\"alpha\",\"beta\"]");
-    Assertions.assertEquals("[\"alpha\",\"beta\"]", find(rows, "druid.json.names")[7]);
+    Assertions.assertEquals("[\"alpha\",\"beta\"]", find(rows, "druid.json.names")[6]);
     assertTextValue(rows, "numbers", "[1,2]");
     assertTextValue(rows, "enabled", "true");
     assertTextValue(rows, "count", "3");
@@ -143,7 +146,7 @@ public class ConfigurationTableDataProviderTest
     assertTextValue(rows, "empty", "[]");
     assertTextValue(rows, "nullable", null);
     assertTextValue(rows, "bytes", "[\"2.00 MiB\",\"-1 B\"]");
-    Assertions.assertEquals("UNSUPPORTED", find(rows, "druid.json.objects")[9]);
+    Assertions.assertEquals("UNSUPPORTED", find(rows, "druid.json.objects")[8]);
   }
 
   @Test
@@ -153,24 +156,24 @@ public class ConfigurationTableDataProviderTest
     final Injector injector = injector(binder -> binder.bind(JsonValuesConfig.class).toProvider(configProvider));
     final List<Object[]> before = rows(provider(injector, allowAll));
     Assertions.assertNull(configProvider.getInitializedConfig());
-    Assertions.assertEquals("NOT_INITIALIZED", find(before, "druid.json.names")[9]);
+    Assertions.assertEquals("NOT_INITIALIZED", find(before, "druid.json.names")[8]);
     configProvider.get();
     final List<Object[]> after = rows(provider(injector, allowAll));
     final Object[] hidden = find(after, "druid.json.passwords");
-    Assertions.assertEquals("REDACTED", hidden[9]);
-    Assertions.assertNull(hidden[8]);
-    Assertions.assertEquals("UNSUPPORTED", find(after, "druid.json.credentials")[9]);
+    Assertions.assertEquals("REDACTED", hidden[8]);
+    Assertions.assertNull(hidden[7]);
+    Assertions.assertEquals("UNSUPPORTED", find(after, "druid.json.credentials")[8]);
     assertTextValue(after, "names", "[]");
   }
 
   private static void assertTextValue(final List<Object[]> rows, final String name, final String expected)
   {
     final Object[] row = find(rows, "druid.json." + name);
-    Assertions.assertEquals(expected, row[8]);
+    Assertions.assertEquals(expected, row[7]);
     if (expected != null) {
-      Assertions.assertInstanceOf(String.class, row[8]);
+      Assertions.assertInstanceOf(String.class, row[7]);
     }
-    Assertions.assertEquals("AVAILABLE", row[9]);
+    Assertions.assertEquals("AVAILABLE", row[8]);
   }
 
   @Test
@@ -181,12 +184,12 @@ public class ConfigurationTableDataProviderTest
     injector.getInstance(ExampleConfig.class);
     final List<Object[]> rows = rows(provider(injector, allowAll));
     final Object[] threads = find(rows, "druid.example.threads");
-    Assertions.assertEquals("0", threads[7]);
-    Assertions.assertEquals("1", threads[8]);
-    Assertions.assertEquals("AVAILABLE", threads[9]);
+    Assertions.assertEquals("0", threads[6]);
+    Assertions.assertEquals("1", threads[7]);
+    Assertions.assertEquals("AVAILABLE", threads[8]);
     final Object[] nested = find(rows, "druid.example.nested.renamed");
-    Assertions.assertNull(nested[7]);
-    Assertions.assertEquals("default", nested[8]);
+    Assertions.assertNull(nested[6]);
+    Assertions.assertEquals("default", nested[7]);
     Assertions.assertEquals("localhost:8080", nested[0]);
     Assertions.assertEquals("overlord", nested[1]);
     Assertions.assertEquals("[overlord]", nested[2]);
@@ -237,14 +240,14 @@ public class ConfigurationTableDataProviderTest
     Assertions.assertNull(configProvider.getInitializedConfig());
     for (final String name : List.of("duration", "period", "bytes")) {
       final Object[] row = find(rows, "druid.values." + name);
-      Assertions.assertEquals("NOT_INITIALIZED", row[9]);
-      Assertions.assertNull(row[8]);
+      Assertions.assertEquals("NOT_INITIALIZED", row[8]);
+      Assertions.assertNull(row[7]);
     }
     for (final String name : List.of("passwordDuration", "tokenPeriod", "keyBytes")) {
       final Object[] row = find(rows, "druid.values." + name);
-      Assertions.assertEquals("REDACTED", row[9]);
+      Assertions.assertEquals("REDACTED", row[8]);
+      Assertions.assertNull(row[6]);
       Assertions.assertNull(row[7]);
-      Assertions.assertNull(row[8]);
     }
   }
 
@@ -257,10 +260,10 @@ public class ConfigurationTableDataProviderTest
   )
   {
     final Object[] row = find(rows, property);
-    Assertions.assertEquals(type.getName(), row[6]);
-    Assertions.assertEquals(configured, row[7]);
-    Assertions.assertEquals(effective, row[8]);
-    Assertions.assertEquals("AVAILABLE", row[9]);
+    Assertions.assertEquals(type.getName(), row[5]);
+    Assertions.assertEquals(configured, row[6]);
+    Assertions.assertEquals(effective, row[7]);
+    Assertions.assertEquals("AVAILABLE", row[8]);
     Assertions.assertTrue(rows.stream().noneMatch(r -> ((String) r[3]).startsWith(property + ".")));
   }
 
@@ -273,14 +276,14 @@ public class ConfigurationTableDataProviderTest
     final List<Object[]> rows = rows(provider(injector, allowAll));
     for (final String name : List.of("password", "credentials")) {
       final Object[] row = find(rows, "druid.example." + name);
+      Assertions.assertNull(row[6]);
       Assertions.assertNull(row[7]);
-      Assertions.assertNull(row[8]);
-      Assertions.assertEquals("REDACTED", row[9]);
+      Assertions.assertEquals("REDACTED", row[8]);
     }
     final Object[] map = find(rows, "druid.example.options");
-    Assertions.assertEquals("UNSUPPORTED", map[9]);
+    Assertions.assertEquals("UNSUPPORTED", map[8]);
+    Assertions.assertNull(map[6]);
     Assertions.assertNull(map[7]);
-    Assertions.assertNull(map[8]);
   }
 
   @Test
@@ -289,13 +292,13 @@ public class ConfigurationTableDataProviderTest
     final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.example", ExampleConfig.class));
     injector.getInstance(ExampleConfig.class);
     final Object[] row = find(rows(provider(injector, allowAll)), "druid.example.broken");
-    Assertions.assertEquals("ERROR", row[9]);
-    Assertions.assertEquals("Unable to read configuration property", row[10]);
+    Assertions.assertEquals("ERROR", row[8]);
+    Assertions.assertEquals("Unable to read configuration property", row[9]);
     Assertions.assertFalse(java.util.Arrays.toString(row).contains("secret"));
   }
 
   @Test
-  public void testOnlyFinalBindingsAppearAndAnnotationsRemainDistinct()
+  public void testOnlyFinalBindingsAppearAndEquivalentAnnotationsAreCombined()
   {
     final Module original = binder -> JsonConfigProvider.bind(binder, "druid.old", ExampleConfig.class);
     final Module replacement = binder -> {
@@ -308,8 +311,75 @@ public class ConfigurationTableDataProviderTest
     final List<Object[]> rows = rows(provider(injector, allowAll));
     Assertions.assertTrue(rows.stream().noneMatch(row -> ((String) row[3]).startsWith("druid.old")));
     final List<Object[]> threads = rows.stream().filter(row -> row[3].equals("druid.new.threads")).toList();
-    Assertions.assertEquals(2, threads.size());
-    Assertions.assertNotEquals(threads.get(0)[5], threads.get(1)[5]);
+    Assertions.assertEquals(1, threads.size());
+    Assertions.assertFalse(ConfigurationTableDescriptor.ROW_SIGNATURE.getColumnNames().contains("binding"));
+  }
+
+  @Test
+  public void testHttpClientConsumersShareConfigurationProperties()
+  {
+    final Injector injector = injector(binder -> {
+      JsonConfigProvider.bind(binder, "druid.broker.http", DruidHttpClientConfig.class, Client.class);
+      JsonConfigProvider.bind(binder, "druid.broker.http", DruidHttpClientConfig.class, EscalatedClient.class);
+    });
+    injector.getInstance(Key.get(DruidHttpClientConfig.class, Client.class));
+    injector.getInstance(Key.get(DruidHttpClientConfig.class, EscalatedClient.class));
+    final List<Object[]> rows = rows(provider(injector, allowAll));
+    Assertions.assertFalse(rows.isEmpty());
+    Assertions.assertEquals(rows.size(), rows.stream().map(row -> row[3]).distinct().count());
+    Assertions.assertTrue(rows.stream().noneMatch(row -> "CONFLICT".equals(row[8])));
+  }
+
+  @Test
+  public void testSharedPropertyWithDifferentEffectiveValuesReportsConflict()
+  {
+    final Injector injector = injector(binder -> {
+      JsonConfigProvider.bind(binder, "druid.shared", ExampleConfig.class);
+      JsonConfigProvider.bind(binder, "druid.shared", DifferentConfig.class);
+      JsonConfigProvider.bind(binder, "druid.shared", ExampleConfig.class, Names.named("other"));
+    });
+    injector.getInstance(ExampleConfig.class);
+    injector.getInstance(DifferentConfig.class);
+    injector.getInstance(Key.get(ExampleConfig.class, Names.named("other")));
+    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final Object[] row = find(rows, "druid.shared.threads");
+    Assertions.assertEquals(1, rows.stream().filter(r -> "druid.shared.threads".equals(r[3])).count());
+    Assertions.assertNull(row[4]);
+    Assertions.assertNull(row[6]);
+    Assertions.assertNull(row[7]);
+    Assertions.assertEquals("CONFLICT", row[8]);
+    Assertions.assertEquals("Configuration consumers disagree on type, value, or inspection status", row[9]);
+  }
+
+  @Test
+  public void testDifferentClassesWithAgreeingPropertyValuesAreCombined()
+  {
+    properties.setProperty("druid.shared.threads", "5");
+    final Injector injector = injector(binder -> {
+      JsonConfigProvider.bind(binder, "druid.shared", ExampleConfig.class);
+      JsonConfigProvider.bind(binder, "druid.shared", DifferentConfig.class);
+    });
+    injector.getInstance(ExampleConfig.class);
+    injector.getInstance(DifferentConfig.class);
+    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final Object[] row = find(rows, "druid.shared.threads");
+    Assertions.assertEquals(1, rows.stream().filter(r -> "druid.shared.threads".equals(r[3])).count());
+    Assertions.assertNull(row[4]);
+    Assertions.assertEquals("5", row[7]);
+    Assertions.assertEquals("AVAILABLE", row[8]);
+  }
+
+  @Test
+  public void testNodeFailureRowMatchesSchemaWithoutBindingColumn()
+  {
+    final Object[] row = new ConfigurationTableDescriptor().getNodeFailureRow(
+        new DruidNode("overlord", "localhost", false, 8080, null, true, false),
+        Set.of(NodeRole.OVERLORD),
+        new IllegalStateException("secret")
+    ).orElseThrow();
+    Assertions.assertEquals(ConfigurationTableDescriptor.ROW_SIGNATURE.size(), row.length);
+    Assertions.assertEquals("ERROR", row[8]);
+    Assertions.assertEquals("Unable to read node configuration", row[9]);
   }
 
   @Test
@@ -484,6 +554,12 @@ public class ConfigurationTableDataProviderTest
     {
       throw new AssertionError("Do not read hidden collection");
     }
+  }
+
+  public static class DifferentConfig
+  {
+    @JsonProperty
+    private int threads = 6;
   }
 
   public static class NullNestedConfig

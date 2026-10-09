@@ -55,12 +55,14 @@ import org.joda.time.Period;
 import javax.annotation.Nullable;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 
@@ -151,7 +153,6 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
               rows,
               prefix,
               configClass,
-              binding.getKey().toString(),
               config,
               provider.getConfigClass(),
               config == null ? "NOT_INITIALIZED" : "AVAILABLE",
@@ -162,7 +163,6 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
           rows.add(row(
               prefix,
               configClass,
-              binding.getKey().toString(),
               null,
               null,
               null,
@@ -172,15 +172,32 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
         }
       }
     }
-    rows.sort(Comparator.comparing((Object[] row) -> (String) row[3]).thenComparing(row -> (String) row[5]));
-    return rows;
+    final Map<String, Object[]> propertiesByPath = new LinkedHashMap<>();
+    for (final Object[] row : rows) {
+      final Object[] previous = propertiesByPath.putIfAbsent((String) row[3], row);
+      if (previous == null) {
+        continue;
+      }
+      if (!Objects.equals(previous[4], row[4])) {
+        previous[4] = null;
+      }
+      if (!Arrays.equals(previous, 5, 10, row, 5, 10)) {
+        previous[5] = Objects.equals(previous[5], row[5]) ? previous[5] : null;
+        previous[6] = null;
+        previous[7] = null;
+        previous[8] = "CONFLICT";
+        previous[9] = "Configuration consumers disagree on type, value, or inspection status";
+      }
+    }
+    final List<Object[]> uniqueRows = new ArrayList<>(propertiesByPath.values());
+    uniqueRows.sort(Comparator.comparing(row -> (String) row[3]));
+    return uniqueRows;
   }
 
   private void appendProperties(
       final List<Object[]> rows,
       final String prefix,
       final Class<?> configClass,
-      final String binding,
       @Nullable final Object config,
       final Class<?> declaredType,
       final String valueStatus,
@@ -192,7 +209,7 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
         .introspect(mapper.constructType(type)).findProperties().stream()
         .filter(BeanPropertyDefinition::couldDeserialize).toList();
     if (!ancestors.add(type)) {
-      rows.add(row(prefix, configClass, binding, type.getTypeName(), null, null, "UNSUPPORTED", null));
+      rows.add(row(prefix, configClass, type.getTypeName(), null, null, "UNSUPPORTED", null));
       return;
     }
     final TypeSerializer typeSerializer = mapper.getSerializerProviderInstance()
@@ -209,7 +226,6 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
       rows.add(row(
           name,
           configClass,
-          binding,
           String.class.getName(),
           hidden ? null : properties.getProperty(name),
           hidden || config == null ? null : typeSerializer.getTypeIdResolver().idFromValue(config),
@@ -218,7 +234,7 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
       ));
     }
     if (definitions.isEmpty() && !hasTypeProperty) {
-      rows.add(row(prefix, configClass, binding, type.getTypeName(), null, null, "UNSUPPORTED", null));
+      rows.add(row(prefix, configClass, type.getTypeName(), null, null, "UNSUPPORTED", null));
     }
     // Druid's mapper disables automatic getter discovery. Enable it only for reading already known input
     // properties, so helper getters cannot introduce extra configuration paths.
@@ -242,7 +258,7 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
         || DynamicConfigProvider.class.isAssignableFrom(rawType)
         || (annotation != null && annotation.access() == JsonProperty.Access.WRITE_ONLY);
       if (hidden) {
-        rows.add(row(name, configClass, binding, propertyType.toCanonical(), null, null, "REDACTED", null));
+        rows.add(row(name, configClass, propertyType.toCanonical(), null, null, "REDACTED", null));
         continue;
       }
 
@@ -253,7 +269,7 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
       // Maps may contain secrets under arbitrary keys, and custom serializers may resolve credentials.
       if (!scalar && !scalarCollection
           && (propertyType.isContainerType() || rawType == Object.class || rawType.isInterface())) {
-        rows.add(row(name, configClass, binding, propertyType.toCanonical(), null, null, "UNSUPPORTED", null));
+        rows.add(row(name, configClass, propertyType.toCanonical(), null, null, "UNSUPPORTED", null));
         continue;
       }
       try {
@@ -271,7 +287,6 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
           rows.add(row(
               name,
               configClass,
-              binding,
               propertyType.toCanonical(),
               properties.getProperty(name),
               effectiveValue(value, propertyType),
@@ -283,7 +298,6 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
               rows,
               name,
               configClass,
-              binding,
               value,
               rawType,
               accessor == null ? "UNSUPPORTED" : valueStatus,
@@ -295,7 +309,6 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
         rows.add(row(
             name,
             configClass,
-            binding,
             propertyType.toCanonical(),
             null,
             null,
@@ -366,7 +379,6 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
   private Object[] row(
       final String property,
       final Class<?> configClass,
-      final String binding,
       @Nullable final String type,
       @Nullable final String configured,
       @Nullable final String effective,
@@ -375,7 +387,7 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
   )
   {
     return new Object[]{
-        node.getHostAndPortToUse(), node.getServiceName(), nodeRoles, property, configClass.getName(), binding,
+        node.getHostAndPortToUse(), node.getServiceName(), nodeRoles, property, configClass.getName(),
         type, configured, effective, status, error
     };
   }
