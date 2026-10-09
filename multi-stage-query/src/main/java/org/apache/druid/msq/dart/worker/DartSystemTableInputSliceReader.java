@@ -163,7 +163,11 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
         sourceSequences.add(new LazySequence<>(() -> remoteRows(slice, source, descriptor, projection, request)));
       }
     }
-    return Sequences.concat(sourceSequences);
+    final Sequence<Object[]> rows = Sequences.concat(sourceSequences);
+    // A provider pushdown may be only a subset of the Druid filter. Limiting before the residual filter is only safe
+    // when there is no residual predicate at all. The limit is applied after concatenation because a limited sequence
+    // nested inside a concatenated one leaves the row cursor positioned on a null row once the limit is reached.
+    return slice.getFilter() == null ? rows.limit(slice.getLimit()) : rows;
   }
 
   private Sequence<Object[]> localRows(
@@ -185,10 +189,7 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
         escalatedAuthenticationResult,
         authorizerMapper
     );
-    final Sequence<Object[]> rows = Sequences.simple(authorizedRows).map(projection::apply);
-    // A provider pushdown may be only a subset of the Druid filter. Limit before the residual filter is only safe when
-    // there is no residual predicate at all.
-    return slice.getFilter() == null ? rows.limit(slice.getLimit()) : rows;
+    return Sequences.simple(authorizedRows).map(projection::apply);
   }
 
   private Sequence<Object[]> remoteRows(
