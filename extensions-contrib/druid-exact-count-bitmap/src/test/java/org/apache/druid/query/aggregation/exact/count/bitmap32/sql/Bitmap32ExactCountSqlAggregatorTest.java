@@ -47,6 +47,7 @@ import org.apache.druid.sql.calcite.util.SqlTestFramework.StandardComponentSuppl
 import org.apache.druid.sql.calcite.util.TestDataBuilder;
 import org.apache.druid.sql.calcite.util.datasets.TestDataSet;
 import org.apache.druid.timeline.DataSegment;
+import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.partition.LinearShardSpec;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -103,10 +104,7 @@ public class Bitmap32ExactCountSqlAggregatorTest extends BaseCalciteQueryTest
                       .buildMMappedIndex();
 
       return walker.add(
-          DataSegment.builder()
-                     .dataSource(DATA_SOURCE)
-                     .interval(index.getDataInterval())
-                     .version("1")
+          DataSegment.builder(SegmentId.of(DATA_SOURCE, index.getDataInterval(), "1", 0))
                      .shardSpec(new LinearShardSpec(0))
                      .size(0)
                      .build(),
@@ -129,6 +127,23 @@ public class Bitmap32ExactCountSqlAggregatorTest extends BaseCalciteQueryTest
     );
 
     Assertions.assertTrue(e.getMessage().contains("Aggregation [BITMAP32_EXACT_COUNT] does not support type [STRING]"));
+  }
+
+  @Test
+  public void testExactCountOnFloatingPointColumnsThrowsError()
+  {
+    for (String column : new String[]{"dbl1", "f1"}) {
+      DruidException e = Assertions.assertThrows(
+          DruidException.class,
+          () -> testQuery(
+              "SELECT BITMAP32_EXACT_COUNT(" + column + ") FROM " + DATA_SOURCE,
+              ImmutableList.of(),
+              ImmutableList.of()
+          )
+      );
+
+      Assertions.assertTrue(e.getMessage().contains("Cannot apply 'BITMAP32_EXACT_COUNT' to arguments of type"));
+    }
   }
 
   @Test

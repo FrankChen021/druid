@@ -85,7 +85,8 @@ public class Bitmap32ExactCountBuildBufferAggregator implements BufferAggregator
   @Override
   public void close()
   {
-
+    clearLastCollector();
+    collectors.clear();
   }
 
   @Override

@@ -61,7 +61,7 @@ public class Bitmap32ExactCountSqlAggregator implements SqlAggregator
   private static final SqlAggFunction FUNCTION_INSTANCE
       = OperatorConversions.aggregatorBuilder(NAME)
                            .operandTypeChecker(OperandTypes.or(
-                               OperandTypes.NUMERIC,
+                               OperandTypes.INTEGER,
                                RowSignatures.complexTypeChecker(Bitmap32ExactCountMergeAggregatorFactory.TYPE),
                                RowSignatures.complexTypeChecker(Bitmap32ExactCountBuildAggregatorFactory.TYPE)
                            ))

@@ -161,11 +161,12 @@ public class Bitmap32ExactCountBuildBufferAggregatorTest
     EasyMock.replay(mockSelector);
     aggregator.aggregate(buffer, POSITION_1);
 
-    aggregator.close(); // Should be a no-op
+    aggregator.close(); // Releases the counters
 
+    // nothing is kept for the position any more, a counter that is asked for again starts empty
     Bitmap32 counter = (Bitmap32) aggregator.get(buffer, POSITION_1);
-    Assertions.assertNotNull(counter, "Counter should still exist after close");
-    Assertions.assertEquals(1, counter.getCardinality());
+    Assertions.assertNotNull(counter);
+    Assertions.assertEquals(0, counter.getCardinality());
     EasyMock.verify(mockSelector);
   }
 

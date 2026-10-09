@@ -272,4 +272,36 @@ class RoaringBitmap32CounterTest
     Assertions.assertEquals(values.size(), union.getCardinality());
     Assertions.assertEquals(values, contents(bytes(union)));
   }
+
+  @Test
+  void testFoldWhileTheOtherCounterIsBeingWrittenTo() throws Exception
+  {
+    final RoaringBitmap32Counter source = new RoaringBitmap32Counter();
+    final java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean(false);
+    final java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+    final java.util.concurrent.Future<?> writer = executor.submit(() -> {
+      for (int i = 1; i <= 200_000; i++) {
+        source.add(i * 3);
+      }
+      done.set(true);
+    });
+
+    try {
+      long previous = 0;
+      while (!done.get()) {
+        // every snapshot is complete and consistent: it can be read, and only grows
+        final RoaringBitmap32Counter accumulator = new RoaringBitmap32Counter();
+        accumulator.fold(source);
+        final long cardinality = accumulator.getCardinality();
+        Assertions.assertTrue(cardinality >= previous);
+        Assertions.assertEquals(cardinality, contents(bytes(accumulator)).size());
+        previous = cardinality;
+      }
+      writer.get();
+    }
+    finally {
+      executor.shutdownNow();
+    }
+    Assertions.assertEquals(200_000, source.getCardinality());
+  }
 }

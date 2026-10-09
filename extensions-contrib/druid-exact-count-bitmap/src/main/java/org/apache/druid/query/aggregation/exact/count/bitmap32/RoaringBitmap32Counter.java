@@ -113,17 +113,31 @@ public class RoaringBitmap32Counter implements Bitmap32
   }
 
   @Override
-  public synchronized Bitmap32 fold(@Nullable final Bitmap32 rhs)
+  public Bitmap32 fold(@Nullable final Bitmap32 rhs)
   {
     if (rhs == null || rhs == this) {
       return this;
     }
-    final RoaringBitmap32Counter other = (RoaringBitmap32Counter) rhs;
-    for (ImmutableRoaringBitmap bitmap : other.bitmaps) {
-      // the writable bitmap of the other counter may still change, so take a copy of that one
-      bitmaps.add(bitmap == other.writable ? ((MutableRoaringBitmap) bitmap).clone() : bitmap);
+    // take the snapshot under the lock of the other counter, then add it under the lock of this one, so that the locks
+    // are never held together
+    final List<ImmutableRoaringBitmap> snapshot = ((RoaringBitmap32Counter) rhs).snapshotBitmaps();
+    synchronized (this) {
+      bitmaps.addAll(snapshot);
     }
     return this;
+  }
+
+  /**
+   * The bitmaps of this counter. A writable bitmap, which can still change, is copied, so the result does not change
+   * when values are added to this counter afterwards.
+   */
+  private synchronized List<ImmutableRoaringBitmap> snapshotBitmaps()
+  {
+    final List<ImmutableRoaringBitmap> snapshot = new ArrayList<>(bitmaps.size());
+    for (ImmutableRoaringBitmap bitmap : bitmaps) {
+      snapshot.add(bitmap == writable ? ((MutableRoaringBitmap) bitmap).clone() : bitmap);
+    }
+    return snapshot;
   }
 
   @Override

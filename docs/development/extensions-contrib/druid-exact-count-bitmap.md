@@ -157,6 +157,7 @@ If all values of the column fit in a signed 32-bit integer (`-2147483648` to `21
 }
 ```
 
+- Only LONG columns (BIGINT in SQL) are accepted. FLOAT and DOUBLE columns are rejected, because their fractional part would be dropped.
 - A value outside the 32-bit range fails the query or the ingestion with an error. It is never truncated.
 - A bitmap built by one variant cannot be merged by the other, the stored formats are different.
 - Null values are ignored, and `0` is counted like any other value.
