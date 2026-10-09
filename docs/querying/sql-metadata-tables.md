@@ -404,7 +404,7 @@ permission on the `CONFIG` resource, in addition to any configured system-table 
 |`binding`|VARCHAR|Guice binding key, including its annotation when present|
 |`value_type`|VARCHAR|Declared Java type of the property|
 |`configured_value`|VARCHAR|Loaded value at this exact property path, before variable substitution. Null if absent or withheld.|
-|`effective_value`|COMPLEX&lt;json&gt;|JSON scalar or array read from the initialized configuration getter, or field when no getter exists|
+|`effective_value`|VARCHAR|Plain scalar text or JSON text for supported collections, read from the initialized getter or field|
 |`value_status`|VARCHAR|`AVAILABLE`, `NOT_INITIALIZED`, `REDACTED`, `UNSUPPORTED`, or `ERROR`|
 |`error_message`|VARCHAR|Generic diagnostic for an inspection or node failure; null otherwise|
 
@@ -426,20 +426,20 @@ not an inspection failure. Values computed elsewhere by a service are not includ
 The Joda-Time `Duration` and `Period` types are exposed as scalar ISO-8601 strings. A duration of two minutes
 appears as `PT120S`; a period of one month remains `P1M`, without conversion to a fixed duration.
 `HumanReadableBytes` values are exposed as readable strings in binary units with two decimal places,
-so a configured `2MiB` appears as `"2.00 MiB"`. Values below 1024 bytes use whole bytes, including `"-1 B"`
+so a configured `2MiB` appears as `2.00 MiB`. Values below 1024 bytes use whole bytes, including `-1 B`
 for a negative sentinel value.
 The `configured_value` column retains the original input, and `value_type` retains the declared Java type.
 These types also support null values and metadata for objects that have not been initialized.
 
-Numbers and booleans retain their JSON types. Strings, enum values, durations, periods, and readable byte values
-are JSON strings. Sets, lists, and arrays of supported scalar types are exposed as JSON arrays; empty collections
-are empty arrays, and null collections remain null. Set element order follows the configuration object's iteration
-order. Collections of arbitrary objects and maps remain unsupported.
+Scalar values use plain text without embedded JSON quotation marks: for example, `PT0S`, `2.00 MiB`, `3`,
+and `true`. Sets, lists, and arrays of supported scalar types are serialized as JSON text, such as `["a","b"]`
+or `[1,2]`. Empty collections use `[]`, and null collections remain SQL null.
+Set element order follows the configuration object's iteration order. Collections of arbitrary objects and maps remain unsupported.
 
 Use SQL JSON functions to extract values, for example:
 
 ```sql
-SELECT property, JSON_VALUE(effective_value, '$[0]') AS first_value
+SELECT property, JSON_VALUE(PARSE_JSON(effective_value), '$[0]') AS first_value
 FROM sys.configuration
 WHERE property = 'druid.server.hiddenProperties';
 ```

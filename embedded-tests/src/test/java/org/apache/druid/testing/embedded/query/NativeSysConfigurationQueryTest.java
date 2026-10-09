@@ -107,8 +107,10 @@ public class NativeSysConfigurationQueryTest extends EmbeddedClusterTestBase
   public void testJsonCollectionsAndReadableBytes(final String plannerStrategy)
   {
     final String result = cluster.runSql(
-        "SELECT JSON_VALUE(effective_value, '$[0]'), JSON_VALUE(effective_value, '$[1]'), "
-        + "JSON_VALUE(effective_value, '$[2]'), JSON_VALUE(effective_value, '$[3]') FROM sys.configuration "
+        "SELECT JSON_VALUE(PARSE_JSON(effective_value), '$[0]'), "
+        + "JSON_VALUE(PARSE_JSON(effective_value), '$[1]'), "
+        + "JSON_VALUE(PARSE_JSON(effective_value), '$[2]'), "
+        + "JSON_VALUE(PARSE_JSON(effective_value), '$[3]') FROM sys.configuration "
         + "WHERE service_name = 'druid/broker' AND property = 'druid.server.hiddenProperties'",
         nativeQueryContext(plannerStrategy)
     );
@@ -117,13 +119,21 @@ public class NativeSysConfigurationQueryTest extends EmbeddedClusterTestBase
     Assertions.assertEquals(
         "2.00 MiB",
         cluster.runSql(
-            "SELECT JSON_VALUE(effective_value, '$') FROM sys.configuration "
+            "SELECT effective_value FROM sys.configuration "
             + "WHERE service_name = 'druid/broker' AND property = 'druid.server.maxSize'",
             nativeQueryContext(plannerStrategy)
         )
     );
     Assertions.assertEquals(
-        "COMPLEX<json>",
+        "PT10M",
+        cluster.runSql(
+            "SELECT effective_value FROM sys.configuration "
+            + "WHERE service_name = 'druid/coordinator' AND property = 'druid.manager.rules.alertThreshold'",
+            nativeQueryContext(plannerStrategy)
+        )
+    );
+    Assertions.assertEquals(
+        "VARCHAR",
         cluster.runSql(
             "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'sys' "
             + "AND TABLE_NAME = 'configuration' AND COLUMN_NAME = 'effective_value'",

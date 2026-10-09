@@ -23,8 +23,8 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
@@ -46,7 +46,6 @@ import org.apache.druid.metadata.PasswordProvider;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
-import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
@@ -159,7 +158,7 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
               new HashSet<>()
           );
         }
-        catch (final JsonMappingException | RuntimeException e) {
+        catch (final JsonProcessingException | RuntimeException e) {
           rows.add(row(
               prefix,
               configClass,
@@ -186,7 +185,7 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
       final Class<?> declaredType,
       final String valueStatus,
       final Set<Class<?>> ancestors
-  ) throws JsonMappingException
+  ) throws JsonProcessingException
   {
     final Class<?> type = config == null ? declaredType : config.getClass();
     final List<BeanPropertyDefinition> definitions = mapper.getDeserializationConfig()
@@ -292,7 +291,7 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
           );
         }
       }
-      catch (final JsonMappingException | RuntimeException e) {
+      catch (final JsonProcessingException | RuntimeException e) {
         rows.add(row(
             name,
             configClass,
@@ -317,10 +316,11 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
   }
 
   @Nullable
-  private static Object effectiveValue(@Nullable final Object value, final JavaType type)
+  private String effectiveValue(@Nullable final Object value, final JavaType type) throws JsonProcessingException
   {
     if (value == null || isScalar(type.getRawClass())) {
-      return scalarValue(value, type.getRawClass());
+      final Object scalar = scalarValue(value, type.getRawClass());
+      return scalar == null ? null : scalar.toString();
     }
     // Copy only supported scalar elements, so custom objects never reach JSON serialization.
     final List<Object> elements = new ArrayList<>();
@@ -334,7 +334,7 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
         elements.add(scalarValue(Array.get(value, i), elementType));
       }
     }
-    return elements;
+    return mapper.writeValueAsString(elements);
   }
 
   /** Converts supported value objects directly, without invoking Jackson or custom object serializers. */
@@ -369,14 +369,14 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
       final String binding,
       @Nullable final String type,
       @Nullable final String configured,
-      @Nullable final Object effective,
+      @Nullable final String effective,
       final String status,
       @Nullable final String error
   )
   {
     return new Object[]{
         node.getHostAndPortToUse(), node.getServiceName(), nodeRoles, property, configClass.getName(), binding,
-        type, configured, StructuredData.wrap(effective), status, error
+        type, configured, effective, status, error
     };
   }
 }
