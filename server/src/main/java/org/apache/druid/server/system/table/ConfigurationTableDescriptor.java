@@ -47,7 +47,6 @@ public class ConfigurationTableDescriptor implements SystemTableDescriptor
       .add("node_roles", ColumnType.STRING)
       .add("property", ColumnType.STRING)
       .add("config_class", ColumnType.STRING)
-      .add("binding", ColumnType.STRING)
       .add("value_type", ColumnType.STRING)
       .add("configured_value", ColumnType.STRING)
       .add("effective_value", ColumnType.STRING)
@@ -106,7 +105,7 @@ public class ConfigurationTableDescriptor implements SystemTableDescriptor
     return Optional.of(new Object[]{
         node.getHostAndPortToUse(), node.getServiceName(),
         nodeRoles.stream().map(NodeRole::getJsonName).sorted().toList().toString(),
-        null, null, null, null, null, null, "ERROR", "Unable to read node configuration"
+        null, null, null, null, null, "ERROR", "Unable to read node configuration"
     });
   }
 }
