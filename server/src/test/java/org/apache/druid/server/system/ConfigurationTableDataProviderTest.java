@@ -43,7 +43,6 @@ import org.apache.druid.metadata.PasswordProvider;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.segment.column.ColumnType;
-import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.coordinator.config.HttpLoadQueuePeonConfig;
 import org.apache.druid.server.log.NoopRequestLoggerProvider;
@@ -128,22 +127,22 @@ public class ConfigurationTableDataProviderTest
   }
 
   @Test
-  public void testEffectiveValuesAreTypedJsonAndScalarCollections()
+  public void testEffectiveValuesArePlainTextAndCollectionsAreJsonText()
   {
     properties.setProperty("druid.json.names", "[\"alpha\",\"beta\"]");
     final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.json", JsonValuesConfig.class));
     injector.getInstance(JsonValuesConfig.class);
     final List<Object[]> rows = rows(provider(injector, allowAll));
-    Assertions.assertEquals(ColumnType.NESTED_DATA, ConfigurationTableDescriptor.ROW_SIGNATURE.getColumnType("effective_value").orElseThrow());
-    assertJsonValue(rows, "names", List.of("alpha", "beta"));
+    Assertions.assertEquals(ColumnType.STRING, ConfigurationTableDescriptor.ROW_SIGNATURE.getColumnType("effective_value").orElseThrow());
+    assertTextValue(rows, "names", "[\"alpha\",\"beta\"]");
     Assertions.assertEquals("[\"alpha\",\"beta\"]", find(rows, "druid.json.names")[7]);
-    assertJsonValue(rows, "numbers", List.of(1, 2));
-    assertJsonValue(rows, "enabled", true);
-    assertJsonValue(rows, "count", 3);
-    assertJsonValue(rows, "letter", "a");
-    assertJsonValue(rows, "empty", List.of());
-    assertJsonValue(rows, "nullable", null);
-    assertJsonValue(rows, "bytes", List.of("2.00 MiB", "-1 B"));
+    assertTextValue(rows, "numbers", "[1,2]");
+    assertTextValue(rows, "enabled", "true");
+    assertTextValue(rows, "count", "3");
+    assertTextValue(rows, "letter", "a");
+    assertTextValue(rows, "empty", "[]");
+    assertTextValue(rows, "nullable", null);
+    assertTextValue(rows, "bytes", "[\"2.00 MiB\",\"-1 B\"]");
     Assertions.assertEquals("UNSUPPORTED", find(rows, "druid.json.objects")[9]);
   }
 
@@ -161,15 +160,15 @@ public class ConfigurationTableDataProviderTest
     Assertions.assertEquals("REDACTED", hidden[9]);
     Assertions.assertNull(hidden[8]);
     Assertions.assertEquals("UNSUPPORTED", find(after, "druid.json.credentials")[9]);
-    assertJsonValue(after, "names", List.of());
+    assertTextValue(after, "names", "[]");
   }
 
-  private static void assertJsonValue(final List<Object[]> rows, final String name, final Object expected)
+  private static void assertTextValue(final List<Object[]> rows, final String name, final String expected)
   {
     final Object[] row = find(rows, "druid.json." + name);
-    Assertions.assertEquals(expected, StructuredData.unwrap(row[8]));
+    Assertions.assertEquals(expected, row[8]);
     if (expected != null) {
-      Assertions.assertInstanceOf(StructuredData.class, row[8]);
+      Assertions.assertInstanceOf(String.class, row[8]);
     }
     Assertions.assertEquals("AVAILABLE", row[9]);
   }
@@ -183,11 +182,11 @@ public class ConfigurationTableDataProviderTest
     final List<Object[]> rows = rows(provider(injector, allowAll));
     final Object[] threads = find(rows, "druid.example.threads");
     Assertions.assertEquals("0", threads[7]);
-    Assertions.assertEquals(1, StructuredData.unwrap(threads[8]));
+    Assertions.assertEquals("1", threads[8]);
     Assertions.assertEquals("AVAILABLE", threads[9]);
     final Object[] nested = find(rows, "druid.example.nested.renamed");
     Assertions.assertNull(nested[7]);
-    Assertions.assertEquals("default", StructuredData.unwrap(nested[8]));
+    Assertions.assertEquals("default", nested[8]);
     Assertions.assertEquals("localhost:8080", nested[0]);
     Assertions.assertEquals("overlord", nested[1]);
     Assertions.assertEquals("[overlord]", nested[2]);
@@ -253,14 +252,14 @@ public class ConfigurationTableDataProviderTest
       final List<Object[]> rows,
       final String property,
       final String configured,
-      final Object effective,
+      final String effective,
       final Class<?> type
   )
   {
     final Object[] row = find(rows, property);
     Assertions.assertEquals(type.getName(), row[6]);
     Assertions.assertEquals(configured, row[7]);
-    Assertions.assertEquals(effective, StructuredData.unwrap(row[8]));
+    Assertions.assertEquals(effective, row[8]);
     Assertions.assertEquals("AVAILABLE", row[9]);
     Assertions.assertTrue(rows.stream().noneMatch(r -> ((String) r[3]).startsWith(property + ".")));
   }
