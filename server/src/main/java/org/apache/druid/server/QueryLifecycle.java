@@ -477,6 +477,16 @@ public class QueryLifecycle
                                            authenticationResult,
                                            executeNativeQueryLocally
                                        );
+    if (queryRunner == null) {
+      // For example a server that only serves node-local system-table queries and has no segments to query.
+      throw DruidException.forPersona(DruidException.Persona.USER)
+                          .ofCategory(DruidException.Category.UNSUPPORTED)
+                          .build(
+                              "This server cannot run %s queries over datasource[%s]",
+                              query.getType(),
+                              query.getDataSource()
+                          );
+    }
     final Sequence<T> res = queryRunner.run(
         QueryPlus.wrap(query).withIdentity(authenticationResult.getIdentity()),
         responseContext

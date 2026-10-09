@@ -313,6 +313,32 @@ public class QueryLifecycleTest
     Assertions.assertThrows(BadQueryContextException.class, lifecycle::execute);
   }
 
+  /**
+   * A server that has no runner for the query, such as one that only serves node-local system-table queries and has
+   * no segments, rejects it as unsupported instead of failing with an NPE.
+   */
+  @Test
+  public void testQueryWithoutSegmentRunnerIsUnsupported()
+  {
+    EasyMock.expect(queryConfig.getContext()).andReturn(ImmutableMap.of()).anyTimes();
+    EasyMock.expect(authenticationResult.getIdentity()).andReturn(IDENTITY).anyTimes();
+    EasyMock.expect(authenticationResult.getAuthorizerName()).andReturn(AUTHORIZER).anyTimes();
+    EasyMock.expect(authorizer.authorize(authenticationResult, RESOURCE, Action.READ))
+            .andReturn(Access.OK)
+            .anyTimes();
+    EasyMock.expect(conglomerate.getToolChest(EasyMock.anyObject())).andReturn(toolChest).anyTimes();
+    EasyMock.expect(texasRanger.getQueryRunnerForIntervals(EasyMock.anyObject(), EasyMock.anyObject()))
+            .andReturn(null)
+            .once();
+    replayAll();
+
+    final QueryLifecycle lifecycle = createLifecycle();
+    lifecycle.initialize(query);
+    Assertions.assertTrue(lifecycle.authorize(authenticationResult).allowBasicAccess());
+    final DruidException exception = Assertions.assertThrows(DruidException.class, lifecycle::execute);
+    Assertions.assertEquals(DruidException.Category.UNSUPPORTED, exception.getCategory());
+  }
+
   @Test
   public void testRunSimpleUnauthorized()
   {
