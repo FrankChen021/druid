@@ -26,6 +26,7 @@ import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscovery;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.DruidNode;
@@ -105,6 +106,76 @@ public class SystemTableNodeLocatorTest
     Mockito.verify(discoveryProvider).getForNodeRole(NodeRole.OVERLORD);
     Mockito.verifyNoMoreInteractions(discoveryProvider);
     Mockito.verifyNoInteractions(coordinatorClient);
+  }
+
+  /** A process serving several roles is reported once, carrying every role it was discovered under. */
+  @Test
+  public void testLocateAllNodesMergesRolesOfSameProcess()
+  {
+    final DruidNodeDiscoveryProvider discoveryProvider = Mockito.mock(DruidNodeDiscoveryProvider.class);
+    final DruidNodeDiscovery coordinatorDiscovery = discovery(
+        List.of(node("coordinator", "combined.example.com", 8081, NodeRole.COORDINATOR))
+    );
+    final DruidNodeDiscovery overlordDiscovery = discovery(
+        List.of(node("coordinator", "combined.example.com", 8081, NodeRole.OVERLORD))
+    );
+    Mockito.when(discoveryProvider.getForNodeRole(NodeRole.COORDINATOR)).thenReturn(coordinatorDiscovery);
+    Mockito.when(discoveryProvider.getForNodeRole(NodeRole.OVERLORD)).thenReturn(overlordDiscovery);
+    final SystemTableDescriptor descriptor = descriptor(
+        SystemTableRoutingMode.ALL_NODES,
+        Set.of(NodeRole.COORDINATOR, NodeRole.OVERLORD)
+    );
+
+    final List<SystemTableNode> nodes = new SystemTableNodeLocator(
+        discoveryProvider,
+        Mockito.mock(CoordinatorClient.class),
+        Mockito.mock(OverlordClient.class)
+    ).locate(descriptor, Long.MAX_VALUE);
+
+    Assertions.assertEquals(1, nodes.size());
+    Assertions.assertEquals(Set.of(NodeRole.COORDINATOR, NodeRole.OVERLORD), nodes.get(0).getNodeRoles());
+  }
+
+  /** A leader that is not in service discovery is an error rather than a silently empty result. */
+  @Test
+  public void testLocateLeaderMissingFromDiscovery()
+  {
+    final DruidNodeDiscoveryProvider discoveryProvider = Mockito.mock(DruidNodeDiscoveryProvider.class);
+    final DruidNodeDiscovery overlordDiscovery = discovery(
+        List.of(node("overlord", "other.example.com", 8090, NodeRole.OVERLORD))
+    );
+    Mockito.when(discoveryProvider.getForNodeRole(NodeRole.OVERLORD)).thenReturn(overlordDiscovery);
+    final OverlordClient overlordClient = Mockito.mock(OverlordClient.class);
+    Mockito.when(overlordClient.findCurrentLeader())
+           .thenReturn(Futures.immediateFuture(URI.create("http://leader.example.com:8090")));
+    final SystemTableDescriptor descriptor = descriptor(
+        SystemTableRoutingMode.LEADER_ONLY,
+        Set.of(NodeRole.OVERLORD)
+    );
+
+    Assertions.assertThrows(
+        ISE.class,
+        () -> new SystemTableNodeLocator(discoveryProvider, Mockito.mock(CoordinatorClient.class), overlordClient)
+            .locate(descriptor, Long.MAX_VALUE)
+    );
+  }
+
+  /** Scheme and host are compared case-insensitively and an omitted port means the scheme's default port. */
+  @Test
+  public void testSameServerNormalizesHostAndDefaultPort()
+  {
+    Assertions.assertTrue(
+        SystemTableNodeLocator.sameServer(URI.create("http://Host.example.com"), URI.create("HTTP://host.example.com:80"))
+    );
+    Assertions.assertTrue(
+        SystemTableNodeLocator.sameServer(URI.create("https://host.example.com"), URI.create("https://host.example.com:443"))
+    );
+    Assertions.assertFalse(
+        SystemTableNodeLocator.sameServer(URI.create("http://host.example.com"), URI.create("https://host.example.com"))
+    );
+    Assertions.assertFalse(
+        SystemTableNodeLocator.sameServer(URI.create("http://host.example.com:8090"), URI.create("http://host.example.com"))
+    );
   }
 
   /** An already expired query deadline cancels leader discovery before consulting service discovery. */

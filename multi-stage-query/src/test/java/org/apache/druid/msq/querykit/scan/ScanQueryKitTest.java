@@ -19,6 +19,7 @@
 
 package org.apache.druid.msq.querykit.scan;
 
+import org.apache.druid.msq.input.InputSpec;
 import org.apache.druid.msq.input.system.SystemTableInputSpec;
 import org.apache.druid.msq.input.table.TableInputSpec;
 import org.apache.druid.query.Druids;
@@ -27,8 +28,12 @@ import org.apache.druid.query.OrderBy;
 import org.apache.druid.query.scan.ScanQuery;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 public class ScanQueryKitTest
 {
@@ -61,55 +66,37 @@ public class ScanQueryKitTest
     Assertions.assertEquals(Long.MAX_VALUE, ScanQueryKit.sourceLimit(query));
   }
 
-  /** An unordered system-table scan may use an unsorted mix shuffle instead of sorting by partition boost. */
-  @Test
-  public void testUnorderedSystemTableScanCanUseMixShuffle()
+  /**
+   * Only an unordered system-table scan may use an unsorted mix shuffle; an ordered scan retains its global-sort
+   * shuffle and ordinary datasource scans retain the generic ScanQueryKit behavior.
+   */
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("mixShuffleCases")
+  public void testCanUseMixShuffleForUnorderedSystemTableScan(
+      final String description,
+      final InputSpec inputSpec,
+      final boolean ordered,
+      final boolean expected
+  )
   {
-    final ScanQuery query = Druids.newScanQueryBuilder()
-                                  .dataSource("foo")
-                                  .eternityInterval()
-                                  .build();
+    final Druids.ScanQueryBuilder builder = Druids.newScanQueryBuilder().dataSource("foo").eternityInterval();
+    if (ordered) {
+      builder.orderBy(List.of(new OrderBy("value", Order.ASCENDING)));
+    }
 
-    Assertions.assertTrue(
-        ScanQueryKit.canUseMixShuffleForUnorderedSystemTableScan(
-            List.of(new SystemTableInputSpec("server_properties")),
-            query
-        )
+    Assertions.assertEquals(
+        expected,
+        ScanQueryKit.canUseMixShuffleForUnorderedSystemTableScan(List.of(inputSpec), builder.build())
     );
   }
 
-  /** An ordered system-table scan must retain its global-sort shuffle. */
-  @Test
-  public void testOrderedSystemTableScanCannotUseMixShuffle()
+  private static Stream<Arguments> mixShuffleCases()
   {
-    final ScanQuery query = Druids.newScanQueryBuilder()
-                                  .dataSource("foo")
-                                  .eternityInterval()
-                                  .orderBy(List.of(new OrderBy("value", Order.ASCENDING)))
-                                  .build();
-
-    Assertions.assertFalse(
-        ScanQueryKit.canUseMixShuffleForUnorderedSystemTableScan(
-            List.of(new SystemTableInputSpec("server_properties")),
-            query
-        )
-    );
-  }
-
-  /** Ordinary datasource scans retain the generic ScanQueryKit shuffle behavior. */
-  @Test
-  public void testOrdinaryScanCannotUseSystemTableMixShuffle()
-  {
-    final ScanQuery query = Druids.newScanQueryBuilder()
-                                  .dataSource("foo")
-                                  .eternityInterval()
-                                  .build();
-
-    Assertions.assertFalse(
-        ScanQueryKit.canUseMixShuffleForUnorderedSystemTableScan(
-            List.of(new TableInputSpec("foo", null, null)),
-            query
-        )
+    final InputSpec systemTable = new SystemTableInputSpec("server_properties");
+    return Stream.of(
+        Arguments.of("unordered system table", systemTable, false, true),
+        Arguments.of("ordered system table", systemTable, true, false),
+        Arguments.of("unordered ordinary table", new TableInputSpec("foo", null, null), false, false)
     );
   }
 }

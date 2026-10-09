@@ -35,6 +35,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
+import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.GenericQueryMetricsFactory;
@@ -60,6 +61,7 @@ import org.apache.druid.query.policy.Policy;
 import org.apache.druid.query.policy.PolicyEnforcer;
 import org.apache.druid.query.policy.RestrictAllTablesPolicyEnforcer;
 import org.apache.druid.query.policy.RowFilterPolicy;
+import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.server.broker.BrokerDynamicConfig;
 import org.apache.druid.server.broker.QueryConfigSnapshot;
@@ -246,6 +248,69 @@ public class QueryLifecycleTest
         AuthorizationResult.ALLOW_NO_RESTRICTION
     );
     EasyMock.verify(systemTableHandler);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testRegisteredHandlerRunsNodeLocalRequest()
+  {
+    final DataSourceQueryHandler systemTableHandler = EasyMock.createMock(DataSourceQueryHandler.class);
+    dataSourceQueryHandlers.put(SystemTableDataSource.class, systemTableHandler);
+    final ScanQuery systemTableQuery = Druids.newScanQueryBuilder()
+                                             .dataSource(new SystemTableDataSource("server_properties"))
+                                             .eternityInterval()
+                                             .build();
+
+    EasyMock.expect(queryConfig.getContext()).andReturn(ImmutableMap.of()).anyTimes();
+    EasyMock.expect(authenticationResult.getIdentity()).andReturn(IDENTITY).anyTimes();
+    EasyMock.expect(authenticationResult.getAuthorizerName()).andReturn(AUTHORIZER).anyTimes();
+    EasyMock.expect(
+                authorizer.authorize(
+                    authenticationResult,
+                    new Resource("sys.server_properties", ResourceType.DATASOURCE),
+                    Action.READ
+                )
+            )
+            .andReturn(Access.OK)
+            .anyTimes();
+    EasyMock.expect(conglomerate.getToolChest(EasyMock.anyObject())).andReturn(toolChest).anyTimes();
+    // The handler, not the segment walker, must receive the query together with the node-local routing decision.
+    EasyMock.expect(
+                systemTableHandler.createRunner(
+                    EasyMock.<Query<Object>>anyObject(),
+                    EasyMock.eq(authenticationResult),
+                    EasyMock.eq(true)
+                )
+            )
+            .andReturn(runner)
+            .once();
+    EasyMock.expect(runner.run(EasyMock.anyObject(), EasyMock.anyObject())).andReturn(Sequences.empty()).once();
+    EasyMock.replay(systemTableHandler);
+    replayAll();
+
+    final QueryLifecycle lifecycle = createLifecycle();
+    lifecycle.initialize(systemTableQuery);
+    Assertions.assertTrue(lifecycle.authorize(mockRequest(QueryResource.NATIVE_QUERY_ROUTE_LOCAL)).allowBasicAccess());
+    lifecycle.execute();
+    EasyMock.verify(systemTableHandler);
+  }
+
+  @Test
+  public void testNodeLocalRequestWithoutRegisteredHandlerIsRejected()
+  {
+    EasyMock.expect(queryConfig.getContext()).andReturn(ImmutableMap.of()).anyTimes();
+    EasyMock.expect(authenticationResult.getIdentity()).andReturn(IDENTITY).anyTimes();
+    EasyMock.expect(authenticationResult.getAuthorizerName()).andReturn(AUTHORIZER).anyTimes();
+    EasyMock.expect(authorizer.authorize(authenticationResult, RESOURCE, Action.READ))
+            .andReturn(Access.OK)
+            .anyTimes();
+    EasyMock.expect(conglomerate.getToolChest(EasyMock.anyObject())).andReturn(toolChest).anyTimes();
+    replayAll();
+
+    final QueryLifecycle lifecycle = createLifecycle();
+    lifecycle.initialize(query);
+    Assertions.assertTrue(lifecycle.authorize(mockRequest(QueryResource.NATIVE_QUERY_ROUTE_LOCAL)).allowBasicAccess());
+    Assertions.assertThrows(BadQueryContextException.class, lifecycle::execute);
   }
 
   @Test
@@ -960,7 +1025,13 @@ public class QueryLifecycleTest
 
   private HttpServletRequest mockRequest()
   {
+    return mockRequest(null);
+  }
+
+  private HttpServletRequest mockRequest(@Nullable final String nativeQueryRoute)
+  {
     HttpServletRequest request = EasyMock.createNiceMock(HttpServletRequest.class);
+    EasyMock.expect(request.getHeader(QueryResource.HEADER_NATIVE_QUERY_ROUTE)).andReturn(nativeQueryRoute).anyTimes();
     EasyMock.expect(request.getAttribute(EasyMock.eq(AuthConfig.DRUID_AUTHENTICATION_RESULT)))
             .andReturn(authenticationResult).anyTimes();
     EasyMock.expect(request.getAttribute(EasyMock.eq(AuthConfig.DRUID_ALLOW_UNSECURED_PATH)))

@@ -43,6 +43,7 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.jackson.JacksonModule;
+import org.apache.druid.msq.dart.Dart;
 import org.apache.druid.msq.dart.guice.DartModules;
 import org.apache.druid.msq.dart.worker.DartWorkerRunner;
 import org.junit.jupiter.api.Assertions;
@@ -51,18 +52,25 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class CliBrokerTest
 {
 
-  /** Dart-enabled Brokers provide the embedded worker required by system-table queries. */
+  /** Dart-enabled Brokers run the embedded worker on a dedicated processing pool sized by the processing config. */
   @Test
-  public void testDartEnabledBrokerProvidesEmbeddedWorker()
+  public void testDartEnabledBrokerProvidesEmbeddedWorker() throws Exception
   {
     final Properties properties = new Properties();
     properties.setProperty(DartModules.DART_ENABLED_PROPERTY, "true");
 
-    Assertions.assertNotNull(makeBrokerInjector(properties).getInstance(DartWorkerRunner.class));
+    final Injector injector = makeBrokerInjector(properties);
+    Assertions.assertNotNull(injector.getInstance(DartWorkerRunner.class));
+
+    final ExecutorService processingExecutor = injector.getInstance(Key.get(ExecutorService.class, Dart.class));
+    final String threadName = processingExecutor.submit(() -> Thread.currentThread().getName()).get(10, TimeUnit.SECONDS);
+    Assertions.assertTrue(threadName.startsWith("dart-embedded-processing-"), threadName);
   }
 
   @Test

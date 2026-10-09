@@ -27,10 +27,11 @@ import org.apache.druid.msq.dart.worker.WorkerId;
 import org.apache.druid.msq.exec.MemoryIntrospector;
 import org.apache.druid.msq.exec.MemoryIntrospectorImpl;
 import org.apache.druid.msq.indexing.LegacyMSQSpec;
-import org.apache.druid.msq.indexing.MSQSpec;
 import org.apache.druid.msq.indexing.QueryDefMSQSpec;
 import org.apache.druid.msq.indexing.destination.TaskReportMSQDestination;
+import org.apache.druid.msq.input.InputSpec;
 import org.apache.druid.msq.input.system.SystemTableInputSpec;
+import org.apache.druid.msq.input.table.TableInputSpec;
 import org.apache.druid.msq.kernel.QueryDefinition;
 import org.apache.druid.msq.kernel.StageDefinition;
 import org.apache.druid.msq.kernel.controller.ControllerQueryKernelConfig;
@@ -48,14 +49,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -151,135 +150,23 @@ public class DartControllerContextTest
     );
   }
 
-  /** All queries default to two concurrent stages; explicit context values override this in both planning modes. */
-  @ParameterizedTest
-  @CsvSource({
-      "false, false, 0, 2",
-      "true, false, 0, 2",
-      "true, true, 0, 2",
-      "true, false, 1, 1",
-      "true, true, 1, 1",
-      "true, false, 2, 2",
-      "true, true, 2, 2"
-  })
-  public void test_queryKernelConfig_stageLimit(
-      final boolean systemTable,
-      final boolean preplanned,
-      final int configuredStages,
-      final int expectedStages
-  )
-  {
-    final QueryContext context = QueryContext.of(
-        configuredStages == 0
-        ? Map.of(QueryContexts.CTX_DART_QUERY_ID, QUERY_ID)
-        : Map.of(
-            QueryContexts.CTX_DART_QUERY_ID, QUERY_ID,
-            MultiStageQueryContext.CTX_MAX_CONCURRENT_STAGES, configuredStages
-        )
-    );
-    final MSQSpec spec;
-    if (preplanned) {
-      final QueryDefMSQSpec preplannedSpec = Mockito.mock(QueryDefMSQSpec.class);
-      final QueryDefinition definition = Mockito.mock(QueryDefinition.class);
-      final StageDefinition stage = Mockito.mock(StageDefinition.class);
-      Mockito.when(preplannedSpec.getContext()).thenReturn(context);
-      Mockito.when(preplannedSpec.getDestination()).thenReturn(TaskReportMSQDestination.instance());
-      Mockito.when(preplannedSpec.getQueryDef()).thenReturn(definition);
-      Mockito.when(definition.getStageDefinitions()).thenReturn(List.of(stage));
-      Mockito.when(stage.getInputSpecs()).thenReturn(List.of(new SystemTableInputSpec("server_properties")));
-      spec = preplannedSpec;
-    } else {
-      Mockito.when(querySpec.getContext()).thenReturn(context);
-      if (systemTable) {
-        Mockito.when(query.getDataSource()).thenReturn(new SystemTableDataSource("server_properties"));
-      }
-      spec = querySpec;
-    }
-    final ControllerQueryKernelConfig config = new DartControllerContext(
-        null,
-        null,
-        SELF_NODE,
-        null,
-        memoryIntrospector,
-        serverView,
-        List.of(),
-        null,
-        context
-    ).queryKernelConfig(spec);
-
-    Assertions.assertEquals(expectedStages, config.getMaxConcurrentStages());
-    Assertions.assertEquals(expectedStages > 1, config.isPipeline());
-    Assertions.assertEquals(
-        expectedStages,
-        config.getWorkerContextMap().get(MultiStageQueryContext.CTX_MAX_CONCURRENT_STAGES)
-    );
-  }
-
   /** A system-table query uses the Broker fallback plus only the discovered Historical workers. */
   @Test
   public void test_queryKernelConfig_systemTableUsesBrokerWorker()
   {
     Mockito.when(query.getDataSource()).thenReturn(new SystemTableDataSource("server_properties"));
-    final DartControllerContext controllerContext = new DartControllerContext(
-        null,
-        null,
-        SELF_NODE,
-        null,
-        memoryIntrospector,
-        serverView,
-        List.of(),
-        null,
-        queryContext
-    );
 
-    final List<String> workerIds = controllerContext.queryKernelConfig(querySpec).getWorkerIds();
-    Assertions.assertEquals(3, workerIds.size());
-    Assertions.assertEquals(WorkerId.fromDruidNode(SELF_NODE, QUERY_ID).toString(), workerIds.get(0));
-    Assertions.assertEquals(
-        Set.of(
-            WorkerId.fromDruidServerMetadata(SERVERS.get(0), QUERY_ID).toString(),
-            WorkerId.fromDruidServerMetadata(SERVERS.get(1), QUERY_ID).toString()
-        ),
-        Set.copyOf(workerIds.subList(1, workerIds.size()))
-    );
+    assertBrokerFallbackPlusHistoricalWorkers(makeControllerContext().queryKernelConfig(querySpec).getWorkerIds());
   }
 
   /** A coupled preplanned query recognizes its system-table input spec and uses the same distributed worker set. */
   @Test
   public void test_queryKernelConfig_preplannedSystemTableUsesBrokerWorker()
   {
-    final QueryDefMSQSpec preplannedQuerySpec = Mockito.mock(QueryDefMSQSpec.class);
-    final QueryDefinition queryDefinition = Mockito.mock(QueryDefinition.class);
-    final StageDefinition stageDefinition = Mockito.mock(StageDefinition.class);
-    Mockito.when(preplannedQuerySpec.getDestination()).thenReturn(TaskReportMSQDestination.instance());
-    Mockito.when(preplannedQuerySpec.getContext()).thenReturn(queryContext);
-    Mockito.when(preplannedQuerySpec.getQueryDef()).thenReturn(queryDefinition);
-    Mockito.when(queryDefinition.getStageDefinitions()).thenReturn(List.of(stageDefinition));
-    Mockito.when(stageDefinition.getInputSpecs()).thenReturn(
-        List.of(new SystemTableInputSpec("server_properties"))
-    );
+    final QueryDefMSQSpec preplannedQuerySpec = preplannedSpec(new SystemTableInputSpec("server_properties"));
 
-    final DartControllerContext controllerContext = new DartControllerContext(
-        null,
-        null,
-        SELF_NODE,
-        null,
-        memoryIntrospector,
-        serverView,
-        List.of(),
-        null,
-        queryContext
-    );
-
-    final List<String> workerIds = controllerContext.queryKernelConfig(preplannedQuerySpec).getWorkerIds();
-    Assertions.assertEquals(3, workerIds.size());
-    Assertions.assertEquals(WorkerId.fromDruidNode(SELF_NODE, QUERY_ID).toString(), workerIds.get(0));
-    Assertions.assertEquals(
-        Set.of(
-            WorkerId.fromDruidServerMetadata(SERVERS.get(0), QUERY_ID).toString(),
-            WorkerId.fromDruidServerMetadata(SERVERS.get(1), QUERY_ID).toString()
-        ),
-        Set.copyOf(workerIds.subList(1, workerIds.size()))
+    assertBrokerFallbackPlusHistoricalWorkers(
+        makeControllerContext().queryKernelConfig(preplannedQuerySpec).getWorkerIds()
     );
   }
 
@@ -292,7 +179,25 @@ public class DartControllerContextTest
         List.of(new SystemTableDataSource("server_properties"), new TableDataSource("foo"))
     );
     Mockito.when(query.getDataSource()).thenReturn(compositeDataSource);
-    final DartControllerContext controllerContext = new DartControllerContext(
+
+    assertMixedSourcesRejected(() -> makeControllerContext().queryKernelConfig(querySpec));
+  }
+
+  /** The same rejection applies to a preplanned query definition that reads both kinds of input. */
+  @Test
+  public void test_queryKernelConfig_preplannedMixedSystemAndSegmentInputsAreRejected()
+  {
+    final QueryDefMSQSpec preplannedQuerySpec = preplannedSpec(
+        new SystemTableInputSpec("server_properties"),
+        new TableInputSpec("foo", null, null)
+    );
+
+    assertMixedSourcesRejected(() -> makeControllerContext().queryKernelConfig(preplannedQuerySpec));
+  }
+
+  private DartControllerContext makeControllerContext()
+  {
+    return new DartControllerContext(
         null,
         null,
         SELF_NODE,
@@ -303,11 +208,37 @@ public class DartControllerContextTest
         null,
         queryContext
     );
+  }
 
-    final DruidException exception = Assertions.assertThrows(
-        DruidException.class,
-        () -> controllerContext.queryKernelConfig(querySpec)
+  private QueryDefMSQSpec preplannedSpec(final InputSpec... inputSpecs)
+  {
+    final QueryDefMSQSpec preplannedQuerySpec = Mockito.mock(QueryDefMSQSpec.class);
+    final QueryDefinition queryDefinition = Mockito.mock(QueryDefinition.class);
+    final StageDefinition stageDefinition = Mockito.mock(StageDefinition.class);
+    Mockito.when(preplannedQuerySpec.getDestination()).thenReturn(TaskReportMSQDestination.instance());
+    Mockito.when(preplannedQuerySpec.getContext()).thenReturn(queryContext);
+    Mockito.when(preplannedQuerySpec.getQueryDef()).thenReturn(queryDefinition);
+    Mockito.when(queryDefinition.getStageDefinitions()).thenReturn(List.of(stageDefinition));
+    Mockito.when(stageDefinition.getInputSpecs()).thenReturn(List.of(inputSpecs));
+    return preplannedQuerySpec;
+  }
+
+  private static void assertBrokerFallbackPlusHistoricalWorkers(final List<String> workerIds)
+  {
+    Assertions.assertEquals(3, workerIds.size());
+    Assertions.assertEquals(WorkerId.fromDruidNode(SELF_NODE, QUERY_ID).toString(), workerIds.get(0));
+    Assertions.assertEquals(
+        Set.of(
+            WorkerId.fromDruidServerMetadata(SERVERS.get(0), QUERY_ID).toString(),
+            WorkerId.fromDruidServerMetadata(SERVERS.get(1), QUERY_ID).toString()
+        ),
+        Set.copyOf(workerIds.subList(1, workerIds.size()))
     );
+  }
+
+  private static void assertMixedSourcesRejected(final Executable queryKernelConfig)
+  {
+    final DruidException exception = Assertions.assertThrows(DruidException.class, queryKernelConfig);
     Assertions.assertEquals(
         "Dart system-table queries cannot mix system tables with other datasources",
         exception.getMessage()

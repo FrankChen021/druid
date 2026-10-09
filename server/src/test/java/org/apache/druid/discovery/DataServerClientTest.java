@@ -188,9 +188,40 @@ public class DataServerClientTest
     );
   }
 
-  /** A node-local query cancellation is sent to the same node-local {@code /druid/v2} endpoint. */
+  /** Node-local requests and their cancellation are both sent to the node-local {@code /druid/v2} endpoint. */
   @Test
-  public void testNodeLocalCancellationCarriesRoutingHeader() throws Exception
+  public void testNodeLocalRequestAndCancellationCarryRoutingHeader() throws Exception
+  {
+    final List<RequestBuilder> requests = runNodeLocalQueryAndClose(false);
+
+    Assertions.assertEquals(2, requests.size());
+    final Request queryRequest = requests.get(0).build(LOCAL_SERVICE_LOCATION);
+    Assertions.assertEquals(HttpMethod.POST, queryRequest.getMethod());
+    Assertions.assertTrue(
+        queryRequest.getHeaders().get(QueryResource.HEADER_NATIVE_QUERY_ROUTE)
+                    .contains(QueryResource.NATIVE_QUERY_ROUTE_LOCAL)
+    );
+    final Request cancelRequest = requests.get(1).build(LOCAL_SERVICE_LOCATION);
+    Assertions.assertEquals(HttpMethod.DELETE, cancelRequest.getMethod());
+    Assertions.assertEquals("/druid/v2/local-query-id", cancelRequest.getUrl().getPath());
+    Assertions.assertTrue(
+        cancelRequest.getHeaders().get(QueryResource.HEADER_NATIVE_QUERY_ROUTE)
+                     .contains(QueryResource.NATIVE_QUERY_ROUTE_LOCAL)
+    );
+  }
+
+  /** Closing after the response has been fully received does not cancel the already-finished query. */
+  @Test
+  public void testCloseAfterCompletedResponseDoesNotCancel() throws Exception
+  {
+    final List<RequestBuilder> requests = runNodeLocalQueryAndClose(true);
+
+    Assertions.assertEquals(1, requests.size());
+    Assertions.assertEquals(HttpMethod.POST, requests.get(0).build(LOCAL_SERVICE_LOCATION).getMethod());
+  }
+
+  /** Runs a node-local query against a fake service client, closes it, and returns every request that was sent. */
+  private List<RequestBuilder> runNodeLocalQueryAndClose(final boolean completeResponse) throws Exception
   {
     final List<RequestBuilder> requests = new ArrayList<>();
     final ServiceClient localServiceClient = new ServiceClient()
@@ -208,6 +239,9 @@ public class DataServerClientTest
               new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK),
               TestHttpClient.NOOP_TRAFFIC_COP
           );
+          if (completeResponse) {
+            handler.done(response);
+          }
           return Futures.immediateFuture((FinalType) response.getObj());
         }
         return (ListenableFuture<FinalType>) Futures.immediateVoidFuture();
@@ -226,25 +260,16 @@ public class DataServerClientTest
         StandardRetryPolicy.noRetries(),
         true
     );
-    final ScanQuery identifiedQuery = (ScanQuery) query.withId("local-query-id");
     final Closer closer = Closer.create();
 
     localTarget.run(
-        identifiedQuery,
+        (ScanQuery) query.withId("local-query-id"),
         DefaultResponseContext.createEmpty(),
         jsonMapper.getTypeFactory().constructType(ScanResultValue.class),
         closer
     );
     closer.close();
-
-    Assertions.assertEquals(2, requests.size());
-    final Request cancelRequest = requests.get(1).build(LOCAL_SERVICE_LOCATION);
-    Assertions.assertEquals(HttpMethod.DELETE, cancelRequest.getMethod());
-    Assertions.assertEquals("/druid/v2/local-query-id", cancelRequest.getUrl().getPath());
-    Assertions.assertTrue(
-        cancelRequest.getHeaders().get(QueryResource.HEADER_NATIVE_QUERY_ROUTE)
-                     .contains(QueryResource.NATIVE_QUERY_ROUTE_LOCAL)
-    );
+    return requests;
   }
 
   private static class DataServerResponse

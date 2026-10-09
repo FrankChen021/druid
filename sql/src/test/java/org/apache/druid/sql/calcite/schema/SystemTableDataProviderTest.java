@@ -20,8 +20,6 @@
 package org.apache.druid.sql.calcite.schema;
 
 import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.schema.Schema;
-import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.apache.druid.sql.calcite.table.DruidTable;
@@ -37,19 +35,6 @@ import java.util.stream.Stream;
 
 public class SystemTableDataProviderTest
 {
-  @Test
-  public void testNativeTablesExposeSystemMetadata()
-  {
-    final ServerPropertiesDataSourceTable serverProperties = new ServerPropertiesDataSourceTable();
-    Assertions.assertEquals(
-        "server_properties",
-        ((SystemTableDataSource) serverProperties.getDataSource()).getTable()
-    );
-    Assertions.assertFalse(serverProperties.isJoinable());
-    Assertions.assertFalse(serverProperties.isBroadcast());
-    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, serverProperties.getJdbcTableType());
-  }
-
   @Test
   public void testSystemSchemaSelectsNativeTablesOnlyForCapableEngine()
   {

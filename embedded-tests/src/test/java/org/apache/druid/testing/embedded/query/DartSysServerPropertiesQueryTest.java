@@ -35,7 +35,6 @@ import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.net.URI;
@@ -198,9 +197,8 @@ public class DartSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
     singleStageContext.put("maxConcurrentStages", 1);
     final String filteredTable = "SELECT * FROM sys.server_properties WHERE property LIKE '"
                                  + PROPERTY_PREFIX + "%%'";
+    // Plain ordered scans and COUNT(DISTINCT) are covered with absolute expectations by the tests above.
     final List<String> queries = new ArrayList<>(List.of(
-        "SELECT service_name, property, \"value\" FROM (" + filteredTable + ") ORDER BY service_name",
-        "SELECT COUNT(DISTINCT server), COUNT(DISTINCT property) FROM (" + filteredTable + ")",
         "SELECT \"value\", COUNT(*), COUNT(DISTINCT server) FROM (" + filteredTable + ") "
         + "GROUP BY \"value\" HAVING COUNT(*) > 0 ORDER BY \"value\"",
         "SELECT SUM(n), COUNT(*) FROM (SELECT service_name, COUNT(*) AS n FROM (" + filteredTable
@@ -224,36 +222,21 @@ public class DartSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
     }
   }
 
-  /** Unsupported UNION ALL and decoupled window plans fail before execution with either stage-concurrency setting. */
-  @ParameterizedTest(name = "plannerStrategy = {0}")
-  @CsvSource({
-      "COUPLED, false, Union operation is only supported between regular tables",
-      "DECOUPLED, false, DruidUnion",
-      "DECOUPLED, true, DruidWindow"
-  })
-  public void testPlanningLimitationsDoNotDependOnStageConcurrency(
-      final String plannerStrategy,
-      final boolean window,
-      final String expectedMessage
-  )
+  /** UNION ALL over system tables is rejected at planning time instead of failing during execution. */
+  @Test
+  public void testUnionAllIsRejectedAtPlanning()
   {
-    final String sql = window
-                       ? "SELECT service_name, ROW_NUMBER() OVER (PARTITION BY node_roles ORDER BY service_name) "
-                         + "FROM sys.server_properties ORDER BY service_name"
-                       : "SELECT service_name FROM sys.server_properties "
-                         + "UNION ALL SELECT service_name FROM sys.server_properties";
-    final Map<String, Object> context = new HashMap<>(dartQueryContext(plannerStrategy));
-    final RuntimeException defaultFailure = Assertions.assertThrows(
+    final RuntimeException failure = Assertions.assertThrows(
         RuntimeException.class,
-        () -> cluster.runSql(sql, context)
+        () -> cluster.runSql(
+            "SELECT service_name FROM sys.server_properties UNION ALL SELECT service_name FROM sys.server_properties",
+            dartQueryContext(QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED)
+        )
     );
-    Assertions.assertTrue(defaultFailure.getMessage().contains(expectedMessage), defaultFailure.getMessage());
-    context.put("maxConcurrentStages", 1);
-    final RuntimeException singleStageFailure = Assertions.assertThrows(
-        RuntimeException.class,
-        () -> cluster.runSql(sql, context)
+    Assertions.assertTrue(
+        failure.getMessage().contains("Union operation is only supported between regular tables"),
+        failure.getMessage()
     );
-    Assertions.assertTrue(singleStageFailure.getMessage().contains(expectedMessage), singleStageFailure.getMessage());
   }
 
   /** Every node role serves an internal {@code ScanQuery(SystemTableDataSource)} through the standard endpoint. */

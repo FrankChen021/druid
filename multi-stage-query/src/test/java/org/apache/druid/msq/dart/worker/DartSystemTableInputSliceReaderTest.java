@@ -71,8 +71,10 @@ import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTablePushdownFilter;
+import org.apache.druid.server.system.table.SystemTableRowAuthorizer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
@@ -106,16 +108,15 @@ public class DartSystemTableInputSliceReaderTest
     );
     final SelectorDimFilter filter = new SelectorDimFilter("server", BROKER.getHostAndPortToUse(), null);
 
-    consume(
-        reader(remote, Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, provider)).attach(
-            0,
-            slice(List.of(source(BROKER, NodeRole.BROKER)), filter, List.of("server"), Long.MAX_VALUE),
-            new CounterTracker(false),
-            ignored -> {
-            }
-        )
+    final PhysicalInputSlice inputSlice = reader(remote, Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, provider)).attach(
+        0,
+        slice(List.of(source(BROKER, NodeRole.BROKER)), filter, List.of("server"), Long.MAX_VALUE),
+        new CounterTracker(false),
+        ignored -> {
+        }
     );
 
+    Assertions.assertEquals(List.of(List.of(BROKER.getHostAndPortToUse())), readRows(inputSlice, List.of("server")));
     final ArgumentCaptor<List<org.apache.druid.query.filter.DimFilter>> filters = ArgumentCaptor.forClass(List.class);
     Mockito.verify(provider).getRows(filters.capture(), Mockito.any());
     Assertions.assertEquals(List.of(filter), filters.getValue());
@@ -146,16 +147,18 @@ public class DartSystemTableInputSliceReaderTest
         )
     );
 
-    consume(
-        reader(remote, Map.of()).attach(
-            0,
-            slice(List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL)), null, null, Long.MAX_VALUE),
-            new CounterTracker(false),
-            ignored -> {
-            }
-        )
+    final PhysicalInputSlice inputSlice = reader(remote, Map.of()).attach(
+        0,
+        slice(List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL)), null, null, Long.MAX_VALUE),
+        new CounterTracker(false),
+        ignored -> {
+        }
     );
 
+    Assertions.assertEquals(
+        List.of(List.of(HISTORICAL_ONE.getHostAndPortToUse(), "key", "value")),
+        readRows(inputSlice, List.of("server", "property", "value"))
+    );
     Assertions.assertEquals(1, remote.requests.size());
     final Request request = remote.requests.get(0).build(ServiceLocation.fromDruidNode(HISTORICAL_ONE));
     Assertions.assertEquals("/druid/v2/", request.getUrl().getPath());
@@ -173,6 +176,7 @@ public class DartSystemTableInputSliceReaderTest
 
   /** All remote native-query requests start before the reader waits for the first response. */
   @Test
+  @Timeout(30)
   public void testAttachStartsRemoteRequestsTogether() throws IOException
   {
     final RemoteHarness remote = new RemoteHarness();
@@ -191,21 +195,24 @@ public class DartSystemTableInputSliceReaderTest
       }
     };
 
-    consume(
-        reader(remote, Map.of()).attach(
-            0,
-            slice(
-                List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL), source(HISTORICAL_TWO, NodeRole.HISTORICAL)),
-                null,
-                null,
-                Long.MAX_VALUE
-            ),
-            new CounterTracker(false),
-            ignored -> {
-            }
-        )
+    final PhysicalInputSlice inputSlice = reader(remote, Map.of()).attach(
+        0,
+        slice(
+            List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL), source(HISTORICAL_TWO, NodeRole.HISTORICAL)),
+            null,
+            null,
+            Long.MAX_VALUE
+        ),
+        new CounterTracker(false),
+        ignored -> {
+        }
     );
 
+    // Rows are emitted in source order even though the second response is ready first.
+    Assertions.assertEquals(
+        List.of(List.of("first"), List.of("second")),
+        readRows(inputSlice, List.of("property"))
+    );
     Assertions.assertEquals(2, requestsStarted.get());
   }
 
@@ -229,6 +236,86 @@ public class DartSystemTableInputSliceReaderTest
     );
     Assertions.assertInstanceOf(RpcException.class, exception.getCause());
     Assertions.assertEquals("forbidden", exception.getCause().getMessage());
+  }
+
+  /** A co-located source applies the slice limit only when no residual filter could discard rows afterwards. */
+  @Test
+  public void testLocalLimitIsAppliedOnlyWithoutResidualFilter()
+  {
+    final SystemTableDataProvider provider = Mockito.mock(SystemTableDataProvider.class);
+    Mockito.when(provider.getRows(Mockito.anyList(), Mockito.any())).thenAnswer(
+        invocation -> List.<Object[]>of(row("a"), row("b"), row("c"))
+    );
+    final Map<String, SystemTableDataProvider> providers = Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, provider);
+    final List<String> columns = List.of("property");
+
+    Assertions.assertEquals(
+        List.of(List.of("a"), List.of("b")),
+        readRows(
+            reader(new RemoteHarness(), providers).attach(
+                0,
+                slice(List.of(source(BROKER, NodeRole.BROKER)), null, columns, 2),
+                new CounterTracker(false),
+                ignored -> {
+                }
+            ),
+            columns
+        )
+    );
+    Assertions.assertEquals(
+        List.of(List.of("a"), List.of("b"), List.of("c")),
+        readRows(
+            reader(new RemoteHarness(), providers).attach(
+                0,
+                slice(
+                    List.of(source(BROKER, NodeRole.BROKER)),
+                    new SelectorDimFilter("property", "b", null),
+                    columns,
+                    2
+                ),
+                new CounterTracker(false),
+                ignored -> {
+                }
+            ),
+            columns
+        )
+    );
+  }
+
+  /** Rows read from a co-located provider pass through the descriptor's row authorizer. */
+  @Test
+  public void testLocalRowsAreFilteredByRowAuthorizer()
+  {
+    final SystemTableDataProvider provider = Mockito.mock(SystemTableDataProvider.class);
+    Mockito.when(provider.getRows(Mockito.anyList(), Mockito.any())).thenReturn(
+        List.<Object[]>of(row("allowed"), row("denied"))
+    );
+    final SystemTableDescriptor descriptor = descriptor(
+        (rows, authenticationResult, authorizerMapper) -> {
+          final List<Object[]> authorized = new ArrayList<>();
+          for (final Object[] row : rows) {
+            if (!"denied".equals(row[3])) {
+              authorized.add(row);
+            }
+          }
+          return authorized;
+        }
+    );
+
+    final List<String> columns = List.of("property");
+    final PhysicalInputSlice inputSlice = reader(
+        new RemoteHarness(),
+        Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, provider),
+        descriptor
+    ).attach(
+        0,
+        slice(List.of(source(BROKER, NodeRole.BROKER)), null, columns, Long.MAX_VALUE),
+        new CounterTracker(false),
+        ignored -> {
+        }
+    );
+
+    Assertions.assertEquals(List.of(List.of("allowed")), readRows(inputSlice, columns));
   }
 
   /** A node transport failure is represented by the descriptor's availability row. */
@@ -343,10 +430,19 @@ public class DartSystemTableInputSliceReaderTest
       final Map<String, SystemTableDataProvider> providers
   )
   {
+    return reader(remote, providers, DESCRIPTOR);
+  }
+
+  private static DartSystemTableInputSliceReader reader(
+      final RemoteHarness remote,
+      final Map<String, SystemTableDataProvider> providers,
+      final SystemTableDescriptor descriptor
+  )
+  {
     return new DartSystemTableInputSliceReader(
         remote.serviceClientFactory,
         remote.smileMapper,
-        Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, DESCRIPTOR),
+        Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, descriptor),
         providers,
         BROKER,
         Mockito.mock(AuthenticationResult.class),
@@ -379,10 +475,15 @@ public class DartSystemTableInputSliceReaderTest
 
   private static SystemTableDescriptor descriptor()
   {
+    return descriptor((rows, authenticationResult, authorizerMapper) -> rows);
+  }
+
+  private static SystemTableDescriptor descriptor(final SystemTableRowAuthorizer rowAuthorizer)
+  {
     final ServerPropertiesTableDescriptor delegate = new ServerPropertiesTableDescriptor();
     final SystemTableDescriptor descriptor = Mockito.mock(SystemTableDescriptor.class);
     Mockito.when(descriptor.getRowSignature()).thenReturn(ServerPropertiesTableDescriptor.ROW_SIGNATURE);
-    Mockito.when(descriptor.getRowAuthorizer()).thenReturn((rows, authenticationResult, authorizerMapper) -> rows);
+    Mockito.when(descriptor.getRowAuthorizer()).thenReturn(rowAuthorizer);
     Mockito.when(descriptor.getNodeFailureRow(Mockito.any(), Mockito.anySet(), Mockito.any())).thenAnswer(
         invocation -> delegate.getNodeFailureRow(
             invocation.getArgument(0),
@@ -391,6 +492,11 @@ public class DartSystemTableInputSliceReaderTest
         )
     );
     return descriptor;
+  }
+
+  private static Object[] row(final String property)
+  {
+    return new Object[]{BROKER.getHostAndPortToUse(), "broker", "[broker]", property, "value", null};
   }
 
   private static void consume(final PhysicalInputSlice physicalInputSlice)

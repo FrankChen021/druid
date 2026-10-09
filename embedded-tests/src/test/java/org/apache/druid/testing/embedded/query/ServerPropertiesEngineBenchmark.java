@@ -30,6 +30,7 @@ import org.apache.druid.testing.embedded.EmbeddedDruidCluster;
 import org.apache.druid.testing.embedded.EmbeddedHistorical;
 import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
@@ -45,6 +46,7 @@ import java.util.concurrent.TimeUnit;
  * explicitly with
  * {@code -Ddruid.test.benchmark=true -Dtest=ServerPropertiesEngineBenchmark}.
  */
+@Tag("perf")
 @EnabledIfSystemProperty(named = "druid.test.benchmark", matches = "true")
 public class ServerPropertiesEngineBenchmark extends EmbeddedClusterTestBase
 {

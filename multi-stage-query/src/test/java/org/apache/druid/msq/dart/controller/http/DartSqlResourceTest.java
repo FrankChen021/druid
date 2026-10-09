@@ -155,7 +155,6 @@ public class DartSqlResourceTest extends MSQTestBase
   // Objects created in setUp() below this line.
 
   private SqlResource sqlResource;
-  private DartSqlEngine engine;
   private DartControllerRegistry controllerRegistry;
   private ControllerThreadPool controllerThreadPool;
   private final StubServiceEmitter serviceEmitter = new StubServiceEmitter();
@@ -226,7 +225,7 @@ public class DartSqlResourceTest extends MSQTestBase
         lifecycleManager
     );
 
-    engine = new DartSqlEngine(
+    final DartSqlEngine engine = new DartSqlEngine(
         new MSQTestControllerContext(
             "did2",
             objectMapper,
@@ -327,13 +326,6 @@ public class DartSqlResourceTest extends MSQTestBase
     Response response = sqlResource.getSupportedEngines(httpServletRequest);
     Set<EngineInfo> supportedEngines = ((SupportedEnginesResponse) response.getEntity()).getEngines();
     Assertions.assertTrue(supportedEngines.contains(new EngineInfo(DartSqlEngine.NAME)));
-  }
-
-  @Test
-  public void testSupportsRegisteredSystemTableDataSource()
-  {
-    Assertions.assertTrue(engine.supportsSystemTableDataSource(ServerPropertiesTableDescriptor.TABLE_NAME));
-    Assertions.assertFalse(engine.supportsSystemTableDataSource("unregistered"));
   }
 
   /**

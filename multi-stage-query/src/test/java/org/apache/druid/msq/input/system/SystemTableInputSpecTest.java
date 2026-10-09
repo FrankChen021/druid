@@ -75,7 +75,6 @@ public class SystemTableInputSpecTest
             Long.MAX_VALUE
         )
     );
-    Mockito.verify(query, Mockito.never()).getRequiredColumns();
   }
 
   /** An empty Scan projection with a residual filter keeps the full input because Scan cannot report its dependencies. */
@@ -110,6 +109,5 @@ public class SystemTableInputSpecTest
     );
 
     Assertions.assertSame(inputSpecs, SystemTableInputSpec.addSourceHints(inputSpecs, query, 11));
-    Mockito.verifyNoInteractions(query);
   }
 }

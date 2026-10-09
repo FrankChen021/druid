@@ -36,10 +36,14 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Stream;
 
 public class ServerPropertiesTableDataProviderTest
 {
@@ -70,62 +74,54 @@ public class ServerPropertiesTableDataProviderTest
     );
   }
 
-  @Test
-  public void testAppliesServerAndServiceNameFilters()
+  /**
+   * Server and service-name value filters prune a node that cannot match before its properties are read, while
+   * predicates the provider cannot evaluate are left for residual evaluation and never prune.
+   */
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("filterCases")
+  public void testAppliesPushdownFilters(final String description, final DimFilter filter, final boolean expectRows)
   {
     final ServerPropertiesTableDataProvider supplier = supplier(new Properties(), allowAllAuthorizerMapper());
-    final DimFilter wrongServer = new SelectorDimFilter("server", "other:8080", null);
-    final DimFilter wrongService = new SelectorDimFilter("service_name", "broker", null);
 
-    Assertions.assertTrue(toRows(supplier.getRows(List.of(wrongServer), AUTHENTICATION_RESULT)).isEmpty());
-    Assertions.assertTrue(toRows(supplier.getRows(List.of(wrongService), AUTHENTICATION_RESULT)).isEmpty());
-    Assertions.assertFalse(
-        toRows(
-            supplier.getRows(
-                List.of(new SelectorDimFilter("server", "localhost:8080", null)),
-                AUTHENTICATION_RESULT
-            )
-        ).isEmpty()
+    Assertions.assertEquals(
+        expectRows,
+        !toRows(supplier.getRows(List.of(filter), AUTHENTICATION_RESULT)).isEmpty()
     );
   }
 
-  /** server IN (...) and same-column OR filters prune nodes that cannot match before properties are read. */
-  @Test
-  public void testAppliesMultiValueServerAndServiceNameFilters()
+  private static Stream<Arguments> filterCases()
   {
-    final ServerPropertiesTableDataProvider supplier = supplier(new Properties(), allowAllAuthorizerMapper());
-    final DimFilter matchingServer = new InDimFilter("server", Set.of("other:8080", "localhost:8080"), null);
-    final DimFilter wrongServer = new OrDimFilter(
-        List.of(
-            new SelectorDimFilter("server", "other:8080", null),
-            new SelectorDimFilter("server", "another:8080", null)
-        )
-    );
-    final DimFilter matchingService = new OrDimFilter(
-        List.of(
-            new SelectorDimFilter("service_name", "broker", null),
-            new SelectorDimFilter("service_name", "overlord", null)
-        )
-    );
-
-    Assertions.assertFalse(toRows(supplier.getRows(List.of(matchingServer), AUTHENTICATION_RESULT)).isEmpty());
-    Assertions.assertTrue(toRows(supplier.getRows(List.of(wrongServer), AUTHENTICATION_RESULT)).isEmpty());
-    Assertions.assertFalse(toRows(supplier.getRows(List.of(matchingService), AUTHENTICATION_RESULT)).isEmpty());
-  }
-
-  /** Non-value predicates remain for residual evaluation and do not cause provider-side pruning or failure. */
-  @Test
-  public void testIgnoresUnsupportedProviderFilter()
-  {
-    final ServerPropertiesTableDataProvider supplier = supplier(new Properties(), allowAllAuthorizerMapper());
-
-    Assertions.assertFalse(
-        toRows(
-            supplier.getRows(
-                List.of(new LikeDimFilter("server", "localhost%", null, null)),
-                AUTHENTICATION_RESULT
-            )
-        ).isEmpty()
+    return Stream.of(
+        Arguments.of("matching server", new SelectorDimFilter("server", "localhost:8080", null), true),
+        Arguments.of("other server", new SelectorDimFilter("server", "other:8080", null), false),
+        Arguments.of("other service", new SelectorDimFilter("service_name", "broker", null), false),
+        Arguments.of(
+            "server IN containing this node",
+            new InDimFilter("server", Set.of("other:8080", "localhost:8080"), null),
+            true
+        ),
+        Arguments.of(
+            "server OR without this node",
+            new OrDimFilter(
+                List.of(
+                    new SelectorDimFilter("server", "other:8080", null),
+                    new SelectorDimFilter("server", "another:8080", null)
+                )
+            ),
+            false
+        ),
+        Arguments.of(
+            "service OR containing this node",
+            new OrDimFilter(
+                List.of(
+                    new SelectorDimFilter("service_name", "broker", null),
+                    new SelectorDimFilter("service_name", "overlord", null)
+                )
+            ),
+            true
+        ),
+        Arguments.of("unsupported LIKE is residual", new LikeDimFilter("server", "other%", null, null), true)
     );
   }
 

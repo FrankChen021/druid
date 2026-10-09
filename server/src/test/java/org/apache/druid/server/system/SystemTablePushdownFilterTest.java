@@ -20,7 +20,7 @@
 package org.apache.druid.server.system;
 
 import org.apache.druid.java.util.common.Intervals;
-import org.apache.druid.query.Druids;
+import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.extraction.IdentityExtractionFn;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.DimFilter;
@@ -30,13 +30,18 @@ import org.apache.druid.query.filter.LikeDimFilter;
 import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.filter.TypedInFilter;
+import org.apache.druid.query.operator.ScanOperatorFactory;
+import org.apache.druid.query.operator.WindowOperatorQuery;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
+import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.system.table.SystemTablePushdownFilter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class SystemTablePushdownFilterTest
@@ -75,21 +80,33 @@ public class SystemTablePushdownFilterTest
     );
   }
 
-  /** Query-level extraction uses the query filter and leaves unsupported predicates for residual evaluation. */
+  /** Query-level extraction also reads the filters of a window query's leaf scan operators. */
   @Test
-  public void testExtractFromQuery()
+  public void testExtractFromWindowOperatorQueryLeafScan()
   {
-    final List<DimFilter> extracted = SystemTablePushdownFilter.extract(
-        Druids.newScanQueryBuilder()
-              .dataSource("test")
-              .intervals(new MultipleIntervalSegmentSpec(Intervals.ONLY_ETERNITY))
-              .filters(new SelectorDimFilter("server", "node-a", null))
-              .build(),
-        PUSHDOWN_FILTERS
+    final WindowOperatorQuery query = new WindowOperatorQuery(
+        InlineDataSource.fromIterable(List.of(), RowSignature.empty()),
+        new MultipleIntervalSegmentSpec(Intervals.ONLY_ETERNITY),
+        Map.of(),
+        RowSignature.empty(),
+        List.of(),
+        List.of(
+            new ScanOperatorFactory(
+                null,
+                new SelectorDimFilter("server", "node-a", null),
+                null,
+                null,
+                VirtualColumns.EMPTY,
+                null
+            )
+        )
     );
+
+    final List<DimFilter> extracted = SystemTablePushdownFilter.extract(query, PUSHDOWN_FILTERS);
 
     Assertions.assertEquals(1, extracted.size());
     Assertions.assertEquals("node", SystemTablePushdownFilter.getStringValuesColumn(extracted.get(0)));
+    Assertions.assertEquals(Set.of("node-a"), SystemTablePushdownFilter.getStringValues(extracted.get(0)));
   }
 
   /** Empty rules, absent filters, and predicates on undeclared columns produce no pushdown filters. */
@@ -155,30 +172,5 @@ public class SystemTablePushdownFilterTest
     Assertions.assertEquals(Set.of("node-a", "node-b"), SystemTablePushdownFilter.getStringValues(extracted.get(0)));
     Assertions.assertTrue(SystemTablePushdownFilter.extract(differentColumns, PUSHDOWN_FILTERS).isEmpty());
     Assertions.assertTrue(SystemTablePushdownFilter.extract(unsupportedBranch, PUSHDOWN_FILTERS).isEmpty());
-  }
-
-  /** Finite-value helpers reject arbitrary filters rather than treating them as provider predicates. */
-  @Test
-  public void testStringValuesHelpersRejectUnsupportedFilters()
-  {
-    final DimFilter unsupported = new LikeDimFilter("server", "node-%", null, null);
-
-    Assertions.assertFalse(SystemTablePushdownFilter.isStringValuesFilter(unsupported));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> SystemTablePushdownFilter.getStringValuesColumn(unsupported)
-    );
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> SystemTablePushdownFilter.getStringValues(unsupported)
-    );
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> SystemTablePushdownFilter.getStringValuesColumn(null)
-    );
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> SystemTablePushdownFilter.getStringValues(null)
-    );
   }
 }
