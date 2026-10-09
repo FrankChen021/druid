@@ -34,6 +34,8 @@ import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanQueryEngine;
+import org.apache.druid.query.scan.ScanQueryOffsetSequence;
+import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.segment.InlineSegmentWrangler;
 import org.apache.druid.segment.Segment;
 import org.apache.druid.server.DataSourceQueryHandler;
@@ -68,6 +70,7 @@ public class SystemTableQueryHandler implements DataSourceQueryHandler
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public <T> QueryRunner<T> createRunner(
       final Query<T> query,
       final AuthenticationResult requestAuthenticationResult,
@@ -108,41 +111,59 @@ public class SystemTableQueryHandler implements DataSourceQueryHandler
           requestAuthenticationResult,
           authorizerMapper
       );
-      final ScanQuery resolvedQuery = Druids.ScanQueryBuilder.copy((ScanQuery) query)
+      final ScanQuery originalQuery = (ScanQuery) query;
+      // The Scan engine does not apply "offset": the Scan tool chest normally widens the limit and skips the offset
+      // rows on top of the engine, so do the same here since this handler bypasses the tool chest.
+      final long offset = originalQuery.getScanRowsOffset();
+      final long limit;
+      if (!originalQuery.isLimited()) {
+        limit = Long.MAX_VALUE;
+      } else if (originalQuery.getScanRowsLimit() > Long.MAX_VALUE - offset) {
+        throw new ISE(
+            "Cannot apply limit[%d] with offset[%d] due to overflow",
+            originalQuery.getScanRowsLimit(),
+            offset
+        );
+      } else {
+        limit = originalQuery.getScanRowsLimit() + offset;
+      }
+      final ScanQuery resolvedQuery = Druids.ScanQueryBuilder.copy(originalQuery)
                                                        .dataSource(
                                                            InlineDataSource.fromIterable(
                                                                authorizedRows,
                                                                descriptor.getRowSignature()
                                                            )
                                                        )
-                                                       .build();
+                                                       .build()
+                                                       .withOffset(0)
+                                                       .withLimit(limit);
       final Segment inlineSegment = new InlineSegmentWrangler()
           .getSegmentsForIntervals(resolvedQuery.getDataSource(), resolvedQuery.getIntervals())
           .iterator()
           .next();
 
-      return runScan(
+      final Sequence<ScanResultValue> results = runScan(
           scanQueryEngine,
           resolvedQuery,
           inlineSegment,
           queryPlus,
           responseContext
       );
+      return (Sequence<T>) (Sequence<?>) (offset > 0 ? new ScanQueryOffsetSequence(results, offset) : results);
     };
   }
 
-  @SuppressWarnings("unchecked")
-  private static <T> Sequence<T> runScan(
+  private static Sequence<ScanResultValue> runScan(
       final ScanQueryEngine scanQueryEngine,
       final ScanQuery query,
       final Segment segment,
-      final QueryPlus<T> queryPlus,
+      final QueryPlus<?> queryPlus,
       final ResponseContext responseContext
   )
   {
     ScanQuery.verifyOrderByForNativeExecution(query);
     initializeTimeout(query, responseContext);
-    return (Sequence<T>) (Sequence<?>) scanQueryEngine.process(
+    return scanQueryEngine.process(
         query,
         segment,
         responseContext,
