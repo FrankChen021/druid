@@ -265,9 +265,6 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
       byte[] requestBytes = objectMapper.writeValueAsBytes(requestMap);
       request.setAttribute(AVATICA_QUERY_ATTRIBUTE, requestBytes);
       LOG.debug("Forwarding JDBC connection [%s] to broker [%s]", connectionId, targetServer.getHost());
-    } else if (HttpMethod.DELETE.is(method) && isNativeQueryEndpoint && isLocalNativeQueryRoute(request)) {
-      dispatchNodeLocalCancellation(request, response);
-      return;
     } else if (HttpMethod.DELETE.is(method)) {
       // query cancellation request
       targetServer = hostFinder.pickDefaultServer();
@@ -275,21 +272,21 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
       LOG.debug("Broadcasting cancellation request to all brokers");
     } else if (isNativeQueryEndpoint && HttpMethod.POST.is(method)) {
       // query request
+      Query inputQuery = null;
       try {
-        Query inputQuery = objectMapper.readValue(request.getInputStream(), Query.class);
-        if (inputQuery != null) {
-          if (isLocalSystemTableQuery(request, inputQuery)) {
-            dispatchNodeLocalQuery(request, response, inputQuery, objectMapper);
-            return;
-          }
+        inputQuery = objectMapper.readValue(request.getInputStream(), Query.class);
+        if (inputQuery != null && !isLocalSystemTableQuery(request, inputQuery)) {
           targetServer = hostFinder.pickServer(inputQuery);
           if (inputQuery.getId() == null) {
             inputQuery = inputQuery.withId(UUID.randomUUID().toString());
           }
           LOG.debug("Forwarding JSON query [%s] to broker [%s]", inputQuery.getId(), targetServer.getHost());
-        } else {
+        } else if (inputQuery == null) {
           targetServer = hostFinder.pickDefaultServer();
           LOG.debug("Forwarding JSON request to broker [%s]", targetServer.getHost());
+        } else {
+          // A node-local system-table query is served by this Router rather than forwarded, so it has no target.
+          targetServer = null;
         }
         request.setAttribute(QUERY_ATTRIBUTE, inputQuery);
       }
@@ -299,6 +296,12 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
       }
       catch (Exception e) {
         handleException(response, objectMapper, e);
+        return;
+      }
+      if (targetServer == null) {
+        // Dispatch outside of the parsing try block: failures while the local container handles the request and
+        // streams its response are not query-parse failures, and must not be logged or answered as such.
+        dispatchNodeLocalQuery(request, response, inputQuery, objectMapper);
         return;
       }
     } else if (isSqlQueryEndpoint && HttpMethod.POST.is(method)) {
@@ -344,18 +347,6 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
       throw new IAE("Router local query container is not available");
     }
     localQueryContainer.service(new CachedBodyRequest(request, objectMapper.writeValueAsBytes(query)), response);
-  }
-
-  private void dispatchNodeLocalCancellation(
-      final HttpServletRequest request,
-      final HttpServletResponse response
-  ) throws ServletException, IOException
-  {
-    request.setAttribute(NODE_LOCAL_ATTRIBUTE, true);
-    if (localQueryContainer == null) {
-      throw new IAE("Router local query container is not available");
-    }
-    localQueryContainer.service(new NodeLocalRequest(request), response);
   }
 
   private static boolean isLocalSystemTableQuery(final HttpServletRequest request, final Query<?> query)
