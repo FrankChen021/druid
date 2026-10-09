@@ -32,6 +32,11 @@ public class Bitmap32ExactCountBuildBufferAggregator implements BufferAggregator
   private final BaseLongColumnValueSelector selector;
   private final IdentityHashMap<ByteBuffer, Int2ObjectMap<Bitmap32>> collectors = new IdentityHashMap<>();
 
+  // one-entry cache of the last looked up collector, to skip two hash lookups per row for consecutive hits on a group
+  private ByteBuffer lastBuffer;
+  private int lastPosition;
+  private Bitmap32 lastCollector;
+
   public Bitmap32ExactCountBuildBufferAggregator(BaseLongColumnValueSelector selector)
   {
     this.selector = selector;
@@ -40,22 +45,16 @@ public class Bitmap32ExactCountBuildBufferAggregator implements BufferAggregator
   @Override
   public void init(ByteBuffer buf, int position)
   {
+    clearLastCollector();
     createNewCollector(buf, position);
   }
 
   @Override
   public void aggregate(ByteBuffer buf, int position)
   {
-    final int oldPosition = buf.position();
-    try {
-      buf.position(position);
-      Bitmap32 bitmap32Counter = getOrCreateCollector(buf, position);
-      if (!selector.isNull()) {
-        bitmap32Counter.add(RoaringBitmap32Counter.toInt(selector.getLong()));
-      }
-    }
-    finally {
-      buf.position(oldPosition);
+    final Bitmap32 bitmap32Counter = getOrCreateCollector(buf, position);
+    if (!selector.isNull()) {
+      bitmap32Counter.add(RoaringBitmap32Counter.toInt(selector.getLong()));
     }
   }
 
@@ -92,6 +91,7 @@ public class Bitmap32ExactCountBuildBufferAggregator implements BufferAggregator
   @Override
   public void relocate(int oldPosition, int newPosition, ByteBuffer oldBuffer, ByteBuffer newBuffer)
   {
+    clearLastCollector();
     createNewCollector(newBuffer, newPosition);
     Bitmap32 collector = collectors.get(oldBuffer).get(oldPosition);
     putCollectors(newBuffer, newPosition, collector);
@@ -112,18 +112,28 @@ public class Bitmap32ExactCountBuildBufferAggregator implements BufferAggregator
 
   private Bitmap32 getOrCreateCollector(ByteBuffer buf, int position)
   {
+    if (buf == lastBuffer && position == lastPosition) {
+      return lastCollector;
+    }
     Int2ObjectMap<Bitmap32> collectMap = collectors.get(buf);
     Bitmap32 bitmap32Counter = collectMap != null ? collectMap.get(position) : null;
-    if (bitmap32Counter != null) {
-      return bitmap32Counter;
+    if (bitmap32Counter == null) {
+      bitmap32Counter = createNewCollector(buf, position);
     }
+    lastBuffer = buf;
+    lastPosition = position;
+    lastCollector = bitmap32Counter;
+    return bitmap32Counter;
+  }
 
-    return createNewCollector(buf, position);
+  private void clearLastCollector()
+  {
+    lastBuffer = null;
+    lastCollector = null;
   }
 
   private Bitmap32 createNewCollector(ByteBuffer buf, int position)
   {
-    buf.position(position);
     Bitmap32 bitmap32Counter = new RoaringBitmap32Counter();
     Int2ObjectMap<Bitmap32> collectorMap = collectors.computeIfAbsent(buf, k -> new Int2ObjectOpenHashMap<>());
     collectorMap.put(position, bitmap32Counter);

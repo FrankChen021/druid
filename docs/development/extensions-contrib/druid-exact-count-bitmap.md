@@ -24,7 +24,7 @@ title: "Exact Count Bitmap"
 
 This extension provides exact cardinality counting functionality for LONG type columns using [Roaring Bitmaps](https://roaringbitmap.org/). Unlike approximate cardinality aggregators like HyperLogLog, this aggregator provides precise distinct counts.
 
-It comes in two variants. The `Bitmap64` aggregators described in this page count any LONG value. The `Bitmap32` aggregators count LONG columns whose values all fit in 32 bits, and are described in [Bitmap32 variant](#bitmap32-variant).
+It comes in two variants. The `Bitmap64` aggregators described in this page count any LONG value. The `Bitmap32` aggregators count LONG columns whose values all fit in 32 bits, and are described in [32-bit variant](#32-bit-variant).
 
 ## Installation
 
@@ -138,7 +138,7 @@ You can also use the post-aggregator for further processing:
 }
 ```
 
-## Bitmap32 variant
+## 32-bit variant
 
 If all values of the column fit in a signed 32-bit integer (`-2147483648` to `2147483647`), the `Bitmap32` aggregators can be used instead of the `Bitmap64` ones. They store a plain 32-bit roaring bitmap per row, instead of one bitmap per distinct high 32 bits of the value. They are used in the same way as the `Bitmap64` ones, only the names differ:
 

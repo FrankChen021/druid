@@ -34,7 +34,8 @@ import java.util.List;
  * bitmap.
  *
  * A counter read from a segment is a view over the segment buffer, and folding counters only collects the bitmaps of
- * all of them, which are OR-ed when the result is needed. Folded counters must not be modified after they are folded
+ * all of them. The union of those is computed when the result is needed, by OR-ing one bitmap after the other, and
+ * cached. Reads after more folds only OR the new bitmaps. Folded counters must not be modified after they are folded
  * in.
  */
 public class RoaringBitmap32Counter implements Bitmap32
@@ -42,6 +43,10 @@ public class RoaringBitmap32Counter implements Bitmap32
   private final List<ImmutableRoaringBitmap> bitmaps = new ArrayList<>(1);
   @Nullable
   private MutableRoaringBitmap writable;
+  @Nullable
+  private MutableRoaringBitmap union;
+  // number of bitmaps that are included in the union
+  private int unioned;
 
   public RoaringBitmap32Counter()
   {
@@ -89,23 +94,25 @@ public class RoaringBitmap32Counter implements Bitmap32
   }
 
   @Override
-  public void add(final int value)
+  public synchronized void add(final int value)
   {
     if (writable == null) {
       writable = new MutableRoaringBitmap();
       bitmaps.add(writable);
     }
     writable.add(value);
+    // the writable bitmap changed, so the union has to be built again
+    union = null;
   }
 
   @Override
-  public long getCardinality()
+  public synchronized long getCardinality()
   {
-    return bitmaps.size() == 1 ? bitmaps.get(0).getLongCardinality() : union().getLongCardinality();
+    return bitmap().getLongCardinality();
   }
 
   @Override
-  public Bitmap32 fold(@Nullable final Bitmap32 rhs)
+  public synchronized Bitmap32 fold(@Nullable final Bitmap32 rhs)
   {
     if (rhs == null || rhs == this) {
       return this;
@@ -119,18 +126,33 @@ public class RoaringBitmap32Counter implements Bitmap32
   }
 
   @Override
-  public ByteBuffer toByteBuffer()
+  public synchronized ByteBuffer toByteBuffer()
   {
-    final MutableRoaringBitmap union = union();
-    union.runOptimize();
-    final ByteBuffer buffer = ByteBuffer.allocate(union.serializedSizeInBytes()).order(ByteOrder.LITTLE_ENDIAN);
-    union.serialize(buffer);
+    final ImmutableRoaringBitmap bitmap = bitmap();
+    if (bitmap instanceof MutableRoaringBitmap) {
+      ((MutableRoaringBitmap) bitmap).runOptimize();
+    }
+    final ByteBuffer buffer = ByteBuffer.allocate(bitmap.serializedSizeInBytes()).order(ByteOrder.LITTLE_ENDIAN);
+    bitmap.serialize(buffer);
     buffer.rewind();
     return buffer;
   }
 
-  private MutableRoaringBitmap union()
+  /**
+   * The bitmap with all values of this counter.
+   */
+  private ImmutableRoaringBitmap bitmap()
   {
-    return ImmutableRoaringBitmap.or(bitmaps.iterator());
+    if (bitmaps.size() == 1) {
+      return bitmaps.get(0);
+    }
+    if (union == null) {
+      union = new MutableRoaringBitmap();
+      unioned = 0;
+    }
+    for (; unioned < bitmaps.size(); unioned++) {
+      union.or(bitmaps.get(unioned));
+    }
+    return union;
   }
 }
