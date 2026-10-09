@@ -86,7 +86,8 @@ public class ScanQueryKitTest
 
     Assertions.assertEquals(
         expected,
-        ScanQueryKit.canUseMixShuffleForUnorderedSystemTableScan(List.of(inputSpec), builder.build())
+        ScanQueryKit.canUseMixShuffleForUnorderedSystemTableScan(List.of(inputSpec), builder.build()),
+        description
     );
   }
 

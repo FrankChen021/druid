@@ -86,7 +86,8 @@ public class ServerPropertiesTableDataProviderTest
 
     Assertions.assertEquals(
         expectRows,
-        !toRows(supplier.getRows(List.of(filter), AUTHENTICATION_RESULT)).isEmpty()
+        !toRows(supplier.getRows(List.of(filter), AUTHENTICATION_RESULT)).isEmpty(),
+        description
     );
   }
 

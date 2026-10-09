@@ -30,7 +30,6 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 
-import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 
