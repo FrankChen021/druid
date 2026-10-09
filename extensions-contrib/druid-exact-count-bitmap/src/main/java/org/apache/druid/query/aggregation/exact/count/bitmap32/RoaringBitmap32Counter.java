@@ -35,8 +35,8 @@ import java.util.List;
  *
  * A counter read from a segment is a view over the segment buffer, and folding counters only collects the bitmaps of
  * all of them. The union of those is computed when the result is needed, by OR-ing one bitmap after the other, and
- * cached. Reads after more folds only OR the new bitmaps. Folded counters must not be modified after they are folded
- * in.
+ * cached. Reads after more folds only OR the new bitmaps. A counter that is a view over a buffer is only valid while
+ * that buffer stays valid and unmodified, which includes accumulators it was folded into.
  */
 public class RoaringBitmap32Counter implements Bitmap32
 {
@@ -58,11 +58,12 @@ public class RoaringBitmap32Counter implements Bitmap32
   }
 
   /**
-   * Reads a counter from its serialized form. Throws for empty or corrupt data.
+   * Reads a counter from its serialized form, which is copied. Throws for empty or corrupt data.
    */
   public static RoaringBitmap32Counter fromBytes(final byte[] bytes)
   {
-    return fromByteBuffer(ByteBuffer.wrap(bytes));
+    // the counter keeps reading from its bytes, so copy them to be independent of what the caller does with the array
+    return fromByteBuffer(ByteBuffer.wrap(bytes.clone()));
   }
 
   /**

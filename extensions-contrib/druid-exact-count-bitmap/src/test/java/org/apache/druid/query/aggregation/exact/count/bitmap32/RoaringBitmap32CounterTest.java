@@ -255,4 +255,21 @@ class RoaringBitmap32CounterTest
     Assertions.assertThrows(IAE.class, () -> RoaringBitmap32Counter.toInt(Integer.MIN_VALUE - 1L));
     Assertions.assertThrows(IAE.class, () -> RoaringBitmap32Counter.toInt(1L << 40));
   }
+
+  @Test
+  void testFromBytesDoesNotKeepTheCallersArray()
+  {
+    final Set<Integer> values = randomValues(new Random(9), 300);
+    final byte[] serialized = bytes(counterOf(values));
+    final RoaringBitmap32Counter counter = RoaringBitmap32Counter.fromBytes(serialized);
+    final RoaringBitmap32Counter union = new RoaringBitmap32Counter();
+    union.fold(counter);
+
+    // the caller reuses its array
+    Arrays.fill(serialized, (byte) 0);
+
+    Assertions.assertEquals(values.size(), counter.getCardinality());
+    Assertions.assertEquals(values.size(), union.getCardinality());
+    Assertions.assertEquals(values, contents(bytes(union)));
+  }
 }
