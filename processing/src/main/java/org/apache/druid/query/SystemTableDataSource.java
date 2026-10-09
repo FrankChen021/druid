@@ -49,8 +49,9 @@ public class SystemTableDataSource extends LeafDataSource
   @Override
   public Set<String> getTableNames()
   {
-    // QueryScheduler uses table names as cancellation authorization resources. Namespace the synthetic datasource
-    // name so a system table cannot collide with a regular Druid datasource that has the same unqualified name.
+    // Table names are the DATASOURCE resources that a query over this datasource is authorized against. Namespace the
+    // synthetic datasource name so a system table cannot collide with a regular Druid datasource that has the same
+    // unqualified name.
     return Collections.singleton("sys." + table);
   }
 

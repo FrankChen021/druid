@@ -174,6 +174,32 @@ public class DartSystemTableInputSliceReaderTest
     Assertions.assertNotNull(query.getId());
   }
 
+  /** A row-count-only stage asks the remote node for one column, because an empty column list means all columns. */
+  @Test
+  public void testEmptyProjectionRequestsSingleColumnFromRemoteNode() throws IOException
+  {
+    final RemoteHarness remote = new RemoteHarness();
+    remote.respond(
+        List.of(new ScanResultValue(null, List.of("server"), List.of(List.of(HISTORICAL_ONE.getHostAndPortToUse()))))
+    );
+
+    consume(
+        reader(remote, Map.of()).attach(
+            0,
+            slice(List.of(source(HISTORICAL_ONE, NodeRole.HISTORICAL)), null, List.of(), Long.MAX_VALUE),
+            new CounterTracker(false),
+            ignored -> {
+            }
+        )
+    );
+
+    final ScanQuery query = remote.smileMapper.readValue(
+        remote.requests.get(0).build(ServiceLocation.fromDruidNode(HISTORICAL_ONE)).getContent().array(),
+        ScanQuery.class
+    );
+    Assertions.assertEquals(List.of("server"), query.getColumns());
+  }
+
   /** All remote native-query requests start before the reader waits for the first response. */
   @Test
   @Timeout(30)
@@ -379,7 +405,7 @@ public class DartSystemTableInputSliceReaderTest
     Mockito.verify(closer).close();
   }
 
-  /** Closing a partially consumed slice cancels every in-flight request and its node-local native query. */
+  /** Closing a partially consumed slice cancels every in-flight request. */
   @Test
   public void testClosingActiveSliceCancelsAllRemoteRequests() throws Exception
   {
@@ -414,15 +440,33 @@ public class DartSystemTableInputSliceReaderTest
     }
 
     Assertions.assertTrue(pendingResponse.isCancelled());
-    Assertions.assertEquals(1, remote.cancellationRequests.size());
-    for (final RequestBuilder cancellationRequest : remote.cancellationRequests) {
-      final Request request = cancellationRequest.build(ServiceLocation.fromDruidNode(HISTORICAL_ONE));
-      Assertions.assertEquals(HttpMethod.DELETE, request.getMethod());
-      Assertions.assertTrue(
-          request.getHeaders().get(QueryResource.HEADER_NATIVE_QUERY_ROUTE)
-                 .contains(QueryResource.NATIVE_QUERY_ROUTE_LOCAL)
-      );
-    }
+    // Node-local scans are not registered for explicit cancellation; aborting the request is what stops the node.
+    Assertions.assertTrue(remote.cancellationRequests.isEmpty());
+  }
+
+  /** One request that fails to clean up must not prevent the remaining requests of the slice from being cancelled. */
+  @Test
+  public void testRemoteRequestTrackerCancelsAllRequestsWhenOneCloseFails() throws IOException
+  {
+    final DartSystemTableInputSliceReader.RemoteRequestTracker tracker =
+        new DartSystemTableInputSliceReader.RemoteRequestTracker();
+    final SettableFuture<Object> firstRequest = SettableFuture.create();
+    final SettableFuture<Object> secondRequest = SettableFuture.create();
+    final org.apache.druid.java.util.common.io.Closer failingCloser = org.apache.druid.java.util.common.io.Closer.create();
+    failingCloser.register(() -> {
+      throw new IOException("close failed");
+    });
+    final org.apache.druid.java.util.common.io.Closer secondCloser = Mockito.spy(
+        org.apache.druid.java.util.common.io.Closer.create()
+    );
+    tracker.track(firstRequest, failingCloser);
+    tracker.track(secondRequest, secondCloser);
+
+    Assertions.assertThrows(RE.class, tracker::cancelAll);
+
+    Assertions.assertTrue(firstRequest.isCancelled());
+    Assertions.assertTrue(secondRequest.isCancelled());
+    Mockito.verify(secondCloser).close();
   }
 
   private static DartSystemTableInputSliceReader reader(

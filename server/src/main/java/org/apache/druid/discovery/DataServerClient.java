@@ -134,8 +134,13 @@ public class DataServerClient
     closer.register(
         () -> {
           if (!responseHandler.isDone()) {
+            // Cancelling the request aborts the connection. A node-local request is not registered for explicit
+            // cancellation on the node, so there only the connection abort stops it. A query without an id cannot be
+            // cancelled explicitly at all.
             resultStreamFuture.cancel(true);
-            cancelQuery(query.getId());
+            if (!routeLocally && query.getId() != null) {
+              cancelQuery(query.getId());
+            }
           }
         }
     );
@@ -176,14 +181,8 @@ public class DataServerClient
 
     final String cancelPath = BASE_PATH + StringUtils.urlEncode(queryId);
 
-    final RequestBuilder requestBuilder = new RequestBuilder(HttpMethod.DELETE, cancelPath)
-        .timeout(CANCELLATION_TIMEOUT);
-    if (routeLocally) {
-      requestBuilder.header(QueryResource.HEADER_NATIVE_QUERY_ROUTE, QueryResource.NATIVE_QUERY_ROUTE_LOCAL);
-    }
-
     final ListenableFuture<Void> cancelFuture = serviceClient.asyncRequest(
-        requestBuilder,
+        new RequestBuilder(HttpMethod.DELETE, cancelPath).timeout(CANCELLATION_TIMEOUT),
         IgnoreHttpResponseHandler.INSTANCE
     );
 
