@@ -24,6 +24,8 @@ title: "Exact Count Bitmap"
 
 This extension provides exact cardinality counting functionality for LONG type columns using [Roaring Bitmaps](https://roaringbitmap.org/). Unlike approximate cardinality aggregators like HyperLogLog, this aggregator provides precise distinct counts.
 
+It comes in two variants. The `Bitmap64` aggregators described in this page count any LONG value. The `Bitmap32` aggregators count LONG columns whose values all fit in 32 bits, and are described in [Bitmap32 variant](#bitmap32-variant).
+
 ## Installation
 
 To use this Apache Druid extension, [include](../../configuration/extensions.md#loading-extensions) `druid-exact-count-bitmap` in the extensions load list.
@@ -135,6 +137,29 @@ You can also use the post-aggregator for further processing:
   "fieldName": "<aggregator_name>"
 }
 ```
+
+## Bitmap32 variant
+
+If all values of the column fit in a signed 32-bit integer (`-2147483648` to `2147483647`), the `Bitmap32` aggregators can be used instead of the `Bitmap64` ones. They store a plain 32-bit roaring bitmap per row, instead of one bitmap per distinct high 32 bits of the value. They are used in the same way as the `Bitmap64` ones, only the names differ:
+
+| | `Bitmap64` | `Bitmap32` |
+| -- | -- | -- |
+| Build aggregator type | `Bitmap64ExactCountBuild` | `Bitmap32ExactCountBuild` |
+| Merge aggregator type | `Bitmap64ExactCountMerge` | `Bitmap32ExactCountMerge` |
+| Post-aggregator type | `bitmap64ExactCount` | `bitmap32ExactCount` |
+| SQL function | `BITMAP64_EXACT_COUNT` | `BITMAP32_EXACT_COUNT` |
+
+```json
+{
+  "type": "Bitmap32ExactCountBuild",
+  "name": "unique_users",
+  "fieldName": "user_id"
+}
+```
+
+- A value outside the 32-bit range fails the query or the ingestion with an error. It is never truncated.
+- A bitmap built by one variant cannot be merged by the other, the stored formats are different.
+- Null values are ignored, and `0` is counted like any other value.
 
 ## Considerations
 

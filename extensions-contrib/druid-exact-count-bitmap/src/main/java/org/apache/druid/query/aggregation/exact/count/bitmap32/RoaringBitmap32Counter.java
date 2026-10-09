@@ -1,0 +1,136 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.druid.query.aggregation.exact.count.bitmap32;
+
+import org.apache.druid.java.util.common.IAE;
+import org.roaringbitmap.buffer.ImmutableRoaringBitmap;
+import org.roaringbitmap.buffer.MutableRoaringBitmap;
+
+import javax.annotation.Nullable;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * A set of 32 bit values backed by roaring bitmaps. The serialized form is the portable serialization of a roaring
+ * bitmap.
+ *
+ * A counter read from a segment is a view over the segment buffer, and folding counters only collects the bitmaps of
+ * all of them, which are OR-ed when the result is needed. Folded counters must not be modified after they are folded
+ * in.
+ */
+public class RoaringBitmap32Counter implements Bitmap32
+{
+  private final List<ImmutableRoaringBitmap> bitmaps = new ArrayList<>(1);
+  @Nullable
+  private MutableRoaringBitmap writable;
+
+  public RoaringBitmap32Counter()
+  {
+  }
+
+  private RoaringBitmap32Counter(final ImmutableRoaringBitmap bitmap)
+  {
+    bitmaps.add(bitmap);
+  }
+
+  /**
+   * Reads a counter from its serialized form. Throws for empty or corrupt data.
+   */
+  public static RoaringBitmap32Counter fromBytes(final byte[] bytes)
+  {
+    return fromByteBuffer(ByteBuffer.wrap(bytes));
+  }
+
+  /**
+   * Reads a counter from the remaining bytes of the buffer, without copying them. The returned counter reads from the
+   * buffer for as long as it is in use, so the buffer must stay valid and unmodified until then. Does not modify the
+   * position, limit or order of the buffer.
+   */
+  public static RoaringBitmap32Counter fromByteBuffer(final ByteBuffer buffer)
+  {
+    try {
+      return new RoaringBitmap32Counter(new ImmutableRoaringBitmap(buffer.duplicate()));
+    }
+    catch (RuntimeException e) {
+      throw new RuntimeException("Failed to deserialize RoaringBitmap32Counter", e);
+    }
+  }
+
+  /**
+   * Converts a value of a long column to the 32 bit value this counter stores.
+   *
+   * @throws IAE if the value does not fit in 32 bits
+   */
+  public static int toInt(final long value)
+  {
+    if (value != (int) value) {
+      throw new IAE("Value [%s] does not fit in 32 bits, which is what bitmap32 exact count supports", value);
+    }
+    return (int) value;
+  }
+
+  @Override
+  public void add(final int value)
+  {
+    if (writable == null) {
+      writable = new MutableRoaringBitmap();
+      bitmaps.add(writable);
+    }
+    writable.add(value);
+  }
+
+  @Override
+  public long getCardinality()
+  {
+    return bitmaps.size() == 1 ? bitmaps.get(0).getLongCardinality() : union().getLongCardinality();
+  }
+
+  @Override
+  public Bitmap32 fold(@Nullable final Bitmap32 rhs)
+  {
+    if (rhs == null || rhs == this) {
+      return this;
+    }
+    final RoaringBitmap32Counter other = (RoaringBitmap32Counter) rhs;
+    for (ImmutableRoaringBitmap bitmap : other.bitmaps) {
+      // the writable bitmap of the other counter may still change, so take a copy of that one
+      bitmaps.add(bitmap == other.writable ? ((MutableRoaringBitmap) bitmap).clone() : bitmap);
+    }
+    return this;
+  }
+
+  @Override
+  public ByteBuffer toByteBuffer()
+  {
+    final MutableRoaringBitmap union = union();
+    union.runOptimize();
+    final ByteBuffer buffer = ByteBuffer.allocate(union.serializedSizeInBytes()).order(ByteOrder.LITTLE_ENDIAN);
+    union.serialize(buffer);
+    buffer.rewind();
+    return buffer;
+  }
+
+  private MutableRoaringBitmap union()
+  {
+    return ImmutableRoaringBitmap.or(bitmaps.iterator());
+  }
+}
