@@ -35,13 +35,16 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Map;
+import java.util.Set;
 
 public class NativeSysConfigurationQueryTest extends EmbeddedClusterTestBase
 {
   private final EmbeddedCoordinator coordinator = new EmbeddedCoordinator();
   private final EmbeddedOverlord overlord = new EmbeddedOverlord()
       .addProperty("druid.indexer.tasklock.batchAllocationNumThreads", "0");
-  private final EmbeddedBroker broker = new EmbeddedBroker();
+  private final EmbeddedBroker broker = new EmbeddedBroker()
+      .addProperty("druid.server.hiddenProperties", "[\"password\",\"secret\",\"token\",\"key\"]")
+      .addProperty("druid.server.maxSize", "2MiB");
   private final EmbeddedHistorical historical = new EmbeddedHistorical();
   private final EmbeddedIndexer indexer = new EmbeddedIndexer();
   private final EmbeddedRouter router = new EmbeddedRouter();
@@ -93,6 +96,39 @@ public class NativeSysConfigurationQueryTest extends EmbeddedClusterTestBase
         "druid.indexer.tasklock.batchAllocationNumThreads,1,AVAILABLE\n"
         + "druid.indexer.tasklock.forceTimeChunkLock,true,AVAILABLE",
         result
+    );
+  }
+
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @ValueSource(strings = {
+      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED,
+      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
+  })
+  public void testJsonCollectionsAndReadableBytes(final String plannerStrategy)
+  {
+    final String result = cluster.runSql(
+        "SELECT JSON_VALUE(effective_value, '$[0]'), JSON_VALUE(effective_value, '$[1]'), "
+        + "JSON_VALUE(effective_value, '$[2]'), JSON_VALUE(effective_value, '$[3]') FROM sys.configuration "
+        + "WHERE service_name = 'druid/broker' AND property = 'druid.server.hiddenProperties'",
+        nativeQueryContext(plannerStrategy)
+    );
+    // A Set has no prescribed iteration order. All members must survive native transport and JSON extraction.
+    Assertions.assertEquals(Set.of("password", "secret", "token", "key"), Set.of(result.split(",")));
+    Assertions.assertEquals(
+        "2.00 MiB",
+        cluster.runSql(
+            "SELECT JSON_VALUE(effective_value, '$') FROM sys.configuration "
+            + "WHERE service_name = 'druid/broker' AND property = 'druid.server.maxSize'",
+            nativeQueryContext(plannerStrategy)
+        )
+    );
+    Assertions.assertEquals(
+        "COMPLEX<json>",
+        cluster.runSql(
+            "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'sys' "
+            + "AND TABLE_NAME = 'configuration' AND COLUMN_NAME = 'effective_value'",
+            nativeQueryContext(plannerStrategy)
+        )
     );
   }
 
