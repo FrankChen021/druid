@@ -222,6 +222,21 @@ public class DartSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
     }
   }
 
+  /**
+   * UNNEST over a system table must read the table's own columns: the unnest expression references {@code node_roles},
+   * which the root query does not otherwise select.
+   */
+  @Test
+  public void testUnnestOverSystemTable()
+  {
+    final String sql = "SELECT t.u FROM sys.server_properties, UNNEST(STRING_TO_ARRAY(node_roles, ',')) AS t(u) "
+                       + "WHERE property = '" + property("broker") + "'";
+    Assertions.assertEquals(
+        "[broker]",
+        cluster.runSql(sql, dartQueryContext(QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED))
+    );
+  }
+
   /** UNION ALL over system tables is rejected at planning time instead of failing during execution. */
   @Test
   public void testUnionAllIsRejectedAtPlanning()

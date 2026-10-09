@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.base.Preconditions;
 import org.apache.druid.msq.input.InputSpec;
+import org.apache.druid.msq.querykit.InputNumberDataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.scan.ScanQuery;
@@ -53,8 +54,10 @@ public class SystemTableInputSpec implements InputSpec
 
   /**
    * Adds safe source-side hints for the simple, single-system-table case. The stage query keeps the same filter and
-   * limit, so workers still apply the complete Druid semantics after any provider-level prefiltering. Composite
-   * datasources are deliberately left unchanged because a root filter cannot generally be assigned to one leaf.
+   * limit, so workers still apply the complete Druid semantics after any provider-level prefiltering. Queries whose
+   * datasource is anything other than the bare input are deliberately left unchanged: the root filter, virtual columns
+   * and required columns of a query over an UNNEST, filtered or composite datasource describe that datasource's
+   * output, not the system table's columns, so they cannot be assigned to the table.
    */
   public static List<InputSpec> addSourceHints(
       final List<InputSpec> inputSpecs,
@@ -62,7 +65,9 @@ public class SystemTableInputSpec implements InputSpec
       final long sourceLimit
   )
   {
-    if (inputSpecs.size() != 1 || !(inputSpecs.get(0) instanceof SystemTableInputSpec inputSpec)) {
+    if (inputSpecs.size() != 1
+        || !(inputSpecs.get(0) instanceof SystemTableInputSpec inputSpec)
+        || !(query.getDataSource() instanceof InputNumberDataSource)) {
       return inputSpecs;
     }
 

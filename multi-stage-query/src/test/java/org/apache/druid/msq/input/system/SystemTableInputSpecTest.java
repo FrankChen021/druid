@@ -20,7 +20,11 @@
 package org.apache.druid.msq.input.system;
 
 import org.apache.druid.msq.input.InputSpec;
+import org.apache.druid.msq.querykit.InputNumberDataSource;
+import org.apache.druid.query.DataSource;
+import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.UnnestDataSource;
 import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.scan.ScanQuery;
@@ -45,6 +49,7 @@ public class SystemTableInputSpecTest
     final VirtualColumns virtualColumns = VirtualColumns.create(
         new ExpressionVirtualColumn("v0", "concat(\"server\", 'x')", ColumnType.STRING, TestExprMacroTable.INSTANCE)
     );
+    Mockito.when(query.getDataSource()).thenReturn(new InputNumberDataSource(0));
     Mockito.when(query.getFilter()).thenReturn(filter);
     Mockito.when(query.getRequiredColumns()).thenReturn(Set.of("value", "server"));
     Mockito.when(query.getVirtualColumns()).thenReturn(virtualColumns);
@@ -64,6 +69,7 @@ public class SystemTableInputSpecTest
   public void testAddSourceHintsPreservesEmptyScanProjection()
   {
     final ScanQuery query = Mockito.mock(ScanQuery.class);
+    Mockito.when(query.getDataSource()).thenReturn(new InputNumberDataSource(0));
     Mockito.when(query.getColumns()).thenReturn(List.of());
     Mockito.when(query.getVirtualColumns()).thenReturn(VirtualColumns.EMPTY);
 
@@ -83,6 +89,7 @@ public class SystemTableInputSpecTest
   {
     final ScanQuery query = Mockito.mock(ScanQuery.class);
     final SelectorDimFilter filter = new SelectorDimFilter("property", "foo", null);
+    Mockito.when(query.getDataSource()).thenReturn(new InputNumberDataSource(0));
     Mockito.when(query.getColumns()).thenReturn(List.of());
     Mockito.when(query.getFilter()).thenReturn(filter);
     Mockito.when(query.getVirtualColumns()).thenReturn(VirtualColumns.EMPTY);
@@ -109,5 +116,45 @@ public class SystemTableInputSpecTest
     );
 
     Assertions.assertSame(inputSpecs, SystemTableInputSpec.addSourceHints(inputSpecs, query, 11));
+  }
+
+  /**
+   * The hints are computed from the root query, whose filter and required columns refer to the output of the
+   * datasource tree rather than to the system table. They must therefore not be applied when the system table is wrapped
+   * by another datasource such as UNNEST: pruning to the root query's columns would drop {@code node_roles}, which the
+   * unnest expression reads, and pushing a filter on the unnest output would make nodes drop every row.
+   */
+  @Test
+  public void testAddSourceHintsLeavesWrappedSystemTableUnchanged()
+  {
+    final DataSource unnest = UnnestDataSource.create(
+        new InputNumberDataSource(0),
+        new ExpressionVirtualColumn(
+            "j0.unnest",
+            "string_to_array(\"node_roles\", ',')",
+            ColumnType.STRING_ARRAY,
+            TestExprMacroTable.INSTANCE
+        ),
+        null
+    );
+    final List<InputSpec> inputSpecs = List.of(new SystemTableInputSpec("server_properties"));
+
+    final ScanQuery projectionOnly = Druids.newScanQueryBuilder()
+                                           .dataSource(unnest)
+                                           .eternityInterval()
+                                           .columns("server", "j0.unnest")
+                                           .build();
+    final ScanQuery filteredOnUnnestOutput = Druids.newScanQueryBuilder()
+                                                   .dataSource(unnest)
+                                                   .eternityInterval()
+                                                   .columns("server", "j0.unnest")
+                                                   .filters(new SelectorDimFilter("j0.unnest", "broker", null))
+                                                   .build();
+
+    Assertions.assertEquals(inputSpecs, SystemTableInputSpec.addSourceHints(inputSpecs, projectionOnly, Long.MAX_VALUE));
+    Assertions.assertEquals(
+        inputSpecs,
+        SystemTableInputSpec.addSourceHints(inputSpecs, filteredOnUnnestOutput, Long.MAX_VALUE)
+    );
   }
 }
