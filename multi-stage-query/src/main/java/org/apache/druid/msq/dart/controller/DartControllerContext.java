@@ -22,6 +22,7 @@ package org.apache.druid.msq.dart.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Injector;
 import org.apache.druid.client.TimelineServerView;
+import org.apache.druid.discovery.DruidNodeDiscovery;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.error.InvalidInput;
 import org.apache.druid.indexing.common.TaskLockType;
@@ -59,6 +60,7 @@ import org.apache.druid.server.coordination.ServerType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -98,6 +100,7 @@ public class DartControllerContext implements ControllerContext
   private final List<InputSpecSlicerProvider> inputSpecSlicerProviders;
   private final ServiceEmitter emitter;
   private final QueryContext context;
+  private final DruidNodeDiscovery dartWorkerDiscovery;
 
   public DartControllerContext(
       final Injector injector,
@@ -108,7 +111,8 @@ public class DartControllerContext implements ControllerContext
       final TimelineServerView serverView,
       final List<InputSpecSlicerProvider> inputSpecSlicerProviders,
       final ServiceEmitter emitter,
-      final QueryContext context
+      final QueryContext context,
+      final DruidNodeDiscovery dartWorkerDiscovery
   )
   {
     this.injector = injector;
@@ -120,6 +124,7 @@ public class DartControllerContext implements ControllerContext
     this.inputSpecSlicerProviders = inputSpecSlicerProviders;
     this.emitter = emitter;
     this.context = context;
+    this.dartWorkerDiscovery = dartWorkerDiscovery;
   }
 
   @Override
@@ -133,19 +138,25 @@ public class DartControllerContext implements ControllerContext
   {
     final List<DruidServerMetadata> servers = serverView.getDruidServerMetadatas();
 
+    final Set<String> dartWorkerHosts =
+        dartWorkerDiscovery.getAllNodes()
+                           .stream()
+                           .map(node -> node.getDruidNode().getHostAndPortToUse())
+                           .collect(Collectors.toSet());
+
     // Lock in the list of workers when creating the kernel config. There is a race here: the serverView itself is
     // allowed to float. If a segment moves to a new server that isn't part of our list after the WorkerManager is
     // created, we won't be able to find a valid server for certain segments. This isn't expected to be a problem,
     // since the serverView is referenced shortly after the worker list is created.
     final List<String> workerIds = new ArrayList<>(servers.size());
     for (final DruidServerMetadata server : servers) {
-      if (server.getType() == ServerType.HISTORICAL) {
+      if (server.getType() == ServerType.HISTORICAL && dartWorkerHosts.contains(server.getHost())) {
         workerIds.add(WorkerId.fromDruidServerMetadata(server, queryId()).toString());
       }
     }
-    // Shuffle workerIds, so we don't bias towards specific servers when running multiple queries concurrently. For
-    // any given query, lower-numbered workers tend to do more work, because the controller prefers using
-    // lower-numbered workers when maxWorkerCount for a stage is less than the total number of workers.
+    // Shuffle workerIds, so we don't bias towards specific servers when running multiple queries concurrently. For any
+    // given query, lower-numbered workers tend to do more work, because the controller prefers using lower-numbered
+    // workers when maxWorkerCount for a stage is less than the total number of workers.
     Collections.shuffle(workerIds);
 
     if (containsSystemTable(querySpec)) {
@@ -155,6 +166,21 @@ public class DartControllerContext implements ControllerContext
       // Worker zero is the Broker fallback for control-plane nodes that do not run a Dart worker. Historical sources
       // are processed by their co-located workers, so filters and partial aggregation run where rows are produced.
       workerIds.add(0, WorkerId.fromDruidNode(selfNode, queryId()).toString());
+    }
+
+    // Fail fast rather than running a query with no workers.
+    if (workerIds.isEmpty()) {
+      final boolean anyHistoricals = servers.stream().anyMatch(s -> s.getType() == ServerType.HISTORICAL);
+      throw DruidException.forPersona(DruidException.Persona.OPERATOR)
+                          .ofCategory(DruidException.Category.RUNTIME_FAILURE)
+                          .build(
+                              anyHistoricals
+                              ? "No Dart workers are available: Historicals are present but none advertise a Dart "
+                                + "worker. Set druid.msq.dart.enabled=true on the Historicals that should run Dart "
+                                + "queries."
+                              : "No Dart workers are available: no Historicals are currently available to run the "
+                                + "query."
+                          );
     }
 
     final ControllerMemoryParameters memoryParameters =
