@@ -56,7 +56,7 @@ public class SystemTableInputSerdeTest
                 TestExprMacroTable.INSTANCE
             )
         ),
-        10
+        10L
     );
     Assertions.assertEquals(inputSpec, mapper.readValue(mapper.writeValueAsBytes(inputSpec), InputSpec.class));
   }
@@ -77,5 +77,22 @@ public class SystemTableInputSerdeTest
         Long.MAX_VALUE
     );
     Assertions.assertEquals(inputSlice, mapper.readValue(mapper.writeValueAsBytes(inputSlice), InputSlice.class));
+  }
+
+  /** A limit that is absent from the serialized form means unlimited, not zero rows. */
+  @Test
+  public void testMissingLimitMeansUnlimited() throws Exception
+  {
+    final SystemTableInputSpec inputSpec = (SystemTableInputSpec) mapper.readValue(
+        "{\"type\":\"systemTable\",\"table\":\"server_properties\"}",
+        InputSpec.class
+    );
+    final SystemTableInputSlice inputSlice = (SystemTableInputSlice) mapper.readValue(
+        "{\"type\":\"systemTable\",\"table\":\"server_properties\",\"sources\":[]}",
+        InputSlice.class
+    );
+
+    Assertions.assertEquals(Long.MAX_VALUE, inputSpec.getLimit());
+    Assertions.assertEquals(Long.MAX_VALUE, inputSlice.getLimit());
   }
 }

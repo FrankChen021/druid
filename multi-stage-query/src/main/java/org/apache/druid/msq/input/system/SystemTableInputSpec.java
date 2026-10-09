@@ -80,7 +80,7 @@ public class SystemTableInputSpec implements InputSpec
         && scanQuery.getOrderBys().isEmpty()) {
       // ScanQuery.getRequiredColumns() deliberately returns null for an explicit empty projection, since the native
       // Scan engine normally interprets it as "discover all columns". System-table inputs preserve the distinction:
-      // an empty list means that the stage needs row cardinality only, and the reader transports one stable column.
+      // an empty list means that the stage needs row cardinality only, so the reader transports no columns of its own.
       // This is safe only when the query has no filter, virtual column, or ordering dependency.
       columns = List.of();
     } else {
@@ -114,14 +114,14 @@ public class SystemTableInputSpec implements InputSpec
       @JsonProperty("filter") @Nullable final DimFilter filter,
       @JsonProperty("columns") @Nullable final List<String> columns,
       @JsonProperty("virtualColumns") @Nullable final VirtualColumns virtualColumns,
-      @JsonProperty("limit") final long limit
+      @JsonProperty("limit") @Nullable final Long limit
   )
   {
     this.table = Preconditions.checkNotNull(table, "table");
     this.filter = filter;
     this.columns = columns == null ? null : List.copyOf(columns);
     this.virtualColumns = VirtualColumns.nullToEmpty(virtualColumns);
-    this.limit = limit;
+    this.limit = limit == null ? Long.MAX_VALUE : limit;
   }
 
   @JsonProperty

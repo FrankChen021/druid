@@ -62,7 +62,7 @@ public class SystemTableInputSlice implements InputSlice
       @JsonProperty("filter") @Nullable final DimFilter filter,
       @JsonProperty("columns") @Nullable final List<String> columns,
       @JsonProperty("virtualColumns") @Nullable final VirtualColumns virtualColumns,
-      @JsonProperty("limit") final long limit
+      @JsonProperty("limit") @Nullable final Long limit
   )
   {
     this.table = Preconditions.checkNotNull(table, "table");
@@ -70,7 +70,7 @@ public class SystemTableInputSlice implements InputSlice
     this.filter = filter;
     this.columns = columns == null ? null : List.copyOf(columns);
     this.virtualColumns = VirtualColumns.nullToEmpty(virtualColumns);
-    this.limit = limit;
+    this.limit = limit == null ? Long.MAX_VALUE : limit;
   }
 
   @JsonProperty

@@ -158,7 +158,7 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
         sourceSequences.add(localRows(slice, descriptor, projection));
       } else {
         final Closer closer = Closer.create();
-        final ListenableFuture<Sequence<ScanResultValue>> request = startRemoteRequest(slice, source, projection, closer);
+        final ListenableFuture<Sequence<ScanResultValue>> request = startRemoteRequest(slice, source, descriptor, projection, closer);
         remoteRequestTracker.track(request, closer);
         sourceSequences.add(new LazySequence<>(() -> remoteRows(slice, source, descriptor, projection, request)));
       }
@@ -221,18 +221,27 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
   private ListenableFuture<Sequence<ScanResultValue>> startRemoteRequest(
       final SystemTableInputSlice slice,
       final SystemTableSource source,
+      final SystemTableDescriptor descriptor,
       final Projection projection,
       final Closer closer
   )
   {
     try {
+      // A native Scan with no columns means "all columns", so a row-count-only stage asks for a single column.
+      final RowSignature requestedSignature =
+          projection.signature().size() == 0
+          ? RowSignature.builder().add(
+              descriptor.getRowSignature().getColumnName(0),
+              descriptor.getRowSignature().getColumnType(0).orElse(null)
+          ).build()
+          : projection.signature();
       final ScanQuery query = Druids.newScanQueryBuilder()
                                     .dataSource(new SystemTableDataSource(slice.getTable()))
                                     .eternityInterval()
                                     .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
                                     .filters(slice.getFilter())
                                     .virtualColumns(slice.getVirtualColumns())
-                                    .columns(projection.signature())
+                                    .columns(requestedSignature)
                                     .limit(slice.getLimit())
                                     .context(
                                         BaseQuery.computeOverriddenContext(
@@ -382,7 +391,23 @@ public class DartSystemTableInputSliceReader implements InputSliceReader
         closers.clear();
       }
       requestsToCancel.forEach(request -> request.cancel(true));
-      closersToClose.forEach(RemoteRequestTracker::close);
+      // Close every request even if some fail to clean up, so one failure cannot leave the rest running.
+      RuntimeException failure = null;
+      for (final Closer closer : closersToClose) {
+        try {
+          close(closer);
+        }
+        catch (RuntimeException e) {
+          if (failure == null) {
+            failure = e;
+          } else {
+            failure.addSuppressed(e);
+          }
+        }
+      }
+      if (failure != null) {
+        throw failure;
+      }
     }
 
     private static void close(final Closer closer)

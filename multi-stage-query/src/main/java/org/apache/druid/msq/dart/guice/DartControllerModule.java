@@ -40,6 +40,7 @@ import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.guice.annotations.LoadScope;
 import org.apache.druid.guice.annotations.Merging;
+import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.initialization.DruidModule;
 import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.common.concurrent.ScheduledExecutors;
@@ -67,6 +68,7 @@ import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.QueryConfigProvider;
 import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.SqlToolbox;
@@ -165,10 +167,11 @@ public class DartControllerModule implements DruidModule
     @ManageLifecycle
     public DartBrokerMessageRelays makeBrokerMessageRelays(
         final DruidNodeDiscoveryProvider discoveryProvider,
+        @Self final DruidNode selfNode,
         final DartMessageRelayFactoryImpl messageRelayFactory
     )
     {
-      return new DartBrokerMessageRelays(discoveryProvider, messageRelayFactory);
+      return new DartBrokerMessageRelays(discoveryProvider, selfNode, messageRelayFactory);
     }
 
     public static class EmbeddedWorkerProcessingBuffersProvider implements Provider<ProcessingBuffersProvider>

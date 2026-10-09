@@ -55,7 +55,7 @@ public class SystemTableInputSpecTest
     Mockito.when(query.getVirtualColumns()).thenReturn(virtualColumns);
 
     Assertions.assertEquals(
-        List.of(new SystemTableInputSpec("server_properties", filter, List.of("server", "value"), virtualColumns, 11)),
+        List.of(new SystemTableInputSpec("server_properties", filter, List.of("server", "value"), virtualColumns, 11L)),
         SystemTableInputSpec.addSourceHints(
             List.of(new SystemTableInputSpec("server_properties")),
             query,
