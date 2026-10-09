@@ -35,6 +35,10 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Checks that {@link RoaringBitmap64Counter} reads and writes the serialized form of {@link Roaring64NavigableMap}
@@ -312,5 +316,38 @@ class RoaringBitmap64CounterFormatTest
     Assertions.assertEquals(values.size(), counter.getCardinality());
     Assertions.assertEquals(values.size(), union.getCardinality());
     Assertions.assertEquals(values, legacyContents(bytes(union)));
+  }
+
+  @Test
+  void testFoldWhileTheOtherCounterIsBeingWrittenTo() throws Exception
+  {
+    final RoaringBitmap64Counter source = new RoaringBitmap64Counter();
+    final AtomicBoolean done = new AtomicBoolean(false);
+    final ExecutorService executor = Executors.newSingleThreadExecutor();
+    final Future<?> writer = executor.submit(() -> {
+      for (long i = 1; i <= 200_000; i++) {
+        // values over a few high parts, so that parts are added while the other thread reads
+        source.add(i * 3 + ((i % 7) << 32));
+      }
+      done.set(true);
+    });
+
+    try {
+      long previous = 0;
+      while (!done.get()) {
+        // every snapshot is complete and consistent: it can be read, and only grows
+        final RoaringBitmap64Counter accumulator = new RoaringBitmap64Counter();
+        accumulator.fold(source);
+        final long cardinality = accumulator.getCardinality();
+        Assertions.assertTrue(cardinality >= previous);
+        Assertions.assertEquals(cardinality, legacyContents(bytes(accumulator)).size());
+        previous = cardinality;
+      }
+      writer.get();
+    }
+    finally {
+      executor.shutdownNow();
+    }
+    Assertions.assertEquals(200_000, source.getCardinality());
   }
 }

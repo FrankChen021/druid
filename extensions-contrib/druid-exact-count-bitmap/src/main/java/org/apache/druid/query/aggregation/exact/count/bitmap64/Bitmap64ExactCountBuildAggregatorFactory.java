@@ -52,14 +52,14 @@ public class Bitmap64ExactCountBuildAggregatorFactory extends Bitmap64ExactCount
   @Override
   public Aggregator factorize(ColumnSelectorFactory metricFactory)
   {
-    validateNumericColumn(metricFactory);
+    validateLongColumn(metricFactory);
     return new Bitmap64ExactCountBuildAggregator(metricFactory.makeColumnValueSelector(getFieldName()));
   }
 
   @Override
   public BufferAggregator factorizeBuffered(ColumnSelectorFactory metricFactory)
   {
-    validateNumericColumn(metricFactory);
+    validateLongColumn(metricFactory);
     return new Bitmap64ExactCountBuildBufferAggregator(metricFactory.makeColumnValueSelector(getFieldName()));
   }
 
@@ -76,20 +76,21 @@ public class Bitmap64ExactCountBuildAggregatorFactory extends Bitmap64ExactCount
   }
 
   /**
-   * Ensures that the column referenced by {@link #getFieldName()} is of a numeric type when this aggregator is used
-   * in a native Druid query. We must enforce the constraint here to provide a clear and early failure if the
-   * query references a non-numeric (e.g., STRING) column.
+   * Ensures that the column referenced by {@link #getFieldName()} is of type LONG when this aggregator is used in a
+   * native Druid query. FLOAT and DOUBLE columns are rejected as well, because reading them as a long would silently
+   * truncate their fractional part, and collapse distinct values. We must enforce the constraint here to provide a
+   * clear and early failure if the query references a column of another type, e.g. STRING.
    *
-   * @throws IllegalArgumentException if the column exists and is not numeric.
+   * @throws IllegalArgumentException if the column exists and is not of type LONG.
    */
-  private void validateNumericColumn(ColumnSelectorFactory metricFactory)
+  private void validateLongColumn(ColumnSelectorFactory metricFactory)
   {
     final ColumnCapabilities capabilities = metricFactory.getColumnCapabilities(getFieldName());
     if (capabilities != null) {
       final ValueType valueType = capabilities.getType();
-      if (!valueType.isNumeric()) {
+      if (valueType != ValueType.LONG) {
         throw new IAE(
-            "Aggregation [%s] does not support column [%s] of type [%s]. Supported types: numeric.",
+            "Aggregation [%s] does not support column [%s] of type [%s]. Supported types: LONG.",
             Bitmap64ExactCountModule.BUILD_TYPE_NAME, getFieldName(), valueType);
       }
     }

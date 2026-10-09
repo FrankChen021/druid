@@ -21,6 +21,7 @@ package org.apache.druid.query.aggregation.exact.count.bitmap64;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import org.roaringbitmap.buffer.ImmutableRoaringBitmap;
 import org.roaringbitmap.buffer.MutableRoaringBitmap;
@@ -69,7 +70,7 @@ public class RoaringBitmap64Counter implements Bitmap64
       bitmaps.add(bitmap);
     }
 
-    synchronized void add(final int low)
+    void add(final int low)
     {
       if (writable == null) {
         writable = new MutableRoaringBitmap();
@@ -90,7 +91,7 @@ public class RoaringBitmap64Counter implements Bitmap64
       return bitmaps.size() == 1 ? bitmaps.get(0) : union();
     }
 
-    private synchronized MutableRoaringBitmap union()
+    private MutableRoaringBitmap union()
     {
       if (union == null) {
         union = new MutableRoaringBitmap();
@@ -100,6 +101,18 @@ public class RoaringBitmap64Counter implements Bitmap64
         union.or(bitmaps.get(unioned));
       }
       return union;
+    }
+  }
+
+  private static class Snapshot
+  {
+    private final IntArrayList highs = new IntArrayList();
+    private final List<ImmutableRoaringBitmap> bitmaps = new ArrayList<>();
+
+    void add(final int high, final ImmutableRoaringBitmap bitmap)
+    {
+      highs.add(high);
+      bitmaps.add(bitmap);
     }
   }
 
@@ -201,7 +214,7 @@ public class RoaringBitmap64Counter implements Bitmap64
   }
 
   @Override
-  public void add(final long value)
+  public synchronized void add(final long value)
   {
     final int high = (int) (value >>> 32);
     Part part = lastPart;
@@ -219,7 +232,7 @@ public class RoaringBitmap64Counter implements Bitmap64
   }
 
   @Override
-  public long getCardinality()
+  public synchronized long getCardinality()
   {
     long cardinality = 0;
     if (parts == null) {
@@ -240,26 +253,42 @@ public class RoaringBitmap64Counter implements Bitmap64
     if (rhs == null || rhs == this) {
       return this;
     }
-    final RoaringBitmap64Counter other = (RoaringBitmap64Counter) rhs;
-    final Int2ObjectOpenHashMap<Part> map = parts();
-    if (other.parts == null) {
-      for (int i = 0; i < other.sourceHighs.length; i++) {
-        getOrCreatePart(map, other.sourceHighs[i]).addBitmap(other.sourceBitmaps[i]);
-      }
-    } else {
-      for (Int2ObjectMap.Entry<Part> entry : other.parts.int2ObjectEntrySet()) {
-        final Part part = getOrCreatePart(map, entry.getIntKey());
-        for (ImmutableRoaringBitmap bitmap : entry.getValue().bitmaps) {
-          // the writable bitmap of the other counter may still change, so take a copy of that one
-          part.addBitmap(bitmap == entry.getValue().writable ? ((MutableRoaringBitmap) bitmap).clone() : bitmap);
-        }
+    // take the snapshot under the lock of the other counter, then add it under the lock of this one, so that the locks
+    // are never held together
+    final Snapshot snapshot = ((RoaringBitmap64Counter) rhs).snapshot();
+    synchronized (this) {
+      final Int2ObjectOpenHashMap<Part> map = parts();
+      for (int i = 0; i < snapshot.highs.size(); i++) {
+        getOrCreatePart(map, snapshot.highs.getInt(i)).addBitmap(snapshot.bitmaps.get(i));
       }
     }
     return this;
   }
 
+  /**
+   * The bitmaps of this counter with their high part. A writable bitmap, which can still change, is copied, so the
+   * result does not change when values are added to this counter afterwards.
+   */
+  private synchronized Snapshot snapshot()
+  {
+    final Snapshot snapshot = new Snapshot();
+    if (parts == null) {
+      for (int i = 0; i < sourceHighs.length; i++) {
+        snapshot.add(sourceHighs[i], sourceBitmaps[i]);
+      }
+    } else {
+      for (Int2ObjectMap.Entry<Part> entry : parts.int2ObjectEntrySet()) {
+        final Part part = entry.getValue();
+        for (ImmutableRoaringBitmap bitmap : part.bitmaps) {
+          snapshot.add(entry.getIntKey(), bitmap == part.writable ? ((MutableRoaringBitmap) bitmap).clone() : bitmap);
+        }
+      }
+    }
+    return snapshot;
+  }
+
   @Override
-  public ByteBuffer toByteBuffer()
+  public synchronized ByteBuffer toByteBuffer()
   {
     final int[] highs;
     final ImmutableRoaringBitmap[] bitmaps;
