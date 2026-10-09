@@ -46,6 +46,7 @@ import org.apache.druid.metadata.PasswordProvider;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.segment.nested.StructuredData;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
@@ -53,7 +54,9 @@ import org.joda.time.Duration;
 import org.joda.time.Period;
 
 import javax.annotation.Nullable;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -64,7 +67,8 @@ import java.util.Set;
 
 /**
  * Discovers installed JsonConfigProvider bindings without provisioning them. Scalar values are read from the
- * already initialized objects; arbitrary object serializers and secret providers are never invoked.
+ * already initialized objects, including collections of scalars; arbitrary object serializers and secret providers
+ * are never invoked.
  */
 public class ConfigurationTableDataProvider implements SystemTableDataProvider
 {
@@ -244,13 +248,17 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
       }
 
       final boolean scalar = isScalar(rawType);
-      // Containers may contain secrets under arbitrary keys, and custom serializers may resolve credentials.
-      if (!scalar && (propertyType.isContainerType() || rawType == Object.class || rawType.isInterface())) {
+      final boolean scalarCollection = (rawType.isArray() || Collection.class.isAssignableFrom(rawType))
+                                       && propertyType.getContentType() != null
+                                       && isScalar(propertyType.getContentType().getRawClass());
+      // Maps may contain secrets under arbitrary keys, and custom serializers may resolve credentials.
+      if (!scalar && !scalarCollection
+          && (propertyType.isContainerType() || rawType == Object.class || rawType.isInterface())) {
         rows.add(row(name, configClass, binding, propertyType.toCanonical(), null, null, "UNSUPPORTED", null));
         continue;
       }
       try {
-        final AnnotatedMember accessor = scalar
+        final AnnotatedMember accessor = scalar || scalarCollection
                                          ? getters.getOrDefault(property.getInternalName(), property.getAccessor())
                                          : property.getField();
         final Object value;
@@ -260,14 +268,14 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
           accessor.fixAccess(true);
           value = accessor.getValue(config);
         }
-        if (scalar) {
+        if (scalar || scalarCollection) {
           rows.add(row(
               name,
               configClass,
               binding,
               propertyType.toCanonical(),
               properties.getProperty(name),
-              scalarValue(value),
+              effectiveValue(value, propertyType),
               accessor == null ? "UNSUPPORTED" : valueStatus,
               null
           ));
@@ -308,15 +316,40 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
            || type == Duration.class || type == Period.class || type == HumanReadableBytes.class;
   }
 
+  @Nullable
+  private static Object effectiveValue(@Nullable final Object value, final JavaType type)
+  {
+    if (value == null || isScalar(type.getRawClass())) {
+      return scalarValue(value, type.getRawClass());
+    }
+    // Copy only supported scalar elements, so custom objects never reach JSON serialization.
+    final List<Object> elements = new ArrayList<>();
+    final Class<?> elementType = type.getContentType().getRawClass();
+    if (value instanceof Collection<?> collection) {
+      for (final Object element : collection) {
+        elements.add(scalarValue(element, elementType));
+      }
+    } else {
+      for (int i = 0; i < Array.getLength(value); i++) {
+        elements.add(scalarValue(Array.get(value, i), elementType));
+      }
+    }
+    return elements;
+  }
+
   /** Converts supported value objects directly, without invoking Jackson or custom object serializers. */
   @Nullable
-  private static String scalarValue(@Nullable final Object value)
+  private static Object scalarValue(@Nullable final Object value, final Class<?> declaredType)
   {
     if (value == null) {
       return null;
     }
-    if (value instanceof HumanReadableBytes bytes) {
-      return Long.toString(bytes.getBytes());
+    if (!isScalar(value.getClass()) && !(value instanceof Enum<?>)) {
+      throw new IllegalArgumentException("Unsupported scalar configuration value");
+    }
+    if (declaredType == HumanReadableBytes.class) {
+      final long bytes = value instanceof HumanReadableBytes readable ? readable.getBytes() : ((Number) value).longValue();
+      return HumanReadableBytes.format(bytes, 2, HumanReadableBytes.UnitSystem.BINARY_BYTE);
     }
     if (value instanceof Duration duration) {
       return duration.toString();
@@ -327,7 +360,7 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
     if (value instanceof Enum<?> enumValue) {
       return enumValue.name();
     }
-    return String.valueOf(value);
+    return value instanceof Character ? value.toString() : value;
   }
 
   private Object[] row(
@@ -336,14 +369,14 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
       final String binding,
       @Nullable final String type,
       @Nullable final String configured,
-      @Nullable final String effective,
+      @Nullable final Object effective,
       final String status,
       @Nullable final String error
   )
   {
     return new Object[]{
         node.getHostAndPortToUse(), node.getServiceName(), nodeRoles, property, configClass.getName(), binding,
-        type, configured, effective, status, error
+        type, configured, StructuredData.wrap(effective), status, error
     };
   }
 }

@@ -50,7 +50,7 @@ public class ConfigurationTableDescriptor implements SystemTableDescriptor
       .add("binding", ColumnType.STRING)
       .add("value_type", ColumnType.STRING)
       .add("configured_value", ColumnType.STRING)
-      .add("effective_value", ColumnType.STRING)
+      .add("effective_value", ColumnType.NESTED_DATA)
       .add("value_status", ColumnType.STRING)
       .add("error_message", ColumnType.STRING)
       .build();

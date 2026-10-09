@@ -404,7 +404,7 @@ permission on the `CONFIG` resource, in addition to any configured system-table 
 |`binding`|VARCHAR|Guice binding key, including its annotation when present|
 |`value_type`|VARCHAR|Declared Java type of the property|
 |`configured_value`|VARCHAR|Loaded value at this exact property path, before variable substitution. Null if absent or withheld.|
-|`effective_value`|VARCHAR|Scalar value read from the initialized configuration getter, or field when no getter exists|
+|`effective_value`|COMPLEX&lt;json&gt;|JSON scalar or array read from the initialized configuration getter, or field when no getter exists|
 |`value_status`|VARCHAR|`AVAILABLE`, `NOT_INITIALIZED`, `REDACTED`, `UNSUPPORTED`, or `ERROR`|
 |`error_message`|VARCHAR|Generic diagnostic for an inspection or node failure; null otherwise|
 
@@ -425,17 +425,32 @@ not an inspection failure. Values computed elsewhere by a service are not includ
 
 The Joda-Time `Duration` and `Period` types are exposed as scalar ISO-8601 strings. A duration of two minutes
 appears as `PT120S`; a period of one month remains `P1M`, without conversion to a fixed duration.
-`HumanReadableBytes` values are exposed as decimal byte counts, so a configured `2MiB` appears as `2097152`.
+`HumanReadableBytes` values are exposed as readable strings in binary units with two decimal places,
+so a configured `2MiB` appears as `"2.00 MiB"`. Values below 1024 bytes use whole bytes, including `"-1 B"`
+for a negative sentinel value.
 The `configured_value` column retains the original input, and `value_type` retains the declared Java type.
 These types also support null values and metadata for objects that have not been initialized.
+
+Numbers and booleans retain their JSON types. Strings, enum values, durations, periods, and readable byte values
+are JSON strings. Sets, lists, and arrays of supported scalar types are exposed as JSON arrays; empty collections
+are empty arrays, and null collections remain null. Set element order follows the configuration object's iteration
+order. Collections of arbitrary objects and maps remain unsupported.
+
+Use SQL JSON functions to extract values, for example:
+
+```sql
+SELECT property, JSON_VALUE(effective_value, '$[0]') AS first_value
+FROM sys.configuration
+WHERE property = 'druid.server.hiddenProperties';
+```
 
 Jackson name-based type selectors, such as `druid.cache.type`, are included even when they are not bean fields.
 For initialized configurations, their effective values identify the selected implementation, including defaults.
 
 Nested configuration beans are expanded into property paths. When an initialized configuration contains a null
 nested bean, its supported leaf properties have null effective values with status `AVAILABLE`.
-Maps, lists, arrays, interfaces, recursive object references, and other unsupported values have status `UNSUPPORTED`; the table does not invoke arbitrary
-object serialization code. For properties supplied inside a parent JSON object, `configured_value` can be null even when
+Maps, collections of unsupported elements, interfaces, recursive object references, and other unsupported values
+have status `UNSUPPORTED`; the table does not invoke arbitrary object serialization code. For properties supplied inside a parent JSON object, `configured_value` can be null even when
 an explicit value was supplied. There is no general default-value or configuration-file provenance column.
 
 Properties matching `druid.server.hiddenProperties` are redacted on their owning process before values are read.
