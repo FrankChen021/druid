@@ -92,7 +92,6 @@ class PrePlannedDartQueryMaker implements QueryMaker, QueryMaker.FromDruidLogica
   @Override
   public QueryResponse<Object[]> runQuery(DruidQuery druidQuery)
   {
-    dartQueryMaker.authorizeSystemTables(druidQuery.getQuery().getDataSource());
     QueryContext queryContext = druidQuery.getQuery().context();
     ResultsContext resultsContext = DartQueryMaker.makeResultsContext(druidQuery, dartQueryMaker.fieldMapping, plannerContext);
     QueryDefMSQSpec msqSpec = buildMSQSpec(druidQuery, dartQueryMaker.fieldMapping, queryContext, resultsContext);

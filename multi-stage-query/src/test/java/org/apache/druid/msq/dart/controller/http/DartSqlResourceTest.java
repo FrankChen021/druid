@@ -280,7 +280,6 @@ public class DartSqlResourceTest extends MSQTestBase
         new DefaultQueryConfig(ImmutableMap.of("foo", "bar")),
         toolbox,
         dartSqlClients,
-        CalciteTests.TEST_AUTHORIZER_MAPPER,
         Map.of(
             ServerPropertiesTableDescriptor.TABLE_NAME,
             new ServerPropertiesTableDescriptor()

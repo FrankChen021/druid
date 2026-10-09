@@ -49,10 +49,12 @@ public class ServerPropertiesTableDescriptor implements SystemTableDescriptor
       .build();
 
   private static final Set<NodeRole> NODE_ROLES = Set.of(NodeRole.values());
+  private static final Set<ResourceAction> RESOURCE_ACTIONS =
+      Set.of(new ResourceAction(Resource.STATE_RESOURCE, Action.READ));
   private static final SystemTableRowAuthorizer ROW_AUTHORIZER = (rows, authenticationResult, authorizerMapper) -> {
     final AuthorizationResult authorizationResult = AuthorizationUtils.authorizeAllResourceActions(
         authenticationResult,
-        Collections.singletonList(new ResourceAction(Resource.STATE_RESOURCE, Action.READ)),
+        RESOURCE_ACTIONS,
         authorizerMapper
     );
     if (!authorizationResult.allowAccessWithNoRestriction()) {
@@ -83,6 +85,12 @@ public class ServerPropertiesTableDescriptor implements SystemTableDescriptor
   public SystemTableRowAuthorizer getRowAuthorizer()
   {
     return ROW_AUTHORIZER;
+  }
+
+  @Override
+  public Set<ResourceAction> getResourceActions()
+  {
+    return RESOURCE_ACTIONS;
   }
 
   @Override

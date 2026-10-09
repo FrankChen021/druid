@@ -53,11 +53,8 @@ import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.initialization.ServerConfig;
-import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationResult;
-import org.apache.druid.server.security.AuthorizerMapper;
-import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.sql.SqlLifecycleManager;
@@ -98,7 +95,6 @@ public class DartSqlEngine implements SqlEngine
   private final QueryConfigProvider queryConfigProvider;
   private final SqlToolbox toolbox;
   private final DartSqlClients sqlClients;
-  private final AuthorizerMapper authorizerMapper;
   private final Map<String, SystemTableDescriptor> systemTableDescriptors;
 
   @Inject
@@ -113,7 +109,6 @@ public class DartSqlEngine implements SqlEngine
       @Dart QueryConfigProvider queryConfigProvider,
       SqlToolbox toolbox,
       DartSqlClients sqlClients,
-      AuthorizerMapper authorizerMapper,
       Map<String, SystemTableDescriptor> systemTableDescriptors
   )
   {
@@ -127,7 +122,6 @@ public class DartSqlEngine implements SqlEngine
     this.queryConfigProvider = queryConfigProvider;
     this.toolbox = toolbox;
     this.sqlClients = sqlClients;
-    this.authorizerMapper = authorizerMapper;
     this.systemTableDescriptors = systemTableDescriptors;
   }
 
@@ -188,9 +182,8 @@ public class DartSqlEngine implements SqlEngine
   @Override
   public Set<ResourceAction> getSystemTableDataSourceResourceActions(final String tableName)
   {
-    return supportsSystemTableDataSource(tableName)
-           ? Set.of(new ResourceAction(Resource.STATE_RESOURCE, Action.READ))
-           : Set.of();
+    final SystemTableDescriptor descriptor = systemTableDescriptors.get(tableName);
+    return descriptor == null ? Set.of() : descriptor.getResourceActions();
   }
 
   @Override
@@ -241,9 +234,7 @@ public class DartSqlEngine implements SqlEngine
         controllerConfig,
         controllerThreadPool,
         queryKitSpecFactory,
-        queryKit,
-        authorizerMapper,
-        systemTableDescriptors
+        queryKit
     );
     if (plannerContext.queryContext().isPrePlanned()) {
       return new PrePlannedDartQueryMaker(plannerContext, dartQueryMaker);

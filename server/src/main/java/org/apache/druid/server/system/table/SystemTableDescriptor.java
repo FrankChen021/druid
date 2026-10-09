@@ -22,6 +22,7 @@ package org.apache.druid.server.system.table;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.DruidNode;
+import org.apache.druid.server.security.ResourceAction;
 
 import java.util.Optional;
 import java.util.Set;
@@ -45,6 +46,13 @@ public interface SystemTableDescriptor
   RowSignature getRowSignature();
 
   SystemTableRowAuthorizer getRowAuthorizer();
+
+  /**
+   * Returns the resource actions that a caller needs in order to query this table. Engines that execute the table as
+   * a datasource require them when the SQL statement is authorized, before any work is dispatched, because the
+   * nodes that serve the rows only know the internal identity of the requesting service, not the original caller.
+   */
+  Set<ResourceAction> getResourceActions();
 
   /** Whether an empty discovery result represents an empty table instead of unavailable infrastructure. */
   default boolean isEmptyDiscoveryAllowed()
