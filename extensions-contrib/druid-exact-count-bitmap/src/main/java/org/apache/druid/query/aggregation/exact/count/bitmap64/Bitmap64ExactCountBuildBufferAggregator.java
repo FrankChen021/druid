@@ -32,6 +32,11 @@ public class Bitmap64ExactCountBuildBufferAggregator implements BufferAggregator
   private final BaseLongColumnValueSelector selector;
   private final IdentityHashMap<ByteBuffer, Int2ObjectMap<Bitmap64>> collectors = new IdentityHashMap<>();
 
+  // one-entry cache of the last looked up collector, to skip two hash lookups per row for consecutive hits on a group
+  private ByteBuffer lastBuffer;
+  private int lastPosition;
+  private Bitmap64 lastCollector;
+
   public Bitmap64ExactCountBuildBufferAggregator(BaseLongColumnValueSelector selector)
   {
     this.selector = selector;
@@ -40,22 +45,16 @@ public class Bitmap64ExactCountBuildBufferAggregator implements BufferAggregator
   @Override
   public void init(ByteBuffer buf, int position)
   {
+    clearLastCollector();
     createNewCollector(buf, position);
   }
 
   @Override
   public void aggregate(ByteBuffer buf, int position)
   {
-    final int oldPosition = buf.position();
-    try {
-      buf.position(position);
-      Bitmap64 bitmap64Counter = getOrCreateCollector(buf, position);
-      if (!selector.isNull()) {
-        bitmap64Counter.add(selector.getLong());
-      }
-    }
-    finally {
-      buf.position(oldPosition);
+    final Bitmap64 bitmap64Counter = getOrCreateCollector(buf, position);
+    if (!selector.isNull()) {
+      bitmap64Counter.add(selector.getLong());
     }
   }
 
@@ -86,12 +85,14 @@ public class Bitmap64ExactCountBuildBufferAggregator implements BufferAggregator
   @Override
   public void close()
   {
-
+    clearLastCollector();
+    collectors.clear();
   }
 
   @Override
   public void relocate(int oldPosition, int newPosition, ByteBuffer oldBuffer, ByteBuffer newBuffer)
   {
+    clearLastCollector();
     createNewCollector(newBuffer, newPosition);
     Bitmap64 collector = collectors.get(oldBuffer).get(oldPosition);
     putCollectors(newBuffer, newPosition, collector);
@@ -112,18 +113,28 @@ public class Bitmap64ExactCountBuildBufferAggregator implements BufferAggregator
 
   private Bitmap64 getOrCreateCollector(ByteBuffer buf, int position)
   {
+    if (buf == lastBuffer && position == lastPosition) {
+      return lastCollector;
+    }
     Int2ObjectMap<Bitmap64> collectMap = collectors.get(buf);
     Bitmap64 bitmap64Counter = collectMap != null ? collectMap.get(position) : null;
-    if (bitmap64Counter != null) {
-      return bitmap64Counter;
+    if (bitmap64Counter == null) {
+      bitmap64Counter = createNewCollector(buf, position);
     }
+    lastBuffer = buf;
+    lastPosition = position;
+    lastCollector = bitmap64Counter;
+    return bitmap64Counter;
+  }
 
-    return createNewCollector(buf, position);
+  private void clearLastCollector()
+  {
+    lastBuffer = null;
+    lastCollector = null;
   }
 
   private Bitmap64 createNewCollector(ByteBuffer buf, int position)
   {
-    buf.position(position);
     Bitmap64 bitmap64Counter = new RoaringBitmap64Counter();
     Int2ObjectMap<Bitmap64> collectorMap = collectors.computeIfAbsent(buf, k -> new Int2ObjectOpenHashMap<>());
     collectorMap.put(position, bitmap64Counter);
