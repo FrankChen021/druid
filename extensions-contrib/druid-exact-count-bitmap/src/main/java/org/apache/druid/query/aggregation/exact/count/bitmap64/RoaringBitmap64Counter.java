@@ -21,6 +21,7 @@ package org.apache.druid.query.aggregation.exact.count.bitmap64;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import org.roaringbitmap.buffer.ImmutableRoaringBitmap;
 import org.roaringbitmap.buffer.MutableRoaringBitmap;
 
@@ -41,8 +42,8 @@ import java.util.List;
  *
  * A counter read from a segment is a view over the segment buffer. No bitmap data is copied or decoded until it is
  * needed, and merging only collects references to the bitmaps of each high part. The union of those is computed once
- * on demand and cached, instead of copying and OR-ing every value as it is folded in. Folded counters must not be
- * modified after they are folded in.
+ * on demand and cached, instead of copying and OR-ing every value as it is folded in. A counter that is a view over a
+ * buffer is only valid while that buffer stays valid and unmodified, which includes accumulators it was folded into.
  */
 public class RoaringBitmap64Counter implements Bitmap64
 {
@@ -128,11 +129,12 @@ public class RoaringBitmap64Counter implements Bitmap64
   }
 
   /**
-   * Reads a counter from its serialized form. Throws for empty or corrupt data.
+   * Reads a counter from its serialized form, which is copied. Throws for empty or corrupt data.
    */
   public static RoaringBitmap64Counter fromBytes(final byte[] bytes)
   {
-    return fromByteBuffer(ByteBuffer.wrap(bytes));
+    // the counter keeps reading from its bytes, so copy them to be independent of what the caller does with the array
+    return fromByteBuffer(ByteBuffer.wrap(bytes.clone()));
   }
 
   /**
@@ -153,6 +155,7 @@ public class RoaringBitmap64Counter implements Bitmap64
         throw new IllegalArgumentException("Invalid number of high parts [" + numHighs + "]");
       }
 
+      final boolean signedOrder = bytes.get(bytes.position()) != 0;
       final int[] highs = new int[numHighs];
       final ImmutableRoaringBitmap[] bitmaps = new ImmutableRoaringBitmap[numHighs];
       for (int i = 0; i < numHighs; i++) {
@@ -166,10 +169,34 @@ public class RoaringBitmap64Counter implements Bitmap64
           throw new IllegalArgumentException("Truncated bitmap for high part [" + highs[i] + "]");
         }
       }
+      verifyHighsAreUnique(highs, signedOrder);
       return new RoaringBitmap64Counter(highs, bitmaps);
     }
     catch (RuntimeException e) {
       throw new RuntimeException("Failed to deserialize RoaringBitmap64Counter", e);
+    }
+  }
+
+  /**
+   * A serialized value has one bitmap per high part, in the order the value says it uses. Cardinalities are added up
+   * per bitmap, so a repeated high part would be counted twice. Trailing bytes after the last bitmap are not an error,
+   * older versions wrote some.
+   */
+  private static void verifyHighsAreUnique(final int[] highs, final boolean signedOrder)
+  {
+    boolean ordered = true;
+    for (int i = 1; i < highs.length && ordered; i++) {
+      ordered = (signedOrder ? Integer.compare(highs[i - 1], highs[i]) : Integer.compareUnsigned(highs[i - 1], highs[i]))
+                < 0;
+    }
+    if (!ordered) {
+      // not in the expected order, which is only fine if every high part is there once
+      final IntOpenHashSet seen = new IntOpenHashSet(highs.length);
+      for (int high : highs) {
+        if (!seen.add(high)) {
+          throw new IllegalArgumentException("High part [" + high + "] is present more than once");
+        }
+      }
     }
   }
 

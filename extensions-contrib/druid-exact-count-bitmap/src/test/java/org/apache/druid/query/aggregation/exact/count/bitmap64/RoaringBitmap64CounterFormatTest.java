@@ -264,4 +264,53 @@ class RoaringBitmap64CounterFormatTest
     Assertions.assertEquals(0, RoaringBitmap64Counter.fromBytes(bytes(empty)).getCardinality());
     Assertions.assertArrayEquals(legacyBytes(new HashSet<>(), true), bytes(empty));
   }
+
+  @Test
+  void testRepeatedHighPartIsRejected()
+  {
+    final RoaringBitmap64Counter first = new RoaringBitmap64Counter();
+    first.add(1);
+    first.add(2);
+    final RoaringBitmap64Counter second = new RoaringBitmap64Counter();
+    second.add(2);
+    second.add(3);
+    final byte[] firstBytes = bytes(first);
+    final byte[] secondBytes = bytes(second);
+
+    // flag, 2 records, both for the high part 0 of the two values
+    final ByteBuffer duplicated = ByteBuffer.allocate(5 + (firstBytes.length - 5) + (secondBytes.length - 5));
+    duplicated.put((byte) 1)
+              .putInt(2)
+              .put(firstBytes, 5, firstBytes.length - 5)
+              .put(secondBytes, 5, secondBytes.length - 5);
+    Assertions.assertThrows(RuntimeException.class, () -> RoaringBitmap64Counter.fromBytes(duplicated.array()));
+  }
+
+  @Test
+  void testTrailingBytesAreTolerated() throws IOException
+  {
+    final Set<Long> values = randomValues(new Random(10), 300);
+    final byte[] serialized = bytes(counterOf(values));
+    final byte[] padded = Arrays.copyOf(serialized, serialized.length + 100);
+    final RoaringBitmap64Counter counter = RoaringBitmap64Counter.fromBytes(padded);
+    Assertions.assertEquals(values.size(), counter.getCardinality());
+    Assertions.assertEquals(values, legacyContents(bytes(counter)));
+  }
+
+  @Test
+  void testFromBytesDoesNotKeepTheCallersArray() throws IOException
+  {
+    final Set<Long> values = randomValues(new Random(11), 300);
+    final byte[] serialized = bytes(counterOf(values));
+    final RoaringBitmap64Counter counter = RoaringBitmap64Counter.fromBytes(serialized);
+    final RoaringBitmap64Counter union = new RoaringBitmap64Counter();
+    union.fold(counter);
+
+    // the caller reuses its array
+    Arrays.fill(serialized, (byte) 0);
+
+    Assertions.assertEquals(values.size(), counter.getCardinality());
+    Assertions.assertEquals(values.size(), union.getCardinality());
+    Assertions.assertEquals(values, legacyContents(bytes(union)));
+  }
 }
