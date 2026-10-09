@@ -72,4 +72,5 @@ public class PostAggregatorIds
   public static final byte DDSKETCH_QUANTILES_TYPE_ID = 51;
   public static final byte DDSKETCH_QUANTILE_TYPE_ID = 52;
   public static final byte BITMAP64_EXACT_COUNT_TYPE_ID = 53;
+  public static final byte BITMAP32_EXACT_COUNT_TYPE_ID = 54;
 }
