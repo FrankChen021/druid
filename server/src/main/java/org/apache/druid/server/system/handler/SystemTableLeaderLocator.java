@@ -17,20 +17,15 @@
  * under the License.
  */
 
-package org.apache.druid.guice;
+package org.apache.druid.server.system.handler;
 
-import com.google.inject.Binder;
-import org.apache.druid.initialization.DruidModule;
-import org.apache.druid.server.QueryResource;
-import org.apache.druid.server.metrics.QueryCountStatsProvider;
+import com.google.common.util.concurrent.ListenableFuture;
 
-public class QueryablePeonModule implements DruidModule
+import java.net.URI;
+
+/** Resolves the current leader for one Druid node role. */
+@FunctionalInterface
+public interface SystemTableLeaderLocator
 {
-  @Override
-  public void configure(Binder binder)
-  {
-    binder.bind(QueryCountStatsProvider.class).to(QueryResource.class);
-    Jerseys.addResource(binder, QueryResource.class);
-    LifecycleModule.register(binder, QueryResource.class);
-  }
+  ListenableFuture<URI> findCurrentLeader();
 }

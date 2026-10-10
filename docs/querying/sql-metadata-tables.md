@@ -339,6 +339,17 @@ For example, to retrieve properties for a specific server, use the query
 SELECT * FROM sys.server_properties WHERE server='192.168.1.1:8081'
 ```
 
+You can use the [Dart query engine](dart.md) to run native operators such as exact distinct aggregation across
+server properties:
+
+```sql
+SET engine = 'msq-dart';
+SELECT COUNT(DISTINCT server) FROM sys.server_properties;
+```
+
+For this table, Dart distributes collection across system-table sources and performs later query stages through
+the regular MSQ execution path.
+
 ### QUERIES table
 
 :::info

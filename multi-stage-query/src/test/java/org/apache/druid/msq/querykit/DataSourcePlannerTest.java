@@ -25,11 +25,14 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.UOE;
 import org.apache.druid.msq.input.InputSpec;
 import org.apache.druid.msq.input.inline.InlineInputSpec;
+import org.apache.druid.msq.input.system.SystemTableInputSpec;
 import org.apache.druid.msq.input.table.TableInputSpec;
+import org.apache.druid.msq.querykit.datasource.SystemTableDataSourcePlanner;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.LeafDataSource;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
@@ -95,6 +98,22 @@ public class DataSourcePlannerTest
     final DataSourcePlan plan = plan(new TableDataSource("foo"), Map.of());
 
     Assertions.assertInstanceOf(TableInputSpec.class, Iterables.getOnlyElement(plan.getInputSpecs()));
+  }
+
+  /** {@code sys.server_properties} becomes a Dart system-table input instead of an inline Broker result. */
+  @Test
+  public void testSystemTablePlannerHandlesServerProperties()
+  {
+    final DataSourcePlan plan = plan(
+        new SystemTableDataSource("server_properties"),
+        Map.of(SystemTableDataSource.class, new SystemTableDataSourcePlanner())
+    );
+
+    Assertions.assertEquals(
+        List.of(new SystemTableInputSpec("server_properties")),
+        plan.getInputSpecs()
+    );
+    Assertions.assertInstanceOf(InputNumberDataSource.class, plan.getNewDataSource());
   }
 
   @SuppressWarnings("rawtypes")

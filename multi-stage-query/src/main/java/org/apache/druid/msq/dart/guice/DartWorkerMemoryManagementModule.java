@@ -20,7 +20,11 @@
 package org.apache.druid.msq.dart.guice;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
+import com.google.inject.Key;
+import com.google.inject.Provider;
 import com.google.inject.Provides;
+import com.google.inject.multibindings.OptionalBinder;
 import org.apache.druid.collections.BlockingPool;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.error.DruidException;
@@ -47,7 +51,10 @@ public class DartWorkerMemoryManagementModule implements DruidModule
   @Override
   public void configure(Binder binder)
   {
-    // Nothing to do.
+    OptionalBinder.newOptionalBinder(binder, Key.get(ProcessingBuffersProvider.class, Dart.class))
+                  .setBinding()
+                  .toProvider(WorkerProcessingBuffersProvider.class)
+                  .in(LazySingleton.class);
   }
 
   @Provides
@@ -66,15 +73,26 @@ public class DartWorkerMemoryManagementModule implements DruidModule
     );
   }
 
-  @Provides
-  @Dart
-  @LazySingleton
-  public ProcessingBuffersProvider createProcessingBuffersProvider(
-      @Merging final BlockingPool<ByteBuffer> mergeBufferPool,
-      final DruidProcessingConfig processingConfig
-  )
+  public static class WorkerProcessingBuffersProvider implements Provider<ProcessingBuffersProvider>
   {
-    return new DartProcessingBuffersProvider(mergeBufferPool, processingConfig.getNumThreads());
+    private final BlockingPool<ByteBuffer> mergeBufferPool;
+    private final DruidProcessingConfig processingConfig;
+
+    @Inject
+    public WorkerProcessingBuffersProvider(
+        @Merging final BlockingPool<ByteBuffer> mergeBufferPool,
+        final DruidProcessingConfig processingConfig
+    )
+    {
+      this.mergeBufferPool = mergeBufferPool;
+      this.processingConfig = processingConfig;
+    }
+
+    @Override
+    public ProcessingBuffersProvider get()
+    {
+      return new DartProcessingBuffersProvider(mergeBufferPool, processingConfig.getNumThreads());
+    }
   }
 
   private static int computeConcurrentQueries(

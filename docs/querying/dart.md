@@ -47,6 +47,12 @@ When processing these kinds of queries, Dart can parallelize through the entire 
 
 By default, Dart queries include results from published segments and realtime tasks.
 
+Dart can also execute queries against `sys.server_properties`. The Broker plans this table as a distributed MSQ
+input and uses an embedded worker for system-table processing, so these queries do not require a Historical. The
+worker reads the local server's properties directly and fetches properties from discovered remote Druid services;
+later stages perform aggregation, joins, and ordering using the standard Dart execution path. Other system tables
+continue to use their existing SQL execution paths.
+
 ## Enable Dart
 
 To enable Dart, add the following line to your `_common/common.runtime.properties` files:
@@ -127,7 +133,7 @@ You can use any SQL query context parameters to control Dart's behavior unless o
 | `finalizeAggregations` | Determines the type of aggregation to return. If true, Druid finalizes the results of complex aggregations that directly appear in query results. If false, Druid returns the aggregation's intermediate type rather than finalized type. This parameter is useful during ingestion, where it enables storing sketches directly in Druid tables. For more information about aggregations, see [SQL aggregation functions](../querying/sql-aggregations.md). | `true` |
 | `includeSegmentSource` |  Controls the sources Druid queries for results in addition to the segments present on deep storage. Can be `NONE` or `REALTIME`. If set to `NONE`, only non-realtime (published and used) segments are downloaded from deep storage. If set to `REALTIME`, results are also included from realtime tasks.|  `REALTIME` |
 | `removeNullBytes` |The MSQ engine can't process null bytes in strings and throws `InvalidNullByteFault` if it encounters them in the source data. If the parameter is set to true, the MSQ engine removes the null bytes in string fields when reading the data. | `false` |
-|`maxConcurrentStages`|Number of stages that can run concurrently for a query. A higher number can potentially improve pipelining but results in less memory available for each stage.|2|
+|`maxConcurrentStages`|Number of stages that can run concurrently for a query. A higher number can potentially improve pipelining but results in less memory available for each stage. The nano and micro quickstart profiles configure this to `1`. An explicit query-context value overrides the configured default.|2|
 |`maxNonLeafWorkers`|Number of workers to use for stages beyond the leaf stage.| 1 (Scatter-gather style)|
 | `sqlJoinAlgorithm` | Algorithm to use for JOIN. Use `broadcast` (the default) for broadcast hash join or `sortMerge` for sort-merge join. Affects all JOIN operations in the query. This is a hint to the MSQ engine and the actual joins in the query may proceed in a different way than specified. See [Joins](../multi-stage-query/reference.md#joins) for more details. | `broadcast` |
 |`targetPartitionsPerWorker`|Number of partitions Druid generates for each worker. This number controls how much parallelism can be maintained throughout a query.|1|
@@ -144,3 +150,4 @@ You can use any SQL query context parameters to control Dart's behavior unless o
 - Realtime scans from the MSQ engine can't reliably read complex types. This can happen in situations such as if your data includes HLL Sketches for realtime data. Dart returns a `NullPointerException`. For more information, see [#18340](https://github.com/apache/druid/issues/18340).
 - The `NilStageOutputReader` can sometimes lead to a `NoClassDefFoundError`. For more information, see [#18336](https://github.com/apache/druid/pull/18336).
 - Broadcast joins with realtime data aren't supported. If the left table of a join has realtime data and you're doing a broadcast join, you must set `sqlJoinAlgorithm` to `sortMerge`.
+- Of the `sys` tables, only `sys.server_properties` supports distributed Dart execution.

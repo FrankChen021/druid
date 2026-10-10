@@ -21,6 +21,7 @@ package org.apache.druid.server.http;
 
 import com.google.inject.Inject;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.server.QueryResource;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -69,7 +70,7 @@ public class RedirectFilter implements Filter
       throw new ServletException("non-HTTP request or response");
     }
 
-    if (redirectInfo.doLocal(request.getRequestURI())) {
+    if (redirectInfo.doLocal(request.getRequestURI()) || isLocalNativeQuery(request)) {
       chain.doFilter(request, response);
     } else {
       final URL url = redirectInfo.getRedirectURL(request.getQueryString(), request.getRequestURI());
@@ -97,5 +98,13 @@ public class RedirectFilter implements Filter
   @Override
   public void destroy()
   {
+  }
+
+  private static boolean isLocalNativeQuery(final HttpServletRequest request)
+  {
+    return request.getRequestURI().startsWith("/druid/v2")
+           && QueryResource.NATIVE_QUERY_ROUTE_LOCAL.equals(
+               request.getHeader(QueryResource.HEADER_NATIVE_QUERY_ROUTE)
+           );
   }
 }
