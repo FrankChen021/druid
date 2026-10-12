@@ -355,7 +355,7 @@ public class QueryContexts
    * @deprecated Use {@link QueryContextParameters#SQL_QUERY_ID} instead.
    */
   @Deprecated
-  public static final String CTX_SQL_QUERY_ID = BaseQuery.SQL_QUERY_ID;
+  public static final String CTX_SQL_QUERY_ID = "sqlQueryId";
   /**
    * @deprecated Use {@link QueryContextParameters#SQL_STRINGIFY_ARRAYS} instead.
    */
