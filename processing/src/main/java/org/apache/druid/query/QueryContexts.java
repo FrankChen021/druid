@@ -261,7 +261,7 @@ public class QueryContexts
   @Deprecated
   public static final String POPULATE_RESULT_LEVEL_CACHE_KEY = "populateResultLevelCache";
   /**
-   * @deprecated Use {@link org.apache.druid.query.context.QueryContextParameters#USE_RESULT_LEVEL_CACHE} instead.
+   * @deprecated Use {@link QueryContextParameters#USE_RESULT_LEVEL_CACHE} instead.
    */
   @Deprecated
   public static final String USE_RESULT_LEVEL_CACHE_KEY = "useResultLevelCache";
@@ -295,12 +295,13 @@ public class QueryContexts
    */
   @Deprecated
   public static final String ENGINE = "engine";
-  // this flag controls whether the topN engine can use the 'pooled' algorithm when query granularity is set to
-  // anything other than 'ALL' and the cardinality + number of aggregators would require more size than is available
-  // in the buffers and so must reset the cursor to use multiple passes. This is likely slower than the default
-  // behavior of falling back to heap memory, but less dangerous since too large of a query can cause the heap to run
-  // out of memory
   /**
+   * This flag controls whether the topN engine can use the 'pooled' algorithm when query granularity is set to
+   * anything other than 'ALL' and the cardinality + number of aggregators would require more size than is available
+   * in the buffers and so must reset the cursor to use multiple passes. This is likely slower than the default
+   * behavior of falling back to heap memory, but less dangerous since too large of a query can cause the heap to run
+   * out of memory.
+   *
    * @deprecated Use {@link QueryContextParameters#USE_TOPN_MULTI_PASS_POOLED_QUERY_GRANULARITY} instead.
    */
   @Deprecated
@@ -445,7 +446,7 @@ public class QueryContexts
   public static final boolean DEFAULT_POPULATE_RESULTLEVEL_CACHE = true;
   /**
    * @deprecated Use the declared default of
-   * {@link org.apache.druid.query.context.QueryContextParameters#USE_RESULT_LEVEL_CACHE} instead, for example
+   * {@link QueryContextParameters#USE_RESULT_LEVEL_CACHE} instead, for example
    * {@link QueryContext#getOrDefault(QueryContextParameter)}.
    */
   @Deprecated
@@ -472,7 +473,7 @@ public class QueryContexts
   @Deprecated
   public static final int DEFAULT_UNCOVERED_INTERVALS_LIMIT = 0;
   /**
-   * @deprecated Use the declared default of {@link org.apache.druid.query.context.QueryContextParameters#DEFAULT_TIMEOUT}
+   * @deprecated Use the declared default of {@link QueryContextParameters#DEFAULT_TIMEOUT}
    * instead, for example {@link QueryContext#getOrDefault(QueryContextParameter)}.
    */
   @Deprecated
