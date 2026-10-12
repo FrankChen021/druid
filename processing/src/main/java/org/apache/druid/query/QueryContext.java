@@ -847,7 +847,7 @@ public class QueryContext
   public boolean isDecoupledMode()
   {
     final String value = getOrDefault(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE);
-    return QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED.equals(value);
+    return QueryContexts.PlanningMode.DECOUPLED.name().equals(value);
   }
 
   public QueryContext override(Map<String, Object> contextOverride)

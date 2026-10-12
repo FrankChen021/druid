@@ -76,7 +76,7 @@ public class PlannerConfig
   private int maxNumericInFilters = NUM_FILTER_NOT_USED;
 
   @JsonProperty
-  private String nativeQuerySqlPlanningMode = QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED; // can be COUPLED or DECOUPLED
+  private String nativeQuerySqlPlanningMode = QueryContexts.PlanningMode.COUPLED.name(); // can be COUPLED or DECOUPLED
 
   @JsonProperty
   private boolean enableSysQueriesTable = false;

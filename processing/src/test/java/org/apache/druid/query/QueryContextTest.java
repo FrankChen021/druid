@@ -453,7 +453,7 @@ public class QueryContextTest
     assertTrue(
         QueryContext.of(
             QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE,
-            QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
+            QueryContexts.PlanningMode.DECOUPLED.name()
         ).isDecoupledMode()
     );
     assertFalse(

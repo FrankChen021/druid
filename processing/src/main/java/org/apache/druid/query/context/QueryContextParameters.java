@@ -265,7 +265,7 @@ public final class QueryContextParameters
 
   public static final QueryContextParameter<Integer> VECTOR_SIZE = integerParameter("vectorSize")
       .since("0.16.0-incubating").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-      .defaultValue(QueryContexts.DEFAULT_VECTOR_SIZE)
+      .defaultValue(512)
       .description(
           """
           Sets the row batching size for a particular query.
@@ -1057,7 +1057,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<String> NATIVE_QUERY_SQL_PLANNING_MODE =
       stringParameter("plannerStrategy")
           .since("27.0.0").query(Query.SQL).engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
-          .defaultValue(QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED)
+          .defaultValue(QueryContexts.PlanningMode.COUPLED.name())
           .description(
               """
               SQL planning strategy: `COUPLED` plans the logical query and generates the native query together,

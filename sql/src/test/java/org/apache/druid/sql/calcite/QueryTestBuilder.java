@@ -311,7 +311,7 @@ public class QueryTestBuilder
   public boolean isDecoupledMode()
   {
     String mode = (String) queryContext.getOrDefault(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE.getName(), "");
-    return QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED.equalsIgnoreCase(mode);
+    return QueryContexts.PlanningMode.DECOUPLED.name().equalsIgnoreCase(mode);
   }
 
 }

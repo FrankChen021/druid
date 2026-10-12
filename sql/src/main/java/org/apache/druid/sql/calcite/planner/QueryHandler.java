@@ -545,7 +545,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
 
     if (plannerContext.getPlannerConfig()
                       .getNativeQuerySqlPlanningMode()
-                      .equals(QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED)
+                      .equals(QueryContexts.PlanningMode.DECOUPLED.name())
     ) {
       RelNode newRoot = parameterized;
       newRoot = planner.transform(

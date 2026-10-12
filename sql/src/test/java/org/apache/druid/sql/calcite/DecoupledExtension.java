@@ -56,7 +56,7 @@ public class DecoupledExtension implements BeforeEachCallback
 
   private static final Map<String, Object> CONTEXT_OVERRIDES = QueryContext.builder()
       .putAll(BaseCalciteQueryTest.QUERY_CONTEXT_DEFAULT)
-      .put(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE, QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED)
+      .put(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE, QueryContexts.PlanningMode.DECOUPLED.name())
       .put(QueryContextParameters.DEBUG, true)
       .toMap();
 
