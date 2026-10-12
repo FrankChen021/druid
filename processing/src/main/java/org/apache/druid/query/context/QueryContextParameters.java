@@ -1054,10 +1054,10 @@ public final class QueryContextParameters
           .visibility(Visibility.HIDDEN)
           .build();
 
-  public static final QueryContextParameter<String> NATIVE_QUERY_SQL_PLANNING_MODE =
-      stringParameter("plannerStrategy")
+  public static final QueryContextParameter<QueryContexts.PlanningMode> NATIVE_QUERY_SQL_PLANNING_MODE =
+      enumParameter("plannerStrategy", QueryContexts.PlanningMode.class)
           .since("27.0.0").query(Query.SQL).engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
-          .defaultValue(QueryContexts.PlanningMode.COUPLED.name())
+          .defaultValue(QueryContexts.PlanningMode.COUPLED)
           .description(
               """
               SQL planning strategy: `COUPLED` plans the logical query and generates the native query together,

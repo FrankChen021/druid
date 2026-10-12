@@ -453,11 +453,27 @@ public class QueryContextTest
     assertTrue(
         QueryContext.of(
             QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE,
-            QueryContexts.PlanningMode.DECOUPLED.name()
+            QueryContexts.PlanningMode.DECOUPLED
         ).isDecoupledMode()
     );
+    assertTrue(
+        QueryContext.builder()
+                    .putRaw(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE.getName(), "decoupled")
+                    .toContext()
+                    .isDecoupledMode()
+    );
     assertFalse(
-        QueryContext.of(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE, "garbage").isDecoupledMode()
+        QueryContext.of(
+            QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE,
+            QueryContexts.PlanningMode.COUPLED
+        ).isDecoupledMode()
+    );
+    assertThrows(
+        BadQueryContextException.class,
+        () -> QueryContext.builder()
+                          .putRaw(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE.getName(), "garbage")
+                          .toContext()
+                          .isDecoupledMode()
     );
   }
 

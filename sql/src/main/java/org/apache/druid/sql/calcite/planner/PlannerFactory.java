@@ -336,9 +336,7 @@ public class PlannerFactory extends PlannerToolbox
           }
         });
 
-    if (QueryContexts.PlanningMode.DECOUPLED.name()
-        .equals(plannerConfig().getNativeQuerySqlPlanningMode())
-    ) {
+    if (plannerConfig().getNativeQuerySqlPlanningMode() == QueryContexts.PlanningMode.DECOUPLED) {
       frameworkConfigBuilder.costFactory(new DruidVolcanoCost.Factory());
     }
 

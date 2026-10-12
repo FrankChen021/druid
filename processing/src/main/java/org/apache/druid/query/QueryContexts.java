@@ -604,7 +604,13 @@ public class QueryContexts
   public enum PlanningMode
   {
     COUPLED,
-    DECOUPLED
+    DECOUPLED;
+
+    @JsonCreator
+    public static PlanningMode fromString(String str)
+    {
+      return PlanningMode.valueOf(StringUtils.toUpperCase(str));
+    }
   }
 
   @SuppressWarnings("unused") // Used by Jackson serialization
