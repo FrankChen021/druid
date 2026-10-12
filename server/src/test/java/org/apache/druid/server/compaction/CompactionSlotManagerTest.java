@@ -35,7 +35,7 @@ public class CompactionSlotManagerTest
   public void test_computeSlotsRequiredForTask_forMsqTask_whenContextIsNull_returnsDefault()
   {
     Assertions.assertEquals(
-        QueryContextParameters.MAX_NUM_TASKS.getDefaultValue().orElseThrow(),
+        QueryContextParameters.MAX_NUM_TASKS.getDefaultValue(),
         CompactionSlotManager.computeSlotsRequiredForTask(
             createMsqTask(null)
         )
@@ -57,7 +57,7 @@ public class CompactionSlotManagerTest
   public void test_computeSlotsRequiredForTask_forMsqTask_whenContextIsEmpty_returnsDefault()
   {
     Assertions.assertEquals(
-        QueryContextParameters.MAX_NUM_TASKS.getDefaultValue().orElseThrow(),
+        QueryContextParameters.MAX_NUM_TASKS.getDefaultValue(),
         CompactionSlotManager.computeSlotsRequiredForTask(
             createMsqTask(Map.of())
         )

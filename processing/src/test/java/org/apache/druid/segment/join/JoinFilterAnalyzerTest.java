@@ -2016,8 +2016,8 @@ public class JoinFilterAnalyzerTest extends BaseHashJoinSegmentCursorFactoryTest
                 false,
                 true,
                 true,
-                QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER.getDefaultValue().orElseThrow(),
-                QueryContextParameters.JOIN_FILTER_REWRITE_MAX_SIZE.getDefaultValue().orElseThrow()
+                QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER.getDefaultValue(),
+                QueryContextParameters.JOIN_FILTER_REWRITE_MAX_SIZE.getDefaultValue()
             ),
             joinableClauses.getJoinableClauses(),
             VirtualColumns.EMPTY,
@@ -2092,8 +2092,8 @@ public class JoinFilterAnalyzerTest extends BaseHashJoinSegmentCursorFactoryTest
                 true,
                 false,
                 true,
-                QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER.getDefaultValue().orElseThrow(),
-                QueryContextParameters.JOIN_FILTER_REWRITE_MAX_SIZE.getDefaultValue().orElseThrow()
+                QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER.getDefaultValue(),
+                QueryContextParameters.JOIN_FILTER_REWRITE_MAX_SIZE.getDefaultValue()
             ),
             joinableClauses.getJoinableClauses(),
             VirtualColumns.EMPTY,
@@ -2497,8 +2497,8 @@ public class JoinFilterAnalyzerTest extends BaseHashJoinSegmentCursorFactoryTest
                 true,
                 true,
                 true,
-                QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER.getDefaultValue().orElseThrow(),
-                QueryContextParameters.JOIN_FILTER_REWRITE_MAX_SIZE.getDefaultValue().orElseThrow()
+                QueryContextParameters.ENABLE_REWRITE_JOIN_TO_FILTER.getDefaultValue(),
+                QueryContextParameters.JOIN_FILTER_REWRITE_MAX_SIZE.getDefaultValue()
             ),
             joinableClauses,
             VirtualColumns.EMPTY,

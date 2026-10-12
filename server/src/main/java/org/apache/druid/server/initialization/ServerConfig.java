@@ -223,7 +223,7 @@ public class ServerConfig
 
   @JsonProperty
   private boolean useNestedForUnknownTypeInSubquery =
-      QueryContextParameters.USE_NESTED_FOR_UNKNOWN_TYPE_IN_SUBQUERY.getDefaultValue().orElseThrow();
+      QueryContextParameters.USE_NESTED_FOR_UNKNOWN_TYPE_IN_SUBQUERY.getDefaultValue();
 
   @JsonProperty
   @Min(1)

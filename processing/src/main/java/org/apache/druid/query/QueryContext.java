@@ -277,7 +277,7 @@ public class QueryContext
   @Nullable
   public <T> T get(final QueryContextParameter<T> parameter)
   {
-    return parseOrDefault(parameter, parameter.getDefaultValue().orElse(null));
+    return parseOrDefault(parameter, parameter.hasDefaultValue() ? parameter.getDefaultValue() : null);
   }
 
   /**
@@ -288,12 +288,7 @@ public class QueryContext
    */
   public <T> T getOrDefault(final QueryContextParameter<T> parameter)
   {
-    return getOrDefault(
-        parameter,
-        parameter.getDefaultValue().orElseThrow(
-            () -> new ISE("Query context parameter [%s] has no declared default", parameter.getName())
-        )
-    );
+    return getOrDefault(parameter, parameter.getDefaultValue());
   }
 
   /**

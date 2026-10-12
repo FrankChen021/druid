@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -241,9 +240,7 @@ public final class QueryContextParameter<T>
     if (parsed != null) {
       return parsed;
     }
-    return getDefaultValue().orElseThrow(
-        () -> new ISE("Query context parameter [%s] has no declared default", name)
-    );
+    return getDefaultValue();
   }
 
   /**
@@ -272,12 +269,26 @@ public final class QueryContextParameter<T>
   }
 
   /**
-   * Returns the declared default, if one exists. Parameters whose fallback is supplied by runtime configuration or an
-   * individual call site do not have a default value in the descriptor.
+   * Returns whether this parameter declares a default value.
+   * Parameters whose fallback is supplied by runtime configuration or an individual call site do not have a default
+   * value in the descriptor.
    */
-  public Optional<T> getDefaultValue()
+  public boolean hasDefaultValue()
   {
-    return Optional.ofNullable(defaultValue);
+    return defaultValue != null;
+  }
+
+  /**
+   * Returns the declared default value.
+   *
+   * @throws ISE if this parameter has no declared default; use {@link #hasDefaultValue()} to check first
+   */
+  public T getDefaultValue()
+  {
+    if (defaultValue == null) {
+      throw new ISE("Query context parameter [%s] has no declared default", name);
+    }
+    return defaultValue;
   }
 
   public boolean isNullable()

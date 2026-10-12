@@ -36,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -284,7 +285,9 @@ public final class ParameterDocumentationGenerator
   {
     return docs.getDefaultDescription()
                .map(ParameterDocumentationGenerator::normalizeTableCell)
-               .or(() -> parameter.getDefaultValue().map(value -> "`" + value + "`"))
+               .or(() -> parameter.hasDefaultValue()
+                         ? Optional.of("`" + parameter.getDefaultValue() + "`")
+                         : Optional.empty())
                .orElse("N/A");
   }
 

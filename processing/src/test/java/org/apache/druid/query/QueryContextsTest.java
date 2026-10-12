@@ -130,7 +130,7 @@ public class QueryContextsTest
   public void testDefaultInSubQueryThreshold()
   {
     Assertions.assertEquals(
-        QueryContextParameters.IN_SUBQUERY_THRESHOLD.getDefaultValue().orElseThrow(),
+        QueryContextParameters.IN_SUBQUERY_THRESHOLD.getDefaultValue(),
         QueryContext.empty().getInSubQueryThreshold()
     );
   }
@@ -139,7 +139,7 @@ public class QueryContextsTest
   public void testDefaultPlanTimeBoundarySql()
   {
     Assertions.assertEquals(
-        QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getDefaultValue().orElseThrow(),
+        QueryContextParameters.ENABLE_TIME_BOUNDARY_PLANNING.getDefaultValue(),
         QueryContext.empty().isTimeBoundaryPlanningEnabled()
     );
   }
@@ -157,7 +157,7 @@ public class QueryContextsTest
   public void testCatalogValidationEnabled()
   {
     Assertions.assertEquals(
-        QueryContextParameters.CATALOG_VALIDATION_ENABLED.getDefaultValue().orElseThrow(),
+        QueryContextParameters.CATALOG_VALIDATION_ENABLED.getDefaultValue(),
         QueryContext.empty().isCatalogValidationEnabled()
     );
     Assertions.assertTrue(
