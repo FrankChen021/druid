@@ -19,6 +19,8 @@
 
 package org.apache.druid.query.context;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.BadQueryContextException;
@@ -373,6 +375,34 @@ class QueryContextParameterTest
   {
     for (final QueryContextParameter<?> parameter : QueryContextParameters.ALL.get().values()) {
       assertNotNull(parameter.getSince(), parameter.getName());
+    }
+  }
+
+  /**
+   * Query context values usually arrive in their JSON form, so an enum parameter's value must survive the trip from
+   * enum constant to JSON string and back, whichever path the string takes: Jackson, the parameter's parser, or the
+   * enum's {@code toString()}. This checks, for every constant of every enum parameter in the catalog, that Jackson
+   * reads back what it writes, that {@code toString()} equals the JSON form, and that the parameter parses the JSON
+   * form to the same constant. See the enum requirements on {@link QueryContextParameter}.
+   */
+  @Test
+  void testEnumParametersHaveConsistentJsonForm() throws Exception
+  {
+    final ObjectMapper mapper = new DefaultObjectMapper();
+    for (final QueryContextParameter<?> parameter : QueryContextParameters.ALL.get().values()) {
+      final Class<?> type = parameter.getValueType();
+      if (!type.isEnum()) {
+        continue;
+      }
+      for (final Object constant : type.getEnumConstants()) {
+        final String description = parameter.getName() + " = " + constant;
+        final String json = mapper.writeValueAsString(constant);
+        final String jsonForm = mapper.readValue(json, String.class);
+
+        assertEquals(constant, mapper.readValue(json, type), description);
+        assertEquals(jsonForm, constant.toString(), description);
+        assertEquals(constant, parameter.parse(jsonForm), description);
+      }
     }
   }
 

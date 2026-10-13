@@ -33,7 +33,5 @@ public enum ResultSerializationMode
   /**
    * Materialize the inner results as frames
    */
-  FRAMES;
-
-  public static final String CTX_SERIALIZATION_PARAMETER = "serialization";
+  FRAMES
 }

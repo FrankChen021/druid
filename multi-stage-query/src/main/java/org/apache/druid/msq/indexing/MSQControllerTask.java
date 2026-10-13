@@ -61,7 +61,6 @@ import org.apache.druid.msq.sql.MSQTaskQueryKitSpecFactory;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
-import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.server.coordination.BroadcastDatasourceLoadingSpec;
@@ -73,6 +72,7 @@ import org.joda.time.Interval;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -332,14 +332,11 @@ public class MSQControllerTask extends AbstractTask implements ClientTaskQuery, 
   public TaskLockType getTaskLockType()
   {
     if (isIngestion(querySpec)) {
+      // Lock settings can also come from the task context, such as the Overlord's default; the query context wins.
+      final Map<String, Object> queryContext = new HashMap<>(querySpec.getContext().asMap());
+      MultiStageQueryContext.addQueryContextParameters(getContext(), queryContext);
       return MultiStageQueryContext.validateAndGetTaskLockType(
-          QueryContext.of(
-              // Use the task context and override with the query context
-              QueryContexts.override(
-                  getContext(),
-                  querySpec.getContext().asMap()
-              )
-          ),
+          QueryContext.of(queryContext),
           ((DataSourceMSQDestination) querySpec.getDestination()).isReplaceTimeChunks()
       );
     } else {

@@ -32,6 +32,8 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.metadata.LockFilterPolicy;
+import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.coordinator.ClusterCompactionConfig;
 import org.apache.druid.server.coordinator.DataSourceCompactionConfig;
@@ -304,9 +306,7 @@ public class CompactionSlotManager
    */
   public static int getMaxTaskSlotsForMSQCompactionTask(@Nullable Map<String, Object> context)
   {
-    return context == null
-           ? ClientMSQContext.DEFAULT_MAX_NUM_TASKS
-           : (int) context.getOrDefault(ClientMSQContext.CTX_MAX_NUM_TASKS, ClientMSQContext.DEFAULT_MAX_NUM_TASKS);
+    return QueryContext.of(context).getOrDefault(QueryContextParameters.MAX_NUM_TASKS);
   }
 
 
@@ -339,7 +339,7 @@ public class CompactionSlotManager
    * MSQ-based Compaction tasks launched by the Coordinator use up all available
    * task slots if {@code maxNumTasks} is not specified in the context. However,
    * {@link #computeSlotsRequiredForTask(ClientCompactionTaskQuery)}, used by
-   * compaction supervisors uses {@link ClientMSQContext#DEFAULT_MAX_NUM_TASKS}
+   * compaction supervisors uses the default of {@link QueryContextParameters#MAX_NUM_TASKS}
    * instead.
    */
   public int computeSlotsRequiredForTask(
@@ -349,8 +349,9 @@ public class CompactionSlotManager
   {
     if (task.isMsq()) {
       final Map<String, Object> autoCompactionContext = task.getContext();
-      if (autoCompactionContext.containsKey(ClientMSQContext.CTX_MAX_NUM_TASKS)) {
-        return (int) autoCompactionContext.get(ClientMSQContext.CTX_MAX_NUM_TASKS);
+      final QueryContext queryContext = QueryContext.of(autoCompactionContext);
+      if (queryContext.has(QueryContextParameters.MAX_NUM_TASKS)) {
+        return queryContext.getOrDefault(QueryContextParameters.MAX_NUM_TASKS);
       } else {
         // Since MSQ needs all task slots for the calculated #tasks to be available upfront, allot all available
         // compaction slots (upto a max of MAX_TASK_SLOTS_FOR_MSQ_COMPACTION) to current compaction task to avoid
@@ -361,7 +362,7 @@ public class CompactionSlotManager
             numAvailableTaskSlots == 1 ? 2 : numAvailableTaskSlots,
             ClientMSQContext.MAX_TASK_SLOTS_FOR_MSQ_COMPACTION_TASK
         );
-        autoCompactionContext.put(ClientMSQContext.CTX_MAX_NUM_TASKS, slotsRequiredForCurrentTask);
+        QueryContextParameters.MAX_NUM_TASKS.set(autoCompactionContext, slotsRequiredForCurrentTask);
 
         return slotsRequiredForCurrentTask;
       }

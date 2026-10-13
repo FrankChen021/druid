@@ -45,6 +45,13 @@ import java.util.function.Function;
  * remove the key (or store {@code null} where removal is not possible). {@link #isNullable()} controls whether a
  * {@code null} may be supplied at all. Invalid values are reported with {@link BadQueryContextException}.</p>
  *
+ * <p>Query contexts are JSON maps: users send them as JSON, and Druid serializes them to data servers and into task
+ * specs. An enum value therefore usually arrives in its JSON form, a string, rather than as the enum constant. An enum
+ * used as a parameter type must have one string form that all paths agree on: its {@code toString()} must be
+ * annotated with {@code @JsonValue}, and both its {@code @JsonCreator}, if any, and the parameter's parser must accept
+ * that string. {@code QueryContextParameterTest#testEnumParametersHaveConsistentJsonForm} checks this for every enum
+ * parameter in {@link QueryContextParameters#ALL}.</p>
+ *
  * @param <T> parsed value type
  */
 public final class QueryContextParameter<T>

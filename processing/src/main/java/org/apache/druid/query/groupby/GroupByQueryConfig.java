@@ -28,8 +28,6 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.utils.JvmUtils;
 
-import java.util.Optional;
-
 /**
  *
  */
@@ -38,28 +36,6 @@ public class GroupByQueryConfig
   private static final Logger logger = new Logger(GroupByQueryConfig.class);
 
   public static final long AUTOMATIC = 0;
-
-  public static final String CTX_KEY_FORCE_LIMIT_PUSH_DOWN = "forceLimitPushDown";
-  public static final String CTX_KEY_APPLY_LIMIT_PUSH_DOWN = "applyLimitPushDown";
-  public static final String CTX_KEY_APPLY_LIMIT_PUSH_DOWN_TO_SEGMENT = "applyLimitPushDownToSegment";
-  public static final String CTX_KEY_FORCE_PUSH_DOWN_NESTED_QUERY = "forcePushDownNestedQuery";
-  public static final String CTX_KEY_EXECUTING_NESTED_QUERY = "executingNestedQuery";
-  public static final String CTX_KEY_ARRAY_RESULT_ROWS = "resultAsArray";
-  public static final String CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING = "groupByEnableMultiValueUnnesting";
-  public static final String CTX_KEY_BUFFER_GROUPER_MAX_SIZE = "bufferGrouperMaxSize";
-  public static final String CTX_KEY_DEFER_EXPRESSION_DIMENSIONS = "deferExpressionDimensions";
-  private static final String CTX_KEY_IS_SINGLE_THREADED = "groupByIsSingleThreaded";
-  private static final String CTX_KEY_BUFFER_GROUPER_INITIAL_BUCKETS = "bufferGrouperInitialBuckets";
-  private static final String CTX_KEY_BUFFER_GROUPER_MAX_LOAD_FACTOR = "bufferGrouperMaxLoadFactor";
-  private static final String CTX_KEY_MAX_ON_DISK_STORAGE = "maxOnDiskStorage";
-  private static final String CTX_KEY_MAX_SELECTOR_DICTIONARY_SIZE = "maxSelectorDictionarySize";
-  private static final String CTX_KEY_MAX_MERGING_DICTIONARY_SIZE = "maxMergingDictionarySize";
-  private static final String CTX_KEY_MAX_SPILL_FILE_COUNT = "maxSpillFileCount";
-  private static final String CTX_KEY_MIN_SPILL_FILE_SIZE = "minSpillFileSize";
-  private static final String CTX_KEY_FORCE_HASH_AGGREGATION = "forceHashAggregation";
-  private static final String CTX_KEY_INTERMEDIATE_COMBINE_DEGREE = "intermediateCombineDegree";
-  private static final String CTX_KEY_NUM_PARALLEL_COMBINE_THREADS = "numParallelCombineThreads";
-  private static final String CTX_KEY_MERGE_THREAD_LOCAL = "mergeThreadLocal";
 
   // Constants for sizing merging and selector dictionaries. Rationale for these constants:
   //  1) In no case do we want total aggregate dictionary size to exceed 40% of max memory.
@@ -340,17 +316,20 @@ public class GroupByQueryConfig
   {
     final GroupByQueryConfig newConfig = new GroupByQueryConfig();
     final QueryContext queryContext = query.context();
-    newConfig.singleThreaded = queryContext.getBoolean(CTX_KEY_IS_SINGLE_THREADED, isSingleThreaded());
+    newConfig.singleThreaded = queryContext.getOrDefault(
+        QueryContextParameters.GROUP_BY_IS_SINGLE_THREADED,
+        isSingleThreaded()
+    );
     newConfig.bufferGrouperMaxSize = Math.min(
-        queryContext.getInt(CTX_KEY_BUFFER_GROUPER_MAX_SIZE, getBufferGrouperMaxSize()),
+        queryContext.getOrDefault(QueryContextParameters.BUFFER_GROUPER_MAX_SIZE, getBufferGrouperMaxSize()),
         getBufferGrouperMaxSize()
     );
-    newConfig.bufferGrouperMaxLoadFactor = queryContext.getFloat(
-        CTX_KEY_BUFFER_GROUPER_MAX_LOAD_FACTOR,
+    newConfig.bufferGrouperMaxLoadFactor = queryContext.getOrDefault(
+        QueryContextParameters.BUFFER_GROUPER_MAX_LOAD_FACTOR,
         getBufferGrouperMaxLoadFactor()
     );
-    newConfig.bufferGrouperInitialBuckets = queryContext.getInt(
-        CTX_KEY_BUFFER_GROUPER_INITIAL_BUCKETS,
+    newConfig.bufferGrouperInitialBuckets = queryContext.getOrDefault(
+        QueryContextParameters.BUFFER_GROUPER_INITIAL_BUCKETS,
         getBufferGrouperInitialBuckets()
     );
     // If the client overrides do not provide "maxOnDiskStorage" context key, the server side "defaultOnDiskStorage"
@@ -358,56 +337,69 @@ public class GroupByQueryConfig
     // choose a default value lower than the max allowed when the context key is missing in the client query.
     newConfig.maxOnDiskStorage = HumanReadableBytes.valueOf(
         Math.min(
-            queryContext.getHumanReadableBytes(CTX_KEY_MAX_ON_DISK_STORAGE, getDefaultOnDiskStorage()).getBytes(),
+            queryContext.getOrDefault(QueryContextParameters.MAX_ON_DISK_STORAGE, getDefaultOnDiskStorage()).getBytes(),
             getMaxOnDiskStorage().getBytes()
         )
     );
 
-    newConfig.maxSelectorDictionarySize = queryContext
-        .getHumanReadableBytes(CTX_KEY_MAX_SELECTOR_DICTIONARY_SIZE, getConfiguredMaxSelectorDictionarySize());
+    newConfig.maxSelectorDictionarySize = queryContext.getOrDefault(
+        QueryContextParameters.MAX_SELECTOR_DICTIONARY_SIZE,
+        HumanReadableBytes.valueOf(getConfiguredMaxSelectorDictionarySize())
+    );
 
-    newConfig.maxMergingDictionarySize = queryContext
-        .getHumanReadableBytes(CTX_KEY_MAX_MERGING_DICTIONARY_SIZE, getConfiguredMaxMergingDictionarySize());
+    newConfig.maxMergingDictionarySize = queryContext.getOrDefault(
+        QueryContextParameters.MAX_MERGING_DICTIONARY_SIZE,
+        HumanReadableBytes.valueOf(getConfiguredMaxMergingDictionarySize())
+    );
 
-    newConfig.maxSpillFileCount = queryContext.getInt(
-        CTX_KEY_MAX_SPILL_FILE_COUNT,
+    newConfig.maxSpillFileCount = queryContext.getOrDefault(
+        QueryContextParameters.MAX_SPILL_FILE_COUNT,
         getMaxSpillFileCount()
     );
 
-    newConfig.minSpillFileSize = queryContext.getHumanReadableBytes(
-        CTX_KEY_MIN_SPILL_FILE_SIZE,
-        getMinSpillFileSize()
+    newConfig.minSpillFileSize = queryContext.getOrDefault(
+        QueryContextParameters.MIN_SPILL_FILE_SIZE,
+        HumanReadableBytes.valueOf(getMinSpillFileSize())
     );
 
-    newConfig.forcePushDownLimit = queryContext.getBoolean(CTX_KEY_FORCE_LIMIT_PUSH_DOWN, isForcePushDownLimit());
-    newConfig.applyLimitPushDownToSegment = queryContext.getBoolean(
-        CTX_KEY_APPLY_LIMIT_PUSH_DOWN_TO_SEGMENT,
+    newConfig.forcePushDownLimit = queryContext.getOrDefault(
+        QueryContextParameters.FORCE_LIMIT_PUSH_DOWN,
+        isForcePushDownLimit()
+    );
+    newConfig.applyLimitPushDownToSegment = queryContext.getOrDefault(
+        QueryContextParameters.APPLY_LIMIT_PUSH_DOWN_TO_SEGMENT,
         isApplyLimitPushDownToSegment()
     );
-    newConfig.forceHashAggregation = queryContext.getBoolean(CTX_KEY_FORCE_HASH_AGGREGATION, isForceHashAggregation());
-    newConfig.forcePushDownNestedQuery = queryContext.getBoolean(
-        CTX_KEY_FORCE_PUSH_DOWN_NESTED_QUERY,
+    newConfig.forceHashAggregation = queryContext.getOrDefault(
+        QueryContextParameters.FORCE_HASH_AGGREGATION,
+        isForceHashAggregation()
+    );
+    newConfig.forcePushDownNestedQuery = queryContext.getOrDefault(
+        QueryContextParameters.FORCE_PUSH_DOWN_NESTED_QUERY,
         isForcePushDownNestedQuery()
     );
-    newConfig.intermediateCombineDegree = queryContext.getInt(
-        CTX_KEY_INTERMEDIATE_COMBINE_DEGREE,
+    newConfig.intermediateCombineDegree = queryContext.getOrDefault(
+        QueryContextParameters.INTERMEDIATE_COMBINE_DEGREE,
         getIntermediateCombineDegree()
     );
-    newConfig.numParallelCombineThreads = queryContext.getInt(
-        CTX_KEY_NUM_PARALLEL_COMBINE_THREADS,
+    newConfig.numParallelCombineThreads = queryContext.getOrDefault(
+        QueryContextParameters.NUM_PARALLEL_COMBINE_THREADS,
         getNumParallelCombineThreads()
     );
-    newConfig.mergeThreadLocal = queryContext.getBoolean(CTX_KEY_MERGE_THREAD_LOCAL, isMergeThreadLocal());
-    newConfig.deferExpressionDimensions =
-        Optional.ofNullable(queryContext.getString(CTX_KEY_DEFER_EXPRESSION_DIMENSIONS))
-                .map(DeferExpressionDimensions::fromString)
-                .orElse(getDeferExpressionDimensions());
+    newConfig.mergeThreadLocal = queryContext.getOrDefault(
+        QueryContextParameters.MERGE_THREAD_LOCAL,
+        isMergeThreadLocal()
+    );
+    newConfig.deferExpressionDimensions = queryContext.getOrDefault(
+        QueryContextParameters.DEFER_EXPRESSION_DIMENSIONS,
+        getDeferExpressionDimensions()
+    );
     newConfig.vectorize = queryContext.getOrDefault(
         QueryContextParameters.VECTORIZE,
         isVectorize() ? QueryContexts.Vectorize.TRUE : QueryContexts.Vectorize.FALSE
     ) != QueryContexts.Vectorize.FALSE;
-    newConfig.enableMultiValueUnnesting = queryContext.getBoolean(
-        CTX_KEY_ENABLE_MULTI_VALUE_UNNESTING,
+    newConfig.enableMultiValueUnnesting = queryContext.getOrDefault(
+        QueryContextParameters.GROUP_BY_ENABLE_MULTI_VALUE_UNNESTING,
         isMultiValueUnnestingEnabled()
     );
 

@@ -36,7 +36,6 @@ import java.util.List;
  */
 public abstract class DruidSqlIngest extends SqlInsert
 {
-  public static final String SQL_EXPORT_FILE_FORMAT = "__exportFileFormat";
 
   @Nullable
   protected final SqlGranularityLiteral partitionedBy;

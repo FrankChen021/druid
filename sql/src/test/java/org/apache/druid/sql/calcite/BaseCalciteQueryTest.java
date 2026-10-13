@@ -67,12 +67,10 @@ import org.apache.druid.query.filter.NullFilter;
 import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.query.filter.RangeFilter;
 import org.apache.druid.query.filter.TypedInFilter;
-import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.groupby.having.DimFilterHavingSpec;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
-import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.query.union.UnionQuery;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
@@ -273,7 +271,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   {
     return QueryContext.builder()
                        .putAll(context)
-                       .putRaw(TimeseriesQuery.CTX_TIMESTAMP_RESULT_FIELD, timestampResultField)
+                       .put(QueryContextParameters.TIMESTAMP_RESULT_FIELD, timestampResultField)
                        .toMap();
   }
 
@@ -1393,11 +1391,11 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   )
   {
     Map<String, Object> output = new HashMap<>(input);
-    output.put(GroupByQuery.CTX_TIMESTAMP_RESULT_FIELD, timestampResultField);
+    QueryContextParameters.TIMESTAMP_RESULT_FIELD.set(output, timestampResultField);
 
     try {
-      output.put(
-          GroupByQuery.CTX_TIMESTAMP_RESULT_FIELD_GRANULARITY,
+      QueryContextParameters.TIMESTAMP_RESULT_FIELD_GRANULARITY.set(
+          output,
           queryFramework().queryJsonMapper().writeValueAsString(granularity)
       );
     }
@@ -1405,7 +1403,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
       throw new RuntimeException(e);
     }
 
-    output.put(GroupByQuery.CTX_TIMESTAMP_RESULT_FIELD_INDEX, timestampResultFieldIndex);
+    QueryContextParameters.TIMESTAMP_RESULT_FIELD_IN_ORIGINAL_DIMENSIONS.set(output, timestampResultFieldIndex);
     return output;
   }
 

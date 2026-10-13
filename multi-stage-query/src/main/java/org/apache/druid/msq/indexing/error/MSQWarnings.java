@@ -25,11 +25,6 @@ package org.apache.druid.msq.indexing.error;
 public class MSQWarnings
 {
   /**
-   * Query context key for limiting the maximum number of parse exceptions that a multi-stage query can generate
-   */
-  public static final String CTX_MAX_PARSE_EXCEPTIONS_ALLOWED = "maxParseExceptions";
-
-  /**
    * Default number of parse exceptions permissible for a multi-stage query
    */
   public static final Long DEFAULT_MAX_PARSE_EXCEPTIONS_ALLOWED = -1L;

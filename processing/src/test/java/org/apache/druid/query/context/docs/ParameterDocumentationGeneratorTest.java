@@ -22,8 +22,6 @@ package org.apache.druid.query.context.docs;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.query.context.QueryContextParameter;
 import org.apache.druid.query.context.QueryContextParameters;
-import org.apache.druid.query.context.docs.ParameterDocumentation.Query;
-import org.apache.druid.query.context.docs.ParameterDocumentation.QueryType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -46,6 +44,7 @@ class ParameterDocumentationGeneratorTest
       "<!-- GENERATED QUERY CONTEXT PARAMETER: useResultLevelCache -->";
   private static final String SCAN_MARKER =
       "<!-- GENERATED QUERY CONTEXT PARAMETER: maxRowsQueuedForOrdering -->";
+  private static final String SQL_TABLE = "|Parameter|Description|Default value|\n|---|---|---|\n";
   private static final String SQL_MARKER =
       "<!-- GENERATED QUERY CONTEXT PARAMETER: sqlQueryId -->";
 
@@ -58,7 +57,7 @@ class ParameterDocumentationGeneratorTest
     writeDocuments(
         "general header\n|stale| " + GENERAL_MARKER,
         "scan header\n|stale| " + SCAN_MARKER,
-        "sql header\n|stale| " + SQL_MARKER
+        "sql header\n" + SQL_TABLE + "|stale| " + SQL_MARKER
     );
 
     final Path generatedOutput = temporaryFolder.resolve("generated");
@@ -99,7 +98,7 @@ class ParameterDocumentationGeneratorTest
   @Test
   void testVerifyRejectsStaleDocumentation() throws IOException
   {
-    writeDocuments("|stale| " + GENERAL_MARKER, "|stale| " + SCAN_MARKER, "|stale| " + SQL_MARKER);
+    writeDocuments("|stale| " + GENERAL_MARKER, "|stale| " + SCAN_MARKER, SQL_TABLE + "|stale| " + SQL_MARKER);
 
     final ISE exception = assertThrows(
         ISE.class,
@@ -111,13 +110,48 @@ class ParameterDocumentationGeneratorTest
   @Test
   void testGenerateRejectsMissingMarker() throws IOException
   {
-    writeDocuments("no generated row", "|stale| " + SCAN_MARKER, "|stale| " + SQL_MARKER, false);
+    writeDocuments("no generated row", "|stale| " + SCAN_MARKER, SQL_TABLE + "|stale| " + SQL_MARKER, false);
 
     final ISE exception = assertThrows(
         ISE.class,
         () -> ParameterDocumentationGenerator.main(arguments("generate", temporaryFolder.resolve("generated")))
     );
     assertTrue(exception.getMessage().contains("Missing generated query context parameter markers"));
+  }
+
+  @Test
+  void testTableColumnsFollowHeader() throws IOException
+  {
+    writeDocuments(
+        "|stale| " + GENERAL_MARKER,
+        "|stale| " + SCAN_MARKER,
+        SQL_TABLE + "|stale| " + SQL_MARKER
+        + "\n\n|Key|Description|\n|---|---|\n|stale| <!-- GENERATED QUERY CONTEXT PARAMETER: sqlTimeZone -->"
+    );
+
+    ParameterDocumentationGenerator.main(arguments("generate", temporaryFolder.resolve("generated")));
+
+    final String sql = Files.readString(temporaryFolder.resolve(SQL_DOCUMENT), StandardCharsets.UTF_8);
+    assertTrue(sql.contains("|`sqlQueryId`|SQL query ID."));
+    assertTrue(sql.contains("|auto-generated| " + SQL_MARKER));
+    assertTrue(sql.contains("|`sqlTimeZone`|Time zone for a connection."));
+    assertTrue(sql.contains("behave.| <!-- GENERATED QUERY CONTEXT PARAMETER: sqlTimeZone -->"));
+  }
+
+  @Test
+  void testRejectsMarkerForNonPublicParameter() throws IOException
+  {
+    writeDocuments(
+        "|stale| " + GENERAL_MARKER + "\n|stale| <!-- GENERATED QUERY CONTEXT PARAMETER: unknownParameter -->",
+        "|stale| " + SCAN_MARKER,
+        SQL_TABLE + "|stale| " + SQL_MARKER
+    );
+
+    final ISE exception = assertThrows(
+        ISE.class,
+        () -> ParameterDocumentationGenerator.main(arguments("generate", temporaryFolder.resolve("generated")))
+    );
+    assertTrue(exception.getMessage().contains("does not name a public query context parameter"));
   }
 
   @Test
@@ -163,6 +197,11 @@ class ParameterDocumentationGeneratorTest
     writeDocuments(general, scan, sql, true);
   }
 
+  /**
+   * Writes the three documents under test, and an empty file for every other managed document. When
+   * {@code addMissingMarkers} is set, markers for public parameters that none of the three documents mention are
+   * appended to the general document so that the generator's completeness check passes.
+   */
   private void writeDocuments(
       final String general,
       final String scan,
@@ -170,48 +209,28 @@ class ParameterDocumentationGeneratorTest
       final boolean addMissingMarkers
   ) throws IOException
   {
-    final Path generalPath = temporaryFolder.resolve(GENERAL_DOCUMENT);
-    final Path scanPath = temporaryFolder.resolve(SCAN_DOCUMENT);
-    final Path sqlPath = temporaryFolder.resolve(SQL_DOCUMENT);
-    Files.createDirectories(generalPath.getParent());
-    Files.writeString(
-        generalPath,
-        addMissingMarkers ? addMissingMarkers(general, GENERAL_DOCUMENT) : general,
-        StandardCharsets.UTF_8
-    );
-    Files.writeString(
-        scanPath,
-        addMissingMarkers ? addMissingMarkers(scan, SCAN_DOCUMENT) : scan,
-        StandardCharsets.UTF_8
-    );
-    Files.writeString(
-        sqlPath,
-        addMissingMarkers ? addMissingMarkers(sql, SQL_DOCUMENT) : sql,
-        StandardCharsets.UTF_8
-    );
+    for (final String document : ParameterDocumentationGenerator.DOCUMENTS.keySet()) {
+      writeDocument(document, "");
+    }
+    writeDocument(GENERAL_DOCUMENT, addMissingMarkers ? addMissingMarkers(general, general + scan + sql) : general);
+    writeDocument(SCAN_DOCUMENT, scan);
+    writeDocument(SQL_DOCUMENT, sql);
   }
 
-  private String addMissingMarkers(final String document, final String documentPath)
+  private void writeDocument(final String document, final String content) throws IOException
+  {
+    final Path path = temporaryFolder.resolve(document);
+    Files.createDirectories(path.getParent());
+    Files.writeString(path, content, StandardCharsets.UTF_8);
+  }
+
+  private String addMissingMarkers(final String document, final String allDocuments)
   {
     final StringBuilder output = new StringBuilder(document);
     for (final QueryContextParameter<?> parameter : QueryContextParameters.ALL.get().values()) {
-      if (parameter.getVisibility() != QueryContextParameter.Visibility.PUBLIC) {
-        continue;
-      }
-      final ParameterDocumentation docs = parameter.getDocumentation();
-      final String generatedDocument;
-      if (docs.getQueries().contains(Query.SQL) && !docs.getQueries().contains(Query.JSON)) {
-        generatedDocument = SQL_DOCUMENT;
-      } else if (docs.getQueryTypes().contains(QueryType.SCAN)) {
-        generatedDocument = SCAN_DOCUMENT;
-      } else {
-        generatedDocument = GENERAL_DOCUMENT;
-      }
-      if (generatedDocument.equals(documentPath)) {
-        final String marker = "<!-- GENERATED QUERY CONTEXT PARAMETER: " + parameter.getName() + " -->";
-        if (!document.contains(marker)) {
-          output.append("\n|stale| ").append(marker);
-        }
+      final String marker = "<!-- GENERATED QUERY CONTEXT PARAMETER: " + parameter.getName() + " -->";
+      if (parameter.getVisibility() == QueryContextParameter.Visibility.PUBLIC && !allDocuments.contains(marker)) {
+        output.append("\n|stale| ").append(marker);
       }
     }
     return output.toString();

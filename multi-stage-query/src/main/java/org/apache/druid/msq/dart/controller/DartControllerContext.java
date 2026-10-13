@@ -72,16 +72,6 @@ public class DartControllerContext implements ControllerContext
    */
   public static final int DEFAULT_TARGET_PARTITIONS_PER_WORKER = 1;
 
-  /**
-   * Context parameter for maximum number of nonleaf workers.
-   */
-  public static final String CTX_MAX_NON_LEAF_WORKER_COUNT = "maxNonLeafWorkers";
-
-  /**
-   * Default to scatter/gather style: fan in to a single worker after the leaf stage(s).
-   */
-  public static final int DEFAULT_MAX_NON_LEAF_WORKER_COUNT = 1;
-
   public static final SegmentSource DEFAULT_SEGMENT_SOURCE = SegmentSource.REALTIME;
 
   private final Injector injector;
@@ -269,10 +259,7 @@ public class DartControllerContext implements ControllerContext
   @Override
   public int maxNonLeafWorkerCount()
   {
-    return context.getInt(
-        DartControllerContext.CTX_MAX_NON_LEAF_WORKER_COUNT,
-        DartControllerContext.DEFAULT_MAX_NON_LEAF_WORKER_COUNT
-    );
+    return context.getOrDefault(QueryContextParameters.MAX_NON_LEAF_WORKERS);
   }
 
   @Override

@@ -34,11 +34,6 @@ import java.util.Objects;
 
 public class PlannerConfig
 {
-  // These context keys are not documented in sql-query-context.md, so they have not been migrated to
-  // QueryContextParameters descriptors yet.
-  public static final String CTX_COMPUTE_INNER_JOIN_COST_AS_FILTER = "computeInnerJoinCostAsFilter";
-  public static final String CTX_KEY_FORCE_EXPRESSION_VIRTUAL_COLUMNS = "forceExpressionVirtualColumns";
-  public static final String CTX_REQUIRE_TIME_CONDITION = "requireTimeCondition";
   public static final int NUM_FILTER_NOT_USED = -1;
   /**
    * Sentinel value for {@link #maxPlanningTimeMs} meaning "no planning timeout".
@@ -472,18 +467,16 @@ public class PlannerConfig
           QueryContextParameters.USE_LEXICOGRAPHIC_TOP_N,
           useLexicographicTopN
       );
-      computeInnerJoinCostAsFilter = QueryContexts.parseBoolean(
-          queryContext,
-          CTX_COMPUTE_INNER_JOIN_COST_AS_FILTER,
+      computeInnerJoinCostAsFilter = context.getOrDefault(
+          QueryContextParameters.COMPUTE_INNER_JOIN_COST_AS_FILTER,
           computeInnerJoinCostAsFilter
       );
       useNativeQueryExplain = context.getOrDefault(
           QueryContextParameters.USE_NATIVE_QUERY_EXPLAIN,
           useNativeQueryExplain
       );
-      forceExpressionVirtualColumns = QueryContexts.parseBoolean(
-          queryContext,
-          CTX_KEY_FORCE_EXPRESSION_VIRTUAL_COLUMNS,
+      forceExpressionVirtualColumns = context.getOrDefault(
+          QueryContextParameters.FORCE_EXPRESSION_VIRTUAL_COLUMNS,
           forceExpressionVirtualColumns
       );
       final int queryContextMaxNumericInFilters = context.getOrDefault(
@@ -497,9 +490,8 @@ public class PlannerConfig
           QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE,
           nativeQuerySqlPlanningMode
       );
-      requireTimeCondition = QueryContexts.parseBoolean(
-          queryContext,
-          CTX_REQUIRE_TIME_CONDITION,
+      requireTimeCondition = context.getOrDefault(
+          QueryContextParameters.REQUIRE_TIME_CONDITION,
           requireTimeCondition
       );
       maxPlanningTimeMs = context.getOrDefault(QueryContextParameters.MAX_PLANNING_TIME_MS, maxPlanningTimeMs);
@@ -575,7 +567,7 @@ public class PlannerConfig
     }
     if (def.requireTimeCondition != requireTimeCondition) {
       overrides.put(
-          CTX_REQUIRE_TIME_CONDITION,
+          QueryContextParameters.REQUIRE_TIME_CONDITION.getName(),
           String.valueOf(requireTimeCondition)
       );
     }

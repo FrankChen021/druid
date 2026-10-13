@@ -61,7 +61,8 @@ public final class ParameterDocumentation
     SCAN("Scan"),
     TIMESERIES("TimeSeries"),
     TOP_N("TopN"),
-    GROUP_BY("GroupBy");
+    GROUP_BY("GroupBy"),
+    SEARCH("Search");
 
     private final String value;
 

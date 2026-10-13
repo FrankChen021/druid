@@ -40,12 +40,12 @@ import org.apache.druid.msq.indexing.error.MSQException;
 import org.apache.druid.msq.input.stage.ReadablePartition;
 import org.apache.druid.msq.input.stage.ReadablePartitions;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.expression.TimestampFloorExprMacro;
 import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
-import org.apache.druid.sql.calcite.parser.DruidSqlInsert;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.ColumnMappings;
 import org.joda.time.DateTimeZone;
@@ -82,14 +82,13 @@ public class QueryKitUtils
    * {@link org.apache.druid.segment.column.ColumnHolder#TIME_COLUMN_NAME}. Necessary because {@link QueryKit}
    * does not get direct access to {@link ColumnMappings}.
    */
-  public static final String CTX_TIME_COLUMN_NAME = "__timeColumn";
 
   public static Granularity getSegmentGranularityFromContext(
       final ObjectMapper objectMapper,
       @Nullable final Map<String, Object> context
   )
   {
-    final Object o = context == null ? null : context.get(DruidSqlInsert.SQL_INSERT_SEGMENT_GRANULARITY);
+    final Object o = context == null ? null : context.get(QueryContextParameters.SQL_INSERT_SEGMENT_GRANULARITY.getName());
 
     if (o instanceof String) {
       try {
@@ -204,7 +203,7 @@ public class QueryKitUtils
   {
     final Granularity segmentGranularity =
         QueryKitUtils.getSegmentGranularityFromContext(jsonMapper, queryContext.asMap());
-    final String timeColumnName = queryContext.getString(QueryKitUtils.CTX_TIME_COLUMN_NAME);
+    final String timeColumnName = queryContext.get(QueryContextParameters.TIME_COLUMN);
 
     if (timeColumnName == null || Granularities.ALL.equals(segmentGranularity)) {
       return null;

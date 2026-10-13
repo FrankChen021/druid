@@ -99,11 +99,6 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
     }
   }
 
-  /**
-   * This context flag corresponds to whether the query is running on the "outermost" process (i.e. the process
-   * the query is sent to).
-   */
-  public static final String CTX_KEY_OUTERMOST = "scanOutermost";
   public static final int DEFAULT_BATCH_SIZE = 4096 * 5;
 
   private final VirtualColumns virtualColumns;
@@ -212,13 +207,7 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
 
   private Integer validateAndGetMaxSegmentPartitionsOrderedInMemory()
   {
-    final Integer maxSegmentPartitionsOrderedInMemory =
-        context().getInt(ScanQueryConfig.CTX_KEY_MAX_SEGMENT_PARTITIONS_FOR_ORDERING);
-    Preconditions.checkArgument(
-        maxSegmentPartitionsOrderedInMemory == null || maxSegmentPartitionsOrderedInMemory > 0,
-        "maxRowsQueuedForOrdering must be greater than 0"
-    );
-    return maxSegmentPartitionsOrderedInMemory;
+    return context().get(QueryContextParameters.MAX_SEGMENT_PARTITIONS_ORDERED_IN_MEMORY);
   }
 
   @JsonProperty

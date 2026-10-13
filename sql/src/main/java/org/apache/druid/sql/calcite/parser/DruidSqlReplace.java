@@ -41,8 +41,6 @@ import java.util.List;
  */
 public class DruidSqlReplace extends DruidSqlIngest
 {
-  public static final String SQL_REPLACE_TIME_CHUNKS = "sqlReplaceTimeChunks";
-
   public static final SqlOperator OPERATOR = DruidSqlIngestOperator.REPLACE_OPERATOR;
 
   private final SqlNode replaceTimeQuery;
