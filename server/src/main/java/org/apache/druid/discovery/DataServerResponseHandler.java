@@ -208,6 +208,12 @@ public class DataServerResponseHandler implements HttpResponseHandler<InputStrea
     return ClientResponse.finished(clientResponse.getObj());
   }
 
+  /** Returns whether the response has ended, either completely or because reading it failed. */
+  boolean isDone()
+  {
+    return done.get() || fail.get() != null;
+  }
+
   @Override
   public void exceptionCaught(ClientResponse<InputStream> clientResponse, Throwable e)
   {

@@ -25,12 +25,14 @@ import org.apache.druid.msq.exec.StageProcessor;
 import org.apache.druid.msq.input.InputSpec;
 import org.apache.druid.msq.input.inline.InlineInputSpec;
 import org.apache.druid.msq.input.lookup.LookupInputSpec;
+import org.apache.druid.msq.input.system.SystemTableInputSpec;
 import org.apache.druid.msq.input.table.TableInputSpec;
 import org.apache.druid.msq.logical.LogicalInputSpec;
 import org.apache.druid.msq.logical.StageMaker;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.LookupDataSource;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.segment.VirtualColumns;
@@ -150,6 +152,10 @@ public class ReadStage extends AbstractFrameProcessorStage
     if (dataSource instanceof LookupDataSource) {
       LookupDataSource lookupDataSource = (LookupDataSource) dataSource;
       return new LookupInputSpec(lookupDataSource.getLookupName());
+    }
+    if (dataSource instanceof SystemTableDataSource) {
+      final SystemTableDataSource systemTableDataSource = (SystemTableDataSource) dataSource;
+      return new SystemTableInputSpec(systemTableDataSource.getTable());
     }
     throw DruidException.defensive("This type of data source [%s] is not currently supported.", dataSource.getClass());
   }

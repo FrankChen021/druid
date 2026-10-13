@@ -74,6 +74,7 @@ import org.apache.druid.query.policy.RestrictAllTablesPolicyEnforcer;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.segment.TestIndex;
 import org.apache.druid.segment.indexing.DataSchema;
+import org.apache.druid.server.QueryResource;
 import org.apache.druid.server.coordination.BroadcastDatasourceLoadingSpec;
 import org.apache.druid.server.lookup.cache.LookupLoadingSpec;
 import org.apache.druid.server.metrics.LoadSpecHolder;
@@ -117,6 +118,13 @@ public class CliPeonTest
     final Injector peonInjector = makePeonInjector(NoopTask.create(), properties);
     final ExecutorLifecycleConfig executorLifecycleConfig = peonInjector.getInstance(ExecutorLifecycleConfig.class);
     Assertions.assertFalse(executorLifecycleConfig.isParentStreamDefined());
+  }
+
+  @Test
+  public void testCliPeonInstallsStandardNativeQueryResource() throws IOException
+  {
+    final Injector peonInjector = makePeonInjector(NoopTask.create(), new Properties());
+    Assertions.assertNotNull(peonInjector.getInstance(QueryResource.class));
   }
 
   @Test

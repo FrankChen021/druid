@@ -55,6 +55,8 @@ import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationResult;
+import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.sql.SqlLifecycleManager;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.SqlToolbox;
@@ -74,6 +76,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -92,6 +95,7 @@ public class DartSqlEngine implements SqlEngine
   private final QueryConfigProvider queryConfigProvider;
   private final SqlToolbox toolbox;
   private final DartSqlClients sqlClients;
+  private final Map<String, SystemTableDescriptor> systemTableDescriptors;
 
   @Inject
   public DartSqlEngine(
@@ -104,7 +108,8 @@ public class DartSqlEngine implements SqlEngine
       ServerConfig serverConfig,
       @Dart QueryConfigProvider queryConfigProvider,
       SqlToolbox toolbox,
-      DartSqlClients sqlClients
+      DartSqlClients sqlClients,
+      Map<String, SystemTableDescriptor> systemTableDescriptors
   )
   {
     this.controllerContextFactory = controllerContextFactory;
@@ -117,6 +122,7 @@ public class DartSqlEngine implements SqlEngine
     this.queryConfigProvider = queryConfigProvider;
     this.toolbox = toolbox;
     this.sqlClients = sqlClients;
+    this.systemTableDescriptors = systemTableDescriptors;
   }
 
   /**
@@ -165,6 +171,19 @@ public class DartSqlEngine implements SqlEngine
       default:
         throw new IAE("Unrecognized feature: %s", feature);
     }
+  }
+
+  @Override
+  public boolean supportsSystemTableDataSource(final String tableName)
+  {
+    return systemTableDescriptors.containsKey(tableName);
+  }
+
+  @Override
+  public Set<ResourceAction> getSystemTableDataSourceResourceActions(final String tableName)
+  {
+    final SystemTableDescriptor descriptor = systemTableDescriptors.get(tableName);
+    return descriptor == null ? Set.of() : descriptor.getResourceActions();
   }
 
   @Override
