@@ -62,6 +62,7 @@ import org.apache.druid.query.aggregation.LongMaxAggregatorFactory;
 import org.apache.druid.query.aggregation.LongMinAggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.aggregation.SimpleLongAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.DimFilters;
@@ -1217,7 +1218,7 @@ public class DruidQuery
     // Alternatively, the timeseries query should return empty buckets, even with ALL granularity when timeseries query
     // was originally a groupBy query, but with the grouping dimensions removed away in Grouping#applyProject
     if (!Granularities.ALL.equals(queryGranularity) || grouping.hasGroupingDimensionsDropped()) {
-      theContext.put(TimeseriesQuery.SKIP_EMPTY_BUCKETS, true);
+      QueryContextParameters.SKIP_EMPTY_BUCKETS.set(theContext, true);
     }
     theContext.putAll(plannerContext.queryContextMap());
 
@@ -1534,9 +1535,9 @@ public class DruidQuery
     // This would cause MSQ queries to plan as
     // Window over an inner scan and avoid
     // leaf operators
-    boolean pushLeafOperator = plannerContext.queryContext()
-                                             .getBoolean(PlannerContext.CTX_ENABLE_RAC_TRANSFER_OVER_WIRE, false)
-                               && !plannerContext.featureAvailable(EngineFeature.WINDOW_LEAF_OPERATOR);
+    boolean pushLeafOperator =
+        plannerContext.queryContext().getOrDefault(QueryContextParameters.ENABLE_RAC_TRANSFER_OVER_WIRE)
+        && !plannerContext.featureAvailable(EngineFeature.WINDOW_LEAF_OPERATOR);
     return new WindowOperatorQuery(
         dataSource,
         new LegacySegmentSpec(Intervals.ETERNITY),

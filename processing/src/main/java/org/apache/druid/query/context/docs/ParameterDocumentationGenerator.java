@@ -94,10 +94,10 @@ public final class ParameterDocumentationGenerator
   {
     final Map<String, Map<String, String>> rowsByDocument = new LinkedHashMap<>();
     for (final QueryContextParameter<?> parameter : QueryContextParameters.ALL.get().values()) {
-      final ParameterDocumentation docs = parameter.getDocumentation().orElse(null);
-      if (docs == null) {
+      if (parameter.getVisibility() != QueryContextParameter.Visibility.PUBLIC) {
         continue;
       }
+      final ParameterDocumentation docs = parameter.getDocumentation();
       final String document;
       if (docs.getQueries().contains(Query.SQL) && !docs.getQueries().contains(Query.JSON)) {
         document = SQL_REFERENCE;

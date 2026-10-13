@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class QueryContextParameterValidatorTest
@@ -49,5 +50,21 @@ class QueryContextParameterValidatorTest
         )
     );
     QueryContextParameterValidator.validate(Map.of("maxRowsQueuedForOrdering", 1, "unmigratedParameter", -1));
+  }
+
+  @Test
+  void testRejectsInternalParameters()
+  {
+    for (final QueryContextParameter<?> parameter : QueryContextParameters.ALL.get().values()) {
+      if (parameter.getVisibility() == QueryContextParameter.Visibility.INTERNAL) {
+        assertEquals(
+            "Query context parameter [" + parameter.getName() + "] is an internal one, cannot be set by users",
+            assertThrows(
+                BadQueryContextException.class,
+                () -> QueryContextParameterValidator.validate(parameter.getName(), "value")
+            ).getMessage()
+        );
+      }
+    }
   }
 }
