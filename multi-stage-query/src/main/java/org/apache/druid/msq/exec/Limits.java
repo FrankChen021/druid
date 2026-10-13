@@ -54,7 +54,7 @@ public class Limits
    * Can be overridden by the context parameter {@link QueryContextParameters#MAX_INPUT_FILES_PER_WORKER}.
    */
   public static final int DEFAULT_MAX_INPUT_FILES_PER_WORKER =
-      QueryContextParameters.MAX_INPUT_FILES_PER_WORKER.getDefaultValue().orElseThrow();
+      QueryContextParameters.MAX_INPUT_FILES_PER_WORKER.getDefaultValue();
 
   /**
    * Maximum number of parse exceptions with their stack traces a worker can send to the controller.
@@ -70,7 +70,7 @@ public class Limits
    * Maximum number of input bytes per worker in case number of tasks is determined automatically.
    */
   public static final long DEFAULT_MAX_INPUT_BYTES_PER_WORKER =
-      QueryContextParameters.MAX_INPUT_BYTES_PER_WORKER.getDefaultValue().orElseThrow();
+      QueryContextParameters.MAX_INPUT_BYTES_PER_WORKER.getDefaultValue();
 
   /**
    * Maximum size of the kernel manipulation queue in {@link org.apache.druid.msq.indexing.MSQControllerTask}.
@@ -112,6 +112,6 @@ public class Limits
    * For an ingestion job, this is the maximum number of segments that can be created.
    * Can be overridden by the context parameter {@link QueryContextParameters#MAX_PARTITIONS}.
    */
-  public static final int DEFAULT_MAX_PARTITIONS = QueryContextParameters.MAX_PARTITIONS.getDefaultValue().orElseThrow();
+  public static final int DEFAULT_MAX_PARTITIONS = QueryContextParameters.MAX_PARTITIONS.getDefaultValue();
 
 }

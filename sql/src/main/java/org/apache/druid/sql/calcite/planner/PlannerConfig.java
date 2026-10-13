@@ -76,7 +76,7 @@ public class PlannerConfig
   private int maxNumericInFilters = NUM_FILTER_NOT_USED;
 
   @JsonProperty
-  private String nativeQuerySqlPlanningMode = QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED; // can be COUPLED or DECOUPLED
+  private QueryContexts.PlanningMode nativeQuerySqlPlanningMode = QueryContexts.PlanningMode.COUPLED;
 
   @JsonProperty
   private boolean enableSysQueriesTable = false;
@@ -158,7 +158,7 @@ public class PlannerConfig
     return forceExpressionVirtualColumns;
   }
 
-  public String getNativeQuerySqlPlanningMode()
+  public QueryContexts.PlanningMode getNativeQuerySqlPlanningMode()
   {
     return nativeQuerySqlPlanningMode;
   }
@@ -326,7 +326,7 @@ public class PlannerConfig
     private boolean forceExpressionVirtualColumns;
     private int maxNumericInFilters;
     private long maxPlanningTimeMs;
-    private String nativeQuerySqlPlanningMode;
+    private QueryContexts.PlanningMode nativeQuerySqlPlanningMode;
     private boolean enableSysQueriesTable;
     private boolean authorizeTableVisibility;
     private boolean enableCatalogDdl;
@@ -427,7 +427,7 @@ public class PlannerConfig
       return this;
     }
 
-    public Builder nativeQuerySqlPlanningMode(String mode)
+    public Builder nativeQuerySqlPlanningMode(QueryContexts.PlanningMode mode)
     {
       this.nativeQuerySqlPlanningMode = mode;
       return this;

@@ -94,7 +94,7 @@ public final class QueryContextParameters
 
   public static final QueryContextParameter<Integer> PRIORITY = integerParameter("priority")
       .since("0.5.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-      .defaultValue(QueryContexts.DEFAULT_PRIORITY)
+      .defaultValue(0)
       .description(
           """
           Query priority.
@@ -189,7 +189,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> ENABLE_PARALLEL_MERGE =
       booleanParameter("enableParallelMerge")
           .since("0.17.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_ENABLE_PARALLEL_MERGE)
+          .defaultValue(true)
           .description(
               """
               Enable parallel result merging on the Broker.
@@ -238,7 +238,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<QueryContexts.Vectorize> VECTORIZE =
       enumParameter("vectorize", QueryContexts.Vectorize.class)
           .since("0.16.0-incubating").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_VECTORIZE)
+          .defaultValue(QueryContexts.Vectorize.TRUE)
           .description(
               """
               Enables or disables vectorized query execution.
@@ -252,7 +252,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<QueryContexts.Vectorize> VECTORIZE_VIRTUAL_COLUMNS =
       enumParameter("vectorizeVirtualColumns", QueryContexts.Vectorize.class)
           .since("0.20.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_VECTORIZE_VIRTUAL_COLUMN)
+          .defaultValue(QueryContexts.Vectorize.TRUE)
           .description(
               """
               Enables or disables vectorized query processing of queries with virtual columns, layered on top of `vectorize` (`vectorize` must also be set to true for a query to utilize vectorization).
@@ -265,7 +265,7 @@ public final class QueryContextParameters
 
   public static final QueryContextParameter<Integer> VECTOR_SIZE = integerParameter("vectorSize")
       .since("0.16.0-incubating").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-      .defaultValue(QueryContexts.DEFAULT_VECTOR_SIZE)
+      .defaultValue(512)
       .description(
           """
           Sets the row batching size for a particular query.
@@ -301,7 +301,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> USE_NESTED_FOR_UNKNOWN_TYPE_IN_SUBQUERY =
       booleanParameter("useNestedForUnknownTypeInSubquery")
           .since("27.0.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_USE_NESTED_FOR_UNKNOWN_TYPE_IN_SUBQUERY)
+          .defaultValue(false)
           .description(
               """
               If true, when the Broker materializes subquery results as frames to enforce `maxSubqueryBytes`,
@@ -314,7 +314,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> ENABLE_JOIN_FILTER_PUSH_DOWN =
       booleanParameter("enableJoinFilterPushDown")
           .since("0.18.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_ENABLE_JOIN_FILTER_PUSH_DOWN)
+          .defaultValue(true)
           .description(
               """
               Controls whether a join query will attempt filter push down, which reduces the number of rows that have to be compared in a join operation.
@@ -325,7 +325,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> ENABLE_JOIN_FILTER_REWRITE =
       booleanParameter("enableJoinFilterRewrite")
           .since("0.18.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_ENABLE_JOIN_FILTER_REWRITE)
+          .defaultValue(true)
           .description(
               """
               Controls whether filter clauses that reference non-base table columns will be rewritten into filters on base table columns.
@@ -336,7 +336,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> ENABLE_JOIN_FILTER_REWRITE_VALUE_COLUMN_FILTERS =
       booleanParameter("enableJoinFilterRewriteValueColumnFilters")
           .since("0.18.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_ENABLE_JOIN_FILTER_REWRITE_VALUE_COLUMN_FILTERS)
+          .defaultValue(false)
           .description(
               """
               Controls whether Druid rewrites non-base table filters on non-key columns in the non-base table.
@@ -348,7 +348,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> ENABLE_REWRITE_JOIN_TO_FILTER =
       booleanParameter("enableRewriteJoinToFilter")
           .since("0.22.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_ENABLE_REWRITE_JOIN_TO_FILTER)
+          .defaultValue(true)
           .description(
               """
               Controls whether a join can be pushed partial or fully to the base table as a filter at runtime.
@@ -359,7 +359,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Long> JOIN_FILTER_REWRITE_MAX_SIZE =
       longParameter("joinFilterRewriteMaxSize")
           .since("0.18.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_ENABLE_JOIN_FILTER_REWRITE_MAX_SIZE)
+          .defaultValue(10000L)
           .description(
               """
               The maximum size of the correlated value set used for filter rewrites.
@@ -384,7 +384,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<CloneQueryMode> CLONE_QUERY_MODE =
       enumParameter("cloneQueryMode", CloneQueryMode.class)
           .since("34.0.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_CLONE_QUERY_MODE)
+          .defaultValue(CloneQueryMode.EXCLUDECLONES)
           .description(
               """
               Indicates whether clone Historicals should be queried by brokers.
@@ -403,7 +403,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> OPTIMIZE_AGGREGATORS =
       booleanParameter("optimizeAggregators")
           .since("38.0.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
-          .defaultValue(QueryContexts.DEFAULT_OPTIMIZE_AGGREGATORS)
+          .defaultValue(true)
           .description(
               """
               Whether Druid applies per-segment aggregator optimizations.
@@ -415,7 +415,7 @@ public final class QueryContextParameters
 
   public static final QueryContextParameter<Boolean> USE_FILTER_CNF = booleanParameter("useFilterCNF")
       .since("0.19.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-      .defaultValue(QueryContexts.DEFAULT_USE_FILTER_CNF)
+      .defaultValue(false)
       .description(
           """
           If true, Druid will attempt to convert the query filter to Conjunctive Normal Form (CNF).
@@ -457,7 +457,7 @@ public final class QueryContextParameters
 
   public static final QueryContextParameter<Boolean> USE_CACHE = booleanParameter("useCache")
       .since("0.1.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-      .defaultValue(QueryContexts.DEFAULT_USE_CACHE)
+      .defaultValue(true)
       .description(
           """
           Flag indicating whether to leverage the query cache for this query.
@@ -470,7 +470,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> SECONDARY_PARTITION_PRUNING =
       booleanParameter("secondaryPartitionPruning")
           .since("0.20.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_SECONDARY_PARTITION_PRUNING)
+          .defaultValue(true)
           .description(
               """
               Enable secondary partition pruning on the Broker.
@@ -481,7 +481,7 @@ public final class QueryContextParameters
 
   public static final QueryContextParameter<Boolean> DEBUG = booleanParameter("debug")
       .since("0.22.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-      .defaultValue(QueryContexts.DEFAULT_ENABLE_DEBUG)
+      .defaultValue(false)
       .description(
           """
           Flag indicating whether to enable debugging outputs for the query.
@@ -505,7 +505,7 @@ public final class QueryContextParameters
 
   public static final QueryContextParameter<Boolean> BY_SEGMENT = booleanParameter("bySegment")
       .since("0.1.0").query(Query.JSON).engine(Engine.NATIVE)
-      .defaultValue(QueryContexts.DEFAULT_BY_SEGMENT)
+      .defaultValue(false)
       .description(
           """
           Native queries only.
@@ -531,7 +531,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> POPULATE_CACHE =
       booleanParameter("populateCache")
           .since("0.1.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_POPULATE_CACHE)
+          .defaultValue(true)
           .description(
               """
               Flag indicating whether to save the results of the query to the query cache.
@@ -545,7 +545,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> POPULATE_RESULT_LEVEL_CACHE =
       booleanParameter("populateResultLevelCache")
           .since("0.13.0-incubating").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_POPULATE_RESULTLEVEL_CACHE)
+          .defaultValue(true)
           .description(
               """
               Flag indicating whether to save the results of the query to the result level cache.
@@ -573,7 +573,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Integer> UNCOVERED_INTERVALS_LIMIT =
       integerParameter("uncoveredIntervalsLimit")
           .since("0.9.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_UNCOVERED_INTERVALS_LIMIT)
+          .defaultValue(0)
           .description(
               """
               Maximum number of query intervals not covered by any segment that the Broker reports in the
@@ -602,7 +602,7 @@ public final class QueryContextParameters
 
   public static final QueryContextParameter<String> ENGINE = stringParameter("engine")
       .since("34.0.0").query(Query.SQL).engine(Engine.NATIVE, Engine.DART)
-      .defaultValue(QueryContexts.DEFAULT_ENGINE)
+      .defaultValue("native")
       .description(
           """
           SQL engine that runs the query through the `/druid/v2/sql` endpoint.
@@ -947,7 +947,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> ENABLE_JOIN_LEFT_SCAN_DIRECT =
       booleanParameter("enableJoinLeftTableScanDirect")
           .since("0.22.0").query(Query.SQL).engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
-          .defaultValue(QueryContexts.DEFAULT_ENABLE_SQL_JOIN_LEFT_SCAN_DIRECT)
+          .defaultValue(false)
           .description(
               """
               This parameter applies to queries with joins.
@@ -961,7 +961,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Integer> IN_SUBQUERY_THRESHOLD =
       integerParameter("inSubQueryThreshold")
           .since("0.23.0").query(Query.SQL).engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
-          .defaultValue(QueryContexts.DEFAULT_IN_SUB_QUERY_THRESHOLD)
+          .defaultValue(Integer.MAX_VALUE)
           .description(
               """
               At or beyond this threshold number of values, Druid converts SQL `IN` to `JOIN` on an inline table.
@@ -991,7 +991,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Integer> IN_FUNCTION_THRESHOLD =
       integerParameter("inFunctionThreshold")
           .since("31.0.0").query(Query.SQL).engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
-          .defaultValue(QueryContexts.DEFAULT_IN_FUNCTION_THRESHOLD)
+          .defaultValue(100)
           .description(
               """
               At or beyond this threshold number of values, Druid converts SQL `IN` to [`SCALAR_IN_ARRAY`](sql-functions.md#scalar_in_array).
@@ -1005,7 +1005,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Integer> IN_FUNCTION_EXPR_THRESHOLD =
       integerParameter("inFunctionExprThreshold")
           .since("31.0.0").query(Query.SQL).engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
-          .defaultValue(QueryContexts.DEFAULT_IN_FUNCTION_EXPR_THRESHOLD)
+          .defaultValue(2)
           .description(
               """
               At or beyond this threshold number of values, SQL `IN` is eligible for execution using the native function `scalar_in_array` rather than an <code>&#124;&#124;</code> of `==`, even if the number of values is below `inFunctionThreshold`.
@@ -1019,7 +1019,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> ENABLE_TIME_BOUNDARY_PLANNING =
       booleanParameter("enableTimeBoundaryPlanning")
           .since("0.24.0").query(Query.SQL).engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
-          .defaultValue(QueryContexts.DEFAULT_ENABLE_TIME_BOUNDARY_PLANNING)
+          .defaultValue(false)
           .description(
               """
               If `true`, Druid converts SQL queries to [time boundary queries](timeboundaryquery.md) wherever possible.
@@ -1031,7 +1031,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> CATALOG_VALIDATION_ENABLED =
       booleanParameter("catalogValidationEnabled")
           .since("31.0.0").query(Query.SQL).engine(Engine.MSQ)
-          .defaultValue(QueryContexts.DEFAULT_CATALOG_VALIDATION_ENABLED)
+          .defaultValue(true)
           .description(
               """
               If false, Druid skips the catalog-specific validation of `INSERT` and `REPLACE` statements that write to
@@ -1043,7 +1043,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<Boolean> EXTENDED_FILTERED_SUM_REWRITE =
       booleanParameter("extendedFilteredSumRewrite")
           .since("32.0.0").query(Query.SQL).engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
-          .defaultValue(QueryContexts.DEFAULT_EXTENDED_FILTERED_SUM_REWRITE_ENABLED)
+          .defaultValue(true)
           .description(
               """
               Whether the SQL planner rewrites `SUM(CASE WHEN cond THEN col ELSE 0 END)` to `SUM(col) FILTER (WHERE cond)`.
@@ -1054,10 +1054,10 @@ public final class QueryContextParameters
           .visibility(Visibility.HIDDEN)
           .build();
 
-  public static final QueryContextParameter<String> NATIVE_QUERY_SQL_PLANNING_MODE =
-      stringParameter("plannerStrategy")
+  public static final QueryContextParameter<QueryContexts.PlanningMode> NATIVE_QUERY_SQL_PLANNING_MODE =
+      enumParameter("plannerStrategy", QueryContexts.PlanningMode.class)
           .since("27.0.0").query(Query.SQL).engine(Engine.NATIVE, Engine.MSQ, Engine.DART)
-          .defaultValue(QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED)
+          .defaultValue(QueryContexts.PlanningMode.COUPLED)
           .description(
               """
               SQL planning strategy: `COUPLED` plans the logical query and generates the native query together,
@@ -2306,7 +2306,7 @@ public final class QueryContextParameters
 
   public static final QueryContextParameter<Boolean> FULL_REPORT = booleanParameter("fullReport")
       .since("32.0.0").query(Query.SQL).engine(Engine.DART)
-      .defaultValue(QueryContexts.DEFAULT_CTX_FULL_REPORT)
+      .defaultValue(false)
       .description(
           """
           If true, a [Dart](dart.md) query returns a single `fullReport` column that contains the full query report,
@@ -2344,7 +2344,7 @@ public final class QueryContextParameters
   public static final QueryContextParameter<QueryContexts.RealtimeSegmentsMode> REALTIME_SEGMENTS_MODE =
       enumParameter("realtimeSegmentsMode", QueryContexts.RealtimeSegmentsMode.class)
           .since("38.0.0").query(Query.JSON, Query.SQL).engine(Engine.NATIVE)
-          .defaultValue(QueryContexts.DEFAULT_REALTIME_SEGMENTS_MODE)
+          .defaultValue(QueryContexts.RealtimeSegmentsMode.INCLUDE)
           .description(
               """
               Controls whether realtime segments are queried.
@@ -2357,7 +2357,7 @@ public final class QueryContextParameters
 
   public static final QueryContextParameter<Boolean> PREPLANNED = booleanParameter("prePlanned")
       .since("34.0.0").query(Query.SQL).engine(Engine.DART)
-      .defaultValue(QueryContexts.DEFAULT_PREPLANNED)
+      .defaultValue(true)
       .description(
           """
           Whether Dart plans the query definition directly from the logical plan, instead of first translating the query

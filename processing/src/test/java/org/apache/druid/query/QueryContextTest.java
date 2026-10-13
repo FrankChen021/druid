@@ -426,7 +426,7 @@ public class QueryContextTest
     assertEquals(Integer.MAX_VALUE, context1.getInFunctionThreshold());
 
     final QueryContext context2 = QueryContext.empty();
-    assertEquals(QueryContexts.DEFAULT_IN_FUNCTION_THRESHOLD, context2.getInFunctionThreshold());
+    assertEquals(QueryContextParameters.IN_FUNCTION_THRESHOLD.getDefaultValue(), context2.getInFunctionThreshold());
   }
 
   @Test
@@ -436,7 +436,7 @@ public class QueryContextTest
     assertEquals(Integer.MAX_VALUE, context1.getInFunctionExprThreshold());
 
     final QueryContext context2 = QueryContext.empty();
-    assertEquals(QueryContexts.DEFAULT_IN_FUNCTION_EXPR_THRESHOLD, context2.getInFunctionExprThreshold());
+    assertEquals(QueryContextParameters.IN_FUNCTION_EXPR_THRESHOLD.getDefaultValue(), context2.getInFunctionExprThreshold());
   }
 
   @Test
@@ -453,11 +453,27 @@ public class QueryContextTest
     assertTrue(
         QueryContext.of(
             QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE,
-            QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
+            QueryContexts.PlanningMode.DECOUPLED
         ).isDecoupledMode()
     );
+    assertTrue(
+        QueryContext.builder()
+                    .putRaw(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE.getName(), "decoupled")
+                    .toContext()
+                    .isDecoupledMode()
+    );
     assertFalse(
-        QueryContext.of(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE, "garbage").isDecoupledMode()
+        QueryContext.of(
+            QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE,
+            QueryContexts.PlanningMode.COUPLED
+        ).isDecoupledMode()
+    );
+    assertThrows(
+        BadQueryContextException.class,
+        () -> QueryContext.builder()
+                          .putRaw(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE.getName(), "garbage")
+                          .toContext()
+                          .isDecoupledMode()
     );
   }
 

@@ -277,7 +277,7 @@ public class QueryContext
   @Nullable
   public <T> T get(final QueryContextParameter<T> parameter)
   {
-    return parseOrDefault(parameter, parameter.getDefaultValue().orElse(null));
+    return parseOrDefault(parameter, parameter.hasDefaultValue() ? parameter.getDefaultValue() : null);
   }
 
   /**
@@ -288,12 +288,7 @@ public class QueryContext
    */
   public <T> T getOrDefault(final QueryContextParameter<T> parameter)
   {
-    return getOrDefault(
-        parameter,
-        parameter.getDefaultValue().orElseThrow(
-            () -> new ISE("Query context parameter [%s] has no declared default", parameter.getName())
-        )
-    );
+    return getOrDefault(parameter, parameter.getDefaultValue());
   }
 
   /**
@@ -517,29 +512,14 @@ public class QueryContext
     return getOrDefault(QueryContextParameters.VECTORIZE);
   }
 
-  public Vectorize getVectorize(Vectorize defaultValue)
-  {
-    return getOrDefault(QueryContextParameters.VECTORIZE, defaultValue);
-  }
-
   public Vectorize getVectorizeVirtualColumns()
   {
     return getOrDefault(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS);
   }
 
-  public Vectorize getVectorizeVirtualColumns(Vectorize defaultValue)
-  {
-    return getOrDefault(QueryContextParameters.VECTORIZE_VIRTUAL_COLUMNS, defaultValue);
-  }
-
   public int getVectorSize()
   {
     return getOrDefault(QueryContextParameters.VECTOR_SIZE);
-  }
-
-  public int getVectorSize(int defaultSize)
-  {
-    return getOrDefault(QueryContextParameters.VECTOR_SIZE, defaultSize);
   }
 
   public int getMaxSubqueryRows(int defaultSize)
@@ -575,19 +555,9 @@ public class QueryContext
     return getOrDefault(QueryContextParameters.UNCOVERED_INTERVALS_LIMIT);
   }
 
-  public int getUncoveredIntervalsLimit(int defaultValue)
-  {
-    return getOrDefault(QueryContextParameters.UNCOVERED_INTERVALS_LIMIT, defaultValue);
-  }
-
   public int getPriority()
   {
     return getOrDefault(QueryContextParameters.PRIORITY);
-  }
-
-  public int getPriority(int defaultValue)
-  {
-    return getOrDefault(QueryContextParameters.PRIORITY, defaultValue);
   }
 
   public String getLane()
@@ -786,11 +756,6 @@ public class QueryContext
     return getOrDefault(QueryContextParameters.IN_SUBQUERY_THRESHOLD);
   }
 
-  public int getInSubQueryThreshold(int defaultValue)
-  {
-    return getOrDefault(QueryContextParameters.IN_SUBQUERY_THRESHOLD, defaultValue);
-  }
-
   /**
    * At or above this threshold number of values, when planning SQL queries, use the SQL SCALAR_IN_ARRAY operator rather
    * than a stack of SQL ORs. This speeds up planning for large sets of points because it is opaque to various
@@ -837,7 +802,6 @@ public class QueryContext
     return getOrDefault(QueryContextParameters.FULL_REPORT);
   }
 
-
   public QueryResourceId getQueryResourceId()
   {
     return new QueryResourceId(get(QueryContextParameters.QUERY_RESOURCE_ID));
@@ -877,8 +841,7 @@ public class QueryContext
 
   public boolean isDecoupledMode()
   {
-    final String value = getOrDefault(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE);
-    return QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED.equals(value);
+    return getOrDefault(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE) == QueryContexts.PlanningMode.DECOUPLED;
   }
 
   public QueryContext override(Map<String, Object> contextOverride)
@@ -931,8 +894,8 @@ public class QueryContext
       // Backward-compat: honour the deprecated realtimeSegmentsOnly flag.
       return getOrDefault(QueryContextParameters.REALTIME_SEGMENTS_ONLY)
              ? RealtimeSegmentsMode.EXCLUSIVE
-             : QueryContexts.DEFAULT_REALTIME_SEGMENTS_MODE;
+             : getOrDefault(QueryContextParameters.REALTIME_SEGMENTS_MODE);
     }
-    return QueryContexts.DEFAULT_REALTIME_SEGMENTS_MODE;
+    return getOrDefault(QueryContextParameters.REALTIME_SEGMENTS_MODE);
   }
 }

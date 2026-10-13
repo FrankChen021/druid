@@ -70,7 +70,7 @@ class QueryContextParameterTest
     assertEquals("maxThings", parameter.getName());
     assertEquals(Integer.class, parameter.getValueType());
     assertEquals(12, parameter.parse("12"));
-    assertEquals(10, parameter.getDefaultValue().orElseThrow());
+    assertEquals(10, parameter.getDefaultValue());
     assertTrue(parameter.isNullable());
     assertFalse(parameter.isDeprecated());
     assertNull(parameter.getDeprecationMessage());
@@ -318,7 +318,8 @@ class QueryContextParameterTest
 
     assertTrue(parameter.isDeprecated());
     assertEquals("Use `newTag` instead.", parameter.getDeprecationMessage());
-    assertTrue(parameter.getDefaultValue().isEmpty());
+    assertFalse(parameter.hasDefaultValue());
+    assertThrows(ISE.class, parameter::getDefaultValue);
     assertNull(parameter.getDocumentation().getSince().orElse(null));
   }
 

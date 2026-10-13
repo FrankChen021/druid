@@ -22,8 +22,8 @@ package org.apache.druid.sql.calcite;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
-import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.quidem.DruidQTestInfo;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.AuthConfig;
@@ -310,8 +310,7 @@ public class QueryTestBuilder
 
   public boolean isDecoupledMode()
   {
-    String mode = (String) queryContext.getOrDefault(QueryContextParameters.NATIVE_QUERY_SQL_PLANNING_MODE.getName(), "");
-    return QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED.equalsIgnoreCase(mode);
+    return QueryContext.of(queryContext).isDecoupledMode();
   }
 
 }

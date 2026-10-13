@@ -543,10 +543,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
     CalcitePlanner planner = handlerContext.planner();
     final RelDataType rowType = prepareResult.getReturnedRowType();
 
-    if (plannerContext.getPlannerConfig()
-                      .getNativeQuerySqlPlanningMode()
-                      .equals(QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED)
-    ) {
+    if (plannerContext.getPlannerConfig().getNativeQuerySqlPlanningMode() == QueryContexts.PlanningMode.DECOUPLED) {
       RelNode newRoot = parameterized;
       newRoot = planner.transform(
           CalciteRulesManager.DRUID_DAG_CONVENTION_RULES,
