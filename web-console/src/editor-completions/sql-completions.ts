@@ -23,6 +23,7 @@ import { C, filterMap, N, T } from 'druid-query-toolkit';
 
 import type { CompletionWord } from '../components/code-editor/completion-source';
 import { completeSyntaxTree, tokenBefore } from '../components/code-editor/completion-source';
+import type { QueryContextParameterMetadata } from '../druid-models';
 import { DEFAULT_SERVER_QUERY_CONTEXT } from '../druid-models';
 import { SQL_DATA_TYPES, SQL_FUNCTIONS } from '../editor-languages/dsql-docs';
 import { SQL_CONSTANTS, SQL_DYNAMICS, SQL_KEYWORDS } from '../editor-languages/dsql-keywords';
@@ -192,6 +193,8 @@ function tokenEndingBefore(state: EditorState, pos: number): SyntaxNode | undefi
 
 export interface SqlCompletionOptions {
   columnMetadata?: readonly ColumnMetadata[];
+  /** The query context parameters to suggest after SET, from sys.query_context_parameters */
+  queryContextParameters?: readonly QueryContextParameterMetadata[];
   columns?: readonly string[];
   availableSqlFunctions?: AvailableFunctions;
   skipAggregates?: boolean;
@@ -203,7 +206,13 @@ export interface SqlCompletionOptions {
 export function getSqlCompletions(
   { state, pos }: CompletionContext,
   { from, text: prefix }: CompletionWord,
-  { columnMetadata, columns, availableSqlFunctions, skipAggregates }: SqlCompletionOptions = {},
+  {
+    columnMetadata,
+    columns,
+    availableSqlFunctions,
+    skipAggregates,
+    queryContextParameters,
+  }: SqlCompletionOptions = {},
 ): EditorCompletion[] {
   const token = tokenBefore(state, pos);
 
@@ -237,6 +246,11 @@ export function getSqlCompletions(
   // Other than literals, do not autocomplete numbers
   if (/^\d+$/.test(prefix)) {
     return []; // Don't start completing if the user is typing a number
+  }
+
+  // After SET only a query context parameter name can follow
+  if (keywordBeforePrefix === 'SET') {
+    return getQueryContextCompletions(quote, queryContextParameters);
   }
 
   const possibleReferences = getPossibleSqlReferences(state, 100, prefix);
@@ -359,17 +373,157 @@ export function getSqlCompletions(
     }
   }
 
-  if (keywordBeforePrefix === 'SET') {
-    completions = completions.concat(
-      Object.keys(DEFAULT_SERVER_QUERY_CONTEXT).map(key => ({
-        label: quote ? key : String(C(key)),
-        boost: 50,
-        detail: 'context',
-      })),
-    );
+  return completions;
+}
+
+function isSqlParameter(parameter: QueryContextParameterMetadata): boolean {
+  return !parameter.query_languages || parameter.query_languages.includes('SQL');
+}
+
+/**
+ * The query context parameter names to suggest after SET: the parameters loaded from sys.query_context_parameters, or
+ * the well-known context keys when they are not loaded
+ */
+function getQueryContextCompletions(
+  quote: boolean,
+  queryContextParameters: readonly QueryContextParameterMetadata[] | undefined,
+): EditorCompletion[] {
+  if (!queryContextParameters?.some(isSqlParameter)) {
+    return Object.keys(DEFAULT_SERVER_QUERY_CONTEXT).map(key => ({
+      label: quote ? key : contextKeyLabel(key),
+      boost: 50,
+      detail: 'context',
+    }));
   }
 
-  return completions;
+  // Parameters that only native (JSON) queries can provide are not offered for SET
+  return queryContextParameters.filter(isSqlParameter).map(parameter => ({
+    label: quote ? parameter.name : contextKeyLabel(parameter.name),
+    // Deprecated parameters sort after the others
+    boost: parameter.is_deprecated ? 40 : 50,
+    detail: 'context',
+    doc: {
+      name: parameter.name,
+      descriptionMarkdown: queryContextParameterDocMarkdown(parameter),
+    },
+  }));
+}
+
+const HTML_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+};
+
+function decodeHtmlEntities(text: string): string {
+  return text.replace(/&(#\d+|[a-z]+);/gi, (entity, code: string) => {
+    if (code.startsWith('#')) return String.fromCharCode(Number(code.slice(1)));
+    return HTML_ENTITIES[code.toLowerCase()] ?? entity;
+  });
+}
+
+/**
+ * Converts text outside of code spans: <code> becomes a code span, links become their text, <br /> becomes a line
+ * break, list items become "- " lines, **strong** becomes *emphasis*, other HTML tags are dropped and HTML entities
+ * are decoded
+ */
+function convertDescriptionText(text: string): string {
+  return decodeHtmlEntities(
+    text
+      .replace(/<code>([^<]*)<\/code>/gi, (_, code: string) => `\`${decodeHtmlEntities(code)}\``)
+      .replace(/\[([^[\]]*)\]\([^()]*\)/g, '$1')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<li>/gi, '\n- ')
+      .replace(/<\/(ul|ol)>/gi, '\n')
+      .replace(/<\/?[a-z][^>]*>/gi, '')
+      .replace(/\*\*([^*]+)\*\*/g, '*$1*'),
+  );
+}
+
+/**
+ * Converts the Markdown of a query context parameter description, which comes from the Druid docs, into the "doc
+ * markdown" that completion docs render. Code spans are kept as they are (angle brackets in them are text, not HTML).
+ * A paragraph break (<br /><br />) stays as an empty line.
+ */
+export function queryContextDescriptionToDocMarkdown(description: string): string {
+  return description
+    .split(/(`[^`]*`)/)
+    .map((part, i) => (i % 2 ? part : convertDescriptionText(part)))
+    .join('')
+    .split('\n')
+    .map(line => line.trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * The name of a query context parameter after SET: as is when it is a plain identifier (SET keys are case-sensitive
+ * as typed, like `SET sqlTimeZone = 'UTC'`), quoted otherwise
+ */
+function contextKeyLabel(key: string): string {
+  return /^[A-Za-z_]\w*$/.test(key) ? key : String(C(key));
+}
+
+function docCode(value: string): string {
+  return `\`${value.replace(/`/g, '')}\``;
+}
+
+const EFFECTIVE_SOURCE_LABELS: Record<string, string> = {
+  RUNTIME_PROPERTY: 'runtime property',
+  BROKER_DYNAMIC_CONFIG: 'Broker dynamic config',
+};
+
+/**
+ * Where the default comes from when it is not the built-in one, like " (Broker dynamic config; built-in: `false`)"
+ */
+function effectiveSourceNote(parameter: QueryContextParameterMetadata): string {
+  const label = parameter.effective_source
+    ? EFFECTIVE_SOURCE_LABELS[parameter.effective_source]
+    : undefined;
+  if (!label) return '';
+  return parameter.default_value != null
+    ? ` (${label}; built-in: ${docCode(parameter.default_value)})`
+    : ` (${label})`;
+}
+
+/**
+ * The doc of a query context parameter: its type, its default and then its description, separated by empty lines
+ */
+function queryContextParameterDocMarkdown(parameter: QueryContextParameterMetadata): string {
+  const sections = [`Type: \`${parameter.type}\``];
+  if (parameter.effective_value != null) {
+    sections.push(
+      `Default: ${docCode(parameter.effective_value)}${effectiveSourceNote(parameter)}`,
+    );
+  } else if (parameter.default_value != null) {
+    // Without CONFIG read access the Broker's effective default is hidden, so the built-in one may be overridden
+    sections.push(
+      `Default: ${docCode(parameter.default_value)}${
+        parameter.effective_source === 'UNAUTHORIZED'
+          ? ' (built-in; the Broker may override it)'
+          : ''
+      }`,
+    );
+  } else if (parameter.default_description) {
+    sections.push(
+      `Default: ${queryContextDescriptionToDocMarkdown(parameter.default_description)}`,
+    );
+  }
+  sections.push(queryContextDescriptionToDocMarkdown(parameter.description));
+  if (parameter.is_deprecated) {
+    sections.push(
+      `*Deprecated*${
+        parameter.deprecation_message
+          ? `: ${queryContextDescriptionToDocMarkdown(parameter.deprecation_message)}`
+          : ''
+      }`,
+    );
+  }
+  return sections.join('\n\n');
 }
 
 /**

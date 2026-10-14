@@ -18,12 +18,18 @@
 
 import { EditorState } from '@codemirror/state';
 
+import type { QueryContextParameterMetadata } from '../druid-models';
 import { dsql } from '../editor-languages/dsql';
 import { completionContextAt } from '../test-utils/completion-context';
 import type { ColumnMetadata } from '../utils';
 
 import type { SqlCompletionOptions } from './sql-completions';
-import { getPossibleSqlReferences, getSqlCompletions, getSqlLiterals } from './sql-completions';
+import {
+  getPossibleSqlReferences,
+  getSqlCompletions,
+  getSqlLiterals,
+  queryContextDescriptionToDocMarkdown,
+} from './sql-completions';
 
 // A state with the dsql language (for the syntax tree)
 function dsqlState(sqlText: string): EditorState {
@@ -186,11 +192,109 @@ describe('sql-completions', () => {
       expect(columnCompletions.map(c => c.label)).toContain('"user"');
     });
 
-    it('includes context keys after SET keyword', () => {
+    it('only suggests context keys after SET keyword', () => {
       const completions = completionsAt('SET |');
 
-      const contextCompletions = completions.filter(c => c.detail === 'context');
-      expect(contextCompletions.length).toBeGreaterThan(0);
+      expect(completions.length).toBeGreaterThan(0);
+      expect(completions.every(c => c.detail === 'context')).toBe(true);
+    });
+
+    it('suggests the query context parameters from sys.query_context_parameters after SET', () => {
+      const queryContextParameters: QueryContextParameterMetadata[] = [
+        {
+          name: 'sqlTimeZone',
+          type: 'STRING',
+          description:
+            'Time zone for a connection. See [time zones](../querying/sql.md#time-zones).',
+          default_value: null,
+          default_description: 'UTC',
+          effective_value: null,
+          effective_source: null,
+          query_languages: ['SQL'],
+          is_deprecated: 0,
+          deprecation_message: null,
+        },
+        {
+          name: 'useCache',
+          type: 'BOOLEAN',
+          description: 'Whether to use the cache.<br />Applies to native queries.',
+          default_value: 'true',
+          default_description: null,
+          effective_value: 'false',
+          effective_source: 'BROKER_DYNAMIC_CONFIG',
+          query_languages: ['JSON', 'SQL'],
+          is_deprecated: 1,
+          deprecation_message: 'Use `useResultLevelCache` instead.',
+        },
+        {
+          // Only native (JSON) queries can provide it, so it is not suggested after SET
+          name: 'maxRowsQueuedForOrdering',
+          type: 'INTEGER',
+          description: 'Maximum number of rows queued for time ordering.',
+          default_value: null,
+          default_description: null,
+          effective_value: null,
+          effective_source: null,
+          query_languages: ['JSON'],
+          is_deprecated: 0,
+          deprecation_message: null,
+        },
+      ];
+
+      // Only the context parameters, no keywords, tables or columns
+      expect(completionsAt('SET |', { queryContextParameters, columnMetadata })).toEqual([
+        {
+          label: 'sqlTimeZone',
+          boost: 50,
+          detail: 'context',
+          doc: {
+            name: 'sqlTimeZone',
+            descriptionMarkdown:
+              'Type: `STRING`\n\nDefault: UTC\n\nTime zone for a connection. See time zones.',
+          },
+        },
+        {
+          label: 'useCache',
+          boost: 40,
+          detail: 'context',
+          doc: {
+            name: 'useCache',
+            descriptionMarkdown:
+              'Type: `BOOLEAN`\n\nDefault: `false` (Broker dynamic config; built-in: `true`)\n\nWhether to use the cache.\nApplies to native queries.\n\n*Deprecated*: Use `useResultLevelCache` instead.',
+          },
+        },
+      ]);
+    });
+
+    it('notes that the Broker may override the built-in default without CONFIG read access', () => {
+      const queryContextParameters: QueryContextParameterMetadata[] = [
+        {
+          name: 'useCache',
+          type: 'BOOLEAN',
+          description: 'Whether to use the cache.',
+          default_value: 'true',
+          default_description: null,
+          effective_value: null,
+          effective_source: 'UNAUTHORIZED',
+          query_languages: ['JSON', 'SQL'],
+          is_deprecated: 0,
+          deprecation_message: null,
+        },
+      ];
+
+      expect(completionsAt('SET |', { queryContextParameters })[0].doc).toEqual({
+        name: 'useCache',
+        descriptionMarkdown:
+          'Type: `BOOLEAN`\n\nDefault: `true` (built-in; the Broker may override it)\n\nWhether to use the cache.',
+      });
+    });
+
+    it('falls back to the well-known context keys when the parameters are not loaded', () => {
+      const contextCompletions = completionsAt('SET |', { queryContextParameters: [] }).filter(
+        c => c.detail === 'context',
+      );
+      expect(contextCompletions.map(c => c.label)).toContain('sqlTimeZone');
+      expect(contextCompletions.every(c => c.doc === undefined)).toBe(true);
     });
 
     it('handles column names correctly with quotes', () => {
@@ -272,6 +376,24 @@ describe('sql-completions', () => {
       ).map(c => c.label);
 
       expect(literals).toEqual(['France']);
+    });
+  });
+
+  describe('queryContextDescriptionToDocMarkdown', () => {
+    it('turns links into their text and HTML into line breaks and list items', () => {
+      expect(
+        queryContextDescriptionToDocMarkdown(
+          'Uses [lookups](lookups.md#reverse) for `IN`.<br /><br />Options:<ul><li>`a`: first</li><li>`b`: second</li></ul>Done.',
+        ),
+      ).toEqual('Uses lookups for `IN`.\n\nOptions:\n- `a`: first\n- `b`: second\nDone.');
+    });
+
+    it('keeps code spans as they are and converts code tags, strong text and entities', () => {
+      expect(
+        queryContextDescriptionToDocMarkdown(
+          '**Deprecated.** Threads are named `processing_<queryId>`; use <code>&#124;&#124;</code> &amp; more.',
+        ),
+      ).toEqual('*Deprecated.* Threads are named `processing_<queryId>`; use `||` & more.');
     });
   });
 
