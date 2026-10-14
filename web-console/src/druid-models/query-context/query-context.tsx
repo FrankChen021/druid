@@ -83,11 +83,10 @@ export interface QueryContextParameterMetadata {
   effective_source:
     'BUILT_IN' | 'RUNTIME_PROPERTY' | 'BROKER_DYNAMIC_CONFIG' | 'UNAUTHORIZED' | null;
   query_languages: readonly string[] | null;
-  is_deprecated: number;
   deprecation_message: string | null;
 }
 
-export const QUERY_CONTEXT_PARAMETERS_QUERY = `SELECT "name", "type", "description", "default_value", "default_description", "effective_value", "effective_source", "query_languages", "is_deprecated", "deprecation_message"
+export const QUERY_CONTEXT_PARAMETERS_QUERY = `SELECT "name", "type", "description", "default_value", "default_description", "effective_value", "effective_source", "query_languages", "deprecation_message"
 FROM sys.query_context_parameters
 WHERE "visibility" = 'PUBLIC'`;
 
