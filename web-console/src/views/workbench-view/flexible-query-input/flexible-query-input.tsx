@@ -24,6 +24,7 @@ import React from 'react';
 
 import { CodeEditor } from '../../../components';
 import { useAvailableSqlFunctions } from '../../../contexts/sql-functions-context';
+import type { QueryContextParameterMetadata } from '../../../druid-models';
 import { NATIVE_JSON_QUERY_COMPLETIONS } from '../../../druid-models';
 import { dsql } from '../../../editor-languages/dsql';
 import { hjson } from '../../../editor-languages/hjson';
@@ -49,6 +50,7 @@ export interface FlexibleQueryInputProps {
   showLineNumbers?: boolean;
   placeholder?: string;
   columnMetadata?: readonly ColumnMetadata[];
+  queryContextParameters?: readonly QueryContextParameterMetadata[];
   /** Makes the editor remember its state (undo history, selection) between mounts, see CodeEditor */
   stateCacheId?: string;
   /** Defaults to true */
@@ -66,6 +68,7 @@ export function FlexibleQueryInput(props: FlexibleQueryInputProps) {
     showLineNumbers = true,
     placeholder,
     columnMetadata,
+    queryContextParameters,
     stateCacheId,
     transparentBackground = true,
   } = props;
@@ -108,8 +111,8 @@ export function FlexibleQueryInput(props: FlexibleQueryInputProps) {
     () =>
       isJson
         ? hjson({ jsonCompletions: NATIVE_JSON_QUERY_COMPLETIONS })
-        : dsql({ columnMetadata, availableSqlFunctions }),
-    [isJson, columnMetadata, availableSqlFunctions],
+        : dsql({ columnMetadata, availableSqlFunctions, queryContextParameters }),
+    [isJson, columnMetadata, availableSqlFunctions, queryContextParameters],
   );
 
   return (
