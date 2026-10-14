@@ -211,7 +211,6 @@ describe('sql-completions', () => {
           effective_value: null,
           effective_source: null,
           query_languages: ['SQL'],
-          is_deprecated: 0,
           deprecation_message: null,
         },
         {
@@ -223,7 +222,6 @@ describe('sql-completions', () => {
           effective_value: 'false',
           effective_source: 'BROKER_DYNAMIC_CONFIG',
           query_languages: ['JSON', 'SQL'],
-          is_deprecated: 1,
           deprecation_message: 'Use `useResultLevelCache` instead.',
         },
         {
@@ -236,7 +234,6 @@ describe('sql-completions', () => {
           effective_value: null,
           effective_source: null,
           query_languages: ['JSON'],
-          is_deprecated: 0,
           deprecation_message: null,
         },
       ];
@@ -277,7 +274,6 @@ describe('sql-completions', () => {
           effective_value: null,
           effective_source: 'UNAUTHORIZED',
           query_languages: ['JSON', 'SQL'],
-          is_deprecated: 0,
           deprecation_message: null,
         },
       ];
