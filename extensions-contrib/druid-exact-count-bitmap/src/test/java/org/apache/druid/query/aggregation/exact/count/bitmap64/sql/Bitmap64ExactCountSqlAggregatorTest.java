@@ -132,6 +132,23 @@ public class Bitmap64ExactCountSqlAggregatorTest extends BaseCalciteQueryTest
   }
 
   @Test
+  public void testExactCountOnFloatingPointColumnsThrowsError()
+  {
+    for (String column : new String[]{"dbl1", "f1"}) {
+      DruidException e = Assertions.assertThrows(
+          DruidException.class,
+          () -> testQuery(
+              "SELECT BITMAP64_EXACT_COUNT(" + column + ") FROM " + DATA_SOURCE,
+              ImmutableList.of(),
+              ImmutableList.of()
+          )
+      );
+
+      Assertions.assertTrue(e.getMessage().contains("Cannot apply 'BITMAP64_EXACT_COUNT' to arguments of type"));
+    }
+  }
+
+  @Test
   public void testExactCountOnHyperUniqueColumnTypeThrowsError()
   {
     DruidException e = Assertions.assertThrows(

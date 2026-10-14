@@ -19,12 +19,9 @@
 
 package org.apache.druid.query.aggregation.exact.count.bitmap64;
 
-import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
 import org.apache.druid.segment.data.ObjectStrategy;
 
 import javax.annotation.Nullable;
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 
@@ -48,21 +45,9 @@ public class Bitmap64ExactCountObjectStrategy implements ObjectStrategy<Bitmap64
       throw new BufferUnderflowException();
     }
 
-    DataInputStream dataInputStream;
-    if (readOnlyBuf.hasArray()) {
-      // Use the underlying array directly without copying array.
-      dataInputStream = new DataInputStream(new ByteArrayInputStream(
-          readOnlyBuf.array(),
-          readOnlyBuf.arrayOffset() + readOnlyBuf.position(),
-          numBytes
-      ));
-    } else {
-      // Wrap ByteBuffer as DataInput to avoid copying underlying byte array.
-      ByteBuffer slice = readOnlyBuf.slice();
-      slice.limit(numBytes);
-      dataInputStream = new DataInputStream(new ByteBufferBackedInputStream(slice));
-    }
-    return RoaringBitmap64Counter.fromDataInput(dataInputStream);
+    // the counter reads from the buffer without copying, so it is only valid while the column the buffer belongs to is
+    readOnlyBuf.limit(readOnlyBuf.position() + numBytes);
+    return RoaringBitmap64Counter.fromByteBuffer(readOnlyBuf);
   }
 
   @Nullable
