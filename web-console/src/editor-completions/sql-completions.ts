@@ -431,14 +431,27 @@ function decodeHtmlEntities(text: string): string {
  */
 function convertHtmlText(text: string): string {
   return decodeHtmlEntities(
-    text
-      .replace(/\[([^[\]]*)\]\([^()]*\)/g, '$1')
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<li>/gi, '\n- ')
-      .replace(/<\/(ul|ol)>/gi, '\n')
-      .replace(/<\/?[a-z][^>]*>/gi, '')
-      .replace(/\*\*([^*]+)\*\*/g, '*$1*'),
+    stripHtmlTags(
+      text
+        .replace(/\[([^[\]]*)\]\([^()]*\)/g, '$1')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<li>/gi, '\n- ')
+        .replace(/<\/(ul|ol)>/gi, '\n'),
+    ).replace(/\*\*([^*]+)\*\*/g, '*$1*'),
   );
+}
+
+/**
+ * Drops HTML tags, repeatedly so that removing one tag can not leave another one behind (like "<<b>i>")
+ */
+function stripHtmlTags(text: string): string {
+  let previous: string;
+  let stripped = text;
+  do {
+    previous = stripped;
+    stripped = stripped.replace(/<\/?[a-z][^>]*>/gi, '');
+  } while (stripped !== previous);
+  return stripped;
 }
 
 /**

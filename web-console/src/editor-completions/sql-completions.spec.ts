@@ -451,6 +451,10 @@ describe('sql-completions', () => {
       ).toEqual('*Deprecated.* Threads are named `processing_<queryId>`; use `||` & more.');
     });
 
+    it('drops tags that removing another tag leaves behind', () => {
+      expect(queryContextDescriptionToDocMarkdown('a <<b>i>tag</i> b')).toEqual('a tag b');
+    });
+
     it('decodes entities once', () => {
       expect(
         queryContextDescriptionToDocMarkdown('Use <code>&amp;lt;</code> for &amp;lt;.'),
