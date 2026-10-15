@@ -221,7 +221,7 @@ describe('sql-completions', () => {
           doc: {
             name: 'sqlTimeZone',
             descriptionMarkdown:
-              'Type: `STRING`\n\nDefault: UTC\n\nTime zone for a connection. See time zones.',
+              'Type: `STRING`\n\nDefault: UTC\n\nTime zone for a connection. See [time zones](https://druid.apache.org/docs/latest/querying/sql#time-zones).',
           },
         },
         {
