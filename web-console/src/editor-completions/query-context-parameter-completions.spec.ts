@@ -25,6 +25,26 @@ import {
 
 describe('query-context-parameter-completions', () => {
   describe('getQueryContextCompletions', () => {
+    it('builds the completions of a list of parameters once', () => {
+      const queryContextParameters: QueryContextParameterMetadata[] = [
+        {
+          name: 'useCache',
+          type: 'BOOLEAN',
+          description: 'Whether to use the cache.',
+          default_value: 'true',
+          default_description: null,
+          effective_value: null,
+          effective_source: null,
+          deprecation: null,
+        },
+      ];
+
+      const completions = getQueryContextCompletions(false, queryContextParameters);
+      expect(getQueryContextCompletions(false, queryContextParameters)).toBe(completions);
+      // A reloaded list gets its own completions
+      expect(getQueryContextCompletions(false, [...queryContextParameters])).not.toBe(completions);
+    });
+
     it('notes that the Broker may override the built-in default without CONFIG read access', () => {
       const queryContextParameters: QueryContextParameterMetadata[] = [
         {

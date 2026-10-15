@@ -39,8 +39,35 @@ export function getQueryContextCompletions(
     }));
   }
 
-  return queryContextParameters.map(parameter => ({
-    label: quote ? parameter.name : contextKeyLabel(parameter.name),
+  let completions = PARAMETER_COMPLETIONS.get(queryContextParameters);
+  if (!completions) {
+    completions = buildParameterCompletions(queryContextParameters);
+    PARAMETER_COMPLETIONS.set(queryContextParameters, completions);
+  }
+  return quote ? completions.quoted : completions.unquoted;
+}
+
+interface ParameterCompletions {
+  /** For typing after a double quote: the names as they are */
+  quoted: EditorCompletion[];
+  /** Otherwise: the names quoted where needed */
+  unquoted: EditorCompletion[];
+}
+
+/**
+ * The completions of each loaded list of parameters, built on first use: the docs only change when the parameters are
+ * loaded again (a new list)
+ */
+const PARAMETER_COMPLETIONS = new WeakMap<
+  readonly QueryContextParameterMetadata[],
+  ParameterCompletions
+>();
+
+function buildParameterCompletions(
+  queryContextParameters: readonly QueryContextParameterMetadata[],
+): ParameterCompletions {
+  const quoted = queryContextParameters.map(parameter => ({
+    label: parameter.name,
     // Deprecated parameters sort after the others
     boost: parameter.deprecation ? 40 : 50,
     detail: 'context',
@@ -49,6 +76,13 @@ export function getQueryContextCompletions(
       descriptionMarkdown: queryContextParameterDocMarkdown(parameter),
     },
   }));
+  return {
+    quoted,
+    unquoted: quoted.map(completion => ({
+      ...completion,
+      label: contextKeyLabel(completion.label),
+    })),
+  };
 }
 
 const HTML_ENTITIES: Record<string, string> = {
