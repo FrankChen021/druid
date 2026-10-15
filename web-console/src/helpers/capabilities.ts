@@ -18,7 +18,10 @@
 
 import type { DruidEngine, QueryContextParameterMetadata } from '../druid-models';
 // Imported from its module rather than the druid-models barrel, which imports helpers (a circular import)
-import { QUERY_CONTEXT_PARAMETERS_QUERY } from '../druid-models/query-context/query-context';
+import {
+  isSqlQueryContextParameter,
+  QUERY_CONTEXT_PARAMETERS_QUERY,
+} from '../druid-models/query-context/query-context';
 import { Api } from '../singletons';
 import { filterMap } from '../utils';
 
@@ -248,8 +251,8 @@ export class Capabilities {
   }
 
   /**
-   * The query context parameters for SET completions. Undefined when they can not be loaded (an older Druid or no
-   * access to sys tables), in which case the completions fall back to the well-known context keys.
+   * The query context parameters that SET can provide, for SET completions. Undefined when they can not be loaded (an
+   * older Druid or no access to sys tables), in which case the completions fall back to the well-known context keys.
    */
   static async detectQueryContextParameters(
     capabilities: Capabilities,
@@ -266,7 +269,7 @@ export class Capabilities {
           },
           { timeout: Capabilities.STATUS_TIMEOUT },
         )
-      ).data;
+      ).data.filter(isSqlQueryContextParameter);
     } catch {
       return;
     }

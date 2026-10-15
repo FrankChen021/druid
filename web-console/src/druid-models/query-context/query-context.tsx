@@ -86,6 +86,15 @@ export interface QueryContextParameterMetadata {
   deprecation: string | null;
 }
 
+/**
+ * Whether a SET statement can provide the parameter, which only applies to SQL queries. This is checked on the loaded
+ * rows rather than in QUERY_CONTEXT_PARAMETERS_QUERY because the sys table does not support array functions such as
+ * ARRAY_CONTAINS.
+ */
+export function isSqlQueryContextParameter(parameter: QueryContextParameterMetadata): boolean {
+  return !parameter.query_languages || parameter.query_languages.includes('SQL');
+}
+
 export const QUERY_CONTEXT_PARAMETERS_QUERY = `SELECT "name", "type", "description", "default_value", "default_description", "effective_value", "effective_source", "query_languages", "deprecation"
 FROM sys.query_context_parameters
 WHERE "visibility" = 'PUBLIC'`;
