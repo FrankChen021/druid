@@ -32,13 +32,7 @@ import {
   showEditorError,
   SplitterLayout,
 } from '../../../components';
-import type {
-  CapacityInfo,
-  DruidEngine,
-  LastExecution,
-  QueryContext,
-  QueryContextParameterMetadata,
-} from '../../../druid-models';
+import type { CapacityInfo, DruidEngine, LastExecution, QueryContext } from '../../../druid-models';
 import { DEFAULT_SERVER_QUERY_CONTEXT, Execution, WorkbenchQuery } from '../../../druid-models';
 import {
   executionBackgroundStatusCheck,
@@ -101,7 +95,6 @@ export interface QueryTabProps extends Pick<
   baseQueryContext: QueryContext | undefined;
   serverQueryContext: QueryContext;
   columnMetadata: readonly ColumnMetadata[] | undefined;
-  queryContextParameters: readonly QueryContextParameterMetadata[] | undefined;
   onQueryChange(newQuery: WorkbenchQuery): void;
   onQueryTab(newQuery: WorkbenchQuery, tabName?: string): void;
   onDetails(execution: Execution, initTab?: ExecutionDetailsTab): void;
@@ -117,7 +110,6 @@ export const QueryTab = React.memo(function QueryTab(props: QueryTabProps) {
     query,
     id,
     columnMetadata,
-    queryContextParameters,
     mandatoryQueryContext,
     baseQueryContext,
     serverQueryContext = DEFAULT_SERVER_QUERY_CONTEXT,
@@ -517,7 +509,6 @@ export const QueryTab = React.memo(function QueryTab(props: QueryTabProps) {
               runQuerySlice={slice => void handleRun(false, slice)}
               running={executionState.loading}
               columnMetadata={columnMetadata}
-              queryContextParameters={queryContextParameters}
               stateCacheId={id}
             />
           </div>

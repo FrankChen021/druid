@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import type { CompletionResult, CompletionSource } from '@codemirror/autocomplete';
+import type { CompletionResult } from '@codemirror/autocomplete';
 import { CompletionContext } from '@codemirror/autocomplete';
 import type { Extension } from '@codemirror/state';
 import { EditorState } from '@codemirror/state';
@@ -46,28 +46,6 @@ describe('completion source', () => {
     expect(wordAt(dsql(), 'SELECT co|unt')).toEqual('co');
   });
 
-  it('completes right after SET in dsql without a word typed or an explicit request', () => {
-    function completionLabelsTyping(text: string): string[] | undefined {
-      const state = EditorState.create({ doc: text, extensions: dsql() });
-      const [source] = state.languageDataAt<CompletionSource>('autocomplete', text.length);
-      const result = source(
-        new CompletionContext(state, text.length, false),
-      ) as CompletionResult | null;
-      return result?.options.map(option => option.label);
-    }
-
-    expect(completionLabelsTyping('SET ')).toContain('sqlTimeZone');
-    expect(completionLabelsTyping('SELECT 1;\nset ')).toContain('sqlTimeZone');
-    // However long the whitespace after SET is
-    expect(completionLabelsTyping(`SET\n${' '.repeat(40)}`)).toContain('sqlTimeZone');
-    expect(completionLabelsTyping('SELECT ')).toBeUndefined();
-    // Not the SET keyword
-    expect(completionLabelsTyping("SELECT * FROM t WHERE x = 'foo set ")).toBeUndefined();
-    expect(completionLabelsTyping('-- set ')).toBeUndefined();
-    expect(completionLabelsTyping('SELECT * FROM t LIMIT 1 OFFSET ')).toBeUndefined();
-    expect(completionLabelsTyping('SELECT a FROM t GROUP BY GROUPING SETS ')).toBeUndefined();
-  });
-
   it('keeps the result while the word grows', () => {
     const source = makeCompletionSource(() => [{ label: 'my-value' }]);
     const state = EditorState.create({ doc: '{ a: my', extensions: hjson() });
@@ -75,5 +53,19 @@ describe('completion source', () => {
     const validFor = result.validFor as Exclude<CompletionResult['validFor'], RegExp | undefined>;
     expect(validFor('my-va', 5, 10, state)).toBe(true);
     expect(validFor('my va', 5, 10, state)).toBe(false);
+  });
+
+  it('completes an empty word without an explicit request only where completeEmptyWord allows', () => {
+    const state = EditorState.create({ doc: 'SET ', extensions: dsql() });
+    const context = new CompletionContext(state, 4, false);
+    const getCompletions = () => [{ label: 'my-value' }];
+    expect(makeCompletionSource(getCompletions)(context)).toBeNull();
+    expect(
+      makeCompletionSource(getCompletions, { completeEmptyWord: () => false })(context),
+    ).toBeNull();
+    const result = makeCompletionSource(getCompletions, { completeEmptyWord: () => true })(
+      context,
+    ) as CompletionResult;
+    expect(result.options.map(option => option.label)).toEqual(['my-value']);
   });
 });

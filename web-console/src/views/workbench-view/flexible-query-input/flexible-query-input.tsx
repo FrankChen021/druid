@@ -23,8 +23,8 @@ import type { EditorView } from '@codemirror/view';
 import React from 'react';
 
 import { CodeEditor } from '../../../components';
+import { useQueryContextParameters } from '../../../contexts/query-context-parameters-context';
 import { useAvailableSqlFunctions } from '../../../contexts/sql-functions-context';
-import type { QueryContextParameterMetadata } from '../../../druid-models';
 import { NATIVE_JSON_QUERY_COMPLETIONS } from '../../../druid-models';
 import { dsql } from '../../../editor-languages/dsql';
 import { hjson } from '../../../editor-languages/hjson';
@@ -50,7 +50,6 @@ export interface FlexibleQueryInputProps {
   showLineNumbers?: boolean;
   placeholder?: string;
   columnMetadata?: readonly ColumnMetadata[];
-  queryContextParameters?: readonly QueryContextParameterMetadata[];
   /** Makes the editor remember its state (undo history, selection) between mounts, see CodeEditor */
   stateCacheId?: string;
   /** Defaults to true */
@@ -68,12 +67,12 @@ export function FlexibleQueryInput(props: FlexibleQueryInputProps) {
     showLineNumbers = true,
     placeholder,
     columnMetadata,
-    queryContextParameters,
     stateCacheId,
     transparentBackground = true,
   } = props;
 
   const availableSqlFunctions = useAvailableSqlFunctions();
+  const queryContextParameters = useQueryContextParameters();
   const editorViewRef = React.useRef<EditorView | undefined>(undefined);
   React.useImperativeHandle(ref, () => editorViewRef.current);
 

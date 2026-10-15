@@ -39,14 +39,12 @@ import type {
   DruidEngine,
   Execution,
   QueryContext,
-  QueryContextParameterMetadata,
   QueryWithContext,
   TabEntry,
 } from '../../druid-models';
 import {
   DEFAULT_SERVER_QUERY_CONTEXT,
   guessDataSourceNameFromInputSource,
-  QUERY_CONTEXT_PARAMETERS_QUERY,
   WorkbenchQuery,
 } from '../../druid-models';
 import type { Capabilities } from '../../helpers';
@@ -148,7 +146,6 @@ export interface WorkbenchViewState {
   tabEntries: TabEntry[];
 
   columnMetadataState: QueryState<readonly ColumnMetadata[]>;
-  queryContextParametersState: QueryState<readonly QueryContextParameterMetadata[]>;
 
   details?: {
     type: 'task' | 'dart';
@@ -172,8 +169,6 @@ export interface WorkbenchViewState {
 
 export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, WorkbenchViewState> {
   private metadataQueryManager: QueryManager<null, ColumnMetadata[]> | undefined;
-  private queryContextParametersQueryManager:
-    QueryManager<null, QueryContextParameterMetadata[]> | undefined;
 
   constructor(props: WorkbenchViewProps) {
     super(props);
@@ -216,7 +211,6 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
     this.state = {
       tabEntries,
       columnMetadataState: QueryState.INIT,
-      queryContextParametersState: QueryState.INIT,
 
       connectExternalDataDialogOpen: externalDataTabId(props.tabId) && hasSqlTask,
       explainDialogOpen: false,
@@ -256,32 +250,10 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
     });
 
     this.metadataQueryManager.runQuery(null);
-
-    // Used for SET completions. When it can not be loaded (an older Druid or no access to sys tables), the
-    // completions fall back to the well-known context keys, so the error is not shown.
-    this.queryContextParametersQueryManager = new QueryManager({
-      processQuery: async (_, signal) => {
-        return await queryDruidSql<QueryContextParameterMetadata>(
-          {
-            query: QUERY_CONTEXT_PARAMETERS_QUERY,
-            context: { engine: 'native' },
-          },
-          signal,
-        );
-      },
-      onStateChange: queryContextParametersState => {
-        this.setState({
-          queryContextParametersState,
-        });
-      },
-    });
-
-    this.queryContextParametersQueryManager.runQuery(null);
   }
 
   componentWillUnmount(): void {
     this.metadataQueryManager?.terminate();
-    this.queryContextParametersQueryManager?.terminate();
   }
 
   componentDidUpdate(prevProps: Readonly<WorkbenchViewProps>) {
@@ -826,7 +798,7 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
       fullClusterCapacityLabelFn,
       hiddenOptions,
     } = this.props;
-    const { columnMetadataState, queryContextParametersState } = this.state;
+    const { columnMetadataState } = this.state;
     const currentTabEntry = this.getCurrentTabEntry();
     const effectiveEngine = currentTabEntry.query.getEffectiveEngine();
 
@@ -849,7 +821,6 @@ export class WorkbenchView extends React.PureComponent<WorkbenchViewProps, Workb
           baseQueryContext={baseQueryContext}
           serverQueryContext={serverQueryContext}
           columnMetadata={columnMetadataState.getSomeData()}
-          queryContextParameters={queryContextParametersState.getSomeData()}
           onQueryChange={this.handleQueryChange}
           onQueryTab={this.handleNewTab}
           onDetails={this.handleDetailsWithExecution}
