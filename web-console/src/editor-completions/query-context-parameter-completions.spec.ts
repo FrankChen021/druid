@@ -21,6 +21,7 @@ import type { QueryContextParameterMetadata } from '../druid-models';
 import {
   getQueryContextCompletions,
   queryContextDescriptionToDocMarkdown,
+  resolveDocsLink,
 } from './query-context-parameter-completions';
 
 describe('query-context-parameter-completions', () => {
@@ -116,13 +117,42 @@ describe('query-context-parameter-completions', () => {
     });
   });
 
+  describe('resolveDocsLink', () => {
+    it('resolves links relative to the querying docs to the docs site', () => {
+      const docs = 'https://druid.apache.org/docs/latest';
+      expect(resolveDocsLink('dart.md')).toEqual(`${docs}/querying/dart`);
+      expect(resolveDocsLink('./filters.md#null-filter')).toEqual(
+        `${docs}/querying/filters#null-filter`,
+      );
+      expect(resolveDocsLink('../multi-stage-query/reference.md#joins')).toEqual(
+        `${docs}/multi-stage-query/reference#joins`,
+      );
+      expect(resolveDocsLink('../configuration/index.md#broker')).toEqual(
+        `${docs}/configuration/#broker`,
+      );
+      // Anchors as the docs site makes them
+      expect(
+        resolveDocsLink('../configuration/index.md#Guardrails for materialization of subqueries'),
+      ).toEqual(`${docs}/configuration/#guardrails-for-materialization-of-subqueries`);
+      expect(resolveDocsLink('https://example.com/x')).toEqual('https://example.com/x');
+    });
+
+    it('does not resolve links to an anchor of the same page or to other schemes', () => {
+      expect(resolveDocsLink('#limits')).toBeUndefined();
+      expect(resolveDocsLink('javascript:alert(1)')).toBeUndefined();
+      expect(resolveDocsLink('http://example.com/x')).toBeUndefined();
+    });
+  });
+
   describe('queryContextDescriptionToDocMarkdown', () => {
-    it('turns links into their text and HTML into line breaks and list items', () => {
+    it('turns links into docs links and HTML into line breaks and list items', () => {
       expect(
         queryContextDescriptionToDocMarkdown(
-          'Uses [lookups](lookups.md#reverse) for `IN`.<br /><br />Options:<ul><li>`a`: first</li><li>`b`: second</li></ul>Done.',
+          'Uses [lookups](lookups.md#reverse) for `IN`, see [limits](#limits).<br /><br />Options:<ul><li>`a`: first</li><li>`b`: second</li></ul>Done.',
         ),
-      ).toEqual('Uses lookups for `IN`.\n\nOptions:\n- `a`: first\n- `b`: second\nDone.');
+      ).toEqual(
+        'Uses [lookups](https://druid.apache.org/docs/latest/querying/lookups#reverse) for `IN`, see limits.\n\nOptions:\n- `a`: first\n- `b`: second\nDone.',
+      );
     });
 
     it('keeps code spans as they are and converts code tags, strong text and entities', () => {

@@ -20,6 +20,7 @@ import { C, RefName } from 'druid-query-toolkit';
 
 import type { QueryContextParameterMetadata } from '../druid-models';
 import { DEFAULT_SERVER_QUERY_CONTEXT } from '../druid-models';
+import { getLink } from '../links';
 
 import type { EditorCompletion } from './editor-completion';
 
@@ -102,14 +103,44 @@ function decodeHtmlEntities(text: string): string {
 }
 
 /**
- * Converts text outside of code spans: links become their text, <br /> becomes a line break, list items become "- "
+ * The docs URL of a link in a parameter description. The descriptions come from the Druid docs, where links are
+ * relative to the page they appear on. Every page that shows them is one directory below docs/, so a relative link
+ * is resolved from querying/. A link to an anchor of the same page can not be resolved and gives undefined.
+ */
+export function resolveDocsLink(target: string): string | undefined {
+  if (target.startsWith('https://')) return target;
+  const [path, anchor] = target.split('#', 2);
+  if (!path || /^[a-z]+:/i.test(path)) return;
+
+  const segments = ['querying'];
+  for (const segment of path.split('/')) {
+    if (segment === '..') {
+      segments.pop();
+    } else if (segment && segment !== '.') {
+      segments.push(segment);
+    }
+  }
+  // Pages are served without .md, and index.md as its directory
+  const page = segments.pop()!.replace(/\.md$/, '');
+  if (page !== 'index') segments.push(page);
+  const url = `${getLink('DOCS')}/${segments.join('/')}${page === 'index' ? '/' : ''}`;
+  // The docs site makes anchors lowercase and hyphenated
+  return anchor ? `${url}#${anchor.trim().toLowerCase().replace(/\s+/g, '-')}` : url;
+}
+
+/**
+ * Converts text outside of code spans: links point to the docs site (or become their text when they can not be
+ * resolved), <br /> becomes a line break, list items become "- "
  * lines, **strong** becomes *emphasis*, other HTML tags are dropped and HTML entities are decoded
  */
 function convertHtmlText(text: string): string {
   return decodeHtmlEntities(
     stripHtmlTags(
       text
-        .replace(/\[([^[\]]*)\]\([^()]*\)/g, '$1')
+        .replace(/\[([^[\]]*)\]\(([^()]*)\)/g, (_, text: string, target: string) => {
+          const href = resolveDocsLink(target);
+          return href ? `[${text}](${href})` : text;
+        })
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<li>/gi, '\n- ')
         .replace(/<\/(ul|ol)>/gi, '\n'),
