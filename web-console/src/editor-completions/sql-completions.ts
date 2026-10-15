@@ -19,7 +19,7 @@
 import type { CompletionContext } from '@codemirror/autocomplete';
 import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
-import { C, filterMap, N, T } from 'druid-query-toolkit';
+import { C, filterMap, N, RefName, T } from 'druid-query-toolkit';
 
 import type { CompletionWord } from '../components/code-editor/completion-source';
 import { completeSyntaxTree, tokenBefore } from '../components/code-editor/completion-source';
@@ -420,20 +420,18 @@ const HTML_ENTITIES: Record<string, string> = {
 
 function decodeHtmlEntities(text: string): string {
   return text.replace(/&(#\d+|[a-z]+);/gi, (entity, code: string) => {
-    if (code.startsWith('#')) return String.fromCharCode(Number(code.slice(1)));
+    if (code.startsWith('#')) return String.fromCodePoint(Number(code.slice(1)));
     return HTML_ENTITIES[code.toLowerCase()] ?? entity;
   });
 }
 
 /**
- * Converts text outside of code spans: <code> becomes a code span, links become their text, <br /> becomes a line
- * break, list items become "- " lines, **strong** becomes *emphasis*, other HTML tags are dropped and HTML entities
- * are decoded
+ * Converts text outside of code spans: links become their text, <br /> becomes a line break, list items become "- "
+ * lines, **strong** becomes *emphasis*, other HTML tags are dropped and HTML entities are decoded
  */
-function convertDescriptionText(text: string): string {
+function convertHtmlText(text: string): string {
   return decodeHtmlEntities(
     text
-      .replace(/<code>([^<]*)<\/code>/gi, (_, code: string) => `\`${decodeHtmlEntities(code)}\``)
       .replace(/\[([^[\]]*)\]\([^()]*\)/g, '$1')
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<li>/gi, '\n- ')
@@ -441,6 +439,17 @@ function convertDescriptionText(text: string): string {
       .replace(/<\/?[a-z][^>]*>/gi, '')
       .replace(/\*\*([^*]+)\*\*/g, '*$1*'),
   );
+}
+
+/**
+ * Converts text outside of code spans, where <code> becomes a code span. Each part is decoded once: the content of a
+ * <code> tag on its own, the text around it by convertHtmlText.
+ */
+function convertDescriptionText(text: string): string {
+  return text
+    .split(/<code>([^<]*)<\/code>/i)
+    .map((part, i) => (i % 2 ? `\`${decodeHtmlEntities(part)}\`` : convertHtmlText(part)))
+    .join('');
 }
 
 /**
@@ -461,11 +470,11 @@ export function queryContextDescriptionToDocMarkdown(description: string): strin
 }
 
 /**
- * The name of a query context parameter after SET: as is when it is a plain identifier (SET keys are case-sensitive
- * as typed, like `SET sqlTimeZone = 'UTC'`), quoted otherwise
+ * The name of a query context parameter after SET: as is when it can be written unquoted (SET keys are case-sensitive
+ * as typed, like `SET sqlTimeZone = 'UTC'`), quoted otherwise, such as for a reserved keyword
  */
 function contextKeyLabel(key: string): string {
-  return /^[A-Za-z_]\w*$/.test(key) ? key : String(C(key));
+  return RefName.needsQuotes(key) ? String(C(key)) : key;
 }
 
 function docCode(value: string): string {

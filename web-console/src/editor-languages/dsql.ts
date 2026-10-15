@@ -86,9 +86,6 @@ export function getDsqlLanguage(availableSqlFunctions?: AvailableFunctions): LRL
   return language;
 }
 
-// The SET word, not the end of a longer word like OFFSET, at the end of the text
-const SET_WORD = /(?:^|\W)SET$/i;
-
 /**
  * Whether the cursor is right after a SET keyword and any amount of whitespace, where the query context parameter names
  * are suggested without typing a letter first. A SET in a string literal or a comment does not count.
@@ -96,11 +93,9 @@ const SET_WORD = /(?:^|\W)SET$/i;
 function isAfterSetKeyword({ state, pos }: CompletionContext): boolean {
   let setEnd = pos;
   while (setEnd > 0 && /\s/.test(state.sliceDoc(setEnd - 1, setEnd))) setEnd--;
-  return (
-    setEnd < pos &&
-    SET_WORD.test(state.sliceDoc(Math.max(0, setEnd - 4), setEnd)) &&
-    tokenBefore(state, setEnd).name === 'Keyword'
-  );
+  if (setEnd === pos) return false;
+  const { name, from, to } = tokenBefore(state, setEnd);
+  return name === 'Keyword' && to === setEnd && state.sliceDoc(from, to).toUpperCase() === 'SET';
 }
 
 export type DsqlOptions = SqlCompletionOptions;
