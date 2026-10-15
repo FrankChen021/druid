@@ -35,7 +35,6 @@ describe('query-context-parameter-completions', () => {
           default_description: null,
           effective_value: null,
           effective_source: 'UNAUTHORIZED',
-          query_languages: ['JSON', 'SQL'],
           deprecation: null,
         },
       ];
@@ -56,11 +55,9 @@ describe('query-context-parameter-completions', () => {
         default_description: null,
         effective_value: 'false',
         effective_source: 'RUNTIME_PROPERTY',
-        query_languages: null,
         deprecation: null,
       };
 
-      // A null query_languages does not exclude the parameter
       expect(getQueryContextCompletions(false, [parameter])[0].doc).toEqual({
         name: 'useCache',
         descriptionMarkdown:
@@ -86,7 +83,6 @@ describe('query-context-parameter-completions', () => {
           default_description: null,
           effective_value: null,
           effective_source: null,
-          query_languages: ['SQL'],
           deprecation: null,
         },
       ];

@@ -198,7 +198,6 @@ describe('sql-completions', () => {
           default_description: 'UTC',
           effective_value: null,
           effective_source: null,
-          query_languages: ['SQL'],
           deprecation: null,
         },
         {
@@ -209,7 +208,6 @@ describe('sql-completions', () => {
           default_description: null,
           effective_value: 'false',
           effective_source: 'BROKER_DYNAMIC_CONFIG',
-          query_languages: ['JSON', 'SQL'],
           deprecation: 'Use `useResultLevelCache` instead.',
         },
       ];
