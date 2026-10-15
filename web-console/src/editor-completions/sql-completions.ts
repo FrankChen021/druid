@@ -400,7 +400,7 @@ function getQueryContextCompletions(
   return queryContextParameters.filter(isSqlParameter).map(parameter => ({
     label: quote ? parameter.name : contextKeyLabel(parameter.name),
     // Deprecated parameters sort after the others
-    boost: parameter.deprecation_message ? 40 : 50,
+    boost: parameter.deprecation ? 40 : 50,
     detail: 'context',
     doc: {
       name: parameter.name,
@@ -514,10 +514,8 @@ function queryContextParameterDocMarkdown(parameter: QueryContextParameterMetada
     );
   }
   sections.push(queryContextDescriptionToDocMarkdown(parameter.description));
-  if (parameter.deprecation_message) {
-    sections.push(
-      `*Deprecated*: ${queryContextDescriptionToDocMarkdown(parameter.deprecation_message)}`,
-    );
+  if (parameter.deprecation) {
+    sections.push(`*Deprecated*: ${queryContextDescriptionToDocMarkdown(parameter.deprecation)}`);
   }
   return sections.join('\n\n');
 }
