@@ -17,6 +17,7 @@
  */
 
 import type { DruidEngine, QueryContextParameterMetadata } from '../druid-models';
+// Imported from its module rather than the druid-models barrel, which imports helpers (a circular import)
 import { QUERY_CONTEXT_PARAMETERS_QUERY } from '../druid-models/query-context/query-context';
 import { Api } from '../singletons';
 import { filterMap } from '../utils';

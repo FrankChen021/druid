@@ -56,8 +56,8 @@ describe('completion source', () => {
   });
 
   it('completes an empty word without an explicit request only where completeEmptyWord allows', () => {
-    const state = EditorState.create({ doc: 'SET ', extensions: dsql() });
-    const context = new CompletionContext(state, 4, false);
+    const state = EditorState.create({ doc: 'a ' });
+    const context = new CompletionContext(state, 2, false);
     const getCompletions = () => [{ label: 'my-value' }];
     expect(makeCompletionSource(getCompletions)(context)).toBeNull();
     expect(
