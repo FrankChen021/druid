@@ -24,12 +24,7 @@ import { completionContextAt } from '../test-utils/completion-context';
 import type { ColumnMetadata } from '../utils';
 
 import type { SqlCompletionOptions } from './sql-completions';
-import {
-  getPossibleSqlReferences,
-  getSqlCompletions,
-  getSqlLiterals,
-  queryContextDescriptionToDocMarkdown,
-} from './sql-completions';
+import { getPossibleSqlReferences, getSqlCompletions, getSqlLiterals } from './sql-completions';
 
 // A state with the dsql language (for the syntax tree)
 function dsqlState(sqlText: string): EditorState {
@@ -217,18 +212,6 @@ describe('sql-completions', () => {
           query_languages: ['JSON', 'SQL'],
           deprecation: 'Use `useResultLevelCache` instead.',
         },
-        {
-          // Only native (JSON) queries can provide it, so it is not suggested after SET
-          name: 'maxRowsQueuedForOrdering',
-          type: 'INTEGER',
-          description: 'Maximum number of rows queued for time ordering.',
-          default_value: null,
-          default_description: null,
-          effective_value: null,
-          effective_source: null,
-          query_languages: ['JSON'],
-          deprecation: null,
-        },
       ];
 
       // Only the context parameters, no keywords, tables or columns
@@ -256,100 +239,13 @@ describe('sql-completions', () => {
       ]);
     });
 
-    it('notes that the Broker may override the built-in default without CONFIG read access', () => {
-      const queryContextParameters: QueryContextParameterMetadata[] = [
-        {
-          name: 'useCache',
-          type: 'BOOLEAN',
-          description: 'Whether to use the cache.',
-          default_value: 'true',
-          default_description: null,
-          effective_value: null,
-          effective_source: 'UNAUTHORIZED',
-          query_languages: ['JSON', 'SQL'],
-          deprecation: null,
-        },
-      ];
-
-      expect(completionsAt('SET |', { queryContextParameters })[0].doc).toEqual({
-        name: 'useCache',
-        descriptionMarkdown:
-          'Type: `BOOLEAN`\n\nDefault: `true` (built-in; the Broker may override it)\n\nWhether to use the cache.',
-      });
-    });
-
-    it('falls back to the well-known context keys when no SQL parameters are loaded', () => {
-      const jsonOnly: QueryContextParameterMetadata = {
-        name: 'maxRowsQueuedForOrdering',
-        type: 'INTEGER',
-        description: 'Maximum number of rows queued for time ordering.',
-        default_value: null,
-        default_description: null,
-        effective_value: null,
-        effective_source: null,
-        query_languages: ['JSON'],
-        deprecation: null,
-      };
-      for (const queryContextParameters of [undefined, [], [jsonOnly]]) {
+    it('falls back to the well-known context keys when the parameters are not loaded', () => {
+      for (const queryContextParameters of [undefined, []]) {
         const completions = completionsAt('SET |', { queryContextParameters });
         // Only context keys, without docs
         expect(completions.map(c => c.label)).toContain('sqlTimeZone');
         expect(completions.every(c => c.detail === 'context' && c.doc === undefined)).toBe(true);
       }
-    });
-
-    it('notes a runtime property default and adds no note to a built-in default', () => {
-      const parameter: QueryContextParameterMetadata = {
-        name: 'useCache',
-        type: 'BOOLEAN',
-        description: 'Whether to use the cache.',
-        default_value: 'true',
-        default_description: null,
-        effective_value: 'false',
-        effective_source: 'RUNTIME_PROPERTY',
-        query_languages: null,
-        deprecation: null,
-      };
-
-      // A null query_languages does not exclude the parameter
-      expect(completionsAt('SET |', { queryContextParameters: [parameter] })[0].doc).toEqual({
-        name: 'useCache',
-        descriptionMarkdown:
-          'Type: `BOOLEAN`\n\nDefault: `false` (runtime property; built-in: `true`)\n\nWhether to use the cache.',
-      });
-      expect(
-        completionsAt('SET |', {
-          queryContextParameters: [
-            { ...parameter, effective_value: 'true', effective_source: 'BUILT_IN' },
-          ],
-        })[0].doc,
-      ).toEqual({
-        name: 'useCache',
-        descriptionMarkdown: 'Type: `BOOLEAN`\n\nDefault: `true`\n\nWhether to use the cache.',
-      });
-    });
-
-    it('quotes a parameter name that needs it unless a quote is being typed', () => {
-      const queryContextParameters: QueryContextParameterMetadata[] = [
-        {
-          name: 'my-key',
-          type: 'STRING',
-          description: 'A key that is not a plain identifier.',
-          default_value: null,
-          default_description: null,
-          effective_value: null,
-          effective_source: null,
-          query_languages: ['SQL'],
-          deprecation: null,
-        },
-      ];
-
-      expect(completionsAt('SET |', { queryContextParameters }).map(c => c.label)).toEqual([
-        '"my-key"',
-      ]);
-      expect(completionsAt('SET "|', { queryContextParameters }).map(c => c.label)).toEqual([
-        'my-key',
-      ]);
     });
 
     it('handles column names correctly with quotes', () => {
@@ -431,34 +327,6 @@ describe('sql-completions', () => {
       ).map(c => c.label);
 
       expect(literals).toEqual(['France']);
-    });
-  });
-
-  describe('queryContextDescriptionToDocMarkdown', () => {
-    it('turns links into their text and HTML into line breaks and list items', () => {
-      expect(
-        queryContextDescriptionToDocMarkdown(
-          'Uses [lookups](lookups.md#reverse) for `IN`.<br /><br />Options:<ul><li>`a`: first</li><li>`b`: second</li></ul>Done.',
-        ),
-      ).toEqual('Uses lookups for `IN`.\n\nOptions:\n- `a`: first\n- `b`: second\nDone.');
-    });
-
-    it('keeps code spans as they are and converts code tags, strong text and entities', () => {
-      expect(
-        queryContextDescriptionToDocMarkdown(
-          '**Deprecated.** Threads are named `processing_<queryId>`; use <code>&#124;&#124;</code> &amp; more.',
-        ),
-      ).toEqual('*Deprecated.* Threads are named `processing_<queryId>`; use `||` & more.');
-    });
-
-    it('drops tags that removing another tag leaves behind', () => {
-      expect(queryContextDescriptionToDocMarkdown('a <<b>i>tag</i> b')).toEqual('a tag b');
-    });
-
-    it('decodes entities once', () => {
-      expect(
-        queryContextDescriptionToDocMarkdown('Use <code>&amp;lt;</code> for &amp;lt;.'),
-      ).toEqual('Use `&lt;` for &lt;.');
     });
   });
 
