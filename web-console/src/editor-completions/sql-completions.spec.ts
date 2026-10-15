@@ -211,7 +211,7 @@ describe('sql-completions', () => {
           effective_value: null,
           effective_source: null,
           query_languages: ['SQL'],
-          deprecation_message: null,
+          deprecation: null,
         },
         {
           name: 'useCache',
@@ -222,7 +222,7 @@ describe('sql-completions', () => {
           effective_value: 'false',
           effective_source: 'BROKER_DYNAMIC_CONFIG',
           query_languages: ['JSON', 'SQL'],
-          deprecation_message: 'Use `useResultLevelCache` instead.',
+          deprecation: 'Use `useResultLevelCache` instead.',
         },
         {
           // Only native (JSON) queries can provide it, so it is not suggested after SET
@@ -234,7 +234,7 @@ describe('sql-completions', () => {
           effective_value: null,
           effective_source: null,
           query_languages: ['JSON'],
-          deprecation_message: null,
+          deprecation: null,
         },
       ];
 
@@ -274,7 +274,7 @@ describe('sql-completions', () => {
           effective_value: null,
           effective_source: 'UNAUTHORIZED',
           query_languages: ['JSON', 'SQL'],
-          deprecation_message: null,
+          deprecation: null,
         },
       ];
 
