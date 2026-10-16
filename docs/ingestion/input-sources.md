@@ -847,6 +847,7 @@ PARTITIONED BY DAY
 
 Omitting `EXTEND` discovers the schema during SQL planning using a native `segmentMetadata` query over all source intervals.
 Discovery supports primitive and primitive-array columns. Empty, ambiguous, or unsupported metadata fails planning.
+Discovery requests time out after at most 30 seconds, regardless of `readTimeoutMillis`.
 To skip schema discovery or select a subset of columns, provide an explicit schema:
 
 ```sql
@@ -876,9 +877,9 @@ one bound through the SQL `parameters` field, is stored in task specifications a
 |`endpoint`|HTTP(S) endpoint of the source Router or Broker.|yes|
 |`dataSource`|Source datasource to query.|yes|
 |`engine`|Source SQL engine: `msq-dart` (default) or `native`. Dart must be enabled on the source cluster.|no|
-|`splitDuration`|ISO-8601 period, such as `P1D`. Reads without aggregation are split into time ranges of this length that target workers read in parallel.|no|
+|`splitDuration`|ISO-8601 period without negative fields, such as `P1D`. Reads without aggregation are split into time ranges of this length, aligned to UTC period boundaries, that target workers read in parallel.|no|
 |`intervals`|Array of ISO-8601 intervals restricting the source read. Overlapping intervals are combined.|no|
-|`authType`|`none` (default) or `basic`. `none` rejects credentials; `basic` requires both `username` and `password`.|no|
+|`authType`|`none` (default) or `basic`. `none` rejects credentials; `basic` requires `username` and one of `passwordEnvVar`, `passwordProvider`, or `password`.|no|
 |`username`|HTTP Basic authentication username.|for `basic`|
 |`passwordEnvVar`|Name of the environment variable holding the HTTP Basic authentication password.|for `basic`, one of the password options|
 |`passwordProvider`|JSON [password provider](../operations/password-provider.md) specification, such as `{"type":"environment","variable":"SOURCE_DRUID_PASSWORD"}`.|for `basic`, one of the password options|
@@ -891,16 +892,26 @@ one bound through the SQL `parameters` field, is stored in task specifications a
 
 Projections, filters, expressions, `GROUP BY`, aggregates, and `HAVING` directly above the remote table run on the
 source. `LOOKUP` calls, window functions, `ORDER BY`, `LIMIT`, joins, and unions run on the target. Filters above a
-join are pushed into the remote side when possible. The source evaluates SQL with the target query's `sqlTimeZone`
-and current timestamp.
+join are pushed into the remote side when possible. The source evaluates SQL with the target query's `sqlTimeZone`,
+current timestamp, and approximate-aggregation settings.
+
+Declared numeric column types are applied on the source with `CAST`, so pushed-down filters and aggregations use the
+declared types. Declared string columns are read as they are on the source: a numeric source column declared as
+`VARCHAR` compares numerically in pushed-down filters.
+
+Multi-value string columns are read with `MV_TO_ARRAY` and stored as multi-value strings on the target. This applies to
+source columns selected as they are without aggregation; a string expression computed from a multi-value column on the
+source, such as `UPPER(tags)`, is returned as JSON-encoded text.
 
 Without aggregation, the target splits the read into independent time ranges. It discovers the source time bounds with
-a native `timeBoundary` query, intersects them with `intervals`, and divides them by `splitDuration`, up to 10,000 ranges.
+a native `timeBoundary` query, intersects them with `intervals`, and divides them at UTC `splitDuration` boundaries,
+up to 10,000 ranges.
 Each range is one source SQL query with `__time` bounds passed as SQL parameters. With aggregation, the source runs a
 single query and `splitDuration` does not apply.
 
-Each source query streams `arrayLines` results. A request that fails before returning its first row is retried;
-a failure after that fails the target worker, which MSQ fault tolerance can retry. Source reads are not a snapshot:
+Each source query streams `arrayLines` results. A request that fails before returning its first row with a timeout,
+connection error, or HTTP 408, 429, or 5xx status is retried; invalid responses and configuration errors are not.
+A failure after the first row fails the target worker, which MSQ fault tolerance can retry. Source reads are not a snapshot:
 ingestion or replacement on the source can change data between range queries.
 
 The source reads stored rows, including any existing rollup, rather than reconstructing original events.

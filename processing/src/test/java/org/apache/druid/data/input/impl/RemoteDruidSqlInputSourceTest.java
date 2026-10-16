@@ -197,6 +197,43 @@ public class RemoteDruidSqlInputSourceTest
   }
 
   @Test
+  public void testUnwrapsMultiValueStrings() throws IOException
+  {
+    sqlResponses.add(new Response(
+        200,
+        HEADER + """
+            ["2020-01-01T00:00:00.000Z",["x","y"],1,null]
+            ["2020-01-01T00:00:00.000Z",["z"],1,null]
+            ["2020-01-01T00:00:00.000Z",[],1,[1]]
+
+            """
+    ));
+    final List<InputRow> rows = read(source(false, null, null));
+    Assertions.assertEquals(List.of("x", "y"), rows.get(0).getRaw("a"));
+    Assertions.assertEquals("z", rows.get(1).getRaw("a"));
+    Assertions.assertNull(rows.get(2).getRaw("a"));
+    // Array columns keep their arrays, even with one element.
+    Assertions.assertEquals(List.of(1), rows.get(2).getRaw("arr"));
+  }
+
+  @Test
+  public void testDoesNotRetryInvalidResponses()
+  {
+    sqlResponses.add(new Response(200, "<html>proxy error</html>\n"));
+    sqlResponses.add(new Response(200, HEADER + "\n"));
+    Assertions.assertThrows(UncheckedIOException.class, () -> read(source(false, null, null)));
+    Assertions.assertEquals(1, sqlRequests.size());
+
+    sqlRequests.clear();
+    sqlResponses.clear();
+    sqlResponses.add(new Response(200, HEADER + "[\"not a time\",\"x\",true,[]]\n\n"));
+    sqlResponses.add(new Response(200, HEADER + "\n"));
+    final UncheckedIOException e = Assertions.assertThrows(UncheckedIOException.class, () -> read(source(false, null, null)));
+    Assertions.assertTrue(e.getMessage().contains("invalid timestamp in column[__time]"), e.getMessage());
+    Assertions.assertEquals(1, sqlRequests.size());
+  }
+
+  @Test
   public void testEmptyResult() throws IOException
   {
     sqlResponses.add(new Response(200, HEADER + "\n"));
@@ -220,6 +257,15 @@ public class RemoteDruidSqlInputSourceTest
         splits(source(true, List.of(Intervals.of("2020-01-02T12/2021")), null))
     );
     Assertions.assertTrue(splits(source(true, List.of(Intervals.of("2021/2022")), null)).isEmpty());
+    // Ranges are aligned to period boundaries, even when the data starts mid-period.
+    Assertions.assertEquals(
+        List.of(
+            Intervals.of("2020-01-01T03:17:00.000Z/2020-01-02T00:00:00.000Z"),
+            Intervals.of("2020-01-02/2020-01-03"),
+            Intervals.of("2020-01-03T00:00:00.000Z/2020-01-03T05:00:00.001Z")
+        ),
+        splits(source(true, List.of(Intervals.of("2020-01-01T03:17/2021")), Period.days(1)))
+    );
     timeBoundaryResponse = "[]";
     Assertions.assertTrue(splits(source(true, null, Period.days(1))).isEmpty());
     // Aggregating source SQL is read in one piece without time parameters.
@@ -289,7 +335,7 @@ public class RemoteDruidSqlInputSourceTest
         new RemoteDruidAuthentication.Basic("reader", new EnvironmentVariablePasswordProvider("NO_SUCH_ENV_VAR_FOR_TEST")),
         1000,
         5000,
-        0
+        2
     );
     final UncheckedIOException e = Assertions.assertThrows(UncheckedIOException.class, () -> read(source(false, null, null)));
     Assertions.assertTrue(e.getMessage().contains("did not return a password"), e.getMessage());
@@ -303,6 +349,10 @@ public class RemoteDruidSqlInputSourceTest
     final InputSource roundTrip = mapper.readValue(mapper.writeValueAsString(source), InputSource.class);
     Assertions.assertEquals(source, roundTrip);
     Assertions.assertEquals(java.util.Set.of(RemoteDruidInputSource.TYPE_KEY), roundTrip.getTypes());
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> source(true, null, Period.months(1).withDays(-30))
+    );
     Assertions.assertThrows(IllegalArgumentException.class, () -> new RemoteDruidSqlInputSource(
         connection,
         "events",

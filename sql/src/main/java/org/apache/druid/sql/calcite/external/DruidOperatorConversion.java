@@ -20,6 +20,8 @@
 package org.apache.druid.sql.calcite.external;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.sql.SqlCall;
@@ -73,6 +75,10 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
 
   private static class RemoteTableMacro extends DruidUserDefinedTableMacro
   {
+    /// Tables by call, since Calcite resolves a table function during validation and again during conversion, and
+    /// resolving one without `EXTEND` queries the source. Weak keys compare calls by identity.
+    private final Cache<SqlCall, TranslatableTable> tables = CacheBuilder.newBuilder().weakKeys().build();
+
     RemoteTableMacro(final DruidTableMacro macro)
     {
       super(macro);
@@ -93,7 +99,13 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
       ).allowAccessWithNoRestriction()) {
         throw new ForbiddenException();
       }
-      return super.getTable(binding);
+      final TranslatableTable cached = tables.getIfPresent(call.getCall());
+      if (cached != null) {
+        return cached;
+      }
+      final TranslatableTable table = super.getTable(binding);
+      tables.put(call.getCall(), table);
+      return table;
     }
 
     @Override

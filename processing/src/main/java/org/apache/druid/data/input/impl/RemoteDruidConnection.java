@@ -51,7 +51,11 @@ public class RemoteDruidConnection
     Preconditions.checkArgument(endpoint != null && endpoint.getHost() != null, "An HTTP(S) endpoint is required");
     Preconditions.checkArgument(endpoint.getUserInfo() == null && endpoint.getQuery() == null && endpoint.getFragment() == null,
                                 "Provide authentication separately from the endpoint");
-    final String value = TRAILING_SLASHES.matcher(endpoint.toString()).replaceAll("");
+    String value = TRAILING_SLASHES.matcher(endpoint.toString()).replaceAll("");
+    // Accept the SQL endpoint too, since that is the API this connection is mostly used for.
+    if (value.endsWith("/druid/v2/sql")) {
+      value = value.substring(0, value.length() - "/sql".length());
+    }
     this.endpoint = URI.create(value.endsWith("/druid/v2") ? value : value + "/druid/v2");
     this.authentication = authentication == null ? new RemoteDruidAuthentication.None() : authentication;
     this.connectTimeout = connectTimeout == null ? 10_000 : connectTimeout;

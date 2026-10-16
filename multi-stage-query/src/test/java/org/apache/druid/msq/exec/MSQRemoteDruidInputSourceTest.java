@@ -270,7 +270,7 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
         .verifyResults();
 
     Assertions.assertEquals(1, sqlRequests.size());
-    Assertions.assertTrue(sourceSql(0).contains("MILLIS_TO_TIMESTAMP(946771200000)"), sourceSql(0));
+    Assertions.assertTrue(sourceSql(0).contains("TIMESTAMP_TO_MILLIS(\"__TIME\") >= 946771200000"), sourceSql(0));
   }
 
   @Test
@@ -334,6 +334,36 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   }
 
   @Test
+  public void testCopiesMultiValueStrings()
+  {
+    testIngestQuery()
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT __time, dim1, dim3
+            FROM TABLE(DRUID(endpoint => 'http://localhost:%d', dataSource => 'foo'))
+              EXTEND (__time BIGINT, dim1 VARCHAR, dim3 VARCHAR)
+            PARTITIONED BY DAY
+            """,
+            server.getAddress().getPort()
+        ))
+        .setQueryContext(DEFAULT_MSQ_CONTEXT)
+        .setExpectedDataSource("foo1")
+        .setExpectedRowSignature(RowSignature.builder().add("__time", ColumnType.LONG)
+                                             .add("dim1", ColumnType.STRING).add("dim3", ColumnType.STRING).build())
+        .setExpectedResultRows(List.<Object[]>of(
+            new Object[]{DateTimes.of("2000-01-01").getMillis(), "", List.of("a", "b")},
+            new Object[]{DateTimes.of("2000-01-02").getMillis(), "10.1", List.of("b", "c")},
+            new Object[]{DateTimes.of("2000-01-03").getMillis(), "2", "d"},
+            new Object[]{DateTimes.of("2001-01-01").getMillis(), "1", ""},
+            new Object[]{DateTimes.of("2001-01-02").getMillis(), "def", null},
+            new Object[]{DateTimes.of("2001-01-03").getMillis(), "abc", null}
+        ))
+        .verifyResults();
+    Assertions.assertTrue(sourceSql(0).contains("MV_TO_ARRAY(\"DIM3\")"), sourceSql(0));
+  }
+
+  @Test
   public void testEmptySourceResult()
   {
     testIngestQuery()
@@ -393,7 +423,11 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
                                              .add("cnt", ColumnType.LONG).add("dim1", ColumnType.STRING).build())
         .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), 1L, "abc"}))
         .verifyResults();
-    Assertions.assertTrue(nativeRequests.stream().anyMatch(r -> "segmentMetadata".equals(r.path("queryType").asText())));
+    // Validation and conversion share one discovery.
+    Assertions.assertEquals(
+        1,
+        nativeRequests.stream().filter(r -> "segmentMetadata".equals(r.path("queryType").asText())).count()
+    );
     Assertions.assertEquals(1, sqlRequests.size());
     Assertions.assertFalse(sourceSql(0).contains(StringUtils.toUpperCase("secret")));
   }

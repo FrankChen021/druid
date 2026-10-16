@@ -216,6 +216,25 @@ public class RemoteDruidInputSourceTest
   }
 
   @Test
+  public void testFailedMetadataQueryIsNotCanceled()
+  {
+    status.set(400);
+    Assertions.assertThrows(IOException.class, () -> source(null).discoverSchema());
+    // The source rejected the query, so there is nothing to cancel or retry.
+    Assertions.assertEquals(1, requests.size());
+    Assertions.assertTrue(canceledQueries.isEmpty());
+  }
+
+  @Test
+  public void testSqlEndpointIsNormalized()
+  {
+    Assertions.assertEquals(
+        URI.create("https://source.example/druid/v2"),
+        new RemoteDruidConnection(URI.create("https://source.example/druid/v2/sql/"), null, null, null, null).getEndpoint()
+    );
+  }
+
+  @Test
   public void testHttpProtocolConfiguration()
   {
     Assertions.assertThrows(IllegalArgumentException.class, () -> new RemoteDruidInputSource(

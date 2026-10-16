@@ -26,6 +26,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.base.Preconditions;
 import org.apache.druid.metadata.PasswordProvider;
 
+import java.util.Objects;
+
 /// Outbound authentication provider. Extensions can register additional Jackson subtypes.
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes({
@@ -101,7 +103,7 @@ public interface RemoteDruidAuthentication
     @Override
     public int hashCode()
     {
-      return java.util.Objects.hash(username, password);
+      return Objects.hash(username, password);
     }
   }
 }

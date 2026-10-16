@@ -27,7 +27,6 @@ import org.apache.calcite.plan.RelOptLattice;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.plan.hep.HepPlanner;
 import org.apache.calcite.plan.hep.HepProgram;
 import org.apache.calcite.plan.hep.HepProgramBuilder;
 import org.apache.calcite.prepare.RelOptTableImpl;
@@ -35,11 +34,17 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.Filter;
+import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.logical.LogicalTableScan;
+import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
+import org.apache.calcite.rel.metadata.RelColumnOrigin;
+import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
-import org.apache.calcite.rel.rules.CoreRules;
+import org.apache.calcite.rel.rules.FilterJoinRule.FilterIntoJoinRule.FilterIntoJoinRuleConfig;
+import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule.JoinConditionPushRuleConfig;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -59,23 +64,28 @@ import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.tools.Program;
+import org.apache.calcite.tools.Programs;
 import org.apache.druid.data.input.impl.RemoteDruidInputSource;
 import org.apache.druid.data.input.impl.RemoteDruidSqlInputSource;
 import org.apache.druid.error.InvalidInput;
 import org.apache.druid.java.util.common.Intervals;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.sql.calcite.expression.builtin.MillisToTimestampOperatorConversion;
+import org.apache.druid.sql.calcite.expression.builtin.MultiValueStringToArrayOperatorConversion;
+import org.apache.druid.sql.calcite.expression.builtin.TimestampToMillisOperatorConversion;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
+import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.sql.calcite.rule.logical.DruidJoinRule;
 import org.apache.druid.sql.calcite.table.ExternalTable;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 import org.joda.time.Interval;
@@ -97,15 +107,8 @@ import java.util.Set;
 /// the target. Because the rewrite happens before native query generation, EXPLAIN shows the plan that runs.
 public class RemoteDruidPushdownProgram implements Program
 {
-  /// Query context keys forwarded to the source so that it evaluates SQL with the same semantics.
-  private static final Set<String> FORWARDED_CONTEXT_KEYS = Set.of(
-      "sqlUseApproximateCountDistinct",
-      "sqlUseApproximateTopN",
-      "useApproximateCountDistinct",
-      "useApproximateTopN",
-      "timeout",
-      "priority"
-  );
+  /// Query context keys copied as given to the source.
+  private static final List<String> FORWARDED_CONTEXT_KEYS = List.of(QueryContexts.TIMEOUT_KEY, QueryContexts.PRIORITY_KEY);
 
   /// Druid SQL accepts Calcite's default syntax with double-quoted, case-sensitive identifiers and no charsets.
   static final SqlDialect DIALECT = new SqlDialect(
@@ -146,22 +149,48 @@ public class RemoteDruidPushdownProgram implements Program
     if (!containsRemoteScan(rel)) {
       return rel;
     }
-    // Move filters above joins into the join inputs first, so that remote inputs can absorb them.
+    // Move filters above joins with a remote input into the join inputs, so that the remote input can absorb them.
+    // Joins of local inputs are left alone, as are join conditions that Druid cannot evaluate.
     final HepProgramBuilder builder = HepProgram.builder();
     builder.addMatchLimit(CalciteRulesManager.HEP_DEFAULT_MATCH_LIMIT);
-    builder.addRuleInstance(CoreRules.FILTER_INTO_JOIN);
-    builder.addRuleInstance(CoreRules.JOIN_CONDITION_PUSH);
-    final HepPlanner hepPlanner = new HepPlanner(builder.build());
-    hepPlanner.setRoot(rel);
-    return rewrite(hepPlanner.findBestExp());
+    builder.addRuleInstance(
+        FilterIntoJoinRuleConfig.DEFAULT
+            .withOperandSupplier(
+                b0 -> b0.operand(Filter.class)
+                        .oneInput(b1 -> b1.operand(Join.class)
+                                          .predicate(RemoteDruidPushdownProgram::hasRemoteInput)
+                                          .anyInputs())
+            )
+            .as(FilterIntoJoinRuleConfig.class)
+            .withPredicate(DruidJoinRule::isSupportedPredicate)
+            .toRule()
+    );
+    builder.addRuleInstance(
+        JoinConditionPushRuleConfig.DEFAULT
+            .withOperandSupplier(
+                b0 -> b0.operand(Join.class).predicate(RemoteDruidPushdownProgram::hasRemoteInput).anyInputs()
+            )
+            .as(JoinConditionPushRuleConfig.class)
+            .withPredicate(DruidJoinRule::isSupportedPredicate)
+            .toRule()
+    );
+    final RelNode pushed = Programs.of(builder.build(), true, DefaultRelMetadataProvider.INSTANCE)
+                                   .run(planner, rel, requiredOutputTraits, materializations, lattices);
+    return rewrite(pushed);
+  }
+
+  private static boolean hasRemoteInput(final Join join)
+  {
+    return containsRemoteScan(join.getLeft()) || containsRemoteScan(join.getRight());
   }
 
   private static boolean containsRemoteScan(final RelNode node)
   {
-    if (isRemoteScan(node)) {
+    final RelNode rel = node.stripped();
+    if (isRemoteScan(rel)) {
       return true;
     }
-    for (final RelNode input : node.getInputs()) {
+    for (final RelNode input : rel.getInputs()) {
       if (containsRemoteScan(input)) {
         return true;
       }
@@ -310,7 +339,8 @@ public class RemoteDruidPushdownProgram implements Program
     for (int i = chain.size() - 2; i >= 0; i--) {
       source = chain.get(i).copy(chain.get(i).getTraitSet(), List.of(source));
     }
-    final String sql = toSql(source, remoteScan.getRowType());
+    // Grouping returns one row per value of a multi-value string, so only plain reads return multi-value rows.
+    final String sql = toSql(timeRangeParameters ? withMultiValueArrays(source) : source, remoteScan.getRowType());
 
     final RelDataType rowType = top.getRowType();
     final RowSignature signature = RowSignatures.fromRelDataType(rowType.getFieldNames(), rowType);
@@ -361,7 +391,9 @@ public class RemoteDruidPushdownProgram implements Program
           }
         })
     );
-    final RelNode scan = LogicalTableScan.create(remoteScan.getCluster(), table, ImmutableList.of());
+    final RelNode scan = withDeclaredNumericTypes(
+        LogicalTableScan.create(remoteScan.getCluster(), table, ImmutableList.of())
+    );
 
     final int timeColumn = rowType.getFieldNames().indexOf(ColumnHolder.TIME_COLUMN_NAME);
     if (!timeRangeParameters && remote.getIntervals() == null) {
@@ -399,6 +431,8 @@ public class RemoteDruidPushdownProgram implements Program
     return LogicalFilter.create(scan, condition);
   }
 
+  /// Compares `__time` in epoch milliseconds. Comparing with timestamps would convert the bounds through the session
+  /// time zone, which is ambiguous when clocks are set back.
   private static RexNode timeRange(
       final RexBuilder rexBuilder,
       final RexNode time,
@@ -406,16 +440,57 @@ public class RemoteDruidPushdownProgram implements Program
       final RexNode endMillis
   )
   {
-    final SqlOperator millisToTimestamp = new MillisToTimestampOperatorConversion().calciteOperator();
+    final RexNode millis = rexBuilder.makeCall(new TimestampToMillisOperatorConversion().calciteOperator(), time);
     return rexBuilder.makeCall(
         SqlStdOperatorTable.AND,
-        rexBuilder.makeCall(
-            SqlStdOperatorTable.GREATER_THAN_OR_EQUAL,
-            time,
-            rexBuilder.makeCall(millisToTimestamp, startMillis)
-        ),
-        rexBuilder.makeCall(SqlStdOperatorTable.LESS_THAN, time, rexBuilder.makeCall(millisToTimestamp, endMillis))
+        rexBuilder.makeCall(SqlStdOperatorTable.GREATER_THAN_OR_EQUAL, millis, startMillis),
+        rexBuilder.makeCall(SqlStdOperatorTable.LESS_THAN, millis, endMillis)
     );
+  }
+
+  /// Casts declared numeric columns, so that the source evaluates pushed-down operators with the declared types even
+  /// if its own column types differ. `__time` and string columns are used as they are on the source.
+  private static RelNode withDeclaredNumericTypes(final RelNode scan)
+  {
+    final RexBuilder rexBuilder = scan.getCluster().getRexBuilder();
+    final List<RexNode> projects = new ArrayList<>();
+    boolean cast = false;
+    for (final RelDataTypeField field : scan.getRowType().getFieldList()) {
+      final RexNode column = rexBuilder.makeInputRef(scan, field.getIndex());
+      if (SqlTypeUtil.isNumeric(field.getType()) && !ColumnHolder.TIME_COLUMN_NAME.equals(field.getName())) {
+        // An abstract cast is kept even though the column already has this type in the plan.
+        projects.add(rexBuilder.makeAbstractCast(field.getType(), column, false));
+        cast = true;
+      } else {
+        projects.add(column);
+      }
+    }
+    return cast ? LogicalProject.create(scan, List.of(), projects, scan.getRowType().getFieldNames()) : scan;
+  }
+
+  /// Wraps string outputs that are source columns, unchanged, in `MV_TO_ARRAY`. Druid SQL returns multi-value strings
+  /// as JSON-encoded text, while arrays arrive as JSON arrays that the reader turns back into multi-value values.
+  /// `MV_TO_ARRAY` only accepts columns, so computed strings are returned as they are.
+  private static RelNode withMultiValueArrays(final RelNode source)
+  {
+    final RelMetadataQuery metadataQuery = source.getCluster().getMetadataQuery();
+    final RexBuilder rexBuilder = source.getCluster().getRexBuilder();
+    final List<RexNode> projects = new ArrayList<>();
+    boolean wrapped = false;
+    for (final RelDataTypeField field : source.getRowType().getFieldList()) {
+      final RexNode column = rexBuilder.makeInputRef(source, field.getIndex());
+      final Set<RelColumnOrigin> origins = metadataQuery.getColumnOrigins(source, field.getIndex());
+      if (SqlTypeUtil.isCharacter(field.getType())
+          && origins != null
+          && origins.size() == 1
+          && !origins.iterator().next().isDerived()) {
+        projects.add(rexBuilder.makeCall(MultiValueStringToArrayOperatorConversion.SQL_FUNCTION, column));
+        wrapped = true;
+      } else {
+        projects.add(column);
+      }
+    }
+    return wrapped ? LogicalProject.create(source, List.of(), projects, source.getRowType().getFieldNames()) : source;
   }
 
   /// Converts the source fragment to Druid SQL, listing source columns explicitly, since `SELECT *` on the source
@@ -482,9 +557,17 @@ public class RemoteDruidPushdownProgram implements Program
         context.put(key, value);
       }
     }
+    // Plan aggregations as the target would, using its effective settings rather than only those in the context.
+    final PlannerConfig plannerConfig = plannerContext.getPlannerConfig();
+    context.put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_COUNT_DISTINCT, plannerConfig.isUseApproximateCountDistinct());
+    context.put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, plannerConfig.isUseApproximateTopN());
+    context.put(
+        PlannerConfig.CTX_KEY_USE_GROUPING_SET_FOR_EXACT_DISTINCT,
+        plannerConfig.isUseGroupingSetForExactDistinct()
+    );
     // Evaluate time functions and CURRENT_TIMESTAMP on the source as the target would.
-    context.put("sqlTimeZone", plannerContext.getTimeZone().getID());
-    context.put("sqlCurrentTimestamp", plannerContext.getLocalNow().toString());
+    context.put(PlannerContext.CTX_SQL_TIME_ZONE, plannerContext.getTimeZone().getID());
+    context.put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, plannerContext.getLocalNow().toString());
     return context;
   }
 

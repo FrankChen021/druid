@@ -57,17 +57,19 @@ public interface RemoteDruidHttpClient extends AutoCloseable
   {
   }
 
+  /// A failure caused by local configuration, such as an unresolvable password, which retrying cannot fix.
+  class ConfigurationException extends IOException
+  {
+    public ConfigurationException(final String message)
+    {
+      super(message);
+    }
+  }
+
   /// A response whose body and transport resources remain valid until it is closed.
   interface Response extends AutoCloseable
   {
     int status();
-
-    /// Returns a response header value when the transport exposes response metadata.
-    @Nullable
-    default String header(final String name)
-    {
-      return null;
-    }
 
     InputStream body() throws IOException;
 
@@ -124,7 +126,7 @@ public interface RemoteDruidHttpClient extends AutoCloseable
         // Resolved per request, so that providers such as environment variables are read where the request runs.
         final String resolvedPassword = password.getPassword();
         if (resolvedPassword == null) {
-          throw new IOException("Remote Druid password provider did not return a password on this server");
+          throw new ConfigurationException("Remote Druid password provider did not return a password on this server");
         }
         request.setBasicAuthentication(username, resolvedPassword);
       }
@@ -187,12 +189,6 @@ public interface RemoteDruidHttpClient extends AutoCloseable
           public int status()
           {
             return holder.getStatus().code();
-          }
-
-          @Override
-          public String header(final String name)
-          {
-            return holder.getResponse().headers().get(name);
           }
 
           @Override
@@ -298,11 +294,6 @@ public interface RemoteDruidHttpClient extends AutoCloseable
       if (cop != null && !complete) {
         cop.abort();
       }
-    }
-
-    long getQueuedBytes()
-    {
-      return queuedBytes.get();
     }
   }
 }

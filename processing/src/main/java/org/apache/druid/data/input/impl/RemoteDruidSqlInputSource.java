@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
@@ -41,9 +42,14 @@ import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.java.util.common.granularity.Granularity;
+import org.apache.druid.java.util.common.granularity.PeriodGranularity;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
+import org.apache.druid.query.QueryContexts;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
+import org.joda.time.DateTimeZone;
 import org.joda.time.Interval;
 import org.joda.time.Period;
 
@@ -57,6 +63,7 @@ import java.io.InterruptedIOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -64,6 +71,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -122,7 +130,8 @@ public class RemoteDruidSqlInputSource extends AbstractInputSource implements Sp
     this.dataSource = Preconditions.checkNotNull(dataSource, "dataSource");
     this.sql = Preconditions.checkNotNull(sql, "sql");
     this.engine = engine == null ? ENGINE_DART : engine;
-    this.context = context == null ? Map.of() : Map.copyOf(context);
+    // Sorted, so that serialized specs and EXPLAIN output are deterministic.
+    this.context = context == null ? Map.of() : Collections.unmodifiableMap(new TreeMap<>(context));
     this.signature = Preconditions.checkNotNull(signature, "signature");
     this.timestampColumns = timestampColumns == null ? List.of() : List.copyOf(timestampColumns);
     this.timeRangeParameters = timeRangeParameters;
@@ -137,8 +146,8 @@ public class RemoteDruidSqlInputSource extends AbstractInputSource implements Sp
         "intervals and splitDuration require timeRangeParameters"
     );
     Preconditions.checkArgument(
-        splitDuration == null || DateTimes.EPOCH.plus(splitDuration).isAfter(DateTimes.EPOCH),
-        "splitDuration must be positive"
+        splitDuration == null || isPositivePeriod(splitDuration),
+        "splitDuration must be a positive period without negative fields"
     );
     Preconditions.checkArgument(
         Set.of("http", "https").contains(StringUtils.toLowerCase(connection.getEndpoint().getScheme())),
@@ -260,10 +269,10 @@ public class RemoteDruidSqlInputSource extends AbstractInputSource implements Sp
       if (splitDuration == null) {
         ranges.add(clipped);
       } else {
-        for (long start = clipped.getStartMillis(); start < clipped.getEndMillis(); ) {
-          final long end = Math.min(clipped.getEndMillis(), DateTimes.utc(start).plus(splitDuration).getMillis());
-          ranges.add(Intervals.utc(start, end));
-          start = end;
+        // Align ranges to UTC period boundaries, so that they line up with time partitioning on the target.
+        final Granularity granularity = new PeriodGranularity(splitDuration, null, DateTimeZone.UTC);
+        for (final Interval bucket : granularity.getIterable(clipped)) {
+          ranges.add(bucket.overlap(clipped));
           if (ranges.size() > MAX_SPLITS) {
             throw new IOException("Remote Druid read would exceed " + MAX_SPLITS + " splits; use a longer splitDuration");
           }
@@ -367,10 +376,10 @@ public class RemoteDruidSqlInputSource extends AbstractInputSource implements Sp
   Map<String, Object> makeRequest(final String sqlQueryId)
   {
     final Map<String, Object> requestContext = new HashMap<>(context);
-    requestContext.put("engine", engine);
-    requestContext.put("sqlQueryId", sqlQueryId);
+    requestContext.put(QueryContexts.ENGINE, engine);
+    requestContext.put(QueryContexts.CTX_SQL_QUERY_ID, sqlQueryId);
     // Arrays must arrive as JSON arrays, not as JSON-encoded strings.
-    requestContext.put("sqlStringifyArrays", false);
+    requestContext.put(QueryContexts.CTX_SQL_STRINGIFY_ARRAYS, false);
 
     final Map<String, Object> request = new LinkedHashMap<>();
     request.put("query", sql);
@@ -512,9 +521,18 @@ public class RemoteDruidSqlInputSource extends AbstractInputSource implements Sp
         final String column = signature.getColumnName(i);
         Object value = values.get(i);
         if (value instanceof String && timestampColumns.contains(column)) {
-          value = DateTimes.of((String) value).getMillis();
+          try {
+            value = DateTimes.of((String) value).getMillis();
+          }
+          catch (IllegalArgumentException e) {
+            throw new NonRetryableException("Remote Druid result has an invalid timestamp in column[" + column + "]");
+          }
         } else if (value instanceof Boolean) {
           value = (Boolean) value ? 1L : 0L;
+        } else if (value instanceof List && isStringColumn(column)) {
+          // String columns are requested as MV_TO_ARRAY, so that multi-value rows arrive as arrays.
+          final List<?> elements = (List<?>) value;
+          value = elements.isEmpty() ? null : elements.size() == 1 ? elements.get(0) : elements;
         }
         row.put(column, value);
       }
@@ -564,9 +582,30 @@ public class RemoteDruidSqlInputSource extends AbstractInputSource implements Sp
     return URI.create(connection.getEndpoint() + "/sql");
   }
 
+  private boolean isStringColumn(final String column)
+  {
+    return ColumnType.STRING.equals(signature.getColumnType(column).orElse(null));
+  }
+
+  /// Whether a period moves time forward from every instant: no field is negative and at least one is positive.
+  static boolean isPositivePeriod(final Period period)
+  {
+    boolean positive = false;
+    for (final int value : period.getValues()) {
+      if (value < 0) {
+        return false;
+      }
+      positive |= value > 0;
+    }
+    return positive;
+  }
+
   private static boolean isRetryable(final IOException e)
   {
-    if (e instanceof NonRetryableException || e instanceof InterruptedIOException) {
+    if (e instanceof NonRetryableException
+        || e instanceof RemoteDruidHttpClient.ConfigurationException
+        || e instanceof JsonProcessingException
+        || e instanceof InterruptedIOException) {
       return false;
     }
     if (e instanceof StatusException) {

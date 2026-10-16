@@ -20,6 +20,7 @@
 package org.apache.druid.sql.calcite.external;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.base.Preconditions;
@@ -72,6 +73,7 @@ public class ExternalDataSource extends LeafDataSource
 
   @Nullable
   @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public InputFormat getInputFormat()
   {
     return inputFormat;

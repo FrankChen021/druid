@@ -174,6 +174,7 @@ public class DruidOperatorConversionTest
         Map.of("engine", "unknown"),
         Map.of("splitDuration", "not-a-period"),
         Map.of("splitDuration", "PT0S"),
+        Map.of("splitDuration", "P1M-30D"),
         Map.of("maxRetries", -1L),
         Map.of("intervals", List.of("invalid"))
     )) {

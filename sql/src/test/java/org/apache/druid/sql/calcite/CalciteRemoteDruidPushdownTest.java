@@ -21,6 +21,7 @@ package org.apache.druid.sql.calcite;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.sql.calcite.util.CalciteTests;
@@ -87,15 +88,28 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     Assertions.assertEquals(
         """
         SELECT "__time", UPPER("a") AS "ua", "m" * 2 AS "m2"
-        FROM (SELECT "__time", "a", "m"
-        FROM "events"
-        WHERE "__time" >= MILLIS_TO_TIMESTAMP(?) AND "__time" < MILLIS_TO_TIMESTAMP(?)) AS "t"
+        FROM (SELECT *
+        FROM (SELECT "__time", "a", CAST("m" AS BIGINT) AS "m"
+        FROM "events") AS "t"
+        WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ?) AS "t0"
         WHERE "m" > 3\
         """,
         inputSource.path("sql").asText()
     );
     Assertions.assertTrue(inputSource.path("timeRangeParameters").asBoolean());
     Assertions.assertEquals("msq-dart", inputSource.path("engine").asText());
+    // The source plans aggregations with the target's effective settings, in a deterministic order.
+    Assertions.assertEquals(
+        List.of(
+            "sqlCurrentTimestamp",
+            "sqlTimeZone",
+            "useApproximateCountDistinct",
+            "useApproximateTopN",
+            "useGroupingSetForExactDistinct"
+        ),
+        ImmutableList.copyOf(inputSource.path("context").fieldNames())
+    );
+    Assertions.assertTrue(inputSource.path("context").path("useApproximateCountDistinct").asBoolean());
     Assertions.assertEquals("[\"__time\"]", inputSource.path("timestampColumns").toString());
     // Nothing is left to evaluate on the target.
     Assertions.assertTrue(query.path("filter").isMissingNode(), query.toString());
@@ -113,9 +127,10 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     Assertions.assertEquals(
         """
         SELECT TIME_FLOOR("__time", 'PT1H') AS "__time", "a", SUM("m") AS "m"
-        FROM (SELECT "__time", "a", "m"
-        FROM "events"
-        WHERE "__time" >= MILLIS_TO_TIMESTAMP(946684800000) AND "__time" < MILLIS_TO_TIMESTAMP(946771200000)) AS "t"
+        FROM (SELECT *
+        FROM (SELECT "__time", "a", CAST("m" AS BIGINT) AS "m"
+        FROM "events") AS "t"
+        WHERE TIMESTAMP_TO_MILLIS("__time") >= 946684800000 AND TIMESTAMP_TO_MILLIS("__time") < 946771200000) AS "t0"
         WHERE "a" <> 'z'
         GROUP BY TIME_FLOOR("__time", 'PT1H'), "a"\
         """,
@@ -180,10 +195,11 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     );
     Assertions.assertEquals(
         """
-        SELECT "__time", "user", "value"
-        FROM (SELECT "__time", "user", "value", "date"
-        FROM "events"
-        WHERE "__time" >= MILLIS_TO_TIMESTAMP(?) AND "__time" < MILLIS_TO_TIMESTAMP(?)) AS "t"
+        SELECT "__time", MV_TO_ARRAY("user") AS "user", "value"
+        FROM (SELECT *
+        FROM (SELECT "__time", "user", CAST("value" AS BIGINT) AS "value", "date"
+        FROM "events") AS "t"
+        WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ?) AS "t0"
         WHERE "user" <> 'bot'\
         """,
         remoteInputSource(query.path("dataSource")).path("sql").asText()
@@ -201,9 +217,10 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     Assertions.assertEquals("native", inputSource.path("engine").asText());
     Assertions.assertEquals(
         """
-        SELECT "__time", "a", "m"
-        FROM "events"
-        WHERE "__time" >= MILLIS_TO_TIMESTAMP(?) AND "__time" < MILLIS_TO_TIMESTAMP(?)\
+        SELECT "__time", MV_TO_ARRAY("a") AS "a", "m"
+        FROM (SELECT "__time", "a", CAST("m" AS BIGINT) AS "m"
+        FROM "events") AS "t"
+        WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ?\
         """,
         inputSource.path("sql").asText()
     );

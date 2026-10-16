@@ -22,7 +22,9 @@ package org.apache.druid.data.input.impl;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.exc.StreamConstraintsException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.java.util.common.DateTimes;
@@ -41,6 +43,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.net.URI;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -55,16 +58,20 @@ class RemoteDruidMetadataClient implements AutoCloseable
   private static final Logger LOG = new Logger(RemoteDruidMetadataClient.class);
 
   static final int MAX_METADATA_BYTES = 1024 * 1024;
+  /// Metadata queries run during SQL planning, so they use a short timeout regardless of the read timeout.
+  static final int MAX_METADATA_READ_TIMEOUT_MILLIS = 30_000;
 
   private final RemoteDruidConnection connection;
   private final ObjectMapper mapper;
+  private final int readTimeout;
   private final RemoteDruidHttpClient httpClient;
 
   RemoteDruidMetadataClient(final RemoteDruidConnection connection, final ObjectMapper mapper)
   {
     this.connection = connection;
     this.mapper = mapper;
-    this.httpClient = connection.getAuthentication().createClient(connection.getConnectTimeout(), connection.getReadTimeout());
+    this.readTimeout = Math.min(connection.getReadTimeout(), MAX_METADATA_READ_TIMEOUT_MILLIS);
+    this.httpClient = connection.getAuthentication().createClient(connection.getConnectTimeout(), readTimeout);
   }
 
   @Override
@@ -169,11 +176,12 @@ class RemoteDruidMetadataClient implements AutoCloseable
       final String queryId = UUID.randomUUID().toString();
       final Map<String, Object> request = new LinkedHashMap<>(query);
       request.put("context", Map.of(
-          "queryId", queryId, "timeout", connection.getReadTimeout(), "returnPartialResults", false,
+          "queryId", queryId, "timeout", readTimeout, "returnPartialResults", false,
           "useCache", false, "populateCache", false, "useResultLevelCache", false, "populateResultLevelCache", false
       ));
       final File file = Files.createTempFile("remote-druid-metadata-", ".json").toFile();
-      boolean success = false;
+      // Set once the source accepted the query, so that only a query that may still be running is canceled.
+      boolean sourceRunning = false;
       try (final RemoteDruidHttpClient.Response http = httpClient.execute(
           connection.getEndpoint(), "POST", mapper.writeValueAsBytes(request)
       )) {
@@ -184,6 +192,7 @@ class RemoteDruidMetadataClient implements AutoCloseable
           }
           throw new IOException("Remote Druid query failed with HTTP status[" + status + ']');
         }
+        sourceRunning = true;
         try (final InputStream in = http.body(); final OutputStream out = Files.newOutputStream(file.toPath())) {
           final byte[] buffer = new byte[8192];
           long total = 0;
@@ -199,6 +208,7 @@ class RemoteDruidMetadataClient implements AutoCloseable
             out.write(buffer, 0, read);
           }
         }
+        sourceRunning = false;
         try (final InputStream in = new InterruptibleInputStream(Files.newInputStream(file.toPath()));
              final JsonParser parser = responseFactory().createParser(in)) {
           require(parser.nextToken() == JsonToken.START_ARRAY);
@@ -206,17 +216,20 @@ class RemoteDruidMetadataClient implements AutoCloseable
           checkInterrupted();
           require(parser.nextToken() == null);
         }
-        catch (com.fasterxml.jackson.core.exc.StreamConstraintsException e) {
+        catch (StreamConstraintsException e) {
           throw new NonRetryableException("Remote Druid response exceeds JSON parser limits");
         }
-        catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+        catch (JsonProcessingException e) {
           throw new IOException("Incomplete remote Druid response");
         }
-        success = true;
         return file;
       }
       catch (IOException e) {
-        if (e instanceof NonRetryableException || Thread.currentThread().isInterrupted() || attempt >= connection.getMaxRetries()) {
+        Files.deleteIfExists(file.toPath());
+        if (sourceRunning) {
+          cancel(queryId);
+        }
+        if (!isRetryable(e) || attempt >= connection.getMaxRetries()) {
           throw e;
         }
         try {
@@ -227,13 +240,22 @@ class RemoteDruidMetadataClient implements AutoCloseable
           throw new InterruptedIOException("Remote Druid read interrupted");
         }
       }
-      finally {
-        if (!success) {
-          Files.deleteIfExists(file.toPath());
+      catch (RuntimeException e) {
+        Files.deleteIfExists(file.toPath());
+        if (sourceRunning) {
           cancel(queryId);
         }
+        throw e;
       }
     }
+  }
+
+  private static boolean isRetryable(final IOException e)
+  {
+    return !(e instanceof NonRetryableException)
+           && !(e instanceof RemoteDruidHttpClient.ConfigurationException)
+           && !(e instanceof InterruptedIOException)
+           && !Thread.currentThread().isInterrupted();
   }
 
   private static void skipValue(final JsonParser parser) throws IOException
@@ -263,7 +285,7 @@ class RemoteDruidMetadataClient implements AutoCloseable
   private void cancel(final String queryId)
   {
     try (final RemoteDruidHttpClient.Response ignored = httpClient.execute(
-        java.net.URI.create(connection.getEndpoint() + "/" + queryId), "DELETE", null
+        URI.create(connection.getEndpoint() + "/" + queryId), "DELETE", null
     )) {
       // Best effort. The source query also has a bounded timeout.
     }

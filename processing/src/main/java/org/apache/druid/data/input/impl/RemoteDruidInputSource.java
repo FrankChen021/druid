@@ -29,7 +29,6 @@ import org.apache.druid.data.input.AbstractInputSource;
 import org.apache.druid.data.input.InputRowSchema;
 import org.apache.druid.data.input.InputSourceReader;
 import org.apache.druid.guice.annotations.Json;
-import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.JodaUtils;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.UOE;
@@ -87,8 +86,8 @@ public class RemoteDruidInputSource extends AbstractInputSource
         RemoteDruidSqlInputSource.ENGINES
     );
     Preconditions.checkArgument(
-        splitDuration == null || DateTimes.EPOCH.plus(splitDuration).isAfter(DateTimes.EPOCH),
-        "splitDuration must be positive"
+        splitDuration == null || RemoteDruidSqlInputSource.isPositivePeriod(splitDuration),
+        "splitDuration must be a positive period without negative fields"
     );
     this.config = Preconditions.checkNotNull(config, "config");
     this.mapper = Preconditions.checkNotNull(mapper, "mapper");
@@ -188,7 +187,7 @@ public class RemoteDruidInputSource extends AbstractInputSource
     );
   }
 
-  /// Requires SQL planning to create the source SELECT before an ingestion worker can read remote frames.
+  /// Requires SQL planning to create the source SELECT before an ingestion worker can read the remote table.
   @Override
   protected InputSourceReader fixedFormatReader(final InputRowSchema schema, @Nullable final File temporaryDirectory)
   {
