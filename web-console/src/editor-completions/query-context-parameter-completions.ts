@@ -202,20 +202,40 @@ function docCode(value: string): string {
 }
 
 const EFFECTIVE_SOURCE_LABELS: Record<string, string> = {
-  RUNTIME_PROPERTY: 'runtime property',
+  DEFAULT_CONTEXT_PROPERTY: 'default query context',
   BROKER_DYNAMIC_CONFIG: 'Broker dynamic config',
 };
+
+/**
+ * The runtime property of a default_value like `${druid.server.http.defaultQueryTimeout}`, if it is one
+ */
+export function defaultValueProperty(defaultValue: string | null): string | undefined {
+  return defaultValue?.startsWith('${') && defaultValue.endsWith('}')
+    ? defaultValue.slice(2, -1)
+    : undefined;
+}
+
+/**
+ * The declared default, like "built-in: `false`" or "runtime property `druid.server.http.defaultQueryTimeout`"
+ */
+function declaredDefault(defaultValue: string): string {
+  const property = defaultValueProperty(defaultValue);
+  return property ? `runtime property ${docCode(property)}` : `built-in: ${docCode(defaultValue)}`;
+}
 
 /**
  * Where the default comes from when it is not the built-in one, like " (Broker dynamic config; built-in: `false`)"
  */
 function effectiveSourceNote(parameter: QueryContextParameterMetadata): string {
+  if (parameter.effective_source === 'RUNTIME_PROPERTY' && parameter.default_value != null) {
+    return ` (${declaredDefault(parameter.default_value)})`;
+  }
   const label = parameter.effective_source
     ? EFFECTIVE_SOURCE_LABELS[parameter.effective_source]
     : undefined;
   if (!label) return '';
   return parameter.default_value != null
-    ? ` (${label}; built-in: ${docCode(parameter.default_value)})`
+    ? ` (${label}; ${declaredDefault(parameter.default_value)})`
     : ` (${label})`;
 }
 
@@ -229,13 +249,17 @@ function queryContextParameterDocMarkdown(parameter: QueryContextParameterMetada
       `Default: ${docCode(parameter.effective_value)}${effectiveSourceNote(parameter)}`,
     );
   } else if (parameter.default_value != null) {
-    // Without CONFIG read access the Broker's effective default is hidden, so the built-in one may be overridden
+    // Without CONFIG read access the Broker's effective default is hidden, so the declared one may be overridden
+    const property = defaultValueProperty(parameter.default_value);
+    const mayOverride = parameter.effective_source === 'UNAUTHORIZED';
     sections.push(
-      `Default: ${docCode(parameter.default_value)}${
-        parameter.effective_source === 'UNAUTHORIZED'
-          ? ' (built-in; the Broker may override it)'
-          : ''
-      }`,
+      property
+        ? `Default: value of runtime property ${docCode(property)}${
+            mayOverride ? ' (the Broker may override it)' : ''
+          }`
+        : `Default: ${docCode(parameter.default_value)}${
+            mayOverride ? ' (built-in; the Broker may override it)' : ''
+          }`,
     );
   } else if (parameter.default_description) {
     sections.push(

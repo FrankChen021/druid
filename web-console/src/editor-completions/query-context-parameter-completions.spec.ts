@@ -19,6 +19,7 @@
 import type { QueryContextParameterMetadata } from '../druid-models';
 
 import {
+  defaultValueProperty,
   getQueryContextCompletions,
   queryContextDescriptionToDocMarkdown,
   resolveDocsLink,
@@ -67,7 +68,7 @@ describe('query-context-parameter-completions', () => {
       });
     });
 
-    it('notes a runtime property default and adds no note to a built-in default', () => {
+    it('notes a default query context override and adds no note to a built-in default', () => {
       const parameter: QueryContextParameterMetadata = {
         name: 'useCache',
         type: 'BOOLEAN',
@@ -75,14 +76,14 @@ describe('query-context-parameter-completions', () => {
         default_value: 'true',
         default_description: null,
         effective_value: 'false',
-        effective_source: 'RUNTIME_PROPERTY',
+        effective_source: 'DEFAULT_CONTEXT_PROPERTY',
         deprecation: null,
       };
 
       expect(getQueryContextCompletions(false, [parameter])[0].doc).toEqual({
         name: 'useCache',
         descriptionMarkdown:
-          'Type: `BOOLEAN`\n\nDefault: `false` (runtime property; built-in: `true`)\n\nWhether to use the cache.',
+          'Type: `BOOLEAN`\n\nDefault: `false` (default query context; built-in: `true`)\n\nWhether to use the cache.',
       });
       expect(
         getQueryContextCompletions(false, [
@@ -91,6 +92,44 @@ describe('query-context-parameter-completions', () => {
       ).toEqual({
         name: 'useCache',
         descriptionMarkdown: 'Type: `BOOLEAN`\n\nDefault: `true`\n\nWhether to use the cache.',
+      });
+    });
+
+    it('describes a default that is the value of a runtime property', () => {
+      const parameter: QueryContextParameterMetadata = {
+        name: 'timeout',
+        type: 'LONG',
+        description: 'Query timeout in milliseconds.',
+        default_value: '${druid.server.http.defaultQueryTimeout}',
+        default_description: null,
+        effective_value: '60000',
+        effective_source: 'RUNTIME_PROPERTY',
+        deprecation: null,
+      };
+      const doc = (overrides: Partial<QueryContextParameterMetadata>) =>
+        getQueryContextCompletions(false, [{ ...parameter, ...overrides }])[0].doc;
+
+      expect(doc({})).toEqual({
+        name: 'timeout',
+        descriptionMarkdown:
+          'Type: `LONG`\n\nDefault: `60000` (runtime property `druid.server.http.defaultQueryTimeout`)\n\nQuery timeout in milliseconds.',
+      });
+      expect(
+        doc({ effective_value: '30000', effective_source: 'DEFAULT_CONTEXT_PROPERTY' }),
+      ).toEqual({
+        name: 'timeout',
+        descriptionMarkdown:
+          'Type: `LONG`\n\nDefault: `30000` (default query context; runtime property `druid.server.http.defaultQueryTimeout`)\n\nQuery timeout in milliseconds.',
+      });
+      expect(doc({ effective_value: null, effective_source: 'UNAUTHORIZED' })).toEqual({
+        name: 'timeout',
+        descriptionMarkdown:
+          'Type: `LONG`\n\nDefault: value of runtime property `druid.server.http.defaultQueryTimeout` (the Broker may override it)\n\nQuery timeout in milliseconds.',
+      });
+      expect(doc({ effective_value: null, effective_source: null })).toEqual({
+        name: 'timeout',
+        descriptionMarkdown:
+          'Type: `LONG`\n\nDefault: value of runtime property `druid.server.http.defaultQueryTimeout`\n\nQuery timeout in milliseconds.',
       });
     });
 
@@ -114,6 +153,16 @@ describe('query-context-parameter-completions', () => {
       expect(getQueryContextCompletions(true, queryContextParameters).map(c => c.label)).toEqual([
         'my-key',
       ]);
+    });
+  });
+
+  describe('defaultValueProperty', () => {
+    it('reads the runtime property of a default_value', () => {
+      expect(defaultValueProperty('${druid.query.scan.maxRowsQueuedForOrdering}')).toEqual(
+        'druid.query.scan.maxRowsQueuedForOrdering',
+      );
+      expect(defaultValueProperty('true')).toBeUndefined();
+      expect(defaultValueProperty(null)).toBeUndefined();
     });
   });
 
