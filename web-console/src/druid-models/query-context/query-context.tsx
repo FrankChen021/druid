@@ -81,7 +81,12 @@ export interface QueryContextParameterMetadata {
   default_description: string | null;
   effective_value: string | null;
   effective_source:
-    'BUILT_IN' | 'RUNTIME_PROPERTY' | 'BROKER_DYNAMIC_CONFIG' | 'UNAUTHORIZED' | null;
+    | 'BUILT_IN'
+    | 'RUNTIME_PROPERTY'
+    | 'DEFAULT_CONTEXT_PROPERTY'
+    | 'BROKER_DYNAMIC_CONFIG'
+    | 'UNAUTHORIZED'
+    | null;
   deprecation: string | null;
 }
 
