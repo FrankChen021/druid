@@ -36,6 +36,7 @@ import org.apache.druid.data.input.impl.HttpInputSourceConfig;
 import org.apache.druid.data.input.impl.RemoteDruidAuthentication;
 import org.apache.druid.data.input.impl.RemoteDruidConnection;
 import org.apache.druid.data.input.impl.RemoteDruidInputSource;
+import org.apache.druid.data.input.impl.RemoteDruidTlsContext;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.Intervals;
@@ -68,9 +69,17 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
   public static final String FUNCTION_NAME = "druid";
 
   @Inject
-  public DruidOperatorConversion(final HttpInputSourceConfig config, @Json final ObjectMapper mapper)
+  public DruidOperatorConversion(
+      final HttpInputSourceConfig config,
+      final RemoteDruidTlsContext tlsContext,
+      @Json final ObjectMapper mapper
+  )
   {
-    super(new RemoteTableMacro(new DruidTableMacro(FUNCTION_NAME, new RemoteTableFunction(config), mapper)));
+    super(new RemoteTableMacro(new DruidTableMacro(
+        FUNCTION_NAME,
+        new RemoteTableFunction(config, tlsContext),
+        mapper
+    )));
   }
 
   private static class RemoteTableMacro extends DruidUserDefinedTableMacro
@@ -124,8 +133,9 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
   private static class RemoteTableFunction extends BaseTableFunction
   {
     private final HttpInputSourceConfig config;
+    private final RemoteDruidTlsContext tlsContext;
 
-    RemoteTableFunction(final HttpInputSourceConfig config)
+    RemoteTableFunction(final HttpInputSourceConfig config, final RemoteDruidTlsContext tlsContext)
     {
       super(List.of(
           new Parameter("endpoint", ParameterType.VARCHAR, false),
@@ -143,6 +153,7 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
           new Parameter("splitDuration", ParameterType.VARCHAR, true)
       ));
       this.config = config;
+      this.tlsContext = tlsContext;
     }
 
     @Override
@@ -183,7 +194,8 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
           authentication,
           integerArg(args, "connectTimeoutMillis"),
           integerArg(args, "readTimeoutMillis"),
-          integerArg(args, "maxRetries")
+          integerArg(args, "maxRetries"),
+          tlsContext
       );
       final List<String> intervalStrings = CatalogUtils.getStringArray(args, "intervals");
       final List<Interval> intervals;

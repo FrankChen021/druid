@@ -91,7 +91,8 @@ public interface RemoteDruidHttpClient extends AutoCloseable
         @Nullable final String username,
         @Nullable final PasswordProvider password,
         final int connectTimeout,
-        final int readTimeout
+        final int readTimeout,
+        final SSLContext sslContext
     )
     {
       this.username = username;
@@ -105,7 +106,7 @@ public interface RemoteDruidHttpClient extends AutoCloseable
                             .withConnectTimeout(Duration.millis(connectTimeout))
                             .withReadTimeout(Duration.millis(readTimeout))
                             .withSslHandshakeTimeout(Duration.millis(connectTimeout))
-                            .withSslContext(SSLContext.getDefault())
+                            .withSslContext(sslContext)
                             .withCompressionCodec(HttpClientConfig.CompressionCodec.IDENTITY)
                             .build(),
             lifecycle

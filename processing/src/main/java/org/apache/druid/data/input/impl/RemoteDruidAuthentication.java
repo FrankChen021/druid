@@ -26,6 +26,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.base.Preconditions;
 import org.apache.druid.metadata.PasswordProvider;
 
+import javax.net.ssl.SSLContext;
 import java.util.Objects;
 
 /// Outbound authentication provider. Extensions can register additional Jackson subtypes.
@@ -36,16 +37,16 @@ import java.util.Objects;
 })
 public interface RemoteDruidAuthentication
 {
-  /// Creates an authenticated transport with connection and read timeouts in milliseconds.
+  /// Creates an authenticated transport with connection and read timeouts in milliseconds, using the given TLS context.
   /// The caller closes the client after the operation and closes each response before closing the client.
-  RemoteDruidHttpClient createClient(int connectTimeout, int readTimeout);
+  RemoteDruidHttpClient createClient(int connectTimeout, int readTimeout, SSLContext sslContext);
 
   class None implements RemoteDruidAuthentication
   {
     @Override
-    public RemoteDruidHttpClient createClient(final int connectTimeout, final int readTimeout)
+    public RemoteDruidHttpClient createClient(final int connectTimeout, final int readTimeout, final SSLContext sslContext)
     {
-      return new RemoteDruidHttpClient.DruidHttpClient(null, null, connectTimeout, readTimeout);
+      return new RemoteDruidHttpClient.DruidHttpClient(null, null, connectTimeout, readTimeout, sslContext);
     }
 
     @Override
@@ -89,9 +90,9 @@ public interface RemoteDruidAuthentication
     }
 
     @Override
-    public RemoteDruidHttpClient createClient(final int connectTimeout, final int readTimeout)
+    public RemoteDruidHttpClient createClient(final int connectTimeout, final int readTimeout, final SSLContext sslContext)
     {
-      return new RemoteDruidHttpClient.DruidHttpClient(username, password, connectTimeout, readTimeout);
+      return new RemoteDruidHttpClient.DruidHttpClient(username, password, connectTimeout, readTimeout, sslContext);
     }
 
     @Override

@@ -115,11 +115,13 @@ public class RemoteDruidSqlInputSourceTest
         null,
         1000,
         5000,
-        2
+        2,
+        null
     );
     mapper.setInjectableValues(new InjectableValues.Std()
                                    .addValue(HttpInputSourceConfig.class, new HttpInputSourceConfig(null, null))
-                                   .addValue(ObjectMapper.class, mapper));
+                                   .addValue(ObjectMapper.class, mapper)
+                                   .addValue(RemoteDruidTlsContext.class, new RemoteDruidTlsContext()));
   }
 
   @AfterEach
@@ -335,7 +337,8 @@ public class RemoteDruidSqlInputSourceTest
         new RemoteDruidAuthentication.Basic("reader", new EnvironmentVariablePasswordProvider("NO_SUCH_ENV_VAR_FOR_TEST")),
         1000,
         5000,
-        2
+        2,
+        null
     );
     final UncheckedIOException e = Assertions.assertThrows(UncheckedIOException.class, () -> read(source(false, null, null)));
     Assertions.assertTrue(e.getMessage().contains("did not return a password"), e.getMessage());

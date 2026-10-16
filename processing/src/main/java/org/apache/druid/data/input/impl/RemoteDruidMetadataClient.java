@@ -71,7 +71,7 @@ class RemoteDruidMetadataClient implements AutoCloseable
     this.connection = connection;
     this.mapper = mapper;
     this.readTimeout = Math.min(connection.getReadTimeout(), MAX_METADATA_READ_TIMEOUT_MILLIS);
-    this.httpClient = connection.getAuthentication().createClient(connection.getConnectTimeout(), readTimeout);
+    this.httpClient = connection.createClient(readTimeout);
   }
 
   @Override

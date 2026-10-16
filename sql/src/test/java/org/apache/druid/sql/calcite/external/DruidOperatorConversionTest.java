@@ -31,6 +31,7 @@ import org.apache.druid.data.input.impl.HttpInputSourceConfig;
 import org.apache.druid.data.input.impl.RemoteDruidAuthentication;
 import org.apache.druid.data.input.impl.RemoteDruidConnection;
 import org.apache.druid.data.input.impl.RemoteDruidInputSource;
+import org.apache.druid.data.input.impl.RemoteDruidTlsContext;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.metadata.EnvironmentVariablePasswordProvider;
 import org.apache.druid.server.security.Access;
@@ -59,7 +60,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class DruidOperatorConversionTest
 {
   private final DruidTableMacro macro = (DruidTableMacro) ((BaseUserDefinedTableMacro) new DruidOperatorConversion(
-      new HttpInputSourceConfig(null, null), new DefaultObjectMapper()
+      new HttpInputSourceConfig(null, null), new RemoteDruidTlsContext(), new DefaultObjectMapper()
   ).calciteOperator()).macro;
 
   private TranslatableTable apply(final Map<String, Object> options, final SqlNodeList schema)
@@ -204,7 +205,7 @@ public class DruidOperatorConversionTest
       final SqlCallBinding binding = Mockito.mock(SqlCallBinding.class);
       Mockito.when(binding.getValidator()).thenReturn(validator);
       final BaseUserDefinedTableMacro operator = (BaseUserDefinedTableMacro) new DruidOperatorConversion(
-          new HttpInputSourceConfig(null, null), new DefaultObjectMapper()
+          new HttpInputSourceConfig(null, null), new RemoteDruidTlsContext(), new DefaultObjectMapper()
       ).calciteOperator();
       final DruidUserDefinedTableMacro remote = (DruidUserDefinedTableMacro) operator;
       Assertions.assertEquals(

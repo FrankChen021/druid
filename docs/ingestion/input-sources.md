@@ -924,6 +924,8 @@ read permission. The target processes performing planning and ingestion must be 
 This input source follows the existing HTTP ingestion trust model: grant ingestion permissions to trusted users and
 restrict outbound network access as needed. It accepts HTTP and HTTPS, subject to `druid.ingestion.http.allowedProtocols`,
 and does not restrict destination hosts or IP addresses. Requests do not follow redirects.
+HTTPS requests use the client TLS context that the `simple-client-sslcontext` extension configures, such as
+`druid.client.https.trustStorePath`, when the extension is loaded, and the JVM default otherwise.
 See [Security overview](../operations/security-overview.md) for deployment guidance.
 
 You can also reference a remote table with `EXTERN` and an explicit row signature. The input format is fixed; use the JSON string `'null'`:

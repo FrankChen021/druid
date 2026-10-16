@@ -88,7 +88,8 @@ public class RemoteDruidInputSourceTest
     config = config(1);
     mapper.setInjectableValues(new InjectableValues.Std()
                                   .addValue(HttpInputSourceConfig.class, new HttpInputSourceConfig(null, null))
-                                  .addValue(ObjectMapper.class, mapper));
+                                  .addValue(ObjectMapper.class, mapper)
+                                  .addValue(RemoteDruidTlsContext.class, new RemoteDruidTlsContext()));
   }
 
   @AfterEach
@@ -102,7 +103,7 @@ public class RemoteDruidInputSourceTest
     return new RemoteDruidConnection(
         URI.create("http://localhost:" + server.getAddress().getPort()),
         new RemoteDruidAuthentication.Basic("user", new DefaultPasswordProvider("secret")),
-        1000, 1000, retries
+        1000, 1000, retries, null
     );
   }
 
@@ -172,7 +173,7 @@ public class RemoteDruidInputSourceTest
   public void testConfigurationRejectsCredentialUrlsAndInvalidLimits()
   {
     Assertions.assertThrows(IllegalArgumentException.class, () -> new RemoteDruidConnection(
-        URI.create("http://secret@localhost/druid/v2"), null, null, null, null
+        URI.create("http://secret@localhost/druid/v2"), null, null, null, null, null
     ));
     Assertions.assertThrows(IllegalArgumentException.class, () -> config(-1));
     Assertions.assertThrows(IllegalArgumentException.class, () -> new RemoteDruidInputSource(
@@ -230,7 +231,7 @@ public class RemoteDruidInputSourceTest
   {
     Assertions.assertEquals(
         URI.create("https://source.example/druid/v2"),
-        new RemoteDruidConnection(URI.create("https://source.example/druid/v2/sql/"), null, null, null, null).getEndpoint()
+        new RemoteDruidConnection(URI.create("https://source.example/druid/v2/sql/"), null, null, null, null, null).getEndpoint()
     );
   }
 
@@ -247,7 +248,7 @@ public class RemoteDruidInputSourceTest
         mapper
     ));
     final RemoteDruidConnection file = new RemoteDruidConnection(
-        URI.create("file://localhost/tmp/data"), null, null, null, null
+        URI.create("file://localhost/tmp/data"), null, null, null, null, null
     );
     Assertions.assertThrows(IllegalArgumentException.class, () -> new RemoteDruidInputSource(
         file,
@@ -259,7 +260,7 @@ public class RemoteDruidInputSourceTest
         mapper
     ));
     Assertions.assertDoesNotThrow(() -> new RemoteDruidInputSource(
-        new RemoteDruidConnection(URI.create("HTTPS://source.example"), null, null, null, null),
+        new RemoteDruidConnection(URI.create("HTTPS://source.example"), null, null, null, null, null),
         "events",
         null,
         null,
@@ -275,9 +276,9 @@ public class RemoteDruidInputSourceTest
   {
     final AtomicInteger closedClients = new AtomicInteger();
     final RemoteDruidAuthentication basic = config.getAuthentication();
-    final RemoteDruidAuthentication observed = (final int connectTimeout, final int readTimeout) -> new RemoteDruidHttpClient()
+    final RemoteDruidAuthentication observed = (final int connectTimeout, final int readTimeout, final javax.net.ssl.SSLContext sslContext) -> new RemoteDruidHttpClient()
     {
-      private final RemoteDruidHttpClient delegate = basic.createClient(connectTimeout, readTimeout);
+      private final RemoteDruidHttpClient delegate = basic.createClient(connectTimeout, readTimeout, sslContext);
 
       @Override
       public Response execute(final URI endpoint, final String method, final byte[] body) throws IOException
@@ -292,7 +293,7 @@ public class RemoteDruidInputSourceTest
         closedClients.incrementAndGet();
       }
     };
-    config = new RemoteDruidConnection(config.getEndpoint(), observed, 1000, 1000, 0);
+    config = new RemoteDruidConnection(config.getEndpoint(), observed, 1000, 1000, 0, null);
     source(null).discoverSchema();
     Assertions.assertEquals(1, closedClients.get());
     metadataResponse.set("[]");

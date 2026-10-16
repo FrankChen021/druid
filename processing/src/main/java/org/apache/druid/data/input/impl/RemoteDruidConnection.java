@@ -19,6 +19,7 @@
 
 package org.apache.druid.data.input.impl;
 
+import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
@@ -29,7 +30,8 @@ import java.net.URI;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-/// Per-ingestion endpoint, outbound authentication, and bounded HTTP settings.
+/// Per-ingestion endpoint, outbound authentication, and bounded HTTP settings. The TLS context is injected, not
+/// serialized.
 public class RemoteDruidConnection
 {
   private static final Pattern TRAILING_SLASHES = Pattern.compile("/+$");
@@ -38,6 +40,7 @@ public class RemoteDruidConnection
   private final int connectTimeout;
   private final int readTimeout;
   private final int maxRetries;
+  private final RemoteDruidTlsContext tlsContext;
 
   @JsonCreator
   public RemoteDruidConnection(
@@ -45,10 +48,12 @@ public class RemoteDruidConnection
       @JsonProperty("authentication") @Nullable final RemoteDruidAuthentication authentication,
       @JsonProperty("connectTimeout") @Nullable final Integer connectTimeout,
       @JsonProperty("readTimeout") @Nullable final Integer readTimeout,
-      @JsonProperty("maxRetries") @Nullable final Integer maxRetries
+      @JsonProperty("maxRetries") @Nullable final Integer maxRetries,
+      @JacksonInject @Nullable final RemoteDruidTlsContext tlsContext
   )
   {
     Preconditions.checkArgument(endpoint != null && endpoint.getHost() != null, "An HTTP(S) endpoint is required");
+    this.tlsContext = tlsContext == null ? new RemoteDruidTlsContext() : tlsContext;
     Preconditions.checkArgument(endpoint.getUserInfo() == null && endpoint.getQuery() == null && endpoint.getFragment() == null,
                                 "Provide authentication separately from the endpoint");
     String value = TRAILING_SLASHES.matcher(endpoint.toString()).replaceAll("");
@@ -94,6 +99,12 @@ public class RemoteDruidConnection
   public int getMaxRetries()
   {
     return maxRetries;
+  }
+
+  /// Creates an authenticated transport for this connection with the given read timeout in milliseconds.
+  public RemoteDruidHttpClient createClient(final int readTimeout)
+  {
+    return authentication.createClient(connectTimeout, readTimeout, tlsContext.get());
   }
 
   @Override

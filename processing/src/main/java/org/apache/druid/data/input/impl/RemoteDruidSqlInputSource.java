@@ -419,7 +419,7 @@ public class RemoteDruidSqlInputSource extends AbstractInputSource implements Sp
     ResultIterator(@Nullable final InputStats inputStats)
     {
       this.inputStats = inputStats;
-      this.httpClient = connection.getAuthentication().createClient(connection.getConnectTimeout(), connection.getReadTimeout());
+      this.httpClient = connection.createClient(connection.getReadTimeout());
     }
 
     @Override
