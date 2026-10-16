@@ -191,7 +191,7 @@ describe('sql-completions', () => {
       const queryContextParameters: QueryContextParameterMetadata[] = [
         {
           name: 'sqlTimeZone',
-          type: 'STRING',
+          type: 'String',
           description:
             'Time zone for a connection. See [time zones](../querying/sql.md#time-zones).',
           default_value: null,
@@ -202,7 +202,7 @@ describe('sql-completions', () => {
         },
         {
           name: 'useCache',
-          type: 'BOOLEAN',
+          type: 'Boolean',
           description: 'Whether to use the cache.<br />Applies to native queries.',
           default_value: 'true',
           default_description: null,
@@ -221,7 +221,7 @@ describe('sql-completions', () => {
           doc: {
             name: 'sqlTimeZone',
             descriptionMarkdown:
-              'Type: `STRING`\n\nDefault: UTC\n\nTime zone for a connection. See [time zones](https://druid.apache.org/docs/latest/querying/sql#time-zones).',
+              'Type: `String`\n\nDefault: UTC\n\nTime zone for a connection. See [time zones](https://druid.apache.org/docs/latest/querying/sql#time-zones).',
           },
         },
         {
@@ -231,7 +231,7 @@ describe('sql-completions', () => {
           doc: {
             name: 'useCache',
             descriptionMarkdown:
-              'Type: `BOOLEAN`\n\nDefault: `false` (Broker dynamic config; built-in: `true`)\n\nWhether to use the cache.\nApplies to native queries.\n\n*Deprecated*: Use `useResultLevelCache` instead.',
+              'Type: `Boolean`\n\nDefault: `false` (Broker dynamic config; built-in: `true`)\n\nWhether to use the cache.\nApplies to native queries.\n\n*Deprecated*: Use `useResultLevelCache` instead.',
           },
         },
       ]);
