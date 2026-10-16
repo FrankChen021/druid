@@ -31,7 +31,7 @@ describe('query-context-parameter-completions', () => {
       const queryContextParameters: QueryContextParameterMetadata[] = [
         {
           name: 'useCache',
-          type: 'BOOLEAN',
+          type: 'Boolean',
           description: 'Whether to use the cache.',
           default_value: 'true',
           default_description: null,
@@ -51,7 +51,7 @@ describe('query-context-parameter-completions', () => {
       const queryContextParameters: QueryContextParameterMetadata[] = [
         {
           name: 'useCache',
-          type: 'BOOLEAN',
+          type: 'Boolean',
           description: 'Whether to use the cache.',
           default_value: 'true',
           default_description: null,
@@ -64,14 +64,14 @@ describe('query-context-parameter-completions', () => {
       expect(getQueryContextCompletions(false, queryContextParameters)[0].doc).toEqual({
         name: 'useCache',
         descriptionMarkdown:
-          'Type: `BOOLEAN`\n\nDefault: `true` (built-in; the Broker may override it)\n\nWhether to use the cache.',
+          'Type: `Boolean`\n\nDefault: `true` (built-in; the Broker may override it)\n\nWhether to use the cache.',
       });
     });
 
     it('notes a default query context override and adds no note to a built-in default', () => {
       const parameter: QueryContextParameterMetadata = {
         name: 'useCache',
-        type: 'BOOLEAN',
+        type: 'Boolean',
         description: 'Whether to use the cache.',
         default_value: 'true',
         default_description: null,
@@ -83,7 +83,7 @@ describe('query-context-parameter-completions', () => {
       expect(getQueryContextCompletions(false, [parameter])[0].doc).toEqual({
         name: 'useCache',
         descriptionMarkdown:
-          'Type: `BOOLEAN`\n\nDefault: `false` (default query context; built-in: `true`)\n\nWhether to use the cache.',
+          'Type: `Boolean`\n\nDefault: `false` (default query context; built-in: `true`)\n\nWhether to use the cache.',
       });
       expect(
         getQueryContextCompletions(false, [
@@ -91,14 +91,14 @@ describe('query-context-parameter-completions', () => {
         ])[0].doc,
       ).toEqual({
         name: 'useCache',
-        descriptionMarkdown: 'Type: `BOOLEAN`\n\nDefault: `true`\n\nWhether to use the cache.',
+        descriptionMarkdown: 'Type: `Boolean`\n\nDefault: `true`\n\nWhether to use the cache.',
       });
     });
 
     it('describes a default that is the value of a runtime property', () => {
       const parameter: QueryContextParameterMetadata = {
         name: 'timeout',
-        type: 'LONG',
+        type: 'Long',
         description: 'Query timeout in milliseconds.',
         default_value: '${druid.server.http.defaultQueryTimeout}',
         default_description: null,
@@ -112,24 +112,24 @@ describe('query-context-parameter-completions', () => {
       expect(doc({})).toEqual({
         name: 'timeout',
         descriptionMarkdown:
-          'Type: `LONG`\n\nDefault: `60000` (runtime property `druid.server.http.defaultQueryTimeout`)\n\nQuery timeout in milliseconds.',
+          'Type: `Long`\n\nDefault: `60000` (runtime property `druid.server.http.defaultQueryTimeout`)\n\nQuery timeout in milliseconds.',
       });
       expect(
         doc({ effective_value: '30000', effective_source: 'DEFAULT_CONTEXT_PROPERTY' }),
       ).toEqual({
         name: 'timeout',
         descriptionMarkdown:
-          'Type: `LONG`\n\nDefault: `30000` (default query context; runtime property `druid.server.http.defaultQueryTimeout`)\n\nQuery timeout in milliseconds.',
+          'Type: `Long`\n\nDefault: `30000` (default query context; runtime property `druid.server.http.defaultQueryTimeout`)\n\nQuery timeout in milliseconds.',
       });
       expect(doc({ effective_value: null, effective_source: 'UNAUTHORIZED' })).toEqual({
         name: 'timeout',
         descriptionMarkdown:
-          'Type: `LONG`\n\nDefault: value of runtime property `druid.server.http.defaultQueryTimeout` (the Broker may override it)\n\nQuery timeout in milliseconds.',
+          'Type: `Long`\n\nDefault: value of runtime property `druid.server.http.defaultQueryTimeout` (the Broker may override it)\n\nQuery timeout in milliseconds.',
       });
       expect(doc({ effective_value: null, effective_source: null })).toEqual({
         name: 'timeout',
         descriptionMarkdown:
-          'Type: `LONG`\n\nDefault: value of runtime property `druid.server.http.defaultQueryTimeout`\n\nQuery timeout in milliseconds.',
+          'Type: `Long`\n\nDefault: value of runtime property `druid.server.http.defaultQueryTimeout`\n\nQuery timeout in milliseconds.',
       });
     });
 
@@ -137,7 +137,7 @@ describe('query-context-parameter-completions', () => {
       const queryContextParameters: QueryContextParameterMetadata[] = [
         {
           name: 'my-key',
-          type: 'STRING',
+          type: 'String',
           description: 'A key that is not a plain identifier.',
           default_value: null,
           default_description: null,
