@@ -123,6 +123,8 @@ public class RemoteDruidInputSourceTest
     final IOException exception = Assertions.assertThrows(IOException.class, () -> source(null).discoverSchema());
     Assertions.assertTrue(exception.getMessage().contains("explicit EXTEND"));
     Assertions.assertEquals(1, requests.size());
+    // The source was streaming when the client gave up, so the query is canceled.
+    Assertions.assertEquals(List.of(requests.get(0).path("context").path("queryId").asText()), canceledQueries);
   }
 
   @Test
@@ -258,7 +260,7 @@ public class RemoteDruidInputSourceTest
     Assertions.assertThrows(IOException.class, () -> source(null).discoverSchema());
     // The source rejected the query, so there is nothing to cancel or retry.
     Assertions.assertEquals(1, requests.size());
-    Assertions.assertTrue(canceledQueries.isEmpty());
+    Assertions.assertEquals(List.of(), canceledQueries);
   }
 
   @Test

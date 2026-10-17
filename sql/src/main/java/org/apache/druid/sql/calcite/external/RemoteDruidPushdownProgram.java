@@ -469,7 +469,7 @@ public class RemoteDruidPushdownProgram implements Program
         projects.add(column);
       }
     }
-    return cast ? LogicalProject.create(scan, List.of(), projects, scan.getRowType().getFieldNames()) : scan;
+    return cast ? LogicalProject.create(scan, List.of(), projects, scan.getRowType().getFieldNames(), Set.of()) : scan;
   }
 
   /// Wraps string outputs that are source columns, unchanged, in `MV_TO_ARRAY`. Druid SQL returns multi-value strings
@@ -494,7 +494,7 @@ public class RemoteDruidPushdownProgram implements Program
         projects.add(column);
       }
     }
-    return wrapped ? LogicalProject.create(source, List.of(), projects, source.getRowType().getFieldNames()) : source;
+    return wrapped ? LogicalProject.create(source, List.of(), projects, source.getRowType().getFieldNames(), Set.of()) : source;
   }
 
   /// Converts the source fragment to Druid SQL, listing source columns explicitly, since `SELECT *` on the source
