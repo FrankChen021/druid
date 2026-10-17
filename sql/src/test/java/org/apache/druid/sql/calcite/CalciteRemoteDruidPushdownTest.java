@@ -156,6 +156,16 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
   }
 
   @Test
+  public void testScalarSubquerySingleValueStaysOnTarget()
+  {
+    final JsonNode query = explainInsert("SELECT __time, dim1 FROM foo WHERE cnt = (SELECT m FROM %s WHERE a = 'x')", "");
+    final String plan = query.toString();
+    Assertions.assertTrue(plan.contains("remoteDruidSql"), plan);
+    Assertions.assertFalse(plan.contains("SINGLE_VALUE"), plan);
+    Assertions.assertTrue(plan.contains("WHERE \\\"a\\\" = 'x'"), plan);
+  }
+
+  @Test
   public void testLookupStaysOnTarget()
   {
     final JsonNode query = explainInsert("SELECT __time, LOOKUP(a, 'lookyloo') AS l FROM %s", "");

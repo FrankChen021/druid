@@ -254,6 +254,10 @@ public class RemoteDruidPushdownProgram implements Program
         if (!call.getCollation().getFieldCollations().isEmpty() || call.rexList != null && !call.rexList.isEmpty()) {
           return false;
         }
+        // Planner-generated aggregates, such as SINGLE_VALUE for scalar subqueries, may not exist in older sources.
+        if (call.getAggregation().getKind() == SqlKind.SINGLE_VALUE || call.getAggregation().getKind() == SqlKind.SUM0) {
+          return false;
+        }
       }
       expressions = List.of();
     } else {
