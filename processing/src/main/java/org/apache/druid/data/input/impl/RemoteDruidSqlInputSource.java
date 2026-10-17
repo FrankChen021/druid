@@ -27,6 +27,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.druid.data.input.AbstractInputSource;
 import org.apache.druid.data.input.InputFormat;
@@ -96,6 +97,10 @@ public class RemoteDruidSqlInputSource extends AbstractInputSource implements Sp
   static final int MAX_LINE_BYTES = 16 * 1024 * 1024;
   private static final int MAX_ERROR_BYTES = 64 * 1024;
   private static final Logger LOG = new Logger(RemoteDruidSqlInputSource.class);
+
+  /// Base delay before the first retry, doubled for each later one. Tests set it to zero.
+  @VisibleForTesting
+  static volatile long retryBackoffMillis = 250;
 
   private final RemoteDruidConnection connection;
   private final String dataSource;
@@ -519,7 +524,7 @@ public class RemoteDruidSqlInputSource extends AbstractInputSource implements Sp
     private Map<String, Object> toRow(final List<Object> values) throws IOException
     {
       if (values.size() != signature.size()) {
-        throw new IOException("Remote Druid result row has an unexpected number of columns");
+        throw new NonRetryableException("Remote Druid result row has an unexpected number of columns");
       }
       final Map<String, Object> row = new LinkedHashMap<>();
       for (int i = 0; i < values.size(); i++) {
@@ -572,7 +577,7 @@ public class RemoteDruidSqlInputSource extends AbstractInputSource implements Sp
     private void backoff()
     {
       try {
-        Thread.sleep(Math.min(10_000L, 250L << Math.min(attempts, 5)));
+        Thread.sleep(Math.min(10_000L, retryBackoffMillis << Math.min(attempts, 5)));
       }
       catch (InterruptedException e) {
         Thread.currentThread().interrupt();

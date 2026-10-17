@@ -33,6 +33,7 @@ import org.apache.druid.data.input.impl.RemoteDruidConnection;
 import org.apache.druid.data.input.impl.RemoteDruidInputSource;
 import org.apache.druid.data.input.impl.RemoteDruidTlsContext;
 import org.apache.druid.jackson.DefaultObjectMapper;
+import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -45,6 +46,7 @@ import org.apache.druid.sql.calcite.planner.DruidSqlValidator;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.planner.PlannerToolbox;
 import org.apache.druid.sql.calcite.table.ExternalTable;
+import org.joda.time.Period;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -58,9 +60,16 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class DruidOperatorConversionTest
 {
-  private final DruidTableMacro macro = (DruidTableMacro) ((BaseUserDefinedTableMacro) new DruidOperatorConversion(
-      new HttpInputSourceConfig(null, null), new RemoteDruidTlsContext(), new DefaultObjectMapper()
-  ).calciteOperator()).macro;
+  private final DruidTableMacro macro = (DruidTableMacro) operator().macro;
+
+  private static DruidUserDefinedTableMacro operator()
+  {
+    return (DruidUserDefinedTableMacro) new DruidOperatorConversion(
+        new HttpInputSourceConfig(null, null),
+        new RemoteDruidTlsContext(),
+        new DefaultObjectMapper()
+    ).calciteOperator();
+  }
 
   private TranslatableTable apply(final Map<String, Object> options, final SqlNodeList schema)
   {
@@ -110,23 +119,20 @@ public class DruidOperatorConversionTest
   }
 
   @Test
-  public void testEngineAndSplitDuration()
+  public void testReadArgumentsArePassedToTheInputSource()
   {
-    final RemoteDruidInputSource defaults = inputSource(apply(Map.of(), schema(SqlTypeName.BIGINT)));
-    Assertions.assertEquals("msq-dart", defaults.getEngine());
-    Assertions.assertNull(defaults.getSplitDuration());
     final RemoteDruidInputSource configured = inputSource(apply(
-        Map.of("engine", "native", "splitDuration", "P1D"),
+        Map.of("splitDuration", "P1D", "includeSegmentSource", "REALTIME", "intervals", List.of("2020/2021")),
         schema(SqlTypeName.BIGINT)
     ));
-    Assertions.assertEquals("native", configured.getEngine());
-    Assertions.assertNull(configured.getIncludeSegmentSource());
-    Assertions.assertEquals("NONE", defaults.getIncludeSegmentSource());
+    Assertions.assertEquals(Period.days(1), configured.getSplitDuration());
+    Assertions.assertEquals("REALTIME", configured.getIncludeSegmentSource());
+    Assertions.assertEquals(List.of(Intervals.of("2020/2021")), configured.getIntervals());
+    Assertions.assertTrue(configured.isDeclaredSchema());
     Assertions.assertEquals(
-        "REALTIME",
-        inputSource(apply(Map.of("includeSegmentSource", "REALTIME"), schema(SqlTypeName.BIGINT))).getIncludeSegmentSource()
+        "native",
+        inputSource(apply(Map.of("engine", "native"), schema(SqlTypeName.BIGINT))).getEngine()
     );
-    Assertions.assertEquals(org.joda.time.Period.days(1), configured.getSplitDuration());
   }
 
   @Test
@@ -150,16 +156,12 @@ public class DruidOperatorConversionTest
   public void testInvalidReadArgumentsAndTimeSchema()
   {
     for (final Map<String, Object> options : List.<Map<String, Object>>of(
-        Map.of("connectTimeoutMillis", 0L),
+        // Parsed by the table function.
         Map.of("readTimeoutMillis", Long.MAX_VALUE),
-        Map.of("engine", "unknown"),
         Map.of("splitDuration", "not-a-period"),
-        Map.of("splitDuration", "PT0S"),
-        Map.of("splitDuration", "P1M-30D"),
-        Map.of("includeSegmentSource", "ALL"),
-        Map.of("engine", "native", "includeSegmentSource", "NONE"),
-        Map.of("maxRetries", -1L),
-        Map.of("intervals", List.of("invalid"))
+        Map.of("intervals", List.of("invalid")),
+        // Validated by the input source, which has its own tests for each rule.
+        Map.of("engine", "unknown")
     )) {
       Assertions.assertThrows(IllegalArgumentException.class, () -> apply(options, schema(SqlTypeName.BIGINT)));
     }
@@ -177,26 +179,28 @@ public class DruidOperatorConversionTest
         return Access.DENIED;
       }));
       final PlannerToolbox toolbox = Mockito.mock(PlannerToolbox.class);
-      Mockito.when(toolbox.getAuthConfig()).thenReturn(AuthConfig.newBuilder().setEnableInputSourceSecurity(typeSecurity).build());
+      Mockito.when(toolbox.getAuthConfig())
+             .thenReturn(AuthConfig.newBuilder().setEnableInputSourceSecurity(typeSecurity).build());
       Mockito.when(toolbox.getAuthorizerMapper()).thenReturn(authorizers);
       final PlannerContext context = Mockito.mock(PlannerContext.class);
       Mockito.when(context.getPlannerToolbox()).thenReturn(toolbox);
-      Mockito.when(context.getAuthenticationResult()).thenReturn(new AuthenticationResult("reader", "test", "test", null));
+      Mockito.when(context.getAuthenticationResult())
+             .thenReturn(new AuthenticationResult("reader", "test", "test", null));
       final DruidSqlValidator validator = Mockito.mock(DruidSqlValidator.class);
       Mockito.when(validator.getPlannerContext()).thenReturn(context);
       final SqlCallBinding binding = Mockito.mock(SqlCallBinding.class);
       Mockito.when(binding.getValidator()).thenReturn(validator);
-      final BaseUserDefinedTableMacro operator = (BaseUserDefinedTableMacro) new DruidOperatorConversion(
-          new HttpInputSourceConfig(null, null), new RemoteDruidTlsContext(), new DefaultObjectMapper()
-      ).calciteOperator();
-      final DruidUserDefinedTableMacro remote = (DruidUserDefinedTableMacro) operator;
+      final DruidUserDefinedTableMacro operator = operator();
       Assertions.assertEquals(
           Set.of(typeSecurity ? AuthorizationUtils.createExternalResourceReadAction("remoteDruid")
                               : Externals.EXTERNAL_RESOURCE_ACTION),
-          remote.computeResources(null, typeSecurity)
+          operator.computeResources(null, typeSecurity)
       );
       Assertions.assertThrows(ForbiddenException.class, () -> operator.getTable(binding));
-      Assertions.assertEquals(new Resource(typeSecurity ? "remoteDruid" : "EXTERNAL", ResourceType.EXTERNAL), checkedResource.get());
+      Assertions.assertEquals(
+          new Resource(typeSecurity ? "remoteDruid" : "EXTERNAL", ResourceType.EXTERNAL),
+          checkedResource.get()
+      );
       // No argument conversion or network discovery is reached for a denied caller.
       Mockito.verify(binding, Mockito.never()).getOperandCount();
     }

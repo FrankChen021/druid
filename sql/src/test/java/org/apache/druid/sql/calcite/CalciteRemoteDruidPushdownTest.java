@@ -48,7 +48,8 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
   /// Plans an INSERT whose SELECT is the format string applied to the remote table.
   private JsonNode explainInsert(final String select, final String extraArguments)
   {
-    return explain(StringUtils.format("INSERT INTO dst %s PARTITIONED BY DAY", StringUtils.format(select, remote(extraArguments))));
+    final String query = StringUtils.format(select, remote(extraArguments));
+    return explain(StringUtils.format("INSERT INTO dst %s PARTITIONED BY DAY", query));
   }
 
   private JsonNode explain(final String sql)
@@ -71,6 +72,19 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /// Returns the nodes anywhere in `node` with the given `type`, in document order.
+  private static List<JsonNode> findByType(final JsonNode node, final String type)
+  {
+    final List<JsonNode> found = new ArrayList<>();
+    if (type.equals(node.path("type").asText())) {
+      found.add(node);
+    }
+    for (final JsonNode child : node) {
+      found.addAll(findByType(child, type));
+    }
+    return found;
   }
 
   private static JsonNode remoteInputSource(final JsonNode dataSource)
@@ -148,18 +162,25 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     );
     Assertions.assertEquals("join", query.path("dataSource").path("type").asText());
     final JsonNode inputSource = remoteInputSource(query.path("dataSource").path("left"));
-    Assertions.assertTrue(inputSource.path("sql").asText().contains("CAST(\"m\" AS BIGINT) > 1"), inputSource.toString());
-    Assertions.assertFalse(inputSource.path("sql").asText().contains("foo"), inputSource.toString());
+    final String sql = inputSource.path("sql").asText();
+    Assertions.assertTrue(sql.contains("CAST(\"m\" AS BIGINT) > 1"), sql);
+    Assertions.assertFalse(sql.contains("foo"), sql);
   }
 
   @Test
   public void testScalarSubquerySingleValueStaysOnTarget()
   {
-    final JsonNode query = explainInsert("SELECT __time, dim1 FROM foo WHERE cnt = (SELECT m FROM %s WHERE a = 'x')", "");
-    final String plan = query.toString();
-    Assertions.assertTrue(plan.contains("remoteDruidSql"), plan);
-    Assertions.assertFalse(plan.contains("SINGLE_VALUE"), plan);
-    Assertions.assertTrue(plan.contains("\\\"a\\\" = 'x'"), plan);
+    final JsonNode query = explainInsert(
+        "SELECT __time, dim1 FROM foo WHERE cnt = (SELECT m FROM %s WHERE a = 'x')",
+        ""
+    );
+    final List<JsonNode> inputSources = findByType(query, "remoteDruidSql");
+    Assertions.assertEquals(1, inputSources.size(), query.toString());
+    final String sql = inputSources.get(0).path("sql").asText();
+    Assertions.assertTrue(sql.contains("\"a\" = 'x'"), sql);
+    Assertions.assertFalse(sql.contains("SINGLE_VALUE"), sql);
+    // The aggregate runs on the target instead.
+    Assertions.assertFalse(findByType(query, "singleValue").isEmpty(), query.toString());
   }
 
   @Test
@@ -168,7 +189,11 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     final JsonNode query = explainInsert("SELECT __time, LOOKUP(a, 'lookyloo') AS l FROM %s", "");
     final JsonNode inputSource = remoteInputSource(query.path("dataSource"));
     Assertions.assertFalse(inputSource.path("sql").asText().contains("LOOKUP"), inputSource.toString());
-    Assertions.assertTrue(query.toString().contains("lookyloo"), query.toString());
+    final List<JsonNode> virtualColumns = findByType(query.path("virtualColumns"), "expression");
+    Assertions.assertTrue(
+        virtualColumns.stream().anyMatch(column -> column.path("expression").asText().contains("lookyloo")),
+        query.toString()
+    );
   }
 
   @Test
@@ -195,21 +220,35 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
   }
 
   @Test
-  public void testCredentialsAreNotPartOfSourceSql()
+  public void testEngineAndCredentialsDoNotChangeSourceSql()
   {
-    final JsonNode query = explainInsert(
-        "SELECT * FROM %s",
-        ", authType => 'basic', username => 'reader', password => 'secret', engine => 'native'"
+    final JsonNode plain = remoteInputSource(explainInsert("SELECT * FROM %s", "").path("dataSource"));
+    final JsonNode configured = remoteInputSource(
+        explainInsert(
+            "SELECT * FROM %s",
+            ", authType => 'basic', username => 'reader', password => 'secret', engine => 'native'"
+        ).path("dataSource")
     );
-    final JsonNode inputSource = remoteInputSource(query.path("dataSource"));
-    Assertions.assertEquals("native", inputSource.path("engine").asText());
-    Assertions.assertEquals(
-        """
-        SELECT "__time", MV_TO_ARRAY("a") AS "a", CAST("m" AS BIGINT) AS "m"
-        FROM "events"
-        WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ?\
-        """,
-        inputSource.path("sql").asText()
-    );
+    Assertions.assertEquals("native", configured.path("engine").asText());
+    Assertions.assertEquals(plain.path("sql").asText(), configured.path("sql").asText());
   }
+
+  @Test
+  public void testExternRemoteTableUsesDeclaredTypes()
+  {
+    final JsonNode query = explain(
+        """
+        INSERT INTO dst
+        SELECT * FROM TABLE(EXTERN(
+          '{"type":"remoteDruid","connection":{"endpoint":"https://source.example"},"dataSource":"events"}',
+          'null',
+          '[{"name":"__time","type":"long"},{"name":"m","type":"long"}]'
+        ))
+        PARTITIONED BY DAY
+        """
+    );
+    final String sql = remoteInputSource(query.path("dataSource")).path("sql").asText();
+    Assertions.assertTrue(sql.contains("CAST(\"m\" AS BIGINT)"), sql);
+  }
+
 }

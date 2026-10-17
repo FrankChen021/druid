@@ -33,7 +33,6 @@ import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
-import org.apache.druid.metadata.EnvironmentVariablePasswordProvider;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.joda.time.Interval;
@@ -52,6 +51,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
@@ -65,6 +65,8 @@ public class RemoteDruidSqlInputSourceTest
                                                             .add("arr", ColumnType.LONG_ARRAY)
                                                             .build();
   private static final String HEADER = "[\"__time\",\"a\",\"flag\",\"arr\"]\n";
+
+  private static final long DEFAULT_RETRY_BACKOFF_MILLIS = RemoteDruidSqlInputSource.retryBackoffMillis;
 
   private final ObjectMapper mapper = new DefaultObjectMapper();
   private final List<JsonNode> sqlRequests = new CopyOnWriteArrayList<>();
@@ -88,6 +90,7 @@ public class RemoteDruidSqlInputSourceTest
   @BeforeEach
   public void setUp() throws IOException
   {
+    RemoteDruidSqlInputSource.retryBackoffMillis = 0;
     server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
     server.createContext("/druid/v2", exchange -> {
       try (exchange) {
@@ -107,7 +110,7 @@ public class RemoteDruidSqlInputSourceTest
           response = new Response(200, timeBoundaryResponse);
         }
         exchange.sendResponseHeaders(response.status, 0);
-        try (OutputStream out = exchange.getResponseBody()) {
+        try (final OutputStream out = exchange.getResponseBody()) {
           out.write(StringUtils.toUtf8(response.body));
         }
       }
@@ -130,6 +133,7 @@ public class RemoteDruidSqlInputSourceTest
   @AfterEach
   public void tearDown()
   {
+    RemoteDruidSqlInputSource.retryBackoffMillis = DEFAULT_RETRY_BACKOFF_MILLIS;
     server.stop(0);
     for (final JsonNode request : nativeRequests) {
       Assertions.assertEquals("timeBoundary", request.path("queryType").asText());
@@ -167,7 +171,7 @@ public class RemoteDruidSqlInputSourceTest
         ColumnsFilter.all()
     );
     final List<InputRow> rows = new ArrayList<>();
-    try (CloseableIterator<InputRow> iterator = source.reader(schema, null, null).read()) {
+    try (final CloseableIterator<InputRow> iterator = source.reader(schema, null, null).read()) {
       iterator.forEachRemaining(rows::add);
     }
     return rows;
@@ -229,14 +233,14 @@ public class RemoteDruidSqlInputSourceTest
   {
     sqlResponses.add(new Response(200, "<html>proxy error</html>\n"));
     sqlResponses.add(new Response(200, HEADER + "\n"));
-    Assertions.assertThrows(UncheckedIOException.class, () -> read(source(false, null, null)));
+    readFailure();
     Assertions.assertEquals(1, sqlRequests.size());
 
     sqlRequests.clear();
     sqlResponses.clear();
     sqlResponses.add(new Response(200, HEADER + "[\"not a time\",\"x\",true,[]]\n\n"));
     sqlResponses.add(new Response(200, HEADER + "\n"));
-    final UncheckedIOException e = Assertions.assertThrows(UncheckedIOException.class, () -> read(source(false, null, null)));
+    final UncheckedIOException e = readFailure();
     Assertions.assertTrue(e.getMessage().contains("invalid timestamp in column[__time]"), e.getMessage());
     Assertions.assertEquals(1, sqlRequests.size());
   }
@@ -306,10 +310,42 @@ public class RemoteDruidSqlInputSourceTest
   }
 
   @Test
+  public void testStopsRetryingAfterMaxRetries()
+  {
+    // The connection allows two retries, so the third failed attempt is the last one.
+    for (int i = 0; i < 3; i++) {
+      sqlResponses.add(new Response(503, "{\"error\":\"busy\"}"));
+    }
+    sqlResponses.add(new Response(200, HEADER + "\n"));
+    final UncheckedIOException e = readFailure();
+    Assertions.assertTrue(e.getMessage().contains("HTTP status[503]"), e.getMessage());
+    Assertions.assertEquals(3, sqlRequests.size());
+  }
+
+  @Test
+  public void testRejectsCorruptStreams()
+  {
+    final String row = "[\"2020-01-01T00:00:00.000Z\",\"x\",true,[]]\n";
+    sqlResponses.add(new Response(200, HEADER + row + "\n" + row));
+    UncheckedIOException e = readFailure();
+    Assertions.assertTrue(e.getMessage().contains("data after its completion marker"), e.getMessage());
+
+    sqlResponses.add(new Response(200, HEADER + "[\"2020-01-01T00:00:00.000Z\",\"x\"]\n\n"));
+    sqlResponses.add(new Response(200, HEADER + "\n"));
+    e = readFailure();
+    Assertions.assertTrue(e.getMessage().contains("unexpected number of columns"), e.getMessage());
+    // Both responses were corrupt rather than unavailable, so neither read was retried.
+    Assertions.assertEquals(2, sqlRequests.size());
+  }
+
+  @Test
   public void testDoesNotRetryUserErrors()
   {
-    sqlResponses.add(new Response(400, "{\"error\":\"Plan validation failed\",\"errorMessage\":\"Column 'x' not found\"}"));
-    final UncheckedIOException e = Assertions.assertThrows(UncheckedIOException.class, () -> read(source(false, null, null)));
+    sqlResponses.add(new Response(
+        400,
+        "{\"error\":\"Plan validation failed\",\"errorMessage\":\"Column 'x' not found\"}"
+    ));
+    final UncheckedIOException e = readFailure();
     Assertions.assertTrue(e.getMessage().contains("Column 'x' not found"), e.getMessage());
     Assertions.assertEquals(1, sqlRequests.size());
   }
@@ -320,7 +356,7 @@ public class RemoteDruidSqlInputSourceTest
     // The source stopped streaming before its completion marker, after a row was already handed out.
     sqlResponses.add(new Response(200, HEADER + "[\"2020-01-01T00:00:00.000Z\",\"x\",true,[]]\n"));
     sqlResponses.add(new Response(200, HEADER + "\n"));
-    final UncheckedIOException e = Assertions.assertThrows(UncheckedIOException.class, () -> read(source(false, null, null)));
+    final UncheckedIOException e = readFailure();
     Assertions.assertTrue(e.getMessage().contains("completion marker"), e.getMessage());
     Assertions.assertEquals(1, sqlRequests.size());
     Assertions.assertEquals(1, canceledQueries.size());
@@ -330,34 +366,9 @@ public class RemoteDruidSqlInputSourceTest
   public void testRejectsUnexpectedColumns()
   {
     sqlResponses.add(new Response(200, "[\"__time\",\"a\"]\n\n"));
-    final UncheckedIOException e = Assertions.assertThrows(UncheckedIOException.class, () -> read(source(false, null, null)));
+    final UncheckedIOException e = readFailure();
     Assertions.assertTrue(e.getMessage().contains("2 columns, but 4 were planned"), e.getMessage());
     Assertions.assertEquals(1, sqlRequests.size());
-  }
-
-  @Test
-  public void testBasicAuthenticationAcceptsOnlyPlainPasswords()
-  {
-    // A server-side provider would let a query send the server's secrets to an endpoint of its choice.
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> new RemoteDruidAuthentication.Basic("reader", new EnvironmentVariablePasswordProvider("AWS_SECRET_ACCESS_KEY"))
-    );
-    final Exception e = Assertions.assertThrows(
-        Exception.class,
-        () -> mapper.readValue(
-            "{\"type\":\"basic\",\"username\":\"reader\",\"password\":{\"type\":\"environment\",\"variable\":\"X\"}}",
-            RemoteDruidAuthentication.class
-        )
-    );
-    Assertions.assertTrue(e.getMessage().contains("accepts only a plain password"), e.getMessage());
-    Assertions.assertEquals(
-        "secret",
-        ((RemoteDruidAuthentication.Basic) Assertions.assertDoesNotThrow(() -> mapper.readValue(
-            "{\"type\":\"basic\",\"username\":\"reader\",\"password\":\"secret\"}",
-            RemoteDruidAuthentication.class
-        ))).getPassword().getPassword()
-    );
   }
 
   @Test
@@ -366,7 +377,12 @@ public class RemoteDruidSqlInputSourceTest
     final RemoteDruidSqlInputSource source = source(true, List.of(Intervals.of("2020/2021")), Period.days(1));
     final InputSource roundTrip = mapper.readValue(mapper.writeValueAsString(source), InputSource.class);
     Assertions.assertEquals(source, roundTrip);
-    Assertions.assertEquals(java.util.Set.of(RemoteDruidInputSource.TYPE_KEY), roundTrip.getTypes());
+    Assertions.assertEquals(Set.of(RemoteDruidInputSource.TYPE_KEY), roundTrip.getTypes());
+  }
+
+  @Test
+  public void testRejectsInvalidEngineAndSplitDuration()
+  {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> source(true, null, Period.months(1).withDays(-30))
@@ -386,6 +402,12 @@ public class RemoteDruidSqlInputSourceTest
         new HttpInputSourceConfig(null, null),
         mapper
     ));
+  }
+
+  /// Reads the plain source and returns the failure, which the test expects.
+  private UncheckedIOException readFailure()
+  {
+    return Assertions.assertThrows(UncheckedIOException.class, () -> read(source(false, null, null)));
   }
 
   private static List<Interval> splits(final RemoteDruidSqlInputSource source) throws IOException

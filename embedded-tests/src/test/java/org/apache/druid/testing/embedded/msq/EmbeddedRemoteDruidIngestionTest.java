@@ -30,6 +30,7 @@ import org.apache.druid.testing.embedded.EmbeddedOverlord;
 import org.apache.druid.testing.embedded.indexing.MoreResources;
 import org.apache.druid.testing.embedded.indexing.Resources;
 import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -97,6 +98,33 @@ public class EmbeddedRemoteDruidIngestionTest extends EmbeddedClusterTestBase
     );
   }
 
+  private long dartQueries()
+  {
+    return broker.latchableEmitter()
+                 .getMetricEvents("sqlQuery/time")
+                 .stream()
+                 .filter(event -> "msq-dart".equals(event.getUserDims().get("engine")))
+                 .count();
+  }
+
+  /// Waits until the Broker has reported at least `expected` Dart queries, since it reports a query after streaming it.
+  private long waitForDartQueries(final long expected)
+  {
+    final long deadline = System.currentTimeMillis() + 10_000;
+    long count = dartQueries();
+    while (count < expected && System.currentTimeMillis() < deadline) {
+      try {
+        Thread.sleep(50);
+      }
+      catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException(e);
+      }
+      count = dartQueries();
+    }
+    return count;
+  }
+
   private void runTask(final String sql)
   {
     final SqlTaskStatus taskStatus = msqApis.submitTaskSql(sql);
@@ -113,6 +141,7 @@ public class EmbeddedRemoteDruidIngestionTest extends EmbeddedClusterTestBase
   @Test
   public void testFilteredCopyWithDiscoveredSchemaAndTimeSplitsOnDart()
   {
+    final long dartQueriesBefore = dartQueries();
     ingestAndVerify(
         StringUtils.format(
             "INSERT INTO %s SELECT __time, page, added FROM %s WHERE namespace = 'article' PARTITIONED BY DAY",
@@ -125,6 +154,9 @@ public class EmbeddedRemoteDruidIngestionTest extends EmbeddedClusterTestBase
         2013-08-31T07:11:21.000Z,Cherno Alpha,123\
         """
     );
+    // The rows span 01:02 to 07:11 UTC, so the read is split into the 2-hour ranges starting at 00:00, 02:00, 04:00,
+    // and 06:00, each read by its own Dart query on the source.
+    Assertions.assertEquals(4, waitForDartQueries(dartQueriesBefore + 4) - dartQueriesBefore);
   }
 
   @Test

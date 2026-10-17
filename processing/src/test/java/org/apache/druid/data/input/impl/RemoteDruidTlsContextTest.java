@@ -36,8 +36,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
 import java.io.IOException;
 import java.net.URI;
+import java.security.NoSuchAlgorithmException;
 
 public class RemoteDruidTlsContextTest
 {
@@ -46,7 +48,7 @@ public class RemoteDruidTlsContextTest
   private final String keyStorePath = getClass().getClassLoader().getResource("keystore.jks").getFile();
 
   @Test
-  public void testUsesConfiguredClientContextWhenBound()
+  public void testUsesConfiguredClientContextWhenBound() throws NoSuchAlgorithmException
   {
     final SSLContext configured = HttpClientInit.sslContextWithTrustedKeyStore(keyStorePath, KEY_STORE_PASSWORD);
     final Injector withContext = Guice.createInjector(
@@ -55,8 +57,7 @@ public class RemoteDruidTlsContextTest
     Assertions.assertSame(configured, withContext.getInstance(RemoteDruidTlsContext.class).get());
 
     final Injector withoutContext = Guice.createInjector();
-    Assertions.assertNotNull(withoutContext.getInstance(RemoteDruidTlsContext.class).get());
-    Assertions.assertNotSame(configured, withoutContext.getInstance(RemoteDruidTlsContext.class).get());
+    Assertions.assertSame(SSLContext.getDefault(), withoutContext.getInstance(RemoteDruidTlsContext.class).get());
   }
 
   @Test
@@ -84,19 +85,34 @@ public class RemoteDruidTlsContextTest
       final RemoteDruidTlsContext trusting = new RemoteDruidTlsContext(
           HttpClientInit.sslContextWithTrustedKeyStore(keyStorePath, KEY_STORE_PASSWORD)
       );
-      try (RemoteDruidHttpClient client = connection(endpoint, trusting).createClient(5000);
-           RemoteDruidHttpClient.Response response = client.execute(endpoint, "GET", null)) {
+      try (final RemoteDruidHttpClient client = connection(endpoint, trusting).createClient(5000);
+           final RemoteDruidHttpClient.Response response = client.execute(endpoint, "GET", null)) {
         Assertions.assertEquals(404, response.status());
       }
 
       // The JVM default does not trust the self-signed certificate.
-      try (RemoteDruidHttpClient client = connection(endpoint, new RemoteDruidTlsContext(null)).createClient(5000)) {
-        Assertions.assertThrows(IOException.class, () -> client.execute(endpoint, "GET", null).close());
+      final RemoteDruidTlsContext jvmDefault = new RemoteDruidTlsContext(null);
+      try (final RemoteDruidHttpClient client = connection(endpoint, jvmDefault).createClient(5000)) {
+        final IOException e = Assertions.assertThrows(
+            IOException.class,
+            () -> client.execute(endpoint, "GET", null).close()
+        );
+        Assertions.assertTrue(hasCause(e, SSLException.class), String.valueOf(e));
       }
     }
     finally {
       server.stop();
     }
+  }
+
+  private static boolean hasCause(final Throwable throwable, final Class<? extends Throwable> type)
+  {
+    for (Throwable cause = throwable; cause != null; cause = cause.getCause()) {
+      if (type.isInstance(cause)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static RemoteDruidConnection connection(final URI endpoint, final RemoteDruidTlsContext tlsContext)
