@@ -68,6 +68,9 @@ public class RemoteDruidSqlInputSourceTest
 
   private final ObjectMapper mapper = new DefaultObjectMapper();
   private final List<JsonNode> sqlRequests = new CopyOnWriteArrayList<>();
+  // Recorded by the source and checked on the test thread, since a failed assertion in a handler only breaks the
+  // connection.
+  private final List<JsonNode> nativeRequests = new CopyOnWriteArrayList<>();
   private final List<String> canceledQueries = new CopyOnWriteArrayList<>();
   private final Queue<Response> sqlResponses = new ConcurrentLinkedQueue<>();
   private volatile String timeBoundaryResponse =
@@ -100,7 +103,7 @@ public class RemoteDruidSqlInputSourceTest
           sqlRequests.add(request);
           response = sqlResponses.isEmpty() ? new Response(500, "{\"error\":\"no response\"}") : sqlResponses.poll();
         } else {
-          Assertions.assertEquals("timeBoundary", request.path("queryType").asText());
+          nativeRequests.add(request);
           response = new Response(200, timeBoundaryResponse);
         }
         exchange.sendResponseHeaders(response.status, 0);
@@ -128,6 +131,9 @@ public class RemoteDruidSqlInputSourceTest
   public void tearDown()
   {
     server.stop(0);
+    for (final JsonNode request : nativeRequests) {
+      Assertions.assertEquals("timeBoundary", request.path("queryType").asText());
+    }
   }
 
   private RemoteDruidSqlInputSource source(

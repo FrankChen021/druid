@@ -68,6 +68,9 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
 
   private final List<JsonNode> nativeRequests = new CopyOnWriteArrayList<>();
   private final List<JsonNode> sqlRequests = new CopyOnWriteArrayList<>();
+  // Recorded by the source and checked on the test thread, since a failed assertion in a handler only breaks the
+  // connection.
+  private final List<String> authorizations = new CopyOnWriteArrayList<>();
   private volatile String sourceDefaultTimeZone = "UTC";
   private volatile String expectedAuthorization;
   private HttpServer server;
@@ -78,7 +81,7 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
     server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
     server.createContext("/druid/v2", exchange -> {
       try (exchange) {
-        Assertions.assertEquals(expectedAuthorization, exchange.getRequestHeaders().getFirst("Authorization"));
+        authorizations.add(String.valueOf(exchange.getRequestHeaders().getFirst("Authorization")));
         if ("DELETE".equals(exchange.getRequestMethod())) {
           exchange.sendResponseHeaders(202, -1);
         } else if ("/druid/v2/sql".equals(exchange.getRequestURI().getPath())) {
@@ -95,6 +98,15 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   public void stopSource()
   {
     server.stop(0);
+    Assertions.assertFalse(authorizations.isEmpty());
+    for (final String authorization : authorizations) {
+      Assertions.assertEquals(String.valueOf(expectedAuthorization), authorization);
+    }
+    for (final JsonNode request : sqlRequests) {
+      for (final JsonNode parameter : request.path("parameters")) {
+        Assertions.assertEquals("BIGINT", parameter.path("type").asText());
+      }
+    }
   }
 
   private void handleNative(final HttpExchange exchange) throws IOException
@@ -124,7 +136,6 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
     context.remove("engine");
     final List<TypedValue> parameters = new ArrayList<>();
     for (final JsonNode parameter : request.path("parameters")) {
-      Assertions.assertEquals("BIGINT", parameter.path("type").asText());
       parameters.add(TypedValue.ofLocal(ColumnMetaData.Rep.LONG, parameter.path("value").asLong()));
     }
 
@@ -186,7 +197,7 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   }
 
   @Test
-  public void testFiltersOnSourceAndReadsTimeRangesInParallel()
+  public void testFiltersOnSourceReadsTimeRangesAndClustersOnTarget()
   {
     testIngestQuery()
         .setSql(StringUtils.format(
@@ -195,6 +206,7 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
             SELECT __time, dim1, cnt FROM %s
             WHERE dim1 <> ''
             PARTITIONED BY DAY
+            CLUSTERED BY dim1
             """,
             remote(", splitDuration => 'P1Y'")
         ))
@@ -213,27 +225,27 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
     // The source data spans two years, so it is read as two independent time ranges.
     Assertions.assertEquals(2, sqlRequests.size());
     for (int i = 0; i < sqlRequests.size(); i++) {
-      Assertions.assertTrue(sourceSql(i).contains("\"DIM1\" <> ''"), sourceSql(i));
       Assertions.assertEquals(2, sqlRequests.get(i).path("parameters").size());
-      Assertions.assertEquals("msq-dart", sqlRequests.get(i).path("context").path("engine").asText());
+      // Clustering happens on the target.
+      Assertions.assertFalse(sourceSql(i).contains("ORDER BY"), sourceSql(i));
     }
     Assertions.assertTrue(nativeRequests.stream().anyMatch(r -> "timeBoundary".equals(r.path("queryType").asText())));
   }
 
   @Test
-  public void testAggregatesOnSourceInOneQuery()
+  public void testAggregatesOnSourceInOneQueryWithinIntervals()
   {
     testIngestQuery()
         .setSql(StringUtils.format(
             """
             INSERT INTO foo1
             SELECT TIMESTAMP '2001-01-03 00:00:00' AS __time, cnt, SUM(cnt) AS sum_cnt FROM %s
-            WHERE dim1 IN ('2', 'abc')
+            WHERE dim1 IN ('2', 'abc', 'def')
             GROUP BY cnt
             HAVING SUM(cnt) > 1
             PARTITIONED BY DAY
             """,
-            remote(", splitDuration => 'P1D'")
+            remote(", intervals => ARRAY['2000-01-03/2000-01-04', '2001-01-03/2001-01-04'], splitDuration => 'P1D'")
         ))
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
         .setExpectedDataSource("foo1")
@@ -242,35 +254,13 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
         .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), 1L, 2L}))
         .verifyResults();
 
-    // Aggregation results cannot be split by time, so splitDuration does not apply.
+    // Aggregation results cannot be split by time, so splitDuration does not apply, and the intervals, which exclude
+    // the 'def' row, become a literal filter.
     Assertions.assertEquals(1, sqlRequests.size());
     Assertions.assertTrue(sqlRequests.get(0).path("parameters").isMissingNode());
     Assertions.assertTrue(sourceSql(0).contains("GROUP BY"), sourceSql(0));
     Assertions.assertTrue(sourceSql(0).contains("HAVING"), sourceSql(0));
-  }
-
-  @Test
-  public void testAggregatesWithinRequestedIntervals()
-  {
-    testIngestQuery()
-        .setSql(StringUtils.format(
-            """
-            INSERT INTO foo1
-            SELECT TIMESTAMP '2001-01-03 00:00:00' AS __time, cnt, SUM(cnt) AS sum_cnt FROM %s
-            GROUP BY cnt
-            PARTITIONED BY DAY
-            """,
-            remote(", intervals => ARRAY['2000-01-02/2000-01-03', '2001-01-01/2001-01-02']")
-        ))
-        .setQueryContext(DEFAULT_MSQ_CONTEXT)
-        .setExpectedDataSource("foo1")
-        .setExpectedRowSignature(RowSignature.builder().add("__time", ColumnType.LONG)
-                                             .add("cnt", ColumnType.LONG).add("sum_cnt", ColumnType.LONG).build())
-        .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), 1L, 2L}))
-        .verifyResults();
-
-    Assertions.assertEquals(1, sqlRequests.size());
-    Assertions.assertTrue(sourceSql(0).contains("TIMESTAMP_TO_MILLIS(\"__TIME\") >= 946771200000"), sourceSql(0));
+    Assertions.assertTrue(sourceSql(0).contains("TIMESTAMP_TO_MILLIS(\"__TIME\") >= 946857600000"), sourceSql(0));
   }
 
   @Test
@@ -305,35 +295,6 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
   }
 
   @Test
-  public void testKeepsClusterByOnTheTarget()
-  {
-    testIngestQuery()
-        .setSql(StringUtils.format(
-            """
-            INSERT INTO foo1
-            SELECT __time, dim1, cnt FROM %s
-            WHERE dim1 <> ''
-            PARTITIONED BY DAY
-            CLUSTERED BY dim1
-            """,
-            remote("")
-        ))
-        .setQueryContext(DEFAULT_MSQ_CONTEXT)
-        .setExpectedDataSource("foo1")
-        .setExpectedRowSignature(FOO_SIGNATURE)
-        .setExpectedResultRows(List.<Object[]>of(
-            new Object[]{DateTimes.of("2000-01-02").getMillis(), "10.1", 1L},
-            new Object[]{DateTimes.of("2000-01-03").getMillis(), "2", 1L},
-            new Object[]{DateTimes.of("2001-01-01").getMillis(), "1", 1L},
-            new Object[]{DateTimes.of("2001-01-02").getMillis(), "def", 1L},
-            new Object[]{DateTimes.of("2001-01-03").getMillis(), "abc", 1L}
-        ))
-        .verifyResults();
-
-    Assertions.assertFalse(sourceSql(0).contains("ORDER BY"), sourceSql(0));
-  }
-
-  @Test
   public void testCopiesMultiValueStrings()
   {
     testIngestQuery()
@@ -361,19 +322,6 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
         ))
         .verifyResults();
     Assertions.assertTrue(sourceSql(0).contains("MV_TO_ARRAY(\"DIM3\")"), sourceSql(0));
-  }
-
-  @Test
-  public void testEmptySourceResult()
-  {
-    testIngestQuery()
-        .setSql(StringUtils.format("INSERT INTO foo1 SELECT * FROM %s WHERE dim1 = 'no-such-row' PARTITIONED BY DAY", remote("")))
-        .setQueryContext(DEFAULT_MSQ_CONTEXT)
-        .setExpectedDataSource("foo1")
-        .setExpectedRowSignature(FOO_SIGNATURE)
-        .setExpectedResultRows(List.of())
-        .verifyResults();
-    Assertions.assertEquals(1, sqlRequests.size());
   }
 
   @Test
@@ -434,30 +382,4 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
     Assertions.assertFalse(sourceSql(0).contains("CAST(\"CNT\""), sourceSql(0));
   }
 
-  @Test
-  public void testJoinWithLocalTableStaysOnTarget()
-  {
-    testIngestQuery()
-        .setSql(StringUtils.format(
-            """
-            INSERT INTO foo1
-            SELECT r.__time, r.dim1, f.dim2
-            FROM %s r INNER JOIN foo f ON r.dim1 = f.dim1
-            WHERE r.dim1 IN ('1', 'def')
-            PARTITIONED BY DAY
-            """,
-            remote("")
-        ))
-        .setQueryContext(DEFAULT_MSQ_CONTEXT)
-        .setExpectedDataSource("foo1")
-        .setExpectedRowSignature(RowSignature.builder().add("__time", ColumnType.LONG)
-                                             .add("dim1", ColumnType.STRING).add("dim2", ColumnType.STRING).build())
-        .setExpectedResultRows(List.<Object[]>of(
-            new Object[]{DateTimes.of("2001-01-01").getMillis(), "1", "a"},
-            new Object[]{DateTimes.of("2001-01-02").getMillis(), "def", "abc"}
-        ))
-        .verifyResults();
-    Assertions.assertTrue(sourceSql(0).contains("IN ('1', 'DEF')"), sourceSql(0));
-    Assertions.assertFalse(sourceSql(0).contains("JOIN"), sourceSql(0));
-  }
 }

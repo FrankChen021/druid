@@ -55,6 +55,9 @@ public class RemoteDruidInputSourceTest
   private final ObjectMapper mapper = new DefaultObjectMapper();
   private final List<JsonNode> requests = new CopyOnWriteArrayList<>();
   private final List<String> canceledQueries = new CopyOnWriteArrayList<>();
+  // Recorded by the source and checked on the test thread, since a failed assertion in a handler only breaks the
+  // connection.
+  private final List<String> authorizations = new CopyOnWriteArrayList<>();
   private final AtomicInteger status = new AtomicInteger(200);
   private final AtomicReference<String> metadataResponse = new AtomicReference<>(
       """
@@ -72,7 +75,7 @@ public class RemoteDruidInputSourceTest
     server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
     server.createContext("/druid/v2", exchange -> {
       try (exchange) {
-        Assertions.assertEquals("Basic dXNlcjpzZWNyZXQ=", exchange.getRequestHeaders().getFirst("Authorization"));
+        authorizations.add(String.valueOf(exchange.getRequestHeaders().getFirst("Authorization")));
         if ("DELETE".equals(exchange.getRequestMethod())) {
           canceledQueries.add(exchange.getRequestURI().getPath().substring("/druid/v2/".length()));
           exchange.sendResponseHeaders(200, -1);
@@ -80,7 +83,6 @@ public class RemoteDruidInputSourceTest
         }
         final JsonNode query = mapper.readTree(exchange.getRequestBody());
         requests.add(query);
-        Assertions.assertEquals("segmentMetadata", query.path("queryType").asText());
         final String response = metadataResponse.get();
         final byte[] bytes = StringUtils.toUtf8(response);
         exchange.sendResponseHeaders(status.get(), bytes.length);
@@ -99,6 +101,12 @@ public class RemoteDruidInputSourceTest
   public void tearDown()
   {
     server.stop(0);
+    for (final String authorization : authorizations) {
+      Assertions.assertEquals("Basic dXNlcjpzZWNyZXQ=", authorization);
+    }
+    for (final JsonNode request : requests) {
+      Assertions.assertEquals("segmentMetadata", request.path("queryType").asText());
+    }
   }
 
   private RemoteDruidConnection config(final int retries)
@@ -268,14 +276,19 @@ public class RemoteDruidInputSourceTest
     Assertions.assertEquals(ColumnType.LONG_ARRAY, signature.getColumnType("values").orElseThrow());
     Assertions.assertTrue(requests.get(0).path("merge").asBoolean());
     Assertions.assertEquals(Intervals.ETERNITY.toString(), requests.get(0).path("intervals").get(0).asText());
-    for (final String invalid : List.of(
+    for (final Map.Entry<String, String> invalid : Map.of(
         "[]",
+        "Invalid remote Druid response structure",
         "[{\"columns\":{\"__time\":{\"type\":\"STRING\"}}}]",
+        "Invalid remote Druid response structure",
         "[{\"columns\":{\"__time\":{\"type\":\"LONG\"},\"a\":{\"type\":\"COMPLEX<hyperUnique>\"}}}]",
-        "[{\"columns\":{\"__time\":{\"type\":\"LONG\"},\"a\":{\"type\":\"STRING\",\"errorMessage\":\"mixed types\"}}}]"
-    )) {
-      metadataResponse.set(invalid);
-      Assertions.assertThrows(IOException.class, () -> source(null).discoverSchema());
+        "Unsupported remote Druid column type",
+        "[{\"columns\":{\"__time\":{\"type\":\"LONG\"},\"a\":{\"type\":\"STRING\",\"errorMessage\":\"mixed types\"}}}]",
+        "column metadata is ambiguous"
+    ).entrySet()) {
+      metadataResponse.set(invalid.getKey());
+      final IOException e = Assertions.assertThrows(IOException.class, () -> source(null).discoverSchema());
+      Assertions.assertTrue(e.getMessage().contains(invalid.getValue()), invalid.getKey() + " -> " + e.getMessage());
     }
   }
 
