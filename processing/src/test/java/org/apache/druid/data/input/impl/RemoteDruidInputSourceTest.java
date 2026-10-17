@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -202,28 +203,32 @@ public class RemoteDruidInputSourceTest
   @Test
   public void testIncludeSegmentSource()
   {
-    final HttpInputSourceConfig httpConfig = new HttpInputSourceConfig(null, null);
-    final RemoteDruidSqlInputSource dartDefault = new RemoteDruidInputSource(
-        config, "events", null, null, null, null, httpConfig, mapper
-    ).toSqlInputSource("SELECT 1", false, RowSignature.empty(), List.of(), Map.of());
-    Assertions.assertEquals("NONE", dartDefault.getContext().get("includeSegmentSource"));
-    final RemoteDruidSqlInputSource realtime = new RemoteDruidInputSource(
-        config, "events", null, null, null, "REALTIME", httpConfig, mapper
-    ).toSqlInputSource("SELECT 1", false, RowSignature.empty(), List.of(), Map.of());
-    Assertions.assertEquals("REALTIME", realtime.getContext().get("includeSegmentSource"));
-    final RemoteDruidSqlInputSource nativeEngine = new RemoteDruidInputSource(
-        config, "events", null, "native", null, null, httpConfig, mapper
-    ).toSqlInputSource("SELECT 1", false, RowSignature.empty(), List.of(), Map.of());
-    Assertions.assertFalse(nativeEngine.getContext().containsKey("includeSegmentSource"));
+    Assertions.assertEquals("NONE", sourceContext(null, null).get("includeSegmentSource"));
+    Assertions.assertEquals("REALTIME", sourceContext(null, "REALTIME").get("includeSegmentSource"));
+    Assertions.assertFalse(sourceContext("native", null).containsKey("includeSegmentSource"));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> marker("native", "NONE"));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> marker(null, "ALL"));
+  }
 
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> new RemoteDruidInputSource(config, "events", null, "native", null, "NONE", httpConfig, mapper)
+  private RemoteDruidInputSource marker(@Nullable final String engine, @Nullable final String includeSegmentSource)
+  {
+    return new RemoteDruidInputSource(
+        config,
+        "events",
+        null,
+        engine,
+        null,
+        includeSegmentSource,
+        new HttpInputSourceConfig(null, null),
+        mapper
     );
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> new RemoteDruidInputSource(config, "events", null, null, null, "ALL", httpConfig, mapper)
-    );
+  }
+
+  private Map<String, Object> sourceContext(@Nullable final String engine, @Nullable final String includeSegmentSource)
+  {
+    return marker(engine, includeSegmentSource)
+        .toSqlInputSource("SELECT 1", false, RowSignature.empty(), List.of(), Map.of())
+        .getContext();
   }
 
   @Test
