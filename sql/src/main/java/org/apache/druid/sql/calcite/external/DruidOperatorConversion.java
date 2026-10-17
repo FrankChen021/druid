@@ -215,6 +215,7 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
           CatalogUtils.getString(args, "engine"),
           splitDuration,
           CatalogUtils.getString(args, "includeSegmentSource"),
+          columns != null,
           config,
           jsonMapper
       );

@@ -386,7 +386,11 @@ public class RemoteDruidPushdownProgram implements Program
   )
   {
     final RelDataType declaredRowType = remoteScan.getRowType();
-    final RelDataType tableRowType = sourceTableRowType(declaredRowType, remoteScan.getCluster().getTypeFactory());
+    // A discovered schema has the source's own types, so only declared types need casts.
+    final boolean cast = remote.isDeclaredSchema();
+    final RelDataType tableRowType = cast
+                                     ? sourceTableRowType(declaredRowType, remoteScan.getCluster().getTypeFactory())
+                                     : declaredRowType;
     final RelOptTableImpl table = RelOptTableImpl.create(
         null,
         tableRowType,
@@ -401,7 +405,8 @@ public class RemoteDruidPushdownProgram implements Program
         })
     );
     final RelNode scan = LogicalTableScan.create(remoteScan.getCluster(), table, ImmutableList.of());
-    return withDeclaredTypes(withTimeRange(scan, remote, timeRangeParameters), declaredRowType);
+    final RelNode filtered = withTimeRange(scan, remote, timeRangeParameters);
+    return cast ? withDeclaredTypes(filtered, declaredRowType) : filtered;
   }
 
   /// The source table as the source SQL sees it: declared numeric columns, other than `__time`, have type `ANY`, so

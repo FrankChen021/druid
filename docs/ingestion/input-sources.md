@@ -895,9 +895,10 @@ source. `LOOKUP` calls, window functions, `ORDER BY`, `LIMIT`, joins, and unions
 join are pushed into the remote side when possible. The source evaluates SQL with the target query's `sqlTimeZone`,
 current timestamp, and approximate-aggregation settings.
 
-Declared numeric column types are applied on the source with `CAST`, so pushed-down filters and aggregations use the
-declared types. Declared string columns are read as they are on the source: a numeric source column declared as
-`VARCHAR` compares numerically in pushed-down filters.
+With `EXTEND`, numeric column types are applied on the source with `CAST`, so pushed-down filters and aggregations
+use the declared types even if the source types differ. String columns are read as they are on the source: a numeric
+source column declared as `VARCHAR` compares numerically in pushed-down filters. A discovered schema has the source's
+own types, so no casts are added.
 
 Multi-value string columns are read with `MV_TO_ARRAY` and stored as multi-value strings on the target. This applies to
 source columns selected as they are without aggregation; a string expression computed from a multi-value column on the

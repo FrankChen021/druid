@@ -430,6 +430,8 @@ public class MSQRemoteDruidInputSourceTest extends MSQTestBase
     );
     Assertions.assertEquals(1, sqlRequests.size());
     Assertions.assertFalse(sourceSql(0).contains(StringUtils.toUpperCase("secret")));
+    // A discovered schema has the source's own types, so no casts are needed.
+    Assertions.assertFalse(sourceSql(0).contains("CAST(\"CNT\""), sourceSql(0));
   }
 
   @Test

@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
+import org.apache.druid.data.input.InputSource;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
@@ -111,7 +112,7 @@ public class RemoteDruidInputSourceTest
 
   private RemoteDruidInputSource source(final List<Interval> intervals)
   {
-    return new RemoteDruidInputSource(config, "events", intervals, null, null, null,
+    return new RemoteDruidInputSource(config, "events", intervals, null, null, null, null,
                                       new HttpInputSourceConfig(null, null), mapper);
   }
 
@@ -187,6 +188,7 @@ public class RemoteDruidInputSourceTest
         "unknown",
         null,
         null,
+        null,
         new HttpInputSourceConfig(null, null),
         mapper
     ));
@@ -196,6 +198,7 @@ public class RemoteDruidInputSourceTest
         null,
         null,
         org.joda.time.Period.ZERO,
+        null,
         null,
         new HttpInputSourceConfig(null, null),
         mapper
@@ -212,6 +215,28 @@ public class RemoteDruidInputSourceTest
     Assertions.assertThrows(IllegalArgumentException.class, () -> marker(null, "ALL"));
   }
 
+  @Test
+  public void testSchemaIsDeclaredUnlessDiscovered() throws IOException
+  {
+    // EXTERN specs carry their signature, so a spec without the flag has a declared schema.
+    Assertions.assertTrue(marker(null, null).isDeclaredSchema());
+    final RemoteDruidInputSource discovered = new RemoteDruidInputSource(
+        config,
+        "events",
+        null,
+        null,
+        null,
+        null,
+        false,
+        new HttpInputSourceConfig(null, null),
+        mapper
+    );
+    Assertions.assertFalse(
+        ((RemoteDruidInputSource) mapper.readValue(mapper.writeValueAsString(discovered), InputSource.class))
+            .isDeclaredSchema()
+    );
+  }
+
   private RemoteDruidInputSource marker(@Nullable final String engine, @Nullable final String includeSegmentSource)
   {
     return new RemoteDruidInputSource(
@@ -221,6 +246,7 @@ public class RemoteDruidInputSourceTest
         engine,
         null,
         includeSegmentSource,
+        null,
         new HttpInputSourceConfig(null, null),
         mapper
     );
@@ -282,6 +308,7 @@ public class RemoteDruidInputSourceTest
         null,
         null,
         null,
+        null,
         new HttpInputSourceConfig(java.util.Set.of("https"), null),
         mapper
     ));
@@ -295,12 +322,14 @@ public class RemoteDruidInputSourceTest
         null,
         null,
         null,
+        null,
         new HttpInputSourceConfig(java.util.Set.of("file"), null),
         mapper
     ));
     Assertions.assertDoesNotThrow(() -> new RemoteDruidInputSource(
         new RemoteDruidConnection(URI.create("HTTPS://source.example"), null, null, null, null, null),
         "events",
+        null,
         null,
         null,
         null,

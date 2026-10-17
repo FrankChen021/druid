@@ -60,6 +60,7 @@ public class RemoteDruidInputSource extends AbstractInputSource
   private final Period splitDuration;
   @Nullable
   private final String includeSegmentSource;
+  private final boolean declaredSchema;
   private final HttpInputSourceConfig config;
   private final ObjectMapper mapper;
 
@@ -71,6 +72,7 @@ public class RemoteDruidInputSource extends AbstractInputSource
       @JsonProperty("engine") @Nullable final String engine,
       @JsonProperty("splitDuration") @Nullable final Period splitDuration,
       @JsonProperty("includeSegmentSource") @Nullable final String includeSegmentSource,
+      @JsonProperty("declaredSchema") @Nullable final Boolean declaredSchema,
       @JacksonInject final HttpInputSourceConfig config,
       @JacksonInject @Json final ObjectMapper mapper
   )
@@ -108,6 +110,8 @@ public class RemoteDruidInputSource extends AbstractInputSource
         splitDuration == null || RemoteDruidSqlInputSource.isPositivePeriod(splitDuration),
         "splitDuration must be a positive period without negative fields"
     );
+    // EXTERN specs always give a signature, so a missing value means declared.
+    this.declaredSchema = declaredSchema == null || declaredSchema;
     this.config = Preconditions.checkNotNull(config, "config");
     this.mapper = Preconditions.checkNotNull(mapper, "mapper");
     Preconditions.checkArgument(Set.of("http", "https").contains(StringUtils.toLowerCase(connection.getEndpoint().getScheme())),
@@ -152,6 +156,13 @@ public class RemoteDruidInputSource extends AbstractInputSource
   public String getIncludeSegmentSource()
   {
     return includeSegmentSource;
+  }
+
+  /// Whether column types come from `EXTEND` or `EXTERN` rather than from the source, so they may differ from it.
+  @JsonProperty
+  public boolean isDeclaredSchema()
+  {
+    return declaredSchema;
   }
 
   @JsonIgnore
@@ -236,13 +247,14 @@ public class RemoteDruidInputSource extends AbstractInputSource
     return connection.equals(that.connection) && dataSource.equals(that.dataSource)
            && Objects.equals(intervals, that.intervals) && engine.equals(that.engine)
            && Objects.equals(splitDuration, that.splitDuration)
-           && Objects.equals(includeSegmentSource, that.includeSegmentSource);
+           && Objects.equals(includeSegmentSource, that.includeSegmentSource)
+           && declaredSchema == that.declaredSchema;
   }
 
   @Override
   public int hashCode()
   {
-    return Objects.hash(connection, dataSource, intervals, engine, splitDuration, includeSegmentSource);
+    return Objects.hash(connection, dataSource, intervals, engine, splitDuration, includeSegmentSource, declaredSchema);
   }
 
   @Override
