@@ -913,7 +913,7 @@ replaces segments during the read. With aggregation, the source runs a
 single query and `splitDuration` does not apply.
 
 Each source query streams `arrayLines` results. A request that fails before returning its first row with a timeout,
-connection error, or HTTP 408, 429, or 5xx status is retried; invalid responses and configuration errors are not.
+connection error, or HTTP `408`, `429`, or `5xx` status is retried; invalid responses and configuration errors are not.
 A failure after the first row fails the target worker, which MSQ fault tolerance can retry.
 Results are streamed with backpressure, so a target worker that stops reading for longer than `readTimeoutMillis`, or
 longer than the source's `druid.server.http.maxIdleTime`, loses the connection and fails. Both default to five minutes. Source reads are not a snapshot:
