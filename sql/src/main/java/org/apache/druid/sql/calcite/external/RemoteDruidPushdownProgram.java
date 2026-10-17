@@ -23,10 +23,12 @@ import com.google.common.collect.ImmutableList;
 import org.apache.calcite.avatica.util.Casing;
 import org.apache.calcite.config.NullCollation;
 import org.apache.calcite.linq4j.tree.Expressions;
+import org.apache.calcite.plan.RelOptCostImpl;
 import org.apache.calcite.plan.RelOptLattice;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.plan.hep.HepPlanner;
 import org.apache.calcite.plan.hep.HepProgram;
 import org.apache.calcite.plan.hep.HepProgramBuilder;
 import org.apache.calcite.prepare.RelOptTableImpl;
@@ -43,6 +45,7 @@ import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelColumnOrigin;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
+import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.FilterJoinRule.FilterIntoJoinRule.FilterIntoJoinRuleConfig;
 import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule.JoinConditionPushRuleConfig;
 import org.apache.calcite.rel.type.RelDataType;
@@ -344,6 +347,7 @@ public class RemoteDruidPushdownProgram implements Program
       source = chain.get(i).copy(chain.get(i).getTraitSet(), List.of(source));
     }
     // Grouping returns one row per value of a multi-value string, so only plain reads return multi-value rows.
+    source = flatten(source);
     final String sql = toSql(timeRangeParameters ? withMultiValueArrays(source) : source, remoteScan.getRowType());
 
     final RelDataType rowType = top.getRowType();
@@ -381,33 +385,62 @@ public class RemoteDruidPushdownProgram implements Program
       final boolean timeRangeParameters
   )
   {
-    final RelDataType rowType = remoteScan.getRowType();
+    final RelDataType declaredRowType = remoteScan.getRowType();
+    final RelDataType tableRowType = sourceTableRowType(declaredRowType, remoteScan.getCluster().getTypeFactory());
     final RelOptTableImpl table = RelOptTableImpl.create(
         null,
-        rowType,
+        tableRowType,
         ImmutableList.of(remote.getDataSource()),
         Expressions.constant(new AbstractTable()
         {
           @Override
           public RelDataType getRowType(final RelDataTypeFactory typeFactory)
           {
-            return rowType;
+            return tableRowType;
           }
         })
     );
-    final RelNode scan = withDeclaredNumericTypes(
-        LogicalTableScan.create(remoteScan.getCluster(), table, ImmutableList.of())
-    );
+    final RelNode scan = LogicalTableScan.create(remoteScan.getCluster(), table, ImmutableList.of());
+    return withDeclaredTypes(withTimeRange(scan, remote, timeRangeParameters), declaredRowType);
+  }
 
-    final int timeColumn = rowType.getFieldNames().indexOf(ColumnHolder.TIME_COLUMN_NAME);
+  /// The source table as the source SQL sees it: declared numeric columns, other than `__time`, have type `ANY`, so
+  /// that the casts to their declared types are real conversions that rule simplification keeps.
+  private static RelDataType sourceTableRowType(final RelDataType declaredRowType, final RelDataTypeFactory typeFactory)
+  {
+    final RelDataTypeFactory.Builder builder = typeFactory.builder();
+    for (final RelDataTypeField field : declaredRowType.getFieldList()) {
+      builder.add(
+          field.getName(),
+          isCastToDeclaredType(field)
+          ? typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.ANY), true)
+          : field.getType()
+      );
+    }
+    return builder.build();
+  }
+
+  private static boolean isCastToDeclaredType(final RelDataTypeField field)
+  {
+    return SqlTypeUtil.isNumeric(field.getType()) && !ColumnHolder.TIME_COLUMN_NAME.equals(field.getName());
+  }
+
+  /// Filters the source table to the requested time range.
+  private static RelNode withTimeRange(
+      final RelNode scan,
+      final RemoteDruidInputSource remote,
+      final boolean timeRangeParameters
+  )
+  {
     if (!timeRangeParameters && remote.getIntervals() == null) {
       return scan;
     }
+    final int timeColumn = scan.getRowType().getFieldNames().indexOf(ColumnHolder.TIME_COLUMN_NAME);
     if (timeColumn < 0) {
       throw InvalidInput.exception("DRUID tables must include the [%s] column", ColumnHolder.TIME_COLUMN_NAME);
     }
 
-    final RexBuilder rexBuilder = remoteScan.getCluster().getRexBuilder();
+    final RexBuilder rexBuilder = scan.getCluster().getRexBuilder();
     final RelDataType bigint = rexBuilder.getTypeFactory().createSqlType(SqlTypeName.BIGINT);
     final RexNode condition;
     if (timeRangeParameters) {
@@ -435,6 +468,41 @@ public class RemoteDruidPushdownProgram implements Program
     return LogicalFilter.create(scan, condition);
   }
 
+  /// Casts declared numeric columns, so that the source evaluates pushed-down operators with the declared types even
+  /// if its own column types differ. `__time` and string columns are used as they are on the source. The result has
+  /// the declared row type, so the pushed-down operators above it are unchanged.
+  private static RelNode withDeclaredTypes(final RelNode input, final RelDataType declaredRowType)
+  {
+    final RexBuilder rexBuilder = input.getCluster().getRexBuilder();
+    final List<RexNode> projects = new ArrayList<>();
+    boolean cast = false;
+    for (final RelDataTypeField field : declaredRowType.getFieldList()) {
+      final RexNode column = rexBuilder.makeInputRef(input, field.getIndex());
+      if (isCastToDeclaredType(field)) {
+        projects.add(rexBuilder.makeAbstractCast(field.getType(), column, false));
+        cast = true;
+      } else {
+        projects.add(column);
+      }
+    }
+    return cast ? LogicalProject.create(input, List.of(), projects, declaredRowType.getFieldNames(), Set.of()) : input;
+  }
+
+  /// Merges adjacent filters and projections, and moves filters below projections, so that the source SQL nests no
+  /// more subqueries than its aggregation needs.
+  private static RelNode flatten(final RelNode source)
+  {
+    final HepProgramBuilder builder = HepProgram.builder();
+    builder.addMatchLimit(CalciteRulesManager.HEP_DEFAULT_MATCH_LIMIT);
+    builder.addRuleInstance(CoreRules.FILTER_PROJECT_TRANSPOSE);
+    builder.addRuleInstance(CoreRules.FILTER_MERGE);
+    builder.addRuleInstance(CoreRules.PROJECT_MERGE);
+    builder.addRuleInstance(CoreRules.PROJECT_REMOVE);
+    final HepPlanner planner = new HepPlanner(builder.build(), null, true, null, RelOptCostImpl.FACTORY);
+    planner.setRoot(source);
+    return planner.findBestExp();
+  }
+
   /// Compares `__time` in epoch milliseconds. Comparing with timestamps would convert the bounds through the session
   /// time zone, which is ambiguous when clocks are set back.
   private static RexNode timeRange(
@@ -450,26 +518,6 @@ public class RemoteDruidPushdownProgram implements Program
         rexBuilder.makeCall(SqlStdOperatorTable.GREATER_THAN_OR_EQUAL, millis, startMillis),
         rexBuilder.makeCall(SqlStdOperatorTable.LESS_THAN, millis, endMillis)
     );
-  }
-
-  /// Casts declared numeric columns, so that the source evaluates pushed-down operators with the declared types even
-  /// if its own column types differ. `__time` and string columns are used as they are on the source.
-  private static RelNode withDeclaredNumericTypes(final RelNode scan)
-  {
-    final RexBuilder rexBuilder = scan.getCluster().getRexBuilder();
-    final List<RexNode> projects = new ArrayList<>();
-    boolean cast = false;
-    for (final RelDataTypeField field : scan.getRowType().getFieldList()) {
-      final RexNode column = rexBuilder.makeInputRef(scan, field.getIndex());
-      if (SqlTypeUtil.isNumeric(field.getType()) && !ColumnHolder.TIME_COLUMN_NAME.equals(field.getName())) {
-        // An abstract cast is kept even though the column already has this type in the plan.
-        projects.add(rexBuilder.makeAbstractCast(field.getType(), column, false));
-        cast = true;
-      } else {
-        projects.add(column);
-      }
-    }
-    return cast ? LogicalProject.create(scan, List.of(), projects, scan.getRowType().getFieldNames(), Set.of()) : scan;
   }
 
   /// Wraps string outputs that are source columns, unchanged, in `MV_TO_ARRAY`. Druid SQL returns multi-value strings

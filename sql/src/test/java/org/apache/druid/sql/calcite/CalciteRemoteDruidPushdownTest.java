@@ -87,12 +87,9 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     final JsonNode inputSource = remoteInputSource(query.path("dataSource"));
     Assertions.assertEquals(
         """
-        SELECT "__time", UPPER("a") AS "ua", "m" * 2 AS "m2"
-        FROM (SELECT *
-        FROM (SELECT "__time", "a", CAST("m" AS BIGINT) AS "m"
-        FROM "events") AS "t"
-        WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ?) AS "t0"
-        WHERE "m" > 3\
+        SELECT "__time", UPPER("a") AS "ua", CAST("m" AS BIGINT) * 2 AS "m2"
+        FROM "events"
+        WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ? AND CAST("m" AS BIGINT) > 3\
         """,
         inputSource.path("sql").asText()
     );
@@ -129,12 +126,9 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     final JsonNode inputSource = remoteInputSource(query.path("dataSource"));
     Assertions.assertEquals(
         """
-        SELECT TIME_FLOOR("__time", 'PT1H') AS "__time", "a", SUM("m") AS "m"
-        FROM (SELECT *
-        FROM (SELECT "__time", "a", CAST("m" AS BIGINT) AS "m"
-        FROM "events") AS "t"
-        WHERE TIMESTAMP_TO_MILLIS("__time") >= 946684800000 AND TIMESTAMP_TO_MILLIS("__time") < 946771200000) AS "t0"
-        WHERE "a" <> 'z'
+        SELECT TIME_FLOOR("__time", 'PT1H') AS "__time", "a", SUM(CAST("m" AS BIGINT)) AS "m"
+        FROM "events"
+        WHERE TIMESTAMP_TO_MILLIS("__time") >= 946684800000 AND TIMESTAMP_TO_MILLIS("__time") < 946771200000 AND "a" <> 'z'
         GROUP BY TIME_FLOOR("__time", 'PT1H'), "a"\
         """,
         inputSource.path("sql").asText()
@@ -154,7 +148,7 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     );
     Assertions.assertEquals("join", query.path("dataSource").path("type").asText());
     final JsonNode inputSource = remoteInputSource(query.path("dataSource").path("left"));
-    Assertions.assertTrue(inputSource.path("sql").asText().contains("WHERE \"m\" > 1"), inputSource.toString());
+    Assertions.assertTrue(inputSource.path("sql").asText().contains("CAST(\"m\" AS BIGINT) > 1"), inputSource.toString());
     Assertions.assertFalse(inputSource.path("sql").asText().contains("foo"), inputSource.toString());
   }
 
@@ -165,7 +159,7 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     final String plan = query.toString();
     Assertions.assertTrue(plan.contains("remoteDruidSql"), plan);
     Assertions.assertFalse(plan.contains("SINGLE_VALUE"), plan);
-    Assertions.assertTrue(plan.contains("WHERE \\\"a\\\" = 'x'"), plan);
+    Assertions.assertTrue(plan.contains("\\\"a\\\" = 'x'"), plan);
   }
 
   @Test
@@ -192,12 +186,9 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     );
     Assertions.assertEquals(
         """
-        SELECT "__time", MV_TO_ARRAY("user") AS "user", "value"
-        FROM (SELECT *
-        FROM (SELECT "__time", "user", CAST("value" AS BIGINT) AS "value", "date"
-        FROM "events") AS "t"
-        WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ?) AS "t0"
-        WHERE "user" <> 'bot'\
+        SELECT "__time", MV_TO_ARRAY("user") AS "user", CAST("value" AS BIGINT) AS "value"
+        FROM "events"
+        WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ? AND "user" <> 'bot'\
         """,
         remoteInputSource(query.path("dataSource")).path("sql").asText()
     );
@@ -214,9 +205,8 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     Assertions.assertEquals("native", inputSource.path("engine").asText());
     Assertions.assertEquals(
         """
-        SELECT "__time", MV_TO_ARRAY("a") AS "a", "m"
-        FROM (SELECT "__time", "a", CAST("m" AS BIGINT) AS "m"
-        FROM "events") AS "t"
+        SELECT "__time", MV_TO_ARRAY("a") AS "a", CAST("m" AS BIGINT) AS "m"
+        FROM "events"
         WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ?\
         """,
         inputSource.path("sql").asText()
