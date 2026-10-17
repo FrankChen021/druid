@@ -859,7 +859,7 @@ FROM TABLE(
     dataSource => 'events',
     authType => 'basic',
     username => 'reader',
-    passwordEnvVar => 'SOURCE_DRUID_PASSWORD',
+    password => ?,
     splitDuration => 'P1D'
   )
 ) EXTEND (__time BIGINT, a VARCHAR, bytes BIGINT)
@@ -867,10 +867,11 @@ WHERE a = 'keep'
 PARTITIONED BY DAY
 ```
 
-Provide the password with `passwordEnvVar` or `passwordProvider` so that only a reference to the secret appears in
-task specifications and `EXPLAIN` output. Each Broker, Indexer, and Peon that plans or runs the ingestion resolves the
-reference itself, so the environment variable or provider must be available on all of them. A plain `password`, even
-one bound through the SQL `parameters` field, is stored in task specifications and shown by `EXPLAIN`.
+The password is part of the planned input source, so it is stored in the ingestion task specification and shown by
+`EXPLAIN`, and SQL request logging records it, in the SQL text or in the bound `parameters`. Binding it with `?`, as above,
+keeps it out of the SQL text that the task stores. Restrict access to task specifications, reports, and request logs,
+and use a dedicated source account that can only read the datasources to copy. References to server-side secrets,
+such as environment variables, are not supported, since a query could send them to an endpoint of its choice.
 
 |Parameter|Description|Required|
 |---------|-----------|--------|
@@ -880,11 +881,9 @@ one bound through the SQL `parameters` field, is stored in task specifications a
 |`splitDuration`|ISO-8601 period without negative fields, such as `P1D`. Reads without aggregation are split into time ranges of this length, aligned to UTC period boundaries, that target workers read in parallel.|no|
 |`intervals`|Array of ISO-8601 intervals restricting the source read. Overlapping intervals are combined.|no|
 |`includeSegmentSource`|With `engine => 'msq-dart'`, whether the source also reads segments that realtime tasks are still ingesting: `NONE` (default) reads only published segments, and `REALTIME` reads both. Not accepted with `engine => 'native'`, which always reads realtime segments.|no|
-|`authType`|`none` (default) or `basic`. `none` rejects credentials; `basic` requires `username` and one of `passwordEnvVar`, `passwordProvider`, or `password`.|no|
+|`authType`|`none` (default) or `basic`. `none` rejects credentials; `basic` requires both `username` and `password`.|no|
 |`username`|HTTP Basic authentication username.|for `basic`|
-|`passwordEnvVar`|Name of the environment variable holding the HTTP Basic authentication password.|for `basic`, one of the password options|
-|`passwordProvider`|JSON [password provider](../operations/password-provider.md) specification, such as `{"type":"environment","variable":"SOURCE_DRUID_PASSWORD"}`.|for `basic`, one of the password options|
-|`password`|HTTP Basic authentication password, stored as given.|for `basic`, one of the password options|
+|`password`|HTTP Basic authentication password.|for `basic`|
 |`connectTimeoutMillis`|HTTP connection timeout in milliseconds. Default: `10000`.|no|
 |`readTimeoutMillis`|Maximum time in milliseconds to wait for response data, including the time the source takes to produce its first row. Default: `300000`.|no|
 |`maxRetries`|Maximum retries of a source request that fails before returning its first row, from `0` to `10`. Default: `2`.|no|
@@ -928,7 +927,10 @@ The source identity must have read access to the requested datasource. Target us
 read permission. The target processes performing planning and ingestion must be able to reach the source endpoint.
 This input source follows the existing HTTP ingestion trust model: grant ingestion permissions to trusted users and
 restrict outbound network access as needed. It accepts HTTP and HTTPS, subject to `druid.ingestion.http.allowedProtocols`,
-and does not restrict destination hosts or IP addresses. Requests do not follow redirects.
+and does not restrict destination hosts or IP addresses. Unlike the HTTP input source, requests are also sent during
+SQL planning: the Broker queries the endpoint for schema discovery when `EXTEND` is omitted, and the controller task
+queries its time bounds. Users with `EXTERNAL` read access can therefore make these processes send requests to any
+reachable host. Requests do not follow redirects.
 HTTPS requests use the client TLS context that the `simple-client-sslcontext` extension configures, such as
 `druid.client.https.trustStorePath`, when the extension is loaded, and the JVM default otherwise.
 See [Security overview](../operations/security-overview.md) for deployment guidance.
@@ -947,7 +949,7 @@ FROM TABLE(
 ```
 
 The `connection` object contains `endpoint`, optional `authentication`, `connectTimeout`, `readTimeout`, and `maxRetries`.
-For Basic authentication, use `"authentication":{"type":"basic","username":"reader","password":{"type":"environment","variable":"SOURCE_DRUID_PASSWORD"}}`.
+For Basic authentication, use `"authentication":{"type":"basic","username":"reader","password":"password"}`.
 Extensions can register additional authentication provider subtypes for use through `EXTERN`.
 
 ## SQL input source

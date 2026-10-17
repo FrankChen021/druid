@@ -33,7 +33,6 @@ import org.apache.druid.data.input.impl.RemoteDruidConnection;
 import org.apache.druid.data.input.impl.RemoteDruidInputSource;
 import org.apache.druid.data.input.impl.RemoteDruidTlsContext;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.apache.druid.metadata.EnvironmentVariablePasswordProvider;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -131,38 +130,13 @@ public class DruidOperatorConversionTest
   }
 
   @Test
-  public void testPasswordProviders()
-  {
-    final RemoteDruidAuthentication.Basic envVar = (RemoteDruidAuthentication.Basic) connection(apply(
-        Map.of("authType", "basic", "username", "reader", "passwordEnvVar", "SOURCE_PASSWORD"),
-        schema(SqlTypeName.BIGINT)
-    )).getAuthentication();
-    Assertions.assertEquals(
-        new EnvironmentVariablePasswordProvider("SOURCE_PASSWORD"),
-        envVar.getPassword()
-    );
-    final RemoteDruidAuthentication.Basic provider = (RemoteDruidAuthentication.Basic) connection(apply(
-        Map.of(
-            "authType", "basic",
-            "username", "reader",
-            "passwordProvider", "{\"type\":\"environment\",\"variable\":\"OTHER_PASSWORD\"}"
-        ),
-        schema(SqlTypeName.BIGINT)
-    )).getAuthentication();
-    Assertions.assertEquals(new EnvironmentVariablePasswordProvider("OTHER_PASSWORD"), provider.getPassword());
-  }
-
-  @Test
   public void testInvalidAuthenticationArguments()
   {
     for (final Map<String, Object> options : List.<Map<String, Object>>of(
         Map.of("username", "reader", "password", "secret"),
         Map.of("authType", "basic", "username", "reader"),
         Map.of("authType", "basic", "password", "secret"),
-        Map.of("authType", "unsupported", "password", "secret"),
-        Map.of("authType", "basic", "username", "reader", "password", "secret", "passwordEnvVar", "SECRET_VAR"),
-        Map.of("username", "reader", "passwordEnvVar", "SECRET_VAR"),
-        Map.of("authType", "basic", "username", "reader", "passwordProvider", "{\"password\": \"secret\"")
+        Map.of("authType", "unsupported", "password", "secret")
     )) {
       final IllegalArgumentException exception = Assertions.assertThrows(
           IllegalArgumentException.class,

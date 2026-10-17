@@ -330,19 +330,28 @@ public class RemoteDruidSqlInputSourceTest
   }
 
   @Test
-  public void testMissingProviderPasswordFailsWithoutRequest()
+  public void testBasicAuthenticationAcceptsOnlyPlainPasswords()
   {
-    connection = new RemoteDruidConnection(
-        connection.getEndpoint(),
-        new RemoteDruidAuthentication.Basic("reader", new EnvironmentVariablePasswordProvider("NO_SUCH_ENV_VAR_FOR_TEST")),
-        1000,
-        5000,
-        2,
-        null
+    // A server-side provider would let a query send the server's secrets to an endpoint of its choice.
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> new RemoteDruidAuthentication.Basic("reader", new EnvironmentVariablePasswordProvider("AWS_SECRET_ACCESS_KEY"))
     );
-    final UncheckedIOException e = Assertions.assertThrows(UncheckedIOException.class, () -> read(source(false, null, null)));
-    Assertions.assertTrue(e.getMessage().contains("did not return a password"), e.getMessage());
-    Assertions.assertTrue(sqlRequests.isEmpty());
+    final Exception e = Assertions.assertThrows(
+        Exception.class,
+        () -> mapper.readValue(
+            "{\"type\":\"basic\",\"username\":\"reader\",\"password\":{\"type\":\"environment\",\"variable\":\"X\"}}",
+            RemoteDruidAuthentication.class
+        )
+    );
+    Assertions.assertTrue(e.getMessage().contains("accepts only a plain password"), e.getMessage());
+    Assertions.assertEquals(
+        "secret",
+        ((RemoteDruidAuthentication.Basic) Assertions.assertDoesNotThrow(() -> mapper.readValue(
+            "{\"type\":\"basic\",\"username\":\"reader\",\"password\":\"secret\"}",
+            RemoteDruidAuthentication.class
+        ))).getPassword().getPassword()
+    );
   }
 
   @Test

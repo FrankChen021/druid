@@ -178,22 +178,6 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
   }
 
   @Test
-  public void testPasswordEnvVarKeepsSecretOutOfPlan()
-  {
-    final JsonNode query = explainInsert(
-        "SELECT * FROM %s",
-        ", authType => 'basic', username => 'reader', passwordEnvVar => 'SOURCE_PASSWORD'"
-    );
-    final JsonNode authentication = remoteInputSource(query.path("dataSource")).path("connection").path("authentication");
-    Assertions.assertEquals(
-        """
-        {"type":"basic","username":"reader","password":{"type":"environment","variable":"SOURCE_PASSWORD"}}\
-        """,
-        authentication.toString()
-    );
-  }
-
-  @Test
   public void testKeywordColumnNamesAreQuoted()
   {
     final JsonNode query = explain(

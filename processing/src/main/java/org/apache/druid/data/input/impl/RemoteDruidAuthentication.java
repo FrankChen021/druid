@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.base.Preconditions;
+import org.apache.druid.metadata.DefaultPasswordProvider;
 import org.apache.druid.metadata.PasswordProvider;
 
 import javax.net.ssl.SSLContext;
@@ -75,6 +76,12 @@ public interface RemoteDruidAuthentication
     {
       this.username = Preconditions.checkNotNull(username, "username");
       this.password = Preconditions.checkNotNull(password, "password");
+      // Providers that resolve secrets on the server, such as environment variables, would let a query send those
+      // secrets to an endpoint of its choice, so only a password given in the request is accepted.
+      Preconditions.checkArgument(
+          password instanceof DefaultPasswordProvider,
+          "Remote Druid Basic authentication accepts only a plain password"
+      );
     }
 
     @JsonProperty
