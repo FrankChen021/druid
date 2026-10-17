@@ -879,6 +879,7 @@ one bound through the SQL `parameters` field, is stored in task specifications a
 |`engine`|Source SQL engine: `msq-dart` (default) or `native`. Dart must be enabled on the source cluster.|no|
 |`splitDuration`|ISO-8601 period without negative fields, such as `P1D`. Reads without aggregation are split into time ranges of this length, aligned to UTC period boundaries, that target workers read in parallel.|no|
 |`intervals`|Array of ISO-8601 intervals restricting the source read. Overlapping intervals are combined.|no|
+|`includeSegmentSource`|With `engine => 'msq-dart'`, whether the source also reads segments that realtime tasks are still ingesting: `NONE` (default) reads only published segments, and `REALTIME` reads both. Not accepted with `engine => 'native'`, which always reads realtime segments.|no|
 |`authType`|`none` (default) or `basic`. `none` rejects credentials; `basic` requires `username` and one of `passwordEnvVar`, `passwordProvider`, or `password`.|no|
 |`username`|HTTP Basic authentication username.|for `basic`|
 |`passwordEnvVar`|Name of the environment variable holding the HTTP Basic authentication password.|for `basic`, one of the password options|
@@ -906,7 +907,9 @@ source, such as `UPPER(tags)`, is returned as JSON-encoded text.
 Without aggregation, the target splits the read into independent time ranges. It discovers the source time bounds with
 a native `timeBoundary` query, intersects them with `intervals`, and divides them at UTC `splitDuration` boundaries,
 up to 10,000 ranges.
-Each range is one source SQL query with `__time` bounds passed as SQL parameters. With aggregation, the source runs a
+Each range is one source SQL query with `__time` bounds passed as SQL parameters. On Dart, the default
+`includeSegmentSource => 'NONE'` makes every range read the same published segments, unless the source publishes or
+replaces segments during the read. With aggregation, the source runs a
 single query and `splitDuration` does not apply.
 
 Each source query streams `arrayLines` results. A request that fails before returning its first row with a timeout,

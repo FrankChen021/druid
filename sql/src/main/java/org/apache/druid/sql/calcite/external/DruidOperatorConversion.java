@@ -150,7 +150,8 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
           new Parameter("readTimeoutMillis", ParameterType.BIGINT, true),
           new Parameter("maxRetries", ParameterType.BIGINT, true),
           new Parameter("engine", ParameterType.VARCHAR, true),
-          new Parameter("splitDuration", ParameterType.VARCHAR, true)
+          new Parameter("splitDuration", ParameterType.VARCHAR, true),
+          new Parameter("includeSegmentSource", ParameterType.VARCHAR, true)
       ));
       this.config = config;
       this.tlsContext = tlsContext;
@@ -219,6 +220,7 @@ public class DruidOperatorConversion extends DruidUserDefinedTableMacroConversio
           intervals,
           CatalogUtils.getString(args, "engine"),
           splitDuration,
+          CatalogUtils.getString(args, "includeSegmentSource"),
           config,
           jsonMapper
       );

@@ -101,6 +101,7 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
     // The source plans aggregations with the target's effective settings, in a deterministic order.
     Assertions.assertEquals(
         List.of(
+            "includeSegmentSource",
             "sqlCurrentTimestamp",
             "sqlTimeZone",
             "useApproximateCountDistinct",
@@ -110,6 +111,8 @@ public class CalciteRemoteDruidPushdownTest extends CalciteIngestionDmlTest
         ImmutableList.copyOf(inputSource.path("context").fieldNames())
     );
     Assertions.assertTrue(inputSource.path("context").path("useApproximateCountDistinct").asBoolean());
+    // Dart reads only published segments unless asked otherwise, so that every time range reads the same segments.
+    Assertions.assertEquals("NONE", inputSource.path("context").path("includeSegmentSource").asText());
     Assertions.assertEquals("[\"__time\"]", inputSource.path("timestampColumns").toString());
     // Nothing is left to evaluate on the target.
     Assertions.assertTrue(query.path("filter").isMissingNode(), query.toString());

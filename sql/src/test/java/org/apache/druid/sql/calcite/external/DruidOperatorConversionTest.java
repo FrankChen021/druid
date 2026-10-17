@@ -121,6 +121,12 @@ public class DruidOperatorConversionTest
         schema(SqlTypeName.BIGINT)
     ));
     Assertions.assertEquals("native", configured.getEngine());
+    Assertions.assertNull(configured.getIncludeSegmentSource());
+    Assertions.assertEquals("NONE", defaults.getIncludeSegmentSource());
+    Assertions.assertEquals(
+        "REALTIME",
+        inputSource(apply(Map.of("includeSegmentSource", "REALTIME"), schema(SqlTypeName.BIGINT))).getIncludeSegmentSource()
+    );
     Assertions.assertEquals(org.joda.time.Period.days(1), configured.getSplitDuration());
   }
 
@@ -176,6 +182,8 @@ public class DruidOperatorConversionTest
         Map.of("splitDuration", "not-a-period"),
         Map.of("splitDuration", "PT0S"),
         Map.of("splitDuration", "P1M-30D"),
+        Map.of("includeSegmentSource", "ALL"),
+        Map.of("engine", "native", "includeSegmentSource", "NONE"),
         Map.of("maxRetries", -1L),
         Map.of("intervals", List.of("invalid"))
     )) {

@@ -40,6 +40,7 @@ import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -57,6 +58,8 @@ public class RemoteDruidInputSource extends AbstractInputSource
   private final String engine;
   @Nullable
   private final Period splitDuration;
+  @Nullable
+  private final String includeSegmentSource;
   private final HttpInputSourceConfig config;
   private final ObjectMapper mapper;
 
@@ -67,6 +70,7 @@ public class RemoteDruidInputSource extends AbstractInputSource
       @JsonProperty("intervals") @Nullable final List<Interval> intervals,
       @JsonProperty("engine") @Nullable final String engine,
       @JsonProperty("splitDuration") @Nullable final Period splitDuration,
+      @JsonProperty("includeSegmentSource") @Nullable final String includeSegmentSource,
       @JacksonInject final HttpInputSourceConfig config,
       @JacksonInject @Json final ObjectMapper mapper
   )
@@ -80,6 +84,21 @@ public class RemoteDruidInputSource extends AbstractInputSource
                      ));
     this.engine = engine == null ? RemoteDruidSqlInputSource.ENGINE_DART : engine;
     this.splitDuration = splitDuration;
+    // Dart reads only published segments by default, so that every time range reads the same set of segments.
+    this.includeSegmentSource = includeSegmentSource == null && RemoteDruidSqlInputSource.ENGINE_DART.equals(this.engine)
+                                ? RemoteDruidSqlInputSource.SEGMENT_SOURCE_NONE
+                                : includeSegmentSource;
+    Preconditions.checkArgument(
+        includeSegmentSource == null || RemoteDruidSqlInputSource.ENGINE_DART.equals(this.engine),
+        "includeSegmentSource applies only to the [%s] engine; the native engine always reads realtime segments",
+        RemoteDruidSqlInputSource.ENGINE_DART
+    );
+    Preconditions.checkArgument(
+        this.includeSegmentSource == null
+        || RemoteDruidSqlInputSource.SEGMENT_SOURCES.contains(this.includeSegmentSource),
+        "includeSegmentSource must be one of %s",
+        RemoteDruidSqlInputSource.SEGMENT_SOURCES
+    );
     Preconditions.checkArgument(
         RemoteDruidSqlInputSource.ENGINES.contains(this.engine),
         "Remote Druid engine must be one of %s",
@@ -128,6 +147,13 @@ public class RemoteDruidInputSource extends AbstractInputSource
     return splitDuration;
   }
 
+  @JsonProperty
+  @Nullable
+  public String getIncludeSegmentSource()
+  {
+    return includeSegmentSource;
+  }
+
   @JsonIgnore
   @Override
   public Set<String> getTypes()
@@ -170,12 +196,16 @@ public class RemoteDruidInputSource extends AbstractInputSource
       final Map<String, Object> context
   )
   {
+    final Map<String, Object> sourceContext = new HashMap<>(context);
+    if (includeSegmentSource != null) {
+      sourceContext.put(RemoteDruidSqlInputSource.CTX_INCLUDE_SEGMENT_SOURCE, includeSegmentSource);
+    }
     return new RemoteDruidSqlInputSource(
         connection,
         dataSource,
         sql,
         engine,
-        context,
+        sourceContext,
         signature,
         timestampColumns,
         timeRangeParameters,
@@ -205,13 +235,14 @@ public class RemoteDruidInputSource extends AbstractInputSource
     }
     return connection.equals(that.connection) && dataSource.equals(that.dataSource)
            && Objects.equals(intervals, that.intervals) && engine.equals(that.engine)
-           && Objects.equals(splitDuration, that.splitDuration);
+           && Objects.equals(splitDuration, that.splitDuration)
+           && Objects.equals(includeSegmentSource, that.includeSegmentSource);
   }
 
   @Override
   public int hashCode()
   {
-    return Objects.hash(connection, dataSource, intervals, engine, splitDuration);
+    return Objects.hash(connection, dataSource, intervals, engine, splitDuration, includeSegmentSource);
   }
 
   @Override

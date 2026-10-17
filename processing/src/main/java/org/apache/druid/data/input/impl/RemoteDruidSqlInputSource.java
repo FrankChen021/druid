@@ -87,6 +87,11 @@ public class RemoteDruidSqlInputSource extends AbstractInputSource implements Sp
   public static final String ENGINE_DART = "msq-dart";
   public static final String ENGINE_NATIVE = "native";
   public static final Set<String> ENGINES = Set.of(ENGINE_DART, ENGINE_NATIVE);
+  /// Dart query context key choosing whether realtime segments are read, in addition to published ones.
+  public static final String CTX_INCLUDE_SEGMENT_SOURCE = "includeSegmentSource";
+  public static final String SEGMENT_SOURCE_NONE = "NONE";
+  public static final String SEGMENT_SOURCE_REALTIME = "REALTIME";
+  public static final Set<String> SEGMENT_SOURCES = Set.of(SEGMENT_SOURCE_NONE, SEGMENT_SOURCE_REALTIME);
   static final int MAX_SPLITS = 10_000;
   static final int MAX_LINE_BYTES = 16 * 1024 * 1024;
   private static final int MAX_ERROR_BYTES = 64 * 1024;

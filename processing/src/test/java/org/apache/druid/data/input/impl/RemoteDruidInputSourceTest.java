@@ -43,6 +43,7 @@ import java.io.InterruptedIOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -109,7 +110,7 @@ public class RemoteDruidInputSourceTest
 
   private RemoteDruidInputSource source(final List<Interval> intervals)
   {
-    return new RemoteDruidInputSource(config, "events", intervals, null, null,
+    return new RemoteDruidInputSource(config, "events", intervals, null, null, null,
                                       new HttpInputSourceConfig(null, null), mapper);
   }
 
@@ -182,6 +183,7 @@ public class RemoteDruidInputSourceTest
         null,
         "unknown",
         null,
+        null,
         new HttpInputSourceConfig(null, null),
         mapper
     ));
@@ -191,9 +193,37 @@ public class RemoteDruidInputSourceTest
         null,
         null,
         org.joda.time.Period.ZERO,
+        null,
         new HttpInputSourceConfig(null, null),
         mapper
     ));
+  }
+
+  @Test
+  public void testIncludeSegmentSource()
+  {
+    final HttpInputSourceConfig httpConfig = new HttpInputSourceConfig(null, null);
+    final RemoteDruidSqlInputSource dartDefault = new RemoteDruidInputSource(
+        config, "events", null, null, null, null, httpConfig, mapper
+    ).toSqlInputSource("SELECT 1", false, RowSignature.empty(), List.of(), Map.of());
+    Assertions.assertEquals("NONE", dartDefault.getContext().get("includeSegmentSource"));
+    final RemoteDruidSqlInputSource realtime = new RemoteDruidInputSource(
+        config, "events", null, null, null, "REALTIME", httpConfig, mapper
+    ).toSqlInputSource("SELECT 1", false, RowSignature.empty(), List.of(), Map.of());
+    Assertions.assertEquals("REALTIME", realtime.getContext().get("includeSegmentSource"));
+    final RemoteDruidSqlInputSource nativeEngine = new RemoteDruidInputSource(
+        config, "events", null, "native", null, null, httpConfig, mapper
+    ).toSqlInputSource("SELECT 1", false, RowSignature.empty(), List.of(), Map.of());
+    Assertions.assertFalse(nativeEngine.getContext().containsKey("includeSegmentSource"));
+
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> new RemoteDruidInputSource(config, "events", null, "native", null, "NONE", httpConfig, mapper)
+    );
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> new RemoteDruidInputSource(config, "events", null, null, null, "ALL", httpConfig, mapper)
+    );
   }
 
   @Test
@@ -244,6 +274,7 @@ public class RemoteDruidInputSourceTest
         null,
         null,
         null,
+        null,
         new HttpInputSourceConfig(java.util.Set.of("https"), null),
         mapper
     ));
@@ -256,12 +287,14 @@ public class RemoteDruidInputSourceTest
         null,
         null,
         null,
+        null,
         new HttpInputSourceConfig(java.util.Set.of("file"), null),
         mapper
     ));
     Assertions.assertDoesNotThrow(() -> new RemoteDruidInputSource(
         new RemoteDruidConnection(URI.create("HTTPS://source.example"), null, null, null, null, null),
         "events",
+        null,
         null,
         null,
         null,
