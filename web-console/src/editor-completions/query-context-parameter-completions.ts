@@ -173,15 +173,37 @@ function convertDescriptionText(text: string): string {
 }
 
 /**
+ * Converts Markdown text without links: code spans are kept as they are, the text around them by
+ * convertDescriptionText
+ */
+function convertMarkdownText(text: string): string {
+  return text
+    .split(/(`[^`]*`)/)
+    .map((part, i) => (i % 2 ? part : convertDescriptionText(part)))
+    .join('');
+}
+
+/**
  * Converts the Markdown of a query context parameter description, which comes from the Druid docs, into the "doc
  * markdown" that completion docs render. Code spans are kept as they are (angle brackets in them are text, not HTML).
  * A paragraph break (<br /><br />) stays as an empty line.
  */
 export function queryContextDescriptionToDocMarkdown(description: string): string {
-  return description
-    .split(/(`[^`]*`)/)
-    .map((part, i) => (i % 2 ? part : convertDescriptionText(part)))
-    .join('')
+  let converted = '';
+  let textStart = 0;
+  // Links are converted before code spans are split out, since the text of a link can be a code span, like
+  // [`indexSpec`](../ingestion/ingestion-spec.md). A code span that is not in a link is matched on its own so that
+  // brackets in it are not taken for a link.
+  for (const match of description.matchAll(/(`[^`]*`)|\[((?:`[^`]*`|[^[\]`])*)\]\(([^()]*)\)/g)) {
+    if (match[1] !== undefined) continue;
+    converted += convertMarkdownText(description.slice(textStart, match.index));
+    const text = convertMarkdownText(match[2]);
+    const href = resolveDocsLink(match[3]);
+    converted += href ? `[${text}](${href})` : text;
+    textStart = match.index + match[0].length;
+  }
+  converted += convertMarkdownText(description.slice(textStart));
+  return converted
     .split('\n')
     .map(line => line.trim())
     .join('\n')

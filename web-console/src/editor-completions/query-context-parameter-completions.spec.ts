@@ -204,6 +204,16 @@ describe('query-context-parameter-completions', () => {
       );
     });
 
+    it('converts links whose text is a code span and leaves brackets in code spans alone', () => {
+      expect(
+        queryContextDescriptionToDocMarkdown(
+          'An [`indexSpec`](../ingestion/ingestion-spec.md#indexspec) for `ARRAY[1](2)`, see [`this`](#section).',
+        ),
+      ).toEqual(
+        'An [`indexSpec`](https://druid.apache.org/docs/latest/ingestion/ingestion-spec#indexspec) for `ARRAY[1](2)`, see `this`.',
+      );
+    });
+
     it('keeps code spans as they are and converts code tags, strong text and entities', () => {
       expect(
         queryContextDescriptionToDocMarkdown(
