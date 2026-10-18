@@ -19,9 +19,12 @@
 
 package org.apache.druid.testing.embedded.indexing;
 
+import org.apache.druid.indexing.common.task.IndexTaskUtils;
 import org.apache.druid.indexing.kafka.simulate.KafkaResource;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorSpec;
 import org.apache.druid.testing.embedded.StreamIngestResource;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -29,6 +32,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class KafkaIndexFaultToleranceTest extends StreamIndexFaultToleranceTest
 {
   private final KafkaResource kafkaResource = new KafkaResource();
+  private boolean coordinatorRestartComplete;
+
+  @BeforeEach
+  public void resetState()
+  {
+    coordinatorRestartComplete = false;
+  }
 
   @Override
   protected StreamIngestResource<?> getStreamIngestResource()
@@ -46,6 +56,42 @@ public class KafkaIndexFaultToleranceTest extends StreamIndexFaultToleranceTest
   public void test_supervisorRecovers_afterCoordinatorRestart() throws Exception
   {
     publishRecords_whileCoordinatorRestarts();
+    coordinatorRestartComplete = true;
+  }
+
+  @Override
+  protected void waitUntilPublishedRecordsAreIngested(int expectedRowCount)
+  {
+    if (!coordinatorRestartComplete) {
+      super.waitUntilPublishedRecordsAreIngested(expectedRowCount);
+      return;
+    }
+
+    // Publication can commit while cancellation prevents the success callback from emitting ingest/rows/published.
+    // After the Coordinator restart, verify committed rows so teardown does not depend on that metric being delivered.
+    final long publishedRows = cluster.callApi().waitForResult(
+        () -> IndexTaskUtils.getTotalRowCount(cluster.callApi().getVisibleUsedSegments(dataSource, overlord)),
+        rows -> rows >= expectedRowCount
+    ).withTimeoutMillis(240_000).go();
+    Assertions.assertEquals(expectedRowCount, publishedRows);
+  }
+
+  @Override
+  protected void verifyRowCount(int expectedRowCount)
+  {
+    if (!coordinatorRestartComplete) {
+      super.verifyRowCount(expectedRowCount);
+      return;
+    }
+
+    // Broker visibility can lag committed metadata while segments are being handed off.
+    cluster.callApi().waitForAllSegmentsToBeQueryable(dataSource, coordinator, 240_000);
+    final String expected = String.valueOf(expectedRowCount);
+    final String actual = cluster.callApi().waitForResult(
+        () -> cluster.runSql("SELECT COUNT(*) FROM %s", dataSource),
+        expected::equals
+    ).withTimeoutMillis(240_000).go();
+    Assertions.assertEquals(expected, actual);
   }
 
   @Test
