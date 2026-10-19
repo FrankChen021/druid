@@ -1050,7 +1050,7 @@ public class QueryResourceTest
   @Test
   public void testUnknownContextParameterRejectedByBroker() throws IOException
   {
-    final Response response = createBrokerQueryResource(QueryContextConfig.DEFAULT).doPost(
+    final Response response = createBrokerQueryResource(new QueryContextConfig(true)).doPost(
         new ByteArrayInputStream(timeseriesQueryWithContext("{\"useCahce\": false}").getBytes(StandardCharsets.UTF_8)),
         null /*pretty*/,
         testServletRequest

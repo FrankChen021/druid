@@ -133,12 +133,12 @@ public abstract class AbstractStatement implements Closeable
   protected void validate(final DruidPlanner planner)
   {
     plannerContext = planner.getPlannerContext();
-    // Only the parameters that the user set, not the system defaults that the context also contains. The context leaves
-    // out the parameters that the user set to null, so their value here is the default, or null if there is none.
-    final Map<String, Object> userContext = new HashMap<>();
-    authContextKeys.forEach(key -> userContext.put(key, queryPlus.context().get(key)));
+    // Only the parameters that the user set: the system defaults are validated where they are configured.
     try {
-      QueryContextParameterValidator.validate(userContext, sqlToolbox.queryContextConfig.isRejectUnknownParameters());
+      QueryContextParameterValidator.validate(
+          queryPlus.userContext(),
+          sqlToolbox.queryContextConfig.isRejectUnknownParameters()
+      );
     }
     catch (BadQueryContextException e) {
       throw InvalidInput.exception(e, "%s", e.getMessage());

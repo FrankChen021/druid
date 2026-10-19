@@ -39,7 +39,6 @@ import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QueryTimeoutException;
-import org.apache.druid.query.context.QueryContextConfig;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.query.policy.PolicyEnforcer;
@@ -68,6 +67,7 @@ import org.apache.druid.sql.calcite.planner.PlannerResult;
 import org.apache.druid.sql.calcite.planner.PrepareResult;
 import org.apache.druid.sql.calcite.schema.DruidSchemaCatalogProvider;
 import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.apache.druid.sql.calcite.util.QueryFrameworkUtils;
 import org.apache.druid.sql.hook.DruidHookDispatcher;
 import org.easymock.EasyMock;
 import org.junit.jupiter.api.AfterAll;
@@ -582,7 +582,7 @@ public class SqlStatementTest
         testRequestLogger,
         QueryStackTests.DEFAULT_NOOP_SCHEDULER,
         new SqlLifecycleManager(),
-        QueryContextConfig.DEFAULT
+        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG
     );
     return new SqlStatementFactory(sqlToolbox);
   }

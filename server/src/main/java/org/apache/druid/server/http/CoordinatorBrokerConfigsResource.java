@@ -26,6 +26,8 @@ import org.apache.druid.common.config.ConfigManager.SetResult;
 import org.apache.druid.common.config.JacksonConfigManager;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.query.context.QueryContextConfig;
+import org.apache.druid.query.context.QueryContextParameterValidator;
 import org.apache.druid.server.broker.BrokerDynamicConfig;
 import org.apache.druid.server.http.security.ConfigResourceFilter;
 import org.apache.druid.server.security.AuthorizationUtils;
@@ -53,12 +55,14 @@ public class CoordinatorBrokerConfigsResource
   private final AuditManager auditManager;
   private final AtomicReference<BrokerDynamicConfig> currentConfig;
   private final BrokerDynamicConfigSyncer brokerDynamicConfigSyncer;
+  private final QueryContextConfig queryContextConfig;
 
   @Inject
   public CoordinatorBrokerConfigsResource(
       JacksonConfigManager configManager,
       AuditManager auditManager,
-      BrokerDynamicConfigSyncer brokerDynamicConfigSyncer
+      BrokerDynamicConfigSyncer brokerDynamicConfigSyncer,
+      QueryContextConfig queryContextConfig
   )
   {
     this.configManager = configManager;
@@ -69,6 +73,7 @@ public class CoordinatorBrokerConfigsResource
         BrokerDynamicConfig.builder().build()
     );
     this.brokerDynamicConfigSyncer = brokerDynamicConfigSyncer;
+    this.queryContextConfig = queryContextConfig;
   }
 
   @GET
@@ -88,6 +93,11 @@ public class CoordinatorBrokerConfigsResource
     try {
       BrokerDynamicConfig current = currentConfig.get();
       BrokerDynamicConfig newConfig = configBuilder.build(current);
+      QueryContextParameterValidator.validateDefaults(
+          queryContextConfig,
+          "queryContext of the Broker dynamic configuration",
+          newConfig.getQueryContext().asMap()
+      );
 
       final SetResult setResult = configManager.set(
           BrokerDynamicConfig.CONFIG_KEY,

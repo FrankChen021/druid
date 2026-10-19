@@ -288,7 +288,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
   {
     final QueryContextConfig queryContextConfig = testInfo.getTags().contains(ACCEPT_UNKNOWN_CONTEXT_PARAMETERS)
                                                   ? new QueryContextConfig(false)
-                                                  : QueryContextConfig.DEFAULT;
+                                                  : QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG;
     final DruidSchemaCatalogProvider rootSchemaProvider = makeRootSchemaProvider();
     testRequestLogger = new TestRequestLogger();
 

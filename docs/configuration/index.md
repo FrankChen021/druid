@@ -2284,11 +2284,18 @@ context). If query does have `maxQueuedBytes` in the context, then that value is
 
 ### Query context validation
 
-The Broker rejects a query whose context contains a parameter that Druid does not recognize, such as a misspelled parameter name. This applies to the top-level context of native queries submitted over HTTP, and to the context and `SET` statements of SQL queries, including the connection properties of JDBC connections. It doesn't apply to the default context that operators configure, such as `druid.query.default.context.*`. The Broker also rejects a recognized parameter with an invalid value, whatever the value of this property. It checks the parameters in alphabetical order and names the first one that is invalid. For an unrecognized parameter, it suggests the parameters with similar names, if any. For example: `Unknown query context parameter [useCahce]. Did you mean [useCache]?`
+The Broker checks the parameters that a query sets in its context. This applies to the top-level context of native queries submitted over HTTP, and to the context and `SET` statements of SQL queries, including the connection properties of JDBC connections.
+
+The Broker always rejects a recognized parameter with an invalid value. If you set `druid.query.context.rejectUnknownParameters` to `true`, it also rejects a parameter that Druid doesn't recognize, such as a misspelled parameter name, instead of ignoring it. The Broker checks the parameters in alphabetical order and names the first one that is invalid. For an unrecognized parameter, it suggests the parameters with similar names, if any. For example: `Unknown query context parameter [useCahce]. Did you mean [useCache]?`
 
 |Property|Description|Default|
 |--------|-----------|-------|
-|`druid.query.context.rejectUnknownParameters`|Whether the Broker rejects queries with unrecognized query context parameters. Set to `false` to ignore unrecognized parameters instead, as Druid did before this property was added.|`true`|
+|`druid.query.context.rejectUnknownParameters`|Whether the Broker rejects queries with unrecognized query context parameters. If `false`, the Broker ignores unrecognized parameters.|`false`|
+
+Druid doesn't check the default context that operators configure with each query, since an invalid default would fail every query. If `druid.query.context.rejectUnknownParameters` is `true`, Druid checks the default context, both names and values, when it's configured instead:
+
+* The Broker fails to start if `druid.query.default.context.*` sets an invalid parameter, and fails to set up Dart if `druid.msq.dart.query.context.*` does.
+* The Coordinator rejects an update of the [Broker dynamic configuration](../api-reference/dynamic-configuration-api.md) whose `queryContext` sets an invalid parameter. Set the property on the Coordinator as well as on the Broker, for example in `common.runtime.properties`.
 
 ### Search query config
 

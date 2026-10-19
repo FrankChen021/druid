@@ -38,6 +38,7 @@ import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -72,7 +73,10 @@ public class SqlQueryPlus
   private final SqlNode sqlNode;
   private final boolean allowSetStatements;
   private final Map<String, Object> stmtContext;
-  private final Set<String> authContextKeys;
+  /**
+   * The context that the user provided, including the values of SET statements, without the system defaults.
+   */
+  private final Map<String, Object> userContext;
   private final List<ParameterBinding> parameters;
   private final AuthenticationResult authResult;
 
@@ -81,7 +85,7 @@ public class SqlQueryPlus
       SqlNode sqlNode,
       boolean allowSetStatements,
       Map<String, Object> stmtContext,
-      Set<String> authContextKeys,
+      @Nullable Map<String, Object> userContext,
       List<ParameterBinding> parameters,
       AuthenticationResult authResult
   )
@@ -92,9 +96,10 @@ public class SqlQueryPlus
     this.stmtContext = stmtContext == null
                        ? Collections.emptyMap()
                        : Collections.unmodifiableMap(stmtContext);
-    this.authContextKeys = authContextKeys == null
-                           ? Collections.emptySet()
-                           : Collections.unmodifiableSet(authContextKeys);
+    // Copied into a HashMap, which keeps the parameters that the user set to null.
+    this.userContext = userContext == null
+                       ? Collections.emptyMap()
+                       : Collections.unmodifiableMap(new HashMap<>(userContext));
     this.parameters = parameters == null
                       ? Collections.emptyList()
                       : parameters;
@@ -130,9 +135,18 @@ public class SqlQueryPlus
     return stmtContext;
   }
 
+  /**
+   * Returns the context that the user provided, including the values of SET statements, without the system defaults.
+   * Unlike {@link #context()}, it keeps the parameters that the user set to null.
+   */
+  public Map<String, Object> userContext()
+  {
+    return userContext;
+  }
+
   public Set<String> authContextKeys()
   {
-    return authContextKeys;
+    return userContext.keySet();
   }
 
   public List<TypedValue> resolveParameters(final DateTimeZone sessionTimeZone)
@@ -169,7 +183,7 @@ public class SqlQueryPlus
         sqlNode,
         allowSetStatements,
         QueryContexts.withDefaults(defaultContext, userProvidedContext),
-        userProvidedContext == null ? Set.of() : userProvidedContext.keySet(),
+        userProvidedContext,
         parameters,
         authResult
     );
@@ -192,7 +206,7 @@ public class SqlQueryPlus
         sqlNode,
         allowSetStatements,
         stmtContext,
-        authContextKeys,
+        userContext,
         parameterBindings,
         authResult
     );
@@ -209,7 +223,7 @@ public class SqlQueryPlus
         DruidSqlParser.parse(sql, allowSetStatements).getMainStatement(),
         allowSetStatements,
         stmtContext,
-        authContextKeys,
+        userContext,
         parameters,
         authResult
     );
@@ -223,7 +237,7 @@ public class SqlQueryPlus
            ", sqlNode=" + sqlNode +
            ", allowSetStatements=" + allowSetStatements +
            ", stmtContext=" + stmtContext +
-           ", authContextKeys=" + authContextKeys +
+           ", userContext=" + userContext +
            ", parameters=" + parameters +
            ", authResult=" + authResult +
            '}';
@@ -319,7 +333,7 @@ public class SqlQueryPlus
           statementAndSetContext.getMainStatement(),
           true,
           stmtContext,
-          userProvidedContext == null ? Set.of() : userProvidedContext.keySet(),
+          userProvidedContext,
           parameters,
           authResult
       );
@@ -339,7 +353,7 @@ public class SqlQueryPlus
           null,
           false,
           QueryContexts.withDefaults(systemDefaultContext, queryContext),
-          queryContext == null ? Set.of() : queryContext.keySet(),
+          queryContext,
           parameters,
           authResult
       );

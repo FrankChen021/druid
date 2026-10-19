@@ -42,7 +42,7 @@ This guide shows you how to set the query context for each application.
 
 Before you begin, identify which context parameters you need to configure in order to establish your query context as query context carriers. For available parameters and their descriptions, see [Query context reference](query-context-reference.md).
 
-The Broker rejects a query that sets a context parameter it doesn't recognize, such as a misspelled parameter name. To ignore unrecognized parameters instead, set [`druid.query.context.rejectUnknownParameters`](../configuration/index.md#query-context-validation) to `false`.
+Druid ignores context parameters that it doesn't recognize, such as a misspelled parameter name. To have the Broker reject such queries instead, set [`druid.query.context.rejectUnknownParameters`](../configuration/index.md#query-context-validation) to `true`.
 
 ## Web console
 

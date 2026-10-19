@@ -185,4 +185,27 @@ public class SqlQueryPlusTest
                     .context()
     );
   }
+
+  @Test
+  public void testUserContextExcludesSystemDefaultsAndKeepsNulls()
+  {
+    final Map<String, Object> systemDefaultContext = Map.of("key", "system-default", "other", "system-default");
+    final Map<String, Object> userContext = new HashMap<>();
+    userContext.put("key", null);
+    userContext.put("user", "user-provided-value");
+
+    final SqlQueryPlus.Builder builder = SqlQueryPlus.builder("SET setKey = 'set-value'; SELECT 1")
+                                                     .systemDefaultContext(systemDefaultContext)
+                                                     .queryContext(userContext)
+                                                     .auth(CalciteTests.REGULAR_USER_AUTH_RESULT);
+
+    final Map<String, Object> expectedUserContext = new HashMap<>(userContext);
+    expectedUserContext.put("setKey", "set-value");
+    final SqlQueryPlus query = builder.build();
+    Assertions.assertEquals(expectedUserContext, query.userContext());
+    Assertions.assertEquals(expectedUserContext.keySet(), query.authContextKeys());
+    Assertions.assertEquals(expectedUserContext, query.freshCopy().userContext());
+    Assertions.assertEquals(userContext, builder.buildJdbc().userContext());
+    Assertions.assertEquals(userContext, query.withContext(systemDefaultContext, userContext).userContext());
+  }
 }

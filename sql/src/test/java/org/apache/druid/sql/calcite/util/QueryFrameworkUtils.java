@@ -103,6 +103,12 @@ public class QueryFrameworkUtils
   }
 
   /**
+   * Rejects unknown query context parameters, unlike the default, so that tests catch parameters missing from
+   * {@link org.apache.druid.query.context.QueryContextParameters}.
+   */
+  public static final QueryContextConfig TEST_QUERY_CONTEXT_CONFIG = new QueryContextConfig(true);
+
+  /**
    * Create a standard {@link SqlStatementFactory} for testing with a new {@link SqlToolbox} created by
    * {@link #createTestToolbox(SqlEngine, PlannerFactory, QueryContextConfig)}
    */
@@ -111,7 +117,7 @@ public class QueryFrameworkUtils
       final PlannerFactory plannerFactory
   )
   {
-    return createSqlStatementFactory(engine, plannerFactory, QueryContextConfig.DEFAULT);
+    return createSqlStatementFactory(engine, plannerFactory, TEST_QUERY_CONTEXT_CONFIG);
   }
 
   /**
@@ -137,7 +143,7 @@ public class QueryFrameworkUtils
   )
   {
     return new TestMultiStatementFactory(
-        createTestToolbox(engine, plannerFactory, QueryContextConfig.DEFAULT),
+        createTestToolbox(engine, plannerFactory, TEST_QUERY_CONTEXT_CONFIG),
         engine,
         plannerFactory
     );

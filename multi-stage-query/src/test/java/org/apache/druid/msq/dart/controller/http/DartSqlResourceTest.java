@@ -221,7 +221,7 @@ public class DartSqlResourceTest extends MSQTestBase
         NoopRequestLogger.instance(),
         QueryStackTests.DEFAULT_NOOP_SCHEDULER,
         lifecycleManager,
-        QueryContextConfig.DEFAULT
+        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG
     );
 
     final DartSqlEngine engine = new DartSqlEngine(
@@ -276,7 +276,8 @@ public class DartSqlResourceTest extends MSQTestBase
         new ServerConfig(),
         new DefaultQueryConfig(ImmutableMap.of("foo", "bar")),
         toolbox,
-        dartSqlClients
+        dartSqlClients,
+        QueryContextConfig.DEFAULT
     );
 
     sqlResource = new SqlResource(

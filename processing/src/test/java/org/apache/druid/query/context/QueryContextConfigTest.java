@@ -33,7 +33,7 @@ class QueryContextConfigTest
   @Test
   void testSerde() throws Exception
   {
-    assertTrue(JSON_MAPPER.readValue("{}", QueryContextConfig.class).isRejectUnknownParameters());
+    assertFalse(JSON_MAPPER.readValue("{}", QueryContextConfig.class).isRejectUnknownParameters());
     assertTrue(
         JSON_MAPPER.readValue("{\"rejectUnknownParameters\": true}", QueryContextConfig.class)
                    .isRejectUnknownParameters()
@@ -47,7 +47,7 @@ class QueryContextConfigTest
   @Test
   void testDefault()
   {
-    assertTrue(QueryContextConfig.DEFAULT.isRejectUnknownParameters());
-    assertFalse(new QueryContextConfig(false).isRejectUnknownParameters());
+    assertFalse(QueryContextConfig.DEFAULT.isRejectUnknownParameters());
+    assertTrue(new QueryContextConfig(true).isRejectUnknownParameters());
   }
 }

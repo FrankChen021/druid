@@ -33,7 +33,7 @@ public class QueryContextConfig
 
   /**
    * Whether the Broker rejects queries whose context contains a parameter that is not declared in
-   * {@link QueryContextParameters}.
+   * {@link QueryContextParameters}. Off by default, so that queries with such parameters keep working.
    */
   @JsonProperty
   private final boolean rejectUnknownParameters;
@@ -41,7 +41,7 @@ public class QueryContextConfig
   @JsonCreator
   public QueryContextConfig(@JsonProperty("rejectUnknownParameters") @Nullable final Boolean rejectUnknownParameters)
   {
-    this.rejectUnknownParameters = rejectUnknownParameters == null || rejectUnknownParameters;
+    this.rejectUnknownParameters = rejectUnknownParameters != null && rejectUnknownParameters;
   }
 
   public boolean isRejectUnknownParameters()

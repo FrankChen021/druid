@@ -61,7 +61,6 @@ import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ResourceLimitExceededException;
-import org.apache.druid.query.context.QueryContextConfig;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
@@ -101,6 +100,7 @@ import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.sql.calcite.schema.DruidSchemaCatalogProvider;
 import org.apache.druid.sql.calcite.util.CalciteTestBase;
 import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.apache.druid.sql.calcite.util.QueryFrameworkUtils;
 import org.apache.druid.sql.hook.DruidHookDispatcher;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -281,7 +281,7 @@ public class SqlResourceTest extends CalciteTestBase
         testRequestLogger,
         scheduler,
         lifecycleManager,
-        QueryContextConfig.DEFAULT
+        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG
     );
     sqlStatementFactory = new SqlStatementFactory(null)
     {

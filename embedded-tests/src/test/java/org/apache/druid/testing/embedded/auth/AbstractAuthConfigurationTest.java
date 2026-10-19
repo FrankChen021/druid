@@ -261,8 +261,6 @@ public abstract class AbstractAuthConfigurationTest extends EmbeddedClusterTestB
         .addResource(getAuthResource())
         .addCommonProperty("druid.auth.unsecuredPaths", "[\"/druid/coordinator/v1/loadqueue\"]")
         .addCommonProperty("druid.auth.authorizeQueryContextParams", "true")
-        // The tests of context parameter authorization use auth_test_ctx, which is not a query context parameter
-        .addCommonProperty("druid.query.context.rejectUnknownParameters", "false")
         .addCommonProperty("druid.msq.dart.enabled", "true")
         .addCommonProperty("druid.sql.planner.authorizeSystemTablesDirectly", "true")
         .addCommonProperty("druid.server.http.allowedHttpMethods", "[\"OPTIONS\"]")
