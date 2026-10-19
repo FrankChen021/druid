@@ -21,13 +21,9 @@ package org.apache.druid.query.context;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.apache.druid.query.BadQueryContextException;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QueryContextConfigTest
@@ -49,15 +45,9 @@ class QueryContextConfigTest
   }
 
   @Test
-  void testValidateParameterNames()
+  void testDefault()
   {
     assertTrue(QueryContextConfig.DEFAULT.isRejectUnknownParameters());
-    QueryContextConfig.DEFAULT.validateParameterNames(List.of("useCache"));
-    assertThrows(
-        BadQueryContextException.class,
-        () -> QueryContextConfig.DEFAULT.validateParameterNames(List.of("useCahce"))
-    );
-
-    new QueryContextConfig(false).validateParameterNames(List.of("useCahce"));
+    assertFalse(new QueryContextConfig(false).isRejectUnknownParameters());
   }
 }

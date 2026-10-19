@@ -302,7 +302,7 @@ public class SqlQueryPlus
     {
       final StatementAndSetContext statementAndSetContext = DruidSqlParser.parse(sql, true);
       try {
-        QueryContextParameterValidator.validate(statementAndSetContext.getSetContext());
+        QueryContextParameterValidator.validate(statementAndSetContext.getSetContext(), false);
       }
       catch (BadQueryContextException e) {
         throw InvalidSqlInput.exception(e, "Invalid query context parameter value: %s", e.getMessage());

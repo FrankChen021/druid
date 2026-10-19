@@ -67,6 +67,7 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
@@ -295,7 +296,7 @@ public class QueryResource implements QueryCountStatsProvider
    *
    * @throws org.apache.druid.query.QueryException if the context is invalid
    */
-  protected void validateQueryContext(final Query<?> query)
+  protected void validateQueryContext(final Map<String, Object> context)
   {
   }
 
@@ -315,7 +316,7 @@ public class QueryResource implements QueryCountStatsProvider
     catch (JsonParseException e) {
       throw new BadJsonQueryException(e);
     }
-    validateQueryContext(baseQuery);
+    validateQueryContext(baseQuery.getContext());
 
     String prevEtag = getPreviousEtag(req);
     if (prevEtag == null) {

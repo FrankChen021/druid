@@ -23,7 +23,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.Nullable;
-import java.util.Collection;
 
 /**
  * Runtime configuration for user-supplied query contexts, bound to the {@code druid.query.context} property prefix.
@@ -48,17 +47,5 @@ public class QueryContextConfig
   public boolean isRejectUnknownParameters()
   {
     return rejectUnknownParameters;
-  }
-
-  /**
-   * Validates the names of the parameters a user set in a query context, if {@link #isRejectUnknownParameters()}.
-   *
-   * @throws org.apache.druid.query.BadQueryContextException for the alphabetically first name that is not declared
-   */
-  public void validateParameterNames(final Collection<String> names)
-  {
-    if (rejectUnknownParameters) {
-      QueryContextParameterValidator.rejectUnknownParameters(names);
-    }
   }
 }

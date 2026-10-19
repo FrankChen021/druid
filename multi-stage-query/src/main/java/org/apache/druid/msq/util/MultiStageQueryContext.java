@@ -364,10 +364,9 @@ public class MultiStageQueryContext
   @Deprecated(since = "39.0.0", forRemoval = true)
   public static final boolean DEFAULT_INCLUDE_ALL_COUNTERS = true;
   /**
-   * Whether worker tasks read input segments via on-demand partial (per-column) downloads instead of downloading each
-   * segment in full. Aliases the task-context key {@link Tasks#VIRTUAL_STORAGE_PARTIAL_DOWNLOADS_KEY} so it can be set
-   * on the MSQ query context; when unset it falls back to the node's {@code TaskConfig} default.
+   * @deprecated Use {@link QueryContextParameters#VIRTUAL_STORAGE_PARTIAL_DOWNLOADS_ENABLED} instead.
    */
+  @Deprecated(since = "39.0.0", forRemoval = true)
   public static final String CTX_VIRTUAL_STORAGE_PARTIAL_DOWNLOADS = Tasks.VIRTUAL_STORAGE_PARTIAL_DOWNLOADS_KEY;
 
   /**

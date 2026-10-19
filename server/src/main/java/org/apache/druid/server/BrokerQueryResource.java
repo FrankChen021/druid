@@ -29,6 +29,7 @@ import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.query.CloneQueryMode;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.context.QueryContextConfig;
+import org.apache.druid.query.context.QueryContextParameterValidator;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.planning.ExecutionVertex;
 import org.apache.druid.server.http.security.StateResourceFilter;
@@ -48,6 +49,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
 
 /**
  */
@@ -84,9 +86,9 @@ public class BrokerQueryResource extends QueryResource
   }
 
   @Override
-  protected void validateQueryContext(final Query<?> query)
+  protected void validateQueryContext(final Map<String, Object> context)
   {
-    queryContextConfig.validateParameterNames(query.getContext().keySet());
+    QueryContextParameterValidator.validate(context, queryContextConfig.isRejectUnknownParameters());
   }
 
   @POST

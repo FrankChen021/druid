@@ -22,82 +22,83 @@ package org.apache.druid.query.context;
 import org.apache.druid.query.BadQueryContextException;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QueryContextParameterValidatorTest
 {
   @Test
-  void testValidateParameter()
+  void testValidateValues()
   {
-    assertThrows(BadQueryContextException.class, () -> QueryContextParameterValidator.validate("maxRowsQueuedForOrdering", -1));
-    assertThrows(BadQueryContextException.class, () -> QueryContextParameterValidator.validate("maxRowsQueuedForOrdering", "not-an-int"));
-    assertThrows(BadQueryContextException.class, () -> QueryContextParameterValidator.validate("useResultLevelCache", 1));
-    QueryContextParameterValidator.validate("maxRowsQueuedForOrdering", Integer.MAX_VALUE);
-    QueryContextParameterValidator.validate("maxRowsQueuedForOrdering", null);
-    QueryContextParameterValidator.validate("unmigratedParameter", -1);
+    assertInvalid(Map.of("maxRowsQueuedForOrdering", -1), false);
+    assertInvalid(Map.of("maxRowsQueuedForOrdering", "not-an-int"), false);
+    assertInvalid(Map.of("useResultLevelCache", 1), false);
+    QueryContextParameterValidator.validate(Map.of("maxRowsQueuedForOrdering", Integer.MAX_VALUE), true);
+    QueryContextParameterValidator.validate(Collections.singletonMap("maxRowsQueuedForOrdering", null), true);
+    QueryContextParameterValidator.validate(Map.of(), true);
   }
 
   @Test
-  void testValidateParameters()
+  void testValidateIgnoresUnknownParametersUnlessRejected()
   {
-    assertThrows(
-        BadQueryContextException.class,
-        () -> QueryContextParameterValidator.validate(
-            Map.of("maxRowsQueuedForOrdering", 0, "unmigratedParameter", -1)
-        )
-    );
-    QueryContextParameterValidator.validate(Map.of("maxRowsQueuedForOrdering", 1, "unmigratedParameter", -1));
-  }
-
-  @Test
-  void testRejectUnknownParametersAcceptsDeclaredParameters()
-  {
-    QueryContextParameterValidator.rejectUnknownParameters(List.of());
-    QueryContextParameterValidator.rejectUnknownParameters(List.of("useCache", "timeout", "sqlQueryId", "queryFailTime"));
+    QueryContextParameterValidator.validate(Map.of("maxRowsQueuedForOrdering", 1, "myTraceId", -1), false);
+    assertInvalid(Map.of("maxRowsQueuedForOrdering", 1, "myTraceId", -1), true);
+    // Values are validated whether or not unknown parameters are rejected.
+    assertInvalid(Map.of("maxRowsQueuedForOrdering", 0, "myTraceId", -1), false);
   }
 
   @Test
   void testRejectUnknownParameterWithHint()
   {
-    final BadQueryContextException e = assertThrows(
-        BadQueryContextException.class,
-        () -> QueryContextParameterValidator.rejectUnknownParameters(List.of("timeout", "useCahce"))
+    assertEquals(
+        "Unknown query context parameter [useCahce]. Did you mean [useCache]?",
+        assertInvalid(Map.of("timeout", 1000, "useCahce", false), true)
     );
-    assertEquals("Unknown query context parameter [useCahce]. Did you mean [useCache]?", e.getMessage());
   }
 
   @Test
   void testRejectUnknownParameterWithoutHint()
   {
-    final BadQueryContextException e = assertThrows(
-        BadQueryContextException.class,
-        () -> QueryContextParameterValidator.rejectUnknownParameters(List.of("myTraceId"))
+    assertEquals(
+        "Unknown query context parameter [myTraceId].",
+        assertInvalid(Map.of("myTraceId", "abc-123"), true)
     );
-    assertEquals("Unknown query context parameter [myTraceId].", e.getMessage());
-  }
-
-  @Test
-  void testRejectUnknownParametersReportsAlphabeticallyFirstUnknownParameter()
-  {
-    final BadQueryContextException e = assertThrows(
-        BadQueryContextException.class,
-        () -> QueryContextParameterValidator.rejectUnknownParameters(List.of("useCahce", "useCache", "myTraceId"))
-    );
-    assertEquals("Unknown query context parameter [myTraceId].", e.getMessage());
   }
 
   @Test
   void testParameterNamesAreCaseSensitive()
   {
-    final BadQueryContextException e = assertThrows(
-        BadQueryContextException.class,
-        () -> QueryContextParameterValidator.rejectUnknownParameters(List.of("usecache"))
+    assertEquals(
+        "Unknown query context parameter [usecache]. Did you mean [useCache]?",
+        assertInvalid(Map.of("usecache", false), true)
     );
-    assertEquals("Unknown query context parameter [usecache]. Did you mean [useCache]?", e.getMessage());
+  }
+
+  @Test
+  void testValidateReportsAlphabeticallyFirstInvalidParameter()
+  {
+    final Map<String, Object> unknownNames = new LinkedHashMap<>();
+    unknownNames.put("useCahce", false);
+    unknownNames.put("useCache", false);
+    unknownNames.put("myTraceId", "abc-123");
+    assertEquals("Unknown query context parameter [myTraceId].", assertInvalid(unknownNames, true));
+
+    // An unknown name and an invalid value are reported in the same alphabetical order.
+    final Map<String, Object> unknownNameFirst = new LinkedHashMap<>();
+    unknownNameFirst.put("maxRowsQueuedForOrdering", 0);
+    unknownNameFirst.put("aTraceId", "abc-123");
+    assertEquals("Unknown query context parameter [aTraceId].", assertInvalid(unknownNameFirst, true));
+
+    final Map<String, Object> invalidValueFirst = new LinkedHashMap<>();
+    invalidValueFirst.put("zTraceId", "abc-123");
+    invalidValueFirst.put("maxRowsQueuedForOrdering", 0);
+    assertTrue(assertInvalid(invalidValueFirst, true).startsWith("Query context parameter [maxRowsQueuedForOrdering]"));
   }
 
   @Test
@@ -142,5 +143,16 @@ class QueryContextParameterValidatorTest
   private static QueryContextParameter.Builder<String> parameter(final String name)
   {
     return QueryContextParameters.stringParameter(name).description("Test parameter.");
+  }
+
+  /**
+   * Asserts that the parameters are invalid, and returns the error message.
+   */
+  private static String assertInvalid(final Map<String, Object> parameters, final boolean rejectUnknownParameters)
+  {
+    return assertThrows(
+        BadQueryContextException.class,
+        () -> QueryContextParameterValidator.validate(parameters, rejectUnknownParameters)
+    ).getMessage();
   }
 }

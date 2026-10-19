@@ -51,7 +51,6 @@ import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.metrics.StubServiceEmitter;
 import org.apache.druid.math.expr.ExprMacroTable;
-import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.Query;
@@ -1564,7 +1563,22 @@ public class SqlResourceTest extends CalciteTestBase
 
     final DruidException exception = validateInvalidInputError(errorResponse, "Unknown query context parameter [useCahce]. Did you mean [useCache]?");
     Assertions.assertEquals("Unknown query context parameter [useCahce]. Did you mean [useCache]?", exception.getMessage());
+    checkSqlRequestLog(false);
     Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
+  }
+
+  @Test
+  public void testUnknownContextParameterWithNullValueReturnsBadRequest() throws Exception
+  {
+    final Map<String, Object> context = new HashMap<>();
+    context.put(QueryContextParameters.SQL_QUERY_ID.getName(), "id");
+    context.put("useCahce", null);
+    final ErrorResponse errorResponse = postSyncForException(
+        new SqlQuery("SELECT 1", null, false, false, false, context, null),
+        Status.BAD_REQUEST.getStatusCode()
+    );
+
+    validateInvalidInputError(errorResponse, "Unknown query context parameter [useCahce]. Did you mean [useCache]?");
   }
 
   @Test
@@ -1577,6 +1591,7 @@ public class SqlResourceTest extends CalciteTestBase
 
     final DruidException exception = validateInvalidInputError(errorResponse, "Unknown query context parameter [myTraceId].");
     Assertions.assertEquals("Unknown query context parameter [myTraceId].", exception.getMessage());
+    checkSqlRequestLog(false);
     Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
   }
 
@@ -2161,7 +2176,8 @@ public class SqlResourceTest extends CalciteTestBase
         QueryContextParameters.SQL_QUERY_ID.getName(),
         sqlQueryId
     );
-    final ErrorResponse errorResponse = doPost(
+    // The Broker validates the context before planning, so the error is returned before the response starts.
+    final ErrorResponse errorResponse = postSyncForException(
         new SqlQuery(
             "SELECT 1337",
             ResultFormat.OBJECT,
@@ -2170,15 +2186,11 @@ public class SqlResourceTest extends CalciteTestBase
             false,
             queryContext,
             null
-        )
-    ).lhs;
-
-    validateLegacyQueryExceptionErrorResponse(
-        errorResponse,
-        QueryException.BAD_QUERY_CONTEXT_ERROR_CODE,
-        BadQueryContextException.ERROR_CLASS,
-        "2000'"
+        ),
+        Status.BAD_REQUEST.getStatusCode()
     );
+
+    validateInvalidInputError(errorResponse, "Query context parameter [timeout] should be in long format, but got [2000']");
     checkSqlRequestLog(false);
     Assertions.assertTrue(lifecycleManager.getAll(sqlQueryId).isEmpty());
     stubServiceEmitter.verifyEmitted("sqlQuery/time", 1);

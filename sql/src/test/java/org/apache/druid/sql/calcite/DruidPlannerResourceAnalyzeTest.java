@@ -22,6 +22,9 @@ package org.apache.druid.sql.calcite;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.error.DruidException;
+import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.Resource;
@@ -256,10 +259,10 @@ public class DruidPlannerResourceAnalyzeTest extends BaseCalciteQueryTest
   public void testSysTableWithQueryContext()
   {
     final AuthConfig authConfig = AuthConfig.newBuilder().setAuthorizeQueryContextParams(true).build();
-    final Map<String, Object> context = ImmutableMap.of(
-        "lane", "fo",
-        "indexSpec", ImmutableMap.of("nested-key", "nested-val")
-    );
+    final Map<String, Object> context = QueryContext.builder()
+                                                    .put(QueryContextParameters.LANE, "fo")
+                                                    .put(QueryContextParameters.INDEX_SPEC, Map.of("nested-key", "nested-val"))
+                                                    .toMap();
     testSysTable("SELECT * FROM sys.segments", null, context, PLANNER_CONFIG_DEFAULT, authConfig);
     testSysTable("SELECT * FROM sys.servers", null, context, PLANNER_CONFIG_DEFAULT, authConfig);
     testSysTable("SELECT * FROM sys.server_segments", null, context, PLANNER_CONFIG_DEFAULT, authConfig);
@@ -289,7 +292,10 @@ public class DruidPlannerResourceAnalyzeTest extends BaseCalciteQueryTest
   public void testQueryContext()
   {
     final String sql = "SELECT COUNT(*) FROM foo WHERE foo.dim1 <> 'z'";
-    Map<String, Object> context = ImmutableMap.of("lane", "fo", "indexSpec", ImmutableMap.of("nested-key", "nested-val"));
+    final Map<String, Object> context = QueryContext.builder()
+                                                    .put(QueryContextParameters.LANE, "fo")
+                                                    .put(QueryContextParameters.INDEX_SPEC, Map.of("nested-key", "nested-val"))
+                                                    .toMap();
     analyzeResources(
         PLANNER_CONFIG_DEFAULT,
         AuthConfig.newBuilder().setAuthorizeQueryContextParams(true).build(),
@@ -301,8 +307,8 @@ public class DruidPlannerResourceAnalyzeTest extends BaseCalciteQueryTest
             new ResourceAction(new Resource("maxScatterGatherBytes", ResourceType.QUERY_CONTEXT), Action.WRITE),
             new ResourceAction(new Resource("defaultTimeout", ResourceType.QUERY_CONTEXT), Action.WRITE),
             new ResourceAction(new Resource("foo", ResourceType.DATASOURCE), Action.READ),
-            new ResourceAction(new Resource("lane", ResourceType.QUERY_CONTEXT), Action.WRITE),
-            new ResourceAction(new Resource("indexSpec", ResourceType.QUERY_CONTEXT), Action.WRITE)
+            new ResourceAction(new Resource(QueryContextParameters.LANE.getName(), ResourceType.QUERY_CONTEXT), Action.WRITE),
+            new ResourceAction(new Resource(QueryContextParameters.INDEX_SPEC.getName(), ResourceType.QUERY_CONTEXT), Action.WRITE)
         )
     );
   }
@@ -310,7 +316,10 @@ public class DruidPlannerResourceAnalyzeTest extends BaseCalciteQueryTest
   @Test
   public void testQueryContextSetStatement()
   {
-    final String sql = "SET lane = 'fo'; SELECT COUNT(*) FROM foo WHERE foo.dim1 <> 'z'";
+    final String sql = StringUtils.format(
+        "SET %s = 'fo'; SELECT COUNT(*) FROM foo WHERE foo.dim1 <> 'z'",
+        QueryContextParameters.LANE.getName()
+    );
     analyzeResources(
         PLANNER_CONFIG_DEFAULT,
         AuthConfig.newBuilder().setAuthorizeQueryContextParams(true).build(),
@@ -322,7 +331,7 @@ public class DruidPlannerResourceAnalyzeTest extends BaseCalciteQueryTest
             new ResourceAction(new Resource("maxScatterGatherBytes", ResourceType.QUERY_CONTEXT), Action.WRITE),
             new ResourceAction(new Resource("defaultTimeout", ResourceType.QUERY_CONTEXT), Action.WRITE),
             new ResourceAction(new Resource("foo", ResourceType.DATASOURCE), Action.READ),
-            new ResourceAction(new Resource("lane", ResourceType.QUERY_CONTEXT), Action.WRITE)
+            new ResourceAction(new Resource(QueryContextParameters.LANE.getName(), ResourceType.QUERY_CONTEXT), Action.WRITE)
 
         )
     );
