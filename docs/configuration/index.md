@@ -2282,6 +2282,14 @@ If runtime property only contains `druid.query.default.context.maxQueuedBytes=y`
 `druid.query.default.context.maxQueuedBytes`, `y`, is use (given that query does not have `maxQueuedBytes` in the
 context). If query does have `maxQueuedBytes` in the context, then that value is use instead.
 
+### Query context validation
+
+The Broker rejects a query whose context contains a parameter that Druid does not recognize, such as a misspelled parameter name. This applies to the top-level context of native queries submitted over HTTP, and to the context and `SET` statements of SQL queries, including the connection properties of JDBC connections. It doesn't apply to the default context that operators configure, such as `druid.query.default.context.*`. The error names the alphabetically first unrecognized parameter and, when Druid recognizes parameters with similar names, suggests them. For example: `Unknown query context parameter [useCahce]. Did you mean [useCache]?`
+
+|Property|Description|Default|
+|--------|-----------|-------|
+|`druid.query.context.rejectUnknownParameters`|Whether the Broker rejects queries with unrecognized query context parameters. Set to `false` to ignore unrecognized parameters instead, as Druid did before this property was added.|`true`|
+
 ### Search query config
 
 |Property|Description|Default|

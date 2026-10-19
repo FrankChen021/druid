@@ -31,6 +31,7 @@ import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.PolyBind;
 import org.apache.druid.guice.annotations.NativeQuery;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
+import org.apache.druid.query.context.QueryContextConfig;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.sql.SqlLifecycleManager;
@@ -174,7 +175,8 @@ public class SqlModule implements Module
         final ServiceEmitter emitter,
         final RequestLogger requestLogger,
         final QueryScheduler queryScheduler,
-        final SqlLifecycleManager sqlLifecycleManager
+        final SqlLifecycleManager sqlLifecycleManager,
+        final QueryContextConfig queryContextConfig
     )
     {
       return new SqlToolbox(
@@ -183,7 +185,8 @@ public class SqlModule implements Module
           emitter,
           requestLogger,
           queryScheduler,
-          sqlLifecycleManager
+          sqlLifecycleManager,
+          queryContextConfig
       );
     }
 

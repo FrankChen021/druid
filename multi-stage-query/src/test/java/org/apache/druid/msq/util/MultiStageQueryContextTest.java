@@ -464,6 +464,15 @@ public class MultiStageQueryContextTest
   }
 
   @Test
+  public void getVirtualStoragePartialDownloadsEnabled_queryContextParameterMatchesTaskContextKey()
+  {
+    Assertions.assertEquals(
+        MultiStageQueryContext.CTX_VIRTUAL_STORAGE_PARTIAL_DOWNLOADS,
+        QueryContextParameters.VIRTUAL_STORAGE_PARTIAL_DOWNLOADS_ENABLED.getName()
+    );
+  }
+
+  @Test
   public void getVirtualStoragePartialDownloadsEnabled_set_overridesDefault()
   {
     Assertions.assertTrue(

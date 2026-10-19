@@ -56,6 +56,7 @@ import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.QueryConfigProvider;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
+import org.apache.druid.query.context.QueryContextConfig;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.http.ClientSqlParameter;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
@@ -106,7 +107,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.skife.jdbi.v2.DBI;
@@ -168,6 +171,11 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
   }
 
   private static final String DUMMY_SQL_QUERY_ID = "dummy";
+
+  /**
+   * Tag of tests that run against a Broker that accepts unknown query context parameters.
+   */
+  private static final String ACCEPT_UNKNOWN_CONTEXT_PARAMETERS = "acceptUnknownContextParameters";
 
   private static QueryRunnerFactoryConglomerate conglomerate;
   private static SpecificSegmentsQuerySegmentWalker walker;
@@ -276,8 +284,11 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
   }
 
   @BeforeEach
-  public void setUp() throws Exception
+  public void setUp(final TestInfo testInfo) throws Exception
   {
+    final QueryContextConfig queryContextConfig = testInfo.getTags().contains(ACCEPT_UNKNOWN_CONTEXT_PARAMETERS)
+                                                  ? new QueryContextConfig(false)
+                                                  : QueryContextConfig.DEFAULT;
     final DruidSchemaCatalogProvider rootSchemaProvider = makeRootSchemaProvider();
     testRequestLogger = new TestRequestLogger();
 
@@ -297,6 +308,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
               binder.bind(DefaultQueryConfig.class)
                     .toInstance(new DefaultQueryConfig(ImmutableMap.of("forbidden-key", "system-default-value")));
               binder.bind(QueryConfigProvider.class).to(DefaultQueryConfig.class);
+              binder.bind(QueryContextConfig.class).toInstance(queryContextConfig);
               binder.bind(RequestLogger.class).toInstance(testRequestLogger);
               binder.bind(DruidSchemaCatalogProvider.class).toInstance(rootSchemaProvider);
               binder.bind(QueryLifecycleFactory.class)
@@ -373,6 +385,41 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
   }
 
   @Test
+  public void testUnknownContextKey() throws SQLException
+  {
+    final Properties propertiesSetUnknownKey = new Properties();
+    propertiesSetUnknownKey.setProperty("user", "regularUserLA");
+    propertiesSetUnknownKey.setProperty("useCahce", "false");
+    try (Statement stmt = DriverManager.getConnection(server.url, propertiesSetUnknownKey).createStatement()) {
+      AvaticaSqlException e = Assertions.assertThrows(AvaticaSqlException.class, () -> {
+        stmt.executeQuery("SELECT COUNT(*) AS cnt FROM druid.foo");
+      });
+      Assertions.assertTrue(
+          e.getMessage().contains("Unknown query context parameter [useCahce]. Did you mean [useCache]?"),
+          e.getMessage()
+      );
+    }
+  }
+
+  @Test
+  public void testUnknownContextKeyIsRejectedBeforeAuthorization() throws SQLException
+  {
+    final Properties propertiesSetForbiddenKey = new Properties();
+    propertiesSetForbiddenKey.setProperty("user", "regularUserLA");
+    propertiesSetForbiddenKey.setProperty("forbidden-key", "val");
+    try (Statement stmt = DriverManager.getConnection(server.url, propertiesSetForbiddenKey).createStatement()) {
+      AvaticaSqlException e = Assertions.assertThrows(AvaticaSqlException.class, () -> {
+        stmt.executeQuery("SELECT COUNT(*) AS cnt FROM druid.foo");
+      });
+      Assertions.assertTrue(e.getMessage().contains("Unknown query context parameter [forbidden-key]."), e.getMessage());
+    }
+  }
+
+  /**
+   * The authorizer only denies context keys with "forbidden" in their name, which are not query context parameters.
+   */
+  @Test
+  @Tag(ACCEPT_UNKNOWN_CONTEXT_PARAMETERS)
   public void testForbiddenContextKey() throws SQLException
   {
     final Properties propertiesSetForbiddenKey = new Properties();

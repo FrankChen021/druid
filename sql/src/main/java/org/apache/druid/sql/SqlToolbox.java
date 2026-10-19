@@ -21,6 +21,7 @@ package org.apache.druid.sql;
 
 import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
+import org.apache.druid.query.context.QueryContextConfig;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
@@ -37,6 +38,7 @@ public class SqlToolbox
   final RequestLogger requestLogger;
   final QueryScheduler queryScheduler;
   final SqlLifecycleManager sqlLifecycleManager;
+  final QueryContextConfig queryContextConfig;
 
   public SqlToolbox(
       final SqlEngine engine,
@@ -44,7 +46,8 @@ public class SqlToolbox
       final ServiceEmitter emitter,
       final RequestLogger requestLogger,
       final QueryScheduler queryScheduler,
-      final SqlLifecycleManager sqlLifecycleManager
+      final SqlLifecycleManager sqlLifecycleManager,
+      final QueryContextConfig queryContextConfig
   )
   {
     this.engine = engine;
@@ -53,6 +56,7 @@ public class SqlToolbox
     this.requestLogger = requestLogger;
     this.queryScheduler = queryScheduler;
     this.sqlLifecycleManager = Preconditions.checkNotNull(sqlLifecycleManager, "sqlLifecycleManager");
+    this.queryContextConfig = Preconditions.checkNotNull(queryContextConfig, "queryContextConfig");
   }
 
   public SqlToolbox withEngine(final SqlEngine engine)
@@ -63,7 +67,8 @@ public class SqlToolbox
         emitter,
         requestLogger,
         queryScheduler,
-        sqlLifecycleManager
+        sqlLifecycleManager,
+        queryContextConfig
     );
   }
 }

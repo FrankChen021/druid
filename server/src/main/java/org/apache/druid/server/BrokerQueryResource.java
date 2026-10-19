@@ -28,6 +28,7 @@ import org.apache.druid.client.TimelineServerView;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.query.CloneQueryMode;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.context.QueryContextConfig;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.planning.ExecutionVertex;
 import org.apache.druid.server.http.security.StateResourceFilter;
@@ -54,6 +55,7 @@ import java.io.InputStream;
 public class BrokerQueryResource extends QueryResource
 {
   private final TimelineServerView brokerServerView;
+  private final QueryContextConfig queryContextConfig;
 
   @Inject
   public BrokerQueryResource(
@@ -64,7 +66,8 @@ public class BrokerQueryResource extends QueryResource
       QueryResourceQueryResultPusherFactory queryResultPusherFactory,
       ResourceIOReaderWriterFactory resourceIOReaderWriterFactory,
       ServerConfig serverConfig,
-      TimelineServerView brokerServerView
+      TimelineServerView brokerServerView,
+      QueryContextConfig queryContextConfig
   )
   {
     super(
@@ -77,6 +80,13 @@ public class BrokerQueryResource extends QueryResource
         serverConfig
     );
     this.brokerServerView = brokerServerView;
+    this.queryContextConfig = queryContextConfig;
+  }
+
+  @Override
+  protected void validateQueryContext(final Query<?> query)
+  {
+    queryContextConfig.validateParameterNames(query.getContext().keySet());
   }
 
   @POST

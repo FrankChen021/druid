@@ -257,8 +257,8 @@ public class DruidPlannerResourceAnalyzeTest extends BaseCalciteQueryTest
   {
     final AuthConfig authConfig = AuthConfig.newBuilder().setAuthorizeQueryContextParams(true).build();
     final Map<String, Object> context = ImmutableMap.of(
-        "baz", "fo",
-        "nested-bar", ImmutableMap.of("nested-key", "nested-val")
+        "lane", "fo",
+        "indexSpec", ImmutableMap.of("nested-key", "nested-val")
     );
     testSysTable("SELECT * FROM sys.segments", null, context, PLANNER_CONFIG_DEFAULT, authConfig);
     testSysTable("SELECT * FROM sys.servers", null, context, PLANNER_CONFIG_DEFAULT, authConfig);
@@ -289,7 +289,7 @@ public class DruidPlannerResourceAnalyzeTest extends BaseCalciteQueryTest
   public void testQueryContext()
   {
     final String sql = "SELECT COUNT(*) FROM foo WHERE foo.dim1 <> 'z'";
-    Map<String, Object> context = ImmutableMap.of("baz", "fo", "nested-bar", ImmutableMap.of("nested-key", "nested-val"));
+    Map<String, Object> context = ImmutableMap.of("lane", "fo", "indexSpec", ImmutableMap.of("nested-key", "nested-val"));
     analyzeResources(
         PLANNER_CONFIG_DEFAULT,
         AuthConfig.newBuilder().setAuthorizeQueryContextParams(true).build(),
@@ -301,8 +301,8 @@ public class DruidPlannerResourceAnalyzeTest extends BaseCalciteQueryTest
             new ResourceAction(new Resource("maxScatterGatherBytes", ResourceType.QUERY_CONTEXT), Action.WRITE),
             new ResourceAction(new Resource("defaultTimeout", ResourceType.QUERY_CONTEXT), Action.WRITE),
             new ResourceAction(new Resource("foo", ResourceType.DATASOURCE), Action.READ),
-            new ResourceAction(new Resource("baz", ResourceType.QUERY_CONTEXT), Action.WRITE),
-            new ResourceAction(new Resource("nested-bar", ResourceType.QUERY_CONTEXT), Action.WRITE)
+            new ResourceAction(new Resource("lane", ResourceType.QUERY_CONTEXT), Action.WRITE),
+            new ResourceAction(new Resource("indexSpec", ResourceType.QUERY_CONTEXT), Action.WRITE)
         )
     );
   }
@@ -310,7 +310,7 @@ public class DruidPlannerResourceAnalyzeTest extends BaseCalciteQueryTest
   @Test
   public void testQueryContextSetStatement()
   {
-    final String sql = "SET baz = 'fo'; SELECT COUNT(*) FROM foo WHERE foo.dim1 <> 'z'";
+    final String sql = "SET lane = 'fo'; SELECT COUNT(*) FROM foo WHERE foo.dim1 <> 'z'";
     analyzeResources(
         PLANNER_CONFIG_DEFAULT,
         AuthConfig.newBuilder().setAuthorizeQueryContextParams(true).build(),
@@ -322,7 +322,7 @@ public class DruidPlannerResourceAnalyzeTest extends BaseCalciteQueryTest
             new ResourceAction(new Resource("maxScatterGatherBytes", ResourceType.QUERY_CONTEXT), Action.WRITE),
             new ResourceAction(new Resource("defaultTimeout", ResourceType.QUERY_CONTEXT), Action.WRITE),
             new ResourceAction(new Resource("foo", ResourceType.DATASOURCE), Action.READ),
-            new ResourceAction(new Resource("baz", ResourceType.QUERY_CONTEXT), Action.WRITE)
+            new ResourceAction(new Resource("lane", ResourceType.QUERY_CONTEXT), Action.WRITE)
 
         )
     );

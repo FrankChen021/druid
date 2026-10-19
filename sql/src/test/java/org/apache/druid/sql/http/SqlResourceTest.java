@@ -62,6 +62,7 @@ import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ResourceLimitExceededException;
+import org.apache.druid.query.context.QueryContextConfig;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
@@ -280,7 +281,8 @@ public class SqlResourceTest extends CalciteTestBase
         stubServiceEmitter,
         testRequestLogger,
         scheduler,
-        lifecycleManager
+        lifecycleManager,
+        QueryContextConfig.DEFAULT
     );
     sqlStatementFactory = new SqlStatementFactory(null)
     {
@@ -1541,6 +1543,40 @@ public class SqlResourceTest extends CalciteTestBase
         "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [0]"
     );
     Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
+    Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
+  }
+
+  @Test
+  public void testUnknownContextParameterReturnsBadRequest() throws Exception
+  {
+    final ErrorResponse errorResponse = postSyncForException(
+        new SqlQuery(
+            "SELECT 1",
+            null,
+            false,
+            false,
+            false,
+            ImmutableMap.of(QueryContextParameters.SQL_QUERY_ID.getName(), "id", "useCahce", false),
+            null
+        ),
+        Status.BAD_REQUEST.getStatusCode()
+    );
+
+    final DruidException exception = validateInvalidInputError(errorResponse, "Unknown query context parameter [useCahce]. Did you mean [useCache]?");
+    Assertions.assertEquals("Unknown query context parameter [useCahce]. Did you mean [useCache]?", exception.getMessage());
+    Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
+  }
+
+  @Test
+  public void testUnknownSetParameterReturnsBadRequest() throws Exception
+  {
+    final ErrorResponse errorResponse = postSyncForException(
+        "SET myTraceId = 'abc-123'; SELECT 1",
+        Status.BAD_REQUEST.getStatusCode()
+    );
+
+    final DruidException exception = validateInvalidInputError(errorResponse, "Unknown query context parameter [myTraceId].");
+    Assertions.assertEquals("Unknown query context parameter [myTraceId].", exception.getMessage());
     Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
   }
 

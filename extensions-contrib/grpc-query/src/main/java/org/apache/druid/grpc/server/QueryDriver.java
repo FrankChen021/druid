@@ -45,6 +45,7 @@ import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContextBuilder;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryToolChest;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
@@ -86,7 +87,7 @@ public class QueryDriver
 {
   private static final Logger log = new Logger(QueryDriver.class);
 
-  private static final String TIME_FIELD_KEY = "timeFieldKey";
+  private static final String TIME_FIELD_KEY = QueryContextParameters.TIME_FIELD_KEY.getName();
 
   /**
    * Internal runtime exception to report request errors.

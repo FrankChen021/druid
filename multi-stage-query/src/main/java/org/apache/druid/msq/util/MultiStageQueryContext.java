@@ -469,7 +469,7 @@ public class MultiStageQueryContext
       final boolean defaultValue
   )
   {
-    return queryContext.getBoolean(CTX_VIRTUAL_STORAGE_PARTIAL_DOWNLOADS, defaultValue);
+    return queryContext.getOrDefault(QueryContextParameters.VIRTUAL_STORAGE_PARTIAL_DOWNLOADS_ENABLED, defaultValue);
   }
 
   public static boolean isDurableStorageEnabled(final QueryContext queryContext)

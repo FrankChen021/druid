@@ -30,6 +30,7 @@ import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.GlobalTableDataSource;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QuerySegmentWalker;
+import org.apache.druid.query.context.QueryContextConfig;
 import org.apache.druid.query.lookup.LookupExtractorFactoryContainerProvider;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.segment.join.JoinableFactory;
@@ -103,14 +104,26 @@ public class QueryFrameworkUtils
 
   /**
    * Create a standard {@link SqlStatementFactory} for testing with a new {@link SqlToolbox} created by
-   * {@link #createTestToolbox(SqlEngine, PlannerFactory)}
+   * {@link #createTestToolbox(SqlEngine, PlannerFactory, QueryContextConfig)}
    */
   public static SqlStatementFactory createSqlStatementFactory(
       final SqlEngine engine,
       final PlannerFactory plannerFactory
   )
   {
-    return new SqlStatementFactory(createTestToolbox(engine, plannerFactory));
+    return createSqlStatementFactory(engine, plannerFactory, QueryContextConfig.DEFAULT);
+  }
+
+  /**
+   * As {@link #createSqlStatementFactory(SqlEngine, PlannerFactory)}, with the given {@link QueryContextConfig}.
+   */
+  public static SqlStatementFactory createSqlStatementFactory(
+      final SqlEngine engine,
+      final PlannerFactory plannerFactory,
+      final QueryContextConfig queryContextConfig
+  )
+  {
+    return new SqlStatementFactory(createTestToolbox(engine, plannerFactory, queryContextConfig));
   }
 
   /**
@@ -123,10 +136,18 @@ public class QueryFrameworkUtils
       final PlannerFactory plannerFactory
   )
   {
-    return new TestMultiStatementFactory(createTestToolbox(engine, plannerFactory), engine, plannerFactory);
+    return new TestMultiStatementFactory(
+        createTestToolbox(engine, plannerFactory, QueryContextConfig.DEFAULT),
+        engine,
+        plannerFactory
+    );
   }
 
-  private static SqlToolbox createTestToolbox(SqlEngine engine, PlannerFactory plannerFactory)
+  private static SqlToolbox createTestToolbox(
+      final SqlEngine engine,
+      final PlannerFactory plannerFactory,
+      final QueryContextConfig queryContextConfig
+  )
   {
     return new SqlToolbox(
         engine,
@@ -134,7 +155,8 @@ public class QueryFrameworkUtils
         NoopServiceEmitter.instance(),
         NoopRequestLogger.instance(),
         QueryStackTests.DEFAULT_NOOP_SCHEDULER,
-        new SqlLifecycleManager()
+        new SqlLifecycleManager(),
+        queryContextConfig
     );
   }
 

@@ -19,7 +19,9 @@
 
 package org.apache.druid.sql;
 
+import org.apache.druid.error.InvalidInput;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.server.security.Action;
@@ -129,6 +131,12 @@ public abstract class AbstractStatement implements Closeable
    */
   protected void validate(final DruidPlanner planner)
   {
+    try {
+      sqlToolbox.queryContextConfig.validateParameterNames(authContextKeys);
+    }
+    catch (BadQueryContextException e) {
+      throw InvalidInput.exception(e, "%s", e.getMessage());
+    }
     plannerContext = planner.getPlannerContext();
     plannerContext.setParameters(queryPlus.resolveParameters(plannerContext.getTimeZone()));
     planner.validate();

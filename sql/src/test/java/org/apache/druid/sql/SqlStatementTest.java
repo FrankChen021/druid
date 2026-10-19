@@ -39,6 +39,7 @@ import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QueryTimeoutException;
+import org.apache.druid.query.context.QueryContextConfig;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.query.policy.PolicyEnforcer;
@@ -580,7 +581,8 @@ public class SqlStatementTest
         new NoopServiceEmitter(),
         testRequestLogger,
         QueryStackTests.DEFAULT_NOOP_SCHEDULER,
-        new SqlLifecycleManager()
+        new SqlLifecycleManager(),
+        QueryContextConfig.DEFAULT
     );
     return new SqlStatementFactory(sqlToolbox);
   }

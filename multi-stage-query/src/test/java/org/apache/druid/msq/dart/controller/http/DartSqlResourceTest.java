@@ -61,6 +61,7 @@ import org.apache.druid.msq.test.MSQTestBase;
 import org.apache.druid.msq.test.MSQTestControllerContext;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.context.QueryContextConfig;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.server.DruidNode;
@@ -219,7 +220,8 @@ public class DartSqlResourceTest extends MSQTestBase
         NoopServiceEmitter.instance(),
         NoopRequestLogger.instance(),
         QueryStackTests.DEFAULT_NOOP_SCHEDULER,
-        lifecycleManager
+        lifecycleManager,
+        QueryContextConfig.DEFAULT
     );
 
     final DartSqlEngine engine = new DartSqlEngine(
