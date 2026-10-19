@@ -19,7 +19,6 @@
 
 package org.apache.druid.query.context;
 
-import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.query.BadQueryContextException;
 import org.junit.jupiter.api.Test;
 
@@ -100,33 +99,6 @@ class QueryContextParameterValidatorTest
     invalidValueFirst.put("zTraceId", "abc-123");
     invalidValueFirst.put("maxRowsQueuedForOrdering", 0);
     assertTrue(assertInvalid(invalidValueFirst, true).startsWith("Query context parameter [maxRowsQueuedForOrdering]"));
-  }
-
-  @Test
-  void testValidateDefaults()
-  {
-    final Map<String, Object> defaults = Map.of("useCahce", false);
-    QueryContextParameterValidator.validateDefaults(QueryContextConfig.DEFAULT, "druid.query.default.context", defaults);
-    // Not even values are validated unless unknown parameters are rejected.
-    QueryContextParameterValidator.validateDefaults(
-        QueryContextConfig.DEFAULT,
-        "druid.query.default.context",
-        Map.of("maxRowsQueuedForOrdering", 0)
-    );
-
-    final IAE e = assertThrows(
-        IAE.class,
-        () -> QueryContextParameterValidator.validateDefaults(
-            new QueryContextConfig(true),
-            "druid.query.default.context",
-            defaults
-        )
-    );
-    assertEquals(
-        "Invalid default query context [druid.query.default.context]: "
-        + "Unknown query context parameter [useCahce]. Did you mean [useCache]?",
-        e.getMessage()
-    );
   }
 
   @Test

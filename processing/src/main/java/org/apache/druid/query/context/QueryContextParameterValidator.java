@@ -20,7 +20,6 @@
 package org.apache.druid.query.context;
 
 import org.apache.commons.text.similarity.LevenshteinDistance;
-import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.BadQueryContextException;
 
@@ -58,32 +57,6 @@ public final class QueryContextParameterValidator
         throw unknownParameterException(name, declaredParameters.values());
       }
     });
-  }
-
-  /**
-   * Validates a default query context that operators configure, such as {@code druid.query.default.context}, when
-   * {@code queryContextConfig} rejects unknown parameters. Defaults are merged into every query, so they are validated
-   * when they are configured rather than with each query, and an invalid default is reported as a configuration error.
-   *
-   * @param source where the default context is configured, such as a property prefix, for the error message
-   *
-   * @throws IAE for the first invalid parameter
-   */
-  public static void validateDefaults(
-      final QueryContextConfig queryContextConfig,
-      final String source,
-      final Map<String, Object> defaults
-  )
-  {
-    if (!queryContextConfig.isRejectUnknownParameters()) {
-      return;
-    }
-    try {
-      validate(defaults, true);
-    }
-    catch (BadQueryContextException e) {
-      throw new IAE("Invalid default query context [%s]: %s", source, e.getMessage());
-    }
   }
 
   private static BadQueryContextException unknownParameterException(

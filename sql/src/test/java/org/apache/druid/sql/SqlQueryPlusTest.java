@@ -42,41 +42,14 @@ public class SqlQueryPlusTest
   }
 
   @Test
-  public void testSetParameterConstraintIsValidated()
+  public void testSetParameterValueIsNotValidatedWhenBuilding()
   {
-    final DruidException e = Assertions.assertThrows(
-        DruidException.class,
-        () -> SqlQueryPlus.builder("SET maxRowsQueuedForOrdering = 0; SELECT 1")
-                          .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
-                          .build()
-    );
+    // Statements validate the user context, including SET values, when they plan the query.
+    final SqlQueryPlus query = SqlQueryPlus.builder("SET maxRowsQueuedForOrdering = 0; SELECT 1")
+                                           .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
+                                           .build();
 
-    BaseCalciteQueryTest.assertDruidException(
-        e,
-        DruidExceptionMatcher
-            .invalidSqlInput()
-            .expectMessageContains(
-                "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [0]"
-            )
-    );
-  }
-
-  @Test
-  public void testSetParameterParserFailureIsInvalidSqlInput()
-  {
-    final DruidException e = Assertions.assertThrows(
-        DruidException.class,
-        () -> SqlQueryPlus.builder("SET maxRowsQueuedForOrdering = 'not-an-int'; SELECT 1")
-                          .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
-                          .build()
-    );
-
-    BaseCalciteQueryTest.assertDruidException(
-        e,
-        DruidExceptionMatcher
-            .invalidSqlInput()
-            .expectMessageContains("Query context parameter [maxRowsQueuedForOrdering] should be in integer format, but got [not-an-int]")
-    );
+    Assertions.assertEquals(0L, query.userContext().get("maxRowsQueuedForOrdering"));
   }
 
   @Test

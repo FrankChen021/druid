@@ -27,7 +27,6 @@ import org.apache.druid.common.config.JacksonConfigManager;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.context.QueryContextConfig;
-import org.apache.druid.query.context.QueryContextParameterValidator;
 import org.apache.druid.server.broker.BrokerDynamicConfig;
 import org.apache.druid.server.http.security.ConfigResourceFilter;
 import org.apache.druid.server.security.AuthorizationUtils;
@@ -93,8 +92,7 @@ public class CoordinatorBrokerConfigsResource
     try {
       BrokerDynamicConfig current = currentConfig.get();
       BrokerDynamicConfig newConfig = configBuilder.build(current);
-      QueryContextParameterValidator.validateDefaults(
-          queryContextConfig,
+      queryContextConfig.validateDefaults(
           "queryContext of the Broker dynamic configuration",
           newConfig.getQueryContext().asMap()
       );

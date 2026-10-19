@@ -70,6 +70,7 @@ import org.apache.druid.msq.sql.entity.ResultSetInformation;
 import org.apache.druid.msq.sql.entity.SqlStatementResult;
 import org.apache.druid.msq.util.MultiStageQueryContext;
 import org.apache.druid.msq.util.SqlStatementResourceHelper;
+import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.ExecutionMode;
 import org.apache.druid.query.QueryConfigProvider;
 import org.apache.druid.query.QueryContext;
@@ -223,7 +224,6 @@ public class SqlStatementResource
     final String sqlQueryId = stmt.sqlQueryId();
     final String currThreadName = Thread.currentThread().getName();
     final QueryContext queryContext = QueryContext.of(sqlQueryPlus.context());
-    final boolean isDebug = queryContext.isDebug();
     try {
       contextChecks(queryContext);
 
@@ -260,7 +260,7 @@ public class SqlStatementResource
     // Calcite throws java.lang.AssertionError at various points in planning/validation.
     catch (AssertionError | Exception e) {
       stmt.reporter().failed(e);
-      if (isDebug) {
+      if (isDebug(queryContext)) {
         log.warn(e, "Failed to handle query [%s]", sqlQueryId);
       } else {
         log.noStackTrace().warn(e, "Failed to handle query [%s]", sqlQueryId);
@@ -277,6 +277,20 @@ public class SqlStatementResource
     }
   }
 
+
+  /**
+   * Whether the query is in debug mode, for logging a failure. False if the context's debug value is invalid, which is
+   * then reported as the failure of the query.
+   */
+  private static boolean isDebug(final QueryContext queryContext)
+  {
+    try {
+      return queryContext.isDebug();
+    }
+    catch (BadQueryContextException e) {
+      return false;
+    }
+  }
 
   @GET
   @Path("/{id}")

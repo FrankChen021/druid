@@ -23,7 +23,6 @@ import org.apache.druid.error.InvalidInput;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.QueryContexts;
-import org.apache.druid.query.context.QueryContextParameterValidator;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthorizationResult;
@@ -135,10 +134,7 @@ public abstract class AbstractStatement implements Closeable
     plannerContext = planner.getPlannerContext();
     // Only the parameters that the user set: the system defaults are validated where they are configured.
     try {
-      QueryContextParameterValidator.validate(
-          queryPlus.userContext(),
-          sqlToolbox.queryContextConfig.isRejectUnknownParameters()
-      );
+      sqlToolbox.queryContextConfig.validate(queryPlus.userContext());
     }
     catch (BadQueryContextException e) {
       throw InvalidInput.exception(e, "%s", e.getMessage());

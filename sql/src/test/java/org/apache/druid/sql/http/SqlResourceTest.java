@@ -1537,11 +1537,27 @@ public class SqlResourceTest extends CalciteTestBase
         Status.BAD_REQUEST.getStatusCode()
     );
 
-    validateInvalidSqlError(
+    validateInvalidInputError(
         errorResponse,
         "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [0]"
     );
-    Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
+    checkSqlRequestLog(false);
+    Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
+  }
+
+  @Test
+  public void testUnparseableSetParameterReturnsBadRequest() throws Exception
+  {
+    final ErrorResponse errorResponse = postSyncForException(
+        "SET maxRowsQueuedForOrdering = 'not-an-int'; SELECT 1",
+        Status.BAD_REQUEST.getStatusCode()
+    );
+
+    validateInvalidInputError(
+        errorResponse,
+        "Query context parameter [maxRowsQueuedForOrdering] should be in integer format, but got [not-an-int]"
+    );
+    checkSqlRequestLog(false);
     Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
   }
 

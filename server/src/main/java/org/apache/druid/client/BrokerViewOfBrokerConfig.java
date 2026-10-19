@@ -33,7 +33,6 @@ import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.QueryConfigProvider;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.context.QueryContextConfig;
-import org.apache.druid.query.context.QueryContextParameterValidator;
 import org.apache.druid.rpc.ServiceClientFactory;
 import org.apache.druid.rpc.ServiceLocator;
 import org.apache.druid.rpc.StandardRetryPolicy;
@@ -107,11 +106,7 @@ public class BrokerViewOfBrokerConfig extends BaseBrokerViewOfConfig<BrokerDynam
       final QueryContextConfig queryContextConfig
   )
   {
-    QueryContextParameterValidator.validateDefaults(
-        queryContextConfig,
-        DEFAULT_QUERY_CONTEXT_PROPERTY,
-        defaultQueryConfig.getContext()
-    );
+    queryContextConfig.validateDefaults(DEFAULT_QUERY_CONTEXT_PROPERTY, defaultQueryConfig.getContext());
   }
 
   @Override

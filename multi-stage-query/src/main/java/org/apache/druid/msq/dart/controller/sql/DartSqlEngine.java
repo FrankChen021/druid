@@ -52,7 +52,6 @@ import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.QueryConfigProvider;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.context.QueryContextConfig;
-import org.apache.druid.query.context.QueryContextParameterValidator;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.initialization.ServerConfig;
@@ -111,8 +110,7 @@ public class DartSqlEngine implements SqlEngine
       QueryContextConfig queryContextConfig
   )
   {
-    QueryContextParameterValidator.validateDefaults(
-        queryContextConfig,
+    queryContextConfig.validateDefaults(
         DartModules.DART_PROPERTY_BASE + ".query.context",
         queryConfigProvider.getContext()
     );

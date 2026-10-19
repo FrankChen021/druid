@@ -24,10 +24,7 @@ import org.apache.calcite.avatica.SqlType;
 import org.apache.calcite.avatica.remote.TypedValue;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.druid.error.DruidException;
-import org.apache.druid.error.InvalidSqlInput;
-import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.QueryContexts;
-import org.apache.druid.query.context.QueryContextParameterValidator;
 import org.apache.druid.query.http.ClientSqlParameter;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.sql.calcite.parser.DruidSqlParser;
@@ -315,12 +312,6 @@ public class SqlQueryPlus
     public SqlQueryPlus build()
     {
       final StatementAndSetContext statementAndSetContext = DruidSqlParser.parse(sql, true);
-      try {
-        QueryContextParameterValidator.validate(statementAndSetContext.getSetContext(), false);
-      }
-      catch (BadQueryContextException e) {
-        throw InvalidSqlInput.exception(e, "Invalid query context parameter value: %s", e.getMessage());
-      }
       final Map<String, Object> userProvidedContext = statementAndSetContext.getSetContext().isEmpty()
                                                       ? queryContext
                                                       : QueryContexts.override(

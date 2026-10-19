@@ -185,6 +185,28 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
   }
 
   @Test
+  public void testInvalidSetParameterValue()
+  {
+    // The statement is created before the context is validated, so the failure must still be returned as a response.
+    SqlStatementResourceTest.assertExceptionMessage(
+        resource.doPost(
+            new SqlQuery(
+                "SET debug = 1; select * from foo",
+                null,
+                false,
+                false,
+                false,
+                QueryContext.ofMap(QueryContextParameters.EXECUTION_MODE, ExecutionMode.ASYNC),
+                null
+            ),
+            SqlStatementResourceTest.makeOkRequest()
+        ),
+        "Query context parameter [debug] should be a boolean, but got [1]",
+        Response.Status.BAD_REQUEST
+    );
+  }
+
+  @Test
   public void emptyInsert()
   {
     Response response = resource.doPost(new SqlQuery(
