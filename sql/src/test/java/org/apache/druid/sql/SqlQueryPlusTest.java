@@ -25,10 +25,8 @@ import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class SqlQueryPlusTest
@@ -60,20 +58,33 @@ public class SqlQueryPlusTest
             )
     );
 
-    final SqlQueryPlus.Builder builder = SqlQueryPlus.builder("SELECT 1")
-                                                     .queryContext(Map.of("sqlQueryId", 1))
-                                                     .auth(CalciteTests.REGULAR_USER_AUTH_RESULT);
-    for (final Executable build : List.<Executable>of(builder::build, builder::buildJdbc)) {
-      BaseCalciteQueryTest.assertDruidException(
-          Assertions.assertThrows(DruidException.class, build),
-          DruidExceptionMatcher
-              .invalidSqlInput()
-              .expectMessageContains("Query context parameter [sqlQueryId] should be a string, but got [1]")
-      );
-    }
+    BaseCalciteQueryTest.assertDruidException(
+        Assertions.assertThrows(
+            DruidException.class,
+            () -> SqlQueryPlus.builder("SELECT 1")
+                              .queryContext(Map.of("sqlQueryId", 1))
+                              .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
+                              .build()
+        ),
+        DruidExceptionMatcher
+            .invalidSqlInput()
+            .expectMessageContains("Query context parameter [sqlQueryId] should be a string, but got [1]")
+    );
+  }
 
-    // Unknown parameters are rejected, as configured, by statements.
-    SqlQueryPlus.builder("SET myTraceId = 'abc-123'; SELECT 1").auth(CalciteTests.REGULAR_USER_AUTH_RESULT).build();
+  @Test
+  public void testUnknownParametersAreRejectedIfConfigured()
+  {
+    final SqlQueryPlus.Builder builder = SqlQueryPlus.builder("SET myTraceId = 'abc-123'; SELECT 1")
+                                                     .auth(CalciteTests.REGULAR_USER_AUTH_RESULT);
+    builder.build();
+
+    BaseCalciteQueryTest.assertDruidException(
+        Assertions.assertThrows(DruidException.class, () -> builder.rejectUnknownParameters(true).build()),
+        DruidExceptionMatcher
+            .invalidSqlInput()
+            .expectMessageContains("Unknown query context parameter [myTraceId].")
+    );
   }
 
   @Test

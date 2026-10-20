@@ -67,7 +67,6 @@ import org.apache.druid.sql.calcite.planner.PlannerResult;
 import org.apache.druid.sql.calcite.planner.PrepareResult;
 import org.apache.druid.sql.calcite.schema.DruidSchemaCatalogProvider;
 import org.apache.druid.sql.calcite.util.CalciteTests;
-import org.apache.druid.sql.calcite.util.QueryFrameworkUtils;
 import org.apache.druid.sql.hook.DruidHookDispatcher;
 import org.easymock.EasyMock;
 import org.junit.jupiter.api.AfterAll;
@@ -581,8 +580,7 @@ public class SqlStatementTest
         new NoopServiceEmitter(),
         testRequestLogger,
         QueryStackTests.DEFAULT_NOOP_SCHEDULER,
-        new SqlLifecycleManager(),
-        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG
+        new SqlLifecycleManager()
     );
     return new SqlStatementFactory(sqlToolbox);
   }

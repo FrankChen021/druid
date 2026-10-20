@@ -220,8 +220,7 @@ public class DartSqlResourceTest extends MSQTestBase
         NoopServiceEmitter.instance(),
         NoopRequestLogger.instance(),
         QueryStackTests.DEFAULT_NOOP_SCHEDULER,
-        lifecycleManager,
-        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG
+        lifecycleManager
     );
 
     final DartSqlEngine engine = new DartSqlEngine(
@@ -291,7 +290,8 @@ public class DartSqlResourceTest extends MSQTestBase
             SELF_NODE
         ),
         DefaultQueryConfig.NIL,
-        new ServerConfig()
+        new ServerConfig(),
+        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG
     );
 
     // Setup mocks

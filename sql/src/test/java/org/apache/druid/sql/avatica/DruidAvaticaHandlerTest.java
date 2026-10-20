@@ -385,33 +385,34 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
   }
 
   @Test
-  public void testUnknownContextKey() throws SQLException
+  public void testUnknownContextKey()
   {
     final Properties propertiesSetUnknownKey = new Properties();
     propertiesSetUnknownKey.setProperty("user", "regularUserLA");
     propertiesSetUnknownKey.setProperty("useCahce", "false");
-    try (Statement stmt = DriverManager.getConnection(server.url, propertiesSetUnknownKey).createStatement()) {
-      AvaticaSqlException e = Assertions.assertThrows(AvaticaSqlException.class, () -> {
-        stmt.executeQuery("SELECT COUNT(*) AS cnt FROM druid.foo");
-      });
-      Assertions.assertTrue(
-          e.getMessage().contains("Unknown query context parameter [useCahce]. Did you mean [useCache]?"),
-          e.getMessage()
-      );
-    }
+    // The connection properties are the context of every statement, so they're validated when the connection opens.
+    final Exception e = Assertions.assertThrows(Exception.class, () -> runQuery(propertiesSetUnknownKey));
+    Assertions.assertTrue(
+        e.getMessage().contains("Unknown query context parameter [useCahce]. Did you mean [useCache]?"),
+        e.getMessage()
+    );
   }
 
   @Test
-  public void testUnknownContextKeyIsRejectedBeforeAuthorization() throws SQLException
+  public void testUnknownContextKeyIsRejectedBeforeAuthorization()
   {
     final Properties propertiesSetForbiddenKey = new Properties();
     propertiesSetForbiddenKey.setProperty("user", "regularUserLA");
     propertiesSetForbiddenKey.setProperty("forbidden-key", "val");
-    try (Statement stmt = DriverManager.getConnection(server.url, propertiesSetForbiddenKey).createStatement()) {
-      AvaticaSqlException e = Assertions.assertThrows(AvaticaSqlException.class, () -> {
-        stmt.executeQuery("SELECT COUNT(*) AS cnt FROM druid.foo");
-      });
-      Assertions.assertTrue(e.getMessage().contains("Unknown query context parameter [forbidden-key]."), e.getMessage());
+    final Exception e = Assertions.assertThrows(Exception.class, () -> runQuery(propertiesSetForbiddenKey));
+    Assertions.assertTrue(e.getMessage().contains("Unknown query context parameter [forbidden-key]."), e.getMessage());
+  }
+
+  private void runQuery(final Properties properties) throws SQLException
+  {
+    try (Connection connection = DriverManager.getConnection(server.url, properties);
+         Statement stmt = connection.createStatement()) {
+      stmt.executeQuery("SELECT COUNT(*) AS cnt FROM druid.foo");
     }
   }
 
@@ -1182,6 +1183,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
     final DruidMeta druidMeta = new DruidMeta(
         makeStatementFactory(),
         DefaultQueryConfig.NIL,
+        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG,
         config,
         new ErrorHandler(new ServerConfig()),
         exec,
@@ -1290,6 +1292,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
     DruidMeta smallFrameDruidMeta = new DruidMeta(
         makeStatementFactory(),
         DefaultQueryConfig.NIL,
+        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG,
         config,
         new ErrorHandler(new ServerConfig()),
         exec,
@@ -1348,6 +1351,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
     DruidMeta smallFrameDruidMeta = new DruidMeta(
         makeStatementFactory(),
         DefaultQueryConfig.NIL,
+        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG,
         config,
         new ErrorHandler(new ServerConfig()),
         exec,
@@ -1908,6 +1912,7 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
     DruidMeta druidMeta = new DruidMeta(
         makeStatementFactory(),
         DefaultQueryConfig.NIL,
+        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG,
         config,
         new ErrorHandler(new ServerConfig()),
         exec,

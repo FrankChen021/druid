@@ -110,26 +110,14 @@ public class QueryFrameworkUtils
 
   /**
    * Create a standard {@link SqlStatementFactory} for testing with a new {@link SqlToolbox} created by
-   * {@link #createTestToolbox(SqlEngine, PlannerFactory, QueryContextConfig)}
+   * {@link #createTestToolbox(SqlEngine, PlannerFactory)}
    */
   public static SqlStatementFactory createSqlStatementFactory(
       final SqlEngine engine,
       final PlannerFactory plannerFactory
   )
   {
-    return createSqlStatementFactory(engine, plannerFactory, TEST_QUERY_CONTEXT_CONFIG);
-  }
-
-  /**
-   * As {@link #createSqlStatementFactory(SqlEngine, PlannerFactory)}, with the given {@link QueryContextConfig}.
-   */
-  public static SqlStatementFactory createSqlStatementFactory(
-      final SqlEngine engine,
-      final PlannerFactory plannerFactory,
-      final QueryContextConfig queryContextConfig
-  )
-  {
-    return new SqlStatementFactory(createTestToolbox(engine, plannerFactory, queryContextConfig));
+    return new SqlStatementFactory(createTestToolbox(engine, plannerFactory));
   }
 
   /**
@@ -142,18 +130,10 @@ public class QueryFrameworkUtils
       final PlannerFactory plannerFactory
   )
   {
-    return new TestMultiStatementFactory(
-        createTestToolbox(engine, plannerFactory, TEST_QUERY_CONTEXT_CONFIG),
-        engine,
-        plannerFactory
-    );
+    return new TestMultiStatementFactory(createTestToolbox(engine, plannerFactory), engine, plannerFactory);
   }
 
-  private static SqlToolbox createTestToolbox(
-      final SqlEngine engine,
-      final PlannerFactory plannerFactory,
-      final QueryContextConfig queryContextConfig
-  )
+  private static SqlToolbox createTestToolbox(SqlEngine engine, PlannerFactory plannerFactory)
   {
     return new SqlToolbox(
         engine,
@@ -161,8 +141,7 @@ public class QueryFrameworkUtils
         NoopServiceEmitter.instance(),
         NoopRequestLogger.instance(),
         QueryStackTests.DEFAULT_NOOP_SCHEDULER,
-        new SqlLifecycleManager(),
-        queryContextConfig
+        new SqlLifecycleManager()
     );
   }
 

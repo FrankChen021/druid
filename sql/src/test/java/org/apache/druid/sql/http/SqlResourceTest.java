@@ -280,8 +280,7 @@ public class SqlResourceTest extends CalciteTestBase
         stubServiceEmitter,
         testRequestLogger,
         scheduler,
-        lifecycleManager,
-        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG
+        lifecycleManager
     );
     sqlStatementFactory = new SqlStatementFactory(null)
     {
@@ -330,7 +329,8 @@ public class SqlResourceTest extends CalciteTestBase
             DUMMY_DRUID_NODE
         ),
         DefaultQueryConfig.NIL,
-        new ServerConfig()
+        new ServerConfig(),
+        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG
     );
   }
 
@@ -606,7 +606,8 @@ public class SqlResourceTest extends CalciteTestBase
             DUMMY_DRUID_NODE
         ),
         queryConfigWithTimezone,
-        new ServerConfig()
+        new ServerConfig(),
+        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG
     );
 
     final List<Map<String, Object>> rows = doPost(
@@ -1592,7 +1593,7 @@ public class SqlResourceTest extends CalciteTestBase
 
     final DruidException exception = validateInvalidInputError(errorResponse, "Unknown query context parameter [useCahce]. Did you mean [useCache]?");
     Assertions.assertEquals("Unknown query context parameter [useCahce]. Did you mean [useCache]?", exception.getMessage());
-    checkSqlRequestLog(false);
+    Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
     Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
   }
 
@@ -1620,7 +1621,7 @@ public class SqlResourceTest extends CalciteTestBase
 
     final DruidException exception = validateInvalidInputError(errorResponse, "Unknown query context parameter [myTraceId].");
     Assertions.assertEquals("Unknown query context parameter [myTraceId].", exception.getMessage());
-    checkSqlRequestLog(false);
+    Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
     Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
   }
 
@@ -1877,7 +1878,8 @@ public class SqlResourceTest extends CalciteTestBase
             DUMMY_DRUID_NODE
         ),
         DefaultQueryConfig.NIL,
-        new ServerConfig()
+        new ServerConfig(),
+        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG
     );
 
     String errorMessage = "This will be supported in Druid 9999";

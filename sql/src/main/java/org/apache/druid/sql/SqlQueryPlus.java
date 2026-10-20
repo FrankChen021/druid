@@ -259,6 +259,7 @@ public class SqlQueryPlus
     private String sql;
     private Map<String, Object> systemDefaultContext;
     private Map<String, Object> queryContext;
+    private boolean rejectUnknownParameters;
     private List<ParameterBinding> parameters;
     private AuthenticationResult authResult;
 
@@ -299,6 +300,19 @@ public class SqlQueryPlus
       return this;
     }
 
+    /**
+     * Sets whether to reject the parameters of the user-provided query context that are not declared in
+     * {@link org.apache.druid.query.context.QueryContextParameters}, as configured by
+     * {@link org.apache.druid.query.context.QueryContextConfig#isRejectUnknownParameters()}, in {@link #build()}. Off by
+     * default. {@link #buildJdbc()} doesn't validate the context, which comes from the connection: it's validated when
+     * the connection is opened.
+     */
+    public Builder rejectUnknownParameters(final boolean rejectUnknownParameters)
+    {
+      this.rejectUnknownParameters = rejectUnknownParameters;
+      return this;
+    }
+
     public Builder auth(final AuthenticationResult authResult)
     {
       this.authResult = authResult;
@@ -321,7 +335,7 @@ public class SqlQueryPlus
                                                           queryContext,
                                                           statementAndSetContext.getSetContext()
                                                       );
-      validateValues(userProvidedContext);
+      validateContext(userProvidedContext);
       final Map<String, Object> stmtContext = QueryContexts.withDefaults(systemDefaultContext, userProvidedContext);
       return new SqlQueryPlus(
           sql,
@@ -343,7 +357,6 @@ public class SqlQueryPlus
      */
     public SqlQueryPlus buildJdbc()
     {
-      validateValues(queryContext);
       return new SqlQueryPlus(
           sql,
           null,
@@ -356,16 +369,16 @@ public class SqlQueryPlus
     }
 
     /**
-     * Validates the values of the parameters that the user set, before anything reads them. Statements also reject
-     * unknown parameters, as configured, when they plan the query.
+     * Validates the parameters that the user set, before anything reads them: their values and, if
+     * {@link #rejectUnknownParameters}, their names. System defaults are validated where they are configured.
      */
-    private static void validateValues(@Nullable final Map<String, Object> userProvidedContext)
+    private void validateContext(@Nullable final Map<String, Object> userProvidedContext)
     {
       if (userProvidedContext == null) {
         return;
       }
       try {
-        QueryContextParameterValidator.validate(userProvidedContext, false);
+        QueryContextParameterValidator.validate(userProvidedContext, rejectUnknownParameters);
       }
       catch (BadQueryContextException e) {
         throw InvalidSqlInput.exception(e, "%s", e.getMessage());

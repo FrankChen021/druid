@@ -40,7 +40,6 @@ import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthenticatorMapper;
 import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
 import org.apache.druid.sql.calcite.util.CalciteTests;
-import org.apache.druid.sql.calcite.util.QueryFrameworkUtils;
 import org.apache.druid.sql.calcite.util.SqlTestFramework;
 import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.AfterEach;
@@ -75,15 +74,11 @@ public class BasicAuthTest extends BaseCalciteQueryTest
     );
     QueryDriver driver = new QueryDriver(
         sqlTestFramework.queryJsonMapper(),
-        // The tests of context key authorization use forbiddenKey, which is not a query context parameter.
-        QueryFrameworkUtils.createSqlStatementFactory(
-            sqlTestFramework.engine(),
-            plannerFixture.plannerFactory(),
-            new QueryContextConfig(false)
-        ),
+        plannerFixture.statementFactory(),
         new DefaultQueryConfig(Map.of("forbiddenKey", "system-default-value")), // system default forbidden key, only superuser can change it
         sqlTestFramework.queryLifecycleFactory(),
-        TestServer.NOOP_SCHEDULER
+        TestServer.NOOP_SCHEDULER,
+        QueryContextConfig.DEFAULT
     );
 
     CredentialsValidator validator = new CredentialsValidator()

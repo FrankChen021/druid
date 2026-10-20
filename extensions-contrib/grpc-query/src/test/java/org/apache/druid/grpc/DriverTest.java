@@ -31,6 +31,7 @@ import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
 import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.apache.druid.sql.calcite.util.QueryFrameworkUtils;
 import org.apache.druid.sql.calcite.util.SqlTestFramework;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,7 +61,8 @@ public class DriverTest extends BaseCalciteQueryTest
         plannerFixture.statementFactory(),
         new DefaultQueryConfig(Map.of()),
         sqlTestFramework.queryLifecycleFactory(),
-        TestServer.NOOP_SCHEDULER
+        TestServer.NOOP_SCHEDULER,
+        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG
     );
   }
 
