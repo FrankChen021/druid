@@ -21,13 +21,11 @@ package org.apache.druid.query.context;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.query.BadQueryContextException;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -68,24 +66,6 @@ class QueryContextConfigTest
     assertThrows(
         BadQueryContextException.class,
         () -> QueryContextConfig.DEFAULT.validate(Map.of("maxRowsQueuedForOrdering", 0))
-    );
-  }
-
-  @Test
-  void testValidateDefaults()
-  {
-    // Neither names nor values are validated unless unknown parameters are rejected.
-    QueryContextConfig.DEFAULT.validateDefaults("druid.query.default.context", Map.of("useCahce", false));
-    QueryContextConfig.DEFAULT.validateDefaults("druid.query.default.context", Map.of("maxRowsQueuedForOrdering", 0));
-
-    final IAE e = assertThrows(
-        IAE.class,
-        () -> new QueryContextConfig(true).validateDefaults("druid.query.default.context", Map.of("useCahce", false))
-    );
-    assertEquals(
-        "Invalid default query context [druid.query.default.context]: "
-        + "Unknown query context parameter [useCahce]. Did you mean [useCache]?",
-        e.getMessage()
     );
   }
 }

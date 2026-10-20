@@ -110,10 +110,20 @@ public class DartSqlEngine implements SqlEngine
       QueryContextConfig queryContextConfig
   )
   {
-    queryContextConfig.validateDefaults(
-        DartModules.DART_PROPERTY_BASE + ".query.context",
-        queryConfigProvider.getContext()
-    );
+    // Only if unknown parameters are rejected, so that existing defaults keep working otherwise.
+    if (queryContextConfig.isRejectUnknownParameters()) {
+      try {
+        queryContextConfig.validate(queryConfigProvider.getContext());
+      }
+      catch (BadQueryContextException e) {
+        throw new IAE(
+            e,
+            "Invalid default query context [%s]: %s",
+            DartModules.DART_PROPERTY_BASE + ".query.context",
+            e.getMessage()
+        );
+      }
+    }
     this.controllerContextFactory = controllerContextFactory;
     this.controllerRegistry = controllerRegistry;
     this.controllerConfig = controllerConfig;

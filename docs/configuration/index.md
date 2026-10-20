@@ -2292,7 +2292,7 @@ The Broker always rejects a recognized parameter with an invalid value. If you s
 |--------|-----------|-------|
 |`druid.query.context.rejectUnknownParameters`|Whether the Broker rejects queries with unrecognized query context parameters. If `false`, the Broker ignores unrecognized parameters.|`false`|
 
-Druid doesn't check the default context that operators configure with each query, since an invalid default would fail every query. If `druid.query.context.rejectUnknownParameters` is `true`, Druid checks the default context, both names and values, when it's configured instead:
+If `druid.query.context.rejectUnknownParameters` is `true`, Druid also checks the names and values of the default context that operators configure:
 
 * The Broker fails to start if `druid.query.default.context.*` or `druid.msq.dart.query.context.*` sets an invalid parameter.
 * The Coordinator rejects an update of the [Broker dynamic configuration](../api-reference/dynamic-configuration-api.md) whose `queryContext` sets an invalid parameter. Set the property on the Coordinator as well as on the Broker, for example in `common.runtime.properties`.

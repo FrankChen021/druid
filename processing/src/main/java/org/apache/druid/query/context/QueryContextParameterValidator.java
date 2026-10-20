@@ -87,18 +87,17 @@ public final class QueryContextParameterValidator
     final String lowerCaseName = StringUtils.toLowerCase(name);
 
     return candidates.stream()
-                     .filter(candidate -> candidate.getVisibility() != QueryContextParameter.Visibility.SYSTEM)
-                     .filter(candidate -> !candidate.isDeprecated())
-                     .map(QueryContextParameter::getName)
+                     .filter(candidate -> candidate.getVisibility() != QueryContextParameter.Visibility.SYSTEM
+                                          && !candidate.isDeprecated())
                      // The length difference is a lower bound of the distance: skip names that cannot be close enough.
-                     .filter(candidateName -> {
-                       final int lengthDifference = Math.abs(name.length() - candidateName.length());
+                     .filter(candidate -> {
+                       final int lengthDifference = Math.abs(name.length() - candidate.getName().length());
                        return lengthDifference <= mistakeFactor
                               && (lengthDifference == 0 || name.length() / lengthDifference >= 3);
                      })
-                     .map(candidateName -> new Hint(
-                         candidateName,
-                         levenshteinDistance.apply(lowerCaseName, StringUtils.toLowerCase(candidateName))
+                     .map(candidate -> new Hint(
+                         candidate.getName(),
+                         levenshteinDistance.apply(lowerCaseName, StringUtils.toLowerCase(candidate.getName()))
                      ))
                      .filter(hint -> hint.distance() >= 0)
                      .sorted(Comparator.comparingInt(Hint::distance).thenComparing(Hint::name))

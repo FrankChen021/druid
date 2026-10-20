@@ -29,6 +29,8 @@ import org.apache.druid.client.coordinator.CoordinatorClientImpl;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.annotations.EscalatedGlobal;
 import org.apache.druid.guice.annotations.Json;
+import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.QueryConfigProvider;
 import org.apache.druid.query.QueryContext;
@@ -106,7 +108,15 @@ public class BrokerViewOfBrokerConfig extends BaseBrokerViewOfConfig<BrokerDynam
       final QueryContextConfig queryContextConfig
   )
   {
-    queryContextConfig.validateDefaults(DEFAULT_QUERY_CONTEXT_PROPERTY, defaultQueryConfig.getContext());
+    // Only if unknown parameters are rejected, so that existing defaults keep working otherwise.
+    if (queryContextConfig.isRejectUnknownParameters()) {
+      try {
+        queryContextConfig.validate(defaultQueryConfig.getContext());
+      }
+      catch (BadQueryContextException e) {
+        throw new IAE(e, "Invalid default query context [%s]: %s", DEFAULT_QUERY_CONTEXT_PROPERTY, e.getMessage());
+      }
+    }
   }
 
   @Override

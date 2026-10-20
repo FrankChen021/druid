@@ -225,8 +225,7 @@ public class CoordinatorBrokerConfigsResourceTest
     Assertions.assertEquals(400, response.getStatus());
     Assertions.assertTrue(
         String.valueOf(response.getEntity()).contains(
-            "Invalid default query context [queryContext of the Broker dynamic configuration]: "
-            + "Unknown query context parameter [useCahce]. Did you mean [useCache]?"
+            "Unknown query context parameter [useCahce]. Did you mean [useCache]?"
         ),
         String.valueOf(response.getEntity())
     );

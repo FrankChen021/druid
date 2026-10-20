@@ -26,6 +26,7 @@ import org.apache.druid.common.config.ConfigManager.SetResult;
 import org.apache.druid.common.config.JacksonConfigManager;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.context.QueryContextConfig;
 import org.apache.druid.server.broker.BrokerDynamicConfig;
 import org.apache.druid.server.http.security.ConfigResourceFilter;
@@ -92,10 +93,10 @@ public class CoordinatorBrokerConfigsResource
     try {
       BrokerDynamicConfig current = currentConfig.get();
       BrokerDynamicConfig newConfig = configBuilder.build(current);
-      queryContextConfig.validateDefaults(
-          "queryContext of the Broker dynamic configuration",
-          newConfig.getQueryContext().asMap()
-      );
+      // Only if unknown parameters are rejected, so that existing configurations keep working otherwise.
+      if (queryContextConfig.isRejectUnknownParameters()) {
+        queryContextConfig.validate(newConfig.getQueryContext().asMap());
+      }
 
       final SetResult setResult = configManager.set(
           BrokerDynamicConfig.CONFIG_KEY,
@@ -112,7 +113,7 @@ public class CoordinatorBrokerConfigsResource
                        .build();
       }
     }
-    catch (IllegalArgumentException e) {
+    catch (IllegalArgumentException | BadQueryContextException e) {
       return Response.status(Response.Status.BAD_REQUEST)
                      .entity(ServletResourceUtils.sanitizeException(e))
                      .build();
