@@ -40,16 +40,19 @@ class QueryContextParameterValidatorTest
         false,
         "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [-1]"
     );
+
     assertInvalid(
         Map.of("maxRowsQueuedForOrdering", "not-an-int"),
         false,
         "Query context parameter [maxRowsQueuedForOrdering] should be in integer format, but got [not-an-int]"
     );
+
     assertInvalid(
-        Map.of("useResultLevelCache", 1),
+        Map.of("useResultLevelCache", 2),
         false,
-        "Query context parameter [useResultLevelCache] should be a boolean, but got [1]"
+        "Query context parameter [useResultLevelCache] should be a boolean, but got [2]"
     );
+
     QueryContextParameterValidator.validate(Map.of("maxRowsQueuedForOrdering", Integer.MAX_VALUE), true);
     QueryContextParameterValidator.validate(Collections.singletonMap("maxRowsQueuedForOrdering", null), true);
     QueryContextParameterValidator.validate(Map.of(), true);

@@ -412,7 +412,12 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
         Exception.class,
         () -> DriverManager.getConnection(server.url, properties)
     );
-    Assertions.assertTrue(e.getMessage().contains("Query context parameter [maxRowsQueuedForOrdering]"), e.getMessage());
+    Assertions.assertTrue(
+        e.getMessage().contains(
+            "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [0]"
+        ),
+        e.getMessage()
+    );
   }
 
   /**

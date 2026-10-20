@@ -167,11 +167,9 @@ public class BrokerViewOfBrokerConfigTest
             QueryContextConfig.DEFAULT
         )
     );
-    Assertions.assertTrue(
-        e.getMessage().startsWith(
-            "Invalid default query context [druid.query.default.context]: "
-            + "Query context parameter [maxRowsQueuedForOrdering]"
-        ),
+    Assertions.assertEquals(
+        "Invalid default query context [druid.query.default.context]: "
+        + "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [0]",
         e.getMessage()
     );
   }

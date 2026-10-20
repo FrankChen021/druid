@@ -212,7 +212,7 @@ public class CoordinatorBrokerConfigsResourceTest
     assertRejected(
         Map.of("maxRowsQueuedForOrdering", 0),
         QueryContextConfig.DEFAULT,
-        "Query context parameter [maxRowsQueuedForOrdering]"
+        "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [0]"
     );
   }
 
@@ -243,10 +243,7 @@ public class CoordinatorBrokerConfigsResourceTest
     ).setBrokerDynamicConfig(BrokerDynamicConfig.builder().withQueryContext(QueryContext.of(queryContext)), request);
 
     Assertions.assertEquals(400, response.getStatus());
-    Assertions.assertTrue(
-        String.valueOf(response.getEntity()).contains(expectedMessage),
-        String.valueOf(response.getEntity())
-    );
+    Assertions.assertEquals(Map.of("error", expectedMessage), response.getEntity());
     EasyMock.verify(configManager, auditManager, brokerDynamicConfigSyncer);
   }
 }

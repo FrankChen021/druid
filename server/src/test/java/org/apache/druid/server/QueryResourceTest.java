@@ -1083,7 +1083,10 @@ public class QueryResourceTest
     Assertions.assertEquals(Status.BAD_REQUEST.getStatusCode(), response.getStatus());
     final QueryException e = jsonMapper.readValue((byte[]) response.getEntity(), QueryException.class);
     Assertions.assertEquals(QueryException.BAD_QUERY_CONTEXT_ERROR_CODE, e.getErrorCode());
-    Assertions.assertTrue(e.getMessage().startsWith("Query context parameter [maxRowsQueuedForOrdering]"), e.getMessage());
+    Assertions.assertEquals(
+        "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [0]",
+        e.getMessage()
+    );
   }
 
   @Test
