@@ -329,6 +329,7 @@ public class SqlQueryPlus
     public SqlQueryPlus build()
     {
       final StatementAndSetContext statementAndSetContext = DruidSqlParser.parse(sql, true);
+
       final Map<String, Object> userProvidedContext;
       if (statementAndSetContext.getSetContext().isEmpty()) {
         userProvidedContext = queryContext == null ? Map.of() : queryContext;
@@ -342,6 +343,7 @@ public class SqlQueryPlus
       catch (BadQueryContextException e) {
         throw InvalidSqlInput.exception(e, "%s", e.getMessage());
       }
+
       final Map<String, Object> stmtContext = QueryContexts.withDefaults(systemDefaultContext, userProvidedContext);
       return new SqlQueryPlus(
           sql,
