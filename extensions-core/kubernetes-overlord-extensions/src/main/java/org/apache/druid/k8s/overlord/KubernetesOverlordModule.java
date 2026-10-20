@@ -72,7 +72,6 @@ import org.apache.druid.k8s.overlord.taskadapter.PodTemplateTaskAdapter;
 import org.apache.druid.k8s.overlord.taskadapter.SingleContainerTaskAdapter;
 import org.apache.druid.k8s.overlord.taskadapter.TaskAdapter;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.log.SensitiveProperties;
 import org.apache.druid.tasklogs.TaskLogs;
 
 import javax.annotation.Nullable;
@@ -292,7 +291,6 @@ public class KubernetesOverlordModule implements DruidModule
       Properties properties,
       KubernetesTaskRunnerEffectiveConfig kubernetesTaskRunnerConfig,
       TaskConfig taskConfig,
-      SensitiveProperties sensitiveProperties,
       @Self DruidNode druidNode,
       @Smile ObjectMapper smileMapper,
       TaskLogs taskLogs,
@@ -321,7 +319,6 @@ public class KubernetesOverlordModule implements DruidModule
           client,
           kubernetesTaskRunnerConfig,
           taskConfig,
-          sensitiveProperties,
           druidNode,
           smileMapper,
           taskLogs
@@ -340,7 +337,6 @@ public class KubernetesOverlordModule implements DruidModule
           client,
           kubernetesTaskRunnerConfig,
           taskConfig,
-          sensitiveProperties,
           druidNode,
           smileMapper,
           taskLogs

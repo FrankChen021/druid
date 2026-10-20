@@ -58,7 +58,6 @@ import org.apache.druid.k8s.overlord.common.K8sTaskId;
 import org.apache.druid.k8s.overlord.common.KubernetesClientApi;
 import org.apache.druid.k8s.overlord.common.PeonCommandContext;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.log.SensitiveProperties;
 import org.apache.druid.tasklogs.TaskLogs;
 
 import java.io.IOException;
@@ -93,7 +92,6 @@ public abstract class K8sTaskAdapter implements TaskAdapter
   protected final String podSourceNamespace;
   protected final KubernetesTaskRunnerConfig taskRunnerConfig;
   protected final TaskConfig taskConfig;
-  protected final SensitiveProperties sensitiveProperties;
   protected final DruidNode node;
   protected final ObjectMapper mapper;
   protected final TaskLogs taskLogs;
@@ -102,13 +100,12 @@ public abstract class K8sTaskAdapter implements TaskAdapter
       KubernetesClientApi client,
       KubernetesTaskRunnerConfig taskRunnerConfig,
       TaskConfig taskConfig,
-      SensitiveProperties sensitiveProperties,
       DruidNode node,
       ObjectMapper mapper,
       TaskLogs taskLogs
   )
   {
-    this(client, taskRunnerConfig.getNamespace(), client, taskRunnerConfig, taskConfig, sensitiveProperties, node, mapper, taskLogs);
+    this(client, taskRunnerConfig.getNamespace(), client, taskRunnerConfig, taskConfig, node, mapper, taskLogs);
   }
 
   public K8sTaskAdapter(
@@ -117,7 +114,6 @@ public abstract class K8sTaskAdapter implements TaskAdapter
       KubernetesClientApi client,
       KubernetesTaskRunnerConfig taskRunnerConfig,
       TaskConfig taskConfig,
-      SensitiveProperties sensitiveProperties,
       DruidNode node,
       ObjectMapper mapper,
       TaskLogs taskLogs
@@ -128,7 +124,6 @@ public abstract class K8sTaskAdapter implements TaskAdapter
     this.podSourceNamespace = podSourceNamespace;
     this.taskRunnerConfig = taskRunnerConfig;
     this.taskConfig = taskConfig;
-    this.sensitiveProperties = sensitiveProperties;
     this.node = node;
     this.mapper = mapper;
     this.taskLogs = taskLogs;
@@ -508,7 +503,7 @@ public abstract class K8sTaskAdapter implements TaskAdapter
     command.add(task.getId());
     log.info(
         "Peon Command for K8s job: %s",
-        sensitiveProperties.maskCommand(command)
+        String.join(" ", command)
     );
     return command;
   }
