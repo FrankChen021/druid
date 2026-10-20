@@ -329,13 +329,19 @@ public class SqlQueryPlus
     public SqlQueryPlus build()
     {
       final StatementAndSetContext statementAndSetContext = DruidSqlParser.parse(sql, true);
-      final Map<String, Object> userProvidedContext = statementAndSetContext.getSetContext().isEmpty()
-                                                      ? queryContext
-                                                      : QueryContexts.override(
-                                                          queryContext,
-                                                          statementAndSetContext.getSetContext()
-                                                      );
-      validateContext(userProvidedContext);
+      final Map<String, Object> userProvidedContext;
+      if (statementAndSetContext.getSetContext().isEmpty()) {
+        userProvidedContext = queryContext == null ? Map.of() : queryContext;
+      } else {
+        userProvidedContext = QueryContexts.override(queryContext, statementAndSetContext.getSetContext());
+      }
+      // Before anything reads the context. System defaults are validated where they are configured.
+      try {
+        QueryContextParameterValidator.validate(userProvidedContext, rejectUnknownParameters);
+      }
+      catch (BadQueryContextException e) {
+        throw InvalidSqlInput.exception(e, "%s", e.getMessage());
+      }
       final Map<String, Object> stmtContext = QueryContexts.withDefaults(systemDefaultContext, userProvidedContext);
       return new SqlQueryPlus(
           sql,
@@ -366,23 +372,6 @@ public class SqlQueryPlus
           parameters,
           authResult
       );
-    }
-
-    /**
-     * Validates the parameters that the user set, before anything reads them: their values and, if
-     * {@link #rejectUnknownParameters}, their names. System defaults are validated where they are configured.
-     */
-    private void validateContext(@Nullable final Map<String, Object> userProvidedContext)
-    {
-      if (userProvidedContext == null) {
-        return;
-      }
-      try {
-        QueryContextParameterValidator.validate(userProvidedContext, rejectUnknownParameters);
-      }
-      catch (BadQueryContextException e) {
-        throw InvalidSqlInput.exception(e, "%s", e.getMessage());
-      }
     }
   }
 
