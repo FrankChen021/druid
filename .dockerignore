@@ -41,3 +41,4 @@ dependency-reduced-pom.xml
 !distribution/target/
 distribution/target/*
 !distribution/target/apache-druid-*-bin.tar.gz
+**/.flattened-pom.xml
