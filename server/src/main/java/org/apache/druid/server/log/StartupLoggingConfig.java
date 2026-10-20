@@ -32,7 +32,7 @@ public class StartupLoggingConfig
   /**
    * @deprecated use {@link SensitiveProperties} instead.
    */
-  @Deprecated
+  @Deprecated(since = "40.0.0", forRemoval = true)
   @JsonProperty
   @Nullable
   private List<String> maskProperties;
@@ -45,7 +45,7 @@ public class StartupLoggingConfig
   /**
    * @deprecated use {@link SensitiveProperties} instead.
    */
-  @Deprecated
+  @Deprecated(since = "40.0.0", forRemoval = true)
   @Nullable
   public List<String> getMaskProperties()
   {

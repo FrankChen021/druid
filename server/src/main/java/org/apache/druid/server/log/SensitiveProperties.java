@@ -62,7 +62,7 @@ public class SensitiveProperties
   /**
    * @deprecated use {@link #sensitiveProperties} instead.
    */
-  @Deprecated
+  @Deprecated(since = "40.0.0", forRemoval = true)
   @JsonProperty
   @Nullable
   private final Set<String> hiddenProperties;
@@ -76,6 +76,7 @@ public class SensitiveProperties
    * @param startupLoggingConfig provides the deprecated {@code druid.startup.logging.maskProperties}
    */
   @JsonCreator
+  @SuppressWarnings("removal") // reads the deprecated maskProperties for backward compatibility
   public SensitiveProperties(
       @JsonProperty("sensitiveProperties") @Nullable final Set<String> sensitiveProperties,
       @JsonProperty("hiddenProperties") @Nullable final Set<String> hiddenProperties,
