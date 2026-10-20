@@ -1065,6 +1065,25 @@ public class QueryResourceTest
   }
 
   @Test
+  public void testInvalidContextValueRejectedByBroker() throws IOException
+  {
+    // Values are validated whether or not unknown parameters are rejected
+    final Response response = createBrokerQueryResource(new QueryContextConfig(false)).doPost(
+        new ByteArrayInputStream(
+            timeseriesQueryWithContext("{\"maxRowsQueuedForOrdering\": 0}").getBytes(StandardCharsets.UTF_8)
+        ),
+        null /*pretty*/,
+        testServletRequest
+    );
+
+    Assertions.assertNotNull(response);
+    Assertions.assertEquals(Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+    final QueryException e = jsonMapper.readValue((byte[]) response.getEntity(), QueryException.class);
+    Assertions.assertEquals(QueryException.BAD_QUERY_CONTEXT_ERROR_CODE, e.getErrorCode());
+    Assertions.assertTrue(e.getMessage().startsWith("Query context parameter [maxRowsQueuedForOrdering]"), e.getMessage());
+  }
+
+  @Test
   public void testUnknownContextParameterAcceptedByBrokerWhenNotRejected() throws IOException
   {
     expectPermissiveHappyPathAuth();

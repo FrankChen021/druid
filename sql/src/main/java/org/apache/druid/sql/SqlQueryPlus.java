@@ -38,7 +38,6 @@ import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -73,10 +72,7 @@ public class SqlQueryPlus
   private final SqlNode sqlNode;
   private final boolean allowSetStatements;
   private final Map<String, Object> stmtContext;
-  /**
-   * The context that the user provided, including the values of SET statements, without the system defaults.
-   */
-  private final Map<String, Object> userContext;
+  private final Set<String> authContextKeys;
   private final List<ParameterBinding> parameters;
   private final AuthenticationResult authResult;
 
@@ -85,7 +81,7 @@ public class SqlQueryPlus
       SqlNode sqlNode,
       boolean allowSetStatements,
       Map<String, Object> stmtContext,
-      @Nullable Map<String, Object> userContext,
+      Set<String> authContextKeys,
       List<ParameterBinding> parameters,
       AuthenticationResult authResult
   )
@@ -96,10 +92,9 @@ public class SqlQueryPlus
     this.stmtContext = stmtContext == null
                        ? Collections.emptyMap()
                        : Collections.unmodifiableMap(stmtContext);
-    // Copied into a HashMap, which keeps the parameters that the user set to null.
-    this.userContext = userContext == null
-                       ? Collections.emptyMap()
-                       : Collections.unmodifiableMap(new HashMap<>(userContext));
+    this.authContextKeys = authContextKeys == null
+                           ? Collections.emptySet()
+                           : Collections.unmodifiableSet(authContextKeys);
     this.parameters = parameters == null
                       ? Collections.emptyList()
                       : parameters;
@@ -135,18 +130,9 @@ public class SqlQueryPlus
     return stmtContext;
   }
 
-  /**
-   * Returns the context that the user provided, including the values of SET statements, without the system defaults.
-   * Unlike {@link #context()}, it keeps the parameters that the user set to null.
-   */
-  public Map<String, Object> userContext()
-  {
-    return userContext;
-  }
-
   public Set<String> authContextKeys()
   {
-    return userContext.keySet();
+    return authContextKeys;
   }
 
   public List<TypedValue> resolveParameters(final DateTimeZone sessionTimeZone)
@@ -183,7 +169,7 @@ public class SqlQueryPlus
         sqlNode,
         allowSetStatements,
         QueryContexts.withDefaults(defaultContext, userProvidedContext),
-        userProvidedContext,
+        userProvidedContext == null ? Set.of() : userProvidedContext.keySet(),
         parameters,
         authResult
     );
@@ -206,7 +192,7 @@ public class SqlQueryPlus
         sqlNode,
         allowSetStatements,
         stmtContext,
-        userContext,
+        authContextKeys,
         parameterBindings,
         authResult
     );
@@ -223,7 +209,7 @@ public class SqlQueryPlus
         DruidSqlParser.parse(sql, allowSetStatements).getMainStatement(),
         allowSetStatements,
         stmtContext,
-        userContext,
+        authContextKeys,
         parameters,
         authResult
     );
@@ -237,7 +223,7 @@ public class SqlQueryPlus
            ", sqlNode=" + sqlNode +
            ", allowSetStatements=" + allowSetStatements +
            ", stmtContext=" + stmtContext +
-           ", userContext=" + userContext +
+           ", authContextKeys=" + authContextKeys +
            ", parameters=" + parameters +
            ", authResult=" + authResult +
            '}';
@@ -301,11 +287,11 @@ public class SqlQueryPlus
     }
 
     /**
-     * Sets whether to reject the parameters of the user-provided query context that are not declared in
+     * Sets whether {@link #build()} rejects the parameters of the user-provided query context that are not declared in
      * {@link org.apache.druid.query.context.QueryContextParameters}, as configured by
-     * {@link org.apache.druid.query.context.QueryContextConfig#isRejectUnknownParameters()}, in {@link #build()}. Off by
-     * default. {@link #buildJdbc()} doesn't validate the context, which comes from the connection: it's validated when
-     * the connection is opened.
+     * {@link org.apache.druid.query.context.QueryContextConfig#isRejectUnknownParameters()}. Off by default.
+     * {@link #buildJdbc()} doesn't validate the context, which comes from the connection and is validated when the
+     * connection is opened.
      */
     public Builder rejectUnknownParameters(final boolean rejectUnknownParameters)
     {
@@ -350,7 +336,7 @@ public class SqlQueryPlus
           statementAndSetContext.getMainStatement(),
           true,
           stmtContext,
-          userProvidedContext,
+          userProvidedContext.keySet(),
           parameters,
           authResult
       );
@@ -370,7 +356,7 @@ public class SqlQueryPlus
           null,
           false,
           QueryContexts.withDefaults(systemDefaultContext, queryContext),
-          queryContext,
+          queryContext == null ? Set.of() : queryContext.keySet(),
           parameters,
           authResult
       );

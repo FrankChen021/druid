@@ -104,6 +104,24 @@ public class DriverTest extends BaseCalciteQueryTest
   }
 
   @Test
+  public void testUnknownContextParameter_sql()
+  {
+    final QueryRequest request = QueryRequest.newBuilder()
+                                             .setQuery("SELECT __time, dim2 FROM foo")
+                                             .putContext("useCahce", "false")
+                                             .setResultFormat(QueryResultFormat.CSV)
+                                             .setQueryType(QueryOuterClass.QueryType.SQL)
+                                             .build();
+    final QueryResponse response = driver.submitQuery(request, CalciteTests.REGULAR_USER_AUTH_RESULT);
+
+    assertEquals(QueryStatus.REQUEST_ERROR, response.getStatus());
+    assertTrue(
+        response.getErrorMessage().contains("Unknown query context parameter [useCahce]. Did you mean [useCache]?"),
+        response.getErrorMessage()
+    );
+  }
+
+  @Test
   public void testBasics_native_groupby()
   {
     String query = "{\n"

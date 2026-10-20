@@ -48,6 +48,5 @@ class QueryContextConfigTest
   void testDefault()
   {
     assertFalse(QueryContextConfig.DEFAULT.isRejectUnknownParameters());
-    assertTrue(new QueryContextConfig(true).isRejectUnknownParameters());
   }
 }

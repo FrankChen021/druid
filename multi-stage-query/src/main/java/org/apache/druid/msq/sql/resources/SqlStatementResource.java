@@ -228,6 +228,7 @@ public class SqlStatementResource
     final String sqlQueryId = stmt.sqlQueryId();
     final String currThreadName = Thread.currentThread().getName();
     final QueryContext queryContext = QueryContext.of(sqlQueryPlus.context());
+    final boolean isDebug = queryContext.isDebug();
     try {
       contextChecks(queryContext);
 
@@ -264,7 +265,7 @@ public class SqlStatementResource
     // Calcite throws java.lang.AssertionError at various points in planning/validation.
     catch (AssertionError | Exception e) {
       stmt.reporter().failed(e);
-      if (queryContext.isDebug()) {
+      if (isDebug) {
         log.warn(e, "Failed to handle query [%s]", sqlQueryId);
       } else {
         log.noStackTrace().warn(e, "Failed to handle query [%s]", sqlQueryId);

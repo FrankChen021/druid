@@ -88,6 +88,21 @@ public class SqlQueryPlusTest
   }
 
   @Test
+  public void testSystemDefaultsAndJdbcContextAreNotValidated()
+  {
+    // System defaults are validated where they are configured, and the JDBC context when the connection opens.
+    final SqlQueryPlus.Builder builder = SqlQueryPlus.builder("SELECT 1")
+                                                     .systemDefaultContext(Map.of("myTraceId", "abc-123"))
+                                                     .rejectUnknownParameters(true)
+                                                     .auth(CalciteTests.REGULAR_USER_AUTH_RESULT);
+    Assertions.assertEquals("abc-123", builder.build().context().get("myTraceId"));
+    Assertions.assertEquals(
+        Map.of("myTraceId", "abc-123"),
+        builder.queryContext(Map.of("myTraceId", "abc-123")).buildJdbc().context()
+    );
+  }
+
+  @Test
   public void testSyntaxError()
   {
     // SqlQueryPlus throws parse errors on build() if the statement is invalid
@@ -192,28 +207,5 @@ public class SqlQueryPlusTest
                     .build()
                     .context()
     );
-  }
-
-  @Test
-  public void testUserContextExcludesSystemDefaultsAndKeepsNulls()
-  {
-    final Map<String, Object> systemDefaultContext = Map.of("key", "system-default", "other", "system-default");
-    final Map<String, Object> userContext = new HashMap<>();
-    userContext.put("key", null);
-    userContext.put("user", "user-provided-value");
-
-    final SqlQueryPlus.Builder builder = SqlQueryPlus.builder("SET setKey = 'set-value'; SELECT 1")
-                                                     .systemDefaultContext(systemDefaultContext)
-                                                     .queryContext(userContext)
-                                                     .auth(CalciteTests.REGULAR_USER_AUTH_RESULT);
-
-    final Map<String, Object> expectedUserContext = new HashMap<>(userContext);
-    expectedUserContext.put("setKey", "set-value");
-    final SqlQueryPlus query = builder.build();
-    Assertions.assertEquals(expectedUserContext, query.userContext());
-    Assertions.assertEquals(expectedUserContext.keySet(), query.authContextKeys());
-    Assertions.assertEquals(expectedUserContext, query.freshCopy().userContext());
-    Assertions.assertEquals(userContext, builder.buildJdbc().userContext());
-    Assertions.assertEquals(userContext, query.withContext(systemDefaultContext, userContext).userContext());
   }
 }

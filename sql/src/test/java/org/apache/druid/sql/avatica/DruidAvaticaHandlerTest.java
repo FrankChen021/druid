@@ -387,11 +387,14 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
   @Test
   public void testUnknownContextKey()
   {
-    final Properties propertiesSetUnknownKey = new Properties();
-    propertiesSetUnknownKey.setProperty("user", "regularUserLA");
-    propertiesSetUnknownKey.setProperty("useCahce", "false");
+    final Properties properties = new Properties();
+    properties.setProperty("user", "regularUserLA");
+    properties.setProperty("useCahce", "false");
     // The connection properties are the context of every statement, so they're validated when the connection opens.
-    final Exception e = Assertions.assertThrows(Exception.class, () -> runQuery(propertiesSetUnknownKey));
+    final Exception e = Assertions.assertThrows(
+        Exception.class,
+        () -> DriverManager.getConnection(server.url, properties)
+    );
     Assertions.assertTrue(
         e.getMessage().contains("Unknown query context parameter [useCahce]. Did you mean [useCache]?"),
         e.getMessage()
@@ -399,21 +402,17 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
   }
 
   @Test
-  public void testUnknownContextKeyIsRejectedBeforeAuthorization()
+  @Tag(ACCEPT_UNKNOWN_CONTEXT_PARAMETERS)
+  public void testInvalidContextValue()
   {
-    final Properties propertiesSetForbiddenKey = new Properties();
-    propertiesSetForbiddenKey.setProperty("user", "regularUserLA");
-    propertiesSetForbiddenKey.setProperty("forbidden-key", "val");
-    final Exception e = Assertions.assertThrows(Exception.class, () -> runQuery(propertiesSetForbiddenKey));
-    Assertions.assertTrue(e.getMessage().contains("Unknown query context parameter [forbidden-key]."), e.getMessage());
-  }
-
-  private void runQuery(final Properties properties) throws SQLException
-  {
-    try (Connection connection = DriverManager.getConnection(server.url, properties);
-         Statement stmt = connection.createStatement()) {
-      stmt.executeQuery("SELECT COUNT(*) AS cnt FROM druid.foo");
-    }
+    final Properties properties = new Properties();
+    properties.setProperty("user", "regularUserLA");
+    properties.setProperty("maxRowsQueuedForOrdering", "0");
+    final Exception e = Assertions.assertThrows(
+        Exception.class,
+        () -> DriverManager.getConnection(server.url, properties)
+    );
+    Assertions.assertTrue(e.getMessage().contains("Query context parameter [maxRowsQueuedForOrdering]"), e.getMessage());
   }
 
   /**

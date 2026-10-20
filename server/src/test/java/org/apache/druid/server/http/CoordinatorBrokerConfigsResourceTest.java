@@ -198,76 +198,55 @@ public class CoordinatorBrokerConfigsResourceTest
   @Test
   public void testSetBrokerDynamicConfigWithUnknownQueryContextParameter()
   {
-    final AtomicReference<BrokerDynamicConfig> currentConfig =
-        new AtomicReference<>(BrokerDynamicConfig.builder().build());
-    final HttpServletRequest request = EasyMock.createNiceMock(HttpServletRequest.class);
-
-    EasyMock.expect(
-        configManager.watch(
-            EasyMock.anyObject(String.class),
-            EasyMock.anyObject(Class.class),
-            EasyMock.anyObject(BrokerDynamicConfig.class)
-        )
-    ).andReturn(currentConfig).once();
-
-    // Neither saved nor broadcast.
-    EasyMock.replay(configManager, auditManager, brokerDynamicConfigSyncer, request);
-
-    final BrokerDynamicConfig.Builder configBuilder =
-        BrokerDynamicConfig.builder().withQueryContext(QueryContext.of(Map.of("useCahce", false)));
-
-    final Response response = new CoordinatorBrokerConfigsResource(
-        configManager,
-        auditManager,
-        brokerDynamicConfigSyncer,
-        new QueryContextConfig(true)
-    ).setBrokerDynamicConfig(configBuilder, request);
-    Assertions.assertEquals(400, response.getStatus());
-    Assertions.assertTrue(
-        String.valueOf(response.getEntity()).contains(
-            "Unknown query context parameter [useCahce]. Did you mean [useCache]?"
-        ),
-        String.valueOf(response.getEntity())
+    assertRejected(
+        Map.of("useCahce", false),
+        new QueryContextConfig(true),
+        "Unknown query context parameter [useCahce]. Did you mean [useCache]?"
     );
-
-    EasyMock.verify(configManager, auditManager, brokerDynamicConfigSyncer);
   }
 
   @Test
   public void testSetBrokerDynamicConfigWithInvalidQueryContextValue()
   {
-    final AtomicReference<BrokerDynamicConfig> currentConfig =
-        new AtomicReference<>(BrokerDynamicConfig.builder().build());
-    final HttpServletRequest request = EasyMock.createNiceMock(HttpServletRequest.class);
+    // Values are validated whether or not unknown parameters are rejected
+    assertRejected(
+        Map.of("maxRowsQueuedForOrdering", 0),
+        QueryContextConfig.DEFAULT,
+        "Query context parameter [maxRowsQueuedForOrdering]"
+    );
+  }
 
+  /**
+   * Asserts that an update with the given query context is rejected with a 400, and neither saved nor broadcast.
+   */
+  private void assertRejected(
+      final Map<String, Object> queryContext,
+      final QueryContextConfig queryContextConfig,
+      final String expectedMessage
+  )
+  {
+    final HttpServletRequest request = EasyMock.createNiceMock(HttpServletRequest.class);
     EasyMock.expect(
         configManager.watch(
             EasyMock.anyObject(String.class),
             EasyMock.anyObject(Class.class),
             EasyMock.anyObject(BrokerDynamicConfig.class)
         )
-    ).andReturn(currentConfig).once();
-
-    // Neither saved nor broadcast.
+    ).andReturn(new AtomicReference<>(BrokerDynamicConfig.builder().build())).once();
     EasyMock.replay(configManager, auditManager, brokerDynamicConfigSyncer, request);
-
-    final BrokerDynamicConfig.Builder configBuilder =
-        BrokerDynamicConfig.builder().withQueryContext(QueryContext.of(Map.of("maxRowsQueuedForOrdering", 0)));
 
     final Response response = new CoordinatorBrokerConfigsResource(
         configManager,
         auditManager,
         brokerDynamicConfigSyncer,
-        QueryContextConfig.DEFAULT
-    ).setBrokerDynamicConfig(configBuilder, request);
+        queryContextConfig
+    ).setBrokerDynamicConfig(BrokerDynamicConfig.builder().withQueryContext(QueryContext.of(queryContext)), request);
+
     Assertions.assertEquals(400, response.getStatus());
     Assertions.assertTrue(
-        String.valueOf(response.getEntity()).contains(
-            "Query context parameter [maxRowsQueuedForOrdering]"
-        ),
+        String.valueOf(response.getEntity()).contains(expectedMessage),
         String.valueOf(response.getEntity())
     );
-
     EasyMock.verify(configManager, auditManager, brokerDynamicConfigSyncer);
   }
 }

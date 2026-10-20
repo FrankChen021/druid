@@ -81,6 +81,11 @@ import java.util.Set;
 
 public class QueryFrameworkUtils
 {
+  /**
+   * Rejects unknown query context parameters, unlike the default, so that tests catch parameters missing from
+   * {@link org.apache.druid.query.context.QueryContextParameters}.
+   */
+  public static final QueryContextConfig TEST_QUERY_CONTEXT_CONFIG = new QueryContextConfig(true);
 
   public static QueryLifecycleFactory createMockQueryLifecycleFactory(
       final QuerySegmentWalker walker,
@@ -101,12 +106,6 @@ public class QueryFrameworkUtils
         null  // BrokerConfigManager - null for tests
     );
   }
-
-  /**
-   * Rejects unknown query context parameters, unlike the default, so that tests catch parameters missing from
-   * {@link org.apache.druid.query.context.QueryContextParameters}.
-   */
-  public static final QueryContextConfig TEST_QUERY_CONTEXT_CONFIG = new QueryContextConfig(true);
 
   /**
    * Create a standard {@link SqlStatementFactory} for testing with a new {@link SqlToolbox} created by

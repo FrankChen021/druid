@@ -187,24 +187,31 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
   }
 
   @Test
-  public void testInvalidDebugParameterValue()
+  public void testInvalidContextReturnsBadRequest()
   {
-    // The statement is created before the context is validated, so the failure must still be returned as a response.
     SqlStatementResourceTest.assertExceptionMessage(
-        resource.doPost(
-            new SqlQuery(
-                "SET debug = 2; select * from foo",
-                null,
-                false,
-                false,
-                false,
-                QueryContext.ofMap(QueryContextParameters.EXECUTION_MODE, ExecutionMode.ASYNC),
-                null
-            ),
-            SqlStatementResourceTest.makeOkRequest()
-        ),
+        resource.doPost(asyncQuery("SET debug = 2; select * from foo"), SqlStatementResourceTest.makeOkRequest()),
         "Query context parameter [debug] should be a boolean, but got [2]",
         Response.Status.BAD_REQUEST
+    );
+    // The resource rejects unknown parameters as configured
+    SqlStatementResourceTest.assertExceptionMessage(
+        resource.doPost(asyncQuery("SET useCahce = false; select * from foo"), SqlStatementResourceTest.makeOkRequest()),
+        "Unknown query context parameter [useCahce]. Did you mean [useCache]?",
+        Response.Status.BAD_REQUEST
+    );
+  }
+
+  private static SqlQuery asyncQuery(final String sql)
+  {
+    return new SqlQuery(
+        sql,
+        null,
+        false,
+        false,
+        false,
+        QueryContext.ofMap(QueryContextParameters.EXECUTION_MODE, ExecutionMode.ASYNC),
+        null
     );
   }
 

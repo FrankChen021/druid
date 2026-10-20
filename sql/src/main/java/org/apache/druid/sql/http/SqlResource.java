@@ -379,7 +379,9 @@ public class SqlResource
       final ErrorResponseTransformStrategy strategy
   )
   {
-    final String sqlQueryId = queryContext.get(QueryContextParameters.SQL_QUERY_ID);
+    // Not parsed, as the context may be the cause of the exception
+    final Object rawSqlQueryId = queryContext.asMap().get(QueryContextParameters.SQL_QUERY_ID.getName());
+    final String sqlQueryId = rawSqlQueryId instanceof String ? (String) rawSqlQueryId : null;
     final String errorId = sqlQueryId == null ? UUID.randomUUID().toString() : sqlQueryId;
 
     final DruidException druidException;

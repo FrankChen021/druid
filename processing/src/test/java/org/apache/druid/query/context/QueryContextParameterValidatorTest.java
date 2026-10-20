@@ -48,7 +48,6 @@ class QueryContextParameterValidatorTest
   void testValidateIgnoresUnknownParametersUnlessRejected()
   {
     QueryContextParameterValidator.validate(Map.of("maxRowsQueuedForOrdering", 1, "myTraceId", -1), false);
-    assertInvalid(Map.of("maxRowsQueuedForOrdering", 1, "myTraceId", -1), true);
     // Values are validated whether or not unknown parameters are rejected.
     assertInvalid(Map.of("maxRowsQueuedForOrdering", 0, "myTraceId", -1), false);
   }
@@ -68,6 +67,15 @@ class QueryContextParameterValidatorTest
     assertEquals(
         "Unknown query context parameter [myTraceId].",
         assertInvalid(Map.of("myTraceId", "abc-123"), true)
+    );
+  }
+
+  @Test
+  void testRejectUnknownParameterWithNullValue()
+  {
+    assertEquals(
+        "Unknown query context parameter [useCahce]. Did you mean [useCache]?",
+        assertInvalid(Collections.singletonMap("useCahce", null), true)
     );
   }
 

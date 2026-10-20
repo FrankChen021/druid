@@ -61,6 +61,7 @@ import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ResourceLimitExceededException;
+import org.apache.druid.query.context.QueryContextConfig;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
@@ -318,7 +319,12 @@ public class SqlResourceTest extends CalciteTestBase
       }
     };
     engine = CalciteTests.createMockSqlEngine(walker, conglomerate, sqlStatementFactory);
-    resource = new SqlResource(
+    resource = createResource(QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG);
+  }
+
+  private SqlResource createResource(final QueryContextConfig queryContextConfig)
+  {
+    return new SqlResource(
         CalciteTests.TEST_AUTHORIZER_MAPPER,
         lifecycleManager,
         new SqlEngineRegistry(Set.of(engine)),
@@ -330,7 +336,7 @@ public class SqlResourceTest extends CalciteTestBase
         ),
         DefaultQueryConfig.NIL,
         new ServerConfig(),
-        QueryFrameworkUtils.TEST_QUERY_CONTEXT_CONFIG
+        queryContextConfig
     );
   }
 
@@ -1538,25 +1544,9 @@ public class SqlResourceTest extends CalciteTestBase
         Status.BAD_REQUEST.getStatusCode()
     );
 
-    validateInvalidInputError(
+    validateInvalidSqlError(
         errorResponse,
         "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [0]"
-    );
-    Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
-    Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
-  }
-
-  @Test
-  public void testUnparseableSetParameterReturnsBadRequest() throws Exception
-  {
-    final ErrorResponse errorResponse = postSyncForException(
-        "SET maxRowsQueuedForOrdering = 'not-an-int'; SELECT 1",
-        Status.BAD_REQUEST.getStatusCode()
-    );
-
-    validateInvalidInputError(
-        errorResponse,
-        "Query context parameter [maxRowsQueuedForOrdering] should be in integer format, but got [not-an-int]"
     );
     Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
     Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
@@ -1571,8 +1561,32 @@ public class SqlResourceTest extends CalciteTestBase
         Status.BAD_REQUEST.getStatusCode()
     );
 
-    validateInvalidInputError(errorResponse, "Query context parameter [engine] should be a string, but got [1]");
+    validateInvalidSqlError(errorResponse, "Query context parameter [engine] should be a string, but got [1]");
     Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
+  }
+
+  @Test
+  public void testInvalidSqlQueryIdReturnsBadRequest() throws Exception
+  {
+    // The error response itself must not parse the invalid sqlQueryId, nor return it as a header
+    final Response response = resource.doPost(
+        new SqlQuery(
+            "SELECT 1",
+            null,
+            false,
+            false,
+            false,
+            ImmutableMap.of(QueryContextParameters.SQL_QUERY_ID.getName(), 1),
+            null
+        ),
+        req
+    );
+
+    Assertions.assertEquals(Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+    validateInvalidSqlError(
+        deserializeResponse(response, ErrorResponse.class),
+        "Query context parameter [sqlQueryId] should be a string, but got [1]"
+    );
   }
 
   @Test
@@ -1591,38 +1605,29 @@ public class SqlResourceTest extends CalciteTestBase
         Status.BAD_REQUEST.getStatusCode()
     );
 
-    final DruidException exception = validateInvalidInputError(errorResponse, "Unknown query context parameter [useCahce]. Did you mean [useCache]?");
-    Assertions.assertEquals("Unknown query context parameter [useCahce]. Did you mean [useCache]?", exception.getMessage());
+    validateInvalidSqlError(errorResponse, "Unknown query context parameter [useCahce]. Did you mean [useCache]?");
     Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
     Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
   }
 
   @Test
-  public void testUnknownContextParameterWithNullValueReturnsBadRequest() throws Exception
+  public void testUnknownContextParameterAcceptedIfNotRejected() throws Exception
   {
-    final Map<String, Object> context = new HashMap<>();
-    context.put(QueryContextParameters.SQL_QUERY_ID.getName(), "id");
-    context.put("useCahce", null);
-    final ErrorResponse errorResponse = postSyncForException(
-        new SqlQuery("SELECT 1", null, false, false, false, context, null),
-        Status.BAD_REQUEST.getStatusCode()
-    );
+    resource = createResource(QueryContextConfig.DEFAULT);
 
-    validateInvalidInputError(errorResponse, "Unknown query context parameter [useCahce]. Did you mean [useCache]?");
-  }
+    final List<Map<String, Object>> rows = doPost(
+        new SqlQuery(
+            "SELECT COUNT(*) AS cnt FROM druid.foo",
+            ResultFormat.OBJECT,
+            false,
+            false,
+            false,
+            ImmutableMap.of("myTraceId", "abc-123"),
+            null
+        )
+    ).rhs;
 
-  @Test
-  public void testUnknownSetParameterReturnsBadRequest() throws Exception
-  {
-    final ErrorResponse errorResponse = postSyncForException(
-        "SET myTraceId = 'abc-123'; SELECT 1",
-        Status.BAD_REQUEST.getStatusCode()
-    );
-
-    final DruidException exception = validateInvalidInputError(errorResponse, "Unknown query context parameter [myTraceId].");
-    Assertions.assertEquals("Unknown query context parameter [myTraceId].", exception.getMessage());
-    Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
-    Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
+    Assertions.assertEquals(List.of(Map.of("cnt", 6)), rows);
   }
 
   @Test

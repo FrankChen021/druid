@@ -32,8 +32,9 @@ public class QueryContextConfig
   public static final QueryContextConfig DEFAULT = new QueryContextConfig(null);
 
   /**
-   * Whether the Broker rejects queries whose context contains a parameter that is not declared in
-   * {@link QueryContextParameters}. Off by default, so that queries with such parameters keep working.
+   * Whether to reject query contexts that contain a parameter that is not declared in {@link QueryContextParameters}:
+   * the contexts of queries on the Broker, and the default contexts where they are configured. Off by default, so that
+   * queries with such parameters keep working.
    */
   @JsonProperty
   private final boolean rejectUnknownParameters;

@@ -57,7 +57,7 @@ public class DruidQuidemConnectionFactory implements ConnectionFactory, Property
       // note: caching will be based on the effective config: so if the same
       // supplier is used from different MultiComponentSupplier it will be
       // shared.
-      String customSupplier = props.getProperty(COMPONENT_SUPPLIER);
+      final String customSupplier = props.getProperty(COMPONENT_SUPPLIER);
       if (customSupplier != null) {
         URIBuilder builder = new URIBuilder(uri);
         builder.addParameter(COMPONENT_SUPPLIER, customSupplier);
