@@ -42,7 +42,6 @@ public class SensitivePropertiesTest
     Assertions.assertTrue(sensitiveProperties.isSensitive("druid.s3.accessKey"));
     Assertions.assertTrue(sensitiveProperties.isSensitive("druid.s3.secretKey"));
     Assertions.assertTrue(sensitiveProperties.isSensitive("druid.zk.service.pwd"));
-    Assertions.assertTrue(sensitiveProperties.isSensitive("druid.emitter.kafka.producer.config"));
     Assertions.assertTrue(sensitiveProperties.isSensitive("druid.emitter.kafka.producer.hiddenProperties"));
     Assertions.assertTrue(sensitiveProperties.isSensitive("druid.emitter.http.basicAuthentication"));
     Assertions.assertTrue(sensitiveProperties.isSensitive("druid.auth.pac4j.cookiePassphrase"));

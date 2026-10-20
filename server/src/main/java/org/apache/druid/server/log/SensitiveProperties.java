@@ -53,7 +53,6 @@ public class SensitiveProperties
       "token",
       "pwd",
       "basicAuthentication",
-      "druid.emitter.kafka.producer.config",
       "druid.emitter.kafka.producer.hiddenProperties"
   );
 
