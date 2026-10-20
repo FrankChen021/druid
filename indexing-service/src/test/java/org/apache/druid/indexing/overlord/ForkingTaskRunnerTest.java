@@ -49,7 +49,7 @@ import org.apache.druid.java.util.common.granularity.AllGranularity;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.log.StartupLoggingConfig;
+import org.apache.druid.server.log.SensitiveProperties;
 import org.apache.druid.tasklogs.NoopTaskLogs;
 import org.apache.druid.testing.TemporaryFolderExtension;
 import org.assertj.core.util.Lists;
@@ -248,13 +248,9 @@ public class ForkingTaskRunnerTest
         "java -cp /path/to/somewhere:some-jars.jar /some===file /asecretFileNa=<masked> -Dsome.property=random -Dsome.otherproperty = random=random "
         + "-Dsome.somesecret =<masked> -Dsome.somesecret=<masked> -Dsome.somepassword =<masked> -Dsome.some=notasecret -Dsome.otherSecret=<masked>"
     );
-    StartupLoggingConfig startupLoggingConfig = new StartupLoggingConfig();
     assertEquals(
         originalAndExpectedCommand.rhs,
-        ForkingTaskRunner.getMaskedCommand(
-            startupLoggingConfig.getMaskProperties(),
-            originalAndExpectedCommand.lhs
-        )
+        new SensitiveProperties(null, null, null).maskCommand(originalAndExpectedCommand.lhs)
     );
   }
 
@@ -272,7 +268,7 @@ public class ForkingTaskRunnerTest
         new NoopTaskLogs(),
         new DefaultObjectMapper(),
         new DruidNode("middleManager", "host", false, 8091, null, true, false),
-        new StartupLoggingConfig(),
+        new SensitiveProperties(null, null, null),
         TaskStorageDirTracker.fromConfigs(workerConfig, taskConfig)
     )
     {
@@ -324,7 +320,7 @@ public class ForkingTaskRunnerTest
         new NoopTaskLogs(),
         mapper,
         new DruidNode("middleManager", "host", false, 8091, null, true, false),
-        new StartupLoggingConfig(),
+        new SensitiveProperties(null, null, null),
         TaskStorageDirTracker.fromConfigs(workerConfig, taskConfig)
     )
     {
@@ -383,7 +379,7 @@ public class ForkingTaskRunnerTest
         new NoopTaskLogs(),
         mapper,
         new DruidNode("middleManager", "host", false, 8091, null, true, false),
-        new StartupLoggingConfig(),
+        new SensitiveProperties(null, null, null),
         dirTracker
     )
     {
@@ -504,7 +500,7 @@ public class ForkingTaskRunnerTest
         new NoopTaskLogs(),
         mapper,
         new DruidNode("middleManager", "host", false, 8091, null, true, false),
-        new StartupLoggingConfig(),
+        new SensitiveProperties(null, null, null),
         TaskStorageDirTracker.fromConfigs(workerConfig, taskConfig)
     )
     {
@@ -555,7 +551,7 @@ public class ForkingTaskRunnerTest
         new NoopTaskLogs(),
         OBJECT_MAPPER,
         new DruidNode("middleManager", "host", false, 8091, null, null, true, false, null, 9443),
-        new StartupLoggingConfig(),
+        new SensitiveProperties(null, null, null),
         TaskStorageDirTracker.fromConfigs(workerConfig, taskConfig)
     )
     {
@@ -622,7 +618,7 @@ public class ForkingTaskRunnerTest
         new NoopTaskLogs(),
         OBJECT_MAPPER,
         new DruidNode("middleManager", "host", false, 8091, null, true, false),
-        new StartupLoggingConfig(),
+        new SensitiveProperties(null, null, null),
         TaskStorageDirTracker.fromConfigs(workerConfig, taskConfig)
     )
     {
@@ -678,7 +674,7 @@ public class ForkingTaskRunnerTest
         new NoopTaskLogs(),
         new DefaultObjectMapper(),
         new DruidNode("middleManager", "host", false, 8091, null, true, false),
-        new StartupLoggingConfig(),
+        new SensitiveProperties(null, null, null),
         dirTracker
     )
     {
@@ -725,7 +721,7 @@ public class ForkingTaskRunnerTest
             exceptionTaskLogs,
             mapper,
             new DruidNode("middleManager", "host", false, 8091, null, true, false),
-            new StartupLoggingConfig(),
+            new SensitiveProperties(null, null, null),
             TaskStorageDirTracker.fromConfigs(workerConfig, taskConfig)
     )
     {
@@ -791,7 +787,7 @@ public class ForkingTaskRunnerTest
         new NoopTaskLogs(),
         mapper,
         new DruidNode("middleManager", "host", false, 8091, null, true, false),
-        new StartupLoggingConfig(),
+        new SensitiveProperties(null, null, null),
         TaskStorageDirTracker.fromConfigs(workerConfig, taskConfig)
     )
     {

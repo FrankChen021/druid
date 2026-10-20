@@ -50,7 +50,7 @@ import org.apache.druid.k8s.overlord.taskadapter.PodTemplateTaskAdapter;
 import org.apache.druid.k8s.overlord.taskadapter.SingleContainerTaskAdapter;
 import org.apache.druid.k8s.overlord.taskadapter.TaskAdapter;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.log.StartupLoggingConfig;
+import org.apache.druid.server.log.SensitiveProperties;
 import org.apache.druid.tasklogs.TaskLogs;
 
 import javax.annotation.Nullable;
@@ -72,7 +72,7 @@ public class MultipleKubernetesTaskRunnerFactory implements TaskRunnerFactory<Ta
   private final ConfigManager configManager;
   private final MultipleKubernetesTaskRunnerConfig runnerConfig;
   private final TaskConfig taskConfig;
-  private final StartupLoggingConfig startupLoggingConfig;
+  private final SensitiveProperties sensitiveProperties;
   private final DruidNode druidNode;
   private final Properties properties;
   private final DruidKubernetesHttpClientFactory httpClientFactory;
@@ -89,7 +89,7 @@ public class MultipleKubernetesTaskRunnerFactory implements TaskRunnerFactory<Ta
       Supplier<KubernetesTaskRunnerDynamicConfig> dynamicConfigSupplier,
       @Nullable ConfigManager configManager,
       TaskConfig taskConfig,
-      StartupLoggingConfig startupLoggingConfig,
+      SensitiveProperties sensitiveProperties,
       @Self DruidNode druidNode,
       DruidKubernetesHttpClientFactory httpClientFactory
   )
@@ -103,7 +103,7 @@ public class MultipleKubernetesTaskRunnerFactory implements TaskRunnerFactory<Ta
     this.dynamicConfigSupplier = dynamicConfigSupplier;
     this.configManager = configManager;
     this.taskConfig = taskConfig;
-    this.startupLoggingConfig = startupLoggingConfig;
+    this.sensitiveProperties = sensitiveProperties;
     this.druidNode = druidNode;
     this.properties = properties;
     this.httpClientFactory = httpClientFactory;
@@ -366,7 +366,7 @@ public class MultipleKubernetesTaskRunnerFactory implements TaskRunnerFactory<Ta
           client,
           effectiveConfig,
           taskConfig,
-          startupLoggingConfig,
+          sensitiveProperties,
           druidNode,
           smileMapper,
           taskLogs
@@ -387,7 +387,7 @@ public class MultipleKubernetesTaskRunnerFactory implements TaskRunnerFactory<Ta
           client,
           effectiveConfig,
           taskConfig,
-          startupLoggingConfig,
+          sensitiveProperties,
           druidNode,
           smileMapper,
           taskLogs

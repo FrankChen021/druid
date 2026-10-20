@@ -47,7 +47,6 @@ import org.apache.druid.error.DruidException;
 import org.apache.druid.error.InternalServerError;
 import org.apache.druid.indexing.common.config.TaskConfig;
 import org.apache.druid.indexing.common.task.Task;
-import org.apache.druid.indexing.overlord.ForkingTaskRunner;
 import org.apache.druid.indexing.overlord.QuotableWhiteSpaceSplitter;
 import org.apache.druid.indexing.overlord.config.ForkingTaskRunnerConfig;
 import org.apache.druid.java.util.common.HumanReadableBytes;
@@ -59,7 +58,7 @@ import org.apache.druid.k8s.overlord.common.K8sTaskId;
 import org.apache.druid.k8s.overlord.common.KubernetesClientApi;
 import org.apache.druid.k8s.overlord.common.PeonCommandContext;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.log.StartupLoggingConfig;
+import org.apache.druid.server.log.SensitiveProperties;
 import org.apache.druid.tasklogs.TaskLogs;
 
 import java.io.IOException;
@@ -94,7 +93,7 @@ public abstract class K8sTaskAdapter implements TaskAdapter
   protected final String podSourceNamespace;
   protected final KubernetesTaskRunnerConfig taskRunnerConfig;
   protected final TaskConfig taskConfig;
-  protected final StartupLoggingConfig startupLoggingConfig;
+  protected final SensitiveProperties sensitiveProperties;
   protected final DruidNode node;
   protected final ObjectMapper mapper;
   protected final TaskLogs taskLogs;
@@ -103,13 +102,13 @@ public abstract class K8sTaskAdapter implements TaskAdapter
       KubernetesClientApi client,
       KubernetesTaskRunnerConfig taskRunnerConfig,
       TaskConfig taskConfig,
-      StartupLoggingConfig startupLoggingConfig,
+      SensitiveProperties sensitiveProperties,
       DruidNode node,
       ObjectMapper mapper,
       TaskLogs taskLogs
   )
   {
-    this(client, taskRunnerConfig.getNamespace(), client, taskRunnerConfig, taskConfig, startupLoggingConfig, node, mapper, taskLogs);
+    this(client, taskRunnerConfig.getNamespace(), client, taskRunnerConfig, taskConfig, sensitiveProperties, node, mapper, taskLogs);
   }
 
   public K8sTaskAdapter(
@@ -118,7 +117,7 @@ public abstract class K8sTaskAdapter implements TaskAdapter
       KubernetesClientApi client,
       KubernetesTaskRunnerConfig taskRunnerConfig,
       TaskConfig taskConfig,
-      StartupLoggingConfig startupLoggingConfig,
+      SensitiveProperties sensitiveProperties,
       DruidNode node,
       ObjectMapper mapper,
       TaskLogs taskLogs
@@ -129,7 +128,7 @@ public abstract class K8sTaskAdapter implements TaskAdapter
     this.podSourceNamespace = podSourceNamespace;
     this.taskRunnerConfig = taskRunnerConfig;
     this.taskConfig = taskConfig;
-    this.startupLoggingConfig = startupLoggingConfig;
+    this.sensitiveProperties = sensitiveProperties;
     this.node = node;
     this.mapper = mapper;
     this.taskLogs = taskLogs;
@@ -509,7 +508,7 @@ public abstract class K8sTaskAdapter implements TaskAdapter
     command.add(task.getId());
     log.info(
         "Peon Command for K8s job: %s",
-        ForkingTaskRunner.getMaskedCommand(startupLoggingConfig.getMaskProperties(), command)
+        sensitiveProperties.maskCommand(command)
     );
     return command;
   }

@@ -37,7 +37,7 @@ import org.apache.druid.k8s.overlord.common.K8sTestUtils;
 import org.apache.druid.k8s.overlord.common.PeonCommandContext;
 import org.apache.druid.k8s.overlord.common.TestKubernetesClient;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.log.StartupLoggingConfig;
+import org.apache.druid.server.log.SensitiveProperties;
 import org.apache.druid.tasklogs.TaskLogs;
 import org.easymock.Mock;
 import org.junit.jupiter.api.Assertions;
@@ -53,7 +53,7 @@ import java.util.Collections;
 class SingleContainerTaskAdapterTest
 {
   private KubernetesClient client;
-  private StartupLoggingConfig startupLoggingConfig;
+  private SensitiveProperties sensitiveProperties;
   private TaskConfig taskConfig;
   private DruidNode druidNode;
   private ObjectMapper jsonMapper;
@@ -78,7 +78,7 @@ class SingleContainerTaskAdapterTest
         true,
         false
     );
-    startupLoggingConfig = new StartupLoggingConfig();
+    sensitiveProperties = new SensitiveProperties(null, null, null);
     taskConfig = new TaskConfigBuilder().setBaseDir("src/test/resources").build();
   }
 
@@ -94,7 +94,7 @@ class SingleContainerTaskAdapterTest
         testClient,
         config,
         taskConfig,
-        startupLoggingConfig,
+        sensitiveProperties,
         druidNode,
         jsonMapper,
         taskLogs

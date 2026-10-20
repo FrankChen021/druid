@@ -22,15 +22,11 @@ package org.apache.druid.client;
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.Sets;
 import com.google.inject.Inject;
-import jakarta.validation.constraints.NotNull;
 import org.apache.druid.java.util.common.HumanReadableBytes;
 import org.apache.druid.java.util.common.HumanReadableBytesRange;
 import org.apache.druid.segment.loading.SegmentLoaderConfig;
 import org.apache.druid.utils.RuntimeInfo;
-
-import java.util.Set;
 
 /**
  */
@@ -48,12 +44,6 @@ public class DruidServerConfig
 
   @JsonProperty
   private int priority = DruidServer.DEFAULT_PRIORITY;
-
-  @JsonProperty
-  @NotNull
-  private Set<String> hiddenProperties = Sets.newHashSet("druid.s3.accessKey", "druid.s3.secretKey",
-                                                         "druid.metadata.storage.connector.password",
-                                                         "password", "key", "token", "pwd");
 
   private final RuntimeInfo runtimeInfo;
   private SegmentLoaderConfig segmentLoaderConfig;
@@ -107,11 +97,6 @@ public class DruidServerConfig
   public int getPriority()
   {
     return priority;
-  }
-
-  public Set<String> getHiddenProperties()
-  {
-    return hiddenProperties;
   }
 
 }

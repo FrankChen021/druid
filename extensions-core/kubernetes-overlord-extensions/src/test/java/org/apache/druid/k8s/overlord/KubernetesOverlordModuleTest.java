@@ -53,6 +53,7 @@ import org.apache.druid.k8s.overlord.taskadapter.TaskAdapter;
 import org.apache.druid.metadata.MetadataStorageConnector;
 import org.apache.druid.metadata.MetadataStorageTablesConfig;
 import org.apache.druid.server.DruidNode;
+import org.apache.druid.server.log.SensitiveProperties;
 import org.easymock.EasyMock;
 import org.easymock.EasyMockExtension;
 import org.easymock.Mock;
@@ -349,6 +350,7 @@ public class KubernetesOverlordModuleTest
               binder.bind(AuditManager.class).toInstance(auditManager);
               binder.bind(MetadataStorageConnector.class).toInstance(metadataStorageConnector);
               binder.bind(ConfigManager.class).toInstance(configManager);
+              binder.bind(SensitiveProperties.class).toInstance(new SensitiveProperties(null, null, null));
             },
             new ConfigModule(),
             new IndexingServiceTaskLogsModule(props),
