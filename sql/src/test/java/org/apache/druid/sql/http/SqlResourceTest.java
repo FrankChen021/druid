@@ -1541,7 +1541,7 @@ public class SqlResourceTest extends CalciteTestBase
         errorResponse,
         "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [0]"
     );
-    checkSqlRequestLog(false);
+    Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
     Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
   }
 
@@ -1557,8 +1557,21 @@ public class SqlResourceTest extends CalciteTestBase
         errorResponse,
         "Query context parameter [maxRowsQueuedForOrdering] should be in integer format, but got [not-an-int]"
     );
-    checkSqlRequestLog(false);
+    Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
     Assertions.assertTrue(lifecycleManager.getAll("id").isEmpty());
+  }
+
+  @Test
+  public void testInvalidSetParameterReadBeforePlanningReturnsBadRequest() throws Exception
+  {
+    // The engine is read before the statement is created, so its value must already be validated.
+    final ErrorResponse errorResponse = postSyncForException(
+        "SET engine = 1; SELECT 1",
+        Status.BAD_REQUEST.getStatusCode()
+    );
+
+    validateInvalidInputError(errorResponse, "Query context parameter [engine] should be a string, but got [1]");
+    Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
   }
 
   @Test
@@ -2192,7 +2205,8 @@ public class SqlResourceTest extends CalciteTestBase
         QueryContextParameters.SQL_QUERY_ID.getName(),
         sqlQueryId
     );
-    // The Broker validates the context before planning, so the error is returned before the response starts.
+    // The values of the context are validated when the request is parsed, so the error is returned before the response
+    // starts.
     final ErrorResponse errorResponse = postSyncForException(
         new SqlQuery(
             "SELECT 1337",
@@ -2207,10 +2221,8 @@ public class SqlResourceTest extends CalciteTestBase
     );
 
     validateInvalidInputError(errorResponse, "Query context parameter [timeout] should be in long format, but got [2000']");
-    checkSqlRequestLog(false);
+    Assertions.assertEquals(0, testRequestLogger.getSqlQueryLogs().size()); // Invalid queries are not logged
     Assertions.assertTrue(lifecycleManager.getAll(sqlQueryId).isEmpty());
-    stubServiceEmitter.verifyEmitted("sqlQuery/time", 1);
-    Assertions.assertEquals(400, stubServiceEmitter.getMetricEvents("sqlQuery/time").get(0).toMap().get(DruidMetrics.STATUS_CODE));
   }
 
   @Test

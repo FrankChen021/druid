@@ -24,7 +24,10 @@ import org.apache.calcite.avatica.SqlType;
 import org.apache.calcite.avatica.remote.TypedValue;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.druid.error.DruidException;
+import org.apache.druid.error.InvalidSqlInput;
+import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameterValidator;
 import org.apache.druid.query.http.ClientSqlParameter;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.sql.calcite.parser.DruidSqlParser;
@@ -318,6 +321,7 @@ public class SqlQueryPlus
                                                           queryContext,
                                                           statementAndSetContext.getSetContext()
                                                       );
+      validateValues(userProvidedContext);
       final Map<String, Object> stmtContext = QueryContexts.withDefaults(systemDefaultContext, userProvidedContext);
       return new SqlQueryPlus(
           sql,
@@ -339,6 +343,7 @@ public class SqlQueryPlus
      */
     public SqlQueryPlus buildJdbc()
     {
+      validateValues(queryContext);
       return new SqlQueryPlus(
           sql,
           null,
@@ -348,6 +353,23 @@ public class SqlQueryPlus
           parameters,
           authResult
       );
+    }
+
+    /**
+     * Validates the values of the parameters that the user set, before anything reads them. Statements also reject
+     * unknown parameters, as configured, when they plan the query.
+     */
+    private static void validateValues(@Nullable final Map<String, Object> userProvidedContext)
+    {
+      if (userProvidedContext == null) {
+        return;
+      }
+      try {
+        QueryContextParameterValidator.validate(userProvidedContext, false);
+      }
+      catch (BadQueryContextException e) {
+        throw InvalidSqlInput.exception(e, "%s", e.getMessage());
+      }
     }
   }
 

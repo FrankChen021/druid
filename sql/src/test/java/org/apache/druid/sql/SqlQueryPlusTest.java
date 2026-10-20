@@ -25,20 +25,55 @@ import org.apache.druid.sql.calcite.BaseCalciteQueryTest;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class SqlQueryPlusTest
 {
   @Test
-  public void testSetAcceptsUnmigratedParameters()
+  public void testSetValuesAreFoldedIntoContext()
   {
     final SqlQueryPlus query = SqlQueryPlus.builder("SET lane = 'fast'; SELECT 1")
                                            .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
                                            .build();
 
     Assertions.assertEquals("fast", query.context().get("lane"));
+  }
+
+  @Test
+  public void testInvalidValuesAreRejected()
+  {
+    BaseCalciteQueryTest.assertDruidException(
+        Assertions.assertThrows(
+            DruidException.class,
+            () -> SqlQueryPlus.builder("SET maxRowsQueuedForOrdering = 0; SELECT 1")
+                              .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
+                              .build()
+        ),
+        DruidExceptionMatcher
+            .invalidSqlInput()
+            .expectMessageContains(
+                "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [0]"
+            )
+    );
+
+    final SqlQueryPlus.Builder builder = SqlQueryPlus.builder("SELECT 1")
+                                                     .queryContext(Map.of("sqlQueryId", 1))
+                                                     .auth(CalciteTests.REGULAR_USER_AUTH_RESULT);
+    for (final Executable build : List.<Executable>of(builder::build, builder::buildJdbc)) {
+      BaseCalciteQueryTest.assertDruidException(
+          Assertions.assertThrows(DruidException.class, build),
+          DruidExceptionMatcher
+              .invalidSqlInput()
+              .expectMessageContains("Query context parameter [sqlQueryId] should be a string, but got [1]")
+      );
+    }
+
+    // Unknown parameters are rejected, as configured, by statements.
+    SqlQueryPlus.builder("SET myTraceId = 'abc-123'; SELECT 1").auth(CalciteTests.REGULAR_USER_AUTH_RESULT).build();
   }
 
   @Test
