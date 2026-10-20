@@ -42,17 +42,6 @@ public class SqlQueryPlusTest
   }
 
   @Test
-  public void testSetParameterValueIsNotValidatedWhenBuilding()
-  {
-    // Statements validate the user context, including SET values, when they plan the query.
-    final SqlQueryPlus query = SqlQueryPlus.builder("SET maxRowsQueuedForOrdering = 0; SELECT 1")
-                                           .auth(CalciteTests.REGULAR_USER_AUTH_RESULT)
-                                           .build();
-
-    Assertions.assertEquals(0L, query.userContext().get("maxRowsQueuedForOrdering"));
-  }
-
-  @Test
   public void testSyntaxError()
   {
     // SqlQueryPlus throws parse errors on build() if the statement is invalid

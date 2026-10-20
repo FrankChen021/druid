@@ -21,10 +21,8 @@ package org.apache.druid.query.context;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.druid.query.BadQueryContextException;
 
 import javax.annotation.Nullable;
-import java.util.Map;
 
 /**
  * Runtime configuration for validating query contexts, bound to the {@code druid.query.context} property prefix.
@@ -49,17 +47,5 @@ public class QueryContextConfig
   public boolean isRejectUnknownParameters()
   {
     return rejectUnknownParameters;
-  }
-
-  /**
-   * Validates the context that a user set on a query. The values of declared parameters are always validated, and
-   * unknown parameters are rejected if {@link #isRejectUnknownParameters()}.
-   *
-   * @throws BadQueryContextException for the first invalid parameter, as found by
-   *                                  {@link QueryContextParameterValidator#validate}
-   */
-  public void validate(final Map<String, Object> context)
-  {
-    QueryContextParameterValidator.validate(context, rejectUnknownParameters);
   }
 }

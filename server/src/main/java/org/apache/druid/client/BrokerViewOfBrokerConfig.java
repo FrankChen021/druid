@@ -35,6 +35,7 @@ import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.QueryConfigProvider;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.context.QueryContextConfig;
+import org.apache.druid.query.context.QueryContextParameterValidator;
 import org.apache.druid.rpc.ServiceClientFactory;
 import org.apache.druid.rpc.ServiceLocator;
 import org.apache.druid.rpc.StandardRetryPolicy;
@@ -108,14 +109,14 @@ public class BrokerViewOfBrokerConfig extends BaseBrokerViewOfConfig<BrokerDynam
       final QueryContextConfig queryContextConfig
   )
   {
-    // Only if unknown parameters are rejected, so that existing defaults keep working otherwise.
-    if (queryContextConfig.isRejectUnknownParameters()) {
-      try {
-        queryContextConfig.validate(defaultQueryConfig.getContext());
-      }
-      catch (BadQueryContextException e) {
-        throw new IAE(e, "Invalid default query context [%s]: %s", DEFAULT_QUERY_CONTEXT_PROPERTY, e.getMessage());
-      }
+    try {
+      QueryContextParameterValidator.validate(
+          defaultQueryConfig.getContext(),
+          queryContextConfig.isRejectUnknownParameters()
+      );
+    }
+    catch (BadQueryContextException e) {
+      throw new IAE(e, "Invalid default query context [%s]: %s", DEFAULT_QUERY_CONTEXT_PROPERTY, e.getMessage());
     }
   }
 

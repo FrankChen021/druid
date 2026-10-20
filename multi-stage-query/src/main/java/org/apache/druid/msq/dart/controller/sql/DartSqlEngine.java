@@ -52,6 +52,7 @@ import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.QueryConfigProvider;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.context.QueryContextConfig;
+import org.apache.druid.query.context.QueryContextParameterValidator;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.initialization.ServerConfig;
@@ -110,19 +111,19 @@ public class DartSqlEngine implements SqlEngine
       QueryContextConfig queryContextConfig
   )
   {
-    // Only if unknown parameters are rejected, so that existing defaults keep working otherwise.
-    if (queryContextConfig.isRejectUnknownParameters()) {
-      try {
-        queryContextConfig.validate(queryConfigProvider.getContext());
-      }
-      catch (BadQueryContextException e) {
-        throw new IAE(
-            e,
-            "Invalid default query context [%s]: %s",
-            DartModules.DART_PROPERTY_BASE + ".query.context",
-            e.getMessage()
-        );
-      }
+    try {
+      QueryContextParameterValidator.validate(
+          queryConfigProvider.getContext(),
+          queryContextConfig.isRejectUnknownParameters()
+      );
+    }
+    catch (BadQueryContextException e) {
+      throw new IAE(
+          e,
+          "Invalid default query context [%s]: %s",
+          DartModules.DART_PROPERTY_BASE + ".query.context",
+          e.getMessage()
+      );
     }
     this.controllerContextFactory = controllerContextFactory;
     this.controllerRegistry = controllerRegistry;

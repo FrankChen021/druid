@@ -29,6 +29,7 @@ import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.query.CloneQueryMode;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.context.QueryContextConfig;
+import org.apache.druid.query.context.QueryContextParameterValidator;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.planning.ExecutionVertex;
 import org.apache.druid.server.http.security.StateResourceFilter;
@@ -87,7 +88,7 @@ public class BrokerQueryResource extends QueryResource
   @Override
   protected void validateQueryContext(final Map<String, Object> context)
   {
-    queryContextConfig.validate(context);
+    QueryContextParameterValidator.validate(context, queryContextConfig.isRejectUnknownParameters());
   }
 
   @POST

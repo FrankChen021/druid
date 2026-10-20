@@ -188,16 +188,20 @@ public class SqlMSQStatementResourcePostTest extends MSQTestBase
   public void testInvalidDebugParameterValue()
   {
     // The statement is created before the context is validated, so the failure must still be returned as a response.
-    final Map<String, Object> context = new HashMap<>(
-        QueryContext.ofMap(QueryContextParameters.EXECUTION_MODE, ExecutionMode.ASYNC)
-    );
-    context.put(QueryContextParameters.DEBUG.getName(), List.of(true));
     SqlStatementResourceTest.assertExceptionMessage(
         resource.doPost(
-            new SqlQuery("select * from foo", null, false, false, false, context, null),
+            new SqlQuery(
+                "SET debug = 2; select * from foo",
+                null,
+                false,
+                false,
+                false,
+                QueryContext.ofMap(QueryContextParameters.EXECUTION_MODE, ExecutionMode.ASYNC),
+                null
+            ),
             SqlStatementResourceTest.makeOkRequest()
         ),
-        "Query context parameter [debug] should be a boolean, but got [[true]]",
+        "Query context parameter [debug] should be a boolean, but got [2]",
         Response.Status.BAD_REQUEST
     );
   }

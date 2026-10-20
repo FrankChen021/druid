@@ -155,4 +155,24 @@ public class BrokerViewOfBrokerConfigTest
         e.getMessage()
     );
   }
+
+  @Test
+  public void testInvalidStaticDefaultValueIsRejected()
+  {
+    final IAE e = Assertions.assertThrows(
+        IAE.class,
+        () -> new BrokerViewOfBrokerConfig(
+            coordinatorClient,
+            new DefaultQueryConfig(ImmutableMap.of("maxRowsQueuedForOrdering", 0)),
+            QueryContextConfig.DEFAULT
+        )
+    );
+    Assertions.assertTrue(
+        e.getMessage().startsWith(
+            "Invalid default query context [druid.query.default.context]: "
+            + "Query context parameter [maxRowsQueuedForOrdering]"
+        ),
+        e.getMessage()
+    );
+  }
 }

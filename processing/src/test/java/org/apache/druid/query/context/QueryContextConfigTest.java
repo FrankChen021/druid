@@ -21,13 +21,9 @@ package org.apache.druid.query.context;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.apache.druid.query.BadQueryContextException;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QueryContextConfigTest
@@ -53,19 +49,5 @@ class QueryContextConfigTest
   {
     assertFalse(QueryContextConfig.DEFAULT.isRejectUnknownParameters());
     assertTrue(new QueryContextConfig(true).isRejectUnknownParameters());
-  }
-
-  @Test
-  void testValidate()
-  {
-    final Map<String, Object> unknownParameter = Map.of("useCahce", false);
-    QueryContextConfig.DEFAULT.validate(unknownParameter);
-    assertThrows(BadQueryContextException.class, () -> new QueryContextConfig(true).validate(unknownParameter));
-
-    // Values are validated whether or not unknown parameters are rejected.
-    assertThrows(
-        BadQueryContextException.class,
-        () -> QueryContextConfig.DEFAULT.validate(Map.of("maxRowsQueuedForOrdering", 0))
-    );
   }
 }

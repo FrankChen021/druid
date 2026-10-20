@@ -232,4 +232,42 @@ public class CoordinatorBrokerConfigsResourceTest
 
     EasyMock.verify(configManager, auditManager, brokerDynamicConfigSyncer);
   }
+
+  @Test
+  public void testSetBrokerDynamicConfigWithInvalidQueryContextValue()
+  {
+    final AtomicReference<BrokerDynamicConfig> currentConfig =
+        new AtomicReference<>(BrokerDynamicConfig.builder().build());
+    final HttpServletRequest request = EasyMock.createNiceMock(HttpServletRequest.class);
+
+    EasyMock.expect(
+        configManager.watch(
+            EasyMock.anyObject(String.class),
+            EasyMock.anyObject(Class.class),
+            EasyMock.anyObject(BrokerDynamicConfig.class)
+        )
+    ).andReturn(currentConfig).once();
+
+    // Neither saved nor broadcast.
+    EasyMock.replay(configManager, auditManager, brokerDynamicConfigSyncer, request);
+
+    final BrokerDynamicConfig.Builder configBuilder =
+        BrokerDynamicConfig.builder().withQueryContext(QueryContext.of(Map.of("maxRowsQueuedForOrdering", 0)));
+
+    final Response response = new CoordinatorBrokerConfigsResource(
+        configManager,
+        auditManager,
+        brokerDynamicConfigSyncer,
+        QueryContextConfig.DEFAULT
+    ).setBrokerDynamicConfig(configBuilder, request);
+    Assertions.assertEquals(400, response.getStatus());
+    Assertions.assertTrue(
+        String.valueOf(response.getEntity()).contains(
+            "Query context parameter [maxRowsQueuedForOrdering]"
+        ),
+        String.valueOf(response.getEntity())
+    );
+
+    EasyMock.verify(configManager, auditManager, brokerDynamicConfigSyncer);
+  }
 }
