@@ -23,6 +23,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.ValueInstantiationException;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -357,10 +358,14 @@ public class QueryResourceTest
     );
   }
 
-  private static String timeseriesQueryWithContext(final String context)
+  /**
+   * Returns {@link #SIMPLE_TIMESERIES_QUERY} with the given context, as a client sends it.
+   */
+  private byte[] timeseriesQueryWithContext(final Map<String, Object> context) throws JsonProcessingException
   {
-    final int end = SIMPLE_TIMESERIES_QUERY.lastIndexOf('}');
-    return SIMPLE_TIMESERIES_QUERY.substring(0, end) + ", \"context\": " + context + "}";
+    final ObjectNode query = (ObjectNode) jsonMapper.readTree(SIMPLE_TIMESERIES_QUERY);
+    query.set("context", jsonMapper.valueToTree(context));
+    return jsonMapper.writeValueAsBytes(query);
   }
 
   @Test
@@ -1051,7 +1056,7 @@ public class QueryResourceTest
   public void testUnknownContextParameterRejectedByBroker() throws IOException
   {
     final Response response = createBrokerQueryResource(new QueryContextConfig(true)).doPost(
-        new ByteArrayInputStream(timeseriesQueryWithContext("{\"useCahce\": false}").getBytes(StandardCharsets.UTF_8)),
+        new ByteArrayInputStream(timeseriesQueryWithContext(Map.of("useCahce", false))),
         null /*pretty*/,
         testServletRequest
     );
@@ -1069,9 +1074,7 @@ public class QueryResourceTest
   {
     // Values are validated whether or not unknown parameters are rejected
     final Response response = createBrokerQueryResource(new QueryContextConfig(false)).doPost(
-        new ByteArrayInputStream(
-            timeseriesQueryWithContext("{\"maxRowsQueuedForOrdering\": 0}").getBytes(StandardCharsets.UTF_8)
-        ),
+        new ByteArrayInputStream(timeseriesQueryWithContext(Map.of("maxRowsQueuedForOrdering", 0))),
         null /*pretty*/,
         testServletRequest
     );
@@ -1090,7 +1093,7 @@ public class QueryResourceTest
 
     final MockHttpServletResponse response = expectAsyncRequestFlow(
         testServletRequest,
-        timeseriesQueryWithContext("{\"myTraceId\": \"abc-123\"}").getBytes(StandardCharsets.UTF_8),
+        timeseriesQueryWithContext(Map.of("myTraceId", "abc-123")),
         createBrokerQueryResource(new QueryContextConfig(false))
     );
     Assertions.assertEquals(Status.OK.getStatusCode(), response.getStatus());
@@ -1102,7 +1105,8 @@ public class QueryResourceTest
     expectPermissiveHappyPathAuth();
 
     final MockHttpServletResponse response = expectAsyncRequestFlow(
-        timeseriesQueryWithContext("{\"myTraceId\": \"abc-123\"}")
+        testServletRequest,
+        timeseriesQueryWithContext(Map.of("myTraceId", "abc-123"))
     );
     Assertions.assertEquals(Status.OK.getStatusCode(), response.getStatus());
   }
