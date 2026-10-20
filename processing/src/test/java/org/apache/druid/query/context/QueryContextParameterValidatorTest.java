@@ -29,16 +29,27 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QueryContextParameterValidatorTest
 {
   @Test
   void testValidateValues()
   {
-    assertInvalid(Map.of("maxRowsQueuedForOrdering", -1), false);
-    assertInvalid(Map.of("maxRowsQueuedForOrdering", "not-an-int"), false);
-    assertInvalid(Map.of("useResultLevelCache", 1), false);
+    assertInvalid(
+        Map.of("maxRowsQueuedForOrdering", -1),
+        false,
+        "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [-1]"
+    );
+    assertInvalid(
+        Map.of("maxRowsQueuedForOrdering", "not-an-int"),
+        false,
+        "Query context parameter [maxRowsQueuedForOrdering] should be in integer format, but got [not-an-int]"
+    );
+    assertInvalid(
+        Map.of("useResultLevelCache", 1),
+        false,
+        "Query context parameter [useResultLevelCache] should be a boolean, but got [1]"
+    );
     QueryContextParameterValidator.validate(Map.of("maxRowsQueuedForOrdering", Integer.MAX_VALUE), true);
     QueryContextParameterValidator.validate(Collections.singletonMap("maxRowsQueuedForOrdering", null), true);
     QueryContextParameterValidator.validate(Map.of(), true);
@@ -49,42 +60,46 @@ class QueryContextParameterValidatorTest
   {
     QueryContextParameterValidator.validate(Map.of("maxRowsQueuedForOrdering", 1, "myTraceId", -1), false);
     // Values are validated whether or not unknown parameters are rejected.
-    assertInvalid(Map.of("maxRowsQueuedForOrdering", 0, "myTraceId", -1), false);
+    assertInvalid(
+        Map.of("maxRowsQueuedForOrdering", 0, "myTraceId", -1),
+        false,
+        "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [0]"
+    );
   }
 
   @Test
   void testRejectUnknownParameterWithHint()
   {
-    assertEquals(
-        "Unknown query context parameter [useCahce]. Did you mean [useCache]?",
-        assertInvalid(Map.of("timeout", 1000, "useCahce", false), true)
+    assertInvalid(
+        Map.of("timeout", 1000, "useCahce", false),
+        true,
+        "Unknown query context parameter [useCahce]. Did you mean [useCache]?"
     );
   }
 
   @Test
   void testRejectUnknownParameterWithoutHint()
   {
-    assertEquals(
-        "Unknown query context parameter [myTraceId].",
-        assertInvalid(Map.of("myTraceId", "abc-123"), true)
-    );
+    assertInvalid(Map.of("myTraceId", "abc-123"), true, "Unknown query context parameter [myTraceId].");
   }
 
   @Test
   void testRejectUnknownParameterWithNullValue()
   {
-    assertEquals(
-        "Unknown query context parameter [useCahce]. Did you mean [useCache]?",
-        assertInvalid(Collections.singletonMap("useCahce", null), true)
+    assertInvalid(
+        Collections.singletonMap("useCahce", null),
+        true,
+        "Unknown query context parameter [useCahce]. Did you mean [useCache]?"
     );
   }
 
   @Test
   void testParameterNamesAreCaseSensitive()
   {
-    assertEquals(
-        "Unknown query context parameter [usecache]. Did you mean [useCache]?",
-        assertInvalid(Map.of("usecache", false), true)
+    assertInvalid(
+        Map.of("usecache", false),
+        true,
+        "Unknown query context parameter [usecache]. Did you mean [useCache]?"
     );
   }
 
@@ -95,18 +110,22 @@ class QueryContextParameterValidatorTest
     unknownNames.put("useCahce", false);
     unknownNames.put("useCache", false);
     unknownNames.put("myTraceId", "abc-123");
-    assertEquals("Unknown query context parameter [myTraceId].", assertInvalid(unknownNames, true));
+    assertInvalid(unknownNames, true, "Unknown query context parameter [myTraceId].");
 
     // An unknown name and an invalid value are reported in the same alphabetical order.
     final Map<String, Object> unknownNameFirst = new LinkedHashMap<>();
     unknownNameFirst.put("maxRowsQueuedForOrdering", 0);
     unknownNameFirst.put("aTraceId", "abc-123");
-    assertEquals("Unknown query context parameter [aTraceId].", assertInvalid(unknownNameFirst, true));
+    assertInvalid(unknownNameFirst, true, "Unknown query context parameter [aTraceId].");
 
     final Map<String, Object> invalidValueFirst = new LinkedHashMap<>();
     invalidValueFirst.put("zTraceId", "abc-123");
     invalidValueFirst.put("maxRowsQueuedForOrdering", 0);
-    assertTrue(assertInvalid(invalidValueFirst, true).startsWith("Query context parameter [maxRowsQueuedForOrdering]"));
+    assertInvalid(
+        invalidValueFirst,
+        true,
+        "Query context parameter [maxRowsQueuedForOrdering] must be within the range [1, 2147483647], but was [0]"
+    );
   }
 
   @Test
@@ -154,13 +173,18 @@ class QueryContextParameterValidatorTest
   }
 
   /**
-   * Asserts that the parameters are invalid, and returns the error message.
+   * Asserts that validating the parameters fails with the expected message.
    */
-  private static String assertInvalid(final Map<String, Object> parameters, final boolean rejectUnknownParameters)
+  private static void assertInvalid(
+      final Map<String, Object> parameters,
+      final boolean rejectUnknownParameters,
+      final String expectedMessage
+  )
   {
-    return assertThrows(
+    final BadQueryContextException e = assertThrows(
         BadQueryContextException.class,
         () -> QueryContextParameterValidator.validate(parameters, rejectUnknownParameters)
-    ).getMessage();
+    );
+    assertEquals(expectedMessage, e.getMessage());
   }
 }
