@@ -243,10 +243,15 @@ public class ForkingTaskRunnerTest
             "-Dsome.somesecret=secretvalue",
             "-Dsome.somepassword = secret=value",
             "-Dsome.some=notasecret",
-            "-Dsome.otherSecret= =asfdhkj352872598====fasdlkjfa="
+            "-Dsome.otherSecret= =asfdhkj352872598====fasdlkjfa=",
+            // matched by hiddenProperties words and case-insensitively, which maskProperties did not do
+            "-Ddruid.s3.accessKey=accesskeyvalue",
+            "-Ddruid.zk.service.pwd=pwdvalue",
+            "-Dsome.PASSWORD=passwordvalue"
         ),
         "java -cp /path/to/somewhere:some-jars.jar /some===file /asecretFileNa=<masked> -Dsome.property=random -Dsome.otherproperty = random=random "
-        + "-Dsome.somesecret =<masked> -Dsome.somesecret=<masked> -Dsome.somepassword =<masked> -Dsome.some=notasecret -Dsome.otherSecret=<masked>"
+        + "-Dsome.somesecret =<masked> -Dsome.somesecret=<masked> -Dsome.somepassword =<masked> -Dsome.some=notasecret -Dsome.otherSecret=<masked> "
+        + "-Ddruid.s3.accessKey=<masked> -Ddruid.zk.service.pwd=<masked> -Dsome.PASSWORD=<masked>"
     );
     assertEquals(
         originalAndExpectedCommand.rhs,

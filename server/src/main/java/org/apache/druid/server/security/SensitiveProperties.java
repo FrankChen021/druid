@@ -58,7 +58,6 @@ public class SensitiveProperties
    * @param startupLoggingConfig provides the deprecated {@code druid.startup.logging.maskProperties}
    */
   @Inject
-  @SuppressWarnings("removal") // reads the deprecated maskProperties for backward compatibility
   public SensitiveProperties(
       @Nullable final DruidServerConfig druidServerConfig,
       @Nullable final StartupLoggingConfig startupLoggingConfig

@@ -43,9 +43,9 @@ public class StartupLoggingConfig
   }
 
   /**
-   * @deprecated use {@code druid.server.hiddenProperties} instead.
+   * Returns the deprecated {@code druid.startup.logging.maskProperties}. Only read by
+   * {@link org.apache.druid.server.security.SensitiveProperties} for backward compatibility.
    */
-  @Deprecated(since = "40.0.0", forRemoval = true)
   @Nullable
   public List<String> getMaskProperties()
   {
