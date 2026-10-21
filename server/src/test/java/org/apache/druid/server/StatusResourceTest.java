@@ -30,7 +30,7 @@ import org.apache.druid.guice.TestDruidModule;
 import org.apache.druid.initialization.CoreInjectorBuilder;
 import org.apache.druid.initialization.DruidModule;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.server.log.SensitivePropertiesTest;
+import org.apache.druid.server.security.SensitivePropertiesTest;
 import org.apache.druid.utils.JvmUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

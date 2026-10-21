@@ -17,14 +17,16 @@
  * under the License.
  */
 
-package org.apache.druid.server.log;
+package org.apache.druid.server.security;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import org.apache.druid.client.DruidServerConfig;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.server.log.StartupLoggingConfig;
 
 import javax.annotation.Nullable;
 import java.util.Collection;
@@ -57,41 +59,32 @@ public class SensitiveProperties
   @JsonProperty
   private final Set<String> sensitiveProperties;
 
-  /**
-   * @deprecated use {@link #sensitiveProperties} instead.
-   */
-  @Deprecated(since = "40.0.0", forRemoval = true)
-  @JsonProperty
-  @Nullable
-  private final Set<String> hiddenProperties;
-
   private final Set<String> lowerCaseWords = new HashSet<>();
 
   /**
    * @param sensitiveProperties  value of {@code druid.server.sensitiveProperties}, defaults to
    *                             {@link #DEFAULT_SENSITIVE_PROPERTIES}
-   * @param hiddenProperties     value of the deprecated {@code druid.server.hiddenProperties}
+   * @param druidServerConfig    provides the deprecated {@code druid.server.hiddenProperties}
    * @param startupLoggingConfig provides the deprecated {@code druid.startup.logging.maskProperties}
    */
   @JsonCreator
-  @SuppressWarnings("removal") // reads the deprecated maskProperties for backward compatibility
+  @SuppressWarnings("removal") // reads the deprecated hiddenProperties and maskProperties for backward compatibility
   public SensitiveProperties(
       @JsonProperty("sensitiveProperties") @Nullable final Set<String> sensitiveProperties,
-      @JsonProperty("hiddenProperties") @Nullable final Set<String> hiddenProperties,
+      @JacksonInject @Nullable final DruidServerConfig druidServerConfig,
       @JacksonInject @Nullable final StartupLoggingConfig startupLoggingConfig
   )
   {
     this.sensitiveProperties = sensitiveProperties == null ? DEFAULT_SENSITIVE_PROPERTIES : sensitiveProperties;
-    this.hiddenProperties = hiddenProperties;
 
     addWords(this.sensitiveProperties);
-    if (hiddenProperties != null) {
+    if (druidServerConfig != null && druidServerConfig.getHiddenProperties() != null) {
       log.warn(
           "Property [druid.server.hiddenProperties] is deprecated and will be removed in a future release;"
           + " its values %s are still applied. Move them to [druid.server.sensitiveProperties].",
-          hiddenProperties
+          druidServerConfig.getHiddenProperties()
       );
-      addWords(hiddenProperties);
+      addWords(druidServerConfig.getHiddenProperties());
     }
     if (startupLoggingConfig != null && startupLoggingConfig.getMaskProperties() != null) {
       log.warn(

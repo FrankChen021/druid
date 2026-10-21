@@ -26,7 +26,11 @@ import com.google.inject.Inject;
 import org.apache.druid.java.util.common.HumanReadableBytes;
 import org.apache.druid.java.util.common.HumanReadableBytesRange;
 import org.apache.druid.segment.loading.SegmentLoaderConfig;
+import org.apache.druid.server.security.SensitiveProperties;
 import org.apache.druid.utils.RuntimeInfo;
+
+import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  */
@@ -44,6 +48,14 @@ public class DruidServerConfig
 
   @JsonProperty
   private int priority = DruidServer.DEFAULT_PRIORITY;
+
+  /**
+   * @deprecated use {@code druid.server.sensitiveProperties} ({@link SensitiveProperties}) instead.
+   */
+  @Deprecated(since = "40.0.0", forRemoval = true)
+  @JsonProperty
+  @Nullable
+  private Set<String> hiddenProperties;
 
   private final RuntimeInfo runtimeInfo;
   private SegmentLoaderConfig segmentLoaderConfig;
@@ -97,6 +109,16 @@ public class DruidServerConfig
   public int getPriority()
   {
     return priority;
+  }
+
+  /**
+   * @deprecated use {@link SensitiveProperties} instead.
+   */
+  @Deprecated(since = "40.0.0", forRemoval = true)
+  @Nullable
+  public Set<String> getHiddenProperties()
+  {
+    return hiddenProperties;
   }
 
 }

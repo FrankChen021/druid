@@ -17,14 +17,17 @@
  * under the License.
  */
 
-package org.apache.druid.server.log;
+package org.apache.druid.server.security;
 
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import org.apache.druid.client.DruidServerConfig;
 import org.apache.druid.guice.JsonConfigProvider;
 import org.apache.druid.guice.StartupInjectorBuilder;
 import org.apache.druid.initialization.CoreInjectorBuilder;
+import org.apache.druid.segment.loading.SegmentLoaderConfig;
+import org.apache.druid.server.log.StartupLoggingConfig;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -96,12 +99,14 @@ public class SensitivePropertiesTest
   }
 
   /**
-   * Binds {@link SensitiveProperties} and the config it reads, as {@link org.apache.druid.guice.StartupLoggingModule} and
-   * {@link org.apache.druid.guice.StorageNodeModule} do.
+   * Binds {@link SensitiveProperties} and the configs it reads, as {@link org.apache.druid.guice.StartupLoggingModule}
+   * and {@link org.apache.druid.guice.StorageNodeModule} do.
    */
   public static void bindConfigs(final Binder binder)
   {
     JsonConfigProvider.bind(binder, "druid.startup.logging", StartupLoggingConfig.class);
+    JsonConfigProvider.bind(binder, "druid.server", DruidServerConfig.class);
     JsonConfigProvider.bind(binder, "druid.server", SensitiveProperties.class);
+    binder.bind(SegmentLoaderConfig.class).toInstance(SegmentLoaderConfig.builder().build());
   }
 }

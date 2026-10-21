@@ -28,7 +28,7 @@ import org.apache.druid.initialization.DruidModule;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.server.http.security.ConfigResourceFilter;
 import org.apache.druid.server.http.security.StateResourceFilter;
-import org.apache.druid.server.log.SensitiveProperties;
+import org.apache.druid.server.security.SensitiveProperties;
 import org.apache.druid.utils.RuntimeInfo;
 
 import javax.inject.Inject;

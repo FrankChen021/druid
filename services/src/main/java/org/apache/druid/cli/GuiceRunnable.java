@@ -30,8 +30,8 @@ import org.apache.druid.initialization.ServerInjectorBuilder;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.lifecycle.Lifecycle;
 import org.apache.druid.java.util.common.logger.Logger;
-import org.apache.druid.server.log.SensitiveProperties;
 import org.apache.druid.server.log.StartupLoggingConfig;
+import org.apache.druid.server.security.SensitiveProperties;
 import org.apache.druid.utils.RuntimeInfo;
 
 import java.util.List;
