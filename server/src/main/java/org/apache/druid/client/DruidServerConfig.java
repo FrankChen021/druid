@@ -48,7 +48,7 @@ public class DruidServerConfig
   private final RuntimeInfo runtimeInfo;
   private SegmentLoaderConfig segmentLoaderConfig;
 
-  // Guice inject added here to properly bind this dependency into its dependents such as StatusResource
+  // Guice inject added here to properly bind this dependency into its dependents
   @Inject
   @JsonCreator
   public DruidServerConfig(

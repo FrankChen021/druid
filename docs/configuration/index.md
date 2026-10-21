@@ -714,7 +714,7 @@ This section contains the configuration options for endpoints that are supported
 
 |Property|Description|Default|
 |--------|-----------|-------|
-|`druid.server.sensitiveProperties`|Values of properties whose names contain any of these words (case insensitive) are masked in the startup property log (`druid.startup.logging.logProperties`) and in logged task commands, and the properties are omitted from the `/status/properties` endpoint.|`["password", "passphrase", "secret", "key", "token", "pwd", "basicAuthentication", "druid.emitter.kafka.producer.hiddenProperties"]`|
+|`druid.server.sensitiveProperties`|Values of properties whose names contain any of these words (case insensitive) are masked in the startup property log (`druid.startup.logging.logProperties`) and in logged task commands, and the properties are omitted from the `/status/properties` endpoint. Setting this property replaces the default list, so keep the default words when adding new ones.|`["password", "passphrase", "secret", "key", "token", "pwd", "basicAuthentication", "druid.emitter.kafka.producer.hiddenProperties"]`|
 |`druid.server.hiddenProperties`|**Deprecated**, use `druid.server.sensitiveProperties` instead. Words in this list are still added to `druid.server.sensitiveProperties`.|null|
 
 ## Master server

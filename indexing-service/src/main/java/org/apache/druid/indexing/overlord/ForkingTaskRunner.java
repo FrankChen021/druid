@@ -89,6 +89,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 /**
  * Runs tasks in separate processes using the "internal peon" verb.
@@ -407,7 +408,7 @@ public class ForkingTaskRunner
 
                         LOGGER.info(
                             "Running command[%s]",
-                            sensitiveProperties.maskCommand(command.getCommandList())
+                            getMaskedCommand(sensitiveProperties, command.getCommandList())
                         );
                         taskWorkItem.processHolder = runTaskProcess(command.getCommandList(), logFile, taskLocation);
 
@@ -759,6 +760,21 @@ public class ForkingTaskRunner
         taskInfo.processHolder.process.destroy();
       }
     }
+  }
+
+  /**
+   * Joins the command with spaces, replacing the value of each {@code name=value} argument whose name is sensitive
+   * with {@code <masked>}.
+   */
+  public static String getMaskedCommand(SensitiveProperties sensitiveProperties, List<String> command)
+  {
+    return command.stream().map(element -> {
+      final String[] splits = element.split("=", 2);
+      if (splits.length == 2 && sensitiveProperties.isSensitive(splits[0])) {
+        return StringUtils.format("%s=%s", splits[0], "<masked>");
+      }
+      return element;
+    }).collect(Collectors.joining(" "));
   }
 
   @Override

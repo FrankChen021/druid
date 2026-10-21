@@ -250,7 +250,7 @@ public class ForkingTaskRunnerTest
     );
     assertEquals(
         originalAndExpectedCommand.rhs,
-        new SensitiveProperties(null, null, null).maskCommand(originalAndExpectedCommand.lhs)
+        ForkingTaskRunner.getMaskedCommand(new SensitiveProperties(null, null, null), originalAndExpectedCommand.lhs)
     );
   }
 

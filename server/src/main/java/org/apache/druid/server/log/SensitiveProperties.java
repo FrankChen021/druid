@@ -22,7 +22,6 @@ package org.apache.druid.server.log;
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.logger.Logger;
@@ -30,7 +29,6 @@ import org.apache.druid.java.util.common.logger.Logger;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -117,22 +115,5 @@ public class SensitiveProperties
   {
     final String lowerCaseName = StringUtils.toLowerCase(propertyName);
     return lowerCaseWords.stream().anyMatch(lowerCaseName::contains);
-  }
-
-  /**
-   * Joins the command with spaces, replacing the value of each sensitive {@code name=value} argument with
-   * {@code <masked>}.
-   */
-  public String maskCommand(final List<String> command)
-  {
-    return Joiner.on(" ").join(
-        command.stream().map(element -> {
-          final String[] splits = element.split("=", 2);
-          if (splits.length == 2 && isSensitive(splits[0])) {
-            return StringUtils.format("%s=%s", splits[0], "<masked>");
-          }
-          return element;
-        }).iterator()
-    );
   }
 }
