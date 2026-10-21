@@ -48,7 +48,6 @@ import org.apache.druid.server.coordination.DruidServerMetadata;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.metrics.MetricsModule;
 import org.apache.druid.server.metrics.StorageMonitor;
-import org.apache.druid.server.security.SensitiveProperties;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -65,7 +64,6 @@ public class StorageNodeModule implements Module
   public void configure(Binder binder)
   {
     JsonConfigProvider.bind(binder, "druid.server", DruidServerConfig.class);
-    JsonConfigProvider.bind(binder, "druid.server", SensitiveProperties.class);
     JsonConfigProvider.bind(binder, "druid.segmentCache", SegmentLoaderConfig.class);
     JsonConfigProvider.bind(binder, "druid.indexing.formats", DefaultColumnFormatConfig.class);
     JsonConfigProvider.bind(binder, "druid.segment.timeline", SegmentTimelineConfig.class);

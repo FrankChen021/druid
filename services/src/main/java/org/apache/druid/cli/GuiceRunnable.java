@@ -25,6 +25,7 @@ import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import org.apache.druid.client.DruidServerConfig;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.initialization.ServerInjectorBuilder;
 import org.apache.druid.java.util.common.StringUtils;
@@ -120,9 +121,9 @@ public abstract class GuiceRunnable implements Runnable
 
       // Provisioned at startup even when properties are not logged, so that deprecated configs are warned about
       final SensitiveProperties sensitiveProperties =
-          injector.getExistingBinding(Key.get(SensitiveProperties.class)) != null
+          injector.getExistingBinding(Key.get(DruidServerConfig.class)) != null
           ? injector.getInstance(SensitiveProperties.class)
-          : new SensitiveProperties(null, null, startupLoggingConfig);
+          : new SensitiveProperties(null, startupLoggingConfig);
 
       if (startupLoggingConfig.isLogProperties()) {
         final Properties props = injector.getInstance(Properties.class);

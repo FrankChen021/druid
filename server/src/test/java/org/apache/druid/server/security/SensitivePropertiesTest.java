@@ -38,7 +38,7 @@ public class SensitivePropertiesTest
   @Test
   public void testDefaults()
   {
-    final SensitiveProperties sensitiveProperties = new SensitiveProperties(null, null, null);
+    final SensitiveProperties sensitiveProperties = new SensitiveProperties(null, null);
 
     Assertions.assertTrue(sensitiveProperties.isSensitive("druid.metadata.storage.connector.password"));
     Assertions.assertTrue(sensitiveProperties.isSensitive("druid.escalator.internalClientPassword"));
@@ -53,26 +53,16 @@ public class SensitivePropertiesTest
   }
 
   @Test
-  public void testSensitivePropertiesReplaceDefaults()
+  public void testHiddenPropertiesReplaceDefaults()
   {
     final SensitiveProperties sensitiveProperties = makeSensitiveProperties(
-        "druid.server.sensitiveProperties",
+        "druid.server.hiddenProperties",
         "[\"MyCustomName\"]"
     );
 
     Assertions.assertTrue(sensitiveProperties.isSensitive("druid.mycustomname.value"));
-    Assertions.assertFalse(sensitiveProperties.isSensitive("druid.metadata.storage.connector.password"));
-  }
-
-  @Test
-  public void testDeprecatedHiddenPropertiesAreHonored()
-  {
-    final SensitiveProperties sensitiveProperties = makeSensitiveProperties(
-        "druid.server.hiddenProperties",
-        "[\"MyHiddenName\"]"
-    );
-
-    Assertions.assertTrue(sensitiveProperties.isSensitive("druid.myhiddenname.value"));
+    Assertions.assertFalse(sensitiveProperties.isSensitive("druid.s3.accessKey"));
+    // the former default of the deprecated maskProperties still applies
     Assertions.assertTrue(sensitiveProperties.isSensitive("druid.metadata.storage.connector.password"));
   }
 
@@ -99,14 +89,13 @@ public class SensitivePropertiesTest
   }
 
   /**
-   * Binds {@link SensitiveProperties} and the configs it reads, as {@link org.apache.druid.guice.StartupLoggingModule}
+   * Binds the configs read by {@link SensitiveProperties}, as {@link org.apache.druid.guice.StartupLoggingModule}
    * and {@link org.apache.druid.guice.StorageNodeModule} do.
    */
   public static void bindConfigs(final Binder binder)
   {
     JsonConfigProvider.bind(binder, "druid.startup.logging", StartupLoggingConfig.class);
     JsonConfigProvider.bind(binder, "druid.server", DruidServerConfig.class);
-    JsonConfigProvider.bind(binder, "druid.server", SensitiveProperties.class);
     binder.bind(SegmentLoaderConfig.class).toInstance(SegmentLoaderConfig.builder().build());
   }
 }

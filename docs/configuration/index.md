@@ -247,7 +247,7 @@ All services can log debugging information on startup.
 |Property|Description|Default|
 |--------|-----------|-------|
 |`druid.startup.logging.logProperties`|Log all properties on startup (from common.runtime.properties, runtime.properties, and the JVM command line).|false|
-|`druid.startup.logging.maskProperties`|**Deprecated**, use `druid.server.sensitiveProperties` instead. Words in this list are still added to `druid.server.sensitiveProperties`.|null|
+|`druid.startup.logging.maskProperties`|**Deprecated**, use `druid.server.hiddenProperties` instead. Words in this list are still added to `druid.server.hiddenProperties`.|null|
 
 Note that some sensitive information may be logged if these settings are enabled.
 
@@ -714,8 +714,7 @@ This section contains the configuration options for endpoints that are supported
 
 |Property|Description|Default|
 |--------|-----------|-------|
-|`druid.server.sensitiveProperties`|Values of properties whose names contain any of these words (case insensitive) are masked in the startup property log (`druid.startup.logging.logProperties`) and in logged task commands, and the properties are omitted from the `/status/properties` endpoint. Setting this property replaces the default list, so keep the default words when adding new ones.|`["password", "passphrase", "secret", "key", "token", "pwd", "basicAuthentication", "druid.emitter.kafka.producer.hiddenProperties"]`|
-|`druid.server.hiddenProperties`|**Deprecated**, use `druid.server.sensitiveProperties` instead. Words in this list are still added to `druid.server.sensitiveProperties`.|null|
+|`druid.server.hiddenProperties`|Properties whose names contain any of these words (case insensitive) are treated as sensitive: their values are masked in the startup property log (`druid.startup.logging.logProperties`) and in logged task commands, and the properties are omitted from the `/status/properties` endpoint. Setting this property replaces the default list, so keep the default words when adding new ones.|`["druid.s3.accessKey","druid.s3.secretKey","druid.metadata.storage.connector.password", "password", "key", "token", "pwd", "secret", "passphrase", "basicAuthentication", "druid.emitter.kafka.producer.hiddenProperties"]`|
 
 ## Master server
 

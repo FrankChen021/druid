@@ -30,7 +30,7 @@ public class StartupLoggingConfig
   private boolean logProperties = false;
 
   /**
-   * @deprecated use {@link SensitiveProperties} instead.
+   * @deprecated use {@code druid.server.hiddenProperties} instead.
    */
   @Deprecated(since = "40.0.0", forRemoval = true)
   @JsonProperty
@@ -43,7 +43,7 @@ public class StartupLoggingConfig
   }
 
   /**
-   * @deprecated use {@link SensitiveProperties} instead.
+   * @deprecated use {@code druid.server.hiddenProperties} instead.
    */
   @Deprecated(since = "40.0.0", forRemoval = true)
   @Nullable

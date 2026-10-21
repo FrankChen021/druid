@@ -22,14 +22,14 @@ package org.apache.druid.client;
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import jakarta.validation.constraints.NotNull;
 import org.apache.druid.java.util.common.HumanReadableBytes;
 import org.apache.druid.java.util.common.HumanReadableBytesRange;
 import org.apache.druid.segment.loading.SegmentLoaderConfig;
-import org.apache.druid.server.security.SensitiveProperties;
 import org.apache.druid.utils.RuntimeInfo;
 
-import javax.annotation.Nullable;
 import java.util.Set;
 
 /**
@@ -49,18 +49,32 @@ public class DruidServerConfig
   @JsonProperty
   private int priority = DruidServer.DEFAULT_PRIORITY;
 
+  public static final Set<String> DEFAULT_HIDDEN_PROPERTIES = ImmutableSet.of(
+      "druid.s3.accessKey",
+      "druid.s3.secretKey",
+      "druid.metadata.storage.connector.password",
+      "password",
+      "key",
+      "token",
+      "pwd",
+      "secret",
+      "passphrase",
+      "basicAuthentication",
+      "druid.emitter.kafka.producer.hiddenProperties"
+  );
+
   /**
-   * @deprecated use {@code druid.server.sensitiveProperties} ({@link SensitiveProperties}) instead.
+   * Names of sensitive runtime properties, or substrings of them, matched case-insensitively. See
+   * {@link org.apache.druid.server.security.SensitiveProperties}.
    */
-  @Deprecated(since = "40.0.0", forRemoval = true)
   @JsonProperty
-  @Nullable
-  private Set<String> hiddenProperties;
+  @NotNull
+  private Set<String> hiddenProperties = DEFAULT_HIDDEN_PROPERTIES;
 
   private final RuntimeInfo runtimeInfo;
   private SegmentLoaderConfig segmentLoaderConfig;
 
-  // Guice inject added here to properly bind this dependency into its dependents
+  // Guice inject added here to properly bind this dependency into its dependents such as StatusResource
   @Inject
   @JsonCreator
   public DruidServerConfig(
@@ -111,11 +125,6 @@ public class DruidServerConfig
     return priority;
   }
 
-  /**
-   * @deprecated use {@link SensitiveProperties} instead.
-   */
-  @Deprecated(since = "40.0.0", forRemoval = true)
-  @Nullable
   public Set<String> getHiddenProperties()
   {
     return hiddenProperties;
