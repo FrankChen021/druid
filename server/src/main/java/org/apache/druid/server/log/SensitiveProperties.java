@@ -89,14 +89,17 @@ public class SensitiveProperties
     addWords(this.sensitiveProperties);
     if (hiddenProperties != null) {
       log.warn(
-          "Property [druid.server.hiddenProperties] is deprecated, use [druid.server.sensitiveProperties] instead."
+          "Property [druid.server.hiddenProperties] is deprecated and will be removed in a future release;"
+          + " its values %s are still applied. Move them to [druid.server.sensitiveProperties].",
+          hiddenProperties
       );
       addWords(hiddenProperties);
     }
     if (startupLoggingConfig != null && startupLoggingConfig.getMaskProperties() != null) {
       log.warn(
-          "Property [druid.startup.logging.maskProperties] is deprecated,"
-          + " use [druid.server.sensitiveProperties] instead."
+          "Property [druid.startup.logging.maskProperties] is deprecated and will be removed in a future release;"
+          + " its values %s are still applied. Move them to [druid.server.sensitiveProperties].",
+          startupLoggingConfig.getMaskProperties()
       );
       addWords(startupLoggingConfig.getMaskProperties());
     }
