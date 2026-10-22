@@ -102,14 +102,7 @@ public class RangeFilterNumericRangeTest extends InitializedNullHandlingTest
         }
         for (boolean lowerOpen : new boolean[]{true, false}) {
           for (boolean upperOpen : new boolean[]{true, false}) {
-            final RangeFilter filter;
-            try {
-              filter = new RangeFilter("x", matchValueType, lower, upper, lowerOpen, upperOpen, null);
-            }
-            catch (RuntimeException e) {
-              // bound not valid for the match value type, e.g. NaN for LONG
-              continue;
-            }
+            final RangeFilter filter = new RangeFilter("x", matchValueType, lower, upper, lowerOpen, upperOpen, null);
             check(filter, lower, upper);
             checked++;
           }
