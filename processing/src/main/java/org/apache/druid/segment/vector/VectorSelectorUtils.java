@@ -62,7 +62,8 @@ public class VectorSelectorUtils
       final boolean[] retVal = nullVector != null ? nullVector : new boolean[offset.getMaxVectorSize()];
       Arrays.fill(retVal, 0, size, false);
 
-      // Walk only the nulls within [startOffset, startOffset + size). Stop without consuming a null on the last row,
+      // Walk only the nulls within [startOffset, startOffset + size). Step with advanceIfNeeded(row + 1) rather than
+      // next(), which benchmarks faster within long runs of nulls. Stop without moving past a null on the last row,
       // so the iterator ends up at the first null >= the last row.
       final int lastRow = startOffset + size - 1;
       int row = nullIterator.peekNext();
@@ -71,7 +72,7 @@ public class VectorSelectorUtils
         if (row == lastRow) {
           break;
         }
-        nullIterator.next();
+        nullIterator.advanceIfNeeded(row + 1);
         if (!nullIterator.hasNext()) {
           break;
         }
