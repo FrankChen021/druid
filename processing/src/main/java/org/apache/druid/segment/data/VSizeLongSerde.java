@@ -22,6 +22,7 @@ package org.apache.druid.segment.data;
 import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.UOE;
+import org.apache.druid.math.expr.ExpressionProcessing;
 
 import javax.annotation.Nullable;
 import java.io.Closeable;
@@ -151,21 +152,47 @@ public class VSizeLongSerde
   // https://github.com/apache/lucene-solr/blob/master/lucene/core/src/java/org/apache/lucene/util/packed/DirectReader.java
   public static LongDeserializer getDeserializer(int longSize, ByteBuffer fromBuffer, int bufferOffset)
   {
+    return getDeserializer(longSize, fromBuffer, bufferOffset, ExpressionProcessing.useVectorApiIfInitialized());
+  }
+
+  /**
+   * Like {@link #getDeserializer(int, ByteBuffer, int)}, but with explicit control over whether the SIMD
+   * ({@code jdk.incubator.vector}) variants in {@link SimdVSizeLongDeserializers} are used for the bit widths that
+   * have one (1, 2, 4, 8 and 16). The SIMD variants only differ in their contiguous bulk decoding methods; results are
+   * identical to the scalar variants.
+   */
+  public static LongDeserializer getDeserializer(
+      int longSize,
+      ByteBuffer fromBuffer,
+      int bufferOffset,
+      boolean useVectorApi
+  )
+  {
     // The buffer needs to be duplicated since the byte order is changed
     ByteBuffer buffer = fromBuffer.duplicate().order(ByteOrder.BIG_ENDIAN);
     switch (longSize) {
       case 1:
-        return new Size1Des(buffer, bufferOffset);
+        return useVectorApi
+               ? new SimdVSizeLongDeserializers.SimdSize1Des(buffer, bufferOffset)
+               : new Size1Des(buffer, bufferOffset);
       case 2:
-        return new Size2Des(buffer, bufferOffset);
+        return useVectorApi
+               ? new SimdVSizeLongDeserializers.SimdSize2Des(buffer, bufferOffset)
+               : new Size2Des(buffer, bufferOffset);
       case 4:
-        return new Size4Des(buffer, bufferOffset);
+        return useVectorApi
+               ? new SimdVSizeLongDeserializers.SimdSize4Des(buffer, bufferOffset)
+               : new Size4Des(buffer, bufferOffset);
       case 8:
-        return new Size8Des(buffer, bufferOffset);
+        return useVectorApi
+               ? new SimdVSizeLongDeserializers.SimdSize8Des(buffer, bufferOffset)
+               : new Size8Des(buffer, bufferOffset);
       case 12:
         return new Size12Des(buffer, bufferOffset);
       case 16:
-        return new Size16Des(buffer, bufferOffset);
+        return useVectorApi
+               ? new SimdVSizeLongDeserializers.SimdSize16Des(buffer, bufferOffset)
+               : new Size16Des(buffer, bufferOffset);
       case 20:
         return new Size20Des(buffer, bufferOffset);
       case 24:
@@ -491,7 +518,7 @@ public class VSizeLongSerde
     }
   }
 
-  private static final class Size1Des implements LongDeserializer
+  static class Size1Des implements LongDeserializer
   {
     final ByteBuffer buffer;
     final int offset;
@@ -562,7 +589,7 @@ public class VSizeLongSerde
     }
   }
 
-  private static final class Size2Des implements LongDeserializer
+  static class Size2Des implements LongDeserializer
   {
     final ByteBuffer buffer;
     final int offset;
@@ -633,7 +660,7 @@ public class VSizeLongSerde
     }
   }
 
-  private static final class Size4Des implements LongDeserializer
+  static class Size4Des implements LongDeserializer
   {
     final ByteBuffer buffer;
     final int offset;
@@ -704,7 +731,7 @@ public class VSizeLongSerde
     }
   }
 
-  private static final class Size8Des implements LongDeserializer
+  static class Size8Des implements LongDeserializer
   {
     final ByteBuffer buffer;
     final int offset;
@@ -817,7 +844,7 @@ public class VSizeLongSerde
     }
   }
 
-  private static final class Size16Des implements LongDeserializer
+  static class Size16Des implements LongDeserializer
   {
     final ByteBuffer buffer;
     final int offset;
