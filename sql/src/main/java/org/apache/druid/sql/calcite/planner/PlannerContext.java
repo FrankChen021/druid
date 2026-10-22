@@ -29,7 +29,9 @@ import org.apache.calcite.avatica.remote.TypedValue;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
+import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.util.SqlBasicVisitor;
 import org.apache.calcite.util.CancelFlag;
 import org.apache.druid.error.InvalidSqlInput;
 import org.apache.druid.java.util.common.DateTimes;
@@ -73,6 +75,7 @@ import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -249,6 +252,10 @@ public class PlannerContext
 
   // bindings for dynamic parameters to bind during planning
   private List<TypedValue> parameters = Collections.emptyList();
+  // values of dynamic parameters synthesized for large IN lists, keyed by parameter index
+  private final Map<Integer, List<Object>> scalarInArrayParameters = new HashMap<>();
+  // index of the next synthesized dynamic parameter, or -1 if not yet computed
+  private int nextScalarInArrayParameterIndex = -1;
   // set of datasources and views which must be authorized, initialized to null so we can detect if it has been set.
   private Set<ResourceAction> resourceActions;
   // result of authorizing set of resources against authentication identity
@@ -667,6 +674,53 @@ public class PlannerContext
   public void setParameters(List<TypedValue> parameters)
   {
     this.parameters = Preconditions.checkNotNull(parameters, "parameters");
+  }
+
+  /**
+   * Registers the values of a large IN list that {@link DruidSqlValidator} replaced with a synthesized dynamic
+   * parameter, so that the values do not have to be carried through Calcite as one literal per element.
+   *
+   * @return index of the synthesized dynamic parameter
+   */
+  public int addScalarInArrayParameter(final List<Object> values)
+  {
+    if (nextScalarInArrayParameterIndex < 0) {
+      // Synthesized parameters must not collide with the parameters of the original statement.
+      nextScalarInArrayParameterIndex = Math.max(parameters.size(), maxDynamicParamIndex(sqlNode) + 1);
+    }
+    final int index = nextScalarInArrayParameterIndex++;
+    scalarInArrayParameters.put(index, values);
+    return index;
+  }
+
+  /**
+   * Returns the values registered by {@link #addScalarInArrayParameter(List)}, or null if the dynamic parameter at
+   * this index was not synthesized for a large IN list.
+   */
+  @Nullable
+  public List<Object> getScalarInArrayParameter(final int index)
+  {
+    return scalarInArrayParameters.get(index);
+  }
+
+  private static int maxDynamicParamIndex(@Nullable final SqlNode node)
+  {
+    if (node == null) {
+      return -1;
+    }
+    final int[] max = {-1};
+    node.accept(
+        new SqlBasicVisitor<Void>()
+        {
+          @Override
+          public Void visit(SqlDynamicParam param)
+          {
+            max[0] = Math.max(max[0], param.getIndex());
+            return null;
+          }
+        }
+    );
+    return max[0];
   }
 
   public void setAuthorizationResult(AuthorizationResult access)

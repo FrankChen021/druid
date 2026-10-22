@@ -28,6 +28,7 @@ import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.rules.SubstitutionRule;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
@@ -426,6 +427,14 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
               call.getOperator().equals(MultiValueStringOperatorConversions.CONTAINS.calciteOperator())
               || call.getOperator().equals(MultiValueStringOperatorConversions.OVERLAP.calciteOperator())
               || call.getOperator().equals(ScalarInArrayOperatorConversion.SQL_FUNCTION);
+          final List<Object> parameterValues = getStringScalarInArrayParameter(plannerContext, matchLiteral);
+          if (parameterValues != null) {
+            final Set<String> elements = new HashSet<>();
+            for (final Object value : parameterValues) {
+              elements.add((String) value);
+            }
+            return elements;
+          }
           return toStringSet(matchLiteral, matchNulls);
         }
       }
@@ -500,7 +509,8 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
         literal = RexUtil.removeNullabilityCast(rexBuilder.getTypeFactory(), literal);
 
         // Check that the call is of the form: LOOKUP(...) <op> <literal>
-        if (isLookupCall(lookupCall) && Calcites.isLiteral(literal, true, true)) {
+        if (isLookupCall(lookupCall)
+            && (Calcites.isLiteral(literal, true, true) || getStringScalarInArrayParameter(plannerContext, literal) != null)) {
           return (RexCall) rexBuilder.makeCall(call.getOperator(), lookupCall, literal);
         } else {
           return null;
@@ -615,6 +625,23 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
             }
         )
     );
+  }
+
+  /**
+   * Returns the values of a dynamic parameter synthesized for a large string IN list, or null if the node is not
+   * such a parameter. See {@link PlannerContext#addScalarInArrayParameter(List)}.
+   */
+  @Nullable
+  private static List<Object> getStringScalarInArrayParameter(
+      final PlannerContext plannerContext,
+      final RexNode node
+  )
+  {
+    if (node instanceof RexDynamicParam
+        && SqlTypeFamily.STRING.contains(node.getType().getComponentType())) {
+      return plannerContext.getScalarInArrayParameter(((RexDynamicParam) node).getIndex());
+    }
+    return null;
   }
 
   /**

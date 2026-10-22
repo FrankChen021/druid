@@ -6034,6 +6034,20 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
   }
 
   @Test
+  public void testInLiteralArrayInProjection()
+  {
+    for (final int threshold : new int[]{2, 1000}) {
+      testBuilder()
+          .sql("SELECT dim1 IN ('abc', 'def', 'nonmatching') AS m, COUNT(*) FROM druid.foo GROUP BY 1")
+          .queryContext(
+              QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD, threshold)
+          )
+          .expectedResults(ImmutableList.of(new Object[]{false, 4L}, new Object[]{true, 2L}))
+          .run();
+    }
+  }
+
+  @Test
   public void testInFilterWith23Elements_overBothScalarInArrayAndInSubQueryThresholds()
   {
     // Verify that when an IN filter surpasses both inFunctionThreshold and inSubQueryThreshold, the

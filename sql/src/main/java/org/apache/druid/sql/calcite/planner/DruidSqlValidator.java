@@ -30,11 +30,15 @@ import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlCharStringLiteral;
+import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlSelectKeyword;
@@ -46,6 +50,7 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
+import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.IdentifierNamespace;
 import org.apache.calcite.sql.validate.SelectNamespace;
 import org.apache.calcite.sql.validate.SqlNonNullableAccessors;
@@ -78,11 +83,14 @@ import org.apache.druid.sql.calcite.table.RowSignatures;
 import org.apache.druid.utils.CollectionUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -97,6 +105,9 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
    */
   @Deprecated(since = "39.0.0", forRemoval = true)
   public static final String CTX_ROWS_PER_SEGMENT = "rowsPerSegment";
+
+  private static final BigDecimal LONG_MIN = BigDecimal.valueOf(Long.MIN_VALUE);
+  private static final BigDecimal LONG_MAX = BigDecimal.valueOf(Long.MAX_VALUE);
 
   private final PlannerContext plannerContext;
 
@@ -852,7 +863,7 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
         final SqlCall newCall = ScalarInArrayOperatorConversion.SQL_FUNCTION.createCall(
             call.getParserPosition(),
             performUnconditionalRewrites(exprNode, underFrom),
-            SqlStdOperatorTable.ARRAY_VALUE_CONSTRUCTOR.createCall(valuesNode)
+            toScalarInArrayValues(valuesNode)
         );
 
         if (call.getKind() == SqlKind.NOT_IN) {
@@ -864,6 +875,122 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
     }
 
     return call;
+  }
+
+  /**
+   * Returns the array operand for a {@link ScalarInArrayOperatorConversion} call rewritten from an IN list.
+   *
+   * When all values are character literals or all are exact integers, the values are moved out of the SQL tree into
+   * a synthesized dynamic parameter registered with {@link PlannerContext#addScalarInArrayParameter(List)}. Calcite
+   * then validates, converts and optimizes a single parameter rather than one literal per value. Otherwise, the
+   * values are wrapped in an {@code ARRAY[...]} constructor.
+   */
+  private SqlNode toScalarInArrayValues(final SqlNodeList valuesNode)
+  {
+    final SqlTypeName elementTypeName = getScalarInArrayParameterElementType(valuesNode);
+    if (elementTypeName == null) {
+      return SqlStdOperatorTable.ARRAY_VALUE_CONSTRUCTOR.createCall(valuesNode);
+    }
+
+    final List<Object> values = new ArrayList<>(valuesNode.size());
+    for (final SqlNode valueNode : valuesNode) {
+      final SqlLiteral literal = (SqlLiteral) valueNode;
+      if (elementTypeName == SqlTypeName.VARCHAR) {
+        values.add(literal.getValueAs(String.class));
+      } else {
+        values.add(literal.getValueAs(Long.class));
+      }
+    }
+
+    final SqlDynamicParam param = new SqlDynamicParam(
+        plannerContext.addScalarInArrayParameter(values),
+        valuesNode.getParserPosition()
+    );
+    setValidatedNodeType(
+        param,
+        Calcites.createSqlArrayTypeWithNullability(getTypeFactory(), elementTypeName, false)
+    );
+    return param;
+  }
+
+  /**
+   * Returns {@link SqlTypeName#VARCHAR} if all values are character literals, {@link SqlTypeName#BIGINT} if all
+   * values are exact integer literals that fit in a long, and null otherwise.
+   */
+  @Nullable
+  private static SqlTypeName getScalarInArrayParameterElementType(final SqlNodeList valuesNode)
+  {
+    final SqlNode first = valuesNode.get(0);
+    if (first instanceof SqlCharStringLiteral) {
+      for (final SqlNode valueNode : valuesNode) {
+        if (!(valueNode instanceof SqlCharStringLiteral)) {
+          return null;
+        }
+      }
+      return SqlTypeName.VARCHAR;
+    } else if (first instanceof SqlNumericLiteral) {
+      for (final SqlNode valueNode : valuesNode) {
+        if (!(valueNode instanceof SqlNumericLiteral)
+            || !((SqlNumericLiteral) valueNode).isExact()
+            || !((SqlNumericLiteral) valueNode).isInteger()) {
+          return null;
+        }
+        final BigDecimal value = ((SqlNumericLiteral) valueNode).getValueAs(BigDecimal.class);
+        if (value.compareTo(LONG_MIN) < 0 || value.compareTo(LONG_MAX) > 0) {
+          return null;
+        }
+      }
+      return SqlTypeName.BIGINT;
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Skips type inference for dynamic parameters synthesized by {@link #toScalarInArrayValues(SqlNodeList)}, whose
+   * types are set when they are created.
+   */
+  @Override
+  protected void inferUnknownTypes(RelDataType inferredType, SqlValidatorScope scope, SqlNode node)
+  {
+    if (isScalarInArrayParameter(node)) {
+      return;
+    }
+    super.inferUnknownTypes(inferredType, scope, node);
+  }
+
+  /**
+   * Excludes dynamic parameters synthesized by {@link #toScalarInArrayValues(SqlNodeList)}, since they are not
+   * parameters of the original statement.
+   */
+  @Override
+  public RelDataType getParameterRowType(SqlNode sqlQuery)
+  {
+    final List<RelDataType> types = new ArrayList<>();
+    final List<String> names = new ArrayList<>();
+    // Same traversal as SqlValidatorImpl#getParameterRowType, skipping synthesized parameters.
+    final Set<SqlNode> alreadyVisited = Collections.newSetFromMap(new IdentityHashMap<>());
+    sqlQuery.accept(
+        new SqlShuttle()
+        {
+          @Override
+          public SqlNode visit(SqlDynamicParam param)
+          {
+            if (!isScalarInArrayParameter(param) && alreadyVisited.add(param)) {
+              names.add("?" + types.size());
+              types.add(getValidatedNodeType(param));
+            }
+            return param;
+          }
+        }
+    );
+    return getTypeFactory().createStructType(types, names);
+  }
+
+  private boolean isScalarInArrayParameter(final SqlNode node)
+  {
+    return node instanceof SqlDynamicParam
+           && plannerContext.getScalarInArrayParameter(((SqlDynamicParam) node).getIndex()) != null;
   }
 
   public static CalciteContextException buildCalciteContextException(String message, SqlNode call)
