@@ -58,6 +58,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 @ParameterizedClass
 
@@ -124,7 +125,7 @@ public class CompressedLongsSerdeTest
   }
 
   /**
-   * Readers pick SIMD or scalar decoding of bit-packed values (see {@link VSizeLongSerde#newSimdScratchIfEnabled()})
+   * Readers pick SIMD or scalar decoding of bit-packed values (see {@link VSizeLongSerde#newSimdScratchIfEnabled(int)})
    * when they are created, so this has to be set before reading.
    */
   @BeforeEach
@@ -159,63 +160,121 @@ public class CompressedLongsSerdeTest
 
   /**
    * Columns spanning several blocks, read in vectors which cross block boundaries, for the bit widths that have SIMD
-   * decoding.
+   * decoding. With {@link CompressionFactory.LongEncodingStrategy#AUTO} these are table encoded, except for 16 bits.
    */
   @Test
   public void testMultipleBlocks() throws Exception
   {
-    Assertions.assertEquals(useVectorApi, VSizeLongSerde.newSimdScratchIfEnabled() != null);
+    Assertions.assertEquals(useVectorApi, VSizeLongSerde.newSimdScratchIfEnabled(1) != null);
+    Assertions.assertNull(VSizeLongSerde.newSimdScratchIfEnabled(12));
     final Random random = new Random(0);
     for (int bits : new int[]{1, 2, 4, 8, 16}) {
-      final int numValues = 3 * VSizeLongSerde.getNumValuesPerBlock(bits, CompressedPools.BUFFER_SIZE) + 123;
       // more than MAX_TABLE_SIZE distinct values for 16 bits, so that the auto strategy uses delta encoding
       final long base = bits == 16 ? -5_000_000_000L : 1_000;
-      final long[] values = new long[numValues];
-      for (int i = 0; i < numValues; i++) {
-        values[i] = base + random.nextInt(1 << bits);
-      }
+      final long[] values = randomValuesForMultipleBlocks(random, bits, base);
+      testMultipleBlocks(
+          bits,
+          values,
+          medium -> CompressionFactory.getLongSerializer(
+              "test",
+              medium,
+              "test",
+              order,
+              encodingStrategy,
+              compressionStrategy,
+              medium.getCloser()
+          )
+      );
+    }
+  }
 
-      final SegmentWriteOutMedium segmentWriteOutMedium = new OffHeapMemorySegmentWriteOutMedium();
-      try {
-        final ColumnarLongsSerializer serializer = CompressionFactory.getLongSerializer(
-            "test",
-            segmentWriteOutMedium,
-            "test",
-            order,
-            encodingStrategy,
-            compressionStrategy,
-            segmentWriteOutMedium.getCloser()
-        );
-        serializer.open();
-        serializer.addAll(values, 0, values.length);
-        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        serializer.writeTo(Channels.newChannel(baos), null);
-        final CompressedColumnarLongsSupplier supplier = CompressedColumnarLongsSupplier
-            .fromByteBuffer(ByteBuffer.wrap(baos.toByteArray()), order, null);
-        try (ColumnarLongs longs = supplier.get()) {
-          final int vectorSize = 512;
-          final long[] vector = new long[vectorSize];
-          // odd step so that reads start at every alignment and straddle block boundaries
-          for (int start = 0; start < numValues; start += vectorSize - 3) {
-            final int length = Math.min(vectorSize, numValues - start);
-            longs.get(vector, start, length);
-            for (int i = 0; i < length; i++) {
-              if (vector[i] != values[start + i]) {
-                Assertions.fail(StringUtils.format(
-                    "bits[%d] index[%d] expected[%d] actual[%d]",
-                    bits,
-                    start + i,
-                    values[start + i],
-                    vector[i]
-                ));
-              }
+  /**
+   * Like {@link #testMultipleBlocks()}, but always delta encoded, which the auto strategy only picks for more than
+   * {@link CompressionFactory#MAX_TABLE_SIZE} distinct values (so never for 8 bits or fewer).
+   */
+  @Test
+  public void testMultipleBlocksDeltaEncoded() throws Exception
+  {
+    // the encoding strategy isn't used, avoid running the same thing twice
+    Assumptions.assumeTrue(encodingStrategy == CompressionFactory.LongEncodingStrategy.AUTO);
+    final Random random = new Random(1);
+    for (int bits : new int[]{1, 2, 4, 8, 16}) {
+      final long base = -1_000_000_007L;
+      final long[] values = randomValuesForMultipleBlocks(random, bits, base);
+      testMultipleBlocks(
+          bits,
+          values,
+          medium -> {
+            final DeltaLongEncodingWriter writer = new DeltaLongEncodingWriter(base, (1L << bits) - 1);
+            if (compressionStrategy == CompressionStrategy.NONE) {
+              return new EntireLayoutColumnarLongsSerializer("test", medium, writer);
+            }
+            return new BlockLayoutColumnarLongsSerializer(
+                "test",
+                medium,
+                "test",
+                order,
+                writer,
+                compressionStrategy,
+                GenericIndexedWriter.MAX_FILE_SIZE,
+                medium.getCloser()
+            );
+          }
+      );
+    }
+  }
+
+  private static long[] randomValuesForMultipleBlocks(Random random, int bits, long base)
+  {
+    final int numValues = 3 * VSizeLongSerde.getNumValuesPerBlock(bits, CompressedPools.BUFFER_SIZE) + 123;
+    final long[] values = new long[numValues];
+    for (int i = 0; i < numValues; i++) {
+      values[i] = base + random.nextInt(1 << bits);
+    }
+    // include both ends of the range
+    values[0] = base;
+    values[1] = base + (1L << bits) - 1;
+    return values;
+  }
+
+  private void testMultipleBlocks(
+      int bits,
+      long[] values,
+      Function<SegmentWriteOutMedium, ColumnarLongsSerializer> serializerFactory
+  ) throws IOException
+  {
+    final SegmentWriteOutMedium segmentWriteOutMedium = new OffHeapMemorySegmentWriteOutMedium();
+    try {
+      final ColumnarLongsSerializer serializer = serializerFactory.apply(segmentWriteOutMedium);
+      serializer.open();
+      serializer.addAll(values, 0, values.length);
+      final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      serializer.writeTo(Channels.newChannel(baos), null);
+      final CompressedColumnarLongsSupplier supplier = CompressedColumnarLongsSupplier
+          .fromByteBuffer(ByteBuffer.wrap(baos.toByteArray()), order, null);
+      try (ColumnarLongs longs = supplier.get()) {
+        final int vectorSize = 512;
+        final long[] vector = new long[vectorSize];
+        // odd step so that reads start at every alignment and straddle block boundaries
+        for (int start = 0; start < values.length; start += vectorSize - 3) {
+          final int length = Math.min(vectorSize, values.length - start);
+          longs.get(vector, start, length);
+          for (int i = 0; i < length; i++) {
+            if (vector[i] != values[start + i]) {
+              Assertions.fail(StringUtils.format(
+                  "bits[%d] index[%d] expected[%d] actual[%d]",
+                  bits,
+                  start + i,
+                  values[start + i],
+                  vector[i]
+              ));
             }
           }
         }
       }
-      finally {
-        segmentWriteOutMedium.close();
-      }
+    }
+    finally {
+      segmentWriteOutMedium.close();
     }
   }
 

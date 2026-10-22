@@ -45,7 +45,7 @@ import java.nio.ByteBuffer;
  *   and reinterprets the bytes as longs. The same shuffle also swaps the big endian bytes of 16 bit values.</li>
  * </ol>
  * Like the scalar deserializers (and the column readers which own them), instances are not thread-safe: their
- * {@link Scratch} arrays are owned by a single reader, see {@link VSizeLongSerde#newSimdScratchIfEnabled()}.
+ * {@link Scratch} arrays are owned by a single reader, see {@link VSizeLongSerde#newSimdScratchIfEnabled(int)}.
  */
 final class SimdVSizeLongDeserializers
 {
@@ -364,7 +364,6 @@ final class SimdVSizeLongDeserializers
     @Override
     public void getTable(long[] out, int outPosition, int startIndex, int length, long[] table)
     {
-      // 2 bit indexes can only select the first 4 table entries, whatever the table size
       // 1 bit indexes can only select the first 2 table entries, whatever the table size
       int index = startIndex;
       int i = 0;
@@ -433,6 +432,7 @@ final class SimdVSizeLongDeserializers
     @Override
     public void getTable(long[] out, int outPosition, int startIndex, int length, long[] table)
     {
+      // 2 bit indexes can only select the first 4 table entries, whatever the table size
       int index = startIndex;
       int i = 0;
 

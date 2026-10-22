@@ -150,6 +150,13 @@ public class VSizeLongSerde
 
   // LongDeserializers were adapted from Apache Lucene DirectReader, see:
   // https://github.com/apache/lucene-solr/blob/master/lucene/core/src/java/org/apache/lucene/util/packed/DirectReader.java
+  /**
+   * Get a deserializer, using the SIMD variants if {@link ExpressionProcessing#useVectorApi()} is enabled. A SIMD
+   * deserializer allocates its own scratch arrays on first use; readers which create a deserializer for every block
+   * should instead keep a scratch from {@link #newSimdScratchIfEnabled(int)} and use
+   * {@link #getDeserializer(int, ByteBuffer, int, SimdVSizeLongDeserializers.Scratch)}, as
+   * {@link DeltaLongEncodingReader} and {@link TableLongEncodingReader} do.
+   */
   public static LongDeserializer getDeserializer(int longSize, ByteBuffer fromBuffer, int bufferOffset)
   {
     return getDeserializer(longSize, fromBuffer, bufferOffset, ExpressionProcessing.useVectorApiIfInitialized());
@@ -159,7 +166,8 @@ public class VSizeLongSerde
    * Like {@link #getDeserializer(int, ByteBuffer, int)}, but with explicit control over whether the SIMD
    * ({@code jdk.incubator.vector}) variants in {@link SimdVSizeLongDeserializers} are used for the bit widths that
    * have one (1, 2, 4, 8 and 16). The SIMD variants only differ in their contiguous bulk decoding methods; results are
-   * identical to the scalar variants.
+   * identical to the scalar variants. Like {@link #getDeserializer(int, ByteBuffer, int)}, each SIMD deserializer gets
+   * fresh scratch arrays.
    */
   public static LongDeserializer getDeserializer(
       int longSize,
@@ -172,25 +180,42 @@ public class VSizeLongSerde
         longSize,
         fromBuffer,
         bufferOffset,
-        useVectorApi ? new SimdVSizeLongDeserializers.Scratch() : null
+        useVectorApi && hasSimdDeserializer(longSize) ? new SimdVSizeLongDeserializers.Scratch() : null
     );
   }
 
   /**
    * Scratch space for {@link #getDeserializer(int, ByteBuffer, int, SimdVSizeLongDeserializers.Scratch)} if
-   * {@link ExpressionProcessing#useVectorApi()} is enabled, else null. For readers which create a new deserializer for
-   * every block, so that the scratch arrays are allocated once per reader rather than once per block. The scratch is
-   * not thread-safe: each reader instance (including each {@code duplicate()}) must create its own.
+   * {@link ExpressionProcessing#useVectorApi()} is enabled and {@code bitsPerValue} has a SIMD deserializer, else null.
+   * For readers which create a new deserializer for every block, so that the scratch arrays are allocated once per
+   * reader rather than once per block. The scratch is not thread-safe: each reader instance (including each
+   * {@code duplicate()}) must create its own.
    */
   @Nullable
-  static SimdVSizeLongDeserializers.Scratch newSimdScratchIfEnabled()
+  static SimdVSizeLongDeserializers.Scratch newSimdScratchIfEnabled(int bitsPerValue)
   {
-    return ExpressionProcessing.useVectorApiIfInitialized() ? new SimdVSizeLongDeserializers.Scratch() : null;
+    return hasSimdDeserializer(bitsPerValue) && ExpressionProcessing.useVectorApiIfInitialized()
+           ? new SimdVSizeLongDeserializers.Scratch()
+           : null;
+  }
+
+  private static boolean hasSimdDeserializer(int bitsPerValue)
+  {
+    switch (bitsPerValue) {
+      case 1:
+      case 2:
+      case 4:
+      case 8:
+      case 16:
+        return true;
+      default:
+        return false;
+    }
   }
 
   /**
-   * Get a SIMD deserializer using the given scratch space if it is non-null (see {@link #newSimdScratchIfEnabled()}),
-   * else a scalar deserializer.
+   * Get a SIMD deserializer using the given scratch space if it is non-null (see
+   * {@link #newSimdScratchIfEnabled(int)}), else a scalar deserializer.
    */
   static LongDeserializer getDeserializer(
       int longSize,

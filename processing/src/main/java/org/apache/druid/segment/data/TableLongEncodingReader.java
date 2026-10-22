@@ -31,11 +31,12 @@ public class TableLongEncodingReader implements CompressionFactory.LongEncodingR
   private final ByteBuffer buffer;
   private VSizeLongSerde.LongDeserializer deserializer;
   /**
-   * Reused by the deserializers created for every block in {@link #setBuffer}; null unless SIMD decoding is enabled.
+   * Reused by the deserializers created for every block in {@link #setBuffer}; null unless SIMD decoding is enabled
+   * and available for {@link #bitsPerValue}.
    * Readers are used by a single thread, and {@link #duplicate()} creates a new reader with its own scratch.
    */
   @Nullable
-  private final SimdVSizeLongDeserializers.Scratch simdScratch = VSizeLongSerde.newSimdScratchIfEnabled();
+  private final SimdVSizeLongDeserializers.Scratch simdScratch;
 
   public TableLongEncodingReader(ByteBuffer fromBuffer)
   {
@@ -52,6 +53,7 @@ public class TableLongEncodingReader implements CompressionFactory.LongEncodingR
         table[i] = buffer.getLong();
       }
       fromBuffer.position(buffer.position());
+      simdScratch = VSizeLongSerde.newSimdScratchIfEnabled(bitsPerValue);
       deserializer = VSizeLongSerde.getDeserializer(bitsPerValue, buffer, buffer.position(), simdScratch);
     } else {
       throw new IAE("Unknown version[%s]", version);
@@ -63,6 +65,7 @@ public class TableLongEncodingReader implements CompressionFactory.LongEncodingR
     this.buffer = buffer;
     this.table = table;
     this.bitsPerValue = bitsPerValue;
+    this.simdScratch = VSizeLongSerde.newSimdScratchIfEnabled(bitsPerValue);
     deserializer = VSizeLongSerde.getDeserializer(bitsPerValue, buffer, buffer.position(), simdScratch);
   }
 
