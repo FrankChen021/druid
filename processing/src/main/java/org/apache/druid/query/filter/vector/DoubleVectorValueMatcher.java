@@ -20,9 +20,12 @@
 package org.apache.druid.query.filter.vector;
 
 import org.apache.druid.math.expr.ExprEval;
+import org.apache.druid.math.expr.ExpressionProcessing;
 import org.apache.druid.math.expr.ExpressionType;
 import org.apache.druid.query.filter.DruidDoublePredicate;
 import org.apache.druid.query.filter.DruidPredicateFactory;
+import org.apache.druid.query.filter.NumericRangePredicateFactory;
+import org.apache.druid.query.filter.vector.simd.SimdDoubleVectorValueMatcher;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.vector.VectorValueSelector;
@@ -68,7 +71,7 @@ public class DoubleVectorValueMatcher implements VectorValueMatcherFactory
 
   private BaseVectorValueMatcher makeDoubleMatcher(double matchValDouble)
   {
-    return new BaseVectorValueMatcher(selector)
+    final BaseVectorValueMatcher scalarMatcher = new BaseVectorValueMatcher(selector)
     {
       final VectorMatch match = VectorMatch.wrap(new int[selector.getMaxVectorSize()]);
 
@@ -96,6 +99,11 @@ public class DoubleVectorValueMatcher implements VectorValueMatcherFactory
         return match;
       }
     };
+
+    if (ExpressionProcessing.useVectorApi()) {
+      return SimdDoubleVectorValueMatcher.forEquality(selector, matchValDouble, scalarMatcher);
+    }
+    return scalarMatcher;
   }
 
 
@@ -104,7 +112,7 @@ public class DoubleVectorValueMatcher implements VectorValueMatcherFactory
   {
     final DruidDoublePredicate predicate = predicateFactory.makeDoublePredicate();
 
-    return new BaseVectorValueMatcher(selector)
+    final BaseVectorValueMatcher scalarMatcher = new BaseVectorValueMatcher(selector)
     {
       final VectorMatch match = VectorMatch.wrap(new int[selector.getMaxVectorSize()]);
 
@@ -133,5 +141,13 @@ public class DoubleVectorValueMatcher implements VectorValueMatcherFactory
         return match;
       }
     };
+
+    if (ExpressionProcessing.useVectorApi() && predicateFactory instanceof NumericRangePredicateFactory rangeFactory) {
+      final NumericRangePredicateFactory.DoubleRange range = rangeFactory.getDoubleRange();
+      if (range != null) {
+        return SimdDoubleVectorValueMatcher.forRange(selector, range, predicate.applyNull(), scalarMatcher);
+      }
+    }
+    return scalarMatcher;
   }
 }

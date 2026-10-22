@@ -2063,6 +2063,8 @@ public class RangeFilterTests
                         "optimizedFilterIncludeUnknown",
                         "optimizedFilterNoIncludeUnknown",
                         "stringPredicateSupplier",
+                        "longRangeSupplier",
+                        "doubleRangeSupplier",
                         "longPredicateSupplier",
                         "floatPredicateSupplier",
                         "doublePredicateSupplier",
