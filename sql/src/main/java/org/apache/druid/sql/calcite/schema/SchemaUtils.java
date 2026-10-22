@@ -95,7 +95,7 @@ public class SchemaUtils
       if (resource == null) {
         visibleNames.add(name);
       } else {
-        namesByResource.computeIfAbsent(resource, _ -> new LinkedHashSet<>()).add(name);
+        namesByResource.computeIfAbsent(resource, k -> new LinkedHashSet<>()).add(name);
       }
     }
 

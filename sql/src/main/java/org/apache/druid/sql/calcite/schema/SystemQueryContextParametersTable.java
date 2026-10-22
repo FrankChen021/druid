@@ -296,7 +296,7 @@ public class SystemQueryContextParametersTable extends AbstractTable implements 
     return switch (parameter.getDefaultValue()) {
       case DefaultValue.Literal<?> literal -> toJsonForm(literal.value());
       case DefaultValue.FromProperty<?> fromProperty -> "${" + fromProperty.property() + "}";
-      case DefaultValue.None<?> _ -> null;
+      case DefaultValue.None<?> none -> null;
     };
   }
 

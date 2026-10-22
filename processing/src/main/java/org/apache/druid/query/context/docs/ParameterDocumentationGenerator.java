@@ -283,7 +283,7 @@ public final class ParameterDocumentationGenerator
     return switch (parameter.getDefaultValue()) {
       case DefaultValue.Literal<?> literal -> "`" + literal.value() + "`";
       case DefaultValue.FromProperty<?> fromProperty -> "`" + fromProperty.property() + "`";
-      case DefaultValue.None<?> _ -> "N/A";
+      case DefaultValue.None<?> none -> "N/A";
     };
   }
 

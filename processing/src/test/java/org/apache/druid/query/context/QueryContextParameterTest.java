@@ -169,7 +169,7 @@ class QueryContextParameterTest
     final QueryContextParameter<Integer> parameter = QueryContextParameter
         .builder("required", Integer.class, value -> (Integer) value)
         .description("Test parameter.")
-        .constraint((_, _) -> constraintCalled.set(true))
+        .constraint((a, b) -> constraintCalled.set(true))
         .build();
 
     assertNull(parameter.validate(null));

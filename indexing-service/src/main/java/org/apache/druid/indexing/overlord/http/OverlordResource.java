@@ -533,7 +533,7 @@ public class OverlordResource
 
     final ListenableFuture<?> future = taskActionClient.get().submitAsync(holder.getAction());
     asyncRequest.context.addListener(
-        ServletResourceUtils.createAsyncTimeoutListener(_ -> {
+        ServletResourceUtils.createAsyncTimeoutListener(event -> {
           asyncRequest.complete(HttpResponseStatus.GATEWAY_TIMEOUT.code(), null);
           future.cancel(true);
         })

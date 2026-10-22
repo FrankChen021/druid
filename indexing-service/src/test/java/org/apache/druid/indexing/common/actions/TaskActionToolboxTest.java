@@ -68,7 +68,7 @@ public class TaskActionToolboxTest
         null,
         supervisorManager,
         null,
-        (_, nameFormat) -> new WrappingScheduledExecutorService(nameFormat, taskActionExec, true)
+        (name, nameFormat) -> new WrappingScheduledExecutorService(nameFormat, taskActionExec, true)
     );
   }
 
@@ -100,7 +100,7 @@ public class TaskActionToolboxTest
         task,
         supervisorId,
         startMetadata,
-        (_, _) -> SegmentPublishResult.ok(segmentsToPublish)
+        (a, b) -> SegmentPublishResult.ok(segmentsToPublish)
     );
 
     assertFalse(taskReadyFuture.isDone());
@@ -124,7 +124,7 @@ public class TaskActionToolboxTest
         task,
         null,
         null,
-        (_, _) -> SegmentPublishResult.ok(segmentsToPublish)
+        (a, b) -> SegmentPublishResult.ok(segmentsToPublish)
     );
 
     assertFalse(publishFuture.isDone());
@@ -153,7 +153,7 @@ public class TaskActionToolboxTest
         task,
         supervisorId,
         startMetadata,
-        (_, _) -> SegmentPublishResult.retryableOffsetMismatchFailure("offset mismatch")
+        (a, b) -> SegmentPublishResult.retryableOffsetMismatchFailure("offset mismatch")
     );
 
     assertFalse(taskReadyFuture.isDone());
@@ -188,7 +188,7 @@ public class TaskActionToolboxTest
         task,
         supervisorId,
         startMetadata,
-        (_, _) -> SegmentPublishResult.ok(segmentsToPublish)
+        (a, b) -> SegmentPublishResult.ok(segmentsToPublish)
     );
 
     assertFalse(taskReadyFuture.isDone());

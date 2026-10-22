@@ -58,7 +58,7 @@ public class SchemaUtilsTest extends CalciteTestBase
             AUTHORIZER_MAPPER,
             AUTH_RESULT,
             List.of("a", "b", "c"),
-            _ -> resource
+            name -> resource
         )
     );
   }
@@ -73,7 +73,7 @@ public class SchemaUtilsTest extends CalciteTestBase
             AUTHORIZER_MAPPER,
             AUTH_RESULT,
             List.of("a", "b"),
-            _ -> resource
+            name -> resource
         )
     );
   }
@@ -83,7 +83,7 @@ public class SchemaUtilsTest extends CalciteTestBase
   {
     Assertions.assertEquals(
         Set.of("a", "b"),
-        SchemaUtils.filterVisibleResources(AUTHORIZER_MAPPER, AUTH_RESULT, List.of("a", "b"), _ -> null)
+        SchemaUtils.filterVisibleResources(AUTHORIZER_MAPPER, AUTH_RESULT, List.of("a", "b"), name -> null)
     );
   }
 

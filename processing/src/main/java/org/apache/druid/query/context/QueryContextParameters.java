@@ -2565,7 +2565,7 @@ public final class QueryContextParameters
             try {
               return Float.parseFloat((String) value);
             }
-            catch (NumberFormatException _) {
+            catch (NumberFormatException e) {
               // Fall through to the invalid-value error below.
             }
           }
@@ -2590,7 +2590,7 @@ public final class QueryContextParameters
             try {
               return HumanReadableBytes.valueOf(HumanReadableBytes.parse((String) value));
             }
-            catch (IAE _) {
+            catch (IAE e) {
               // Fall through to the invalid-value error below.
             }
           }
@@ -2642,7 +2642,7 @@ public final class QueryContextParameters
             try {
               return fromString.apply((String) value);
             }
-            catch (IllegalArgumentException _) {
+            catch (IllegalArgumentException e) {
               // Fall through to the invalid-value error below.
             }
           }
@@ -2723,7 +2723,7 @@ public final class QueryContextParameters
         return;
       }
     }
-    catch (NumberFormatException _) {
+    catch (NumberFormatException e) {
       // Reported below.
     }
     throw invalidValueException(name, MAX_SUBQUERY_BYTES_FORMAT, value);

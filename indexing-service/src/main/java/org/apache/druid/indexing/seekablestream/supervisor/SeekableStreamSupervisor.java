@@ -3055,7 +3055,7 @@ public abstract class SeekableStreamSupervisor<PartitionIdType, SequenceOffsetTy
           // Consider only task groups which are reading from offsets
           // strictly smaller than the candidate taskId
           if (!isOffsetAtOrBeyond(pendingGroupOffset, taskOffset)) {
-            blockingTaskGroups.computeIfAbsent(taskGroup, _ -> new HashSet<>())
+            blockingTaskGroups.computeIfAbsent(taskGroup, k -> new HashSet<>())
                               .add(partitionId);
           }
         });
