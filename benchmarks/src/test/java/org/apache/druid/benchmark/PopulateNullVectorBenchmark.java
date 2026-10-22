@@ -62,7 +62,7 @@ import java.util.stream.IntStream;
  * <p>Quick run with fewer params, e.g.:
  * <pre>
  * java -jar benchmarks/target/benchmarks.jar PopulateNullVectorBenchmark -f 1 -wi 2 -i 3 -w 2s -r 2s \
- *   -p bitmapType=roaring -p nullDensity=0.01,0.5
+ *   -p bitmapType=roaring -p nullDensity=0.01,0.5 -p nullPattern=runs
  * </pre>
  *
  * <p>Results for "old" and "new" appear on adjacent rows of the JMH table (the "version" param varies fastest).
@@ -76,6 +76,7 @@ import java.util.stream.IntStream;
 public class PopulateNullVectorBenchmark
 {
   private static final int VECTOR_SIZE = 512;
+  private static final int RUN_CYCLE = 4096;
 
   @Param({"roaring", "concise"})
   private String bitmapType;
@@ -88,6 +89,15 @@ public class PopulateNullVectorBenchmark
 
   @Param({"0.001", "0.01", "0.1", "0.5", "0.9"})
   private double nullDensity;
+
+  /**
+   * "random" makes each row null independently with probability {@link #nullDensity}. "runs" lays out nulls in runs
+   * (as is common in real data, e.g. a column added partway through ingestion or sorted data): alternating null and
+   * non-null runs with random lengths, averaging {@link #RUN_CYCLE} rows per pair, so the overall density is still
+   * about {@link #nullDensity}.
+   */
+  @Param({"random", "runs"})
+  private String nullPattern;
 
   @Param({"1000000"})
   private int numRows;
@@ -129,10 +139,29 @@ public class PopulateNullVectorBenchmark
     }
 
     final MutableBitmap mutableBitmap = bitmapFactory.makeEmptyMutableBitmap();
-    for (int i = 0; i < numRows; i++) {
-      if (random.nextDouble() < nullDensity) {
-        mutableBitmap.add(i);
-      }
+    switch (nullPattern) {
+      case "random":
+        for (int i = 0; i < numRows; i++) {
+          if (random.nextDouble() < nullDensity) {
+            mutableBitmap.add(i);
+          }
+        }
+        break;
+      case "runs":
+        // Run lengths are uniform in [1, 2 * mean], so the expected null fraction is nullDensity.
+        final double meanNullRun = RUN_CYCLE * nullDensity;
+        final double meanNonNullRun = RUN_CYCLE * (1 - nullDensity);
+        int row = (int) (random.nextDouble() * 2 * meanNonNullRun);
+        while (row < numRows) {
+          final int nullRunEnd = Math.min(numRows, row + 1 + (int) (random.nextDouble() * 2 * meanNullRun));
+          for (; row < nullRunEnd; row++) {
+            mutableBitmap.add(row);
+          }
+          row += 1 + (int) (random.nextDouble() * 2 * meanNonNullRun);
+        }
+        break;
+      default:
+        throw DruidException.defensive("Unknown nullPattern[%s]", nullPattern);
     }
     nullBitmap = bitmapFactory.makeImmutableBitmap(mutableBitmap);
 

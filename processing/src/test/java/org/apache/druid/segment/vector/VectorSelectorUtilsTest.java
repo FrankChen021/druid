@@ -432,7 +432,8 @@ public class VectorSelectorUtilsTest
   }
 
   /**
-   * Original row-at-a-time implementation of {@link VectorSelectorUtils#populateNullVector}, used as a reference.
+   * Original row-at-a-time implementation of {@link VectorSelectorUtils#populateNullVector}, copied verbatim, used as a
+   * reference.
    */
   @Nullable
   private static boolean[] legacyPopulateNullVector(
@@ -444,22 +445,47 @@ public class VectorSelectorUtilsTest
     if (!nullIterator.hasNext()) {
       return null;
     }
-    final boolean[] retVal = nullVector != null ? nullVector : new boolean[offset.getMaxVectorSize()];
-    final int[] currentOffsets = offset.isContiguous() ? null : offset.getOffsets();
-    final int first = currentOffsets == null ? offset.getStartOffset() : currentOffsets[0];
-    nullIterator.advanceIfNeeded(first);
-    if (!nullIterator.hasNext()) {
-      return null;
+
+    final boolean[] retVal;
+
+    if (nullVector != null) {
+      retVal = nullVector;
+    } else {
+      retVal = new boolean[offset.getMaxVectorSize()];
     }
-    for (int i = 0; i < offset.getCurrentVectorSize(); i++) {
-      final int row = currentOffsets == null ? first + i : currentOffsets[i];
-      nullIterator.advanceIfNeeded(row);
+
+    if (offset.isContiguous()) {
+      final int startOffset = offset.getStartOffset();
+      nullIterator.advanceIfNeeded(startOffset);
       if (!nullIterator.hasNext()) {
-        Arrays.fill(retVal, i, offset.getCurrentVectorSize(), false);
-        break;
+        return null;
       }
-      retVal[i] = row == nullIterator.peekNext();
+      for (int i = 0; i < offset.getCurrentVectorSize(); i++) {
+        final int row = i + startOffset;
+        nullIterator.advanceIfNeeded(row);
+        if (!nullIterator.hasNext()) {
+          Arrays.fill(retVal, i, offset.getCurrentVectorSize(), false);
+          break;
+        }
+        retVal[i] = row == nullIterator.peekNext();
+      }
+    } else {
+      final int[] currentOffsets = offset.getOffsets();
+      nullIterator.advanceIfNeeded(currentOffsets[0]);
+      if (!nullIterator.hasNext()) {
+        return null;
+      }
+      for (int i = 0; i < offset.getCurrentVectorSize(); i++) {
+        final int row = currentOffsets[i];
+        nullIterator.advanceIfNeeded(row);
+        if (!nullIterator.hasNext()) {
+          Arrays.fill(retVal, i, offset.getCurrentVectorSize(), false);
+          break;
+        }
+        retVal[i] = row == nullIterator.peekNext();
+      }
     }
+
     return retVal;
   }
 
