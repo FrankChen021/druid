@@ -168,30 +168,61 @@ public class VSizeLongSerde
       boolean useVectorApi
   )
   {
+    return getDeserializer(
+        longSize,
+        fromBuffer,
+        bufferOffset,
+        useVectorApi ? new SimdVSizeLongDeserializers.Scratch() : null
+    );
+  }
+
+  /**
+   * Scratch space for {@link #getDeserializer(int, ByteBuffer, int, SimdVSizeLongDeserializers.Scratch)} if
+   * {@link ExpressionProcessing#useVectorApi()} is enabled, else null. For readers which create a new deserializer for
+   * every block, so that the scratch arrays are allocated once per reader rather than once per block. The scratch is
+   * not thread-safe: each reader instance (including each {@code duplicate()}) must create its own.
+   */
+  @Nullable
+  static SimdVSizeLongDeserializers.Scratch newSimdScratchIfEnabled()
+  {
+    return ExpressionProcessing.useVectorApiIfInitialized() ? new SimdVSizeLongDeserializers.Scratch() : null;
+  }
+
+  /**
+   * Get a SIMD deserializer using the given scratch space if it is non-null (see {@link #newSimdScratchIfEnabled()}),
+   * else a scalar deserializer.
+   */
+  static LongDeserializer getDeserializer(
+      int longSize,
+      ByteBuffer fromBuffer,
+      int bufferOffset,
+      @Nullable SimdVSizeLongDeserializers.Scratch simdScratch
+  )
+  {
     // The buffer needs to be duplicated since the byte order is changed
     ByteBuffer buffer = fromBuffer.duplicate().order(ByteOrder.BIG_ENDIAN);
     switch (longSize) {
       case 1:
-        return useVectorApi
-               ? new SimdVSizeLongDeserializers.SimdSize1Des(buffer, bufferOffset)
+        return simdScratch != null
+               ? new SimdVSizeLongDeserializers.SimdSize1Des(buffer, bufferOffset, simdScratch)
                : new Size1Des(buffer, bufferOffset);
       case 2:
-        return useVectorApi
-               ? new SimdVSizeLongDeserializers.SimdSize2Des(buffer, bufferOffset)
+        return simdScratch != null
+               ? new SimdVSizeLongDeserializers.SimdSize2Des(buffer, bufferOffset, simdScratch)
                : new Size2Des(buffer, bufferOffset);
       case 4:
-        return useVectorApi
-               ? new SimdVSizeLongDeserializers.SimdSize4Des(buffer, bufferOffset)
+        return simdScratch != null
+               ? new SimdVSizeLongDeserializers.SimdSize4Des(buffer, bufferOffset, simdScratch)
                : new Size4Des(buffer, bufferOffset);
       case 8:
-        return useVectorApi
-               ? new SimdVSizeLongDeserializers.SimdSize8Des(buffer, bufferOffset)
+        return simdScratch != null
+               ? new SimdVSizeLongDeserializers.SimdSize8Des(buffer, bufferOffset, simdScratch)
                : new Size8Des(buffer, bufferOffset);
       case 12:
         return new Size12Des(buffer, bufferOffset);
       case 16:
-        return useVectorApi
-               ? new SimdVSizeLongDeserializers.SimdSize16Des(buffer, bufferOffset)
+        return simdScratch != null
+               ? new SimdVSizeLongDeserializers.SimdSize16Des(buffer, bufferOffset, simdScratch)
                : new Size16Des(buffer, bufferOffset);
       case 20:
         return new Size20Des(buffer, bufferOffset);

@@ -25,6 +25,8 @@ import it.unimi.dsi.fastutil.ints.IntArrays;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.io.smoosh.FileSmoosher;
 import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
+import org.apache.druid.math.expr.ExpressionProcessing;
+import org.apache.druid.segment.CompressedPools;
 import org.apache.druid.segment.file.SegmentFileChannel;
 import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMedium;
 import org.apache.druid.segment.writeout.SegmentWriteOutMedium;
@@ -33,8 +35,10 @@ import org.apache.druid.testing.TemporaryFolderExtension;
 import org.apache.druid.utils.CloseableUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -65,8 +69,10 @@ public class CompressedLongsSerdeTest
     List<Object[]> data = new ArrayList<>();
     for (CompressionFactory.LongEncodingStrategy encodingStrategy : CompressionFactory.LongEncodingStrategy.values()) {
       for (CompressionStrategy strategy : CompressionStrategy.values()) {
-        data.add(new Object[]{encodingStrategy, strategy, ByteOrder.BIG_ENDIAN});
-        data.add(new Object[]{encodingStrategy, strategy, ByteOrder.LITTLE_ENDIAN});
+        for (boolean useVectorApi : new boolean[]{false, true}) {
+          data.add(new Object[]{encodingStrategy, strategy, ByteOrder.BIG_ENDIAN, useVectorApi});
+          data.add(new Object[]{encodingStrategy, strategy, ByteOrder.LITTLE_ENDIAN, useVectorApi});
+        }
       }
     }
     return data;
@@ -78,6 +84,7 @@ public class CompressedLongsSerdeTest
   protected final CompressionFactory.LongEncodingStrategy encodingStrategy;
   protected final CompressionStrategy compressionStrategy;
   protected final ByteOrder order;
+  protected final boolean useVectorApi;
 
   private final long[] values0 = {};
   private final long[] values1 = {0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1};
@@ -106,12 +113,34 @@ public class CompressedLongsSerdeTest
   public CompressedLongsSerdeTest(
       CompressionFactory.LongEncodingStrategy encodingStrategy,
       CompressionStrategy compressionStrategy,
-      ByteOrder order
+      ByteOrder order,
+      boolean useVectorApi
   )
   {
     this.encodingStrategy = encodingStrategy;
     this.compressionStrategy = compressionStrategy;
     this.order = order;
+    this.useVectorApi = useVectorApi;
+  }
+
+  /**
+   * Readers pick SIMD or scalar decoding of bit-packed values (see {@link VSizeLongSerde#newSimdScratchIfEnabled()})
+   * when they are created, so this has to be set before reading.
+   */
+  @BeforeEach
+  public void setUpExpressionProcessing()
+  {
+    if (useVectorApi) {
+      ExpressionProcessing.initializeForVectorApiTests();
+    } else {
+      ExpressionProcessing.initializeForTests();
+    }
+  }
+
+  @AfterEach
+  public void resetExpressionProcessing()
+  {
+    ExpressionProcessing.initializeForTests();
   }
 
   @Test
@@ -126,6 +155,68 @@ public class CompressedLongsSerdeTest
     testWithValues(values6);
     testWithValues(values7);
     testWithValues(values8);
+  }
+
+  /**
+   * Columns spanning several blocks, read in vectors which cross block boundaries, for the bit widths that have SIMD
+   * decoding.
+   */
+  @Test
+  public void testMultipleBlocks() throws Exception
+  {
+    Assertions.assertEquals(useVectorApi, VSizeLongSerde.newSimdScratchIfEnabled() != null);
+    final Random random = new Random(0);
+    for (int bits : new int[]{1, 2, 4, 8, 16}) {
+      final int numValues = 3 * VSizeLongSerde.getNumValuesPerBlock(bits, CompressedPools.BUFFER_SIZE) + 123;
+      // more than MAX_TABLE_SIZE distinct values for 16 bits, so that the auto strategy uses delta encoding
+      final long base = bits == 16 ? -5_000_000_000L : 1_000;
+      final long[] values = new long[numValues];
+      for (int i = 0; i < numValues; i++) {
+        values[i] = base + random.nextInt(1 << bits);
+      }
+
+      final SegmentWriteOutMedium segmentWriteOutMedium = new OffHeapMemorySegmentWriteOutMedium();
+      try {
+        final ColumnarLongsSerializer serializer = CompressionFactory.getLongSerializer(
+            "test",
+            segmentWriteOutMedium,
+            "test",
+            order,
+            encodingStrategy,
+            compressionStrategy,
+            segmentWriteOutMedium.getCloser()
+        );
+        serializer.open();
+        serializer.addAll(values, 0, values.length);
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        serializer.writeTo(Channels.newChannel(baos), null);
+        final CompressedColumnarLongsSupplier supplier = CompressedColumnarLongsSupplier
+            .fromByteBuffer(ByteBuffer.wrap(baos.toByteArray()), order, null);
+        try (ColumnarLongs longs = supplier.get()) {
+          final int vectorSize = 512;
+          final long[] vector = new long[vectorSize];
+          // odd step so that reads start at every alignment and straddle block boundaries
+          for (int start = 0; start < numValues; start += vectorSize - 3) {
+            final int length = Math.min(vectorSize, numValues - start);
+            longs.get(vector, start, length);
+            for (int i = 0; i < length; i++) {
+              if (vector[i] != values[start + i]) {
+                Assertions.fail(StringUtils.format(
+                    "bits[%d] index[%d] expected[%d] actual[%d]",
+                    bits,
+                    start + i,
+                    values[start + i],
+                    vector[i]
+                ));
+              }
+            }
+          }
+        }
+      }
+      finally {
+        segmentWriteOutMedium.close();
+      }
+    }
   }
 
   @Test

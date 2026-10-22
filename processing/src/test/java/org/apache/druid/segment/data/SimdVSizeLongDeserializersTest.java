@@ -194,7 +194,7 @@ public class SimdVSizeLongDeserializersTest
       return;
     }
     final Random random = new Random(2);
-    // table sizes smaller than, equal to and larger than 2^numBits (the latter takes the scalar fallback)
+    // table sizes smaller than, equal to and larger than 2^numBits
     final int maxTableSize = 1 << numBits;
     for (int tableSize : new int[]{maxTableSize / 2 + 1, maxTableSize, maxTableSize + 3}) {
       final long[] table = new long[tableSize];

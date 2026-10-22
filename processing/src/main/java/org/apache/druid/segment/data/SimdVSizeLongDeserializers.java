@@ -44,26 +44,26 @@ import java.nio.ByteBuffer;
  *   a byte shuffle which moves each value's byte(s) into the low byte(s) of a long lane, masks off the rest of the lane
  *   and reinterprets the bytes as longs. The same shuffle also swaps the big endian bytes of 16 bit values.</li>
  * </ol>
- * Like the scalar deserializers (and the column readers which own them), instances are not thread-safe: the scratch
- * arrays are per instance.
+ * Like the scalar deserializers (and the column readers which own them), instances are not thread-safe: their
+ * {@link Scratch} arrays are owned by a single reader, see {@link VSizeLongSerde#newSimdScratchIfEnabled()}.
  */
 final class SimdVSizeLongDeserializers
 {
   private static final int VALUES_PER_GROUP = 8;
 
   /**
-   * Long species that values are widened to. Capped at 8 lanes so that a group of 8 values always fills a whole
-   * number of long vectors.
+   * Long species that values are widened to. Capped at 256 bits: widening uses a byte {@code rearrange} over a vector
+   * of the same shape, and 512 bit (64 lane) byte rearranges need AVX512_VBMI, which many AVX-512 CPUs (such as
+   * Skylake-SP and Cascade Lake) lack, making HotSpot fall back to a very slow non-intrinsified implementation.
    */
-  static final VectorSpecies<Long> LONG_SPECIES = LongVector.SPECIES_PREFERRED.length() > VALUES_PER_GROUP
-                                                  ? LongVector.SPECIES_512
+  static final VectorSpecies<Long> LONG_SPECIES = LongVector.SPECIES_PREFERRED.vectorBitSize() > 256
+                                                  ? LongVector.SPECIES_256
                                                   : LongVector.SPECIES_PREFERRED;
-  private static final int LONG_LANES = LONG_SPECIES.length();
 
   /**
    * Byte species with the same shape as {@link #LONG_SPECIES}, used to widen bytes to longs.
    */
-  private static final VectorSpecies<Byte> WIDE_BYTE_SPECIES = LONG_SPECIES.vectorShape().withLanes(byte.class);
+  static final VectorSpecies<Byte> WIDE_BYTE_SPECIES = LONG_SPECIES.vectorShape().withLanes(byte.class);
 
   /**
    * 8 lane byte species used to unpack one group of 8 sub-byte values.
@@ -71,20 +71,21 @@ final class SimdVSizeLongDeserializers
   private static final VectorSpecies<Byte> GROUP_BYTE_SPECIES = ByteVector.SPECIES_64;
 
   /**
-   * Vector loads read up to this many bytes past the last byte they use, so scratch arrays have this much slack.
+   * Vector loads read up to this many bytes past the last byte they use, so scratch arrays have this much slack. Covers
+   * every long species {@link #LONG_SPECIES} can be.
    */
-  private static final int SCRATCH_PADDING = Math.max(WIDE_BYTE_SPECIES.length(), GROUP_BYTE_SPECIES.length());
+  private static final int SCRATCH_PADDING = ByteVector.SPECIES_256.length();
 
   /**
    * Whether the least significant byte of a long lane comes first when reinterpreting bytes as longs.
    */
   private static final boolean LEAST_SIGNIFICANT_BYTE_FIRST =
-      ByteVector.zero(WIDE_BYTE_SPECIES).withLane(0, (byte) 1).reinterpretAsLongs().lane(0) == 1;
+      ByteVector.zero(GROUP_BYTE_SPECIES).withLane(0, (byte) 1).reinterpretAsLongs().lane(0) == 1;
 
-  private static final VectorShuffle<Byte> WIDEN_SHUFFLE_8 = widenShuffle(Byte.BYTES);
-  private static final ByteVector WIDEN_MASK_8 = widenMask(Byte.BYTES);
-  private static final VectorShuffle<Byte> WIDEN_SHUFFLE_16 = widenShuffle(Short.BYTES);
-  private static final ByteVector WIDEN_MASK_16 = widenMask(Short.BYTES);
+  private static final VectorShuffle<Byte> WIDEN_SHUFFLE_8 = widenShuffle(WIDE_BYTE_SPECIES, Byte.BYTES);
+  private static final ByteVector WIDEN_MASK_8 = widenMask(WIDE_BYTE_SPECIES, Byte.BYTES);
+  private static final VectorShuffle<Byte> WIDEN_SHUFFLE_16 = widenShuffle(WIDE_BYTE_SPECIES, Short.BYTES);
+  private static final ByteVector WIDEN_MASK_16 = widenMask(WIDE_BYTE_SPECIES, Short.BYTES);
 
   // lane shuffles which copy the packed byte holding value i of a group into lane i
   private static final VectorShuffle<Byte> SPREAD_1 =
@@ -114,30 +115,34 @@ final class SimdVSizeLongDeserializers
     return ByteVector.fromArray(GROUP_BYTE_SPECIES, bytes, 0);
   }
 
+  // The widening methods below take their species, shuffle and mask as arguments so that tests can run them with every
+  // species LONG_SPECIES can be. Production code passes static final constants, which C2 sees as constants once these
+  // small methods are inlined, as the Vector API intrinsics require.
+
   /**
    * Byte shuffle which, for long lane {@code j}, moves the big endian {@code bytesPerValue} byte value {@code j} of the
    * source into the low bytes of the lane. Lane bytes which are masked off by {@link #widenMask} take source byte 0.
    */
-  private static VectorShuffle<Byte> widenShuffle(int bytesPerValue)
+  static VectorShuffle<Byte> widenShuffle(VectorSpecies<Byte> wideByteSpecies, int bytesPerValue)
   {
-    final int[] sourceIndexes = new int[WIDE_BYTE_SPECIES.length()];
-    for (int lane = 0; lane < LONG_LANES; lane++) {
+    final int[] sourceIndexes = new int[wideByteSpecies.length()];
+    for (int lane = 0; lane < wideByteSpecies.length() / Long.BYTES; lane++) {
       for (int significance = 0; significance < bytesPerValue; significance++) {
         sourceIndexes[laneByteIndex(lane, significance)] = lane * bytesPerValue + bytesPerValue - 1 - significance;
       }
     }
-    return VectorShuffle.fromArray(WIDE_BYTE_SPECIES, sourceIndexes, 0);
+    return VectorShuffle.fromArray(wideByteSpecies, sourceIndexes, 0);
   }
 
-  private static ByteVector widenMask(int bytesPerValue)
+  static ByteVector widenMask(VectorSpecies<Byte> wideByteSpecies, int bytesPerValue)
   {
-    final byte[] mask = new byte[WIDE_BYTE_SPECIES.length()];
-    for (int lane = 0; lane < LONG_LANES; lane++) {
+    final byte[] mask = new byte[wideByteSpecies.length()];
+    for (int lane = 0; lane < wideByteSpecies.length() / Long.BYTES; lane++) {
       for (int significance = 0; significance < bytesPerValue; significance++) {
         mask[laneByteIndex(lane, significance)] = (byte) 0xFF;
       }
     }
-    return ByteVector.fromArray(WIDE_BYTE_SPECIES, mask, 0);
+    return ByteVector.fromArray(wideByteSpecies, mask, 0);
   }
 
   private static int laneByteIndex(int lane, int significance)
@@ -146,37 +151,64 @@ final class SimdVSizeLongDeserializers
   }
 
   /**
-   * Widen {@link #LONG_LANES} values starting at byte {@code sourceOffset} of {@code source} to longs.
+   * Widen the values starting at byte {@code sourceOffset} of {@code source} to one vector of longs.
    */
-  private static LongVector widen(byte[] source, int sourceOffset, VectorShuffle<Byte> shuffle, ByteVector mask)
+  private static LongVector widen(
+      VectorSpecies<Byte> wideByteSpecies,
+      VectorShuffle<Byte> shuffle,
+      ByteVector mask,
+      byte[] source,
+      int sourceOffset
+  )
   {
-    return ByteVector.fromArray(WIDE_BYTE_SPECIES, source, sourceOffset)
+    return ByteVector.fromArray(wideByteSpecies, source, sourceOffset)
                      .rearrange(shuffle)
                      .and(mask)
                      .reinterpretAsLongs();
   }
 
   /**
-   * Write {@code base} plus each of the first {@code numValues} unsigned bytes of {@code values} to {@code out}.
-   * {@code numValues} must be a multiple of {@link #VALUES_PER_GROUP}.
+   * Write {@code base} plus each of the first {@code numValues} unsigned values of {@code bytesPerValue} bytes (big
+   * endian) in {@code values} to {@code out}. {@code numValues} must be a multiple of {@link #VALUES_PER_GROUP}.
    */
-  private static void widenDelta(byte[] values, int numValues, long[] out, int outPosition, long base)
+  static void widenDelta(
+      VectorSpecies<Long> longSpecies,
+      VectorSpecies<Byte> wideByteSpecies,
+      VectorShuffle<Byte> shuffle,
+      ByteVector mask,
+      int bytesPerValue,
+      byte[] values,
+      int numValues,
+      long[] out,
+      int outPosition,
+      long base
+  )
   {
-    for (int i = 0; i < numValues; i += LONG_LANES) {
-      widen(values, i, WIDEN_SHUFFLE_8, WIDEN_MASK_8).add(base).intoArray(out, outPosition + i);
+    for (int i = 0; i < numValues; i += longSpecies.length()) {
+      widen(wideByteSpecies, shuffle, mask, values, i * bytesPerValue).add(base).intoArray(out, outPosition + i);
     }
   }
 
   /**
    * Table lookup of 1 bit indexes, branch free: {@code t0 ^ (-index & (t0 ^ t1))}
    */
-  private static void widenTable1(byte[] indexes, int numValues, long[] out, int outPosition, long[] table)
+  static void widenTable1(
+      VectorSpecies<Long> longSpecies,
+      VectorSpecies<Byte> wideByteSpecies,
+      VectorShuffle<Byte> shuffle,
+      ByteVector mask,
+      byte[] indexes,
+      int numValues,
+      long[] out,
+      int outPosition,
+      long[] table
+  )
   {
     final long t0 = tableValue(table, 0);
-    final LongVector t0Vector = LongVector.broadcast(LONG_SPECIES, t0);
-    final LongVector t0XorT1 = LongVector.broadcast(LONG_SPECIES, t0 ^ tableValue(table, 1));
-    for (int i = 0; i < numValues; i += LONG_LANES) {
-      final LongVector index = widen(indexes, i, WIDEN_SHUFFLE_8, WIDEN_MASK_8);
+    final LongVector t0Vector = LongVector.broadcast(longSpecies, t0);
+    final LongVector t0XorT1 = LongVector.broadcast(longSpecies, t0 ^ tableValue(table, 1));
+    for (int i = 0; i < numValues; i += longSpecies.length()) {
+      final LongVector index = widen(wideByteSpecies, shuffle, mask, indexes, i);
       t0Vector.lanewise(VectorOperators.XOR, index.neg().and(t0XorT1)).intoArray(out, outPosition + i);
     }
   }
@@ -184,16 +216,26 @@ final class SimdVSizeLongDeserializers
   /**
    * Table lookup of 2 bit indexes, as two levels of the branch free select used by {@link #widenTable1}.
    */
-  private static void widenTable2(byte[] indexes, int numValues, long[] out, int outPosition, long[] table)
+  static void widenTable2(
+      VectorSpecies<Long> longSpecies,
+      VectorSpecies<Byte> wideByteSpecies,
+      VectorShuffle<Byte> shuffle,
+      ByteVector mask,
+      byte[] indexes,
+      int numValues,
+      long[] out,
+      int outPosition,
+      long[] table
+  )
   {
     final long t0 = tableValue(table, 0);
     final long t2 = tableValue(table, 2);
-    final LongVector t0Vector = LongVector.broadcast(LONG_SPECIES, t0);
-    final LongVector t0XorT1 = LongVector.broadcast(LONG_SPECIES, t0 ^ tableValue(table, 1));
-    final LongVector t2Vector = LongVector.broadcast(LONG_SPECIES, t2);
-    final LongVector t2XorT3 = LongVector.broadcast(LONG_SPECIES, t2 ^ tableValue(table, 3));
-    for (int i = 0; i < numValues; i += LONG_LANES) {
-      final LongVector index = widen(indexes, i, WIDEN_SHUFFLE_8, WIDEN_MASK_8);
+    final LongVector t0Vector = LongVector.broadcast(longSpecies, t0);
+    final LongVector t0XorT1 = LongVector.broadcast(longSpecies, t0 ^ tableValue(table, 1));
+    final LongVector t2Vector = LongVector.broadcast(longSpecies, t2);
+    final LongVector t2XorT3 = LongVector.broadcast(longSpecies, t2 ^ tableValue(table, 3));
+    for (int i = 0; i < numValues; i += longSpecies.length()) {
+      final LongVector index = widen(wideByteSpecies, shuffle, mask, indexes, i);
       final LongVector lowMask = index.and(1).neg();
       final LongVector highMask = index.lanewise(VectorOperators.LSHR, 1).neg();
       final LongVector low = t0Vector.lanewise(VectorOperators.XOR, lowMask.and(t0XorT1));
@@ -203,15 +245,38 @@ final class SimdVSizeLongDeserializers
     }
   }
 
+  private static void widenDelta8(byte[] values, int numValues, long[] out, int outPosition, long base)
+  {
+    widenDelta(
+        LONG_SPECIES,
+        WIDE_BYTE_SPECIES,
+        WIDEN_SHUFFLE_8,
+        WIDEN_MASK_8,
+        Byte.BYTES,
+        values,
+        numValues,
+        out,
+        outPosition,
+        base
+    );
+  }
+
+  /**
+   * Value of a table entry for the vectorized lookups. Indexes past the end of the table can't occur in well formed
+   * segments (the scalar code would throw), so their value doesn't matter; they are only computed, never selected.
+   */
   private static long tableValue(long[] table, int index)
   {
     return index < table.length ? table[index] : 0;
   }
 
   /**
-   * Per deserializer scratch arrays.
+   * Reusable scratch arrays for the SIMD deserializers. Not thread-safe: an instance is owned by a single
+   * {@link CompressionFactory.LongEncodingReader} (each {@code duplicate()} creates its own) and shared by the
+   * deserializers it creates for successive blocks in {@code setBuffer}, which, like the reader, are only used by one
+   * thread at a time.
    */
-  private static final class Scratch
+  static final class Scratch
   {
     private byte[] packed = EMPTY_BYTES;
     private byte[] unpacked = EMPTY_BYTES;
@@ -265,11 +330,12 @@ final class SimdVSizeLongDeserializers
 
   static final class SimdSize1Des extends VSizeLongSerde.Size1Des
   {
-    private final Scratch scratch = new Scratch();
+    private final Scratch scratch;
 
-    SimdSize1Des(ByteBuffer buffer, int bufferOffset)
+    SimdSize1Des(ByteBuffer buffer, int bufferOffset, Scratch scratch)
     {
       super(buffer, bufferOffset);
+      this.scratch = scratch;
     }
 
     @Override
@@ -286,7 +352,7 @@ final class SimdVSizeLongDeserializers
       if (numGroups > 0) {
         final int numValues = numGroups * VALUES_PER_GROUP;
         final byte[] values = scratch.unpack(buffer, offset + (index >> 3), numGroups, 1, SPREAD_1, SHIFTS_1, (byte) 1);
-        widenDelta(values, numValues, out, outPosition + i, base);
+        widenDelta8(values, numValues, out, outPosition + i, base);
         i += numValues;
         index += numValues;
       }
@@ -298,10 +364,8 @@ final class SimdVSizeLongDeserializers
     @Override
     public void getTable(long[] out, int outPosition, int startIndex, int length, long[] table)
     {
-      if (table.length > 2) {
-        super.getTable(out, outPosition, startIndex, length, table);
-        return;
-      }
+      // 2 bit indexes can only select the first 4 table entries, whatever the table size
+      // 1 bit indexes can only select the first 2 table entries, whatever the table size
       int index = startIndex;
       int i = 0;
 
@@ -313,7 +377,17 @@ final class SimdVSizeLongDeserializers
       if (numGroups > 0) {
         final int numValues = numGroups * VALUES_PER_GROUP;
         final byte[] values = scratch.unpack(buffer, offset + (index >> 3), numGroups, 1, SPREAD_1, SHIFTS_1, (byte) 1);
-        widenTable1(values, numValues, out, outPosition + i, table);
+        widenTable1(
+            LONG_SPECIES,
+            WIDE_BYTE_SPECIES,
+            WIDEN_SHUFFLE_8,
+            WIDEN_MASK_8,
+            values,
+            numValues,
+            out,
+            outPosition + i,
+            table
+        );
         i += numValues;
         index += numValues;
       }
@@ -325,11 +399,12 @@ final class SimdVSizeLongDeserializers
 
   static final class SimdSize2Des extends VSizeLongSerde.Size2Des
   {
-    private final Scratch scratch = new Scratch();
+    private final Scratch scratch;
 
-    SimdSize2Des(ByteBuffer buffer, int bufferOffset)
+    SimdSize2Des(ByteBuffer buffer, int bufferOffset, Scratch scratch)
     {
       super(buffer, bufferOffset);
+      this.scratch = scratch;
     }
 
     @Override
@@ -346,7 +421,7 @@ final class SimdVSizeLongDeserializers
       if (numGroups > 0) {
         final int numValues = numGroups * VALUES_PER_GROUP;
         final byte[] values = scratch.unpack(buffer, offset + (index >> 2), numGroups, 2, SPREAD_2, SHIFTS_2, (byte) 3);
-        widenDelta(values, numValues, out, outPosition + i, base);
+        widenDelta8(values, numValues, out, outPosition + i, base);
         i += numValues;
         index += numValues;
       }
@@ -358,10 +433,6 @@ final class SimdVSizeLongDeserializers
     @Override
     public void getTable(long[] out, int outPosition, int startIndex, int length, long[] table)
     {
-      if (table.length > 4) {
-        super.getTable(out, outPosition, startIndex, length, table);
-        return;
-      }
       int index = startIndex;
       int i = 0;
 
@@ -373,7 +444,17 @@ final class SimdVSizeLongDeserializers
       if (numGroups > 0) {
         final int numValues = numGroups * VALUES_PER_GROUP;
         final byte[] values = scratch.unpack(buffer, offset + (index >> 2), numGroups, 2, SPREAD_2, SHIFTS_2, (byte) 3);
-        widenTable2(values, numValues, out, outPosition + i, table);
+        widenTable2(
+            LONG_SPECIES,
+            WIDE_BYTE_SPECIES,
+            WIDEN_SHUFFLE_8,
+            WIDEN_MASK_8,
+            values,
+            numValues,
+            out,
+            outPosition + i,
+            table
+        );
         i += numValues;
         index += numValues;
       }
@@ -389,11 +470,12 @@ final class SimdVSizeLongDeserializers
    */
   static final class SimdSize4Des extends VSizeLongSerde.Size4Des
   {
-    private final Scratch scratch = new Scratch();
+    private final Scratch scratch;
 
-    SimdSize4Des(ByteBuffer buffer, int bufferOffset)
+    SimdSize4Des(ByteBuffer buffer, int bufferOffset, Scratch scratch)
     {
       super(buffer, bufferOffset);
+      this.scratch = scratch;
     }
 
     @Override
@@ -411,7 +493,7 @@ final class SimdVSizeLongDeserializers
         final int numValues = numGroups * VALUES_PER_GROUP;
         final byte[] values =
             scratch.unpack(buffer, offset + (index >> 1), numGroups, 4, SPREAD_4, SHIFTS_4, (byte) 0xF);
-        widenDelta(values, numValues, out, outPosition + i, base);
+        widenDelta8(values, numValues, out, outPosition + i, base);
         i += numValues;
         index += numValues;
       }
@@ -426,11 +508,12 @@ final class SimdVSizeLongDeserializers
    */
   static final class SimdSize8Des extends VSizeLongSerde.Size8Des
   {
-    private final Scratch scratch = new Scratch();
+    private final Scratch scratch;
 
-    SimdSize8Des(ByteBuffer buffer, int bufferOffset)
+    SimdSize8Des(ByteBuffer buffer, int bufferOffset, Scratch scratch)
     {
       super(buffer, bufferOffset);
+      this.scratch = scratch;
     }
 
     @Override
@@ -438,7 +521,7 @@ final class SimdVSizeLongDeserializers
     {
       final int numValues = length - length % VALUES_PER_GROUP;
       if (numValues > 0) {
-        widenDelta(scratch.copy(buffer, offset + startIndex, numValues), numValues, out, outPosition, base);
+        widenDelta8(scratch.copy(buffer, offset + startIndex, numValues), numValues, out, outPosition, base);
       }
       for (int i = numValues; i < length; i++) {
         out[outPosition + i] = base + (buffer.get(offset + startIndex + i) & 0xFF);
@@ -448,11 +531,12 @@ final class SimdVSizeLongDeserializers
 
   static final class SimdSize16Des extends VSizeLongSerde.Size16Des
   {
-    private final Scratch scratch = new Scratch();
+    private final Scratch scratch;
 
-    SimdSize16Des(ByteBuffer buffer, int bufferOffset)
+    SimdSize16Des(ByteBuffer buffer, int bufferOffset, Scratch scratch)
     {
       super(buffer, bufferOffset);
+      this.scratch = scratch;
     }
 
     @Override
@@ -460,10 +544,18 @@ final class SimdVSizeLongDeserializers
     {
       final int numValues = length - length % VALUES_PER_GROUP;
       if (numValues > 0) {
-        final byte[] values = scratch.copy(buffer, offset + (startIndex << 1), numValues * Short.BYTES);
-        for (int i = 0; i < numValues; i += LONG_LANES) {
-          widen(values, i * Short.BYTES, WIDEN_SHUFFLE_16, WIDEN_MASK_16).add(base).intoArray(out, outPosition + i);
-        }
+        widenDelta(
+            LONG_SPECIES,
+            WIDE_BYTE_SPECIES,
+            WIDEN_SHUFFLE_16,
+            WIDEN_MASK_16,
+            Short.BYTES,
+            scratch.copy(buffer, offset + (startIndex << 1), numValues * Short.BYTES),
+            numValues,
+            out,
+            outPosition,
+            base
+        );
       }
       for (int i = numValues; i < length; i++) {
         out[outPosition + i] = base + get(startIndex + i);
