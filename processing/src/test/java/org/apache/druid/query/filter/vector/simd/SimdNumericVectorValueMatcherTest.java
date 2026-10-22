@@ -46,8 +46,10 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * Builds {@link EqualityFilter} and {@link RangeFilter} vector matchers on long, double, and float columns twice,
@@ -90,7 +92,11 @@ public class SimdNumericVectorValueMatcherTest extends InitializedNullHandlingTe
 
   private static final long[] SPECIAL_LONGS = {Long.MIN_VALUE, Long.MAX_VALUE, Long.MIN_VALUE + 1, Long.MAX_VALUE - 1};
 
-  private int simdMatcherCount;
+  /**
+   * Filters that are decided without looking at the values, and so use the same constant matcher regardless of the
+   * flag. Every other filter must get a SIMD matcher.
+   */
+  private final Set<Filter> constantFilters = new HashSet<>();
 
   @AfterEach
   public void tearDown()
@@ -106,7 +112,10 @@ public class SimdNumericVectorValueMatcherTest extends InitializedNullHandlingTe
       filters.add(new EqualityFilter(COLUMN, ColumnType.LONG, v, null));
     }
     filters.add(new EqualityFilter(COLUMN, ColumnType.DOUBLE, 2.0, null));
-    filters.add(new EqualityFilter(COLUMN, ColumnType.DOUBLE, 2.5, null));
+    // non-integral value on a long column never matches
+    final Filter nonIntegralEquality = new EqualityFilter(COLUMN, ColumnType.DOUBLE, 2.5, null);
+    filters.add(nonIntegralEquality);
+    constantFilters.add(nonIntegralEquality);
     final Object[] bounds = {
         null, -3L, -1L, 0L, 2L, 3L, Long.MIN_VALUE, Long.MAX_VALUE, Long.MIN_VALUE + 1, Long.MAX_VALUE - 1
     };
@@ -125,7 +134,6 @@ public class SimdNumericVectorValueMatcherTest extends InitializedNullHandlingTe
         }
       }
     }
-    Assertions.assertTrue(simdMatcherCount > 0);
   }
 
   @Test
@@ -156,7 +164,6 @@ public class SimdNumericVectorValueMatcherTest extends InitializedNullHandlingTe
         }
       }
     }
-    Assertions.assertTrue(simdMatcherCount > 0);
   }
 
   @Test
@@ -195,7 +202,6 @@ public class SimdNumericVectorValueMatcherTest extends InitializedNullHandlingTe
         }
       }
     }
-    Assertions.assertTrue(simdMatcherCount > 0);
   }
 
   @Test
@@ -260,12 +266,10 @@ public class SimdNumericVectorValueMatcherTest extends InitializedNullHandlingTe
     final VectorValueMatcher scalarMatcher = filter.makeVectorMatcher(selectorFactory);
     ExpressionProcessing.initializeForVectorApiTests();
     final VectorValueMatcher simdMatcher = filter.makeVectorMatcher(selectorFactory);
-    if (expectedSimdClass.isInstance(simdMatcher)) {
-      simdMatcherCount++;
-    } else {
-      // filters that can be decided without looking at values, like equality with a non-integral value on a long
-      // column, use the same constant matcher regardless of the flag
+    if (constantFilters.contains(filter)) {
       Assertions.assertSame(scalarMatcher.getClass(), simdMatcher.getClass(), filter.toString());
+    } else {
+      Assertions.assertInstanceOf(expectedSimdClass, simdMatcher, filter.toString());
     }
 
     final int size = selector.getCurrentVectorSize();

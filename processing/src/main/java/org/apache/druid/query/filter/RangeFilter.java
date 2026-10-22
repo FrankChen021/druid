@@ -22,6 +22,7 @@ package org.apache.druid.query.filter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.BoundType;
@@ -498,7 +499,8 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
     return builder.appendFilterTuning(filterTuning).build();
   }
 
-  private DruidPredicateFactory getPredicateFactory()
+  @VisibleForTesting
+  DruidPredicateFactory getPredicateFactory()
   {
     return new RangePredicateFactory(this);
   }
