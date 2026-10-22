@@ -224,6 +224,10 @@ public class RelParameterizerShuttle implements RelShuttle
   {
     if (node instanceof RexDynamicParam) {
       RexDynamicParam dynamicParam = (RexDynamicParam) node;
+      if (plannerContext.getScalarInArrayParameter(dynamicParam.getIndex()) != null) {
+        // Synthesized for a large IN list; the values are read directly when building the native filter.
+        return node;
+      }
       // if we have a value for dynamic parameter, replace with a literal, else add to list of unbound parameters
       if (plannerContext.getParameters().size() > dynamicParam.getIndex()) {
         TypedValue param = plannerContext.getParameters().get(dynamicParam.getIndex());

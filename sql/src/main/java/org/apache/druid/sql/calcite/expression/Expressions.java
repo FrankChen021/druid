@@ -25,6 +25,7 @@ import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
@@ -39,6 +40,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.math.expr.Expr;
+import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.math.expr.ExpressionType;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.expression.TimestampFloorExprMacro;
@@ -249,10 +251,36 @@ public class Expressions
     } else if (kind == SqlKind.LITERAL) {
       final DruidLiteral eval = calciteLiteralToDruidLiteral(plannerContext, rexNode);
       return eval != null ? DruidExpression.ofLiteral(eval) : null;
+    } else if (rexNode instanceof RexDynamicParam) {
+      return scalarInArrayParameterToDruidExpression(plannerContext, (RexDynamicParam) rexNode);
     } else {
       // Can't translate.
       return null;
     }
+  }
+
+  /**
+   * Translates a dynamic parameter synthesized for a large IN list into an array literal. Other dynamic parameters
+   * are bound to literals before translation, so they cannot be translated here.
+   */
+  @Nullable
+  private static DruidExpression scalarInArrayParameterToDruidExpression(
+      final PlannerContext plannerContext,
+      final RexDynamicParam dynamicParam
+  )
+  {
+    final List<Object> values = plannerContext.getScalarInArrayParameter(dynamicParam.getIndex());
+    if (values == null) {
+      return null;
+    }
+    final ColumnType arrayType = Calcites.getColumnTypeForRelDataType(dynamicParam.getType());
+    if (arrayType == null) {
+      return null;
+    }
+    return DruidExpression.ofLiteral(
+        arrayType,
+        ExprEval.ofArray(ExpressionType.fromColumnTypeStrict(arrayType), values.toArray()).toExpr().stringify()
+    );
   }
 
   private static DruidExpression inputRefToDruidExpression(
