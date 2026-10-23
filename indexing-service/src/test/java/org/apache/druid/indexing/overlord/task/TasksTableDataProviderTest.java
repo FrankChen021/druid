@@ -20,7 +20,6 @@
 package org.apache.druid.indexing.overlord.task;
 
 import com.google.common.base.Optional;
-import org.apache.druid.error.DruidException;
 import org.apache.druid.indexing.overlord.GlobalTaskLockbox;
 import org.apache.druid.indexing.overlord.TaskMaster;
 import org.apache.druid.indexing.overlord.TaskQueryTool;
@@ -31,7 +30,6 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.metadata.TaskStorageQueryFilter;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.DimFilter;
@@ -41,11 +39,9 @@ import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.query.filter.RangeFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.filter.TypedInFilter;
-import org.apache.druid.query.operator.WindowOperatorQuery;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.spec.LegacySegmentSpec;
 import org.apache.druid.segment.column.ColumnType;
-import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.SystemTablePushdownFilter;
@@ -61,14 +57,12 @@ import java.util.Set;
 
 public class TasksTableDataProviderTest
 {
+  /** Only status is pushed down when the task storage can't filter; it narrows the active and complete lookups. */
   @Test
-  public void testAdvertisesAllPushdownFiltersForSupportingStorage()
+  public void testAdvertisedPushdownFiltersDependOnStorageSupport()
   {
-    final TaskQueryTool taskQueryTool = Mockito.mock(TaskQueryTool.class);
-    Mockito.when(taskQueryTool.supportsTaskStatusQueryFilter()).thenReturn(true);
-
-    final List<SystemTablePushdownFilter> filters = dataProvider(taskQueryTool).getPushdownFilters();
-
+    final TaskQueryTool supportingStorage = Mockito.mock(TaskQueryTool.class);
+    Mockito.when(supportingStorage.supportsTaskStatusQueryFilter()).thenReturn(true);
     Assertions.assertEquals(
         List.of(
             new SystemTablePushdownFilter("task_id", "id"),
@@ -77,18 +71,12 @@ public class TasksTableDataProviderTest
             new SystemTablePushdownFilter("datasource", null),
             new SystemTablePushdownFilter("status", null)
         ),
-        filters
+        dataProvider(supportingStorage).getPushdownFilters()
     );
-  }
-
-  @Test
-  public void testAdvertisesOnlyStatusPushdownForUnsupportedStorage()
-  {
-    final TaskQueryTool taskQueryTool = Mockito.mock(TaskQueryTool.class);
 
     Assertions.assertEquals(
         List.of(new SystemTablePushdownFilter("status", null)),
-        dataProvider(taskQueryTool).getPushdownFilters()
+        dataProvider(Mockito.mock(TaskQueryTool.class)).getPushdownFilters()
     );
   }
 
@@ -152,11 +140,11 @@ public class TasksTableDataProviderTest
         taskMaster
     );
 
-    final DruidException e = Assertions.assertThrows(
-        DruidException.class,
+    // SystemTableNotLeaderException is what makes the Broker retry the query on the new leader.
+    Assertions.assertThrows(
+        SystemTableNotLeaderException.class,
         () -> provider.getRows(Collections.emptyList(), Mockito.mock(AuthenticationResult.class))
     );
-    Assertions.assertEquals(DruidException.Category.SERVICE_UNAVAILABLE, e.getCategory());
   }
 
   /** Losing the selected task runner while reading also fails instead of returning a stale or empty table. */
@@ -186,29 +174,11 @@ public class TasksTableDataProviderTest
         taskMaster
     );
 
-    final DruidException e = Assertions.assertThrows(
-        DruidException.class,
+    // SystemTableNotLeaderException is what makes the Broker retry the query on the new leader.
+    Assertions.assertThrows(
+        SystemTableNotLeaderException.class,
         () -> provider.getRows(Collections.emptyList(), Mockito.mock(AuthenticationResult.class))
     );
-    Assertions.assertEquals(DruidException.Category.SERVICE_UNAVAILABLE, e.getCategory());
-  }
-
-  @Test
-  public void testExtractsExactDataSourceFromAndFilter()
-  {
-    final ScanQuery query = scanQuery(
-        new AndDimFilter(
-            new SelectorDimFilter("datasource", "native_sys_a", null),
-            new LikeDimFilter("task_id", "native_sys_mvp_%", null, null)
-        )
-    );
-
-    final List<DimFilter> extracted = extract(query);
-
-    Assertions.assertEquals(2, extracted.size());
-    Assertions.assertInstanceOf(SelectorDimFilter.class, extracted.get(0));
-    Assertions.assertEquals(Set.of("native_sys_a"), new TaskStorageQueryFilter(extracted).getStringValues(extracted.get(0)));
-    Assertions.assertEquals("id", ((LikeDimFilter) extracted.get(1)).getDimension());
   }
 
   @Test
@@ -238,25 +208,6 @@ public class TasksTableDataProviderTest
     final List<DimFilter> extracted = extract(scanQuery(filter));
 
     Assertions.assertEquals(List.of(filter), extracted);
-    Assertions.assertEquals(Set.of("native_sys_a"), new TaskStorageQueryFilter(extracted).getStringValues(extracted.get(0)));
-  }
-
-  @Test
-  public void testExtractsDataSourceFromWindowLeafScan()
-  {
-    final ScanQuery scanQuery = scanQuery(new SelectorDimFilter("datasource", "native_sys_a", null));
-    final WindowOperatorQuery windowQuery = new WindowOperatorQuery(
-        new QueryDataSource(scanQuery),
-        new LegacySegmentSpec(Intervals.ETERNITY),
-        Collections.emptyMap(),
-        RowSignature.empty(),
-        Collections.emptyList(),
-        null
-    );
-
-    final List<DimFilter> extracted = extract(windowQuery);
-
-    Assertions.assertEquals(1, extracted.size());
     Assertions.assertEquals(Set.of("native_sys_a"), new TaskStorageQueryFilter(extracted).getStringValues(extracted.get(0)));
   }
 

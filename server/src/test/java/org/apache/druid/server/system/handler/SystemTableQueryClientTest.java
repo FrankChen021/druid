@@ -89,7 +89,7 @@ import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
-import org.apache.druid.server.system.table.TaskTableDescriptor;
+import org.apache.druid.server.system.table.SystemTableRoutingMode;
 import org.joda.time.Duration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -1016,7 +1016,7 @@ public class SystemTableQueryClientTest
   @Test
   public void testLeaderOnlyQueryRetriesAfterLeadershipChange()
   {
-    final SystemTableDescriptor descriptor = new TaskTableDescriptor();
+    final SystemTableDescriptor descriptor = new LeaderOnlySystemTableDescriptor();
     final SystemTableNode oldLeader = systemTableNode(testNode(8081));
     final SystemTableNode newLeader = systemTableNode(testNode(8082));
     final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
@@ -1330,8 +1330,7 @@ public class SystemTableQueryClientTest
 
   private static Object[] taskRow(final String taskId)
   {
-    // sys.tasks omits rows without a datasource, so give each task one.
-    return new Object[]{taskId, null, null, "wikipedia", null, null, null, null, 0L, null, null, -1L, -1L, null};
+    return new Object[]{taskId, null, null, null, null, null, null, null, 0L, null, null, -1L, -1L, null};
   }
 
   private static DirectDruidClient<ScanResultValue> directClient(
@@ -1472,6 +1471,21 @@ public class SystemTableQueryClientTest
     public org.apache.druid.server.system.table.SystemTableRowAuthorizer getRowAuthorizer()
     {
       return (rows, authenticationResult, authorizerMapper) -> rows;
+    }
+  }
+
+  private static class LeaderOnlySystemTableDescriptor extends TestSystemTableDescriptor
+  {
+    @Override
+    public String getTableName()
+    {
+      return "tasks";
+    }
+
+    @Override
+    public SystemTableRoutingMode getRoutingMode()
+    {
+      return SystemTableRoutingMode.LEADER_ONLY;
     }
   }
 }

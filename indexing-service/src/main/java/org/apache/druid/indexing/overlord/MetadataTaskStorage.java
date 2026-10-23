@@ -245,7 +245,7 @@ public class MetadataTaskStorage implements TaskStorage
       final TaskStorageQueryFilter filter
   )
   {
-    Map<TaskLookupType, TaskLookup> processedTaskLookups =
+    final Map<TaskLookupType, TaskLookup> processedTaskLookups =
         TaskStorageUtils.processTaskLookups(
             taskLookups,
             DateTimes.nowUtc().minus(config.getRecentlyFinishedThreshold())

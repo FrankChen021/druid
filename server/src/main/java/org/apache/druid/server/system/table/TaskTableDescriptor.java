@@ -67,7 +67,9 @@ public class TaskTableDescriptor implements SystemTableDescriptor
           rows,
           row -> {
             final String dataSource = (String) row[DATASOURCE_COLUMN];
-            // A null resource-action generator result makes AuthorizationUtils omit the row, including for allow-all.
+            // A task without a datasource has no resource to authorize, so the row is omitted, including for
+            // allow-all: a null generator result makes AuthorizationUtils skip it. The SQL sys.tasks table instead
+            // authorizes a null datasource name, which allow-all accepts and some authorizers reject with an error.
             return dataSource == null
                    ? null
                    : Collections.singletonList(AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply(dataSource));
