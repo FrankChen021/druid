@@ -27,7 +27,6 @@ import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
-import org.apache.druid.server.system.table.ServersTableDataProvider;
 import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
@@ -55,9 +54,6 @@ public class SystemTableModule implements Module
     final MapBinder<String, SystemTableDataProvider> dataProviderBinder = MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class);
     dataProviderBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                       .to(ServerPropertiesTableDataProvider.class)
-                      .in(LazySingleton.class);
-    dataProviderBinder.addBinding(ServersTableDescriptor.TABLE_NAME)
-                      .to(ServersTableDataProvider.class)
                       .in(LazySingleton.class);
   }
 }

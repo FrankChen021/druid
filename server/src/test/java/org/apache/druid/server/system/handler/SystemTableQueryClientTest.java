@@ -88,6 +88,7 @@ import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
+import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableRoutingMode;
 import org.joda.time.Duration;
@@ -421,6 +422,54 @@ public class SystemTableQueryClientTest
     Assertions.assertEquals(1, nodeResponseContexts.size());
     Assertions.assertNotSame(callerResponseContext, nodeResponseContexts.get(0));
     Assertions.assertEquals(0L, callerResponseContext.getRowScanCount());
+  }
+
+  /**
+   * {@code sys.servers} runs on the Broker itself with the escalated identity, so the caller's STATE READ permission
+   * must still be checked against the caller, as the SQL table does.
+   */
+  @Test
+  public void testServersRejectsCallerWithoutStateRead()
+  {
+    final ServersTableDescriptor descriptor = new ServersTableDescriptor();
+    final AuthenticationResult escalatedAuthenticationResult =
+        new AuthenticationResult("system", "allow", "system", null);
+    final Escalator escalator = Mockito.mock(Escalator.class);
+    Mockito.when(escalator.createEscalatedAuthenticationResult()).thenReturn(escalatedAuthenticationResult);
+    final SystemTableQueryHandler localQueryHandler = Mockito.mock(SystemTableQueryHandler.class);
+    Mockito.doAnswer(
+        ignored -> (QueryRunner<ScanResultValue>) (queryPlus, responseContext) ->
+            Sequences.simple(List.of(scanResult(new Object[descriptor.getRowSignature().size()])))
+    ).when(localQueryHandler).createRunner(
+        ArgumentMatchers.any(),
+        Mockito.same(escalatedAuthenticationResult),
+        Mockito.eq(true)
+    );
+
+    final QuerySegmentWalker querySegmentWalker = Mockito.mock(QuerySegmentWalker.class);
+    Mockito.when(querySegmentWalker.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
+           .thenAnswer(ignored -> passthroughRunner(descriptor.getRowSignature()));
+    final Authorizer denyState = (authenticationResult, resource, action) ->
+        ResourceType.STATE.equals(resource.getType()) ? Access.DENIED : Access.OK;
+    final SystemTableQueryClient client = new SystemTableQueryClient(
+        Mockito.mock(SystemTableNodeLocator.class),
+        Mockito.mock(DirectDruidClientFactory.class),
+        Mockito.mock(QueryScheduler.class),
+        querySegmentWalker,
+        Map.of(descriptor.getTableName(), descriptor),
+        new AuthorizerMapper(Map.of("allow", new AllowAllAuthorizer(null), "denyState", denyState)),
+        localQueryHandler,
+        escalator,
+        nonMatchingSelfNode()
+    );
+    final ScanQuery query = query(descriptor, Collections.emptyMap());
+    final AuthenticationResult caller = new AuthenticationResult("caller", "denyState", "test", null);
+
+    final ForbiddenException e = Assertions.assertThrows(
+        ForbiddenException.class,
+        () -> client.createRunner(query, caller, false).run(QueryPlus.wrap(query), ResponseContext.createEmpty()).toList()
+    );
+    Assertions.assertTrue(e.getMessage().startsWith("Insufficient permission to view servers"), e.getMessage());
   }
 
   /** A LOCAL system table executes its provider in-process without node discovery or an HTTP client. */

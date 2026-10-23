@@ -81,5 +81,4 @@ public class ServersTableDescriptor implements SystemTableDescriptor
   {
     return SystemTableAuthorization.STATE_READ_ROW_AUTHORIZER;
   }
-
 }

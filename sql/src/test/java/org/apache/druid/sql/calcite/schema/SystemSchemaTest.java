@@ -2592,7 +2592,8 @@ public class SystemSchemaTest extends CalciteTestBase
             expectedClass = String.class;
             break;
           case COMPLEX:
-            expectedClass = Object.class;
+            // The only complex system-table column is sys.servers.labels_json, a JSON object.
+            expectedClass = Map.class;
             break;
           default:
             throw new IAE("Don't know what class to expect for valueType[%s]", columnType);
