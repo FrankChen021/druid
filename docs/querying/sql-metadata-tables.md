@@ -177,6 +177,7 @@ execution:
 
 |Table|Source of rows|
 |-----|--------------|
+|[`sys.supervisors`](#supervisors-table)|The leader Overlord that owns active supervisor state. Filters that identify specific supervisors can avoid constructing unrelated supervisor rows.|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Filters on `server` and `service_name` can avoid reading properties from nodes that don't match.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
@@ -350,6 +351,8 @@ SELECT * FROM sys.tasks WHERE status='FAILED';
 ### SUPERVISORS table
 
 The supervisors table provides information about supervisors.
+With [native query execution](#native-query-execution), a supervisor is visible only to users with `READ` permission on
+every datasource in its spec, as in the supervisor API.
 
 |Column|Type|Notes|
 |------|-----|-----|

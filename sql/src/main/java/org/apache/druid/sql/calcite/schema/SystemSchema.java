@@ -77,6 +77,7 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.module.SystemTableModule;
+import org.apache.druid.server.system.table.SupervisorTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
@@ -111,7 +112,6 @@ public class SystemSchema extends AbstractTableSchema
   public static final String SERVERS_TABLE = "servers";
   public static final String SERVER_SEGMENTS_TABLE = "server_segments";
   public static final String TASKS_TABLE = "tasks";
-  public static final String SUPERVISOR_TABLE = "supervisors";
   public static final String QUERIES_TABLE = "queries";
 
   private static final Function<SegmentStatusInCluster, Iterable<ResourceAction>>
@@ -251,19 +251,6 @@ public class SystemSchema extends AbstractTableSchema
       .add("error_msg", ColumnType.STRING)
       .build();
 
-  static final RowSignature SUPERVISOR_SIGNATURE = RowSignature
-      .builder()
-      .add("supervisor_id", ColumnType.STRING)
-      .add("datasource", ColumnType.STRING)
-      .add("state", ColumnType.STRING)
-      .add("detailed_state", ColumnType.STRING)
-      .add("healthy", ColumnType.LONG)
-      .add("type", ColumnType.STRING)
-      .add("source", ColumnType.STRING)
-      .add("suspended", ColumnType.LONG)
-      .add("spec", ColumnType.STRING)
-      .build();
-
   static final RowSignature QUERIES_SIGNATURE = RowSignature
       .builder()
       .add("id", ColumnType.STRING)
@@ -363,7 +350,12 @@ public class SystemSchema extends AbstractTableSchema
       );
       case SERVER_SEGMENTS_TABLE -> new ServerSegmentsTable(serverView, authorizerMapper, authenticationResult);
       case TASKS_TABLE -> new TasksTable(overlordClient, authorizerMapper, authenticationResult);
-      case SUPERVISOR_TABLE -> new SupervisorsTable(overlordClient, authorizerMapper, authenticationResult);
+      case SupervisorTableDescriptor.TABLE_NAME -> new SupervisorsTable(
+          overlordClient,
+          authorizerMapper,
+          authenticationResult,
+          SystemTableModule.isEnabled(properties)
+      );
       case SystemServerPropertiesTable.TABLE_NAME -> new SystemServerPropertiesTable(
           druidNodeDiscoveryProvider,
           authorizerMapper,
@@ -1119,36 +1111,46 @@ public class SystemSchema extends AbstractTableSchema
   }
 
   /**
-   * This table contains a row per supervisor task.
+   * This table contains a row per supervisor.
    */
-  static class SupervisorsTable extends AbstractTable implements ScannableTable
+  static class SupervisorsTable extends AbstractTable implements ScannableTable, SystemTableDataSourceTable
   {
     private final OverlordClient overlordClient;
     private final AuthorizerMapper authorizerMapper;
     private final AuthenticationResult authenticationResult;
+    private final boolean enableDruidEngineForSystemTables;
 
     public SupervisorsTable(
         OverlordClient overlordClient,
         AuthorizerMapper authorizerMapper,
-        AuthenticationResult authenticationResult
+        AuthenticationResult authenticationResult,
+        boolean enableDruidEngineForSystemTables
     )
     {
       this.overlordClient = overlordClient;
       this.authorizerMapper = authorizerMapper;
       this.authenticationResult = authenticationResult;
+      this.enableDruidEngineForSystemTables = enableDruidEngineForSystemTables;
     }
 
 
     @Override
     public RelDataType getRowType(RelDataTypeFactory typeFactory)
     {
-      return RowSignatures.toRelDataType(SUPERVISOR_SIGNATURE, typeFactory);
+      return RowSignatures.toRelDataType(SupervisorTableDescriptor.ROW_SIGNATURE, typeFactory);
     }
 
     @Override
     public TableType getJdbcTableType()
     {
       return TableType.SYSTEM_TABLE;
+    }
+
+    @Nullable
+    @Override
+    public DruidTable asDataSourceTable()
+    {
+      return enableDruidEngineForSystemTables ? new SupervisorsDataSourceTable() : null;
     }
 
     @Override
