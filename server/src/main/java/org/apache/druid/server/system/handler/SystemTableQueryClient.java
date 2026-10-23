@@ -303,13 +303,21 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
   )
   {
     final List<QueryRunner<ScanResultValue>> nodeRunners = new ArrayList<>();
+    final SystemTableRoutingMode routingMode = descriptor.getRoutingMode();
+    if (routingMode == SystemTableRoutingMode.LOCAL) {
+      nodeRunners.add(
+          (queryPlus, responseContext) -> runLocalNodeQuery(nodeQuery, queryPlus, responseContext)
+      );
+      return nodeRunners;
+    }
+
     for (final SystemTableNode node : nodeLocator.locate(descriptor, nodeQuery)) {
       nodeRunners.add(
           (queryPlus, responseContext) -> recoverNodeFailure(
               () -> runNodeQuery(nodeQuery, node, nodeSequencesCloser, queryPlus, responseContext),
               node,
               descriptor,
-              descriptor.getRoutingMode() == SystemTableRoutingMode.LEADER_ONLY
+              routingMode == SystemTableRoutingMode.LEADER_ONLY
               ? () -> {
                 final SystemTableNode currentLeader = Iterables.getOnlyElement(
                     nodeLocator.locate(descriptor, nodeQuery)
@@ -324,6 +332,31 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
       );
     }
     return nodeRunners;
+  }
+
+  private Sequence<ScanResultValue> runLocalNodeQuery(
+      final ScanQuery nodeQuery,
+      final QueryPlus<ScanResultValue> queryPlus,
+      final ResponseContext responseContext
+  )
+  {
+    final String nodeResourceId = UUID.randomUUID().toString();
+    final String nodeQueryId = SystemTableDataSource.NODE_QUERY_ID_PREFIX + UUID.randomUUID();
+    final ScanQuery subNativeQuery = nodeQuery.withOverriddenContext(
+        QueryContext.ofMap(
+            QueryContextParameters.QUERY_ID,
+            nodeQueryId,
+            QueryContextParameters.QUERY_RESOURCE_ID,
+            nodeResourceId
+        )
+    );
+    // Invoke the raw local handler rather than the Broker handler so local routing cannot recurse into node routing.
+    final QueryRunner<ScanResultValue> nodeRunner = localQueryHandler.createRunner(
+        subNativeQuery,
+        escalatedAuthenticationResult,
+        true
+    );
+    return nodeRunner.run(queryPlus.withQuery(subNativeQuery), responseContext);
   }
 
   private Sequence<ScanResultValue> runNodeQuery(
