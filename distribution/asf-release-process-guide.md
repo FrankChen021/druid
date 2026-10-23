@@ -195,8 +195,7 @@ The sample [`docker-compose.yml`](https://github.com/apache/druid/blob/master/di
 Once everything is ready, then push the branch to `origin`. 
 
 ### Preparing the master branch for the next version after branching
-If doing a quarterly release, it will also be necessary to prepare master for the release _after_ the release you are working on, by setting the version to the next release snapshot.
-The Druid version is defined once, by the `revision` property in the root `pom.xml`; all modules inherit it through `${revision}`:
+If doing a quarterly release, it will also be necessary to prepare master for the release _after_ the release you are working on, by setting the version to the next release snapshot:
 
 ```bash
 $ mvn -N versions:set-property -Dproperty=revision -DnewVersion=38.0.0-SNAPSHOT -DgenerateBackupPoms=false
@@ -335,29 +334,19 @@ must be tagged properly to make this script working. See the above [Release note
 
 ### Set version and make a tag
 
-Once the release branch is good for an RC, set the release version on a detached commit and tag it.
-Start from a clean working tree:
+Once the release branch is good for an RC, you can build a new tag with:
 
 ```bash
-$ git fetch origin
-$ git checkout --detach origin/37.0.0
+$ git checkout --detach 37.0.0
 $ mvn -N versions:set-property -Dproperty=revision -DnewVersion=37.0.0 -DgenerateBackupPoms=false
-$ git grep -n SNAPSHOT -- '*pom.xml'   # must print nothing: a release must not depend on SNAPSHOT versions
 $ git commit -am "Prepare release druid-37.0.0-rc1"
 $ git tag druid-37.0.0-rc1
 $ git push origin tag druid-37.0.0-rc1
-$ git checkout 37.0.0
 ```
 
-In this example it will create a tag, `druid-37.0.0-rc1`. If this release passes vote then we can add the final `druid-37.0.0` release tag later.
+In this example it will create a tag, `druid-37.0.0-rc1`. If this release passes vote then we can add the final `druid-37.0.0` release tag later. 
+The Druid version is set only by the `revision` property in the root `pom.xml`, so do not use `mvn versions:set` or `release:prepare`, which would replace `${revision}` in every `pom.xml`.
 
-Druid uses Maven [CI-friendly versions](https://maven.apache.org/maven-ci-friendly.html): every module's version is `${revision}`, and the
-`revision` property in the root `pom.xml` is the only place the version is set. Do not use `mvn versions:set` or the `maven-release-plugin`
-(`release:prepare`/`release:perform`), because they replace `${revision}` with a literal version in every `pom.xml`.
-The [flatten-maven-plugin](https://www.mojohaus.org/flatten-maven-plugin/) resolves `${revision}` in the POMs that are installed and deployed,
-so the published artifacts contain the literal release version.
-
-The release commit only exists on the tag, so the release branch stays on its `-SNAPSHOT` version.
 
 ### Do a clean clone (so the source distribution does not pick up extra files)
 
@@ -478,11 +467,7 @@ Before opening the release vote thread, we create a staged maven repository cont
 
 You can generate a staged maven repo for the RC with the following steps:	
 
-- From the clean clone checked out at the RC tag (see [Switch to tag](#switch-to-tag)), run:
-
-```bash
-$ mvn clean deploy -Papache-release -DskipTests -Daether.connector.basic.parallelPut=false -Dgpg.keyname=<your GPG key fingerprint>
-```
+- From the working copy checked out at the RC tag, run `mvn clean deploy -Papache-release -DskipTests -Daether.connector.basic.parallelPut=false -Dgpg.keyname=<your GPG key fingerprint>`	
 
 This will create a staged Maven repo here (login with Apache credentials): https://repository.apache.org/#stagingRepositories	
 
