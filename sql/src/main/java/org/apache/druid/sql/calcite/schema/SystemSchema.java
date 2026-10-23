@@ -77,6 +77,7 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.module.SystemTableModule;
+import org.apache.druid.server.system.table.StackTraceTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
@@ -379,6 +380,7 @@ public class SystemSchema extends AbstractTableSchema
           authorizerMapper,
           authenticationResult
       );
+      case StackTraceTableDescriptor.TABLE_NAME -> new SystemStackTraceTable(SystemTableModule.isEnabled(properties));
       case QUERIES_TABLE -> new QueriesTable(
           sqlEngineRegistryProvider,
           jsonMapper,
