@@ -21,9 +21,9 @@ package org.apache.druid.indexing.overlord;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.indexer.TaskInfo;
 import org.apache.druid.indexer.TaskStatus;
 import org.apache.druid.indexer.TaskStatusPlus;
@@ -38,12 +38,14 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.metadata.LockFilterPolicy;
 import org.apache.druid.metadata.TaskLookup;
 import org.apache.druid.metadata.TaskLookup.TaskLookupType;
+import org.apache.druid.metadata.TaskStorageQueryFilter;
 import org.joda.time.Duration;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -196,11 +198,87 @@ public class TaskQueryTool
       @Nullable String type
   )
   {
+    return getTaskStatusPlusList(
+        state,
+        createdTimeInterval,
+        maxCompletedTasks,
+        dataSource,
+        type,
+        null
+    );
+  }
+
+  public boolean supportsTaskStatusQueryFilter()
+  {
+    return storage.supportsTaskStatusQueryFilter();
+  }
+
+  public List<TaskStatusPlus> getTaskStatusPlusList(
+      final TaskStateLookup state,
+      final TaskStorageQueryFilter filter
+  )
+  {
+    final Optional<TaskRunner> taskRunner = taskMaster.getTaskRunner();
+    if (!taskRunner.isPresent()) {
+      throw DruidException.forPersona(DruidException.Persona.OPERATOR)
+                          .ofCategory(DruidException.Category.SERVICE_UNAVAILABLE)
+                          .build("Task status filter queries must run on the current Overlord leader");
+    }
+    final TaskRunner selectedTaskRunner = taskRunner.get();
+    final List<TaskStatusPlus> taskStatuses = getTaskStatusPlusListWithRunner(
+        state,
+        null,
+        null,
+        null,
+        null,
+        filter,
+        selectedTaskRunner
+    );
+    final Optional<TaskRunner> currentTaskRunner = taskMaster.getTaskRunner();
+    if (!taskMaster.isHalfOrFullLeader()
+        || !currentTaskRunner.isPresent()
+        || currentTaskRunner.get() != selectedTaskRunner) {
+      throw DruidException.forPersona(DruidException.Persona.OPERATOR)
+                          .ofCategory(DruidException.Category.SERVICE_UNAVAILABLE)
+                          .build("Overlord leadership changed during the task status filter query");
+    }
+    return taskStatuses;
+  }
+
+  private List<TaskStatusPlus> getTaskStatusPlusList(
+      final TaskStateLookup state,
+      @Nullable final String createdTimeInterval,
+      @Nullable final Integer maxCompletedTasks,
+      @Nullable final String dataSource,
+      @Nullable final String type,
+      @Nullable final TaskStorageQueryFilter filter
+  )
+  {
     Optional<TaskRunner> taskRunnerOptional = taskMaster.getTaskRunner();
     if (!taskRunnerOptional.isPresent()) {
       return Collections.emptyList();
     }
-    final TaskRunner taskRunner = taskRunnerOptional.get();
+    return getTaskStatusPlusListWithRunner(
+        state,
+        createdTimeInterval,
+        maxCompletedTasks,
+        dataSource,
+        type,
+        filter,
+        taskRunnerOptional.get()
+    );
+  }
+
+  private List<TaskStatusPlus> getTaskStatusPlusListWithRunner(
+      final TaskStateLookup state,
+      @Nullable final String createdTimeInterval,
+      @Nullable final Integer maxCompletedTasks,
+      @Nullable final String dataSource,
+      @Nullable final String type,
+      @Nullable final TaskStorageQueryFilter filter,
+      final TaskRunner taskRunner
+  )
+  {
 
     final Duration createdTimeDuration;
     if (createdTimeInterval != null) {
@@ -216,13 +294,20 @@ public class TaskQueryTool
     // This way, we can use the snapshot from taskStorage as the source of truth for the set of tasks to process
     // and use the snapshot from taskRunner as a reference for potential task state updates happened
     // after the first snapshotting.
-    Stream<TaskStatusPlus> taskStatusPlusStream = retrieveTaskStatusesFromMetadataStore(
+    final Map<TaskLookupType, TaskLookup> taskLookups = createTaskLookups(
         state,
-        dataSource,
         createdTimeDuration,
         maxCompletedTasks,
-        type
+        filter
     );
+    Stream<TaskStatusPlus> taskStatusPlusStream = filter == null
+                                                  ? storage.getTaskStatusPlusList(taskLookups, dataSource).stream()
+                                                  : storage.getTaskStatusPlusListWithFilter(taskLookups, filter).stream();
+    if (type != null) {
+      taskStatusPlusStream = taskStatusPlusStream.filter(
+          statusPlus -> type.equals(statusPlus == null ? null : statusPlus.getType())
+      );
+    }
     final Map<String, ? extends TaskRunnerWorkItem> runnerWorkItems = getTaskRunnerWorkItems(
         taskRunner,
         state,
@@ -235,7 +320,7 @@ public class TaskQueryTool
       taskStatusPlusStream = taskStatusPlusStream
           .filter(statusPlus -> runnerWorkItems.containsKey(statusPlus.getId()));
     }
-    final List<TaskStatusPlus> taskStatusPlusList = taskStatusPlusStream.collect(Collectors.toList());
+    final List<TaskStatusPlus> taskStatusPlusList = taskStatusPlusStream.toList();
 
     // Separate complete and active tasks from taskStorage.
     // Note that taskStorage can return only either complete tasks or active tasks per TaskLookupType.
@@ -282,26 +367,24 @@ public class TaskQueryTool
     return taskStatuses;
   }
 
-  private Stream<TaskStatusPlus> retrieveTaskStatusesFromMetadataStore(
-      TaskStateLookup state,
-      @Nullable String dataSource,
-      Duration createdTimeDuration,
-      @Nullable Integer maxCompletedTasks,
-      @Nullable String type
+  private static Map<TaskLookupType, TaskLookup> createTaskLookups(
+      final TaskStateLookup state,
+      final Duration createdTimeDuration,
+      @Nullable final Integer maxCompletedTasks,
+      @Nullable final TaskStorageQueryFilter filter
   )
   {
-    final Map<TaskLookupType, TaskLookup> taskLookups;
+    final Map<TaskLookupType, TaskLookup> taskLookups = new HashMap<>();
     switch (state) {
       case ALL:
-        taskLookups = ImmutableMap.of(
-            TaskLookupType.ACTIVE,
-            TaskLookup.ActiveTaskLookup.getInstance(),
+        taskLookups.put(TaskLookupType.ACTIVE, TaskLookup.ActiveTaskLookup.getInstance());
+        taskLookups.put(
             TaskLookupType.COMPLETE,
             TaskLookup.CompleteTaskLookup.of(maxCompletedTasks, createdTimeDuration)
         );
         break;
       case COMPLETE:
-        taskLookups = ImmutableMap.of(
+        taskLookups.put(
             TaskLookupType.COMPLETE,
             TaskLookup.CompleteTaskLookup.of(maxCompletedTasks, createdTimeDuration)
         );
@@ -309,24 +392,22 @@ public class TaskQueryTool
       case WAITING:
       case PENDING:
       case RUNNING:
-        taskLookups = ImmutableMap.of(
-            TaskLookupType.ACTIVE,
-            TaskLookup.ActiveTaskLookup.getInstance()
-        );
+        taskLookups.put(TaskLookupType.ACTIVE, TaskLookup.ActiveTaskLookup.getInstance());
         break;
       default:
         throw new IAE("Unknown state: [%s]", state);
     }
 
-    final Stream<TaskStatusPlus> taskStatusPlusStream
-        = storage.getTaskStatusPlusList(taskLookups, dataSource).stream();
-    if (type != null) {
-      return taskStatusPlusStream.filter(
-          statusPlus -> type.equals(statusPlus == null ? null : statusPlus.getType())
-      );
-    } else {
-      return taskStatusPlusStream;
+    if (filter != null) {
+      if (!filter.includesActiveTasks()) {
+        taskLookups.remove(TaskLookupType.ACTIVE);
+      }
+      if (!filter.includesCompleteTasks()) {
+        taskLookups.remove(TaskLookupType.COMPLETE);
+      }
     }
+
+    return taskLookups;
   }
 
   private Map<String, ? extends TaskRunnerWorkItem> getTaskRunnerWorkItems(
