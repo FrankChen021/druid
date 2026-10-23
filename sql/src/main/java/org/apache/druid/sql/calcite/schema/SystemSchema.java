@@ -77,6 +77,7 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.module.SystemTableModule;
+import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
@@ -110,7 +111,6 @@ public class SystemSchema extends AbstractTableSchema
   public static final String SEGMENTS_TABLE = "segments";
   public static final String SERVERS_TABLE = "servers";
   public static final String SERVER_SEGMENTS_TABLE = "server_segments";
-  public static final String TASKS_TABLE = "tasks";
   public static final String SUPERVISOR_TABLE = "supervisors";
   public static final String QUERIES_TABLE = "queries";
 
@@ -233,24 +233,6 @@ public class SystemSchema extends AbstractTableSchema
       .add("segment_id", ColumnType.STRING)
       .build();
 
-  static final RowSignature TASKS_SIGNATURE = RowSignature
-      .builder()
-      .add("task_id", ColumnType.STRING)
-      .add("group_id", ColumnType.STRING)
-      .add("type", ColumnType.STRING)
-      .add("datasource", ColumnType.STRING)
-      .add("created_time", ColumnType.STRING)
-      .add("queue_insertion_time", ColumnType.STRING)
-      .add("status", ColumnType.STRING)
-      .add("runner_status", ColumnType.STRING)
-      .add("duration", ColumnType.LONG)
-      .add("location", ColumnType.STRING)
-      .add("host", ColumnType.STRING)
-      .add("plaintext_port", ColumnType.LONG)
-      .add("tls_port", ColumnType.LONG)
-      .add("error_msg", ColumnType.STRING)
-      .build();
-
   static final RowSignature SUPERVISOR_SIGNATURE = RowSignature
       .builder()
       .add("supervisor_id", ColumnType.STRING)
@@ -362,7 +344,7 @@ public class SystemSchema extends AbstractTableSchema
           authenticationResult
       );
       case SERVER_SEGMENTS_TABLE -> new ServerSegmentsTable(serverView, authorizerMapper, authenticationResult);
-      case TASKS_TABLE -> new TasksTable(overlordClient, authorizerMapper, authenticationResult);
+      case TaskTableDescriptor.TABLE_NAME -> new TasksTable(overlordClient, authorizerMapper, authenticationResult);
       case SUPERVISOR_TABLE -> new SupervisorsTable(overlordClient, authorizerMapper, authenticationResult);
       case SystemServerPropertiesTable.TABLE_NAME -> new SystemServerPropertiesTable(
           druidNodeDiscoveryProvider,
@@ -997,7 +979,7 @@ public class SystemSchema extends AbstractTableSchema
   /**
    * This table contains row per task.
    */
-  static class TasksTable extends AbstractTable implements ScannableTable
+  static class TasksTable extends AbstractTable implements ScannableTable, SystemTableDataSourceTable
   {
     private final OverlordClient overlordClient;
     private final AuthorizerMapper authorizerMapper;
@@ -1017,13 +999,19 @@ public class SystemSchema extends AbstractTableSchema
     @Override
     public RelDataType getRowType(RelDataTypeFactory typeFactory)
     {
-      return RowSignatures.toRelDataType(TASKS_SIGNATURE, typeFactory);
+      return RowSignatures.toRelDataType(TaskTableDescriptor.ROW_SIGNATURE, typeFactory);
     }
 
     @Override
     public TableType getJdbcTableType()
     {
       return TableType.SYSTEM_TABLE;
+    }
+
+    @Override
+    public DruidTable asDataSourceTable()
+    {
+      return new TasksDataSourceTable();
     }
 
     @Override
