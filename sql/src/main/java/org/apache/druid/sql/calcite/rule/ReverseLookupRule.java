@@ -509,8 +509,9 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
         literal = RexUtil.removeNullabilityCast(rexBuilder.getTypeFactory(), literal);
 
         // Check that the call is of the form: LOOKUP(...) <op> <literal>
-        if (isLookupCall(lookupCall)
-            && (Calcites.isLiteral(literal, true, true) || getStringScalarInArrayParameter(plannerContext, literal) != null)) {
+        final boolean isLiteral = Calcites.isLiteral(literal, true, true)
+                                  || getStringScalarInArrayParameter(plannerContext, literal) != null;
+        if (isLookupCall(lookupCall) && isLiteral) {
           return (RexCall) rexBuilder.makeCall(call.getOperator(), lookupCall, literal);
         } else {
           return null;
