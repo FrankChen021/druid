@@ -254,6 +254,8 @@ public class PlannerContext
   private List<TypedValue> parameters = Collections.emptyList();
   // values of dynamic parameters synthesized for large IN lists, keyed by parameter index
   private final Map<Integer, List<Object>> scalarInArrayParameters = new HashMap<>();
+  // index of the synthesized dynamic parameter for each distinct list of values
+  private final Map<List<Object>, Integer> scalarInArrayParameterIndexes = new HashMap<>();
   // index of the next synthesized dynamic parameter, or -1 if not yet computed
   private int nextScalarInArrayParameterIndex = -1;
   // set of datasources and views which must be authorized, initialized to null so we can detect if it has been set.
@@ -680,16 +682,25 @@ public class PlannerContext
    * Registers the values of a large IN list that {@link DruidSqlValidator} replaced with a synthesized dynamic
    * parameter, so that the values do not have to be carried through Calcite as one literal per element.
    *
+   * Identical lists of values share one parameter, so that repeated IN expressions remain equal to each other, for
+   * example when an expression in the SELECT list must match the same expression in GROUP BY. Lists of values of
+   * different types are never equal, since the values are Strings, Longs, or Doubles.
+   *
    * @return index of the synthesized dynamic parameter
    */
   public int addScalarInArrayParameter(final List<Object> values)
   {
+    final Integer existingIndex = scalarInArrayParameterIndexes.get(values);
+    if (existingIndex != null) {
+      return existingIndex;
+    }
     if (nextScalarInArrayParameterIndex < 0) {
       // Synthesized parameters must not collide with the parameters of the original statement.
       nextScalarInArrayParameterIndex = Math.max(parameters.size(), maxDynamicParamIndex(sqlNode) + 1);
     }
     final int index = nextScalarInArrayParameterIndex++;
     scalarInArrayParameters.put(index, values);
+    scalarInArrayParameterIndexes.put(values, index);
     return index;
   }
 

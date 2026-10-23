@@ -5994,7 +5994,8 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
           {"dim1 NOT IN ('', 'abc', NULL)", 0L},
           {"NULLIF(dim1, 'abc') IN ('abc', 'def', 'nonmatching')", 1L},
           {"NULLIF(dim1, 'abc') NOT IN ('abc', 'def', 'nonmatching')", 4L},
-          {"dim1 IN (CAST('abc' AS VARCHAR(30)), CONCAT('d', 'ef'), 'nonmatching')", 2L}
+          {"dim1 IN (CAST('abc' AS VARCHAR(30)), CONCAT('d', 'ef'), 'nonmatching')", 2L},
+          {"dim1 IN (_UTF8'abc', 'def', 'nonmatching')", 2L}
       }) {
         testBuilder()
             .sql("SELECT COUNT(*) FROM druid.foo WHERE " + testCase[0])
@@ -6030,6 +6031,106 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
             .expectedResults(ImmutableList.of(new Object[]{testCase[1]}))
             .run();
       }
+    }
+  }
+
+  @Test
+  public void testDoubleInLiteralArraySemantics()
+  {
+    for (final int threshold : new int[]{2, 1000}) {
+      final Map<String, Object> context = QueryContexts.override(
+          QUERY_CONTEXT_DEFAULT,
+          QueryContextParameters.IN_FUNCTION_THRESHOLD,
+          threshold
+      );
+      for (final Object[] testCase : new Object[][]{
+          {"cnt IN (1, 1.1, 2.2)", 6L},
+          {"cnt NOT IN (1, 1.1, 2.2)", 0L},
+          {"cnt IN (1.1, 2.2, 3.3)", 0L},
+          {"cnt IN (9223372036854775808, 1, 2)", 6L},
+          {"m1 IN (1.0, 2.5, 3)", 2L},
+          {"m1 NOT IN (1.0, 2.5, 3)", 4L},
+          {"m2 IN (1e0, 2.0, 7.5)", 2L},
+          {"m2 NOT IN (1.5, 2, 3)", 4L},
+          {"NULLIF(m2, 1.0) IN (1.0, 2.0, 3.5)", 1L}
+      }) {
+        testBuilder()
+            .sql("SELECT COUNT(*) FROM druid.foo WHERE " + testCase[0])
+            .queryContext(context)
+            .expectedResults(ImmutableList.of(new Object[]{testCase[1]}))
+            .run();
+      }
+    }
+  }
+
+  @Test
+  public void testRepeatedInLiteralArrays()
+  {
+    // Identical IN lists must remain equal to each other, so that expressions in the SELECT list and HAVING clause
+    // match the same expressions in GROUP BY.
+    final String list = "('abc', 'def', 'nonmatching')";
+    for (final int threshold : new int[]{2, 1000}) {
+      final Map<String, Object> context = QueryContexts.override(
+          QUERY_CONTEXT_DEFAULT,
+          QueryContextParameters.IN_FUNCTION_THRESHOLD,
+          threshold
+      );
+      testBuilder()
+          .sql("SELECT dim1 IN " + list + " AS m, COUNT(*) FROM druid.foo GROUP BY dim1 IN " + list)
+          .queryContext(context)
+          .expectedResults(ImmutableList.of(new Object[]{false, 4L}, new Object[]{true, 2L}))
+          .run();
+      testBuilder()
+          .sql("SELECT COUNT(*) FROM druid.foo GROUP BY dim1 IN " + list + " HAVING dim1 IN " + list)
+          .queryContext(context)
+          .expectedResults(ImmutableList.of(new Object[]{2L}))
+          .run();
+      testBuilder()
+          .sql(
+              "SELECT CASE WHEN dim1 IN " + list + " THEN 1 ELSE 0 END, COUNT(*) FROM druid.foo\n"
+              + "GROUP BY CASE WHEN dim1 IN " + list + " THEN 1 ELSE 0 END"
+          )
+          .queryContext(context)
+          .expectedResults(ImmutableList.of(new Object[]{0, 4L}, new Object[]{1, 2L}))
+          .run();
+      testBuilder()
+          .sql("SELECT COUNT(*) FROM druid.foo WHERE dim1 IN " + list + " OR dim1 IN " + list)
+          .queryContext(context)
+          .expectedResults(ImmutableList.of(new Object[]{2L}))
+          .run();
+    }
+  }
+
+  @Test
+  public void testInLiteralArrayWithConstantExpression()
+  {
+    // An IN over a constant keeps the ARRAY form so that it is still reduced to a constant during planning.
+    testQuery(
+        "SELECT COUNT(*) FROM druid.foo WHERE 'abc' IN ('abc', 'def', 'nonmatching')",
+        QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD, 2),
+        ImmutableList.of(
+            Druids.newTimeseriesQueryBuilder()
+                  .dataSource(CalciteTests.DATASOURCE1)
+                  .intervals(querySegmentSpec(Filtration.eternity()))
+                  .granularity(Granularities.ALL)
+                  .aggregators(aggregators(new CountAggregatorFactory("a0")))
+                  .context(QUERY_CONTEXT_DEFAULT)
+                  .build()
+        ),
+        ImmutableList.of(new Object[]{6L})
+    );
+  }
+
+  @Test
+  public void testInLiteralArrayValidatesLiterals()
+  {
+    for (final int threshold : new int[]{2, 1000}) {
+      testQueryThrows(
+          "SELECT COUNT(*) FROM druid.foo WHERE m1 IN (1.0, 2.0, 1e400)",
+          QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD, threshold),
+          DruidException.class,
+          invalidSqlContains("Numeric literal '1E400' out of range")
+      );
     }
   }
 

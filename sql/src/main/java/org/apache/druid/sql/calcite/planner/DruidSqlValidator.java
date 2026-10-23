@@ -50,6 +50,7 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
+import org.apache.calcite.sql.util.SqlBasicVisitor;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.IdentifierNamespace;
 import org.apache.calcite.sql.validate.SelectNamespace;
@@ -863,7 +864,7 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
         final SqlCall newCall = ScalarInArrayOperatorConversion.SQL_FUNCTION.createCall(
             call.getParserPosition(),
             performUnconditionalRewrites(exprNode, underFrom),
-            toScalarInArrayValues(valuesNode)
+            toScalarInArrayValues(exprNode, valuesNode)
         );
 
         if (call.getKind() == SqlKind.NOT_IN) {
@@ -880,25 +881,31 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
   /**
    * Returns the array operand for a {@link ScalarInArrayOperatorConversion} call rewritten from an IN list.
    *
-   * When all values are character literals or all are exact integers, the values are moved out of the SQL tree into
+   * When all values are character literals or all are numeric literals, the values are moved out of the SQL tree into
    * a synthesized dynamic parameter registered with {@link PlannerContext#addScalarInArrayParameter(List)}. Calcite
    * then validates, converts and optimizes a single parameter rather than one literal per value. Otherwise, the
-   * values are wrapped in an {@code ARRAY[...]} constructor.
+   * values are wrapped in an {@code ARRAY[...]} constructor. They are also wrapped when the IN expression references
+   * no columns, so that Calcite can still reduce it to a constant.
    */
-  private SqlNode toScalarInArrayValues(final SqlNodeList valuesNode)
+  private SqlNode toScalarInArrayValues(final SqlNode exprNode, final SqlNodeList valuesNode)
   {
     final SqlTypeName elementTypeName = getScalarInArrayParameterElementType(valuesNode);
-    if (elementTypeName == null) {
+    if (elementTypeName == null || !containsIdentifier(exprNode)) {
       return SqlStdOperatorTable.ARRAY_VALUE_CONSTRUCTOR.createCall(valuesNode);
     }
 
     final List<Object> values = new ArrayList<>(valuesNode.size());
     for (final SqlNode valueNode : valuesNode) {
       final SqlLiteral literal = (SqlLiteral) valueNode;
+      // The literals never reach validation once moved into the parameter, so validate them here.
+      validateLiteral(literal);
       if (elementTypeName == SqlTypeName.VARCHAR) {
         values.add(literal.getValueAs(String.class));
-      } else {
+      } else if (elementTypeName == SqlTypeName.BIGINT) {
         values.add(literal.getValueAs(Long.class));
+      } else {
+        // Same conversion as Expressions#calciteLiteralToDruidLiteral for non-integer numeric literals.
+        values.add(literal.getValueAs(BigDecimal.class).doubleValue());
       }
     }
 
@@ -914,8 +921,16 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
   }
 
   /**
-   * Returns {@link SqlTypeName#VARCHAR} if all values are character literals, {@link SqlTypeName#BIGINT} if all
-   * values are exact integer literals that fit in a long, and null otherwise.
+   * Returns the element type of the synthesized parameter for an IN list, or null if the list should keep the
+   * {@code ARRAY[...]} form:
+   *
+   * <ul>
+   *   <li>{@link SqlTypeName#VARCHAR} if all values are character literals.</li>
+   *   <li>{@link SqlTypeName#BIGINT} if all values are exact integer literals that fit in a long.</li>
+   *   <li>{@link SqlTypeName#DOUBLE} if all values are numeric literals and at least one is not such an integer.
+   *   This matches the {@code ARRAY[...]} form, whose element type is then DECIMAL or DOUBLE, both translated to
+   *   double values.</li>
+   * </ul>
    */
   @Nullable
   private static SqlTypeName getScalarInArrayParameterElementType(final SqlNodeList valuesNode)
@@ -929,29 +944,63 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
       }
       return SqlTypeName.VARCHAR;
     } else if (first instanceof SqlNumericLiteral) {
+      boolean allLongs = true;
       for (final SqlNode valueNode : valuesNode) {
-        if (!(valueNode instanceof SqlNumericLiteral)
-            || !((SqlNumericLiteral) valueNode).isExact()
-            || !((SqlNumericLiteral) valueNode).isInteger()) {
+        if (!(valueNode instanceof SqlNumericLiteral)) {
           return null;
         }
-        final BigDecimal value = ((SqlNumericLiteral) valueNode).getValueAs(BigDecimal.class);
-        if (value.compareTo(LONG_MIN) < 0 || value.compareTo(LONG_MAX) > 0) {
-          return null;
+        if (allLongs && !isLongLiteral((SqlNumericLiteral) valueNode)) {
+          allLongs = false;
         }
       }
-      return SqlTypeName.BIGINT;
+      return allLongs ? SqlTypeName.BIGINT : SqlTypeName.DOUBLE;
     } else {
       return null;
     }
   }
 
   /**
-   * Skips type inference for dynamic parameters synthesized by {@link #toScalarInArrayValues(SqlNodeList)}, whose
-   * types are set when they are created.
+   * Whether an expression contains an identifier that is not a niladic function call such as
+   * {@code CURRENT_TIMESTAMP}, which the parser also represents as an identifier.
+   */
+  private boolean containsIdentifier(final SqlNode node)
+  {
+    final boolean[] found = {false};
+    node.accept(
+        new SqlBasicVisitor<Void>()
+        {
+          @Override
+          public Void visit(final SqlIdentifier id)
+          {
+            if (makeNullaryCall(id) == null) {
+              found[0] = true;
+            }
+            return null;
+          }
+        }
+    );
+    return found[0];
+  }
+
+  private static boolean isLongLiteral(final SqlNumericLiteral literal)
+  {
+    if (!literal.isExact() || !literal.isInteger()) {
+      return false;
+    }
+    final BigDecimal value = literal.getValueAs(BigDecimal.class);
+    return value.compareTo(LONG_MIN) >= 0 && value.compareTo(LONG_MAX) <= 0;
+  }
+
+  /**
+   * Skips type inference for dynamic parameters synthesized by
+   * {@link #toScalarInArrayValues(SqlNode, SqlNodeList)}, whose types are set when they are created.
    */
   @Override
-  protected void inferUnknownTypes(RelDataType inferredType, SqlValidatorScope scope, SqlNode node)
+  protected void inferUnknownTypes(
+      final RelDataType inferredType,
+      final SqlValidatorScope scope,
+      final SqlNode node
+  )
   {
     if (isScalarInArrayParameter(node)) {
       return;
@@ -960,11 +1009,11 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
   }
 
   /**
-   * Excludes dynamic parameters synthesized by {@link #toScalarInArrayValues(SqlNodeList)}, since they are not
+   * Excludes dynamic parameters synthesized by {@link #toScalarInArrayValues(SqlNode, SqlNodeList)}, since they are not
    * parameters of the original statement.
    */
   @Override
-  public RelDataType getParameterRowType(SqlNode sqlQuery)
+  public RelDataType getParameterRowType(final SqlNode sqlQuery)
   {
     final List<RelDataType> types = new ArrayList<>();
     final List<String> names = new ArrayList<>();
@@ -974,7 +1023,7 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
         new SqlShuttle()
         {
           @Override
-          public SqlNode visit(SqlDynamicParam param)
+          public SqlNode visit(final SqlDynamicParam param)
           {
             if (!isScalarInArrayParameter(param) && alreadyVisited.add(param)) {
               names.add("?" + types.size());
