@@ -61,9 +61,28 @@ public class SystemSchemaDataSourceTableTest
     EasyMock.verify(context);
   }
 
+  /**
+   * sys.supervisors offers a Druid datasource only when druid.query.enableDruidEngineForSystemTables is set.
+   */
+  @Test
+  public void testSupervisorsTableHasDataSourceTableOnlyWhenEnabled()
+  {
+    Assertions.assertInstanceOf(
+        SupervisorsDataSourceTable.class,
+        new SystemSchema.SupervisorsTable(null, null, null, true).asDataSourceTable()
+    );
+    Assertions.assertNull(new SystemSchema.SupervisorsTable(null, null, null, false).asDataSourceTable());
+  }
+
   @Test
   public void testNativeTablesExposeSystemMetadata()
   {
+    final SupervisorsDataSourceTable supervisors = new SupervisorsDataSourceTable();
+    Assertions.assertEquals("supervisors", ((SystemTableDataSource) supervisors.getDataSource()).getTable());
+    Assertions.assertFalse(supervisors.isJoinable());
+    Assertions.assertFalse(supervisors.isBroadcast());
+    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, supervisors.getJdbcTableType());
+
     final ServerPropertiesDataSourceTable serverProperties = new ServerPropertiesDataSourceTable();
     Assertions.assertEquals(
         "server_properties",

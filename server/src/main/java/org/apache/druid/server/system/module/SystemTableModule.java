@@ -27,6 +27,7 @@ import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
+import org.apache.druid.server.system.table.SupervisorTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableSegmentWrangler;
@@ -34,9 +35,11 @@ import org.apache.druid.server.system.table.SystemTableSegmentWrangler;
 import java.util.Properties;
 
 /**
- * Registers the segment wrangler that reads system tables, and the {@code sys.server_properties} table.
+ * Registers the segment wrangler that reads system tables, the {@code sys.server_properties} table, and the
+ * {@code sys.supervisors} descriptor.
  *
- * <p>Table-specific integrations contribute their own entries to the native system-table multibinders.</p>
+ * <p>Table-specific integrations contribute their providers to the system-table multibinders on the services that
+ * serve them, such as the {@code sys.supervisors} provider on the Overlord.</p>
  */
 public class SystemTableModule implements Module
 {
@@ -64,6 +67,8 @@ public class SystemTableModule implements Module
     final MapBinder<String, SystemTableDescriptor> descriptorBinder = DruidBinders.systemTableDescriptorBinder(binder);
     descriptorBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                     .toInstance(new ServerPropertiesTableDescriptor());
+    descriptorBinder.addBinding(SupervisorTableDescriptor.TABLE_NAME)
+                    .toInstance(new SupervisorTableDescriptor());
     final MapBinder<String, SystemTableDataProvider> dataProviderBinder =
         MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class);
     dataProviderBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)

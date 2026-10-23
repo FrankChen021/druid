@@ -177,6 +177,7 @@ execution:
 
 |Table|Source of rows|
 |-----|--------------|
+|[`sys.supervisors`](#supervisors-table)|The leader Overlord, which owns supervisor state. Only the leader is queried. Filters on `supervisor_id` let the Overlord build rows for only the matching supervisors. Rows are authorized by `READ` permission on each supervisor's `datasource`, as in the SQL interpreter. Unlike the SQL interpreter, the Druid engine omits supervisors that have no datasource, since no permission can be checked for them.|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Every server is queried, and filters on `server` and `service_name` let a server that doesn't match return no rows.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
