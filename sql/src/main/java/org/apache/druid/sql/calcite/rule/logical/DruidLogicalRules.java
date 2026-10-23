@@ -55,7 +55,8 @@ public class DruidLogicalRules
                 LogicalTableScan.class,
                 Convention.NONE,
                 DruidLogicalConvention.instance(),
-                DruidTableScanRule.class.getSimpleName()
+                DruidTableScanRule.class.getSimpleName(),
+                plannerContext
             ),
             new DruidBindableTableScanRule(),
             new DruidAggregateRule(

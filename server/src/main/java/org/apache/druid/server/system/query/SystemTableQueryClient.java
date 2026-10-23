@@ -250,6 +250,7 @@ public class SystemTableQueryClient
       throw DruidException.defensive("System table[%s] was not authorized before execution", dataSource.getTable());
     }
     final ScanQuery nodeQuery = makeNodeQuery(dataSource, descriptor, owningQuery);
+    descriptor.validateNodeQuery(nodeQuery);
     final List<QueryRunner<ScanResultValue>> nodeRunners = makeNodeRunners(
         nodeQuery,
         descriptor,

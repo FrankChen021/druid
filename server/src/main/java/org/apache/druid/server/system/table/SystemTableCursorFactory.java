@@ -74,7 +74,9 @@ public class SystemTableCursorFactory implements ResidentCursorFactory
   @Override
   public CursorHolder makeCursorHolder(final CursorBuildSpec spec)
   {
-    final Iterable<Object[]> rows = access.filter(provider.getRows(getPushdownFilters(spec)));
+    final Iterable<Object[]> rows = access.filter(
+        provider.getRows(getPushdownFilters(spec), spec.getQueryContext())
+    );
     return new RowBasedCursorFactory<>(Sequences.simple(rows), rowAdapter, rowSignature).makeCursorHolder(spec);
   }
 

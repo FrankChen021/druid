@@ -19,6 +19,7 @@
 
 package org.apache.druid.server.system.table;
 
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.filter.Filter;
 
 import java.util.List;
@@ -50,4 +51,17 @@ public interface SystemTableDataProvider
    *                the result.
    */
   Iterable<Object[]> getRows(List<Filter> filters);
+
+  /**
+   * Returns the table's rows like {@link #getRows(List)}, for a query with the given context. Providers with options
+   * that the query sets through its context override this method; the default ignores the context.
+   *
+   * @param filters      filters that read only {@link #getPushdownColumns() pushdown columns}, as for
+   *                     {@link #getRows(List)}
+   * @param queryContext context of the query that reads the table
+   */
+  default Iterable<Object[]> getRows(final List<Filter> filters, final QueryContext queryContext)
+  {
+    return getRows(filters);
+  }
 }

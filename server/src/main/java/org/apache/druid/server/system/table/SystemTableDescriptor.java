@@ -20,6 +20,7 @@
 package org.apache.druid.server.system.table;
 
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.query.Query;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.DruidNode;
 
@@ -42,6 +43,16 @@ public interface SystemTableDescriptor
   RowSignature getRowSignature();
 
   SystemTableRowAuthorizer getRowAuthorizer();
+
+  /**
+   * Validates the Scan that the Broker sends to every service to gather the table's rows, before it sends it. A table
+   * can reject a query here that would be too costly to run on every service.
+   *
+   * @throws org.apache.druid.error.DruidException if the query is invalid
+   */
+  default void validateNodeQuery(final Query<?> nodeQuery)
+  {
+  }
 
   /**
    * Whether an empty discovery result represents an empty table instead of unavailable infrastructure.
