@@ -77,6 +77,7 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.module.SystemTableModule;
+import org.apache.druid.server.system.table.QueriesTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
@@ -264,13 +265,7 @@ public class SystemSchema extends AbstractTableSchema
       .add("spec", ColumnType.STRING)
       .build();
 
-  static final RowSignature QUERIES_SIGNATURE = RowSignature
-      .builder()
-      .add("id", ColumnType.STRING)
-      .add("engine", ColumnType.STRING)
-      .add("state", ColumnType.STRING)
-      .add("info", ColumnType.STRING)
-      .build();
+  static final RowSignature QUERIES_SIGNATURE = QueriesTableDescriptor.ROW_SIGNATURE;
 
   /**
    * Index of the "info" column in {@link #QUERIES_SIGNATURE}. Used for projection pushdown.
@@ -383,7 +378,8 @@ public class SystemSchema extends AbstractTableSchema
           sqlEngineRegistryProvider,
           jsonMapper,
           authorizerMapper,
-          authenticationResult
+          authenticationResult,
+          SystemTableModule.isEnabled(properties)
       );
       case null, default -> throw DruidException.defensive("Unrecognized table name[%s]", name);
     };
@@ -1353,24 +1349,27 @@ public class SystemSchema extends AbstractTableSchema
    * This table contains currently running and recently completed queries from all SQL engines.
    * Enabled based on {@link PlannerConfig#isEnableSysQueriesTable()}.
    */
-  static class QueriesTable extends AbstractTable implements ProjectableFilterableTable
+  static class QueriesTable extends AbstractTable implements ProjectableFilterableTable, SystemTableDataSourceTable
   {
     private final Provider<SqlEngineRegistry> sqlEngineRegistryProvider;
     private final ObjectMapper jsonMapper;
     private final AuthorizerMapper authorizerMapper;
     private final AuthenticationResult authenticationResult;
+    private final boolean enableDruidEngineForSystemTables;
 
     public QueriesTable(
         final Provider<SqlEngineRegistry> sqlEngineRegistryProvider,
         final ObjectMapper jsonMapper,
         final AuthorizerMapper authorizerMapper,
-        final AuthenticationResult authenticationResult
+        final AuthenticationResult authenticationResult,
+        final boolean enableDruidEngineForSystemTables
     )
     {
       this.sqlEngineRegistryProvider = sqlEngineRegistryProvider;
       this.jsonMapper = jsonMapper;
       this.authorizerMapper = authorizerMapper;
       this.authenticationResult = authenticationResult;
+      this.enableDruidEngineForSystemTables = enableDruidEngineForSystemTables;
     }
 
     @Override
@@ -1383,6 +1382,13 @@ public class SystemSchema extends AbstractTableSchema
     public TableType getJdbcTableType()
     {
       return TableType.SYSTEM_TABLE;
+    }
+
+    @Nullable
+    @Override
+    public QueriesDataSourceTable asDataSourceTable()
+    {
+      return enableDruidEngineForSystemTables ? new QueriesDataSourceTable() : null;
     }
 
     @Override
