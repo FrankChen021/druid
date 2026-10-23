@@ -21,11 +21,15 @@ package org.apache.druid.testing.embedded.auth;
 
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import org.apache.druid.indexing.common.task.NoopTask;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.http.client.CredentialedHttpClient;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.auth.BasicCredentials;
+import org.apache.druid.query.Druids;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
+import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.security.basic.authentication.entity.BasicAuthenticatorCredentialUpdate;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.Action;
@@ -33,6 +37,7 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.testing.embedded.EmbeddedResource;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -78,6 +83,37 @@ public class BasicAuthConfigurationTest extends AbstractAuthConfigurationTest
     assertNativeSystemTableQueryStatus(sysTableWithStateUser, HttpResponseStatus.OK);
     assertNativeSystemTableQueryStatus(sysTableUser, HttpResponseStatus.FORBIDDEN);
     assertNativeSystemTableQueryStatus(stateWithoutSysTableUser, HttpResponseStatus.FORBIDDEN);
+  }
+
+  /**
+   * Native {@code sys.tasks} rows are filtered by DATASOURCE READ on each task's datasource, as in SQL: a user who can
+   * read only {@code auth_test} doesn't see tasks of other datasources.
+   */
+  @Test
+  public void test_nativeSysTasksQuery_filtersRowsByDatasource()
+  {
+    cluster.callApi().runTask(
+        new NoopTask("auth_test_other_task", null, "auth_test_other", 1L, 0L, null),
+        getOverlord()
+    );
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                  .dataSource(new SystemTableDataSource("tasks"))
+                                  .eternityInterval()
+                                  .columns("datasource")
+                                  .build();
+    final String url = getBrokerUrl() + "/druid/v2/";
+
+    final String adminRows = HttpUtil.makeRequest(
+        getHttpClient(User.ADMIN), HttpMethod.POST, url, query, HttpResponseStatus.OK
+    ).getContent();
+    Assertions.assertTrue(adminRows.contains("\"auth_test_other\""), adminRows);
+
+    // datasourceAndSysUser can read the tasks system table and the auth_test datasource only.
+    final String userRows = HttpUtil.makeRequest(
+        getHttpClient(User.DATASOURCE_AND_SYS_USER), HttpMethod.POST, url, query, HttpResponseStatus.OK
+    ).getContent();
+    Assertions.assertTrue(userRows.contains("\"auth_test\""), userRows);
+    Assertions.assertFalse(userRows.contains("\"auth_test_other\""), userRows);
   }
 
   @Override

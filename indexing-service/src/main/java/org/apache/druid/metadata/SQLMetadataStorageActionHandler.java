@@ -343,16 +343,7 @@ public abstract class SQLMetadataStorageActionHandler
       @Nullable String dataSource
   )
   {
-    boolean fetchPayload = true;
-    if (taskMigrationCompleteFuture != null && taskMigrationCompleteFuture.isDone()) {
-      try {
-        fetchPayload = !taskMigrationCompleteFuture.get();
-      }
-      catch (Exception e) {
-        log.info(e, "Exception getting task migration future");
-      }
-    }
-    return getTaskStatusList(taskLookups, dataSource, NO_FILTERS, fetchPayload);
+    return getTaskStatusList(taskLookups, dataSource, NO_FILTERS, shouldFetchPayload());
   }
 
   @Override
@@ -361,16 +352,23 @@ public abstract class SQLMetadataStorageActionHandler
       final TaskStorageQueryFilter filter
   )
   {
-    boolean fetchPayload = true;
+    return getTaskStatusList(taskLookups, null, filter, shouldFetchPayload());
+  }
+
+  /**
+   * Whether task status queries must read the task payload, which is needed until the task migration completes.
+   */
+  private boolean shouldFetchPayload()
+  {
     if (taskMigrationCompleteFuture != null && taskMigrationCompleteFuture.isDone()) {
       try {
-        fetchPayload = !taskMigrationCompleteFuture.get();
+        return !taskMigrationCompleteFuture.get();
       }
       catch (Exception e) {
         log.info(e, "Exception getting task migration future");
       }
     }
-    return getTaskStatusList(taskLookups, null, filter, fetchPayload);
+    return true;
   }
 
   @VisibleForTesting

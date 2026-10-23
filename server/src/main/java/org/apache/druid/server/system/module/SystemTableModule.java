@@ -52,7 +52,6 @@ public class SystemTableModule implements Module
                     .toInstance(new ServerPropertiesTableDescriptor());
     descriptorBinder.addBinding(TaskTableDescriptor.TABLE_NAME)
                     .toInstance(new TaskTableDescriptor());
-
     final MapBinder<String, SystemTableDataProvider> dataProviderBinder = MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class);
     dataProviderBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                       .to(ServerPropertiesTableDataProvider.class)

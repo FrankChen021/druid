@@ -20,9 +20,13 @@
 package org.apache.druid.server.system.table;
 
 import com.google.common.collect.Lists;
+import org.apache.druid.server.security.Access;
+import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AllowAllAuthorizer;
 import org.apache.druid.server.security.AuthenticationResult;
+import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.server.security.ResourceType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -53,6 +57,28 @@ public class TaskTableDescriptorTest
 
     Assertions.assertEquals(1, result.size());
     Assertions.assertSame(authorizedRow, result.getFirst());
+  }
+
+  /** Each row needs DATASOURCE READ on its own datasource, matching the SQL sys.tasks table. */
+  @Test
+  public void testRowAuthorizerKeepsOnlyRowsOfReadableDatasources()
+  {
+    final Authorizer readsWikipediaOnly = (authenticationResult, resource, action) ->
+        ResourceType.DATASOURCE.equals(resource.getType())
+        && "wikipedia".equals(resource.getName())
+        && Action.READ.equals(action) ? Access.OK : Access.DENIED;
+    final Object[] readableRow = taskRow("wikipedia");
+
+    final List<Object[]> result = Lists.newArrayList(
+        new TaskTableDescriptor().getRowAuthorizer().filterAuthorizedRows(
+            List.of(readableRow, taskRow("koalas"), taskRow("wikipedia_extra")),
+            new AuthenticationResult("test", "wikipediaOnly", "test", null),
+            new AuthorizerMapper(Map.of("wikipediaOnly", readsWikipediaOnly))
+        )
+    );
+
+    Assertions.assertEquals(1, result.size());
+    Assertions.assertSame(readableRow, result.getFirst());
   }
 
   private static Object[] taskRow(final String dataSource)

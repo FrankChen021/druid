@@ -1091,6 +1091,11 @@ public abstract class AbstractAuthConfigurationTest extends EmbeddedClusterTestB
     return coordinator;
   }
 
+  protected EmbeddedOverlord getOverlord()
+  {
+    return overlord;
+  }
+
   protected String getCoordinatorUrl()
   {
     return getServerUrl(coordinator);

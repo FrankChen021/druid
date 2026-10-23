@@ -39,6 +39,7 @@ import org.apache.druid.metadata.LockFilterPolicy;
 import org.apache.druid.metadata.TaskLookup;
 import org.apache.druid.metadata.TaskLookup.TaskLookupType;
 import org.apache.druid.metadata.TaskStorageQueryFilter;
+import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.joda.time.Duration;
 import org.joda.time.Interval;
 
@@ -220,9 +221,8 @@ public class TaskQueryTool
   {
     final Optional<TaskRunner> taskRunner = taskMaster.getTaskRunner();
     if (!taskRunner.isPresent()) {
-      throw DruidException.forPersona(DruidException.Persona.OPERATOR)
-                          .ofCategory(DruidException.Category.SERVICE_UNAVAILABLE)
-                          .build("Task status filter queries must run on the current Overlord leader");
+      // The Broker retries sys.tasks queries on the new leader when it sees SystemTableNotLeaderException.
+      throw new SystemTableNotLeaderException("overlord");
     }
     final TaskRunner selectedTaskRunner = taskRunner.get();
     final List<TaskStatusPlus> taskStatuses = getTaskStatusPlusListWithRunner(
@@ -238,9 +238,7 @@ public class TaskQueryTool
     if (!taskMaster.isHalfOrFullLeader()
         || !currentTaskRunner.isPresent()
         || currentTaskRunner.get() != selectedTaskRunner) {
-      throw DruidException.forPersona(DruidException.Persona.OPERATOR)
-                          .ofCategory(DruidException.Category.SERVICE_UNAVAILABLE)
-                          .build("Overlord leadership changed during the task status filter query");
+      throw new SystemTableNotLeaderException("overlord");
     }
     return taskStatuses;
   }
@@ -395,7 +393,7 @@ public class TaskQueryTool
         taskLookups.put(TaskLookupType.ACTIVE, TaskLookup.ActiveTaskLookup.getInstance());
         break;
       default:
-        throw new IAE("Unknown state: [%s]", state);
+        throw DruidException.defensive("Unknown state: [%s]", state);
     }
 
     if (filter != null) {
