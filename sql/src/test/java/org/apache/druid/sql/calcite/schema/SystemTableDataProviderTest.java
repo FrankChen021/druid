@@ -72,7 +72,7 @@ public class SystemTableDataProviderTest
     Assertions.assertFalse(serverProperties.isBroadcast());
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, serverProperties.getJdbcTableType());
 
-    final NativeServersTable servers = new NativeServersTable();
+    final ServersDataSourceTable servers = new ServersDataSourceTable();
     Assertions.assertEquals("servers", ((SystemTableDataSource) servers.getDataSource()).getTable());
     Assertions.assertEquals(ServersTableDescriptor.ROW_SIGNATURE, servers.getRowSignature());
     Assertions.assertFalse(servers.isJoinable());

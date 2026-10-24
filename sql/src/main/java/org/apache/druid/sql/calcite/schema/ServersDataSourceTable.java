@@ -28,12 +28,12 @@ import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.sql.calcite.table.DruidTable;
 
-/** Native-query representation of {@code sys.servers}. */
-class NativeServersTable extends DruidTable
+/** Druid datasource representation of {@code sys.servers}. */
+class ServersDataSourceTable extends DruidTable
 {
   private static final DataSource DATA_SOURCE = new SystemTableDataSource(ServersTableDescriptor.TABLE_NAME);
 
-  NativeServersTable()
+  ServersDataSourceTable()
   {
     super(ServersTableDescriptor.ROW_SIGNATURE);
   }

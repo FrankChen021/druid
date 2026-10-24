@@ -669,7 +669,7 @@ public class SystemSchema extends AbstractTableSchema
    * This table contains row per server. It contains all the discovered servers in Druid cluster.
    * Some columns like tier and size are only applicable to historical nodes which contain segments.
    */
-  static class ServersTable extends AbstractTable implements ScannableTable, NativeSystemTable
+  static class ServersTable extends AbstractTable implements ScannableTable, SystemTableDataSourceTable
   {
     private final ServersTableDataProvider rowsProvider;
     private final AuthorizerMapper authorizerMapper;
@@ -709,9 +709,9 @@ public class SystemSchema extends AbstractTableSchema
     }
 
     @Override
-    public DruidTable asNativeTable()
+    public DruidTable asDataSourceTable()
     {
-      return new NativeServersTable();
+      return new ServersDataSourceTable();
     }
 
     /** Builds the same rows as the native path, after the same STATE READ check its row authorizer applies. */
@@ -719,7 +719,7 @@ public class SystemSchema extends AbstractTableSchema
     public Enumerable<Object[]> scan(DataContext root)
     {
       checkStateReadAccessForServers(authenticationResult, authorizerMapper);
-      return Linq4j.asEnumerable(rowsProvider.getRows(Collections.emptyList(), authenticationResult));
+      return Linq4j.asEnumerable(rowsProvider.getRows(Collections.emptyList()));
     }
   }
 

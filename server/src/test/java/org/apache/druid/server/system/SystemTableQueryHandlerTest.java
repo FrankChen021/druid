@@ -294,7 +294,7 @@ public class SystemTableQueryHandlerTest
   public void testRejectsTableNotServedByCurrentNodeRole()
   {
     final AtomicInteger getRowsCalls = new AtomicInteger();
-    final SystemTableDataProvider supplier = (filters, authenticationResult) -> {
+    final SystemTableDataProvider supplier = filters -> {
       getRowsCalls.incrementAndGet();
       return List.of();
     };

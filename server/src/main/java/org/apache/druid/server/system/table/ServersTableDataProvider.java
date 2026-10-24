@@ -36,7 +36,6 @@ import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.security.AuthenticationResult;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -77,10 +76,7 @@ public class ServersTableDataProvider implements SystemTableDataProvider
   }
 
   @Override
-  public Iterable<Object[]> getRows(
-      final List<DimFilter> filters,
-      final AuthenticationResult internalAuthenticationResult
-  )
+  public Iterable<Object[]> getRows(final List<DimFilter> filters)
   {
     final Iterator<DiscoveryDruidNode> druidServers = getDruidServers();
     String tmpCoordinatorLeader = "";
