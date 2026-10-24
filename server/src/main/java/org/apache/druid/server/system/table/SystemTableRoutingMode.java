@@ -22,6 +22,9 @@ package org.apache.druid.server.system.table;
 /** Defines how the Broker selects nodes that contribute rows to a system table. */
 public enum SystemTableRoutingMode
 {
+  /** The Broker executes the table provider locally without selecting a remote node. */
+  LOCAL,
+
   /** Every discovered node for the descriptor's roles contributes an independent set of rows. */
   ALL_NODES,
 
