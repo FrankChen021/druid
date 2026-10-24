@@ -20,9 +20,12 @@
 package org.apache.druid.query.filter.vector;
 
 import org.apache.druid.math.expr.ExprEval;
+import org.apache.druid.math.expr.ExpressionProcessing;
 import org.apache.druid.math.expr.ExpressionType;
 import org.apache.druid.query.filter.DruidLongPredicate;
 import org.apache.druid.query.filter.DruidPredicateFactory;
+import org.apache.druid.query.filter.NumericRangePredicateFactory;
+import org.apache.druid.query.filter.vector.simd.SimdLongVectorValueMatcher;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.vector.VectorValueSelector;
@@ -69,7 +72,7 @@ public class LongVectorValueMatcher implements VectorValueMatcherFactory
 
   private BaseVectorValueMatcher makeLongMatcher(long matchValLong)
   {
-    return new BaseVectorValueMatcher(selector)
+    final BaseVectorValueMatcher scalarMatcher = new BaseVectorValueMatcher(selector)
     {
       final VectorMatch match = VectorMatch.wrap(new int[selector.getMaxVectorSize()]);
 
@@ -98,6 +101,11 @@ public class LongVectorValueMatcher implements VectorValueMatcherFactory
         return match;
       }
     };
+
+    if (ExpressionProcessing.useVectorApi()) {
+      return SimdLongVectorValueMatcher.forEquality(selector, matchValLong, scalarMatcher);
+    }
+    return scalarMatcher;
   }
 
   @Override
@@ -105,7 +113,7 @@ public class LongVectorValueMatcher implements VectorValueMatcherFactory
   {
     final DruidLongPredicate predicate = predicateFactory.makeLongPredicate();
 
-    return new BaseVectorValueMatcher(selector)
+    final BaseVectorValueMatcher scalarMatcher = new BaseVectorValueMatcher(selector)
     {
       final VectorMatch match = VectorMatch.wrap(new int[selector.getMaxVectorSize()]);
 
@@ -134,5 +142,13 @@ public class LongVectorValueMatcher implements VectorValueMatcherFactory
         return match;
       }
     };
+
+    if (ExpressionProcessing.useVectorApi() && predicateFactory instanceof NumericRangePredicateFactory rangeFactory) {
+      final NumericRangePredicateFactory.LongRange range = rangeFactory.getLongRange();
+      if (range != null) {
+        return SimdLongVectorValueMatcher.forRange(selector, range, predicate.applyNull(), scalarMatcher);
+      }
+    }
+    return scalarMatcher;
   }
 }

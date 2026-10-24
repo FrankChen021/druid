@@ -22,6 +22,7 @@ package org.apache.druid.query.filter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.BoundType;
@@ -81,6 +82,8 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
   @Nullable
   private final FilterTuning filterTuning;
   private final Supplier<DruidObjectPredicate<String>> stringPredicateSupplier;
+  private final Supplier<NumericRangePredicateFactory.LongRange> longRangeSupplier;
+  private final Supplier<NumericRangePredicateFactory.DoubleRange> doubleRangeSupplier;
   private final Supplier<DruidLongPredicate> longPredicateSupplier;
   private final Supplier<DruidFloatPredicate> floatPredicateSupplier;
   private final Supplier<DruidDoublePredicate> doublePredicateSupplier;
@@ -140,6 +143,8 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
     this.upperOpen = upperOpen != null && upperOpen;
     this.filterTuning = filterTuning;
     this.stringPredicateSupplier = makeStringPredicateSupplier();
+    this.longRangeSupplier = makeLongRangeSupplier();
+    this.doubleRangeSupplier = makeDoubleRangeSupplier();
     this.longPredicateSupplier = makeLongPredicateSupplier();
     this.floatPredicateSupplier = makeFloatPredicateSupplier();
     this.doublePredicateSupplier = makeDoublePredicateSupplier();
@@ -494,12 +499,28 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
     return builder.appendFilterTuning(filterTuning).build();
   }
 
-  private DruidPredicateFactory getPredicateFactory()
+  @VisibleForTesting
+  DruidPredicateFactory getPredicateFactory()
   {
     return new RangePredicateFactory(this);
   }
 
   private Supplier<DruidLongPredicate> makeLongPredicateSupplier()
+  {
+    return Suppliers.memoize(() -> {
+      final NumericRangePredicateFactory.LongRange range = longRangeSupplier.get();
+      if (range == null) {
+        return DruidLongPredicate.ALWAYS_FALSE_WITH_NULL_UNKNOWN;
+      }
+      return makeLongPredicate(range.rangeType(), range.lower(), range.upper());
+    });
+  }
+
+  /**
+   * Supplies the long bounds of this filter, or null if a bound is not convertible to a long, in which case nothing
+   * matches.
+   */
+  private Supplier<NumericRangePredicateFactory.LongRange> makeLongRangeSupplier()
   {
     return Suppliers.memoize(() -> {
       final boolean hasLowerBound;
@@ -513,7 +534,7 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
           // lower value is not null, but isn't convertible to a long so is effectively null, nothing matches
           // this shouldn't be possible because we only use numeric predicates when the match value type is numeric
           // but just in case...
-          return DruidLongPredicate.ALWAYS_FALSE_WITH_NULL_UNKNOWN;
+          return null;
         } else {
           if (lowerOpen) {
             // lower bound is open, so take the floor of the value so that x > 1.1 can match 2 but not 1
@@ -535,7 +556,7 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
           // upper value is not null, but isn't convertible to a long so is effectively null, nothing matches
           // this shouldn't be possible because we only use numeric predicates when the match value type is numeric
           // but just in case...
-          return DruidLongPredicate.ALWAYS_FALSE_WITH_NULL_UNKNOWN;
+          return null;
         } else {
           if (upperOpen) {
             // upper bound is open, take the ceil so that x < 1.1 can match 1 but not 2
@@ -550,8 +571,14 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
         hasUpperBound = false;
         upperBound = Long.MAX_VALUE;
       }
-      final RangeType rangeType = RangeType.of(hasLowerBound, lowerOpen, hasUpperBound, upperOpen);
-      return makeLongPredicate(rangeType, lowerBound, upperBound);
+      return new NumericRangePredicateFactory.LongRange(
+          hasLowerBound,
+          lowerOpen,
+          lowerBound,
+          hasUpperBound,
+          upperOpen,
+          upperBound
+      );
     });
   }
 
@@ -566,6 +593,21 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
   private Supplier<DruidDoublePredicate> makeDoublePredicateSupplier()
   {
     return Suppliers.memoize(() -> {
+      final NumericRangePredicateFactory.DoubleRange range = doubleRangeSupplier.get();
+      if (range == null) {
+        return DruidDoublePredicate.ALWAYS_FALSE_WITH_NULL_UNKNOWN;
+      }
+      return makeDoublePredicate(range.rangeType(), range.lower(), range.upper());
+    });
+  }
+
+  /**
+   * Supplies the double bounds of this filter, or null if a bound is not convertible to a double, in which case
+   * nothing matches.
+   */
+  private Supplier<NumericRangePredicateFactory.DoubleRange> makeDoubleRangeSupplier()
+  {
+    return Suppliers.memoize(() -> {
       final boolean hasLowerBound;
       final boolean hasUpperBound;
       final double lowerBound;
@@ -577,7 +619,7 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
           // lower value is not null, but isn't convertible to a long so is effectively null, nothing matches
           // this shouldn't be possible because we only use numeric predicates when the match value type is numeric
           // but just in case...
-          return DruidDoublePredicate.ALWAYS_FALSE_WITH_NULL_UNKNOWN;
+          return null;
         } else {
           lowerBound = lowerCast.asDouble();
           hasLowerBound = true;
@@ -593,7 +635,7 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
           // upper value is not null, but isn't convertible to a long so is effectively null, nothing matches
           // this shouldn't be possible because we only use numeric predicates when the match value type is numeric
           // but just in case...
-          return DruidDoublePredicate.ALWAYS_FALSE_WITH_NULL_UNKNOWN;
+          return null;
         } else {
           hasUpperBound = true;
           upperBound = upperCast.asDouble();
@@ -603,8 +645,14 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
         upperBound = Double.POSITIVE_INFINITY;
       }
 
-      RangeType rangeType = RangeType.of(hasLowerBound, lowerOpen, hasUpperBound, upperOpen);
-      return makeDoublePredicate(rangeType, lowerBound, upperBound);
+      return new NumericRangePredicateFactory.DoubleRange(
+          hasLowerBound,
+          lowerOpen,
+          lowerBound,
+          hasUpperBound,
+          upperOpen,
+          upperBound
+      );
     });
   }
 
@@ -764,7 +812,7 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
     });
   }
 
-  private class RangePredicateFactory implements DruidPredicateFactory
+  private class RangePredicateFactory implements NumericRangePredicateFactory
   {
     private final RangeFilter rangeFilter;
 
@@ -810,6 +858,20 @@ public class RangeFilter extends AbstractOptimizableDimFilter implements Filter
       }
       DruidObjectPredicate<String> stringPredicate = makeStringPredicate();
       return input -> stringPredicate.apply(Evals.asString(input));
+    }
+
+    @Nullable
+    @Override
+    public LongRange getLongRange()
+    {
+      return matchValueType.isNumeric() ? longRangeSupplier.get() : null;
+    }
+
+    @Nullable
+    @Override
+    public DoubleRange getDoubleRange()
+    {
+      return matchValueType.isNumeric() ? doubleRangeSupplier.get() : null;
     }
 
     @Override

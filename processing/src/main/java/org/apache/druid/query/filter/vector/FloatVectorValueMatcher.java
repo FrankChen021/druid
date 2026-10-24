@@ -20,9 +20,12 @@
 package org.apache.druid.query.filter.vector;
 
 import org.apache.druid.math.expr.ExprEval;
+import org.apache.druid.math.expr.ExpressionProcessing;
 import org.apache.druid.math.expr.ExpressionType;
 import org.apache.druid.query.filter.DruidFloatPredicate;
 import org.apache.druid.query.filter.DruidPredicateFactory;
+import org.apache.druid.query.filter.NumericRangePredicateFactory;
+import org.apache.druid.query.filter.vector.simd.SimdFloatVectorValueMatcher;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.vector.VectorValueSelector;
@@ -70,7 +73,7 @@ public class FloatVectorValueMatcher implements VectorValueMatcherFactory
 
   private BaseVectorValueMatcher makeFloatMatcher(float matchValFloat)
   {
-    return new BaseVectorValueMatcher(selector)
+    final BaseVectorValueMatcher scalarMatcher = new BaseVectorValueMatcher(selector)
     {
       final VectorMatch match = VectorMatch.wrap(new int[selector.getMaxVectorSize()]);
 
@@ -99,6 +102,11 @@ public class FloatVectorValueMatcher implements VectorValueMatcherFactory
         return match;
       }
     };
+
+    if (ExpressionProcessing.useVectorApi()) {
+      return SimdFloatVectorValueMatcher.forEquality(selector, matchValFloat, scalarMatcher);
+    }
+    return scalarMatcher;
   }
 
   @Override
@@ -106,7 +114,7 @@ public class FloatVectorValueMatcher implements VectorValueMatcherFactory
   {
     final DruidFloatPredicate predicate = predicateFactory.makeFloatPredicate();
 
-    return new BaseVectorValueMatcher(selector)
+    final BaseVectorValueMatcher scalarMatcher = new BaseVectorValueMatcher(selector)
     {
       final VectorMatch match = VectorMatch.wrap(new int[selector.getMaxVectorSize()]);
 
@@ -135,5 +143,13 @@ public class FloatVectorValueMatcher implements VectorValueMatcherFactory
         return match;
       }
     };
+
+    if (ExpressionProcessing.useVectorApi() && predicateFactory instanceof NumericRangePredicateFactory rangeFactory) {
+      final NumericRangePredicateFactory.DoubleRange range = rangeFactory.getDoubleRange();
+      if (range != null) {
+        return SimdFloatVectorValueMatcher.forRange(selector, range, predicate.applyNull(), scalarMatcher);
+      }
+    }
+    return scalarMatcher;
   }
 }
