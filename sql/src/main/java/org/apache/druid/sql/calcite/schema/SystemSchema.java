@@ -141,16 +141,23 @@ public class SystemSchema extends AbstractTableSchema
 
   /**
    * Whether a system table is planned as a {@code SystemTableDataSource} instead of on the Bindable path. The native
-   * engine does so when {@code useQueryEngineForSystemTables} is set.
+   * engine does so when {@code useQueryEngineForSystemTables} is set; other engines opt in per table through
+   * {@link SqlEngine#supportsSystemTableDataSource(String)}.
    */
   public static boolean canUseSystemTableDataSource(
       final RelOptTable table,
       final PlannerContext plannerContext
   )
   {
-    return plannerContext.useQueryEngineForSystemTables()
-           && NativeSqlEngine.NAME.equals(plannerContext.getEngine().name())
-           && table.unwrap(SystemTableDataSourceTable.class) != null;
+    if (table.unwrap(SystemTableDataSourceTable.class) == null) {
+      return false;
+    }
+    final SqlEngine engine = plannerContext.getEngine();
+    if (NativeSqlEngine.NAME.equals(engine.name())) {
+      return plannerContext.useQueryEngineForSystemTables();
+    }
+    final List<String> qualifiedName = table.getQualifiedName();
+    return !qualifiedName.isEmpty() && engine.supportsSystemTableDataSource(qualifiedName.getLast());
   }
 
   /**

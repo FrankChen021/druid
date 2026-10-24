@@ -44,6 +44,7 @@ import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
+import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.handler.SystemTableQueryHandler;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
@@ -119,6 +120,12 @@ public class SystemTableQueryHandlerTest
                                     .filter(row -> !"task-a".equals(row[0]))
                                     .iterator();
         };
+      }
+
+      @Override
+      public Set<ResourceAction> getResourceActions()
+      {
+        return Set.of();
       }
     };
     final SystemTableQueryHandler handler = new SystemTableQueryHandler(

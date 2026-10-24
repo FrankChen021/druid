@@ -85,6 +85,7 @@ import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.Escalator;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.NoopEscalator;
+import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
@@ -1471,6 +1472,12 @@ public class SystemTableQueryClientTest
     public org.apache.druid.server.system.table.SystemTableRowAuthorizer getRowAuthorizer()
     {
       return (rows, authenticationResult, authorizerMapper) -> rows;
+    }
+
+    @Override
+    public Set<ResourceAction> getResourceActions()
+    {
+      return Set.of();
     }
   }
 
