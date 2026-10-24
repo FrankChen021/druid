@@ -63,15 +63,7 @@ public record SystemTablePushdownFilter(String key, @Nullable String value)
     if (pushdownFilters.isEmpty()) {
       return Collections.emptyList();
     }
-    // A virtual column shadows a physical column of the same name, so a filter on it is not a filter on the
-    // provider's column and must not be pushed down.
-    final Set<String> virtualColumnNames = getVirtualColumnNames(query);
-    final Map<String, String> columnMappings = new HashMap<>();
-    for (final SystemTablePushdownFilter filter : pushdownFilters) {
-      if (!virtualColumnNames.contains(filter.key())) {
-        columnMappings.put(filter.key(), filter.value() == null ? filter.key() : filter.value());
-      }
-    }
+    final Map<String, String> columnMappings = columnMappings(getVirtualColumnNames(query), pushdownFilters);
     if (columnMappings.isEmpty()) {
       return Collections.emptyList();
     }
@@ -88,25 +80,67 @@ public record SystemTablePushdownFilter(String key, @Nullable String value)
     return Collections.unmodifiableList(extracted);
   }
 
+  /**
+   * As {@link #extract(Query, List)}, for a filter and virtual columns that aren't part of a native query, such as the
+   * filter of a query engine's system-table input.
+   */
+  public static List<DimFilter> extract(
+      @Nullable final DimFilter filter,
+      final VirtualColumns virtualColumns,
+      final List<SystemTablePushdownFilter> pushdownFilters
+  )
+  {
+    if (filter == null || pushdownFilters.isEmpty()) {
+      return Collections.emptyList();
+    }
+    final Set<String> virtualColumnNames = new HashSet<>();
+    addVirtualColumnNames(virtualColumns, virtualColumnNames);
+    final Map<String, String> columnMappings = columnMappings(virtualColumnNames, pushdownFilters);
+    final List<DimFilter> extracted = new ArrayList<>();
+    extractConjuncts(filter, columnMappings, extracted);
+    return Collections.unmodifiableList(extracted);
+  }
+
+  /**
+   * Maps each pushdown column to its supplier-side name. A virtual column shadows a physical column of the same name,
+   * so a filter on it is not a filter on the provider's column and must not be pushed down.
+   */
+  private static Map<String, String> columnMappings(
+      final Set<String> virtualColumnNames,
+      final List<SystemTablePushdownFilter> pushdownFilters
+  )
+  {
+    final Map<String, String> columnMappings = new HashMap<>();
+    for (final SystemTablePushdownFilter filter : pushdownFilters) {
+      if (!virtualColumnNames.contains(filter.key())) {
+        columnMappings.put(filter.key(), filter.value() == null ? filter.key() : filter.value());
+      }
+    }
+    return columnMappings;
+  }
+
   private static Set<String> getVirtualColumnNames(final Query<?> query)
   {
     final Set<String> names = new HashSet<>();
-    for (final VirtualColumn virtualColumn : query.getVirtualColumns().getVirtualColumns()) {
-      names.add(virtualColumn.getOutputName());
-    }
+    addVirtualColumnNames(query.getVirtualColumns(), names);
     if (query instanceof WindowOperatorQuery) {
       for (final OperatorFactory leafOperator : ((WindowOperatorQuery) query).getLeafOperators()) {
         if (leafOperator instanceof ScanOperatorFactory) {
           final VirtualColumns leafVirtualColumns = ((ScanOperatorFactory) leafOperator).getVirtualColumns();
           if (leafVirtualColumns != null) {
-            for (final VirtualColumn virtualColumn : leafVirtualColumns.getVirtualColumns()) {
-              names.add(virtualColumn.getOutputName());
-            }
+            addVirtualColumnNames(leafVirtualColumns, names);
           }
         }
       }
     }
     return names;
+  }
+
+  private static void addVirtualColumnNames(final VirtualColumns virtualColumns, final Set<String> names)
+  {
+    for (final VirtualColumn virtualColumn : virtualColumns.getVirtualColumns()) {
+      names.add(virtualColumn.getOutputName());
+    }
   }
 
   private static void extractConjuncts(

@@ -48,6 +48,7 @@ import org.apache.druid.server.SegmentManager;
 import java.io.File;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Production implementation of {@link DartWorkerContextFactory}.
@@ -72,6 +73,7 @@ public class DartWorkerContextFactoryImpl implements DartWorkerContextFactory
   private final DartDataServerQueryHandlerFactory dataServerQueryHandlerFactory;
   private final ServiceEmitter emitter;
   private final List<InputSliceReaderProvider> inputSliceReaderProviders;
+  private final ExecutorService processingExecutor;
 
   @Inject
   public DartWorkerContextFactoryImpl(
@@ -92,7 +94,8 @@ public class DartWorkerContextFactoryImpl implements DartWorkerContextFactory
       Outbox<ControllerMessage> outbox,
       DartDataServerQueryHandlerFactory dataServerQueryHandlerFactory,
       ServiceEmitter emitter,
-      @Dart Set<InputSliceReaderProvider> inputSliceReaderProviders
+      @Dart Set<InputSliceReaderProvider> inputSliceReaderProviders,
+      @Dart ExecutorService processingExecutor
   )
   {
     this.selfNode = selfNode;
@@ -113,6 +116,7 @@ public class DartWorkerContextFactoryImpl implements DartWorkerContextFactory
     this.dataServerQueryHandlerFactory = dataServerQueryHandlerFactory;
     this.emitter = emitter;
     this.inputSliceReaderProviders = List.copyOf(inputSliceReaderProviders);
+    this.processingExecutor = processingExecutor;
   }
 
   @Override
@@ -144,7 +148,8 @@ public class DartWorkerContextFactoryImpl implements DartWorkerContextFactory
         queryContext,
         dataServerQueryHandlerFactory,
         emitter,
-        inputSliceReaderProviders
+        inputSliceReaderProviders,
+        processingExecutor
     );
   }
 

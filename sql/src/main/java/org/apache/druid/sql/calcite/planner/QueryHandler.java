@@ -48,6 +48,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.rex.RexSubQuery;
 import org.apache.calcite.schema.ProjectableFilterableTable;
 import org.apache.calcite.schema.ScannableTable;
 import org.apache.calcite.sql.SqlExplain;
@@ -70,6 +72,9 @@ import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.explain.ExplainAttributes;
 import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.security.Action;
+import org.apache.druid.server.security.AuthorizationResult;
+import org.apache.druid.server.security.AuthorizationUtils;
+import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.calcite.planner.querygen.DruidQueryGenerator;
@@ -196,6 +201,8 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
 
     // the planner's type factory is not available until after parsing
     rexBuilder = new RexBuilder(handlerContext.planner().getTypeFactory());
+
+    authorizeSystemTableDataSources(rootQueryRel.rel);
 
     try {
       if (!bindableTables.isEmpty()) {
@@ -621,12 +628,11 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
                           .filter(action -> action.getAction() == Action.READ)
                           .collect(Collectors.toSet());
         final Set<String> authorizationTrackedDataSourceNames = new HashSet<>(druidRel.getDataSourceNames());
-        if (plannerContext.useQueryEngineForSystemTables()
-            && !plannerContext.getPlannerConfig().isAuthorizeSystemTablesDirectly()
+        if (!plannerContext.getPlannerConfig().isAuthorizeSystemTablesDirectly()
             && !plannerContext.getPlannerToolbox().getAuthConfig().isAuthorizeSystemTablesDirectly()) {
-          // Native system tables preserve the traditional row-level authorization model. They therefore have no
+          // System-table datasources preserve the traditional row-level authorization model. They therefore have no
           // SQL resource action unless direct system-table authorization is enabled, and must not make this
-          // datasource-resource sanity check fail.
+          // datasource-resource sanity check fail. This is a no-op for plans without a system-table datasource.
           authorizationTrackedDataSourceNames.removeAll(getSystemTableDataSourceNames(rootQueryRel.rel));
         }
         Preconditions.checkState(
@@ -640,6 +646,62 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
 
         return new PlannerResult(druidRel::runQuery, rowType);
       }
+    }
+  }
+
+  /**
+   * Requires the caller to hold the permissions that the engine needs for each system table planned as a datasource.
+   * Statement authorization already requires them for tables named in the SQL, but this check also covers tables
+   * reached through a view, which the validated plan has already expanded. It matters for engines that can't apply a
+   * table's row authorizer with the caller's identity; the native engine requires no permissions here.
+   */
+  private void authorizeSystemTableDataSources(final RelNode relNode)
+  {
+    final PlannerContext plannerContext = handlerContext.plannerContext();
+    final Set<ResourceAction> resourceActions = new HashSet<>();
+    collectSystemTableDataSourceResourceActions(relNode, plannerContext, resourceActions);
+    if (resourceActions.isEmpty()) {
+      return;
+    }
+    final AuthorizationResult authorizationResult = AuthorizationUtils.authorizeAllResourceActions(
+        plannerContext.getAuthenticationResult(),
+        resourceActions,
+        plannerContext.getPlannerToolbox().getAuthorizerMapper()
+    );
+    if (!authorizationResult.allowAccessWithNoRestriction()) {
+      throw new ForbiddenException(authorizationResult.getErrorMessage());
+    }
+  }
+
+  /**
+   * Collects the engine's resource actions for each system table planned as a datasource. Visits subqueries too: they
+   * aren't expanded into joins until later in planning, so their scans are only reachable through {@link RexSubQuery}.
+   */
+  private static void collectSystemTableDataSourceResourceActions(
+      final RelNode relNode,
+      final PlannerContext plannerContext,
+      final Set<ResourceAction> resourceActions
+  )
+  {
+    if (relNode instanceof TableScan && SystemSchema.canUseSystemTableDataSource(relNode.getTable(), plannerContext)) {
+      resourceActions.addAll(
+          plannerContext.getEngine()
+                        .getSystemTableDataSourceResourceActions(relNode.getTable().getQualifiedName().getLast())
+      );
+    }
+    relNode.accept(
+        new RexShuttle()
+        {
+          @Override
+          public RexNode visitSubQuery(final RexSubQuery subQuery)
+          {
+            collectSystemTableDataSourceResourceActions(subQuery.rel, plannerContext, resourceActions);
+            return super.visitSubQuery(subQuery);
+          }
+        }
+    );
+    for (final RelNode input : relNode.getInputs()) {
+      collectSystemTableDataSourceResourceActions(input, plannerContext, resourceActions);
     }
   }
 
