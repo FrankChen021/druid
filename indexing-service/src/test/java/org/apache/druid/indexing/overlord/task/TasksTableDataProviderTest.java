@@ -42,7 +42,6 @@ import org.apache.druid.query.filter.TypedInFilter;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.spec.LegacySegmentSpec;
 import org.apache.druid.segment.column.ColumnType;
-import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.SystemTablePushdownFilter;
 import org.apache.druid.server.system.table.TaskTableDescriptor;
@@ -99,7 +98,7 @@ public class TasksTableDataProviderTest
         taskMaster
     );
 
-    supplier.getRows(filters, Mockito.mock(AuthenticationResult.class));
+    supplier.getRows(filters);
 
     final ArgumentCaptor<TaskStorageQueryFilter> filtersCaptor = ArgumentCaptor.forClass(TaskStorageQueryFilter.class);
     Mockito.verify(taskQueryTool).getTaskStatusPlusList(Mockito.eq(TaskStateLookup.ALL), filtersCaptor.capture());
@@ -118,7 +117,7 @@ public class TasksTableDataProviderTest
 
     Assertions.assertThrows(
         SystemTableNotLeaderException.class,
-        () -> provider.getRows(Collections.emptyList(), Mockito.mock(AuthenticationResult.class))
+        () -> provider.getRows(Collections.emptyList())
     );
   }
 
@@ -143,7 +142,7 @@ public class TasksTableDataProviderTest
     // SystemTableNotLeaderException is what makes the Broker retry the query on the new leader.
     Assertions.assertThrows(
         SystemTableNotLeaderException.class,
-        () -> provider.getRows(Collections.emptyList(), Mockito.mock(AuthenticationResult.class))
+        () -> provider.getRows(Collections.emptyList())
     );
   }
 
@@ -177,7 +176,7 @@ public class TasksTableDataProviderTest
     // SystemTableNotLeaderException is what makes the Broker retry the query on the new leader.
     Assertions.assertThrows(
         SystemTableNotLeaderException.class,
-        () -> provider.getRows(Collections.emptyList(), Mockito.mock(AuthenticationResult.class))
+        () -> provider.getRows(Collections.emptyList())
     );
   }
 
