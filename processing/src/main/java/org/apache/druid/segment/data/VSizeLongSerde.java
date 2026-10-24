@@ -22,6 +22,7 @@ package org.apache.druid.segment.data;
 import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.UOE;
+import org.apache.druid.math.expr.ExpressionProcessing;
 
 import javax.annotation.Nullable;
 import java.io.Closeable;
@@ -149,23 +150,105 @@ public class VSizeLongSerde
 
   // LongDeserializers were adapted from Apache Lucene DirectReader, see:
   // https://github.com/apache/lucene-solr/blob/master/lucene/core/src/java/org/apache/lucene/util/packed/DirectReader.java
+  /**
+   * Get a deserializer, using the SIMD variants if {@link ExpressionProcessing#useVectorApi()} is enabled. A SIMD
+   * deserializer allocates its own scratch arrays on first use; readers which create a deserializer for every block
+   * should instead keep a scratch from {@link #newSimdScratchIfEnabled(int)} and use
+   * {@link #getDeserializer(int, ByteBuffer, int, SimdVSizeLongDeserializers.Scratch)}, as
+   * {@link DeltaLongEncodingReader} and {@link TableLongEncodingReader} do.
+   */
   public static LongDeserializer getDeserializer(int longSize, ByteBuffer fromBuffer, int bufferOffset)
+  {
+    return getDeserializer(longSize, fromBuffer, bufferOffset, ExpressionProcessing.useVectorApiIfInitialized());
+  }
+
+  /**
+   * Like {@link #getDeserializer(int, ByteBuffer, int)}, but with explicit control over whether the SIMD
+   * ({@code jdk.incubator.vector}) variants in {@link SimdVSizeLongDeserializers} are used for the bit widths that
+   * have one (1, 2, 4, 8 and 16). The SIMD variants only differ in their contiguous bulk decoding methods; results are
+   * identical to the scalar variants. Like {@link #getDeserializer(int, ByteBuffer, int)}, each SIMD deserializer gets
+   * fresh scratch arrays.
+   */
+  public static LongDeserializer getDeserializer(
+      int longSize,
+      ByteBuffer fromBuffer,
+      int bufferOffset,
+      boolean useVectorApi
+  )
+  {
+    return getDeserializer(
+        longSize,
+        fromBuffer,
+        bufferOffset,
+        useVectorApi && hasSimdDeserializer(longSize) ? new SimdVSizeLongDeserializers.Scratch() : null
+    );
+  }
+
+  /**
+   * Scratch space for {@link #getDeserializer(int, ByteBuffer, int, SimdVSizeLongDeserializers.Scratch)} if
+   * {@link ExpressionProcessing#useVectorApi()} is enabled and {@code bitsPerValue} has a SIMD deserializer, else null.
+   * For readers which create a new deserializer for every block, so that the scratch arrays are allocated once per
+   * reader rather than once per block. The scratch is not thread-safe: each reader instance (including each
+   * {@code duplicate()}) must create its own.
+   */
+  @Nullable
+  static SimdVSizeLongDeserializers.Scratch newSimdScratchIfEnabled(int bitsPerValue)
+  {
+    return hasSimdDeserializer(bitsPerValue) && ExpressionProcessing.useVectorApiIfInitialized()
+           ? new SimdVSizeLongDeserializers.Scratch()
+           : null;
+  }
+
+  private static boolean hasSimdDeserializer(int bitsPerValue)
+  {
+    switch (bitsPerValue) {
+      case 1:
+      case 2:
+      case 4:
+      case 8:
+      case 16:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Get a SIMD deserializer using the given scratch space if it is non-null (see
+   * {@link #newSimdScratchIfEnabled(int)}), else a scalar deserializer.
+   */
+  static LongDeserializer getDeserializer(
+      int longSize,
+      ByteBuffer fromBuffer,
+      int bufferOffset,
+      @Nullable SimdVSizeLongDeserializers.Scratch simdScratch
+  )
   {
     // The buffer needs to be duplicated since the byte order is changed
     ByteBuffer buffer = fromBuffer.duplicate().order(ByteOrder.BIG_ENDIAN);
     switch (longSize) {
       case 1:
-        return new Size1Des(buffer, bufferOffset);
+        return simdScratch != null
+               ? new SimdVSizeLongDeserializers.SimdSize1Des(buffer, bufferOffset, simdScratch)
+               : new Size1Des(buffer, bufferOffset);
       case 2:
-        return new Size2Des(buffer, bufferOffset);
+        return simdScratch != null
+               ? new SimdVSizeLongDeserializers.SimdSize2Des(buffer, bufferOffset, simdScratch)
+               : new Size2Des(buffer, bufferOffset);
       case 4:
-        return new Size4Des(buffer, bufferOffset);
+        return simdScratch != null
+               ? new SimdVSizeLongDeserializers.SimdSize4Des(buffer, bufferOffset, simdScratch)
+               : new Size4Des(buffer, bufferOffset);
       case 8:
-        return new Size8Des(buffer, bufferOffset);
+        return simdScratch != null
+               ? new SimdVSizeLongDeserializers.SimdSize8Des(buffer, bufferOffset, simdScratch)
+               : new Size8Des(buffer, bufferOffset);
       case 12:
         return new Size12Des(buffer, bufferOffset);
       case 16:
-        return new Size16Des(buffer, bufferOffset);
+        return simdScratch != null
+               ? new SimdVSizeLongDeserializers.SimdSize16Des(buffer, bufferOffset, simdScratch)
+               : new Size16Des(buffer, bufferOffset);
       case 20:
         return new Size20Des(buffer, bufferOffset);
       case 24:
@@ -491,7 +574,7 @@ public class VSizeLongSerde
     }
   }
 
-  private static final class Size1Des implements LongDeserializer
+  static class Size1Des implements LongDeserializer
   {
     final ByteBuffer buffer;
     final int offset;
@@ -562,7 +645,7 @@ public class VSizeLongSerde
     }
   }
 
-  private static final class Size2Des implements LongDeserializer
+  static class Size2Des implements LongDeserializer
   {
     final ByteBuffer buffer;
     final int offset;
@@ -633,7 +716,7 @@ public class VSizeLongSerde
     }
   }
 
-  private static final class Size4Des implements LongDeserializer
+  static class Size4Des implements LongDeserializer
   {
     final ByteBuffer buffer;
     final int offset;
@@ -704,7 +787,7 @@ public class VSizeLongSerde
     }
   }
 
-  private static final class Size8Des implements LongDeserializer
+  static class Size8Des implements LongDeserializer
   {
     final ByteBuffer buffer;
     final int offset;
@@ -817,7 +900,7 @@ public class VSizeLongSerde
     }
   }
 
-  private static final class Size16Des implements LongDeserializer
+  static class Size16Des implements LongDeserializer
   {
     final ByteBuffer buffer;
     final int offset;

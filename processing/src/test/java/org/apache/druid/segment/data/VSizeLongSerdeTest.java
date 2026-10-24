@@ -201,14 +201,17 @@ public class VSizeLongSerdeTest
     );
 
     // Verify deserialization. We know the two serialized buffers are equal, so from this point on, just use one.
-    VSizeLongSerde.LongDeserializer deserializer = VSizeLongSerde.getDeserializer(numBits, buffer, bufferOffset);
+    for (boolean useVectorApi : new boolean[]{false, true}) {
+      VSizeLongSerde.LongDeserializer deserializer =
+          VSizeLongSerde.getDeserializer(numBits, buffer, bufferOffset, useVectorApi);
 
-    testGetSingleRow(deserializer, numBits, values);
-    testContiguousGetSingleRow(deserializer, numBits, values);
-    testContiguousGetWholeRegion(deserializer, numBits, values);
-    testNoncontiguousGetSingleRow(deserializer, numBits, values);
-    testNoncontiguousGetEveryOtherValue(deserializer, numBits, values);
-    testNoncontiguousGetEveryOtherValueWithLimit(deserializer, numBits, values);
+      testGetSingleRow(deserializer, numBits, values);
+      testContiguousGetSingleRow(deserializer, numBits, values);
+      testContiguousGetWholeRegion(deserializer, numBits, values);
+      testNoncontiguousGetSingleRow(deserializer, numBits, values);
+      testNoncontiguousGetEveryOtherValue(deserializer, numBits, values);
+      testNoncontiguousGetEveryOtherValueWithLimit(deserializer, numBits, values);
+    }
   }
 
   private static void testGetSingleRow(

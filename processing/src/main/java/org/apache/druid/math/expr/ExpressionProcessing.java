@@ -100,6 +100,17 @@ public class ExpressionProcessing
   }
 
   /**
+   * Same as {@link #useVectorApi()}, but returns false instead of throwing if this class has not been initialized.
+   * For low-level segment reading code (such as {@link org.apache.druid.segment.data.VSizeLongSerde}) which can run
+   * in contexts where the expression processing module is not injected, such as tools and tests.
+   */
+  public static boolean useVectorApiIfInitialized()
+  {
+    final ExpressionProcessingConfig config = INSTANCE;
+    return config != null && config.useVectorApi();
+  }
+
+  /**
    * Whether SIMD dispatch is allowed for math ops backed by the JDK's VO_MATHLIB path (LOG, EXP, SIN, etc). On by
    * default whenever {@link #useVectorApi()} is on; can be turned off independently via
    * {@link ExpressionProcessingConfig#USE_VECTOR_MATH_API}=false. Has no effect unless {@link #useVectorApi()} is

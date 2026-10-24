@@ -21,6 +21,7 @@ package org.apache.druid.segment.data;
 
 import org.apache.druid.java.util.common.IAE;
 
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 
 public class TableLongEncodingReader implements CompressionFactory.LongEncodingReader
@@ -29,6 +30,13 @@ public class TableLongEncodingReader implements CompressionFactory.LongEncodingR
   private final int bitsPerValue;
   private final ByteBuffer buffer;
   private VSizeLongSerde.LongDeserializer deserializer;
+  /**
+   * Reused by the deserializers created for every block in {@link #setBuffer}; null unless SIMD decoding is enabled
+   * and available for {@link #bitsPerValue}.
+   * Readers are used by a single thread, and {@link #duplicate()} creates a new reader with its own scratch.
+   */
+  @Nullable
+  private final SimdVSizeLongDeserializers.Scratch simdScratch;
 
   public TableLongEncodingReader(ByteBuffer fromBuffer)
   {
@@ -45,7 +53,8 @@ public class TableLongEncodingReader implements CompressionFactory.LongEncodingR
         table[i] = buffer.getLong();
       }
       fromBuffer.position(buffer.position());
-      deserializer = VSizeLongSerde.getDeserializer(bitsPerValue, buffer, buffer.position());
+      simdScratch = VSizeLongSerde.newSimdScratchIfEnabled(bitsPerValue);
+      deserializer = VSizeLongSerde.getDeserializer(bitsPerValue, buffer, buffer.position(), simdScratch);
     } else {
       throw new IAE("Unknown version[%s]", version);
     }
@@ -56,13 +65,14 @@ public class TableLongEncodingReader implements CompressionFactory.LongEncodingR
     this.buffer = buffer;
     this.table = table;
     this.bitsPerValue = bitsPerValue;
-    deserializer = VSizeLongSerde.getDeserializer(bitsPerValue, buffer, buffer.position());
+    this.simdScratch = VSizeLongSerde.newSimdScratchIfEnabled(bitsPerValue);
+    deserializer = VSizeLongSerde.getDeserializer(bitsPerValue, buffer, buffer.position(), simdScratch);
   }
 
   @Override
   public void setBuffer(ByteBuffer buffer)
   {
-    deserializer = VSizeLongSerde.getDeserializer(bitsPerValue, buffer, buffer.position());
+    deserializer = VSizeLongSerde.getDeserializer(bitsPerValue, buffer, buffer.position(), simdScratch);
   }
 
   @Override
