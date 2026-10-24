@@ -57,6 +57,7 @@ import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.JoinAlgorithm;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.sql.calcite.external.ExternalTableScanRule;
+import org.apache.druid.sql.calcite.external.RemoteDruidPushdownProgram;
 import org.apache.druid.sql.calcite.rule.AggregateMergeRule;
 import org.apache.druid.sql.calcite.rule.AggregatePullUpLookupRule;
 import org.apache.druid.sql.calcite.rule.CaseToCoalesceRule;
@@ -108,7 +109,7 @@ public class CalciteRulesManager
   public static final int BINDABLE_CONVENTION_RULES = 1;
   public static final int DRUID_DAG_CONVENTION_RULES = 2;
   private static final String HEP_DEFAULT_MATCH_LIMIT_CONFIG_STRING = "druid.sql.planner.hepMatchLimit";
-  private static final int HEP_DEFAULT_MATCH_LIMIT = Integer.parseInt(
+  public static final int HEP_DEFAULT_MATCH_LIMIT = Integer.parseInt(
       System.getProperty(HEP_DEFAULT_MATCH_LIMIT_CONFIG_STRING, "1200")
   );
   /**
@@ -342,6 +343,8 @@ public class CalciteRulesManager
     if (isDruid) {
       prePrograms.add(buildPreVolcanoManipulationProgram(plannerContext));
       prePrograms.add(new LoggingProgram("Finished pre-Volcano manipulation program", isDebug));
+      prePrograms.add(new RemoteDruidPushdownProgram(plannerContext));
+      prePrograms.add(new LoggingProgram("Finished remote Druid pushdown program", isDebug));
     }
 
     return Programs.sequence(prePrograms.toArray(new Program[0]));

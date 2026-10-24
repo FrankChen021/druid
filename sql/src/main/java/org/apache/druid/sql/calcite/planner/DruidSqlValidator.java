@@ -112,6 +112,11 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
     this.plannerContext = plannerContext;
   }
 
+  public PlannerContext getPlannerContext()
+  {
+    return plannerContext;
+  }
+
   @Override
   public void validateWindow(SqlNode windowOrId, SqlValidatorScope scope, @Nullable SqlCall call)
   {

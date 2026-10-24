@@ -61,9 +61,13 @@ public abstract class DruidUserDefinedTableMacroConversion implements SqlOperato
       final ObjectMapper jsonMapper
   )
   {
-    this.operator = new DruidUserDefinedTableMacro(
-        new DruidTableMacro(name, fn, jsonMapper)
-    );
+    this(new DruidUserDefinedTableMacro(new DruidTableMacro(name, fn, jsonMapper)));
+  }
+
+  /// Accepts a specialized macro with validation hooks, including authorization before planning-time schema discovery.
+  protected DruidUserDefinedTableMacroConversion(final SqlUserDefinedTableMacro operator)
+  {
+    this.operator = operator;
   }
 
   @Override
