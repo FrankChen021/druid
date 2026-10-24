@@ -25,9 +25,11 @@ import org.apache.druid.error.DruidException;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.FilteredDataSource;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
@@ -48,6 +50,8 @@ import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.handler.SystemTableQueryHandler;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
+import org.apache.druid.server.system.table.StackTraceTableDataProvider;
+import org.apache.druid.server.system.table.StackTraceTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableRowAuthorizer;
@@ -60,6 +64,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.StreamSupport;
 
 public class SystemTableQueryHandlerTest
@@ -158,6 +163,74 @@ public class SystemTableQueryHandlerTest
     );
   }
 
+  @Test
+  public void testPassesQueryContextToProvider()
+  {
+    final AtomicReference<QueryContext> queryContext = new AtomicReference<>();
+    final SystemTableDataProvider supplier = new SystemTableDataProvider()
+    {
+      @Override
+      public Iterable<Object[]> getRows(final List<DimFilter> filters)
+      {
+        return List.<Object[]>of(new Object[]{"task-a", 10L});
+      }
+
+      @Override
+      public Iterable<Object[]> getRows(final List<DimFilter> filters, final QueryContext context)
+      {
+        queryContext.set(context);
+        return getRows(filters);
+      }
+    };
+    final SystemTableDescriptor descriptor = new SystemTableDescriptor()
+    {
+      @Override
+      public String getTableName()
+      {
+        return "test";
+      }
+
+      @Override
+      public Set<NodeRole> getNodeRoles()
+      {
+        return Set.of();
+      }
+
+      @Override
+      public RowSignature getRowSignature()
+      {
+        return ROW_SIGNATURE;
+      }
+
+      @Override
+      public SystemTableRowAuthorizer getRowAuthorizer()
+      {
+        return (rows, authenticationResult, authorizerMapper) -> rows;
+      }
+    };
+    final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Map.of("test", supplier),
+        Map.of("test", descriptor),
+        new ScanQueryEngine(),
+        new AuthorizerMapper(Map.of())
+    );
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                  .dataSource(new SystemTableDataSource("test"))
+                                  .eternityInterval()
+                                  .columns(ROW_SIGNATURE)
+                                  .context(QueryContext.ofMap(QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH, 25))
+                                  .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                  .build();
+
+    handler.createRunner(
+        query,
+        new AuthenticationResult("alice", "allow", "external", null),
+        true
+    ).run(QueryPlus.wrap(query), ResponseContext.createEmpty()).toList();
+
+    Assertions.assertEquals(25, queryContext.get().get(QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH));
+  }
+
   /**
    * A virtual column shadows the physical column of the same name. A filter on the virtual {@code server} column must
    * be evaluated by the native scan rather than pushed to the provider, which compares it to the physical host.
@@ -246,6 +319,44 @@ public class SystemTableQueryHandlerTest
     final ScanQuery query = Druids.newScanQueryBuilder()
                                   .dataSource(new SystemTableDataSource(ServerPropertiesTableDescriptor.TABLE_NAME))
                                   .eternityInterval()
+                                  .build();
+
+    Assertions.assertThrows(
+        ForbiddenException.class,
+        () -> handler.createRunner(query, new AuthenticationResult("alice", "deny", null, null), true)
+                     .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
+                     .toList()
+    );
+  }
+
+  @Test
+  public void testStackTraceRejectsCallerWithoutConfigRead()
+  {
+    final AuthorizerMapper denyConfig = new AuthorizerMapper(null)
+    {
+      @Override
+      public Authorizer getAuthorizer(final String name)
+      {
+        return (authenticationResult, resource, action) ->
+            ResourceType.CONFIG.equals(resource.getType()) ? Access.DENIED : Access.OK;
+      }
+    };
+    final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Map.of(
+            StackTraceTableDescriptor.TABLE_NAME,
+            new StackTraceTableDataProvider(
+                new DruidNode("overlord", "localhost", false, 8080, null, true, false),
+                Set.of(NodeRole.OVERLORD)
+            )
+        ),
+        Map.of(StackTraceTableDescriptor.TABLE_NAME, new StackTraceTableDescriptor()),
+        new ScanQueryEngine(),
+        denyConfig
+    );
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                  .dataSource(new SystemTableDataSource(StackTraceTableDescriptor.TABLE_NAME))
+                                  .eternityInterval()
+                                  .filters(new SelectorDimFilter("server", "localhost:8080", null))
                                   .build();
 
     Assertions.assertThrows(

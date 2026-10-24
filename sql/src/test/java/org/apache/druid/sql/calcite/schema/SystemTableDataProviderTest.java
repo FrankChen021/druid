@@ -70,6 +70,19 @@ public class SystemTableDataProviderTest
     Assertions.assertFalse(serverProperties.isJoinable());
     Assertions.assertFalse(serverProperties.isBroadcast());
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, serverProperties.getJdbcTableType());
+
+    final StackTraceDataSourceTable stackTrace = new StackTraceDataSourceTable();
+    Assertions.assertEquals(
+        "stack_trace",
+        ((SystemTableDataSource) stackTrace.getDataSource()).getTable()
+    );
+    Assertions.assertFalse(stackTrace.isJoinable());
+    Assertions.assertFalse(stackTrace.isBroadcast());
+    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, stackTrace.getJdbcTableType());
+
+    final SystemStackTraceTable systemStackTrace = new SystemStackTraceTable();
+    Assertions.assertFalse(systemStackTrace instanceof org.apache.calcite.schema.ProjectableFilterableTable);
+    Assertions.assertInstanceOf(StackTraceDataSourceTable.class, systemStackTrace.asDataSourceTable());
   }
 
   @Test

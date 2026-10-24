@@ -20,6 +20,7 @@
 package org.apache.druid.server.system.table;
 
 import jakarta.validation.constraints.NotNull;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.filter.DimFilter;
 
 import java.util.Collections;
@@ -39,4 +40,13 @@ public interface SystemTableDataProvider
   }
 
   Iterable<Object[]> getRows(@NotNull List<DimFilter> filters);
+
+  /**
+   * Supplies rows with access to the query context. Providers that do not use query-context values can keep the
+   * one-argument implementation above; providers with request-scoped options can override this method.
+   */
+  default Iterable<Object[]> getRows(@NotNull final List<DimFilter> filters, @NotNull final QueryContext queryContext)
+  {
+    return getRows(filters);
+  }
 }
