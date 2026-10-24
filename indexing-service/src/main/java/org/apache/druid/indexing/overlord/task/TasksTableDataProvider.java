@@ -27,7 +27,6 @@ import org.apache.druid.indexing.overlord.TaskQueryTool;
 import org.apache.druid.indexing.overlord.http.TaskStateLookup;
 import org.apache.druid.metadata.TaskStorageQueryFilter;
 import org.apache.druid.query.filter.DimFilter;
-import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTablePushdownFilter;
@@ -70,10 +69,7 @@ public class TasksTableDataProvider implements SystemTableDataProvider
   }
 
   @Override
-  public Iterable<Object[]> getRows(
-      final List<DimFilter> filters,
-      final AuthenticationResult internalAuthenticationResult
-  )
+  public Iterable<Object[]> getRows(final List<DimFilter> filters)
   {
     if (!taskMaster.isHalfOrFullLeader()) {
       throw new SystemTableNotLeaderException("overlord");
