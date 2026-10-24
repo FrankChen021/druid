@@ -90,6 +90,37 @@ public class Bitmap64ExactCountBuildAggregatorFactoryTest
   }
 
   @Test
+  public void testFactorizeWithFloatingPointColumnsThrowsIAE()
+  {
+    for (ValueType type : new ValueType[]{ValueType.FLOAT, ValueType.DOUBLE}) {
+      ColumnSelectorFactory selectorFactory = EasyMock.createMock(ColumnSelectorFactory.class);
+      ColumnCapabilities capabilities = EasyMock.createMock(ColumnCapabilities.class);
+
+      EasyMock.expect(selectorFactory.getColumnCapabilities(FIELD_NAME)).andReturn(capabilities).anyTimes();
+      EasyMock.expect(capabilities.getType()).andReturn(type).anyTimes();
+      EasyMock.replay(selectorFactory, capabilities);
+
+      Assertions.assertThrows(IAE.class, () -> factory.factorize(selectorFactory));
+      Assertions.assertThrows(IAE.class, () -> factory.factorizeBuffered(selectorFactory));
+    }
+  }
+
+  @Test
+  public void testFactorizeWithLongColumn()
+  {
+    ColumnSelectorFactory selectorFactory = EasyMock.createMock(ColumnSelectorFactory.class);
+    ColumnCapabilities capabilities = EasyMock.createMock(ColumnCapabilities.class);
+
+    EasyMock.expect(selectorFactory.getColumnCapabilities(FIELD_NAME)).andReturn(capabilities).anyTimes();
+    EasyMock.expect(capabilities.getType()).andReturn(ValueType.LONG).anyTimes();
+    EasyMock.expect(selectorFactory.makeColumnValueSelector(FIELD_NAME))
+            .andReturn(new TestObjectColumnSelector<>(null)).anyTimes();
+    EasyMock.replay(selectorFactory, capabilities);
+
+    Assertions.assertInstanceOf(Bitmap64ExactCountBuildAggregator.class, factory.factorize(selectorFactory));
+  }
+
+  @Test
   public void testFactorizeBuffered()
   {
     ColumnSelectorFactory selectorFactory = EasyMock.createMock(ColumnSelectorFactory.class);

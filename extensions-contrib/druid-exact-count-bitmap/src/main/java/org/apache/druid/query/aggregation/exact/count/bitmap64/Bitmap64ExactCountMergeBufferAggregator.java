@@ -32,6 +32,11 @@ public class Bitmap64ExactCountMergeBufferAggregator implements BufferAggregator
   private final ColumnValueSelector<Bitmap64> selector;
   private final IdentityHashMap<ByteBuffer, Int2ObjectMap<Bitmap64>> counterCache = new IdentityHashMap<>();
 
+  // one-entry cache of the last looked up counter, to skip two hash lookups per row for consecutive hits on a group
+  private ByteBuffer lastBuffer;
+  private int lastPosition;
+  private Bitmap64 lastCounter;
+
   public Bitmap64ExactCountMergeBufferAggregator(ColumnValueSelector<Bitmap64> selector)
   {
     this.selector = selector;
@@ -40,6 +45,7 @@ public class Bitmap64ExactCountMergeBufferAggregator implements BufferAggregator
   @Override
   public void init(ByteBuffer buf, int position)
   {
+    clearLastCounter();
     RoaringBitmap64Counter emptyCounter = new RoaringBitmap64Counter();
     addToCache(buf, position, emptyCounter);
   }
@@ -51,14 +57,14 @@ public class Bitmap64ExactCountMergeBufferAggregator implements BufferAggregator
     if (x == null) {
       return;
     }
-    Bitmap64 bitmap64Counter = counterCache.get(buf).get(position);
+    final Bitmap64 bitmap64Counter = getCounter(buf, position);
     bitmap64Counter.fold((RoaringBitmap64Counter) x);
   }
 
   @Override
   public Object get(ByteBuffer buf, int position)
   {
-    return counterCache.get(buf).get(position);
+    return getCounter(buf, position);
   }
 
   @Override
@@ -82,12 +88,14 @@ public class Bitmap64ExactCountMergeBufferAggregator implements BufferAggregator
   @Override
   public void close()
   {
+    clearLastCounter();
     counterCache.clear();
   }
 
   @Override
   public void relocate(int oldPosition, int newPosition, ByteBuffer oldBuffer, ByteBuffer newBuffer)
   {
+    clearLastCounter();
     Bitmap64 counter = counterCache.get(oldBuffer).get(oldPosition);
     addToCache(newBuffer, newPosition, counter);
     Int2ObjectMap<Bitmap64> counterMap = counterCache.get(oldBuffer);
@@ -97,6 +105,24 @@ public class Bitmap64ExactCountMergeBufferAggregator implements BufferAggregator
         counterCache.remove(oldBuffer);
       }
     }
+  }
+
+  private Bitmap64 getCounter(final ByteBuffer buf, final int position)
+  {
+    if (buf == lastBuffer && position == lastPosition) {
+      return lastCounter;
+    }
+    final Bitmap64 counter = counterCache.get(buf).get(position);
+    lastBuffer = buf;
+    lastPosition = position;
+    lastCounter = counter;
+    return counter;
+  }
+
+  private void clearLastCounter()
+  {
+    lastBuffer = null;
+    lastCounter = null;
   }
 
   private void addToCache(final ByteBuffer buffer, final int position, final Bitmap64 counter)
