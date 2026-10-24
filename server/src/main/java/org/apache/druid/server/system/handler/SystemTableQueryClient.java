@@ -36,6 +36,7 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.guava.Yielder;
 import org.apache.druid.java.util.common.guava.Yielders;
+import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.InlineDataSource;
@@ -214,7 +215,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
     return resolvedParent.withChildren(resolvedChildren);
   }
 
-  private InlineDataSource resolveSystemTableDataSource(
+  private DataSource resolveSystemTableDataSource(
       final SystemTableDataSource dataSource,
       final Query<?> owningQuery,
       final AuthenticationResult authenticationResult,
@@ -227,6 +228,18 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
     }
 
     final ScanQuery nodeQuery = makeNodeQuery(dataSource, descriptor, owningQuery);
+    if (descriptor.getRoutingMode() == SystemTableRoutingMode.LOCAL_ONLY) {
+      // The local rows may hold a remote response open, such as the Coordinator's published segments. Release it when
+      // the query's results close, even if the query stopped reading early.
+      final Closer localRowsCloser = Closer.create();
+      nodeSequencesCloser.add(localRowsCloser);
+      return localQueryHandler.resolveDataSource(
+          nodeQuery,
+          authenticationResult,
+          requiresMaterializedRows(owningQuery),
+          localRowsCloser
+      );
+    }
     final List<QueryRunner<ScanResultValue>> nodeRunners = makeNodeRunners(
         nodeQuery,
         descriptor,
@@ -291,7 +304,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
                  .limit(Long.MAX_VALUE)
                  .filters(nodeFilter)
                  .virtualColumns(nodeVirtualColumns(dataSource, owningQuery, nodeFilter))
-                 .columns(descriptor.getRowSignature())
+                 .columns(nodeColumns(dataSource, descriptor, owningQuery))
                  .context(nodeContext)
                  .build();
   }
@@ -666,7 +679,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
 
   private static class NodeSequencesCloser implements Closeable
   {
-    private final List<NodeSequenceCloser> nodeSequenceClosers = new ArrayList<>();
+    private final List<Closeable> nodeSequenceClosers = new ArrayList<>();
     private final List<String> nodeQueryIds = new ArrayList<>();
     private final QueryScheduler queryScheduler;
     private boolean closed;
@@ -685,7 +698,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
       }
     }
 
-    synchronized void add(final NodeSequenceCloser nodeSequenceCloser)
+    synchronized void add(final Closeable nodeSequenceCloser)
     {
       if (closed) {
         CloseableUtils.closeAndWrapExceptions(nodeSequenceCloser);
@@ -851,6 +864,27 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
 
   private record NodeQuerySequence(SystemTableNode node, Sequence<ScanResultValue> sequence)
   {
+  }
+
+  private static List<String> nodeColumns(
+      final SystemTableDataSource dataSource,
+      final SystemTableDescriptor descriptor,
+      final Query<?> query
+  )
+  {
+    if (descriptor.getRoutingMode() != SystemTableRoutingMode.LOCAL_ONLY
+        || !dataSource.equals(query.getDataSource())
+        || query.getRequiredColumns() == null) {
+      return descriptor.getRowSignature().getColumnNames();
+    }
+
+    final List<String> columns = descriptor.getRowSignature()
+                                           .getColumnNames()
+                                           .stream()
+                                           .filter(query.getRequiredColumns()::contains)
+                                           .toList();
+    // A count-only query still needs one physical column so the inline cursor retains the source row cardinality.
+    return columns.isEmpty() ? List.of(descriptor.getRowSignature().getColumnName(0)) : columns;
   }
 
   @Nullable

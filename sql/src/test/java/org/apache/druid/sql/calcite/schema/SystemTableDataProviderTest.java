@@ -62,6 +62,15 @@ public class SystemTableDataProviderTest
   @Test
   public void testNativeTablesExposeSystemMetadata()
   {
+    Assertions.assertEquals(
+        "segments",
+        ((SystemTableDataSource) new SegmentsDataSourceTable().getDataSource()).getTable()
+    );
+    Assertions.assertEquals(
+        "server_segments",
+        ((SystemTableDataSource) new ServerSegmentsDataSourceTable().getDataSource()).getTable()
+    );
+
     final ServerPropertiesDataSourceTable serverProperties = new ServerPropertiesDataSourceTable();
     Assertions.assertEquals(
         "server_properties",
