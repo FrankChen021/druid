@@ -46,6 +46,22 @@ public final class SystemTableAuthorization
   }
 
   /**
+   * Row authorizer for tables whose rows belong to datasources. It keeps only the rows whose datasource, read from
+   * column {@code dataSourceColumn}, the identity has {@code DATASOURCE READ} on.
+   */
+  public static SystemTableRowAuthorizer dataSourceReadRowAuthorizer(final int dataSourceColumn)
+  {
+    return (rows, authenticationResult, authorizerMapper) -> AuthorizationUtils.filterAuthorizedResources(
+        authenticationResult,
+        rows,
+        row -> Collections.singletonList(
+            AuthorizationUtils.DATASOURCE_READ_RA_GENERATOR.apply((String) row[dataSourceColumn])
+        ),
+        authorizerMapper
+    );
+  }
+
+  /**
    * Requires {@code STATE READ}, the permission the SQL system schema requires to view servers.
    *
    * @throws ForbiddenException if the identity lacks the permission

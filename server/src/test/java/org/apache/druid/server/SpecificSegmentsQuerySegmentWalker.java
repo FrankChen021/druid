@@ -26,6 +26,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.io.Closeables;
 import com.google.inject.Injector;
 import org.apache.druid.error.DruidException;
+import org.apache.druid.query.BatchedInlineDataSource;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.FrameBasedInlineDataSource;
 import org.apache.druid.query.InlineDataSource;
@@ -170,6 +171,7 @@ public class SpecificSegmentsQuerySegmentWalker implements QuerySegmentWalker, C
         conglomerate,
         new MapSegmentWrangler(
             ImmutableMap.<Class<? extends DataSource>, SegmentWrangler>builder()
+                        .put(BatchedInlineDataSource.class, new BatchedInlineDataSource.Wrangler())
                         .put(InlineDataSource.class, new InlineSegmentWrangler())
                         .put(FrameBasedInlineDataSource.class, new FrameBasedInlineSegmentWrangler())
                         .put(
