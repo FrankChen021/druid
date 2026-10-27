@@ -52,6 +52,7 @@ import org.apache.druid.indexing.overlord.GlobalTaskLockbox;
 import org.apache.druid.indexing.overlord.HeapMemoryTaskStorage;
 import org.apache.druid.indexing.overlord.IndexerMetadataStorageAdapter;
 import org.apache.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
+import org.apache.druid.indexing.overlord.OverlordMode;
 import org.apache.druid.indexing.overlord.TaskMaster;
 import org.apache.druid.indexing.overlord.TaskQueryTool;
 import org.apache.druid.indexing.overlord.TaskRunner;
@@ -251,7 +252,7 @@ public class OverlordTest
         taskStorage,
         taskActionClientFactory,
         taskRunnerFactory,
-        true,
+        OverlordMode.STANDALONE,
         serviceEmitter,
         supervisorManager,
         EasyMock.createNiceMock(OverlordDutyExecutor.class),

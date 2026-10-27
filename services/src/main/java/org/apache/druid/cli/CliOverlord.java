@@ -79,6 +79,7 @@ import org.apache.druid.indexing.overlord.HeapMemoryTaskStorage;
 import org.apache.druid.indexing.overlord.IndexerMetadataStorageAdapter;
 import org.apache.druid.indexing.overlord.LeaderOverlordService;
 import org.apache.druid.indexing.overlord.MetadataTaskStorage;
+import org.apache.druid.indexing.overlord.OverlordMode;
 import org.apache.druid.indexing.overlord.TaskMaster;
 import org.apache.druid.indexing.overlord.TaskQueryTool;
 import org.apache.druid.indexing.overlord.TaskRunnerFactory;
@@ -224,7 +225,8 @@ public class CliOverlord extends ServerRunnable
             }
 
             JsonConfigProvider.bind(binder, "druid.coordinator.asOverlord", CoordinatorOverlordServiceConfig.class);
-            binder.bindConstant().annotatedWith(Names.named(DruidOverlord.IS_STANDALONE)).to(standalone);
+            binder.bind(OverlordMode.class)
+                  .toInstance(standalone ? OverlordMode.STANDALONE : OverlordMode.EMBEDDED_IN_COORDINATOR);
             JsonConfigProvider.bind(binder, "druid.indexer.queue", TaskQueueConfig.class);
             JsonConfigProvider.bind(binder, "druid.indexer.tasklock", TaskLockConfig.class);
             JsonConfigProvider.bind(binder, "druid.indexer.task", TaskConfig.class);

@@ -48,7 +48,7 @@ public class DruidOverlordTest
     EasyMock.expectLastCall().once();
     EasyMock.replay(segmentMetadataCache);
 
-    final DruidOverlord overlord = createOverlord(true, segmentMetadataCache);
+    final DruidOverlord overlord = createOverlord(OverlordMode.STANDALONE, segmentMetadataCache);
     overlord.start();
     overlord.stop();
 
@@ -62,7 +62,7 @@ public class DruidOverlordTest
     final SegmentMetadataCache segmentMetadataCache = EasyMock.createStrictMock(SegmentMetadataCache.class);
     EasyMock.replay(segmentMetadataCache);
 
-    final DruidOverlord overlord = createOverlord(false, segmentMetadataCache);
+    final DruidOverlord overlord = createOverlord(OverlordMode.EMBEDDED_IN_COORDINATOR, segmentMetadataCache);
     overlord.start();
     overlord.stop();
 
@@ -70,7 +70,7 @@ public class DruidOverlordTest
   }
 
   private static DruidOverlord createOverlord(
-      final boolean isStandalone,
+      final OverlordMode overlordMode,
       final SegmentMetadataCache segmentMetadataCache
   )
   {
@@ -83,7 +83,7 @@ public class DruidOverlordTest
         niceMock(TaskStorage.class),
         niceMock(TaskActionClientFactory.class),
         niceMock(TaskRunnerFactory.class),
-        isStandalone,
+        overlordMode,
         niceMock(ServiceEmitter.class),
         niceMock(SupervisorManager.class),
         niceMock(OverlordDutyExecutor.class),

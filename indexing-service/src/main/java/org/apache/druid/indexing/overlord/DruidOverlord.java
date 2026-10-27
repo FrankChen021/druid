@@ -22,7 +22,6 @@ package org.apache.druid.indexing.overlord;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import org.apache.druid.client.indexing.IndexingService;
 import org.apache.druid.discovery.DruidLeaderSelector;
 import org.apache.druid.indexing.common.actions.SegmentAllocationQueue;
@@ -53,18 +52,10 @@ public class DruidOverlord
 {
   private static final EmittingLogger log = new EmittingLogger(DruidOverlord.class);
 
-  /**
-   * Name of the injected flag that tells whether this Overlord runs as a standalone
-   * service ({@code true}) or is embedded in a Coordinator ({@code false}). Bound by
-   * {@code CliOverlord}, which already knows how it was started, so that it does not
-   * depend on {@code druid.coordinator.asOverlord.enabled}, a Coordinator-side config.
-   */
-  public static final String IS_STANDALONE = "druidOverlordIsStandalone";
-
   private final DruidLeaderSelector overlordLeaderSelector;
   private final DruidLeaderSelector.Listener leadershipListener;
   private final SegmentMetadataCache segmentMetadataCache;
-  private final boolean isStandalone;
+  private final OverlordMode overlordMode;
 
   private final ReentrantLock giant = new ReentrantLock(true);
 
@@ -87,7 +78,7 @@ public class DruidOverlord
       final TaskStorage taskStorage,
       final TaskActionClientFactory taskActionClientFactory,
       final TaskRunnerFactory runnerFactory,
-      @Named(IS_STANDALONE) final boolean isStandalone,
+      final OverlordMode overlordMode,
       final ServiceEmitter emitter,
       final SupervisorManager supervisorManager,
       final OverlordDutyExecutor overlordDutyExecutor,
@@ -101,7 +92,7 @@ public class DruidOverlord
   {
     this.overlordLeaderSelector = overlordLeaderSelector;
     this.segmentMetadataCache = segmentMetadataCache;
-    this.isStandalone = isStandalone;
+    this.overlordMode = overlordMode;
 
     this.leadershipListener = new DruidLeaderSelector.Listener()
     {
@@ -293,7 +284,7 @@ public class DruidOverlord
 
   private boolean isStandalone()
   {
-    return isStandalone;
+    return overlordMode == OverlordMode.STANDALONE;
   }
 
 }

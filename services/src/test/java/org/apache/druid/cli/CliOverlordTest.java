@@ -20,11 +20,9 @@
 package org.apache.druid.cli;
 
 import com.google.inject.Injector;
-import com.google.inject.Key;
-import com.google.inject.name.Names;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.StartupInjectorBuilder;
-import org.apache.druid.indexing.overlord.DruidOverlord;
+import org.apache.druid.indexing.overlord.OverlordMode;
 import org.apache.druid.metadata.SegmentsMetadataManager;
 import org.apache.druid.metadata.segment.SqlSegmentsMetadataManagerV2;
 import org.apache.druid.metadata.segment.cache.HeapMemorySegmentMetadataCache;
@@ -68,9 +66,7 @@ public class CliOverlordTest
       injector.injectMembers(overlord);
 
       final Injector overlordInjector = overlord.makeInjector(Set.of(NodeRole.OVERLORD));
-      Assertions.assertTrue(
-          overlordInjector.getInstance(Key.get(Boolean.class, Names.named(DruidOverlord.IS_STANDALONE)))
-      );
+      Assertions.assertEquals(OverlordMode.STANDALONE, overlordInjector.getInstance(OverlordMode.class));
     }
     finally {
       System.clearProperty("druid.coordinator.asOverlord.enabled");
