@@ -20,8 +20,11 @@
 package org.apache.druid.cli;
 
 import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.name.Names;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.StartupInjectorBuilder;
+import org.apache.druid.indexing.overlord.DruidOverlord;
 import org.apache.druid.metadata.SegmentsMetadataManager;
 import org.apache.druid.metadata.segment.SqlSegmentsMetadataManagerV2;
 import org.apache.druid.metadata.segment.cache.HeapMemorySegmentMetadataCache;
@@ -50,6 +53,29 @@ public class CliOverlordTest
     final SegmentsMetadataManager segmentsMetadataManager
         = overlordInjector.getInstance(SegmentsMetadataManager.class);
     Assertions.assertTrue(segmentsMetadataManager instanceof SqlSegmentsMetadataManagerV2);
+  }
+
+  @Test
+  public void testStandaloneOverlordIgnoresCoordinatorAsOverlordConfig()
+  {
+    // The Overlord may share a runtime.properties with the Coordinator, e.g. the
+    // "coordinator-overlord" conf directory of the Docker image
+    System.setProperty("druid.coordinator.asOverlord.enabled", "true");
+    System.setProperty("druid.coordinator.asOverlord.overlordService", "druid/overlord");
+    try {
+      final Injector injector = new StartupInjectorBuilder().forServer().build();
+      final CliOverlord overlord = new CliOverlord();
+      injector.injectMembers(overlord);
+
+      final Injector overlordInjector = overlord.makeInjector(Set.of(NodeRole.OVERLORD));
+      Assertions.assertTrue(
+          overlordInjector.getInstance(Key.get(Boolean.class, Names.named(DruidOverlord.IS_STANDALONE)))
+      );
+    }
+    finally {
+      System.clearProperty("druid.coordinator.asOverlord.enabled");
+      System.clearProperty("druid.coordinator.asOverlord.overlordService");
+    }
   }
 
 

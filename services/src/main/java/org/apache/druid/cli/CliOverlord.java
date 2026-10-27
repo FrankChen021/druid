@@ -224,6 +224,7 @@ public class CliOverlord extends ServerRunnable
             }
 
             JsonConfigProvider.bind(binder, "druid.coordinator.asOverlord", CoordinatorOverlordServiceConfig.class);
+            binder.bindConstant().annotatedWith(Names.named(DruidOverlord.IS_STANDALONE)).to(standalone);
             JsonConfigProvider.bind(binder, "druid.indexer.queue", TaskQueueConfig.class);
             JsonConfigProvider.bind(binder, "druid.indexer.tasklock", TaskLockConfig.class);
             JsonConfigProvider.bind(binder, "druid.indexer.task", TaskConfig.class);

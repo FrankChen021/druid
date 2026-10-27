@@ -77,7 +77,6 @@ import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.metadata.segment.cache.SegmentMetadataCache;
 import org.apache.druid.segment.TestHelper;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.coordinator.CoordinatorOverlordServiceConfig;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthTestUtils;
@@ -252,7 +251,7 @@ public class OverlordTest
         taskStorage,
         taskActionClientFactory,
         taskRunnerFactory,
-        new CoordinatorOverlordServiceConfig(null, null),
+        true,
         serviceEmitter,
         supervisorManager,
         EasyMock.createNiceMock(OverlordDutyExecutor.class),

@@ -22,6 +22,7 @@ package org.apache.druid.indexing.overlord;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import org.apache.druid.client.indexing.IndexingService;
 import org.apache.druid.discovery.DruidLeaderSelector;
 import org.apache.druid.indexing.common.actions.SegmentAllocationQueue;
@@ -38,7 +39,6 @@ import org.apache.druid.java.util.common.lifecycle.LifecycleStop;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.metadata.segment.cache.SegmentMetadataCache;
-import org.apache.druid.server.coordinator.CoordinatorOverlordServiceConfig;
 
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,10 +53,18 @@ public class DruidOverlord
 {
   private static final EmittingLogger log = new EmittingLogger(DruidOverlord.class);
 
+  /**
+   * Name of the injected flag that tells whether this Overlord runs as a standalone
+   * service ({@code true}) or is embedded in a Coordinator ({@code false}). Bound by
+   * {@code CliOverlord}, which already knows how it was started, so that it does not
+   * depend on {@code druid.coordinator.asOverlord.enabled}, a Coordinator-side config.
+   */
+  public static final String IS_STANDALONE = "druidOverlordIsStandalone";
+
   private final DruidLeaderSelector overlordLeaderSelector;
   private final DruidLeaderSelector.Listener leadershipListener;
   private final SegmentMetadataCache segmentMetadataCache;
-  private final CoordinatorOverlordServiceConfig coordinatorOverlordServiceConfig;
+  private final boolean isStandalone;
 
   private final ReentrantLock giant = new ReentrantLock(true);
 
@@ -79,7 +87,7 @@ public class DruidOverlord
       final TaskStorage taskStorage,
       final TaskActionClientFactory taskActionClientFactory,
       final TaskRunnerFactory runnerFactory,
-      final CoordinatorOverlordServiceConfig coordinatorOverlordServiceConfig,
+      @Named(IS_STANDALONE) final boolean isStandalone,
       final ServiceEmitter emitter,
       final SupervisorManager supervisorManager,
       final OverlordDutyExecutor overlordDutyExecutor,
@@ -93,7 +101,7 @@ public class DruidOverlord
   {
     this.overlordLeaderSelector = overlordLeaderSelector;
     this.segmentMetadataCache = segmentMetadataCache;
-    this.coordinatorOverlordServiceConfig = coordinatorOverlordServiceConfig;
+    this.isStandalone = isStandalone;
 
     this.leadershipListener = new DruidLeaderSelector.Listener()
     {
@@ -285,7 +293,7 @@ public class DruidOverlord
 
   private boolean isStandalone()
   {
-    return !coordinatorOverlordServiceConfig.isEnabled();
+    return isStandalone;
   }
 
 }
