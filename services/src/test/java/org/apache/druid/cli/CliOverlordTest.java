@@ -59,7 +59,6 @@ public class CliOverlordTest
     // The Overlord may share a runtime.properties with the Coordinator, e.g. the
     // "coordinator-overlord" conf directory of the Docker image
     System.setProperty("druid.coordinator.asOverlord.enabled", "true");
-    System.setProperty("druid.coordinator.asOverlord.overlordService", "druid/overlord");
     try {
       final Injector injector = new StartupInjectorBuilder().forServer().build();
       final CliOverlord overlord = new CliOverlord();
@@ -70,7 +69,6 @@ public class CliOverlordTest
     }
     finally {
       System.clearProperty("druid.coordinator.asOverlord.enabled");
-      System.clearProperty("druid.coordinator.asOverlord.overlordService");
     }
   }
 
