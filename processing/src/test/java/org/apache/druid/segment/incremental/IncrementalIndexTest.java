@@ -50,6 +50,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -110,6 +111,70 @@ public class IncrementalIndexTest extends InitializedNullHandlingTest
   {
     return IncrementalIndexCreator.indexTypeCartesianProduct(
         ImmutableList.of("rollup", "plain")
+    );
+  }
+
+  @Test
+  public void testDimensionPresenceAndSparseColumns()
+  {
+    final IncrementalIndex index = indexCreator.createIndex();
+    index.add(new MapBasedInputRow(
+        0,
+        ImmutableList.of("long", "double", "first"),
+        ImmutableMap.of("long", 1L, "double", 2.0, "first", "a")
+    ));
+    Assertions.assertFalse(index.getColumnCapabilities("long").hasNulls().isTrue());
+    Assertions.assertFalse(index.getColumnCapabilities("double").hasNulls().isTrue());
+    Assertions.assertFalse(index.getColumnCapabilities("first").hasNulls().isTrue());
+    Assertions.assertTrue(index.getColumnCapabilities("float").hasNulls().isTrue());
+
+    // A dimension introduced after the first row is sparse; omitted existing dimensions become sparse too.
+    index.add(new MapBasedInputRow(
+        60_000,
+        ImmutableList.of("long", "later"),
+        ImmutableMap.of("long", 3L, "later", "b")
+    ));
+    Assertions.assertFalse(index.getColumnCapabilities("long").hasNulls().isTrue());
+    Assertions.assertTrue(index.getColumnCapabilities("double").hasNulls().isTrue());
+    Assertions.assertTrue(index.getColumnCapabilities("first").hasNulls().isTrue());
+    Assertions.assertTrue(index.getColumnCapabilities("later").hasNulls().isTrue());
+
+    // Explicit nulls still go through the indexer even though the dimension is present in the row's list.
+    index.add(new MapBasedInputRow(120_000, ImmutableList.of("long"), Collections.singletonMap("long", null)));
+    Assertions.assertTrue(index.getColumnCapabilities("long").hasNulls().isTrue());
+  }
+
+  @Test
+  public void testCombinedParseExceptionEmptyAndNonEmptyLists()
+  {
+    final MapBasedInputRow row = new MapBasedInputRow(0, ImmutableList.of("long"), ImmutableMap.of("long", "bad"));
+    final List<String> empty = Collections.emptyList();
+    Assertions.assertNull(IncrementalIndex.getCombinedParseException(row, null, null));
+    Assertions.assertNull(IncrementalIndex.getCombinedParseException(row, empty, null));
+    Assertions.assertNull(IncrementalIndex.getCombinedParseException(row, null, empty));
+    Assertions.assertNull(IncrementalIndex.getCombinedParseException(row, empty, empty));
+
+    final List<String> dimensionErrors = ImmutableList.of("dimension error");
+    final List<String> aggregationErrors = ImmutableList.of("aggregation error");
+    Assertions.assertEquals(
+        dimensionErrors,
+        ((UnparseableColumnsParseException) IncrementalIndex.getCombinedParseException(row, dimensionErrors, empty))
+            .getColumnExceptionMessages()
+    );
+    Assertions.assertEquals(
+        aggregationErrors,
+        ((UnparseableColumnsParseException) IncrementalIndex.getCombinedParseException(row, null, aggregationErrors))
+            .getColumnExceptionMessages()
+    );
+    final UnparseableColumnsParseException combined = (UnparseableColumnsParseException)
+        IncrementalIndex.getCombinedParseException(row, dimensionErrors, aggregationErrors);
+    Assertions.assertEquals(
+        ImmutableList.of("dimension error", "aggregation error"),
+        combined.getColumnExceptionMessages()
+    );
+    Assertions.assertEquals(
+        "Found unparseable columns in row: [{long=bad}], exceptions: [dimension error,aggregation error]",
+        combined.getMessage()
     );
   }
 

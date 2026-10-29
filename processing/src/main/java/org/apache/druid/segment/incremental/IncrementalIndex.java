@@ -26,7 +26,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -94,7 +93,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -504,8 +502,8 @@ public abstract class IncrementalIndex implements IncrementalIndexRowSelector, C
     long dimsKeySize = 0;
     List<String> parseExceptionMessages = new ArrayList<>();
     synchronized (dimensionDescs) {
-      // all known dimensions are assumed missing until we encounter in the rowDimensions
-      Set<String> absentDimensions = Sets.newHashSet(dimensionDescs.keySet());
+      // Dimension indexes are dense and stable. Track presence without hashing every known name per row.
+      final boolean[] presentDimensions = new boolean[dimensionDescs.size()];
 
       // first, process dimension values present in the row
       dims = new Object[dimensionDescs.size()];
@@ -516,7 +514,9 @@ public abstract class IncrementalIndex implements IncrementalIndexRowSelector, C
         boolean wasNewDim = false;
         DimensionDesc desc = dimensionDescs.get(dimension);
         if (desc != null) {
-          absentDimensions.remove(dimension);
+          if (desc.getIndex() < presentDimensions.length) {
+            presentDimensions[desc.getIndex()] = true;
+          }
         } else {
           wasNewDim = true;
           final DimensionHandler<?, ?, ?> handler;
@@ -569,8 +569,10 @@ public abstract class IncrementalIndex implements IncrementalIndexRowSelector, C
       }
 
       // process any dimensions with missing values in the row
-      for (String missing : absentDimensions) {
-        dimensionDescs.get(missing).getIndexer().setSparseIndexed();
+      for (int i = 0; i < presentDimensions.length; i++) {
+        if (!presentDimensions[i]) {
+          dimensionDescsList.get(i).getIndexer().setSparseIndexed();
+        }
       }
     }
 
@@ -604,6 +606,11 @@ public abstract class IncrementalIndex implements IncrementalIndexRowSelector, C
       @Nullable List<String> aggParseExceptionMessages
   )
   {
+    if ((dimParseExceptionMessages == null || dimParseExceptionMessages.isEmpty())
+        && (aggParseExceptionMessages == null || aggParseExceptionMessages.isEmpty())) {
+      return null;
+    }
+
     int numAdded = 0;
     StringBuilder stringBuilder = new StringBuilder();
     final List<String> details = new ArrayList<>();

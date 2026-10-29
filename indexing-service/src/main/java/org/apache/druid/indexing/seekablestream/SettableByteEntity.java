@@ -65,9 +65,7 @@ public class SettableByteEntity<T extends ByteEntity> implements InputEntity
   public InputStream openRaw()
   {
     // Duplicate the entity buffer, because the stream will update its position.
-    final SettableByteBufferInputStream stream = new SettableByteBufferInputStream();
-    stream.setBuffer(entity.getBuffer().duplicate());
-    return stream;
+    return new ByteBufferInputStream(entity.getBuffer().duplicate());
   }
 
   public static final class SettableByteBufferInputStream extends InputStream

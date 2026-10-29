@@ -27,6 +27,7 @@ import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.InputRowSchema;
 import org.apache.druid.data.input.IntermediateRowParsingReader;
 import org.apache.druid.data.input.impl.MapInputRowParser;
+import org.apache.druid.io.ByteBufferInputStream;
 import org.apache.druid.java.util.common.CloseableIterators;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.java.util.common.parsers.JSONPathSpec;
@@ -36,6 +37,7 @@ import org.apache.druid.java.util.common.parsers.ParseException;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
@@ -46,6 +48,7 @@ public class AvroStreamReader extends IntermediateRowParsingReader<GenericRecord
   private final InputRowSchema inputRowSchema;
   private final InputEntity source;
   private final AvroBytesDecoder avroBytesDecoder;
+  private final boolean useSharedBuffer;
   private final ObjectFlattener<GenericRecord> recordFlattener;
 
   AvroStreamReader(
@@ -60,6 +63,11 @@ public class AvroStreamReader extends IntermediateRowParsingReader<GenericRecord
     this.inputRowSchema = inputRowSchema;
     this.source = source;
     this.avroBytesDecoder = avroBytesDecoder;
+    // These built-in decoders consume positions without modifying input bytes. Custom decoders (including
+    // schema-repo subject converters) continue to receive a private copy.
+    this.useSharedBuffer = avroBytesDecoder.getClass() == InlineSchemaAvroBytesDecoder.class
+                           || avroBytesDecoder.getClass() == InlineSchemasAvroBytesDecoder.class
+                           || avroBytesDecoder.getClass() == SchemaRegistryBasedAvroBytesDecoder.class;
     this.recordFlattener = ObjectFlatteners.create(
         flattenSpec,
         new AvroFlattenerMaker(
@@ -74,9 +82,18 @@ public class AvroStreamReader extends IntermediateRowParsingReader<GenericRecord
   @Override
   protected CloseableIterator<GenericRecord> intermediateRowIterator() throws IOException
   {
-    return CloseableIterators.withEmptyBaggage(
-        Iterators.singletonIterator(avroBytesDecoder.parse(ByteBuffer.wrap(IOUtils.toByteArray(source.open()))))
-    );
+    final GenericRecord record;
+    try (final InputStream stream = source.open()) {
+      final ByteBuffer buffer = useSharedBuffer && stream instanceof ByteBufferInputStream
+                                ? ((ByteBufferInputStream) stream).getBuffer()
+                                : null;
+      // Some decoders require an array-backed buffer whose position is zero. A slice also bounds the message.
+      final ByteBuffer bytes = buffer != null && buffer.hasArray()
+                               ? buffer.slice()
+                               : ByteBuffer.wrap(IOUtils.toByteArray(stream));
+      record = avroBytesDecoder.parse(bytes);
+    }
+    return CloseableIterators.withEmptyBaggage(Iterators.singletonIterator(record));
   }
 
   @Override

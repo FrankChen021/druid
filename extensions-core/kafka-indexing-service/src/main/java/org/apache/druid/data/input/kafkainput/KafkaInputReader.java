@@ -20,6 +20,7 @@
 package org.apache.druid.data.input.kafkainput;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.druid.data.input.InputEntityReader;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.InputRowListPlusRawValues;
@@ -36,6 +37,7 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.AbstractMap;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,6 +50,10 @@ import java.util.stream.Collectors;
 
 public class KafkaInputReader implements InputEntityReader
 {
+  private static final Set<String> DUMMY_TIMESTAMP_COLUMNS = Collections.singleton(
+      KafkaInputFormat.DEFAULT_AUTO_TIMESTAMP_STRING
+  );
+
   private final InputRowSchema inputRowSchema;
   private final SettableByteEntity<KafkaRecordEntity> source;
   private final Function<KafkaRecordEntity, KafkaHeaderReader> headerParserSupplier;
@@ -172,20 +178,26 @@ public class KafkaInputReader implements InputEntityReader
   {
     return valueParser.read().map(
         r -> {
-          final HashSet<String> newDimensions = new HashSet<>(r.getDimensions());
-          final Map<String, Object> event = buildBlendedEventMap(r::getRaw, newDimensions, headerKeyList);
-          newDimensions.addAll(headerKeyList.keySet());
-          // Remove the dummy timestamp added in KafkaInputFormat
-          newDimensions.remove(KafkaInputFormat.DEFAULT_AUTO_TIMESTAMP_STRING);
+          final boolean fixedDimensions = inputRowSchema.getDimensionsSpec().hasFixedDimensions();
+          final Map<String, Object> event = buildBlendedEventMap(
+              r::getRaw,
+              r.getDimensions(),
+              headerKeyList,
+              fixedDimensions
+          );
+          // Fixed dimensions do not need the combined value/metadata field names.
+          final List<String> dimensions = fixedDimensions
+                                          ? inputRowSchema.getDimensionsSpec().getDimensionNames()
+                                          : MapInputRowParser.findDimensions(
+                                              inputRowSchema.getTimestampSpec(),
+                                              inputRowSchema.getDimensionsSpec(),
+                                              Sets.difference(event.keySet(), DUMMY_TIMESTAMP_COLUMNS)
+                                          );
 
           final DateTime timestamp = MapInputRowParser.parseTimestamp(inputRowSchema.getTimestampSpec(), event);
           return new MapBasedInputRow(
               timestamp,
-              MapInputRowParser.findDimensions(
-                  inputRowSchema.getTimestampSpec(),
-                  inputRowSchema.getDimensionsSpec(),
-                  newDimensions
-              ),
+              dimensions,
               event
           );
         }
@@ -238,15 +250,12 @@ public class KafkaInputReader implements InputEntityReader
           }
           for (InputRow r : rowAndValues.getInputRows()) {
             if (r != null) {
-              final HashSet<String> newDimensions = new HashSet<>(r.getDimensions());
               final Map<String, Object> event = buildBlendedEventMap(
                   r::getRaw,
-                  newDimensions,
+                  r.getDimensions(),
                   headerKeyList
               );
-              newDimensions.addAll(headerKeyList.keySet());
-              // Remove the dummy timestamp added in KafkaInputFormat
-              newDimensions.remove(KafkaInputFormat.DEFAULT_AUTO_TIMESTAMP_STRING);
+              final Set<String> newDimensions = Sets.difference(event.keySet(), DUMMY_TIMESTAMP_COLUMNS);
               newInputRows.add(
                   new MapBasedInputRow(
                       inputRowSchema.getTimestampSpec().extractTimestamp(event),
@@ -290,15 +299,33 @@ public class KafkaInputReader implements InputEntityReader
    */
   private static Map<String, Object> buildBlendedEventMap(
       Function<String, Object> getRowValue,
-      Set<String> rowDimensions,
+      Collection<String> rowDimensions,
       Map<String, Object> fallback
   )
   {
-    final Set<String> keySet = new HashSet<>(fallback.keySet());
-    keySet.addAll(rowDimensions);
+    return buildBlendedEventMap(getRowValue, rowDimensions, fallback, false);
+  }
 
+  private static Map<String, Object> buildBlendedEventMap(
+      final Function<String, Object> getRowValue,
+      final Collection<String> rowDimensions,
+      final Map<String, Object> fallback,
+      final boolean deferKeySet
+  )
+  {
     return new AbstractMap<>()
     {
+      // Publish a fully built set for retained rows; concurrent first readers may build equivalent sets.
+      private volatile Set<String> keys = deferKeySet ? null : buildKeySet();
+
+      private Set<String> buildKeySet()
+      {
+        // Preserve the existing value-first HashSet insertion order, including colliding names.
+        final Set<String> result = new HashSet<>(rowDimensions);
+        result.addAll(fallback.keySet());
+        return result;
+      }
+
       @Override
       public Object get(Object key)
       {
@@ -313,7 +340,10 @@ public class KafkaInputReader implements InputEntityReader
       @Override
       public Set<String> keySet()
       {
-        return keySet;
+        if (keys == null) {
+          keys = buildKeySet();
+        }
+        return keys;
       }
 
       @Override

@@ -95,7 +95,7 @@ public class JsonNodeReader extends IntermediateRowParsingReader<JsonNode>
   protected CloseableIterator<JsonNode> intermediateRowIterator() throws IOException
   {
     final List<JsonNode> jsonNodes = new ArrayList<>();
-    try (final JsonParser parser = jsonFactory.createParser(source.open())) {
+    try (final JsonParser parser = JsonReaderUtils.createParser(jsonFactory, source)) {
       final MappingIterator<JsonNode> delegate = mapper.readValues(parser, JsonNode.class);
       while (delegate.hasNext()) {
         jsonNodes.add(delegate.next());
