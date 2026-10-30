@@ -220,14 +220,16 @@ public class CliOverlord extends ServerRunnable
           @Override
           public void configure(Binder binder)
           {
-            final MapBinder<String, SystemTableDataProvider> dataProviderBinder = MapBinder.newMapBinder(
-                binder,
-                String.class,
-                SystemTableDataProvider.class
-            );
-            dataProviderBinder.addBinding(TaskTableDescriptor.TABLE_NAME)
-                              .to(TasksTableDataProvider.class)
-                              .in(LazySingleton.class);
+            if (SystemTableModule.isEnabled(properties)) {
+              final MapBinder<String, SystemTableDataProvider> dataProviderBinder = MapBinder.newMapBinder(
+                  binder,
+                  String.class,
+                  SystemTableDataProvider.class
+              );
+              dataProviderBinder.addBinding(TaskTableDescriptor.TABLE_NAME)
+                                .to(TasksTableDataProvider.class)
+                                .in(LazySingleton.class);
+            }
 
             validateCentralizedDatasourceSchemaConfig(properties);
 

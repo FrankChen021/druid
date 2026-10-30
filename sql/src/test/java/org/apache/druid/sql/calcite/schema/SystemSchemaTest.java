@@ -1461,7 +1461,7 @@ public class SystemSchemaTest extends CalciteTestBase
 
     SystemSchema.TasksTable tasksTable =
         EasyMock.createMockBuilder(SystemSchema.TasksTable.class)
-                .withConstructor(overlordClient, authMapper, createAuthResult(Users.SUPER))
+                .withConstructor(overlordClient, authMapper, createAuthResult(Users.SUPER), false)
                 .createMock();
 
     EasyMock.replay(tasksTable);
@@ -1597,21 +1597,21 @@ public class SystemSchemaTest extends CalciteTestBase
 
     // Verify that no row is returned for Datasource Write user
     List<Object[]> rows =
-        new SystemSchema.TasksTable(overlordClient, authMapper, createAuthResult(Users.DATASOURCE_WRITE))
+        new SystemSchema.TasksTable(overlordClient, authMapper, createAuthResult(Users.DATASOURCE_WRITE), false)
             .scan(createDataContext())
             .toList();
     Assertions.assertTrue(rows.isEmpty());
 
     // Verify that 2 rows are returned for Datasource Read user
     rows =
-        new SystemSchema.TasksTable(overlordClient, authMapper, createAuthResult(Users.DATASOURCE_READ))
+        new SystemSchema.TasksTable(overlordClient, authMapper, createAuthResult(Users.DATASOURCE_READ), false)
             .scan(createDataContext())
             .toList();
     Assertions.assertEquals(2, rows.size());
 
     // Verify that 2 rows are returned for Super user
     rows =
-        new SystemSchema.TasksTable(overlordClient, authMapper, createAuthResult(Users.SUPER))
+        new SystemSchema.TasksTable(overlordClient, authMapper, createAuthResult(Users.SUPER), false)
             .scan(createDataContext())
             .toList();
     Assertions.assertEquals(2, rows.size());

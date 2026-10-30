@@ -185,7 +185,7 @@ public class SysTasksTableBenchmark extends BaseCalciteQueryTest
     final SqlTestFramework framework = queryFramework();
     statementFactory = createStatementFactory(framework, taskData.createOverlordClient());
     queryContext = QueryContext.ofMap(
-        QueryContextParameters.USE_QUERY_ENGINE_FOR_SYSTEM_TABLES,
+        QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES,
         useNativeQueryForSystemTables
     );
   }

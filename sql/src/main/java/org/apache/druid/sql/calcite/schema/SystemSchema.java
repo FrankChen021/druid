@@ -344,7 +344,12 @@ public class SystemSchema extends AbstractTableSchema
           authenticationResult
       );
       case SERVER_SEGMENTS_TABLE -> new ServerSegmentsTable(serverView, authorizerMapper, authenticationResult);
-      case TaskTableDescriptor.TABLE_NAME -> new TasksTable(overlordClient, authorizerMapper, authenticationResult);
+      case TaskTableDescriptor.TABLE_NAME -> new TasksTable(
+          overlordClient,
+          authorizerMapper,
+          authenticationResult,
+          SystemTableModule.isEnabled(properties)
+      );
       case SUPERVISOR_TABLE -> new SupervisorsTable(overlordClient, authorizerMapper, authenticationResult);
       case SystemServerPropertiesTable.TABLE_NAME -> new SystemServerPropertiesTable(
           druidNodeDiscoveryProvider,
@@ -984,16 +989,19 @@ public class SystemSchema extends AbstractTableSchema
     private final OverlordClient overlordClient;
     private final AuthorizerMapper authorizerMapper;
     private final AuthenticationResult authenticationResult;
+    private final boolean enableDruidEngineForSystemTables;
 
     public TasksTable(
         OverlordClient overlordClient,
         AuthorizerMapper authorizerMapper,
-        AuthenticationResult authenticationResult
+        AuthenticationResult authenticationResult,
+        boolean enableDruidEngineForSystemTables
     )
     {
       this.overlordClient = overlordClient;
       this.authorizerMapper = authorizerMapper;
       this.authenticationResult = authenticationResult;
+      this.enableDruidEngineForSystemTables = enableDruidEngineForSystemTables;
     }
 
     @Override
@@ -1008,10 +1016,11 @@ public class SystemSchema extends AbstractTableSchema
       return TableType.SYSTEM_TABLE;
     }
 
+    @Nullable
     @Override
     public DruidTable asDataSourceTable()
     {
-      return new TasksDataSourceTable();
+      return enableDruidEngineForSystemTables ? new TasksDataSourceTable() : null;
     }
 
     @Override

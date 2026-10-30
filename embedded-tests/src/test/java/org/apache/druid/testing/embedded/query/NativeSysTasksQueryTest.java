@@ -70,6 +70,7 @@ public class NativeSysTasksQueryTest extends EmbeddedClusterTestBase
   {
     return EmbeddedDruidCluster.withEmbeddedDerbyAndZookeeper()
                                .useLatchableEmitter()
+                               .addCommonProperty("druid.query.enableDruidEngineForSystemTables", "true")
                                .addServer(new EmbeddedCoordinator())
                                .addServer(new EmbeddedIndexer()
                                               .addProperty("druid.worker.capacity", "5"))
@@ -155,7 +156,7 @@ public class NativeSysTasksQueryTest extends EmbeddedClusterTestBase
     return QueryContext.ofMap(
         QueryContextParameters.ENGINE,
         NativeSqlEngine.NAME,
-        QueryContextParameters.USE_QUERY_ENGINE_FOR_SYSTEM_TABLES,
+        QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES,
         true
     );
   }
