@@ -178,6 +178,7 @@ execution:
 |Table|Source of rows|
 |-----|--------------|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Every server is queried, and filters on `server` and `service_name` let a server that doesn't match return no rows.|
+|[`sys.servers`](#servers-table)|The Broker's local discovered-cluster view of Druid servers.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
 aggregations, sorting, and result processing. A system table that doesn't advertise native query support continues to
@@ -295,6 +296,7 @@ Servers table lists all discovered servers in the cluster.
 |labels|VARCHAR|Labels for the server configured using the property [`druid.labels`](../configuration/index.md)|
 |available_processors|BIGINT|Total number of CPU processors available to the server|
 |total_memory|BIGINT|Total memory in bytes available to the server|
+|labels_json|COMPLEX&lt;json&gt;|Labels for the server as a JSON object. This column is appended to preserve the existing column ordinals.|
 
 To retrieve information about all servers, use the query:
 

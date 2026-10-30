@@ -41,23 +41,18 @@ import org.apache.calcite.schema.ProjectableFilterableTable;
 import org.apache.calcite.schema.ScannableTable;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractTable;
-import org.apache.druid.client.DruidServer;
 import org.apache.druid.client.FilteredServerInventoryView;
 import org.apache.druid.client.ImmutableDruidServer;
 import org.apache.druid.client.TimelineServerView;
 import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.common.guava.FutureUtils;
-import org.apache.druid.discovery.DataNodeService;
 import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.indexer.TaskStatusPlus;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorStatus;
-import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.io.Closer;
-import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.query.QueryConfigProvider;
@@ -66,7 +61,6 @@ import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.metadata.AvailableSegmentMetadata;
-import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationResult;
@@ -77,6 +71,8 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.module.SystemTableModule;
+import org.apache.druid.server.system.table.ServersTableDataProvider;
+import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
@@ -206,26 +202,6 @@ public class SystemSchema extends AbstractTableSchema
           SEGMENTS_SIGNATURE.indexOf("last_compaction_state")
       }
   );
-
-  static final RowSignature SERVERS_SIGNATURE = RowSignature
-      .builder()
-      .add("server", ColumnType.STRING)
-      .add("host", ColumnType.STRING)
-      .add("plaintext_port", ColumnType.LONG)
-      .add("tls_port", ColumnType.LONG)
-      .add("server_type", ColumnType.STRING)
-      .add("tier", ColumnType.STRING)
-      .add("curr_size", ColumnType.LONG)
-      .add("max_size", ColumnType.LONG)
-      .add("storage_size", ColumnType.LONG)
-      .add("is_leader", ColumnType.LONG)
-      .add("start_time", ColumnType.STRING)
-      .add("version", ColumnType.STRING)
-      .add("build_revision", ColumnType.STRING)
-      .add("labels", ColumnType.STRING)
-      .add("available_processors", ColumnType.LONG)
-      .add("total_memory", ColumnType.LONG)
-      .build();
 
   static final RowSignature SERVER_SEGMENTS_SIGNATURE = RowSignature
       .builder()
@@ -695,21 +671,10 @@ public class SystemSchema extends AbstractTableSchema
    * This table contains row per server. It contains all the discovered servers in Druid cluster.
    * Some columns like tier and size are only applicable to historical nodes which contain segments.
    */
-  static class ServersTable extends AbstractTable implements ScannableTable
+  static class ServersTable extends AbstractTable implements ScannableTable, SystemTableDataSourceTable
   {
-    // This is used for maxSize and currentSize when they are unknown.
-    // The unknown size doesn't have to be 0, it's better to be null.
-    // However, this table is returning 0 for them for some reason and we keep the behavior for backwards compatibility.
-    // Maybe we can remove this and return nulls instead when we remove the bindable query path which is currently
-    // used to query system tables.
-    private static final long UNKNOWN_SIZE = 0L;
-
+    private final ServersTableDataProvider rowsProvider;
     private final AuthorizerMapper authorizerMapper;
-    private final DruidNodeDiscoveryProvider druidNodeDiscoveryProvider;
-    private final FilteredServerInventoryView serverInventoryView;
-    private final OverlordClient overlordClient;
-    private final CoordinatorClient coordinatorClient;
-    private final ObjectMapper jsonMapper;
     private final AuthenticationResult authenticationResult;
 
     public ServersTable(
@@ -722,19 +687,21 @@ public class SystemSchema extends AbstractTableSchema
         AuthenticationResult authenticationResult
     )
     {
+      this.rowsProvider = new ServersTableDataProvider(
+          druidNodeDiscoveryProvider,
+          serverInventoryView,
+          overlordClient,
+          coordinatorClient,
+          jsonMapper
+      );
       this.authorizerMapper = authorizerMapper;
-      this.druidNodeDiscoveryProvider = druidNodeDiscoveryProvider;
-      this.serverInventoryView = serverInventoryView;
-      this.overlordClient = overlordClient;
-      this.coordinatorClient = coordinatorClient;
-      this.jsonMapper = jsonMapper;
       this.authenticationResult = authenticationResult;
     }
 
     @Override
     public RelDataType getRowType(RelDataTypeFactory typeFactory)
     {
-      return RowSignatures.toRelDataType(SERVERS_SIGNATURE, typeFactory);
+      return RowSignatures.toRelDataType(ServersTableDescriptor.ROW_SIGNATURE, typeFactory);
     }
 
     @Override
@@ -744,195 +711,18 @@ public class SystemSchema extends AbstractTableSchema
     }
 
     @Override
+    public DruidTable asDataSourceTable()
+    {
+      return new ServersDataSourceTable();
+    }
+
+    /** Builds the same rows as the native path, after the same STATE READ check its row authorizer applies. */
+    @Override
     public Enumerable<Object[]> scan(DataContext root)
     {
-      final Iterator<DiscoveryDruidNode> druidServers = getDruidServers(druidNodeDiscoveryProvider);
       checkStateReadAccessForServers(authenticationResult, authorizerMapper);
-
-      String tmpCoordinatorLeader = "";
-      String tmpOverlordLeader = "";
-
-      try {
-        tmpCoordinatorLeader = FutureUtils.getUnchecked(coordinatorClient.findCurrentLeader(), true).toString();
-      }
-      catch (Exception ignored) {
-        // no reason to kill the results if something is sad and there are no leaders
-      }
-
-      try {
-        tmpOverlordLeader = FutureUtils.getUnchecked(overlordClient.findCurrentLeader(), true).toString();
-      }
-      catch (Exception ignored) {
-        // no reason to kill the results if something is sad and there are no leaders
-      }
-
-      final String coordinatorLeader = tmpCoordinatorLeader;
-      final String overlordLeader = tmpOverlordLeader;
-
-      final FluentIterable<Object[]> results = FluentIterable
-          .from(() -> druidServers)
-          .transform((DiscoveryDruidNode discoveryDruidNode) -> {
-            //noinspection ConstantConditions
-            final boolean isDiscoverableDataServer = isDiscoverableDataServer(
-                discoveryDruidNode.getService(DataNodeService.DISCOVERY_SERVICE_KEY, DataNodeService.class)
-            );
-            final NodeRole serverRole = discoveryDruidNode.getNodeRole();
-
-            if (isDiscoverableDataServer) {
-              final DruidServer druidServer = serverInventoryView.getInventoryValue(
-                  discoveryDruidNode.getDruidNode().getHostAndPortToUse()
-              );
-              if (druidServer != null || NodeRole.HISTORICAL.equals(serverRole)) {
-                // Build a row for the data server if that server is in the server view, or the node type is historical.
-                // The historicals are usually supposed to be found in the server view. If some historicals are
-                // missing, it could mean that there are some problems in them to announce themselves. We just fill
-                // their status with nulls in this case.
-                return buildRowForDiscoverableDataServer(discoveryDruidNode, druidServer);
-              } else {
-                return buildRowForNonDataServer(discoveryDruidNode);
-              }
-            } else if (NodeRole.COORDINATOR.equals(serverRole)) {
-              return buildRowForNonDataServerWithLeadership(
-                  discoveryDruidNode,
-                  coordinatorLeader.contains(discoveryDruidNode.getDruidNode().getHostAndPortToUse())
-              );
-            } else if (NodeRole.OVERLORD.equals(serverRole)) {
-              return buildRowForNonDataServerWithLeadership(
-                  discoveryDruidNode,
-                  overlordLeader.contains(discoveryDruidNode.getDruidNode().getHostAndPortToUse())
-              );
-            } else {
-              return buildRowForNonDataServer(discoveryDruidNode);
-            }
-          });
-      return Linq4j.asEnumerable(results);
+      return Linq4j.asEnumerable(rowsProvider.getRows(Collections.emptyList()));
     }
-
-
-    /**
-     * Returns a row for all node types which don't serve data. The returned row contains only static information.
-     */
-    private Object[] buildRowForNonDataServer(DiscoveryDruidNode discoveryDruidNode)
-    {
-      final DruidNode node = discoveryDruidNode.getDruidNode();
-      return new Object[]{
-          node.getHostAndPortToUse(),
-          node.getHost(),
-          (long) node.getPlaintextPort(),
-          (long) node.getTlsPort(),
-          StringUtils.toLowerCase(discoveryDruidNode.getNodeRole().toString()),
-          null,
-          UNKNOWN_SIZE,
-          UNKNOWN_SIZE,
-          UNKNOWN_SIZE,
-          null,
-          toStringOrNull(discoveryDruidNode.getStartTime()),
-          node.getVersion(),
-          node.getBuildRevision(),
-          node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
-          (long) discoveryDruidNode.getAvailableProcessors(),
-          discoveryDruidNode.getTotalMemory()
-      };
-    }
-
-    /**
-     * Returns a row for all node types which don't serve data. The returned row contains only static information.
-     */
-    private Object[] buildRowForNonDataServerWithLeadership(
-        DiscoveryDruidNode discoveryDruidNode,
-        boolean isLeader
-    )
-    {
-      final DruidNode node = discoveryDruidNode.getDruidNode();
-      return new Object[]{
-          node.getHostAndPortToUse(),
-          node.getHost(),
-          (long) node.getPlaintextPort(),
-          (long) node.getTlsPort(),
-          StringUtils.toLowerCase(discoveryDruidNode.getNodeRole().toString()),
-          null,
-          UNKNOWN_SIZE,
-          UNKNOWN_SIZE,
-          UNKNOWN_SIZE,
-          isLeader ? 1L : 0L,
-          toStringOrNull(discoveryDruidNode.getStartTime()),
-          node.getVersion(),
-          node.getBuildRevision(),
-          node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
-          (long) discoveryDruidNode.getAvailableProcessors(),
-          discoveryDruidNode.getTotalMemory()
-      };
-    }
-
-    /**
-     * Returns a row for discoverable data server. This method prefers the information from
-     * {@code serverFromInventoryView} if available which is the current state of the server. Otherwise, it
-     * will get the information from {@code discoveryDruidNode} which has only static configurations.
-     */
-    private Object[] buildRowForDiscoverableDataServer(
-        DiscoveryDruidNode discoveryDruidNode,
-        @Nullable DruidServer serverFromInventoryView
-    )
-    {
-      final DruidNode node = discoveryDruidNode.getDruidNode();
-      final DruidServer druidServerToUse = serverFromInventoryView == null
-                                           ? toDruidServer(discoveryDruidNode)
-                                           : serverFromInventoryView;
-      final long currentSize;
-      if (serverFromInventoryView == null) {
-        // If server is missing in serverInventoryView, the currentSize should be unknown
-        currentSize = UNKNOWN_SIZE;
-      } else {
-        currentSize = serverFromInventoryView.getCurrSize();
-      }
-      return new Object[]{
-          node.getHostAndPortToUse(),
-          node.getHost(),
-          (long) node.getPlaintextPort(),
-          (long) node.getTlsPort(),
-          StringUtils.toLowerCase(discoveryDruidNode.getNodeRole().toString()),
-          druidServerToUse.getTier(),
-          currentSize,
-          druidServerToUse.getMaxSize(),
-          druidServerToUse.getStorageSize(),
-          null,
-          toStringOrNull(discoveryDruidNode.getStartTime()),
-          node.getVersion(),
-          node.getBuildRevision(),
-          node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
-          (long) discoveryDruidNode.getAvailableProcessors(),
-          discoveryDruidNode.getTotalMemory()
-      };
-    }
-
-    private static boolean isDiscoverableDataServer(DataNodeService dataNodeService)
-    {
-      return dataNodeService != null && dataNodeService.isDiscoverable();
-    }
-
-    private static DruidServer toDruidServer(DiscoveryDruidNode discoveryDruidNode)
-    {
-      final DruidNode druidNode = discoveryDruidNode.getDruidNode();
-      final DataNodeService dataNodeService = discoveryDruidNode.getService(
-          DataNodeService.DISCOVERY_SERVICE_KEY,
-          DataNodeService.class
-      );
-      if (isDiscoverableDataServer(dataNodeService)) {
-        return new DruidServer(
-            druidNode.getHostAndPortToUse(),
-            druidNode.getHostAndPort(),
-            druidNode.getHostAndTlsPort(),
-            dataNodeService.getMaxSize(),
-            dataNodeService.getStorageSize(),
-            dataNodeService.getServerType(),
-            dataNodeService.getTier(),
-            dataNodeService.getPriority()
-        );
-      } else {
-        throw new ISE("[%s] is not a discoverable data server", discoveryDruidNode);
-      }
-    }
-
   }
 
   /**
