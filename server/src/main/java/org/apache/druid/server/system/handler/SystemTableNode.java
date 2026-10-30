@@ -26,7 +26,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /** A physical Druid process selected to contribute rows to a native system-table query. */
-class SystemTableNode
+public class SystemTableNode
 {
   private final DiscoveryDruidNode discoveryNode;
   private final Set<NodeRole> nodeRoles = new LinkedHashSet<>();
@@ -36,12 +36,12 @@ class SystemTableNode
     this.discoveryNode = discoveryNode;
   }
 
-  DiscoveryDruidNode getDiscoveryNode()
+  public DiscoveryDruidNode getDiscoveryNode()
   {
     return discoveryNode;
   }
 
-  Set<NodeRole> getNodeRoles()
+  public Set<NodeRole> getNodeRoles()
   {
     return nodeRoles;
   }

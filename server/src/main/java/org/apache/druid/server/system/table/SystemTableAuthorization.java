@@ -20,6 +20,7 @@
 
 package org.apache.druid.server.system.table;
 
+import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationResult;
@@ -30,10 +31,14 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 
 import java.util.Collections;
+import java.util.List;
 
 /** Authorization checks shared by native system tables. */
 public final class SystemTableAuthorization
 {
+  /** The permission that {@link #authorizeStateRead} requires. */
+  public static final ResourceAction STATE_READ = new ResourceAction(Resource.STATE_RESOURCE, Action.READ);
+
   /** Row authorizer for tables whose rows are all visible to users with {@code STATE READ}, and to no one else. */
   public static final SystemTableRowAuthorizer STATE_READ_ROW_AUTHORIZER =
       (rows, authenticationResult, authorizerMapper) -> {
@@ -43,6 +48,22 @@ public final class SystemTableAuthorization
 
   private SystemTableAuthorization()
   {
+  }
+
+  /**
+   * Reads a table's rows from its provider and applies the table's row authorizer for the given identity. Rows are
+   * read lazily, when the result is iterated.
+   */
+  public static Iterable<Object[]> readAuthorizedRows(
+      final SystemTableDescriptor descriptor,
+      final SystemTableDataProvider provider,
+      final List<DimFilter> pushdownFilters,
+      final AuthenticationResult authenticationResult,
+      final AuthorizerMapper authorizerMapper
+  )
+  {
+    final Iterable<Object[]> rows = () -> provider.getRows(pushdownFilters).iterator();
+    return descriptor.getRowAuthorizer().filterAuthorizedRows(rows, authenticationResult, authorizerMapper);
   }
 
   /**
@@ -57,7 +78,7 @@ public final class SystemTableAuthorization
   {
     final AuthorizationResult authorizationResult = AuthorizationUtils.authorizeAllResourceActions(
         authenticationResult,
-        Collections.singletonList(new ResourceAction(Resource.STATE_RESOURCE, Action.READ)),
+        Collections.singletonList(STATE_READ),
         authorizerMapper
     );
     if (!authorizationResult.allowAccessWithNoRestriction()) {
