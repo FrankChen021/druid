@@ -90,6 +90,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 public class QuerySchedulerTest
 {
@@ -111,7 +112,7 @@ public class QuerySchedulerTest
                                        .setDataSource(new SystemTableDataSource("tasks"))
                                        .setInterval("2000/2001")
                                        .setGranularity(Granularities.ALL)
-                                       .setContext(Map.of("queryId", "system-query"))
+                                       .setContext(QueryContext.ofMap(QueryContextParameters.QUERY_ID, "system-query"))
                                        .build();
     final SettableFuture<Object> future = SettableFuture.create();
 
@@ -123,6 +124,129 @@ public class QuerySchedulerTest
     );
     scheduler.cancelQuery(query.getId());
     Assertions.assertTrue(future.isCancelled());
+    Assertions.assertTrue(scheduler.getRunningQueryInfo().isEmpty());
+  }
+
+  /** Node scans sent by the Broker are recognized by their query ID, so {@code sys.queries} can leave them out. */
+  @Test
+  public void testRunningQueryInfoMarksSystemTableNodeQueries()
+  {
+    scheduler.registerQueryFuture(
+        systemTableQuery(SystemTableDataSource.NODE_QUERY_ID_PREFIX + "1"),
+        SettableFuture.create()
+    );
+    scheduler.registerQueryFuture(systemTableQuery("user-query"), SettableFuture.create());
+
+    Assertions.assertEquals(
+        Map.of(SystemTableDataSource.NODE_QUERY_ID_PREFIX + "1", true, "user-query", false),
+        scheduler.getRunningQueryInfo()
+                 .stream()
+                 .collect(Collectors.toMap(
+                     QueryScheduler.RegisteredQueryInfo::id,
+                     QueryScheduler.RegisteredQueryInfo::systemTableNodeQuery
+                 ))
+    );
+  }
+
+  @Test
+  public void testRunningQueryInfoIsRemovedWhenFutureFails()
+  {
+    final SettableFuture<Object> future = SettableFuture.create();
+    scheduler.registerQueryFuture(systemTableQuery("failing-query"), future);
+    Assertions.assertEquals(1, scheduler.getRunningQueryInfo().size());
+
+    future.setException(new RuntimeException("failed"));
+    Assertions.assertTrue(scheduler.getRunningQueryInfo().isEmpty());
+  }
+
+  @Test
+  public void testRunningQueryInfoIsRemovedWhenSequenceFails()
+  {
+    final Sequence<String> sequence = scheduler.run(
+        systemTableQuery("failing-query"),
+        Sequences.simple(List.of("result")).map(result -> {
+          throw new RuntimeException("failed");
+        })
+    );
+
+    Assertions.assertThrows(RuntimeException.class, sequence::toList);
+    Assertions.assertTrue(scheduler.getRunningQueryInfo().isEmpty());
+  }
+
+  private static Query<?> systemTableQuery(final String queryId)
+  {
+    return GroupByQuery.builder()
+                       .setDataSource(new SystemTableDataSource("tasks"))
+                       .setInterval("2000/2001")
+                       .setGranularity(Granularities.ALL)
+                       .setContext(QueryContext.ofMap(QueryContextParameters.QUERY_ID, queryId))
+                       .build();
+  }
+
+  @Test
+  public void testRunningQueryInfoTracksUniqueQueriesUntilTheirLastFutureCompletes()
+  {
+    final Query<?> query = GroupByQuery.builder()
+                                       .setDataSource("foo")
+                                       .setInterval("2000/2001")
+                                       .setGranularity(Granularities.ALL)
+                                       .setContext(
+                                           QueryContext.ofMap(
+                                               QueryContextParameters.QUERY_ID,
+                                               "native-query",
+                                               QueryContextParameters.SQL_QUERY_ID,
+                                               "sql-query"
+                                           )
+                                       )
+                                       .build();
+    final SettableFuture<Object> firstFuture = SettableFuture.create();
+    final SettableFuture<Object> secondFuture = SettableFuture.create();
+
+    scheduler.registerQueryFuture(query, firstFuture);
+    scheduler.registerQueryFuture(query, secondFuture);
+
+    Assertions.assertEquals(
+        List.of(
+            new QueryScheduler.RegisteredQueryInfo(
+                "native-query",
+                "sql-query",
+                null,
+                "groupBy",
+                Set.of("foo"),
+                null,
+                false
+            )
+        ),
+        scheduler.getRunningQueryInfo()
+    );
+
+    firstFuture.set(null);
+    Assertions.assertEquals(1, scheduler.getRunningQueryInfo().size());
+    secondFuture.set(null);
+    Assertions.assertTrue(scheduler.getRunningQueryInfo().isEmpty());
+  }
+
+  @Test
+  public void testRunningQueryInfoTracksSequenceConsumptionWithoutRegisteredFuture()
+  {
+    final Query<?> query = GroupByQuery.builder()
+                                       .setDataSource("foo")
+                                       .setInterval("2000/2001")
+                                       .setGranularity(Granularities.ALL)
+                                       .setContext(QueryContext.ofMap(QueryContextParameters.QUERY_ID, "local-query"))
+                                       .build();
+    final Sequence<String> sequence = scheduler.run(
+        query,
+        Sequences.simple(List.of("result")).map(result -> {
+          Assertions.assertEquals(1, scheduler.getRunningQueryInfo().size());
+          Assertions.assertEquals("local-query", scheduler.getRunningQueryInfo().get(0).id());
+          return result;
+        })
+    );
+
+    Assertions.assertTrue(scheduler.getRunningQueryInfo().isEmpty());
+    Assertions.assertEquals(List.of("result"), sequence.toList());
+    Assertions.assertTrue(scheduler.getRunningQueryInfo().isEmpty());
   }
 
   @BeforeEach

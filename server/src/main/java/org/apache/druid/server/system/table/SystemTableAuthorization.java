@@ -34,15 +34,26 @@ import java.util.Collections;
 /** Authorization checks shared by native system tables. */
 public final class SystemTableAuthorization
 {
+  private static final String VIEW_SERVERS_DENIED_MESSAGE = "Insufficient permission to view servers";
+
   /** Row authorizer for tables whose rows are all visible to users with {@code STATE READ}, and to no one else. */
   public static final SystemTableRowAuthorizer STATE_READ_ROW_AUTHORIZER =
-      (rows, authenticationResult, authorizerMapper) -> {
-        authorizeStateRead(authenticationResult, authorizerMapper);
-        return rows;
-      };
+      stateReadRowAuthorizer(VIEW_SERVERS_DENIED_MESSAGE);
 
   private SystemTableAuthorization()
   {
+  }
+
+  /**
+   * As {@link #STATE_READ_ROW_AUTHORIZER}, but a denied caller gets the given message, which names what the table
+   * shows.
+   */
+  public static SystemTableRowAuthorizer stateReadRowAuthorizer(final String deniedMessage)
+  {
+    return (rows, authenticationResult, authorizerMapper) -> {
+      authorizeStateRead(authenticationResult, authorizerMapper, deniedMessage);
+      return rows;
+    };
   }
 
   /**
@@ -55,13 +66,22 @@ public final class SystemTableAuthorization
       final AuthorizerMapper authorizerMapper
   )
   {
+    authorizeStateRead(authenticationResult, authorizerMapper, VIEW_SERVERS_DENIED_MESSAGE);
+  }
+
+  private static void authorizeStateRead(
+      final AuthenticationResult authenticationResult,
+      final AuthorizerMapper authorizerMapper,
+      final String deniedMessage
+  )
+  {
     final AuthorizationResult authorizationResult = AuthorizationUtils.authorizeAllResourceActions(
         authenticationResult,
         Collections.singletonList(new ResourceAction(Resource.STATE_RESOURCE, Action.READ)),
         authorizerMapper
     );
     if (!authorizationResult.allowAccessWithNoRestriction()) {
-      throw new ForbiddenException("Insufficient permission to view servers: " + authorizationResult.getErrorMessage());
+      throw new ForbiddenException(deniedMessage + ": " + authorizationResult.getErrorMessage());
     }
   }
 }
