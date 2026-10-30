@@ -82,6 +82,14 @@ public class SystemSchemaDataSourceTableTest
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, servers.getJdbcTableType());
   }
 
+  /** Without druid.query.enableDruidEngineForSystemTables, sys.servers has no datasource representation. */
+  @Test
+  public void testServersTableHasDataSourceTableOnlyWhenEnabled()
+  {
+    Assertions.assertNull(serversTable(false).asDataSourceTable());
+    Assertions.assertInstanceOf(ServersDataSourceTable.class, serversTable(true).asDataSourceTable());
+  }
+
   @Test
   public void testSystemSchemaSelectsNativeTablesOnlyWhenEnabledForNativeEngine()
   {
@@ -108,5 +116,10 @@ public class SystemSchemaDataSourceTableTest
     Assertions.assertTrue(SystemSchema.canUseSystemTableDataSource(table, enabledContext));
 
     EasyMock.verify(table, nativeEngine, bindableEngine, disabledContext, bindableContext, enabledContext);
+  }
+
+  private static SystemSchema.ServersTable serversTable(final boolean enableDruidEngineForSystemTables)
+  {
+    return new SystemSchema.ServersTable(null, null, null, null, null, null, null, enableDruidEngineForSystemTables);
   }
 }

@@ -210,7 +210,7 @@ public class CliBroker extends ServerRunnable
         new DartControllerModule(),
         new DartControllerMemoryManagementModule(),
         new BrokerRealtimeSelectorModule(),
-        new BrokerSystemTableModule()
+        new BrokerSystemTableModule(getProperties())
     );
   }
 }

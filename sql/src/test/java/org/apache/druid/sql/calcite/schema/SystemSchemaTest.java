@@ -964,7 +964,8 @@ public class SystemSchemaTest extends CalciteTestBase
                                                          overlordClient,
                                                          coordinatorClient,
                                                          MAPPER,
-                                                         createAuthResult(Users.SUPER)
+                                                         createAuthResult(Users.SUPER),
+                                                         false
                                                      )
                                                      .createMock();
     EasyMock.replay(serversTable);
