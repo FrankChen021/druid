@@ -2486,6 +2486,25 @@ public final class QueryContextParameters
           .visibility(Visibility.SYSTEM)
           .build();
 
+  public static final QueryContextParameter<Integer> MAX_STACK_TRACE_FRAME_DEPTH =
+      QueryContextParameter
+          .builder("maxStackTraceFrameDepth", Integer.class, QueryContextParameters::parseMaxStackTraceFrameDepth)
+          .defaultValue(100)
+          .constraint(Range.closedRange(10, 1000))
+          .description(
+              """
+              For native queries on [`sys.stack_trace`](sql-metadata-tables.md#stack_trace-table), the maximum number
+              of stack frames returned for each thread. Defaults to `100`; valid values are from `10` through `1000`.
+              Numeric values are converted using the truncated integer value, and quoted values are parsed as integers.
+              Values outside the range or values that cannot be parsed as integers are rejected. Has no effect unless
+              `druid.query.enableDruidEngineForSystemTables` is set on all services.
+              """
+          )
+          .since("39.0.0")
+          .query(Query.JSON, Query.SQL)
+          .engine(Engine.NATIVE)
+          .build();
+
   // endregion
 
   private QueryContextParameters()
@@ -2555,6 +2574,16 @@ public final class QueryContextParameters
             BigDecimal::intValueExact
         )
     );
+  }
+
+  private static Integer parseMaxStackTraceFrameDepth(final Object value)
+  {
+    try {
+      return Math.toIntExact(QueryContexts.getAsLong("maxStackTraceFrameDepth", value));
+    }
+    catch (ArithmeticException e) {
+      throw invalidValueException("maxStackTraceFrameDepth", "an integer", value);
+    }
   }
 
   static QueryContextParameter.Builder<Long> longParameter(final String name)

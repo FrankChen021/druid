@@ -227,6 +227,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
     }
 
     final ScanQuery nodeQuery = makeNodeQuery(dataSource, descriptor, owningQuery);
+    descriptor.validateQuery(nodeQuery);
     final List<QueryRunner<ScanResultValue>> nodeRunners = makeNodeRunners(
         nodeQuery,
         descriptor,

@@ -88,6 +88,7 @@ import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
+import org.apache.druid.server.system.table.StackTraceTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableRoutingMode;
 import org.joda.time.Duration;
@@ -369,6 +370,58 @@ public class SystemTableQueryClientTest
         () -> client.createRunner(query, caller, false).run(QueryPlus.wrap(query), ResponseContext.createEmpty()).toList()
     );
     Assertions.assertTrue(e.getMessage().startsWith("Insufficient permission to view servers"), e.getMessage());
+  }
+
+  /**
+   * Nodes validate the node query, which carries an owning query's filter only when that query reads the system table
+   * directly. A {@code server} filter on a join over {@code sys.stack_trace} is not sent to nodes, so the Broker must
+   * reject the query before fanout instead of letting every node fail.
+   */
+  @Test
+  public void testStackTraceServerFilterOnCompositeQueryIsRejectedBeforeFanout()
+  {
+    final StackTraceTableDescriptor descriptor = new StackTraceTableDescriptor();
+    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
+    final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
+    final SystemTableQueryHandler localQueryHandler = Mockito.mock(SystemTableQueryHandler.class);
+    final SystemTableQueryClient client = new SystemTableQueryClient(
+        nodeLocator,
+        directClientFactory,
+        Mockito.mock(QueryScheduler.class),
+        Mockito.mock(QuerySegmentWalker.class),
+        Map.of(descriptor.getTableName(), descriptor),
+        new AuthorizerMapper(Map.of("allow", new AllowAllAuthorizer(null))),
+        localQueryHandler,
+        NoopEscalator.getInstance(),
+        nonMatchingSelfNode()
+    );
+    final DataSource join = JoinDataSource.create(
+        new SystemTableDataSource(descriptor.getTableName()),
+        new SystemTableDataSource(descriptor.getTableName()),
+        "j.",
+        "thread_id == \"j.thread_id\"",
+        JoinType.INNER,
+        null,
+        ExprMacroTable.nil(),
+        null,
+        JoinAlgorithm.BROADCAST
+    );
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                 .dataSource(join)
+                                 .eternityInterval()
+                                 .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                 .filters(new SelectorDimFilter("server", "localhost:8082", null))
+                                 .build();
+
+    final DruidException e = Assertions.assertThrows(
+        DruidException.class,
+        () -> client.createRunner(query, AUTHENTICATION_RESULT, false)
+                    .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
+                    .toList()
+    );
+    Assertions.assertEquals(DruidException.Category.INVALID_INPUT, e.getCategory());
+    Assertions.assertTrue(e.getMessage().contains("requires a filter on the server column"), e.getMessage());
+    Mockito.verifyNoInteractions(nodeLocator, directClientFactory, localQueryHandler);
   }
 
   /**
