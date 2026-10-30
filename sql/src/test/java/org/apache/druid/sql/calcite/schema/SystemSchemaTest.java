@@ -113,6 +113,7 @@ import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.apache.druid.sql.calcite.schema.SystemSchema.QueriesTable;
@@ -1460,7 +1461,7 @@ public class SystemSchemaTest extends CalciteTestBase
 
     SystemSchema.TasksTable tasksTable =
         EasyMock.createMockBuilder(SystemSchema.TasksTable.class)
-                .withConstructor(overlordClient, authMapper, createAuthResult(Users.SUPER))
+                .withConstructor(overlordClient, authMapper, createAuthResult(Users.SUPER), false)
                 .createMock();
 
     EasyMock.replay(tasksTable);
@@ -1541,10 +1542,10 @@ public class SystemSchemaTest extends CalciteTestBase
     Assertions.assertEquals("192.168.1.6", row1[10]);
     Assertions.assertEquals(8100L, row1[11]);
     Assertions.assertEquals(-1L, row1[12]);
-    Assertions.assertEquals(null, row1[13]);
+    Assertions.assertNull(row1[13]);
 
     // Verify value types.
-    verifyTypes(rows, SystemSchema.TASKS_SIGNATURE);
+    verifyTypes(rows, TaskTableDescriptor.ROW_SIGNATURE);
   }
 
   @Test
@@ -1596,21 +1597,21 @@ public class SystemSchemaTest extends CalciteTestBase
 
     // Verify that no row is returned for Datasource Write user
     List<Object[]> rows =
-        new SystemSchema.TasksTable(overlordClient, authMapper, createAuthResult(Users.DATASOURCE_WRITE))
+        new SystemSchema.TasksTable(overlordClient, authMapper, createAuthResult(Users.DATASOURCE_WRITE), false)
             .scan(createDataContext())
             .toList();
     Assertions.assertTrue(rows.isEmpty());
 
     // Verify that 2 rows are returned for Datasource Read user
     rows =
-        new SystemSchema.TasksTable(overlordClient, authMapper, createAuthResult(Users.DATASOURCE_READ))
+        new SystemSchema.TasksTable(overlordClient, authMapper, createAuthResult(Users.DATASOURCE_READ), false)
             .scan(createDataContext())
             .toList();
     Assertions.assertEquals(2, rows.size());
 
     // Verify that 2 rows are returned for Super user
     rows =
-        new SystemSchema.TasksTable(overlordClient, authMapper, createAuthResult(Users.SUPER))
+        new SystemSchema.TasksTable(overlordClient, authMapper, createAuthResult(Users.SUPER), false)
             .scan(createDataContext())
             .toList();
     Assertions.assertEquals(2, rows.size());

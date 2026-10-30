@@ -156,7 +156,7 @@ The native SQL engine can plan supported system tables as native datasources. To
 
 ```json
 {
-  "query": "SELECT COUNT(DISTINCT server) FROM sys.server_properties",
+  "query": "SELECT COUNT(DISTINCT task_id) FROM sys.tasks",
   "context": {
     "useDruidEngineForSystemTables": true
   }
@@ -168,7 +168,7 @@ execution with `SET`:
 
 ```sql
 SET useDruidEngineForSystemTables = 'true';
-SELECT COUNT(DISTINCT server) FROM sys.server_properties;
+SELECT COUNT(DISTINCT datasource) FROM sys.tasks;
 ```
 
 Native system-table execution is available when the resolved SQL engine is `native`. You don't need to explicitly set
@@ -177,6 +177,7 @@ execution:
 
 |Table|Source of rows|
 |-----|--------------|
+|[`sys.tasks`](#tasks-table)|The Overlord that owns task state. Supported filters are pushed into task storage when the configured task storage implementation supports filter pushdown. Rows are authorized by `READ` permission on each task's datasource. Unlike the SQL interpreter, native execution omits tasks that have no datasource, since no permission can be checked for them.|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Filters on `server` and `service_name` can avoid reading properties from nodes that don't match.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
