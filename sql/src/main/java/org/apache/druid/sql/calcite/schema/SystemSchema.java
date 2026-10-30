@@ -335,7 +335,8 @@ public class SystemSchema extends AbstractTableSchema
           overlordClient,
           coordinatorClient,
           jsonMapper,
-          authenticationResult
+          authenticationResult,
+          SystemTableModule.isEnabled(properties)
       );
       case SERVER_SEGMENTS_TABLE -> new ServerSegmentsTable(serverView, authorizerMapper, authenticationResult);
       case TASKS_TABLE -> new TasksTable(overlordClient, authorizerMapper, authenticationResult);
@@ -676,6 +677,7 @@ public class SystemSchema extends AbstractTableSchema
     private final ServersTableDataProvider rowsProvider;
     private final AuthorizerMapper authorizerMapper;
     private final AuthenticationResult authenticationResult;
+    private final boolean enableDruidEngineForSystemTables;
 
     public ServersTable(
         DruidNodeDiscoveryProvider druidNodeDiscoveryProvider,
@@ -684,7 +686,8 @@ public class SystemSchema extends AbstractTableSchema
         OverlordClient overlordClient,
         CoordinatorClient coordinatorClient,
         ObjectMapper jsonMapper,
-        AuthenticationResult authenticationResult
+        AuthenticationResult authenticationResult,
+        boolean enableDruidEngineForSystemTables
     )
     {
       this.rowsProvider = new ServersTableDataProvider(
@@ -696,6 +699,7 @@ public class SystemSchema extends AbstractTableSchema
       );
       this.authorizerMapper = authorizerMapper;
       this.authenticationResult = authenticationResult;
+      this.enableDruidEngineForSystemTables = enableDruidEngineForSystemTables;
     }
 
     @Override
@@ -710,10 +714,11 @@ public class SystemSchema extends AbstractTableSchema
       return TableType.SYSTEM_TABLE;
     }
 
+    @Nullable
     @Override
     public DruidTable asDataSourceTable()
     {
-      return new ServersDataSourceTable();
+      return enableDruidEngineForSystemTables ? new ServersDataSourceTable() : null;
     }
 
     /** Builds the same rows as the native path, after the same STATE READ check its row authorizer applies. */

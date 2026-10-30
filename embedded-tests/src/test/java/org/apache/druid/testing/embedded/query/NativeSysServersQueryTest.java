@@ -43,6 +43,7 @@ public class NativeSysServersQueryTest extends EmbeddedClusterTestBase
   protected EmbeddedDruidCluster createCluster()
   {
     return EmbeddedDruidCluster.withEmbeddedDerbyAndZookeeper()
+                               .addCommonProperty("druid.query.enableDruidEngineForSystemTables", "true")
                                .useLatchableEmitter()
                                .addServer(new EmbeddedCoordinator())
                                .addServer(new EmbeddedOverlord())
@@ -70,7 +71,7 @@ public class NativeSysServersQueryTest extends EmbeddedClusterTestBase
     return QueryContext.ofMap(
         QueryContextParameters.ENGINE,
         NativeSqlEngine.NAME,
-        QueryContextParameters.USE_QUERY_ENGINE_FOR_SYSTEM_TABLES,
+        QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES,
         true,
         QueryContextParameters.PLANNER_STRATEGY,
         plannerStrategy
