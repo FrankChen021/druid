@@ -171,6 +171,28 @@ public class SystemTablePushdownFilterTest
     Assertions.assertTrue(SystemTablePushdownFilter.extract(query, PUSHDOWN_FILTERS).isEmpty());
   }
 
+  /** The filter-only overload, used by engines that read a system table outside a native query, behaves the same. */
+  @Test
+  public void testExtractsFilterWithoutQuery()
+  {
+    final DimFilter shadowedFilter = new SelectorDimFilter("task_id", "alias", null);
+    final DimFilter createdTimeFilter = new SelectorDimFilter("created_time", "2026-01-01", null);
+
+    Assertions.assertEquals(
+        List.of(new SelectorDimFilter("created_date", "2026-01-01", null)),
+        SystemTablePushdownFilter.extract(
+            new AndDimFilter(shadowedFilter, createdTimeFilter),
+            shadowingVirtualColumns(),
+            PUSHDOWN_FILTERS
+        )
+    );
+    Assertions.assertEquals(
+        List.of(new SelectorDimFilter("id", "alias", null)),
+        SystemTablePushdownFilter.extract(shadowedFilter, VirtualColumns.EMPTY, PUSHDOWN_FILTERS)
+    );
+    Assertions.assertEquals(List.of(), SystemTablePushdownFilter.extract(null, VirtualColumns.EMPTY, PUSHDOWN_FILTERS));
+  }
+
   private static VirtualColumns shadowingVirtualColumns()
   {
     return VirtualColumns.create(

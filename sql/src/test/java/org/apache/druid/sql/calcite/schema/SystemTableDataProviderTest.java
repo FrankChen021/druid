@@ -32,6 +32,7 @@ import org.easymock.EasyMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 public class SystemTableDataProviderTest
@@ -72,30 +73,60 @@ public class SystemTableDataProviderTest
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, serverProperties.getJdbcTableType());
   }
 
+  /**
+   * The native engine plans a system table as a datasource when {@code useDruidEngineForSystemTables} is set;
+   * other engines opt in per table. A table without a datasource representation, including one whose representation
+   * is disabled by {@code druid.query.enableDruidEngineForSystemTables}, always stays on the Bindable path.
+   */
   @Test
-  public void testSystemSchemaSelectsNativeTablesOnlyWhenEnabledForNativeEngine()
+  public void testSystemSchemaSelectsSystemTableDataSource()
   {
     final RelOptTable table = EasyMock.createMock(RelOptTable.class);
-    final SqlEngine nativeEngine = EasyMock.createMock(SqlEngine.class);
-    final SqlEngine bindableEngine = EasyMock.createMock(SqlEngine.class);
-    final PlannerContext disabledContext = EasyMock.createMock(PlannerContext.class);
-    final PlannerContext bindableContext = EasyMock.createMock(PlannerContext.class);
-    final PlannerContext enabledContext = EasyMock.createMock(PlannerContext.class);
-    EasyMock.expect(nativeEngine.name()).andReturn(NativeSqlEngine.NAME).anyTimes();
-    EasyMock.expect(bindableEngine.name()).andReturn("bindable").anyTimes();
-    EasyMock.expect(disabledContext.useDruidEngineForSystemTables()).andReturn(false).once();
-    EasyMock.expect(bindableContext.useDruidEngineForSystemTables()).andReturn(true).once();
-    EasyMock.expect(bindableContext.getEngine()).andReturn(bindableEngine).once();
-    EasyMock.expect(enabledContext.useDruidEngineForSystemTables()).andReturn(true).once();
-    EasyMock.expect(enabledContext.getEngine()).andReturn(nativeEngine).once();
-    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(ServerPropertiesDataSourceTable::new).once();
-    EasyMock.replay(table, nativeEngine, bindableEngine, disabledContext, bindableContext, enabledContext);
+    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(ServerPropertiesDataSourceTable::new)
+            .anyTimes();
+    EasyMock.expect(table.getQualifiedName()).andReturn(List.of("sys", "server_properties")).anyTimes();
+    final RelOptTable bindableOnlyTable = EasyMock.createMock(RelOptTable.class);
+    EasyMock.expect(bindableOnlyTable.unwrap(SystemTableDataSourceTable.class)).andReturn(null).anyTimes();
+    // With druid.query.enableDruidEngineForSystemTables off, the table offers no datasource representation.
+    final RelOptTable disabledTable = EasyMock.createMock(RelOptTable.class);
+    EasyMock.expect(disabledTable.unwrap(SystemTableDataSourceTable.class)).andReturn(() -> null).anyTimes();
+    EasyMock.expect(disabledTable.getQualifiedName()).andReturn(List.of("sys", "server_properties")).anyTimes();
 
-    Assertions.assertFalse(SystemSchema.canUseSystemTableDataSource(table, disabledContext));
-    Assertions.assertFalse(SystemSchema.canUseSystemTableDataSource(table, bindableContext));
-    Assertions.assertTrue(SystemSchema.canUseSystemTableDataSource(table, enabledContext));
+    final SqlEngine nativeEngine = engine(NativeSqlEngine.NAME, false);
+    final SqlEngine supportingEngine = engine("supporting", true);
+    final SqlEngine otherEngine = engine("other", false);
+    EasyMock.replay(table, bindableOnlyTable, disabledTable, nativeEngine, supportingEngine, otherEngine);
 
-    EasyMock.verify(table, nativeEngine, bindableEngine, disabledContext, bindableContext, enabledContext);
+    Assertions.assertFalse(SystemSchema.canUseSystemTableDataSource(table, plannerContext(nativeEngine, false)));
+    Assertions.assertTrue(SystemSchema.canUseSystemTableDataSource(table, plannerContext(nativeEngine, true)));
+    Assertions.assertTrue(SystemSchema.canUseSystemTableDataSource(table, plannerContext(supportingEngine, false)));
+    Assertions.assertFalse(SystemSchema.canUseSystemTableDataSource(table, plannerContext(otherEngine, true)));
+    Assertions.assertFalse(
+        SystemSchema.canUseSystemTableDataSource(bindableOnlyTable, plannerContext(nativeEngine, true))
+    );
+    Assertions.assertFalse(SystemSchema.canUseSystemTableDataSource(disabledTable, plannerContext(nativeEngine, true)));
+    Assertions.assertFalse(
+        SystemSchema.canUseSystemTableDataSource(disabledTable, plannerContext(supportingEngine, false))
+    );
+  }
+
+  private static SqlEngine engine(final String name, final boolean supportsServerProperties)
+  {
+    final SqlEngine engine = EasyMock.createMock(SqlEngine.class);
+    EasyMock.expect(engine.name()).andReturn(name).anyTimes();
+    EasyMock.expect(engine.supportsSystemTableDataSource("server_properties"))
+            .andReturn(supportsServerProperties)
+            .anyTimes();
+    return engine;
+  }
+
+  private static PlannerContext plannerContext(final SqlEngine engine, final boolean useDruidEngine)
+  {
+    final PlannerContext plannerContext = EasyMock.createMock(PlannerContext.class);
+    EasyMock.expect(plannerContext.getEngine()).andReturn(engine).anyTimes();
+    EasyMock.expect(plannerContext.useDruidEngineForSystemTables()).andReturn(useDruidEngine).anyTimes();
+    EasyMock.replay(plannerContext);
+    return plannerContext;
   }
 
   @Test

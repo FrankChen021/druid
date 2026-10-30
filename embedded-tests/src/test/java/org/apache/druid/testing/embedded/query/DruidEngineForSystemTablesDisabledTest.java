@@ -25,6 +25,7 @@ import org.apache.druid.java.util.common.URIs;
 import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.http.client.response.StatusResponseHandler;
 import org.apache.druid.java.util.http.client.response.StatusResponseHolder;
+import org.apache.druid.msq.dart.controller.sql.DartSqlEngine;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.SystemTableDataSource;
@@ -65,6 +66,7 @@ public class DruidEngineForSystemTablesDisabledTest extends EmbeddedClusterTestB
   {
     return EmbeddedDruidCluster.withEmbeddedDerbyAndZookeeper()
                                .useLatchableEmitter()
+                               .addCommonProperty("druid.msq.dart.enabled", "true")
                                .addServer(coordinator)
                                .addServer(overlord)
                                .addServer(broker)
@@ -86,6 +88,18 @@ public class DruidEngineForSystemTablesDisabledTest extends EmbeddedClusterTestB
     Assertions.assertTrue(plan.contains("BindableTableScan"), plan);
     Assertions.assertFalse(plan.contains("systemTable"), plan);
     // The Broker's SQL interpreter reads the table.
+    Assertions.assertFalse(cluster.runSql("SELECT server FROM sys.server_properties LIMIT 1", context).isEmpty());
+  }
+
+  /** Without the property, Dart falls back to the Broker's SQL interpreter like the native engine. */
+  @Test
+  public void testDartUsesBindablePlan()
+  {
+    final Map<String, Object> context = QueryContext.ofMap(QueryContextParameters.ENGINE, DartSqlEngine.NAME);
+
+    final String plan = cluster.runSql("EXPLAIN PLAN FOR SELECT server FROM sys.server_properties", context);
+    Assertions.assertTrue(plan.contains("BindableTableScan"), plan);
+    Assertions.assertFalse(plan.contains("systemTable"), plan);
     Assertions.assertFalse(cluster.runSql("SELECT server FROM sys.server_properties LIMIT 1", context).isEmpty());
   }
 

@@ -20,6 +20,7 @@
 package org.apache.druid.server.system.handler;
 
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.SettableFuture;
 import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscovery;
@@ -27,6 +28,7 @@ import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.DruidNode;
@@ -85,6 +87,24 @@ public class SystemTableNodeLocatorTest
 
     Assertions.assertEquals(1, nodes.size());
     Assertions.assertEquals(leader, nodes.get(0).getDiscoveryNode());
+  }
+
+  /** Leader routing fails with a timeout, without waiting on the leader locator, once the given deadline passed. */
+  @Test
+  public void testLeaderOnlyRoutingWithExpiredDeadline()
+  {
+    final OverlordClient overlordClient = Mockito.mock(OverlordClient.class);
+    Mockito.when(overlordClient.findCurrentLeader()).thenReturn(SettableFuture.create());
+    final SystemTableNodeLocator locator = new SystemTableNodeLocator(
+        discoveryProvider(List.of(node(8082))),
+        Mockito.mock(CoordinatorClient.class),
+        overlordClient
+    );
+
+    Assertions.assertThrows(
+        QueryTimeoutException.class,
+        () -> locator.locate(descriptor(SystemTableRoutingMode.LEADER_ONLY), System.currentTimeMillis() - 1)
+    );
   }
 
   /** Leader routing is role-driven and therefore also supports a Coordinator locator without special-case logic. */
