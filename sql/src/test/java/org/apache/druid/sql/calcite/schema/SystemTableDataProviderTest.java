@@ -25,6 +25,7 @@ import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
+import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.sql.calcite.run.SqlEngine;
@@ -70,6 +71,13 @@ public class SystemTableDataProviderTest
     Assertions.assertFalse(serverProperties.isJoinable());
     Assertions.assertFalse(serverProperties.isBroadcast());
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, serverProperties.getJdbcTableType());
+
+    final ServersDataSourceTable servers = new ServersDataSourceTable();
+    Assertions.assertEquals("servers", ((SystemTableDataSource) servers.getDataSource()).getTable());
+    Assertions.assertEquals(ServersTableDescriptor.ROW_SIGNATURE, servers.getRowSignature());
+    Assertions.assertFalse(servers.isJoinable());
+    Assertions.assertFalse(servers.isBroadcast());
+    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, servers.getJdbcTableType());
   }
 
   @Test

@@ -81,6 +81,7 @@ import org.apache.druid.server.http.SelfDiscoveryResource;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
 import org.apache.druid.server.metrics.SubqueryCountStatsProvider;
 import org.apache.druid.server.router.TieredBrokerConfig;
+import org.apache.druid.server.system.module.BrokerSystemTableModule;
 import org.apache.druid.sql.calcite.schema.MetadataSegmentView;
 import org.apache.druid.sql.guice.SqlModule;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
@@ -195,7 +196,8 @@ public class CliBroker extends ServerRunnable
         new SqlTaskModule(),
         new DartControllerModule(),
         new DartControllerMemoryManagementModule(),
-        new BrokerRealtimeSelectorModule()
+        new BrokerRealtimeSelectorModule(),
+        new BrokerSystemTableModule()
     );
   }
 }

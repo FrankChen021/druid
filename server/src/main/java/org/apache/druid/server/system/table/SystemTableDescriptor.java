@@ -33,7 +33,7 @@ public interface SystemTableDescriptor
 
   /**
    * Returns the node roles capable of serving this table. {@link #getRoutingMode()} determines whether every node or
-   * only the leader for the role receives a query.
+   * only the leader for the role receives a query, or whether the Broker runs the provider locally.
    */
   Set<NodeRole> getNodeRoles();
 
