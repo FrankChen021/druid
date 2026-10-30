@@ -100,7 +100,7 @@ public class SystemTableQueryHandlerTest
       @Override
       public Set<NodeRole> getNodeRoles()
       {
-        return Set.of();
+        return Set.of(NodeRole.BROKER);
       }
 
       @Override
@@ -122,6 +122,7 @@ public class SystemTableQueryHandlerTest
       }
     };
     final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Set.of(NodeRole.BROKER),
         Map.of("test", supplier),
         Map.of(descriptor.getTableName(), descriptor),
         new ScanQueryEngine(),
@@ -182,6 +183,7 @@ public class SystemTableQueryHandlerTest
         new DruidServerConfig(null, null)
     );
     final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Set.of(NodeRole.OVERLORD),
         Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, provider),
         Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, new ServerPropertiesTableDescriptor()),
         new ScanQueryEngine(),
@@ -230,6 +232,7 @@ public class SystemTableQueryHandlerTest
       }
     };
     final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Set.of(NodeRole.OVERLORD),
         Map.of(
             ServerPropertiesTableDescriptor.TABLE_NAME,
             new ServerPropertiesTableDataProvider(
@@ -261,6 +264,7 @@ public class SystemTableQueryHandlerTest
   public void testRejectsCompositeDataSource()
   {
     final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Set.of(NodeRole.BROKER),
         Map.of(),
         Map.of(),
         new ScanQueryEngine(),
@@ -284,6 +288,67 @@ public class SystemTableQueryHandlerTest
             true
         )
     );
+  }
+
+  @Test
+  public void testRejectsTableNotServedByCurrentNodeRole()
+  {
+    final AtomicInteger getRowsCalls = new AtomicInteger();
+    final SystemTableDataProvider supplier = filters -> {
+      getRowsCalls.incrementAndGet();
+      return List.of();
+    };
+    final SystemTableDescriptor descriptor = new SystemTableDescriptor()
+    {
+      @Override
+      public String getTableName()
+      {
+        return "test";
+      }
+
+      @Override
+      public Set<NodeRole> getNodeRoles()
+      {
+        return Set.of(NodeRole.BROKER);
+      }
+
+      @Override
+      public RowSignature getRowSignature()
+      {
+        return ROW_SIGNATURE;
+      }
+
+      @Override
+      public SystemTableRowAuthorizer getRowAuthorizer()
+      {
+        return (rows, authenticationResult, authorizerMapper) -> rows;
+      }
+    };
+    final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Set.of(NodeRole.HISTORICAL),
+        Map.of("test", supplier),
+        Map.of(descriptor.getTableName(), descriptor),
+        new ScanQueryEngine(),
+        new AuthorizerMapper(Map.of())
+    );
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                  .dataSource(new SystemTableDataSource("test"))
+                                  .eternityInterval()
+                                  .columns(ROW_SIGNATURE)
+                                  .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                  .build();
+
+    final DruidException exception = Assertions.assertThrows(
+        DruidException.class,
+        () -> handler.createRunner(
+            query,
+            new AuthenticationResult("alice", "allow", "external", null),
+            true
+        )
+    );
+
+    Assertions.assertEquals("System table[test] is not served by this node", exception.getMessage());
+    Assertions.assertEquals(0, getRowsCalls.get());
   }
 
 }
