@@ -232,7 +232,11 @@ public record SystemTablePushdownFilter(String key, @Nullable String value)
     };
   }
 
-  private static boolean isStringValuesFilter(final DimFilter filter)
+  /**
+   * Whether a pushdown filter matches a set of string values, so {@link #getStringValuesColumn} and
+   * {@link #getStringValues} can read it.
+   */
+  public static boolean isStringValuesFilter(final DimFilter filter)
   {
     return filter instanceof SelectorDimFilter
            || filter instanceof EqualityFilter

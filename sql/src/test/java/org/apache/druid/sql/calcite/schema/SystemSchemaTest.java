@@ -113,6 +113,7 @@ import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
+import org.apache.druid.server.system.table.SupervisorTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.apache.druid.sql.calcite.schema.SystemSchema.QueriesTable;
@@ -556,6 +557,17 @@ public class SystemSchemaTest extends CalciteTestBase
   );
 
   private final List<ImmutableDruidServer> immutableDruidServers = ImmutableList.of(druidServer1, druidServer2);
+
+  /** Without druid.query.enableDruidEngineForSystemTables, sys.supervisors has no Druid datasource representation. */
+  @Test
+  public void testSupervisorsDataSourceTableRequiresEnabledDruidEngine()
+  {
+    Assertions.assertNull(new SystemSchema.SupervisorsTable(null, null, null, false).asDataSourceTable());
+    Assertions.assertInstanceOf(
+        SupervisorsDataSourceTable.class,
+        new SystemSchema.SupervisorsTable(null, null, null, true).asDataSourceTable()
+    );
+  }
 
   @Test
   public void testGetTables()
@@ -1621,7 +1633,7 @@ public class SystemSchemaTest extends CalciteTestBase
   {
     SystemSchema.SupervisorsTable supervisorTable =
         EasyMock.createMockBuilder(SystemSchema.SupervisorsTable.class)
-                .withConstructor(overlordClient, authMapper, createAuthResult(Users.SUPER))
+                .withConstructor(overlordClient, authMapper, createAuthResult(Users.SUPER), false)
                 .createMock();
     EasyMock.replay(supervisorTable);
 
@@ -1665,7 +1677,7 @@ public class SystemSchemaTest extends CalciteTestBase
     );
 
     // Verify value types.
-    verifyTypes(rows, SystemSchema.SUPERVISOR_SIGNATURE);
+    verifyTypes(rows, SupervisorTableDescriptor.ROW_SIGNATURE);
   }
 
   @Test
@@ -1696,21 +1708,21 @@ public class SystemSchemaTest extends CalciteTestBase
 
     // Verify that no row is returned for Datasource Write user
     List<Object[]> rows =
-        new SystemSchema.SupervisorsTable(overlordClient, authMapper, createAuthResult(Users.DATASOURCE_WRITE))
+        new SystemSchema.SupervisorsTable(overlordClient, authMapper, createAuthResult(Users.DATASOURCE_WRITE), false)
             .scan(createDataContext())
             .toList();
     Assertions.assertTrue(rows.isEmpty());
 
     // Verify that 1 row is returned for Datasource Read user
     rows =
-        new SystemSchema.SupervisorsTable(overlordClient, authMapper, createAuthResult(Users.DATASOURCE_READ))
+        new SystemSchema.SupervisorsTable(overlordClient, authMapper, createAuthResult(Users.DATASOURCE_READ), false)
             .scan(createDataContext())
             .toList();
     Assertions.assertEquals(1, rows.size());
 
     // Verify that 1 row is returned for Super user
     rows =
-        new SystemSchema.SupervisorsTable(overlordClient, authMapper, createAuthResult(Users.SUPER))
+        new SystemSchema.SupervisorsTable(overlordClient, authMapper, createAuthResult(Users.SUPER), false)
             .scan(createDataContext())
             .toList();
     Assertions.assertEquals(1, rows.size());
@@ -1718,7 +1730,7 @@ public class SystemSchemaTest extends CalciteTestBase
     // TODO: If needed, verify the first row here
 
     // TODO: Verify value types.
-    // verifyTypes(rows, SystemSchema.SUPERVISOR_SIGNATURE);
+    // verifyTypes(rows, SupervisorTableDescriptor.ROW_SIGNATURE);
   }
 
   @Test
@@ -2357,7 +2369,8 @@ public class SystemSchemaTest extends CalciteTestBase
     SystemSchema.SupervisorsTable supervisorTable = new SystemSchema.SupervisorsTable(
         overlordClient,
         createAuthMapper(),
-        createAuthResult(Users.ONLY_DATASOURCE_ALL_ACCESS)
+        createAuthResult(Users.ONLY_DATASOURCE_ALL_ACCESS),
+        false
     );
 
     // Verify that 1 row is returned for datasource name DATASOURCE_ALL_ACCESS

@@ -43,7 +43,9 @@ import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.server.security.Escalator;
 import org.apache.druid.server.security.ForbiddenException;
+import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.handler.SystemTableQueryHandler;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
@@ -53,6 +55,7 @@ import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableRowAuthorizer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.util.Arrays;
 import java.util.List;
@@ -64,10 +67,15 @@ import java.util.stream.StreamSupport;
 
 public class SystemTableQueryHandlerTest
 {
+  private static final String INTERNAL_IDENTITY = "druid_system";
   private static final RowSignature ROW_SIGNATURE = RowSignature.builder()
                                                                .add("task_id", ColumnType.STRING)
                                                                .add("duration", ColumnType.LONG)
                                                                .build();
+  private static final RowSignature TRANSPORT_ROW_SIGNATURE = RowSignature.builder()
+                                                                         .addAll(ROW_SIGNATURE)
+                                                                         .add("internal", ColumnType.STRING)
+                                                                         .build();
 
   /** A direct local Scan lazily reads provider rows and applies the table descriptor's row authorization. */
   @Test
@@ -125,7 +133,8 @@ public class SystemTableQueryHandlerTest
         Map.of("test", supplier),
         Map.of(descriptor.getTableName(), descriptor),
         new ScanQueryEngine(),
-        new AuthorizerMapper(Map.of())
+        new AuthorizerMapper(Map.of()),
+        NoopEscalator.getInstance()
     );
     final ScanQuery query = Druids.newScanQueryBuilder()
                                   .dataSource(new SystemTableDataSource("test"))
@@ -185,7 +194,8 @@ public class SystemTableQueryHandlerTest
         Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, provider),
         Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, new ServerPropertiesTableDescriptor()),
         new ScanQueryEngine(),
-        authorizerMapper
+        authorizerMapper,
+        NoopEscalator.getInstance()
     );
     final ScanQuery query = Druids.newScanQueryBuilder()
                                   .dataSource(new SystemTableDataSource(ServerPropertiesTableDescriptor.TABLE_NAME))
@@ -241,7 +251,8 @@ public class SystemTableQueryHandlerTest
         ),
         Map.of(ServerPropertiesTableDescriptor.TABLE_NAME, new ServerPropertiesTableDescriptor()),
         new ScanQueryEngine(),
-        denyState
+        denyState,
+        NoopEscalator.getInstance()
     );
     final ScanQuery query = Druids.newScanQueryBuilder()
                                   .dataSource(new SystemTableDataSource(ServerPropertiesTableDescriptor.TABLE_NAME))
@@ -264,7 +275,8 @@ public class SystemTableQueryHandlerTest
         Map.of(),
         Map.of(),
         new ScanQueryEngine(),
-        new AuthorizerMapper(Map.of())
+        new AuthorizerMapper(Map.of()),
+        NoopEscalator.getInstance()
     );
     final ScanQuery query = Druids.newScanQueryBuilder()
                                   .dataSource(
@@ -286,4 +298,107 @@ public class SystemTableQueryHandlerTest
     );
   }
 
+  /**
+   * The Broker's fanout runs as the escalated identity and needs the transport columns to re-authorize rows against
+   * the caller. A user's own request with the local native query route runs as the user and gets the public table.
+   */
+  @Test
+  public void testTransportColumnsAreReturnedOnlyToInternalLocalRequests()
+  {
+    final SystemTableDataProvider supplier = filters -> List.<Object[]>of(
+        new Object[]{"task-a", 10L, "authorization-metadata"}
+    );
+    final SystemTableDescriptor descriptor = new SystemTableDescriptor()
+    {
+      @Override
+      public String getTableName()
+      {
+        return "test";
+      }
+
+      @Override
+      public Set<NodeRole> getNodeRoles()
+      {
+        return Set.of();
+      }
+
+      @Override
+      public RowSignature getRowSignature()
+      {
+        return ROW_SIGNATURE;
+      }
+
+      @Override
+      public RowSignature getTransportRowSignature()
+      {
+        return TRANSPORT_ROW_SIGNATURE;
+      }
+
+      @Override
+      public Object[] toPublicRow(final Object[] transportRow)
+      {
+        return Arrays.copyOf(transportRow, ROW_SIGNATURE.size());
+      }
+
+      @Override
+      public SystemTableRowAuthorizer getRowAuthorizer()
+      {
+        return (rows, authenticationResult, authorizerMapper) -> rows;
+      }
+    };
+    final Escalator escalator = Mockito.mock(Escalator.class);
+    Mockito.when(escalator.createEscalatedAuthenticationResult())
+           .thenReturn(new AuthenticationResult(INTERNAL_IDENTITY, "allow", null, null));
+    final SystemTableQueryHandler handler = new SystemTableQueryHandler(
+        Map.of("test", supplier),
+        Map.of(descriptor.getTableName(), descriptor),
+        new ScanQueryEngine(),
+        new AuthorizerMapper(Map.of()),
+        escalator
+    );
+
+    // A node that authenticates the escalated client sets its own authenticatedBy, so only the identity matches.
+    final AuthenticationResult internal = new AuthenticationResult(INTERNAL_IDENTITY, "allow", "basic", null);
+    final AuthenticationResult user = new AuthenticationResult("alice", "allow", "external", null);
+
+    Assertions.assertEquals(
+        Arrays.asList("task-a", 10L, "authorization-metadata"),
+        runScan(handler, TRANSPORT_ROW_SIGNATURE, internal, true)
+    );
+    Assertions.assertEquals(
+        Arrays.asList("task-a", 10L, null),
+        runScan(handler, TRANSPORT_ROW_SIGNATURE, user, true)
+    );
+    Assertions.assertEquals(
+        Arrays.asList("task-a", 10L, null),
+        runScan(handler, TRANSPORT_ROW_SIGNATURE, internal, false)
+    );
+  }
+
+  private static List<?> runScan(
+      final SystemTableQueryHandler handler,
+      final RowSignature columns,
+      final AuthenticationResult authenticationResult,
+      final boolean executeLocally
+  )
+  {
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                  .dataSource(new SystemTableDataSource("test"))
+                                  .eternityInterval()
+                                  .columns(columns)
+                                  .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                  .build();
+    final QueryRunner<ScanResultValue> runner = handler.createRunner(
+        query,
+        authenticationResult,
+        executeLocally
+    );
+    final List<ScanResultValue> result = runner.run(
+        QueryPlus.wrap(query),
+        ResponseContext.createEmpty()
+    ).toList();
+
+    Assertions.assertEquals(1, result.size());
+    return (List<?>) ((List<?>) result.get(0).getEvents()).get(0);
+  }
 }
