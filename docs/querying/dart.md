@@ -47,6 +47,12 @@ When processing these kinds of queries, Dart can parallelize through the entire 
 
 By default, Dart queries include results from published segments and realtime tasks.
 
+When `druid.query.enableDruidEngineForSystemTables` is `true` in the common runtime properties, Dart can also execute
+queries against `sys.server_properties`. Before the query runs, the Broker gathers the rows that the caller may read
+from every service, as it does for the native engine. The query then runs on a Dart worker embedded in the Broker, so
+it doesn't require a Historical, and can't read other datasources. Other system tables, and `sys.server_properties`
+when the property is `false`, are read by the Broker's SQL interpreter, as with the native engine.
+
 ## Enable Dart
 
 To enable Dart, add the following line to your `_common/common.runtime.properties` files:
@@ -145,3 +151,4 @@ You can use any SQL query context parameters to control Dart's behavior unless o
 - Realtime scans from the MSQ engine can't reliably read complex types. This can happen in situations such as if your data includes HLL Sketches for realtime data. Dart returns a `NullPointerException`. For more information, see [#18340](https://github.com/apache/druid/issues/18340).
 - The `NilStageOutputReader` can sometimes lead to a `NoClassDefFoundError`. For more information, see [#18336](https://github.com/apache/druid/pull/18336).
 - Broadcast joins with realtime data aren't supported. If the left table of a join has realtime data and you're doing a broadcast join, you must set `sqlJoinAlgorithm` to `sortMerge`.
+- Of the `sys` tables, only `sys.server_properties` runs on Dart workers. A query on it can't read other datasources.

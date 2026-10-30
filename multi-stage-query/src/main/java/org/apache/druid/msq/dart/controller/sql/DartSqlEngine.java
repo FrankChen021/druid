@@ -37,6 +37,7 @@ import org.apache.druid.msq.dart.Dart;
 import org.apache.druid.msq.dart.controller.ControllerThreadPool;
 import org.apache.druid.msq.dart.controller.DartControllerContextFactory;
 import org.apache.druid.msq.dart.controller.DartControllerRegistry;
+import org.apache.druid.msq.dart.controller.DartSystemTableResolver;
 import org.apache.druid.msq.dart.controller.QueryInfoAndReport;
 import org.apache.druid.msq.dart.controller.http.DartQueryInfo;
 import org.apache.druid.msq.dart.guice.DartControllerConfig;
@@ -92,6 +93,7 @@ public class DartSqlEngine implements SqlEngine
   private final QueryConfigProvider queryConfigProvider;
   private final SqlToolbox toolbox;
   private final DartSqlClients sqlClients;
+  private final DartSystemTableResolver systemTableResolver;
 
   @Inject
   public DartSqlEngine(
@@ -104,7 +106,8 @@ public class DartSqlEngine implements SqlEngine
       ServerConfig serverConfig,
       @Dart QueryConfigProvider queryConfigProvider,
       SqlToolbox toolbox,
-      DartSqlClients sqlClients
+      DartSqlClients sqlClients,
+      DartSystemTableResolver systemTableResolver
   )
   {
     this.controllerContextFactory = controllerContextFactory;
@@ -117,6 +120,7 @@ public class DartSqlEngine implements SqlEngine
     this.queryConfigProvider = queryConfigProvider;
     this.toolbox = toolbox;
     this.sqlClients = sqlClients;
+    this.systemTableResolver = systemTableResolver;
   }
 
   /**
@@ -169,6 +173,16 @@ public class DartSqlEngine implements SqlEngine
     }
   }
 
+  /**
+   * Dart reads the registered system tables, whose rows the controller gathers from every service before the query
+   * runs.
+   */
+  @Override
+  public boolean supportsSystemTableDataSource(final PlannerContext plannerContext, final String tableName)
+  {
+    return systemTableResolver.supports(tableName);
+  }
+
   @Override
   public void validateContext(Map<String, Object> queryContext)
   {
@@ -217,7 +231,8 @@ public class DartSqlEngine implements SqlEngine
         controllerConfig,
         controllerThreadPool,
         queryKitSpecFactory,
-        queryKit
+        queryKit,
+        systemTableResolver
     );
     if (plannerContext.queryContext().isPrePlanned()) {
       return new PrePlannedDartQueryMaker(plannerContext, dartQueryMaker);

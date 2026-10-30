@@ -31,6 +31,7 @@ import org.apache.druid.java.util.common.guava.SequenceWrapper;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.msq.dart.controller.ControllerThreadPool;
 import org.apache.druid.msq.dart.controller.DartControllerContextFactory;
+import org.apache.druid.msq.dart.controller.DartSystemTableResolver;
 import org.apache.druid.msq.dart.guice.DartControllerConfig;
 import org.apache.druid.msq.exec.ControllerContext;
 import org.apache.druid.msq.exec.ControllerHolder;
@@ -47,7 +48,9 @@ import org.apache.druid.msq.indexing.error.CancellationReason;
 import org.apache.druid.msq.querykit.MultiQueryKit;
 import org.apache.druid.msq.sql.MSQTaskQueryMaker;
 import org.apache.druid.msq.util.SqlStatementResourceHelper;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.server.QueryResponse;
@@ -96,6 +99,7 @@ public class DartQueryMaker implements QueryMaker
 
   final QueryKitSpecFactory queryKitSpecFactory;
   final MultiQueryKit queryKit;
+  private final DartSystemTableResolver systemTableResolver;
 
   public DartQueryMaker(
       List<Entry<Integer, String>> fieldMapping,
@@ -105,7 +109,8 @@ public class DartQueryMaker implements QueryMaker
       DartControllerConfig controllerConfig,
       ControllerThreadPool controllerThreadPool,
       QueryKitSpecFactory queryKitSpecFactory,
-      MultiQueryKit queryKit
+      MultiQueryKit queryKit,
+      DartSystemTableResolver systemTableResolver
   )
   {
     this.fieldMapping = fieldMapping;
@@ -116,24 +121,62 @@ public class DartQueryMaker implements QueryMaker
     this.controllerThreadPool = controllerThreadPool;
     this.queryKitSpecFactory = queryKitSpecFactory;
     this.queryKit = queryKit;
+    this.systemTableResolver = systemTableResolver;
   }
 
   @Override
   public QueryResponse<Object[]> runQuery(DruidQuery druidQuery)
   {
     ColumnMappings columnMappings = QueryUtils.buildColumnMappings(fieldMapping, druidQuery.getOutputRowSignature());
-    final LegacyMSQSpec querySpec = MSQTaskQueryMaker.buildLegacyMSQSpec(
+    final LegacyMSQSpec plannedSpec = MSQTaskQueryMaker.buildLegacyMSQSpec(
         null,
         druidQuery,
         columnMappings,
         plannerContext,
         null
     );
-
+    final boolean readsSystemTables = readsSystemTables(plannedSpec);
+    final LegacyMSQSpec querySpec = resolveSystemTables(plannedSpec);
 
     final ResultsContext resultsContext = MSQTaskQueryMaker.makeResultsContext(druidQuery, fieldMapping, plannerContext);
 
-    return runLegacyMSQSpec(querySpec, druidQuery.getQuery().context(), resultsContext);
+    final QueryContext context = druidQuery.getQuery().context();
+    final ControllerImpl controller = makeLegacyController(querySpec, context, resultsContext, readsSystemTables);
+    return runController(controller, context.getFullReport(), querySpec.getColumnMappings(), resultsContext);
+  }
+
+  /**
+   * Whether the spec reads system tables. Such a query runs on the Dart worker embedded in this Broker, which processes
+   * the rows that {@link #resolveSystemTables} gathers on it.
+   */
+  static boolean readsSystemTables(final LegacyMSQSpec querySpec)
+  {
+    return SystemTableDataSource.readsSystemTable(querySpec.getQuery().getDataSource());
+  }
+
+  /**
+   * Returns the spec with its system tables replaced by the rows that the caller may read.
+   */
+  LegacyMSQSpec resolveSystemTables(final LegacyMSQSpec querySpec)
+  {
+    if (!readsSystemTables(querySpec)) {
+      return querySpec;
+    }
+    return querySpec.withQuery(
+        systemTableResolver.resolve(querySpec.getQuery(), plannerContext.getAuthenticationResult())
+    );
+  }
+
+  /**
+   * Returns the datasource with its system tables replaced by the rows that the caller may read.
+   */
+  DataSource resolveSystemTables(final DataSource dataSource)
+  {
+    return systemTableResolver.resolve(
+        dataSource,
+        plannerContext.queryContext(),
+        plannerContext.getAuthenticationResult()
+    );
   }
 
   public static ResultsContext makeResultsContext(
@@ -159,7 +202,7 @@ public class DartQueryMaker implements QueryMaker
       ResultsContext resultsContext
   )
   {
-    final ControllerImpl controller = makeLegacyController(querySpec, context, resultsContext);
+    final ControllerImpl controller = makeLegacyController(querySpec, context, resultsContext, false);
     return runController(controller, context.getFullReport(), querySpec.getColumnMappings(), resultsContext);
   }
 
@@ -169,16 +212,22 @@ public class DartQueryMaker implements QueryMaker
   public QueryResponse<Object[]> runQueryDefMSQSpec(
       QueryDefMSQSpec querySpec,
       QueryContext context,
-      ResultsContext resultsContext
+      ResultsContext resultsContext,
+      boolean useBrokerWorker
   )
   {
-    final ControllerImpl controller = makeQueryDefController(querySpec, context, resultsContext);
+    final ControllerImpl controller = makeQueryDefController(querySpec, context, resultsContext, useBrokerWorker);
     return runController(controller, context.getFullReport(), querySpec.getColumnMappings(), resultsContext);
   }
 
-  private ControllerImpl makeLegacyController(LegacyMSQSpec querySpec, QueryContext context, ResultsContext resultsContext)
+  private ControllerImpl makeLegacyController(
+      LegacyMSQSpec querySpec,
+      QueryContext context,
+      ResultsContext resultsContext,
+      boolean useBrokerWorker
+  )
   {
-    final ControllerContext controllerContext = controllerContextFactory.newContext(context);
+    final ControllerContext controllerContext = controllerContextFactory.newContext(context, useBrokerWorker);
 
     return new ControllerImpl(
         querySpec,
@@ -188,9 +237,14 @@ public class DartQueryMaker implements QueryMaker
     );
   }
 
-  private ControllerImpl makeQueryDefController(QueryDefMSQSpec querySpec, QueryContext context, ResultsContext resultsContext)
+  private ControllerImpl makeQueryDefController(
+      QueryDefMSQSpec querySpec,
+      QueryContext context,
+      ResultsContext resultsContext,
+      boolean useBrokerWorker
+  )
   {
-    final ControllerContext controllerContext = controllerContextFactory.newContext(context);
+    final ControllerContext controllerContext = controllerContextFactory.newContext(context, useBrokerWorker);
 
     return new ControllerImpl(
         querySpec,

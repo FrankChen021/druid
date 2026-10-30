@@ -176,7 +176,8 @@ public class DartControllerContextTest
         List.of(),
         null,
         queryContext,
-        dartWorkerDiscovery
+        dartWorkerDiscovery,
+        false
     );
   }
 

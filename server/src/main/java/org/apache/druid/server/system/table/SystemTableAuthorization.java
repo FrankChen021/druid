@@ -20,7 +20,9 @@
 
 package org.apache.druid.server.system.table;
 
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.SystemTableAccess;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationResult;
@@ -30,7 +32,10 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Authorization checks shared by native system tables.
@@ -48,6 +53,38 @@ public final class SystemTableAuthorization
 
   private SystemTableAuthorization()
   {
+  }
+
+  /**
+   * Attaches to each system table in the datasource the {@link SystemTableAccess} of the given identity, which says
+   * which rows of the table it may read. The table can't be read without it. Tables without a descriptor are left as
+   * they are.
+   *
+   * @throws ForbiddenException if the identity may not read one of the tables at all
+   */
+  public static DataSource withAccess(
+      final DataSource dataSource,
+      final Map<String, SystemTableDescriptor> tableDescriptors,
+      final AuthenticationResult authenticationResult,
+      final AuthorizerMapper authorizerMapper
+  )
+  {
+    if (!SystemTableDataSource.readsSystemTable(dataSource)) {
+      return dataSource;
+    }
+    if (dataSource instanceof SystemTableDataSource systemTable) {
+      final SystemTableDescriptor descriptor = tableDescriptors.get(systemTable.getTable());
+      if (descriptor == null) {
+        return systemTable;
+      }
+      return systemTable.withAccess(descriptor.getRowAuthorizer().authorize(authenticationResult, authorizerMapper));
+    }
+    final List<DataSource> children = dataSource.getChildren();
+    final List<DataSource> authorizedChildren = new ArrayList<>(children.size());
+    for (final DataSource child : children) {
+      authorizedChildren.add(withAccess(child, tableDescriptors, authenticationResult, authorizerMapper));
+    }
+    return dataSource.withChildren(authorizedChildren);
   }
 
   /**

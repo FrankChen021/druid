@@ -25,8 +25,10 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.multibindings.OptionalBinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import com.google.inject.name.Named;
 import org.apache.druid.discovery.DruidService;
@@ -62,6 +64,7 @@ import org.apache.druid.msq.exec.MemoryIntrospector;
 import org.apache.druid.msq.guice.MSQBinders;
 import org.apache.druid.msq.rpc.ResourcePermissionMapper;
 import org.apache.druid.query.DruidProcessingConfig;
+import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.rpc.ServiceClientFactory;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.security.AuthorizerMapper;
@@ -79,6 +82,8 @@ import java.util.concurrent.ExecutorService;
 @LoadScope(roles = NodeRole.HISTORICAL_JSON_NAME)
 public class DartWorkerModule implements DruidModule
 {
+  private static final Module ACTUAL_MODULE = new ActualModule();
+
   private Properties properties;
 
   @Inject
@@ -91,8 +96,13 @@ public class DartWorkerModule implements DruidModule
   public void configure(Binder binder)
   {
     if (DartModules.isDartEnabled(properties)) {
-      binder.install(new ActualModule());
+      binder.install(actualModule());
     }
+  }
+
+  public static Module actualModule()
+  {
+    return ACTUAL_MODULE;
   }
 
   public static class ActualModule implements Module
@@ -115,6 +125,11 @@ public class DartWorkerModule implements DruidModule
                 .addBinding()
                 .to(DartSegmentsInputSliceReaderProvider.class)
                 .in(LazySingleton.class);
+      // Historical workers reuse the normal processing pool. The embedded Broker worker overrides this binding with
+      // a lifecycle-managed pool because Brokers do not otherwise provide QueryProcessingPool.
+      OptionalBinder.newOptionalBinder(binder, Key.get(ExecutorService.class, Dart.class))
+                    .setDefault()
+                    .to(QueryProcessingPool.class);
     }
 
     /**

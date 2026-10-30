@@ -28,6 +28,7 @@ import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
@@ -44,9 +45,9 @@ import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.common.concurrent.ScheduledExecutorFactory;
 import org.apache.druid.java.util.common.concurrent.ScheduledExecutors;
 import org.apache.druid.msq.dart.Dart;
-import org.apache.druid.msq.dart.DartResourcePermissionMapper;
 import org.apache.druid.msq.dart.controller.ControllerMessageListener;
 import org.apache.druid.msq.dart.controller.ControllerThreadPool;
+import org.apache.druid.msq.dart.controller.DartBrokerMessageRelays;
 import org.apache.druid.msq.dart.controller.DartControllerContextFactory;
 import org.apache.druid.msq.dart.controller.DartControllerContextFactoryImpl;
 import org.apache.druid.msq.dart.controller.DartControllerRegistry;
@@ -61,11 +62,12 @@ import org.apache.druid.msq.dart.controller.sql.DartSqlClients;
 import org.apache.druid.msq.dart.controller.sql.DartSqlEngine;
 import org.apache.druid.msq.dart.worker.DartWorkerService;
 import org.apache.druid.msq.guice.MSQBinders;
-import org.apache.druid.msq.rpc.ResourcePermissionMapper;
 import org.apache.druid.query.DefaultQueryConfig;
 import org.apache.druid.query.QueryConfigProvider;
 import org.apache.druid.rpc.ServiceClientFactory;
 import org.apache.druid.server.DruidNode;
+import org.apache.druid.server.system.module.SystemTableModule;
+import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.SqlToolbox;
 import org.apache.druid.sql.calcite.run.SqlEngine;
@@ -89,6 +91,9 @@ public class DartControllerModule implements DruidModule
   {
     if (DartModules.isDartEnabled(properties)) {
       binder.install(new ActualModule());
+      if (SystemTableModule.isEnabled(properties)) {
+        binder.install(new SystemTableControllerModule());
+      }
     }
   }
 
@@ -103,6 +108,8 @@ public class DartControllerModule implements DruidModule
       // DartSqlEngine.initContextMap() manages context merging independently for Dart queries.
       binder.bind(Key.get(QueryConfigProvider.class, Dart.class))
             .to(Key.get(DefaultQueryConfig.class, Dart.class));
+      // Keep Dart usable when no system tables are registered. SystemTableModule contributes supported descriptors.
+      MapBinder.newMapBinder(binder, String.class, SystemTableDescriptor.class);
 
       LifecycleModule.register(binder, DartSqlClients.class);
       LifecycleModule.register(binder, DartMessageRelays.class);
@@ -117,9 +124,6 @@ public class DartControllerModule implements DruidModule
       binder.bind(DartSqlClientFactory.class)
             .to(DartSqlClientFactoryImpl.class)
             .in(LazySingleton.class);
-      binder.bind(ResourcePermissionMapper.class)
-            .annotatedWith(Dart.class)
-            .to(DartResourcePermissionMapper.class);
       Multibinder.newSetBinder(binder, SqlEngine.class)
                  .addBinding()
                  .to(DartSqlEngine.class)
@@ -185,6 +189,31 @@ public class DartControllerModule implements DruidModule
           ),
           ScheduledExecutors.fixed(1, "dart-controller-timeout-%s")
       );
+    }
+  }
+
+  /**
+   * Receives messages from the Dart worker embedded in this Broker, which processes queries on system tables after the
+   * controller has gathered their rows. Installed only when
+   * {@link SystemTableModule#ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY} is set.
+   */
+  public static class SystemTableControllerModule implements Module
+  {
+    @Override
+    public void configure(Binder binder)
+    {
+      LifecycleModule.register(binder, DartBrokerMessageRelays.class);
+    }
+
+    @Provides
+    @ManageLifecycle
+    public DartBrokerMessageRelays makeBrokerMessageRelays(
+        final DruidNodeDiscoveryProvider discoveryProvider,
+        @Self final DruidNode selfNode,
+        final DartMessageRelayFactoryImpl messageRelayFactory
+    )
+    {
+      return new DartBrokerMessageRelays(discoveryProvider, selfNode, messageRelayFactory);
     }
   }
 

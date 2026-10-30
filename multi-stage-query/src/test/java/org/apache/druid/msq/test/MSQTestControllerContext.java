@@ -488,7 +488,7 @@ public class MSQTestControllerContext implements ControllerContext, DartControll
   }
 
   @Override
-  public ControllerContext newContext(QueryContext context)
+  public ControllerContext newContext(QueryContext context, boolean useBrokerWorker)
   {
     this.queryContext = this.queryContext.override(context);
     return this;

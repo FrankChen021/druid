@@ -25,6 +25,7 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.http.client.CredentialedHttpClient;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.auth.BasicCredentials;
+import org.apache.druid.msq.dart.controller.sql.DartSqlEngine;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.security.basic.authentication.entity.BasicAuthenticatorCredentialUpdate;
 import org.apache.druid.server.security.Access;
@@ -116,6 +117,21 @@ public class BasicAuthConfigurationTest extends AbstractAuthConfigurationTest
     Assertions.assertTrue(invisible.contains("Object 'server_properties' not found within 'sys'"), invisible);
   }
 
+  /**
+   * Dart reads system tables through the Broker's gathering, which filters the rows with the caller's access, so it
+   * requires STATE READ and SYSTEM_TABLE READ on the table like the native engine.
+   */
+  @Test
+  public void test_dartSystemTableQuery_requiresSystemTableAndStateRead()
+  {
+    final String sql = "SELECT COUNT(*) FROM sys.server_properties";
+    final Map<String, Object> context = Map.of(QueryContextParameters.ENGINE.getName(), DartSqlEngine.NAME);
+    makeSQLQueryRequest(sysTableWithStateUser, sql, context, HttpResponseStatus.OK);
+    makeSQLQueryRequest(sysTableUser, sql, context, HttpResponseStatus.FORBIDDEN);
+    // Without SYSTEM_TABLE READ the table is hidden from the caller, so it isn't found rather than forbidden.
+    makeSQLQueryRequest(stateWithoutSysTableUser, sql, context, HttpResponseStatus.BAD_REQUEST);
+  }
+
   @Override
   protected void setupDatasourceOnlyUser()
   {
@@ -204,7 +220,8 @@ public class BasicAuthConfigurationTest extends AbstractAuthConfigurationTest
     final ResourceAction readServerPropertiesTable =
         new ResourceAction(new Resource("server_properties", ResourceType.SYSTEM_TABLE), Action.READ);
     final ResourceAction readState = new ResourceAction(new Resource(".*", ResourceType.STATE), Action.READ);
-    // The Router sets queryId on native queries it forwards, and this cluster authorizes query context keys.
+    // The Router sets queryId on native queries it forwards, the Dart test sets engine, and this cluster authorizes
+    // query context keys.
     final ResourceAction writeQueryId = new ResourceAction(
         new Resource(QueryContextParameters.QUERY_ID.getName(), ResourceType.QUERY_CONTEXT),
         Action.WRITE
@@ -214,17 +231,19 @@ public class BasicAuthConfigurationTest extends AbstractAuthConfigurationTest
         new Resource(QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES.getName(), ResourceType.QUERY_CONTEXT),
         Action.WRITE
     );
+    final ResourceAction writeEngine =
+        new ResourceAction(new Resource(QueryContextParameters.ENGINE.getName(), ResourceType.QUERY_CONTEXT), Action.WRITE);
     sysTableUser = createUserWithClient(
         "sysTableUser",
-        List.of(readServerPropertiesTable, writeQueryId, writeUseDruidEngine)
+        List.of(readServerPropertiesTable, writeQueryId, writeUseDruidEngine, writeEngine)
     );
     sysTableWithStateUser = createUserWithClient(
         "sysTableWithStateUser",
-        List.of(readServerPropertiesTable, readState, writeQueryId, writeUseDruidEngine)
+        List.of(readServerPropertiesTable, readState, writeQueryId, writeUseDruidEngine, writeEngine)
     );
     stateWithoutSysTableUser = createUserWithClient(
         "stateWithoutSysTableUser",
-        List.of(readState, writeQueryId, writeUseDruidEngine)
+        List.of(readState, writeQueryId, writeUseDruidEngine, writeEngine)
     );
   }
 

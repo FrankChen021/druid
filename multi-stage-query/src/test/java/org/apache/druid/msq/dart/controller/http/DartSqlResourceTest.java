@@ -38,6 +38,7 @@ import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.metrics.StubServiceEmitter;
 import org.apache.druid.msq.dart.controller.ControllerThreadPool;
 import org.apache.druid.msq.dart.controller.DartControllerRegistry;
+import org.apache.druid.msq.dart.controller.DartSystemTableResolver;
 import org.apache.druid.msq.dart.controller.sql.DartQueryMaker;
 import org.apache.druid.msq.dart.controller.sql.DartSqlClient;
 import org.apache.druid.msq.dart.controller.sql.DartSqlClients;
@@ -274,7 +275,8 @@ public class DartSqlResourceTest extends MSQTestBase
         new ServerConfig(),
         new DefaultQueryConfig(ImmutableMap.of("foo", "bar")),
         toolbox,
-        dartSqlClients
+        dartSqlClients,
+        new DartSystemTableResolver(Map.of(), CalciteTests.TEST_AUTHORIZER_MAPPER, injector)
     );
 
     sqlResource = new SqlResource(
