@@ -80,6 +80,11 @@ public abstract class ColumnsFilter
       this.inclusions = inclusions;
     }
 
+    public Set<String> getInclusions()
+    {
+      return Collections.unmodifiableSet(inclusions);
+    }
+
     @Override
     public boolean apply(String column)
     {
