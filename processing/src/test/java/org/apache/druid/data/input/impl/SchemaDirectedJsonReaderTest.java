@@ -78,6 +78,14 @@ public class SchemaDirectedJsonReaderTest extends InitializedNullHandlingTest
         "{\"ts\":\"2021-06-25\",\"unused\":{\"a\":[1,2]",
         "{\"ts\":\"2021-06-25\",\"unused\":" + "[".repeat(1001) + "]".repeat(1001) + "}",
         "{\"ts\":\"2021-06-25\",\"s\":[\"a\",\"b\"]}",
+        "{\"ts\":\"2021-06-25\",\"s\":[]}",
+        "{\"ts\":\"2021-06-25\",\"s\":[null,\"a\",null]}",
+        "{\"ts\":\"2021-06-25\",\"s\":[\"a\",1,-2.5,true,false]}",
+        "{\"ts\":\"2021-06-25\",\"s\":[\"\\uD800\",\"\\uD83D\\uDE00\"]}",
+        "{\"ts\":\"2021-06-25\",\"s\":[\"a\",[\"b\"]]}",
+        "{\"ts\":\"2021-06-25\",\"s\":[\"a\",{\"x\":1}]}",
+        "{\"ts\":\"2021-06-25\",\"s\":[\"a\",",
+        "{\"ts\":\"2021-06-25\",\"n\":[1,9223372036854775808,1e309],\"amount\":[1,2]}",
         "{\"ts\":\"2021-06-25\",\"s\":{\"nested\":1}}",
         "{\"ts\":\"2021-06-25\"}\n{\"ts\":\"2021-06-26\",\"amount\":7}",
         "[{\"ts\":\"2021-06-25\"}]",
@@ -147,6 +155,28 @@ public class SchemaDirectedJsonReaderTest extends InitializedNullHandlingTest
       ).get(0);
       Assertions.assertEquals(expected.getEvent().toString(), actual.getEvent().toString());
     }
+  }
+
+  public static Stream<String> requiredArrays()
+  {
+    return Stream.of("[]", "[\"a\",\"b\"]", "[null,\"a\"]", "[\"a\",1,2.5,true]");
+  }
+
+  @ParameterizedTest
+  @MethodSource("requiredArrays")
+  public void testRequiredArraysDoNotUseFallbackReader(final String array) throws Exception
+  {
+    final MutableEntity source = new MutableEntity();
+    source.data = StringUtils.toUtf8("{\"ts\":\"2021-06-25\",\"s\":" + array + ",\"amount\":3}");
+    final InputRow row = read(new SchemaDirectedJsonReader(schema(), source, new ObjectMapper(), false)).get(0);
+    final InputRow expected = read(
+        new JsonReader(schema(), new ByteEntity(source.data), JSONPathSpec.DEFAULT, new ObjectMapper(), false)
+    ).get(0);
+    Assertions.assertEquals(expected.getRaw("s"), row.getRaw("s"));
+    Assertions.assertEquals(expected.getDimension("s"), row.getDimension("s"));
+    Assertions.assertEquals(3L, row.getRaw("amount"));
+    // The fallback reader would open the entity a second time.
+    Assertions.assertEquals(1, source.opens);
   }
 
   /**

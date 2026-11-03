@@ -138,11 +138,29 @@ class SchemaDirectedJsonReader extends JsonReader
 
   /**
    * Parses the value of a required column at the current token of the parser, converted the same way as the tree
-   * reader. Objects and arrays are not supported and throw, so that the record falls back to the tree reader.
+   * reader. Scalars and arrays of scalars (multi-value columns) are supported. Objects, and arrays that contain objects
+   * or arrays, are not supported and throw, so that the record falls back to the tree reader.
    */
   @Nullable
   private Object parseColumnValue(final JsonParser parser, final JsonToken token) throws IOException
   {
+    if (token != JsonToken.START_ARRAY) {
+      return parseScalarValue(parser, token);
+    }
+
+    final List<Object> values = new ArrayList<>();
+    for (JsonToken element = parser.nextToken(); element != JsonToken.END_ARRAY; element = parser.nextToken()) {
+      values.add(parseScalarValue(parser, element));
+    }
+    return values;
+  }
+
+  @Nullable
+  private Object parseScalarValue(final JsonParser parser, @Nullable final JsonToken token) throws IOException
+  {
+    if (token == null) {
+      throw new UnsupportedOperationException("Use the tree reader for truncated records");
+    }
     switch (token) {
       case VALUE_STRING:
         return JSONFlattenerMaker.charsetFix(parser.getText(), encoder);
