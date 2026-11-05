@@ -44,6 +44,7 @@ import org.apache.druid.server.initialization.jetty.JettyBindings;
 import org.apache.druid.server.system.handler.SystemTableQueryResource;
 import org.apache.druid.server.system.module.SystemTableModule;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
+import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -126,6 +127,18 @@ public class CliCoordinatorTest
     Assertions.assertTrue(queryRunnerFactories(injector).containsKey(ScanQuery.class));
     Assertions.assertTrue(queryRunnerFactories(injector).containsKey(SegmentMetadataQuery.class));
     Assertions.assertEquals("testValue", injector.getInstance(QueryConfigProvider.class).getContext().get("testKey"));
+    Assertions.assertTrue(systemTableDataProviders(injector).containsKey(TaskTableDescriptor.TABLE_NAME));
+  }
+
+  /** A Coordinator running as Overlord binds the sys.tasks provider only when the Druid engine is enabled. */
+  @Test
+  public void testCoordinatorAsOverlordWithoutDruidEngineForSystemTables()
+  {
+    final Properties properties = new Properties();
+    properties.setProperty("druid.coordinator.asOverlord.enabled", "true");
+    final Injector injector = makeCoordinatorInjector(properties);
+
+    Assertions.assertTrue(systemTableDataProviders(injector).isEmpty());
   }
 
   @Test

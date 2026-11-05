@@ -59,9 +59,26 @@ public class SystemTableDataProviderTest
     EasyMock.verify(context);
   }
 
+  /** sys.tasks offers a Druid datasource only when druid.query.enableDruidEngineForSystemTables is set. */
+  @Test
+  public void testTasksTableHasDataSourceTableOnlyWhenEnabled()
+  {
+    Assertions.assertInstanceOf(
+        TasksDataSourceTable.class,
+        new SystemSchema.TasksTable(null, null, null, true).asDataSourceTable()
+    );
+    Assertions.assertNull(new SystemSchema.TasksTable(null, null, null, false).asDataSourceTable());
+  }
+
   @Test
   public void testNativeTablesExposeSystemMetadata()
   {
+    final TasksDataSourceTable tasks = new TasksDataSourceTable();
+    Assertions.assertEquals("tasks", ((SystemTableDataSource) tasks.getDataSource()).getTable());
+    Assertions.assertFalse(tasks.isJoinable());
+    Assertions.assertFalse(tasks.isBroadcast());
+    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, tasks.getJdbcTableType());
+
     final ServerPropertiesDataSourceTable serverProperties = new ServerPropertiesDataSourceTable();
     Assertions.assertEquals(
         "server_properties",
@@ -88,7 +105,7 @@ public class SystemTableDataProviderTest
     EasyMock.expect(bindableContext.getEngine()).andReturn(bindableEngine).once();
     EasyMock.expect(enabledContext.useDruidEngineForSystemTables()).andReturn(true).once();
     EasyMock.expect(enabledContext.getEngine()).andReturn(nativeEngine).once();
-    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(ServerPropertiesDataSourceTable::new).once();
+    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(TasksDataSourceTable::new).once();
     EasyMock.replay(table, nativeEngine, bindableEngine, disabledContext, bindableContext, enabledContext);
 
     Assertions.assertFalse(SystemSchema.canUseSystemTableDataSource(table, disabledContext));
@@ -102,10 +119,10 @@ public class SystemTableDataProviderTest
   public void testSystemSchemaGetsNativeRepresentation()
   {
     final RelOptTable table = EasyMock.createMock(RelOptTable.class);
-    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(ServerPropertiesDataSourceTable::new).once();
+    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(TasksDataSourceTable::new).once();
     EasyMock.replay(table);
 
-    Assertions.assertInstanceOf(ServerPropertiesDataSourceTable.class, SystemSchema.getSystemTableDataSourceTable(table));
+    Assertions.assertInstanceOf(TasksDataSourceTable.class, SystemSchema.getSystemTableDataSourceTable(table));
     EasyMock.verify(table);
   }
 
