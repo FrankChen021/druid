@@ -31,6 +31,7 @@ import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCharStringLiteral;
+import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
@@ -905,10 +906,11 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
       // values, whereas IN does not.)
       if (valuesNode.size() > plannerContext.queryContext().getInFunctionThreshold()
           && valuesNode.stream().allMatch(node -> node.getKind() == SqlKind.LITERAL && !SqlUtil.isNull(node))) {
+        final SqlNode rewrittenExprNode = performUnconditionalRewrites(exprNode, underFrom);
         final SqlCall newCall = ScalarInArrayOperatorConversion.SQL_FUNCTION.createCall(
             call.getParserPosition(),
-            performUnconditionalRewrites(exprNode, underFrom),
-            scalarInArrayOperandBuilder.toArrayOperand(exprNode, valuesNode)
+            rewrittenExprNode,
+            scalarInArrayOperandBuilder.toArrayOperand(rewrittenExprNode, valuesNode)
         );
 
         if (call.getKind() == SqlKind.NOT_IN) {
@@ -937,6 +939,17 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
       return;
     }
     super.inferUnknownTypes(inferredType, scope, node);
+  }
+
+  /**
+   * Validates the literals of dynamic parameters synthesized by {@link ScalarInArrayOperandBuilder} at the point where
+   * the {@code ARRAY[...]} form would validate them.
+   */
+  @Override
+  public void validateDynamicParam(final SqlDynamicParam dynamicParam)
+  {
+    scalarInArrayOperandBuilder.validateLiterals(dynamicParam);
+    super.validateDynamicParam(dynamicParam);
   }
 
   /**

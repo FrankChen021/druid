@@ -6701,6 +6701,112 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
   }
 
   @Test
+  public void testInLiteralArrayWithConstantFromSubquery()
+  {
+    // The left-hand side of the IN becomes constant once the subquery's predicate is substituted into it. The IN must
+    // still be reduced to a constant, as it is for the ARRAY form.
+    final Map<String, Object> context =
+        QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD, 2);
+    testQuery(
+        "SELECT COUNT(*) FROM (SELECT * FROM druid.foo WHERE dim1 = 'abc') WHERE dim1 IN ('abc', 'def', 'nonmatching')",
+        context,
+        ImmutableList.of(
+            Druids.newTimeseriesQueryBuilder()
+                  .dataSource(CalciteTests.DATASOURCE1)
+                  .intervals(querySegmentSpec(Filtration.eternity()))
+                  .granularity(Granularities.ALL)
+                  .filters(equality("dim1", "abc", ColumnType.STRING))
+                  .aggregators(aggregators(new CountAggregatorFactory("a0")))
+                  .context(QUERY_CONTEXT_DEFAULT)
+                  .build()
+        ),
+        ImmutableList.of(new Object[]{1L})
+    );
+    testQuery(
+        "SELECT COUNT(*) FROM (SELECT 'abc' AS x, dim1 FROM druid.foo) WHERE x IN ('a', 'b', 'abc')",
+        context,
+        ImmutableList.of(
+            Druids.newTimeseriesQueryBuilder()
+                  .dataSource(CalciteTests.DATASOURCE1)
+                  .intervals(querySegmentSpec(Filtration.eternity()))
+                  .granularity(Granularities.ALL)
+                  .aggregators(aggregators(new CountAggregatorFactory("a0")))
+                  .context(QUERY_CONTEXT_DEFAULT)
+                  .build()
+        ),
+        ImmutableList.of(new Object[]{6L})
+    );
+  }
+
+  @Test
+  public void testInLiteralArrayWithConstantJsonPath()
+  {
+    // The path segment of "x:a" is an identifier before rewriting, but the rewritten left-hand side is constant, so
+    // the IN is reduced to a constant.
+    testQuery(
+        "SELECT COUNT(*) FROM druid.foo WHERE '{\"a\":\"abc\"}':a IN ('abc', 'def', 'nonmatching')",
+        QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD, 2),
+        ImmutableList.of(
+            Druids.newScanQueryBuilder()
+                  .dataSource(
+                      InlineDataSource.fromIterable(
+                          ImmutableList.of(new Object[]{0L}),
+                          RowSignature.builder().add("EXPR$0", ColumnType.LONG).build()
+                      )
+                  )
+                  .intervals(querySegmentSpec(Filtration.eternity()))
+                  .columns("EXPR$0")
+                  .columnTypes(ColumnType.LONG)
+                  .resultFormat(ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                  .build()
+        ),
+        ImmutableList.of(new Object[]{0L})
+    );
+  }
+
+  @Test
+  public void testInLiteralArrayIsNotNullable()
+  {
+    // The IN is not nullable when its left-hand side is not, as for the ARRAY form, which lets Calcite simplify
+    // IS NOT TRUE.
+    testQuery(
+        "SELECT COUNT(*) FROM druid.foo WHERE (COALESCE(dim1, '') IN ('abc', 'def', 'nonmatching')) IS NOT TRUE",
+        QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD, 2),
+        ImmutableList.of(
+            Druids.newTimeseriesQueryBuilder()
+                  .dataSource(CalciteTests.DATASOURCE1)
+                  .intervals(querySegmentSpec(Filtration.eternity()))
+                  .granularity(Granularities.ALL)
+                  .filters(
+                      or(
+                          isNull("dim1"),
+                          not(in("dim1", Arrays.asList("abc", "def", "nonmatching")))
+                      )
+                  )
+                  .aggregators(aggregators(new CountAggregatorFactory("a0")))
+                  .context(QUERY_CONTEXT_DEFAULT)
+                  .build()
+        ),
+        ImmutableList.of(new Object[]{4L})
+    );
+  }
+
+  @Test
+  public void testInLiteralArrayValidationErrorOrder()
+  {
+    // Literals moved into a synthesized parameter are validated where the ARRAY form would validate them, so an unknown
+    // table is still reported before an invalid literal.
+    for (final int threshold : new int[]{2, 1000}) {
+      testQueryThrows(
+          "SELECT COUNT(*) FROM druid.nosuchtable WHERE dim1 IN (1.0, 2.0, 1e400)",
+          QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD, threshold),
+          DruidException.class,
+          invalidSqlContains("nosuchtable")
+      );
+    }
+  }
+
+  @Test
   public void testInLiteralArrayValidatesLiterals()
   {
     for (final int threshold : new int[]{2, 1000}) {

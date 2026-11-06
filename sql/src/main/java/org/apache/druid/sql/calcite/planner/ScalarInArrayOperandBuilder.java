@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -49,21 +50,23 @@ import java.util.Set;
  * When all values are character literals or all are numeric literals, the values are moved out of the SQL tree into
  * a synthesized dynamic parameter registered with {@link ScalarInArrayDynamicParameters}.
  * Calcite then validates, converts and optimizes a single parameter rather than one literal per value.
- * Otherwise, the values are wrapped in an {@code ARRAY[...]} constructor which Calcite will perform more work that
- * slows the performance.
+ * Otherwise, the values are wrapped in an {@code ARRAY[...]} constructor, for which Calcite performs per-value work
+ * that slows down planning.
  *
  * Since the synthesized parameters are not parameters of the original statement, this class also recognizes them for
  * {@link DruidSqlValidator}, which must skip them during type inference and when reporting parameter types.
  */
-public class ScalarInArrayOperandBuilder
+class ScalarInArrayOperandBuilder
 {
   private static final BigDecimal LONG_MIN = BigDecimal.valueOf(Long.MIN_VALUE);
   private static final BigDecimal LONG_MAX = BigDecimal.valueOf(Long.MAX_VALUE);
 
   private final SqlValidator validator;
   private final ScalarInArrayDynamicParameters parameters;
+  // literals moved into each synthesized parameter, validated by validateLiterals
+  private final Map<SqlDynamicParam, SqlNodeList> literalsByParameter = new IdentityHashMap<>();
 
-  public ScalarInArrayOperandBuilder(final SqlValidator validator, final ScalarInArrayDynamicParameters parameters)
+  ScalarInArrayOperandBuilder(final SqlValidator validator, final ScalarInArrayDynamicParameters parameters)
   {
     this.validator = validator;
     this.parameters = parameters;
@@ -73,8 +76,10 @@ public class ScalarInArrayOperandBuilder
    * Returns the array operand for {@code exprNode IN valuesNode}: a synthesized parameter if possible, or an
    * {@code ARRAY[...]} constructor otherwise. The constructor is also used when the IN expression references no
    * columns, so that Calcite can still reduce it to a constant.
+   *
+   * @param exprNode left-hand side of the IN, after {@link DruidSqlValidator#performUnconditionalRewrites(SqlNode, boolean)}
    */
-  public SqlNode toArrayOperand(final SqlNode exprNode, final SqlNodeList valuesNode)
+  SqlNode toArrayOperand(final SqlNode exprNode, final SqlNodeList valuesNode)
   {
     final SqlTypeName elementTypeName = getElementType(valuesNode);
     if (elementTypeName == null || !containsIdentifier(exprNode)) {
@@ -84,8 +89,6 @@ public class ScalarInArrayOperandBuilder
     final List<Object> values = new ArrayList<>(valuesNode.size());
     for (final SqlNode valueNode : valuesNode) {
       final SqlLiteral literal = (SqlLiteral) valueNode;
-      // The literals never reach validation once moved into the parameter, so validate them here.
-      validator.validateLiteral(literal);
       if (elementTypeName == SqlTypeName.VARCHAR) {
         values.add(literal.getValueAs(String.class));
       } else if (elementTypeName == SqlTypeName.BIGINT) {
@@ -96,19 +99,43 @@ public class ScalarInArrayOperandBuilder
       }
     }
 
-    final SqlDynamicParam param = new SqlDynamicParam(parameters.add(values), valuesNode.getParserPosition());
+    final SqlDynamicParam param = new SqlDynamicParam(
+        parameters.add(Collections.unmodifiableList(values)),
+        valuesNode.getParserPosition()
+    );
+    literalsByParameter.put(param, valuesNode);
     // The type is set here, since the validator cannot infer the type of dynamic parameter from its context.
     validator.setValidatedNodeType(
         param,
-        Calcites.createSqlArrayTypeWithNullability(validator.getTypeFactory(), elementTypeName, false)
+        // Not nullable, like the ARRAY[...] form, so that the IN is not nullable when its left-hand side is not.
+        validator.getTypeFactory().createTypeWithNullability(
+            Calcites.createSqlArrayTypeWithNullability(validator.getTypeFactory(), elementTypeName, false),
+            false
+        )
     );
     return param;
   }
 
   /**
+   * Validates the literals that {@link #toArrayOperand(SqlNode, SqlNodeList)} moved into this parameter, as the
+   * {@code ARRAY[...]} form would. Called when the validator validates the parameter, so that errors are reported in
+   * the same order as for the {@code ARRAY[...]} form. Does nothing for other parameters, or if the literals were
+   * already validated; they are released once validated, since large IN lists may hold many of them.
+   */
+  void validateLiterals(final SqlDynamicParam param)
+  {
+    final SqlNodeList literals = literalsByParameter.remove(param);
+    if (literals != null) {
+      for (final SqlNode literal : literals) {
+        validator.validateLiteral((SqlLiteral) literal);
+      }
+    }
+  }
+
+  /**
    * Whether this node is a dynamic parameter synthesized by {@link #toArrayOperand(SqlNode, SqlNodeList)}.
    */
-  public boolean isSynthesizedParameter(final SqlNode node)
+  boolean isSynthesizedParameter(final SqlNode node)
   {
     return node instanceof SqlDynamicParam && parameters.get(((SqlDynamicParam) node).getIndex()) != null;
   }
@@ -117,7 +144,7 @@ public class ScalarInArrayOperandBuilder
    * Same as {@link org.apache.calcite.sql.validate.SqlValidatorImpl#getParameterRowType(SqlNode)}, but excludes
    * synthesized parameters, since they are not parameters of the original statement.
    */
-  public RelDataType getParameterRowType(final SqlNode sqlQuery)
+  RelDataType getParameterRowType(final SqlNode sqlQuery)
   {
     final List<RelDataType> types = new ArrayList<>();
     final List<String> names = new ArrayList<>();

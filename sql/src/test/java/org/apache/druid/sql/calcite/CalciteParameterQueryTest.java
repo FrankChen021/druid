@@ -742,4 +742,19 @@ public class CalciteParameterQueryTest extends BaseCalciteQueryTest
         .expectedResults(ImmutableList.of(new Object[]{4L}))
         .run();
   }
+
+  @Test
+  public void testUnboundParamWithInLiteralArray()
+  {
+    // A DATE parameter given as an integer is left as a dynamic parameter until after validation, so the synthesized
+    // parameter for the IN list must not reuse its index.
+    testBuilder()
+        .sql("SELECT COUNT(*) FROM druid.foo WHERE __time >= ? AND dim1 IN ('abc', 'def', 'nonmatching')")
+        .queryContext(
+            QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD, 2)
+        )
+        .parameters(ImmutableList.of(new SqlParameter(SqlType.DATE, 0)))
+        .expectedResults(ImmutableList.of(new Object[]{2L}))
+        .run();
+  }
 }
