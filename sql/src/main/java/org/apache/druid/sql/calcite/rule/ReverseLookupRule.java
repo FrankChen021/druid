@@ -28,7 +28,6 @@ import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.rules.SubstitutionRule;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
@@ -52,6 +51,7 @@ import org.apache.druid.sql.calcite.expression.builtin.SearchOperatorConversion;
 import org.apache.druid.sql.calcite.filtration.CollectComparisons;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.sql.calcite.planner.ScalarInArrayDynamicParameters;
 import org.apache.druid.utils.CollectionUtils;
 
 import javax.annotation.Nullable;
@@ -629,8 +629,8 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
   }
 
   /**
-   * Returns the values of a dynamic parameter synthesized for a large string IN list, or null if the node is not
-   * such a parameter. See {@link PlannerContext#addScalarInArrayParameter(List)}.
+   * Returns the values of a dynamic parameter synthesized for a large string IN list,
+   * or null if the node is not such a parameter. See {@link ScalarInArrayDynamicParameters}.
    */
   @Nullable
   private static List<Object> getStringScalarInArrayParameter(
@@ -638,11 +638,8 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
       final RexNode node
   )
   {
-    if (node instanceof RexDynamicParam
-        && SqlTypeFamily.STRING.contains(node.getType().getComponentType())) {
-      return plannerContext.getScalarInArrayParameter(((RexDynamicParam) node).getIndex());
-    }
-    return null;
+    final List<Object> values = plannerContext.getScalarInArrayDynamicParameters().get(node);
+    return values != null && SqlTypeFamily.STRING.contains(node.getType().getComponentType()) ? values : null;
   }
 
   /**

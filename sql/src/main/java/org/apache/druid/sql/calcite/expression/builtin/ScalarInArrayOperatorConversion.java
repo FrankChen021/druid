@@ -21,7 +21,6 @@ package org.apache.druid.sql.calcite.expression.builtin;
 
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlFunction;
@@ -108,18 +107,15 @@ public class ScalarInArrayOperatorConversion extends DirectOperatorConversion
       scalarExtractionFn = null;
     }
 
-    if (arrayOperand instanceof RexDynamicParam) {
-      final List<Object> values =
-          plannerContext.getScalarInArrayParameter(((RexDynamicParam) arrayOperand).getIndex());
-      if (values != null) {
-        return makeInFilter(
-            plannerContext,
-            scalarColumn,
-            scalarExtractionFn,
-            values,
-            Calcites.getColumnTypeForRelDataType(arrayOperand.getType().getComponentType())
-        );
-      }
+    final List<Object> parameterValues = plannerContext.getScalarInArrayDynamicParameters().get(arrayOperand);
+    if (parameterValues != null) {
+      return makeInFilter(
+          plannerContext,
+          scalarColumn,
+          scalarExtractionFn,
+          parameterValues,
+          Calcites.getColumnTypeForRelDataType(arrayOperand.getType().getComponentType())
+      );
     }
 
     if (Calcites.isLiteral(arrayOperand, true, true)) {

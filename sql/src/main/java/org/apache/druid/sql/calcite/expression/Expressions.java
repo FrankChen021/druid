@@ -269,7 +269,7 @@ public class Expressions
       final RexDynamicParam dynamicParam
   )
   {
-    final List<Object> values = plannerContext.getScalarInArrayParameter(dynamicParam.getIndex());
+    final List<Object> values = plannerContext.getScalarInArrayDynamicParameters().get(dynamicParam);
     if (values == null) {
       return null;
     }
