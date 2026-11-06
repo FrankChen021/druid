@@ -56,7 +56,7 @@ public class ScalarInArrayDynamicParameters
    * @param firstIndexSupplier index of the first synthesized parameter, which must be after every parameter of the
    *                           original statement. Called at most once, when the first parameter is added.
    */
-  public ScalarInArrayDynamicParameters(final IntSupplier firstIndexSupplier)
+  ScalarInArrayDynamicParameters(final IntSupplier firstIndexSupplier)
   {
     this.firstIndexSupplier = firstIndexSupplier;
   }
@@ -67,7 +67,7 @@ public class ScalarInArrayDynamicParameters
    * @param sqlNode             the parsed statement
    * @param boundParameterCount number of parameter values bound to the statement
    */
-  public static int firstAvailableIndex(@Nullable final SqlNode sqlNode, final int boundParameterCount)
+  static int firstAvailableIndex(@Nullable final SqlNode sqlNode, final int boundParameterCount)
   {
     final int[] maxIndex = {-1};
     if (sqlNode != null) {
@@ -93,7 +93,7 @@ public class ScalarInArrayDynamicParameters
    * example when an expression in the SELECT list must match the same expression in GROUP BY. Lists of values of
    * different types are never equal, since the values are Strings, Longs, or Doubles.
    */
-  public int add(final List<Object> values)
+  int add(final List<Object> values)
   {
     final Integer existingIndex = indexByValues.get(values);
     if (existingIndex != null) {
@@ -109,11 +109,19 @@ public class ScalarInArrayDynamicParameters
   }
 
   /**
+   * Whether no parameters have been synthesized.
+   */
+  public boolean isEmpty()
+  {
+    return valuesByIndex.isEmpty();
+  }
+
+  /**
    * Returns the values of the synthesized parameter at this index, or null if the parameter at this index was not
    * synthesized for an IN list.
    */
   @Nullable
-  public List<Object> get(final int index)
+  List<Object> get(final int index)
   {
     return valuesByIndex.get(index);
   }

@@ -73,6 +73,7 @@ import org.apache.druid.sql.calcite.rule.FilterJoinExcludePushToChildRule;
 import org.apache.druid.sql.calcite.rule.FlattenConcatRule;
 import org.apache.druid.sql.calcite.rule.InlineValuesSubQueryRule;
 import org.apache.druid.sql.calcite.rule.ProjectAggregatePruneUnusedCallRule;
+import org.apache.druid.sql.calcite.rule.ReduceScalarInArrayParameterRule;
 import org.apache.druid.sql.calcite.rule.ReverseLookupRule;
 import org.apache.druid.sql.calcite.rule.RewriteFirstValueLastValueRule;
 import org.apache.druid.sql.calcite.rule.SortCollapseRule;
@@ -407,6 +408,9 @@ public class CalciteRulesManager
       if (plannerContext.isReverseLookup()) {
         builder.addRuleInstance(new ReverseLookupRule(plannerContext));
       }
+
+      // Reduce SCALAR_IN_ARRAY over a constant and a synthesized parameter, which REDUCTION_RULES cannot reduce.
+      builder.addRuleInstance(new ReduceScalarInArrayParameterRule(plannerContext));
     }
 
     // Calcite's builtin reduction rules.
