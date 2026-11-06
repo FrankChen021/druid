@@ -51,7 +51,6 @@ import org.apache.druid.sql.calcite.expression.builtin.SearchOperatorConversion;
 import org.apache.druid.sql.calcite.filtration.CollectComparisons;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
-import org.apache.druid.sql.calcite.planner.ScalarInArrayDynamicParameters;
 import org.apache.druid.utils.CollectionUtils;
 
 import javax.annotation.Nullable;
@@ -427,7 +426,8 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
               call.getOperator().equals(MultiValueStringOperatorConversions.CONTAINS.calciteOperator())
               || call.getOperator().equals(MultiValueStringOperatorConversions.OVERLAP.calciteOperator())
               || call.getOperator().equals(ScalarInArrayOperatorConversion.SQL_FUNCTION);
-          final List<Object> parameterValues = getStringScalarInArrayParameter(plannerContext, matchLiteral);
+          final List<Object> parameterValues =
+              plannerContext.getScalarInArrayDynamicParameters().getStringValues(matchLiteral);
           if (parameterValues != null) {
             final Set<String> elements = new HashSet<>();
             for (final Object value : parameterValues) {
@@ -509,8 +509,9 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
         literal = RexUtil.removeNullabilityCast(rexBuilder.getTypeFactory(), literal);
 
         // Check that the call is of the form: LOOKUP(...) <op> <literal>
-        final boolean isLiteral = Calcites.isLiteral(literal, true, true)
-                                  || getStringScalarInArrayParameter(plannerContext, literal) != null;
+        final boolean isLiteral =
+            Calcites.isLiteral(literal, true, true)
+            || plannerContext.getScalarInArrayDynamicParameters().getStringValues(literal) != null;
         if (isLookupCall(lookupCall) && isLiteral) {
           return (RexCall) rexBuilder.makeCall(call.getOperator(), lookupCall, literal);
         } else {
@@ -626,20 +627,6 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
             }
         )
     );
-  }
-
-  /**
-   * Returns the values of a dynamic parameter synthesized for a large string IN list,
-   * or null if the node is not such a parameter. See {@link ScalarInArrayDynamicParameters}.
-   */
-  @Nullable
-  private static List<Object> getStringScalarInArrayParameter(
-      final PlannerContext plannerContext,
-      final RexNode node
-  )
-  {
-    final List<Object> values = plannerContext.getScalarInArrayDynamicParameters().get(node);
-    return values != null && SqlTypeFamily.STRING.contains(node.getType().getComponentType()) ? values : null;
   }
 
   /**

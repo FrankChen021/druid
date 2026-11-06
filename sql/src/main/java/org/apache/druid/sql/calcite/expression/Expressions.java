@@ -40,7 +40,6 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.math.expr.Expr;
-import org.apache.druid.math.expr.ExprEval;
 import org.apache.druid.math.expr.ExpressionType;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.expression.TimestampFloorExprMacro;
@@ -252,35 +251,11 @@ public class Expressions
       final DruidLiteral eval = calciteLiteralToDruidLiteral(plannerContext, rexNode);
       return eval != null ? DruidExpression.ofLiteral(eval) : null;
     } else if (rexNode instanceof RexDynamicParam) {
-      return scalarInArrayParameterToDruidExpression(plannerContext, (RexDynamicParam) rexNode);
+      return plannerContext.getScalarInArrayDynamicParameters().toDruidExpression(rexNode);
     } else {
       // Can't translate.
       return null;
     }
-  }
-
-  /**
-   * Translates a dynamic parameter synthesized for a large IN list into an array literal. Other dynamic parameters
-   * are bound to literals before translation, so they cannot be translated here.
-   */
-  @Nullable
-  private static DruidExpression scalarInArrayParameterToDruidExpression(
-      final PlannerContext plannerContext,
-      final RexDynamicParam dynamicParam
-  )
-  {
-    final List<Object> values = plannerContext.getScalarInArrayDynamicParameters().get(dynamicParam);
-    if (values == null) {
-      return null;
-    }
-    final ColumnType arrayType = Calcites.getColumnTypeForRelDataType(dynamicParam.getType());
-    if (arrayType == null) {
-      return null;
-    }
-    return DruidExpression.ofLiteral(
-        arrayType,
-        ExprEval.ofArray(ExpressionType.fromColumnTypeStrict(arrayType), values.toArray()).toExpr().stringify()
-    );
   }
 
   private static DruidExpression inputRefToDruidExpression(

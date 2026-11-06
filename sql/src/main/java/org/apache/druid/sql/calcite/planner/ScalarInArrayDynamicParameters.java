@@ -23,7 +23,12 @@ import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.util.SqlBasicVisitor;
+import org.apache.druid.math.expr.ExprEval;
+import org.apache.druid.math.expr.ExpressionType;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.sql.calcite.expression.DruidExpression;
 
 import javax.annotation.Nullable;
 import java.util.HashMap;
@@ -120,5 +125,36 @@ public class ScalarInArrayDynamicParameters
   public List<Object> get(final RexNode node)
   {
     return node instanceof RexDynamicParam ? get(((RexDynamicParam) node).getIndex()) : null;
+  }
+
+  /**
+   * Returns the values if this node is a synthesized parameter for a string IN list, or null otherwise.
+   */
+  @Nullable
+  public List<Object> getStringValues(final RexNode node)
+  {
+    final List<Object> values = get(node);
+    return values != null && SqlTypeFamily.STRING.contains(node.getType().getComponentType()) ? values : null;
+  }
+
+  /**
+   * Translates a synthesized parameter into an array literal, or returns null if this node is not a synthesized
+   * parameter. Other dynamic parameters are bound to literals before translation, so they cannot be translated here.
+   */
+  @Nullable
+  public DruidExpression toDruidExpression(final RexNode node)
+  {
+    final List<Object> values = get(node);
+    if (values == null) {
+      return null;
+    }
+    final ColumnType arrayType = Calcites.getColumnTypeForRelDataType(node.getType());
+    if (arrayType == null) {
+      return null;
+    }
+    return DruidExpression.ofLiteral(
+        arrayType,
+        ExprEval.ofArray(ExpressionType.fromColumnTypeStrict(arrayType), values.toArray()).toExpr().stringify()
+    );
   }
 }
