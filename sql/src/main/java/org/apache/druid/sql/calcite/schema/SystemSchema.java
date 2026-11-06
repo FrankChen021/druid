@@ -142,16 +142,24 @@ public class SystemSchema extends AbstractTableSchema
 
   /**
    * Whether a system table is planned as a {@code SystemTableDataSource} instead of on the Bindable path. The native
-   * engine does so when {@code useDruidEngineForSystemTables} is set, if the table offers a datasource representation.
+   * engine does so when {@code useDruidEngineForSystemTables} is set; other engines opt in per table through
+   * {@link SqlEngine#supportsSystemTableDataSource(String)}. Either way, the table must offer a datasource
+   * representation, which it doesn't when {@code druid.query.enableDruidEngineForSystemTables} is off.
    */
   public static boolean canUseSystemTableDataSource(
       final RelOptTable table,
       final PlannerContext plannerContext
   )
   {
-    return plannerContext.useDruidEngineForSystemTables()
-           && NativeSqlEngine.NAME.equals(plannerContext.getEngine().name())
-           && getSystemTableDataSourceTable(table) != null;
+    if (getSystemTableDataSourceTable(table) == null) {
+      return false;
+    }
+    final SqlEngine engine = plannerContext.getEngine();
+    if (NativeSqlEngine.NAME.equals(engine.name())) {
+      return plannerContext.useDruidEngineForSystemTables();
+    }
+    final List<String> qualifiedName = table.getQualifiedName();
+    return !qualifiedName.isEmpty() && engine.supportsSystemTableDataSource(qualifiedName.getLast());
   }
 
   /**

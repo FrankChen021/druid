@@ -37,15 +37,23 @@ import org.apache.druid.msq.kernel.QueryDefinitionBuilder;
 import org.apache.druid.msq.kernel.ShuffleSpec;
 import org.apache.druid.msq.kernel.StageDefinition;
 import org.apache.druid.msq.kernel.StageDefinitionBuilder;
+import org.apache.druid.msq.querykit.scan.ScanQueryKit;
 import org.apache.druid.msq.util.MultiStageQueryContext;
+import org.apache.druid.query.Druids;
+import org.apache.druid.query.OrderBy;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.operator.AbstractPartitioningOperatorFactory;
 import org.apache.druid.query.operator.AbstractSortOperatorFactory;
 import org.apache.druid.query.operator.ColumnWithDirection;
 import org.apache.druid.query.operator.GlueingPartitioningOperatorFactory;
+import org.apache.druid.query.operator.OffsetLimit;
 import org.apache.druid.query.operator.OperatorFactory;
 import org.apache.druid.query.operator.PartitionSortOperatorFactory;
+import org.apache.druid.query.operator.ScanOperatorFactory;
 import org.apache.druid.query.operator.WindowOperatorQuery;
 import org.apache.druid.query.operator.window.WindowOperatorFactory;
+import org.apache.druid.query.scan.ScanQuery;
+import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 
@@ -82,11 +90,10 @@ public class WindowOperatorQueryKit implements QueryKit<WindowOperatorQuery>
         minStageNumber,
         false
     );
-    final RowSignature signatureFromInput = dataSourcePlan.getSubQueryDefBuilder()
-                                                          .get()
-                                                          .build()
-                                                          .getFinalStageDefinition()
-                                                          .getSignature();
+    final QueryDefinitionBuilder inputQueryDefBuilder = dataSourcePlan.getSubQueryDefBuilder().orElseGet(
+        () -> makeSystemTableInputQueryDefinitionBuilder(queryKitSpec, originalQuery, minStageNumber)
+    );
+    final RowSignature signatureFromInput = inputQueryDefBuilder.build().getFinalStageDefinition().getSignature();
 
     final boolean isOperatorTransformationEnabled =
         MultiStageQueryContext.isWindowFunctionOperatorTransformationEnabled(originalQuery.context());
@@ -101,7 +108,11 @@ public class WindowOperatorQueryKit implements QueryKit<WindowOperatorQuery>
     );
 
     final ShuffleSpec nextShuffleSpec = windowStages.getStages().get(0).findShuffleSpec();
-    final QueryDefinitionBuilder queryDefBuilder = makeQueryDefinitionBuilder(queryKitSpec.getQueryId(), dataSourcePlan, nextShuffleSpec);
+    final QueryDefinitionBuilder queryDefBuilder = makeQueryDefinitionBuilder(
+        queryKitSpec.getQueryId(),
+        inputQueryDefBuilder,
+        nextShuffleSpec
+    );
     final int firstWindowStageNumber = Math.max(minStageNumber, queryDefBuilder.getNextStageNumber());
 
     log.info("Row signature received from last stage is [%s].", signatureFromInput);
@@ -111,6 +122,102 @@ public class WindowOperatorQueryKit implements QueryKit<WindowOperatorQuery>
       queryDefBuilder.add(windowStages.getStageDefinitionBuilder(firstWindowStageNumber + i, i));
     }
     return queryDefBuilder.build();
+  }
+
+  private QueryDefinitionBuilder makeSystemTableInputQueryDefinitionBuilder(
+      final QueryKitSpec queryKitSpec,
+      final WindowOperatorQuery query,
+      final int minStageNumber
+  )
+  {
+    if (!(query.getDataSource() instanceof SystemTableDataSource)) {
+      throw new ISE("Window query over a direct datasource requires a subquery input");
+    }
+
+    return QueryDefinition.builder(queryKitSpec.getQueryId()).addAll(
+        new ScanQueryKit(jsonMapper).makeQueryDefinition(
+            queryKitSpec,
+            makeSystemTableLeafScanQuery(query),
+            ShuffleSpecFactories.singlePartition(),
+            minStageNumber
+        )
+    );
+  }
+
+  private static ScanQuery makeSystemTableLeafScanQuery(final WindowOperatorQuery query)
+  {
+    final ScanOperatorFactory scanOperator;
+    if (query.getLeafOperators().isEmpty()) {
+      scanOperator = null;
+    } else if (query.getLeafOperators().size() == 1
+               && query.getLeafOperators().get(0) instanceof ScanOperatorFactory) {
+      scanOperator = (ScanOperatorFactory) query.getLeafOperators().get(0);
+    } else {
+      throw new ISE("Window query over a system table supports at most one Scan leaf operator");
+    }
+
+    final List<String> projectedColumns;
+    if (scanOperator == null) {
+      final List<String> windowOutputColumns = query.getOperators()
+                                                    .stream()
+                                                    .filter(WindowOperatorFactory.class::isInstance)
+                                                    .map(WindowOperatorFactory.class::cast)
+                                                    .flatMap(
+                                                        operator -> operator.getProcessor()
+                                                                            .getOutputColumnNames()
+                                                                            .stream()
+                                                    )
+                                                    .toList();
+      projectedColumns = query.getRowSignature()
+                              .getColumnNames()
+                              .stream()
+                              .filter(column -> !windowOutputColumns.contains(column))
+                              .toList();
+    } else {
+      projectedColumns = scanOperator.getProjectedColumns() == null
+                         ? Collections.emptyList()
+                         : scanOperator.getProjectedColumns();
+    }
+    final RowSignature.Builder inputSignature = RowSignature.builder();
+    for (final String column : projectedColumns) {
+      inputSignature.add(
+          column,
+          query.getRowSignature()
+               .getColumnType(column)
+               .orElseThrow(() -> new ISE("No type is available for Scan column[%s]", column))
+      );
+    }
+
+    final List<OrderBy> orderBys = new ArrayList<>();
+    if (scanOperator != null && scanOperator.getOrdering() != null) {
+      for (final ColumnWithDirection column : scanOperator.getOrdering()) {
+        orderBys.add(
+            column.getDirection() == ColumnWithDirection.Direction.DESC
+            ? OrderBy.descending(column.getColumn())
+            : OrderBy.ascending(column.getColumn())
+        );
+      }
+    }
+    final OffsetLimit offsetLimit = scanOperator == null || scanOperator.getOffsetLimit() == null
+                                    ? OffsetLimit.NONE
+                                    : scanOperator.getOffsetLimit();
+
+    return Druids.newScanQueryBuilder()
+                 .dataSource(query.getDataSource())
+                 .intervals(query.getQuerySegmentSpec())
+                 .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                 .filters(scanOperator == null ? null : scanOperator.getFilter())
+                 .virtualColumns(
+                     scanOperator == null || scanOperator.getVirtualColumns() == null
+                     ? VirtualColumns.EMPTY
+                     : scanOperator.getVirtualColumns()
+                 )
+                 .columns(inputSignature.build())
+                 .orderBy(orderBys)
+                 .offset(offsetLimit.getOffset())
+                 .limit(offsetLimit.getLimitOrMax())
+                 .context(query.getContext())
+                 .build();
   }
 
   /**
@@ -432,11 +539,16 @@ public class WindowOperatorQueryKit implements QueryKit<WindowOperatorQuery>
    * @param shuffleSpec
    * @return
    */
-  private QueryDefinitionBuilder makeQueryDefinitionBuilder(String queryId, DataSourcePlan dataSourcePlan, ShuffleSpec shuffleSpec)
+  private QueryDefinitionBuilder makeQueryDefinitionBuilder(
+      final String queryId,
+      final QueryDefinitionBuilder inputQueryDefBuilder,
+      final ShuffleSpec shuffleSpec
+  )
   {
     final QueryDefinitionBuilder queryDefBuilder = QueryDefinition.builder(queryId);
-    int previousStageNumber = dataSourcePlan.getSubQueryDefBuilder().get().build().getFinalStageDefinition().getStageNumber();
-    for (final StageDefinition stageDef : dataSourcePlan.getSubQueryDefBuilder().get().build().getStageDefinitions()) {
+    final QueryDefinition inputQueryDefinition = inputQueryDefBuilder.build();
+    final int previousStageNumber = inputQueryDefinition.getFinalStageDefinition().getStageNumber();
+    for (final StageDefinition stageDef : inputQueryDefinition.getStageDefinitions()) {
       if (stageDef.getStageNumber() == previousStageNumber) {
         RowSignature rowSignature = QueryKitUtils.sortableSignature(
             stageDef.getSignature(),

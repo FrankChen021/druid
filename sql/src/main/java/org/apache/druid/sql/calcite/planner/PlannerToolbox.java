@@ -161,6 +161,11 @@ public class PlannerToolbox
     return authConfig;
   }
 
+  public AuthorizerMapper getAuthorizerMapper()
+  {
+    return authorizerMapper;
+  }
+
   public PolicyEnforcer getPolicyEnforcer()
   {
     return policyEnforcer;

@@ -39,6 +39,7 @@ import org.apache.druid.segment.Segment;
 import org.apache.druid.server.DataSourceQueryHandler;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.server.system.table.SystemTableAuthorization;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTablePushdownFilter;
@@ -94,11 +95,10 @@ public class SystemTableQueryHandler implements DataSourceQueryHandler
     }
 
     return (queryPlus, responseContext) -> {
-      final Iterable<Object[]> suppliedRows = () -> dataSupplier.getRows(
-          SystemTablePushdownFilter.extract(query, dataSupplier.getPushdownFilters())
-      ).iterator();
-      final Iterable<Object[]> authorizedRows = descriptor.getRowAuthorizer().filterAuthorizedRows(
-          suppliedRows,
+      final Iterable<Object[]> authorizedRows = SystemTableAuthorization.readAuthorizedRows(
+          descriptor,
+          dataSupplier,
+          SystemTablePushdownFilter.extract(query, dataSupplier.getPushdownFilters()),
           requestAuthenticationResult,
           authorizerMapper
       );

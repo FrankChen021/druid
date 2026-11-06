@@ -23,6 +23,7 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.DruidNode;
+import org.apache.druid.server.security.ResourceAction;
 
 import java.util.Optional;
 import java.util.Set;
@@ -65,6 +66,12 @@ public class ServerPropertiesTableDescriptor implements SystemTableDescriptor
   public SystemTableRowAuthorizer getRowAuthorizer()
   {
     return SystemTableAuthorization.STATE_READ_ROW_AUTHORIZER;
+  }
+
+  @Override
+  public Set<ResourceAction> getResourceActions()
+  {
+    return Set.of(SystemTableAuthorization.STATE_READ);
   }
 
   @Override

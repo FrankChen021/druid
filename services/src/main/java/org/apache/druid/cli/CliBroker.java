@@ -57,6 +57,7 @@ import org.apache.druid.guice.ServerTypeConfig;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.msq.dart.guice.DartControllerMemoryManagementModule;
 import org.apache.druid.msq.dart.guice.DartControllerModule;
+import org.apache.druid.msq.dart.guice.DartEmbeddedWorkerModule;
 import org.apache.druid.msq.guice.MSQDurableStorageModule;
 import org.apache.druid.msq.guice.MSQExternalDataSourceModule;
 import org.apache.druid.msq.guice.MSQIndexingModule;
@@ -195,6 +196,7 @@ public class CliBroker extends ServerRunnable
         new SqlTaskModule(),
         new DartControllerModule(),
         new DartControllerMemoryManagementModule(),
+        new DartEmbeddedWorkerModule(),
         new BrokerRealtimeSelectorModule()
     );
   }

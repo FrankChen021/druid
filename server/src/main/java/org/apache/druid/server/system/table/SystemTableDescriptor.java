@@ -22,6 +22,7 @@ package org.apache.druid.server.system.table;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.DruidNode;
+import org.apache.druid.server.security.ResourceAction;
 
 import java.util.Optional;
 import java.util.Set;
@@ -45,6 +46,14 @@ public interface SystemTableDescriptor
   RowSignature getRowSignature();
 
   SystemTableRowAuthorizer getRowAuthorizer();
+
+  /**
+   * Returns the permissions a caller needs to query this table through an engine that can't apply
+   * {@link #getRowAuthorizer()} with the caller's identity, such as Dart, whose workers read rows with the internal
+   * identity of the requesting service. Such engines require these permissions when the SQL statement is authorized,
+   * before any work is dispatched.
+   */
+  Set<ResourceAction> getResourceActions();
 
   /** Whether an empty discovery result represents an empty table instead of unavailable infrastructure. */
   default boolean isEmptyDiscoveryAllowed()

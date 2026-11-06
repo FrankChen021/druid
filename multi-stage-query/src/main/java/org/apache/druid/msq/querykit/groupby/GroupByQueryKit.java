@@ -31,6 +31,7 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.msq.exec.Limits;
 import org.apache.druid.msq.input.stage.StageInputSpec;
+import org.apache.druid.msq.input.system.SystemTableInputSpec;
 import org.apache.druid.msq.kernel.QueryDefinition;
 import org.apache.druid.msq.kernel.QueryDefinitionBuilder;
 import org.apache.druid.msq.kernel.ShuffleSpec;
@@ -161,7 +162,13 @@ public class GroupByQueryKit implements QueryKit<GroupByQuery>
 
     queryDefBuilder.add(
         StageDefinition.builder(firstStageNumber)
-                       .inputs(dataSourcePlan.getInputSpecs())
+                       .inputs(
+                           SystemTableInputSpec.addSourceHints(
+                               dataSourcePlan.getInputSpecs(),
+                               queryToRun,
+                               Long.MAX_VALUE
+                           )
+                       )
                        .broadcastInputs(dataSourcePlan.getBroadcastInputs())
                        .signature(intermediateSignature)
                        .shuffleSpec(shuffleSpecFactoryPreAggregation.build(intermediateClusterBy, true))

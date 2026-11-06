@@ -338,6 +338,24 @@ public class CalciteTests
       final PlannerConfig plannerConfig
   )
   {
+    return createMockSystemSchemaProvider(
+        segmentMetadataCache,
+        timelineServerView,
+        authorizerMapper,
+        plannerConfig,
+        new Properties()
+    );
+  }
+
+  /** As above, with the given server properties, such as the property that enables Druid engines for system tables. */
+  public static SystemSchemaProvider createMockSystemSchemaProvider(
+      final BrokerSegmentMetadataCache segmentMetadataCache,
+      final TimelineServerView timelineServerView,
+      final AuthorizerMapper authorizerMapper,
+      final PlannerConfig plannerConfig,
+      final Properties properties
+  )
+  {
     final DruidNode coordinatorNode = mockCoordinatorNode();
     FakeDruidNodeDiscoveryProvider provider = mockDruidNodeDiscoveryProvider(coordinatorNode);
 
@@ -422,7 +440,7 @@ public class CalciteTests
         () -> new SqlEngineRegistry(Collections.emptySet()),
         plannerConfig,
         new DefaultQueryConfig(null),
-        new Properties(),
+        properties,
         new AuthConfig()
     );
   }

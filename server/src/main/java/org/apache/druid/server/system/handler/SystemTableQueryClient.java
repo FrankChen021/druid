@@ -22,7 +22,6 @@ package org.apache.druid.server.system.handler;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
-import io.netty.channel.ChannelException;
 import org.apache.druid.client.DirectDruidClient;
 import org.apache.druid.client.DirectDruidClientFactory;
 import org.apache.druid.client.DruidServer;
@@ -67,6 +66,7 @@ import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.Escalator;
+import org.apache.druid.server.system.SystemTableNodeFailure;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableRoutingMode;
@@ -74,11 +74,7 @@ import org.apache.druid.utils.CloseableUtils;
 
 import javax.annotation.Nullable;
 import java.io.Closeable;
-import java.io.EOFException;
 import java.io.IOException;
-import java.net.SocketException;
-import java.net.UnknownHostException;
-import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -481,7 +477,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
       final SystemTableDescriptor descriptor
   )
   {
-    if (!isNodeAvailabilityFailure(failure)) {
+    if (!SystemTableNodeFailure.isAvailabilityFailure(failure)) {
       throw propagate(failure);
     }
     return descriptor.getNodeFailureRow(
@@ -499,22 +495,6 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
             )
         )
     ).orElseThrow(() -> QueryInterruptedException.wrapIfNeeded(failure));
-  }
-
-  private static boolean isNodeAvailabilityFailure(final Throwable failure)
-  {
-    Throwable cause = failure;
-    while (cause != null) {
-      if (cause instanceof SocketException
-          || cause instanceof UnknownHostException
-          || cause instanceof EOFException
-          || cause instanceof ClosedChannelException
-          || cause instanceof ChannelException) {
-        return true;
-      }
-      cause = cause.getCause();
-    }
-    return false;
   }
 
   private static boolean isLeaderChangeFailure(final Throwable failure)
@@ -815,7 +795,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
           failure = retryFailure;
         }
       }
-      if (!isNodeAvailabilityFailure(failure)) {
+      if (!SystemTableNodeFailure.isAvailabilityFailure(failure)) {
         throw CloseableUtils.closeAndWrapInCatch(failure, this);
       }
       final Optional<Object[]> failureRow = descriptor.getNodeFailureRow(

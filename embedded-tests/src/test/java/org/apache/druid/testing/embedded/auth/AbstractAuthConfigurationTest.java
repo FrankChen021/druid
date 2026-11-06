@@ -251,7 +251,11 @@ public abstract class AbstractAuthConfigurationTest extends EmbeddedClusterTestB
   private final EmbeddedOverlord overlord = new EmbeddedOverlord();
   private final EmbeddedCoordinator coordinator = new EmbeddedCoordinator();
   private final EmbeddedRouter router = new EmbeddedRouter();
-  private final EmbeddedBroker broker = new EmbeddedBroker().setServerMemory(500_000_000);
+  // The Broker's embedded Dart worker reads system tables, which needs more memory than the other Dart queries here.
+  private final EmbeddedBroker broker = new EmbeddedBroker()
+      .setServerMemory(1_000_000_000L)
+      .setServerDirectMemory(1_000_000_000L)
+      .addProperty("druid.msq.dart.controller.heapFraction", "0.5");
   private final EmbeddedHistorical historical = new EmbeddedHistorical().setServerMemory(500_000_000);
   private final EmbeddedIndexer indexer = new EmbeddedIndexer()
       .setServerMemory(300_000_000)

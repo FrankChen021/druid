@@ -77,6 +77,7 @@ import javax.annotation.Nullable;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 public class QueryFrameworkUtils
@@ -190,7 +191,8 @@ public class QueryFrameworkUtils
         druidSchemaProvider.getSegmentMetadataCache(),
         timelineServerView,
         authorizerMapper,
-        plannerConfig
+        plannerConfig,
+        injector.getInstance(Properties.class)
     );
 
     LookupSchema lookupSchema = createMockLookupSchema(injector);
