@@ -21,8 +21,10 @@ package org.apache.druid.server.system;
 
 import org.apache.druid.client.DruidServerConfig;
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.query.filter.EqualityFilter;
+import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.junit.jupiter.api.Assertions;
@@ -90,14 +92,19 @@ public class ServerPropertiesTableDataProviderTest
   public void testAppliesServerAndServiceNameFilters()
   {
     final ServerPropertiesTableDataProvider supplier = supplier(new Properties());
-    final DimFilter wrongServer = new SelectorDimFilter("server", "other:8080", null);
-    final DimFilter wrongService = new SelectorDimFilter("service_name", "broker", null);
+    final Filter wrongServer = new SelectorDimFilter("server", "other:8080", null).toFilter();
+    final Filter wrongService = new EqualityFilter("service_name", ColumnType.STRING, "broker", null);
 
     Assertions.assertTrue(toRows(supplier.getRows(List.of(wrongServer))).isEmpty());
     Assertions.assertTrue(toRows(supplier.getRows(List.of(wrongService))).isEmpty());
     Assertions.assertFalse(
         toRows(
-            supplier.getRows(List.of(new SelectorDimFilter("server", "localhost:8080", null)))
+            supplier.getRows(List.of(new SelectorDimFilter("server", "localhost:8080", null).toFilter()))
+        ).isEmpty()
+    );
+    Assertions.assertFalse(
+        toRows(
+            supplier.getRows(List.of(new EqualityFilter("server", ColumnType.STRING, "localhost:8080", null)))
         ).isEmpty()
     );
   }

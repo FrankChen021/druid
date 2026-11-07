@@ -19,15 +19,18 @@
 
 package org.apache.druid.server.system.table;
 
+import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
+import org.apache.druid.server.security.ForbiddenException;
 
-/** Applies the requesting user's authorization to node-supplied system-table rows on the Broker. */
+/** Decides which rows of a system table a caller may read. */
 public interface SystemTableRowAuthorizer
 {
-  Iterable<Object[]> filterAuthorizedRows(
-      Iterable<Object[]> rows,
-      AuthenticationResult authenticationResult,
-      AuthorizerMapper authorizerMapper
-  );
+  /**
+   * Returns the rows of the table that the given identity may read.
+   *
+   * @throws ForbiddenException if the identity may not read the table at all
+   */
+  SystemTableAccess authorize(AuthenticationResult authenticationResult, AuthorizerMapper authorizerMapper);
 }

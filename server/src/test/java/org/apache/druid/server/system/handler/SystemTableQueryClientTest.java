@@ -45,6 +45,7 @@ import org.apache.druid.query.FilteredDataSource;
 import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.JoinAlgorithm;
 import org.apache.druid.query.JoinDataSource;
+import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryCapacityExceededException;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
@@ -54,13 +55,14 @@ import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerTestHelper;
-import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.QueryUnsupportedException;
 import org.apache.druid.query.ResourceLimitExceededException;
+import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.operator.ScanOperatorFactory;
@@ -68,6 +70,8 @@ import org.apache.druid.query.operator.WindowOperatorQuery;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.query.spec.LegacySegmentSpec;
+import org.apache.druid.query.union.UnionQuery;
+import org.apache.druid.segment.SegmentWrangler;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
@@ -76,20 +80,16 @@ import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.QueryStackTests;
+import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
-import org.apache.druid.server.security.Access;
-import org.apache.druid.server.security.AllowAllAuthorizer;
 import org.apache.druid.server.security.AuthenticationResult;
-import org.apache.druid.server.security.Authorizer;
-import org.apache.druid.server.security.AuthorizerMapper;
-import org.apache.druid.server.security.Escalator;
 import org.apache.druid.server.security.ForbiddenException;
-import org.apache.druid.server.security.NoopEscalator;
-import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
+import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableRoutingMode;
+import org.apache.druid.server.system.table.SystemTableSegmentWrangler;
 import org.joda.time.Duration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -258,7 +258,7 @@ public class SystemTableQueryClientTest
     }
   }
 
-  /** A node selected at the Broker's own address executes in-process without creating an HTTP client. */
+  /** The Broker reads its own rows of the table without an HTTP request, through the system-table segment. */
   @Test
   public void testBrokerNodeExecutesLocallyWithoutHttp()
   {
@@ -270,37 +270,27 @@ public class SystemTableQueryClientTest
     Mockito.when(nodeLocator.locate(Mockito.eq(descriptor), ArgumentMatchers.any())).thenReturn(List.of(node));
 
     final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
-    final SystemTableQueryHandler localQueryHandler = Mockito.mock(SystemTableQueryHandler.class);
-    final AuthenticationResult escalatedAuthenticationResult =
-        new AuthenticationResult("system", "allow", "system", null);
-    final Escalator escalator = Mockito.mock(Escalator.class);
-    Mockito.when(escalator.createEscalatedAuthenticationResult()).thenReturn(escalatedAuthenticationResult);
-    Mockito.doAnswer(
-        ignored -> (QueryRunner<ScanResultValue>) (queryPlus, responseContext) ->
-            Sequences.simple(List.of(scanResult(new Object[]{"local"})))
-    ).when(localQueryHandler).createRunner(
-        ArgumentMatchers.any(),
-        Mockito.same(escalatedAuthenticationResult),
-        Mockito.eq(true)
+    final SystemTableDataProvider provider = filters -> List.<Object[]>of(new Object[]{"local"});
+    final SystemTableSegmentWrangler segmentWrangler = new SystemTableSegmentWrangler(
+        Map.of(descriptor.getTableName(), provider),
+        Map.of(descriptor.getTableName(), descriptor)
     );
-
-    final QuerySegmentWalker querySegmentWalker = Mockito.mock(QuerySegmentWalker.class);
-    Mockito.when(querySegmentWalker.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
-           .thenAnswer(ignored -> passthroughRunner(descriptor.getRowSignature()));
-    final SystemTableQueryClient client = new SystemTableQueryClient(
-        nodeLocator,
-        directClientFactory,
-        Mockito.mock(QueryScheduler.class),
-        querySegmentWalker,
-        Map.of(descriptor.getTableName(), descriptor),
-        new AuthorizerMapper(Map.of("allow", new AllowAllAuthorizer(null))),
-        localQueryHandler,
-        escalator,
-        brokerNode.getDruidNode()
+    final TestClient client = new TestClient(
+        new SystemTableQueryClient(
+            nodeLocator,
+            directClientFactory,
+            Mockito.mock(QueryScheduler.class),
+            segmentWrangler,
+            CONGLOMERATE.getConglomerate(),
+            Map.of(descriptor.getTableName(), descriptor),
+            new ServerConfig(),
+            brokerNode.getDruidNode()
+        ),
+        passthroughRunner(descriptor.getRowSignature())
     );
     final ScanQuery query = query(descriptor, Collections.emptyMap());
 
-    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT, false)
+    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT)
                                                 .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
                                                 .toList();
 
@@ -309,66 +299,75 @@ public class SystemTableQueryClientTest
     Assertions.assertEquals(1, events.size());
     Assertions.assertArrayEquals(new Object[]{"local"}, (Object[]) events.get(0));
     Mockito.verifyNoInteractions(directClientFactory);
-    Mockito.verify(localQueryHandler).createRunner(
-        ArgumentMatchers.any(),
-        Mockito.same(escalatedAuthenticationResult),
-        Mockito.eq(true)
-    );
   }
 
   /**
-   * Nodes are queried with the escalated identity, so the caller's own STATE READ permission for
-   * {@code server_properties} must be checked on the Broker, against the caller's identity.
+   * Nodes are queried with the escalated identity and return every row, so the rows are filtered on the Broker with the
+   * caller's access, which the Broker attached when it authorized the query.
    */
   @Test
-  public void testServerPropertiesFanoutRejectsCallerWithoutStateRead()
+  public void testCallerAccessFiltersGatheredRows()
+  {
+    final SystemTableDescriptor descriptor = new TestSystemTableDescriptor();
+    final TestClient client = makeClient(
+        descriptor,
+        List.of(testNode()),
+        (queryPlus, responseContext) -> Sequences.simple(
+            List.of(scanResult(new Object[]{"allowed"}, new Object[]{"secret"}))
+        )
+    );
+    final ScanQuery query = query(descriptor, Collections.emptyMap());
+
+    final SystemTableAccess access = new SystemTableAccess(row -> "allowed".equals(row[0]));
+    final List<ScanResultValue> results = client.createRunner(query, access)
+                                                .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
+                                                .toList();
+
+    Assertions.assertEquals(1, results.size());
+    Assertions.assertArrayEquals(new Object[]{"allowed"}, (Object[]) ((List<?>) results.get(0).getEvents()).get(0));
+  }
+
+  /** A system table that wasn't authorized on this Broker can't be gathered, and no node is queried. */
+  @Test
+  public void testUnauthorizedSystemTableIsNotGathered()
   {
     final ServerPropertiesTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
-    final DiscoveryDruidNode brokerNode = testNode();
     final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
-    final SystemTableNode node = new SystemTableNode(brokerNode);
-    node.addNodeRole(brokerNode.getNodeRole());
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor), ArgumentMatchers.any())).thenReturn(List.of(node));
-
-    final AuthenticationResult escalatedAuthenticationResult =
-        new AuthenticationResult("system", "allow", "system", null);
-    final Escalator escalator = Mockito.mock(Escalator.class);
-    Mockito.when(escalator.createEscalatedAuthenticationResult()).thenReturn(escalatedAuthenticationResult);
-    final SystemTableQueryHandler localQueryHandler = Mockito.mock(SystemTableQueryHandler.class);
-    Mockito.doAnswer(
-        ignored -> (QueryRunner<ScanResultValue>) (queryPlus, responseContext) -> Sequences.simple(
-            List.of(scanResult(new Object[]{"localhost:8082", "druid/broker", "[broker]", "druid.host", "x", null}))
-        )
-    ).when(localQueryHandler).createRunner(
-        ArgumentMatchers.any(),
-        Mockito.same(escalatedAuthenticationResult),
-        Mockito.eq(true)
+    final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
+    final SystemTableQueryClient client = newClient(
+        nodeLocator,
+        directClientFactory,
+        Mockito.mock(QueryScheduler.class),
+        Map.of(descriptor.getTableName(), descriptor),
+        nonMatchingSelfNode()
     );
+    final ScanQuery query = Druids.ScanQueryBuilder
+        .copy(query(descriptor, Collections.emptyMap()))
+        .dataSource(new SystemTableDataSource(descriptor.getTableName()).gatheredFromAllServices())
+        .build();
 
-    final QuerySegmentWalker querySegmentWalker = Mockito.mock(QuerySegmentWalker.class);
-    Mockito.when(querySegmentWalker.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
-           .thenAnswer(ignored -> passthroughRunner(descriptor.getRowSignature()));
-    final Authorizer denyState = (authenticationResult, resource, action) ->
-        ResourceType.STATE.equals(resource.getType()) ? Access.DENIED : Access.OK;
-    final SystemTableQueryClient client = new SystemTableQueryClient(
+    final DruidException e = Assertions.assertThrows(DruidException.class, () -> client.resolve(query));
+    Assertions.assertEquals(DruidException.Category.DEFENSIVE, e.getCategory());
+    Mockito.verifyNoInteractions(nodeLocator, directClientFactory);
+  }
+
+  /** A system table that isn't gathered from all services, as in a native query, is left for this Broker to read. */
+  @Test
+  public void testSystemTableNotGatheredIsLeftAsIs()
+  {
+    final SystemTableDescriptor descriptor = new TestSystemTableDescriptor();
+    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
+    final SystemTableQueryClient client = newClient(
         nodeLocator,
         Mockito.mock(DirectDruidClientFactory.class),
         Mockito.mock(QueryScheduler.class),
-        querySegmentWalker,
         Map.of(descriptor.getTableName(), descriptor),
-        new AuthorizerMapper(Map.of("allow", new AllowAllAuthorizer(null), "denyState", denyState)),
-        localQueryHandler,
-        escalator,
-        brokerNode.getDruidNode()
+        nonMatchingSelfNode()
     );
     final ScanQuery query = query(descriptor, Collections.emptyMap());
-    final AuthenticationResult caller = new AuthenticationResult("caller", "denyState", "test", null);
 
-    final ForbiddenException e = Assertions.assertThrows(
-        ForbiddenException.class,
-        () -> client.createRunner(query, caller, false).run(QueryPlus.wrap(query), ResponseContext.createEmpty()).toList()
-    );
-    Assertions.assertTrue(e.getMessage().startsWith("Insufficient permission to view servers"), e.getMessage());
+    Assertions.assertEquals(query.getDataSource(), client.resolve(query).query().getDataSource());
+    Mockito.verifyNoInteractions(nodeLocator);
   }
 
   /**
@@ -379,41 +378,21 @@ public class SystemTableQueryClientTest
   public void testNodeScansDoNotShareCallerResponseContext()
   {
     final SystemTableDescriptor descriptor = new TestSystemTableDescriptor();
-    final DiscoveryDruidNode brokerNode = testNode();
-    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
-    final SystemTableNode node = new SystemTableNode(brokerNode);
-    node.addNodeRole(brokerNode.getNodeRole());
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor), ArgumentMatchers.any())).thenReturn(List.of(node));
-
     final ResponseContext callerResponseContext = ResponseContext.createEmpty();
     callerResponseContext.initializeRowScanCount();
     final List<ResponseContext> nodeResponseContexts = new ArrayList<>();
-    final SystemTableQueryHandler localQueryHandler = Mockito.mock(SystemTableQueryHandler.class);
-    Mockito.doAnswer(
-        ignored -> (QueryRunner<ScanResultValue>) (queryPlus, responseContext) -> {
+    final TestClient client = makeClient(
+        descriptor,
+        List.of(testNode()),
+        (queryPlus, responseContext) -> {
           nodeResponseContexts.add(responseContext);
           responseContext.addRowScanCount(100);
-          return Sequences.simple(List.of(scanResult(new Object[]{"local"})));
+          return Sequences.simple(List.of(scanResult(new Object[]{"remote"})));
         }
-    ).when(localQueryHandler).createRunner(ArgumentMatchers.any(), ArgumentMatchers.any(), Mockito.eq(true));
-
-    final QuerySegmentWalker querySegmentWalker = Mockito.mock(QuerySegmentWalker.class);
-    Mockito.when(querySegmentWalker.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
-           .thenAnswer(ignored -> passthroughRunner(descriptor.getRowSignature()));
-    final SystemTableQueryClient client = new SystemTableQueryClient(
-        nodeLocator,
-        Mockito.mock(DirectDruidClientFactory.class),
-        Mockito.mock(QueryScheduler.class),
-        querySegmentWalker,
-        Map.of(descriptor.getTableName(), descriptor),
-        new AuthorizerMapper(Map.of("allow", new AllowAllAuthorizer(null))),
-        localQueryHandler,
-        new NoopEscalator(),
-        brokerNode.getDruidNode()
     );
     final ScanQuery query = query(descriptor, Collections.emptyMap());
 
-    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT, false)
+    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT)
                                                 .run(QueryPlus.wrap(query), callerResponseContext)
                                                 .toList();
 
@@ -489,7 +468,7 @@ public class SystemTableQueryClientTest
     final QueryScheduler queryScheduler = Mockito.mock(QueryScheduler.class);
     final SystemTableDescriptor descriptor = new TestSystemTableDescriptor();
     try {
-      final SystemTableQueryClient client = makeDirectClientBackedClient(
+      final TestClient client = makeDirectClientBackedClient(
           descriptor,
           List.of(testNode(8081), testNode(8082)),
           objectMapper,
@@ -500,7 +479,7 @@ public class SystemTableQueryClientTest
       final ScanQuery query = query(descriptor, Collections.emptyMap());
       final CompletableFuture<Yielder<ScanResultValue>> yielderFuture = CompletableFuture.supplyAsync(
           () -> Yielders.each(
-              client.createRunner(query, AUTHENTICATION_RESULT, false)
+              client.createRunner(query, AUTHENTICATION_RESULT)
                     .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
           ),
           consumerExecutor
@@ -658,63 +637,90 @@ public class SystemTableQueryClientTest
     Assertions.assertEquals(rightFilter, nodeQueries.get(1).getFilter());
   }
 
-  /** A filter pushed into a node scan carries the virtual column referenced by that filter. */
+  /** Each query of a union gathers its own system table, with its own filter pushed into the node scans. */
   @Test
-  public void testPushedFilterCarriesVirtualColumns()
+  public void testUnionQueriesGatherTheirOwnSystemTables()
   {
     final SystemTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
-    final AtomicReference<ScanQuery> capturedNodeQuery = new AtomicReference<>();
-    final ExpressionVirtualColumn virtualColumn = new ExpressionVirtualColumn(
-        "upper_property",
-        "upper(property)",
-        ColumnType.STRING,
-        ExprMacroTable.nil()
+    final SelectorDimFilter filter = new SelectorDimFilter("server", "localhost:8082", null);
+    final DataSource dataSource = new QueryDataSource(
+        new UnionQuery(
+            List.of(
+                Druids.ScanQueryBuilder.copy(query(descriptor, Collections.emptyMap())).filters(filter).build(),
+                query(descriptor, Collections.emptyMap())
+            )
+        )
     );
-    final SystemTableQueryClient client = makeClient(
-        descriptor,
-        List.of(testNode()),
-        (queryPlus, responseContext) -> {
-          capturedNodeQuery.set((ScanQuery) queryPlus.getQuery());
-          return Sequences.empty();
-        }
-    );
-    final ScanQuery query = Druids.newScanQueryBuilder()
-                                 .dataSource(new SystemTableDataSource(descriptor.getTableName()))
-                                 .eternityInterval()
-                                 .virtualColumns(VirtualColumns.create(virtualColumn))
-                                 .filters(new SelectorDimFilter("upper_property", "MATCH", null))
-                                 .build();
 
-    client.createRunner(query, AUTHENTICATION_RESULT, false)
-          .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
-          .toList();
+    final List<ScanQuery> nodeQueries = captureNodeQueries(descriptor, dataSource, null);
 
-    Assertions.assertEquals(
-        VirtualColumns.create(virtualColumn),
-        capturedNodeQuery.get().getVirtualColumns()
-    );
+    Assertions.assertEquals(2, nodeQueries.size());
+    Assertions.assertEquals(filter, nodeQueries.get(0).getFilter());
+    Assertions.assertNull(nodeQueries.get(1).getFilter());
   }
 
-  /** A window leaf filter also carries its leaf virtual columns into the node scan. */
+  /**
+   * Only conjuncts that read columns of the table are pushed into node scans, and virtual columns never are. The
+   * resolved query still applies its whole filter to the gathered rows.
+   */
   @Test
-  public void testWindowLeafFilterCarriesVirtualColumns()
+  public void testFilterOnVirtualColumnIsNotPushed()
   {
     final SystemTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
-    final AtomicReference<ScanQuery> capturedNodeQuery = new AtomicReference<>();
     final ExpressionVirtualColumn virtualColumn = new ExpressionVirtualColumn(
         "upper_property",
         "upper(property)",
         ColumnType.STRING,
         ExprMacroTable.nil()
     );
-    final SystemTableQueryClient client = makeClient(
+    final SelectorDimFilter tableFilter = new SelectorDimFilter("service_name", "druid/broker", null);
+    final ScanQuery nodeQuery = captureNodeQuery(
         descriptor,
-        List.of(testNode()),
-        (queryPlus, responseContext) -> {
-          capturedNodeQuery.set((ScanQuery) queryPlus.getQuery());
-          return Sequences.empty();
-        }
+        Druids.newScanQueryBuilder()
+              .dataSource(new SystemTableDataSource(descriptor.getTableName()))
+              .eternityInterval()
+              .virtualColumns(VirtualColumns.create(virtualColumn))
+              .filters(new AndDimFilter(new SelectorDimFilter("upper_property", "MATCH", null), tableFilter))
+              .build()
     );
+
+    Assertions.assertEquals(tableFilter, nodeQuery.getFilter());
+    Assertions.assertEquals(VirtualColumns.EMPTY, nodeQuery.getVirtualColumns());
+  }
+
+  /**
+   * A virtual column that replaces a column of the table must not reach the node scans: the gathered rows must hold the
+   * table's own values, which are authorized on the Broker after they are gathered. Filters on such a column aren't
+   * pushed down either.
+   */
+  @Test
+  public void testVirtualColumnShadowingTableColumnIsNotPushed()
+  {
+    final SystemTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
+    final ScanQuery nodeQuery = captureNodeQuery(
+        descriptor,
+        Druids.newScanQueryBuilder()
+              .dataSource(new SystemTableDataSource(descriptor.getTableName()))
+              .eternityInterval()
+              .virtualColumns(
+                  VirtualColumns.create(
+                      new ExpressionVirtualColumn("server", "'spoofed'", ColumnType.STRING, ExprMacroTable.nil())
+                  )
+              )
+              .filters(new SelectorDimFilter("server", "spoofed", null))
+              .build()
+    );
+
+    Assertions.assertNull(nodeQuery.getFilter());
+    Assertions.assertEquals(VirtualColumns.EMPTY, nodeQuery.getVirtualColumns());
+    Assertions.assertEquals(descriptor.getRowSignature().getColumnNames(), nodeQuery.getColumns());
+  }
+
+  /** Filters of window queries aren't pushed into node scans; the window query applies them to the gathered rows. */
+  @Test
+  public void testWindowQueryFilterIsNotPushed()
+  {
+    final SystemTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
     final WindowOperatorQuery query = new WindowOperatorQuery(
         new SystemTableDataSource(descriptor.getTableName()),
         new LegacySegmentSpec(Intervals.ETERNITY),
@@ -724,62 +730,19 @@ public class SystemTableQueryClientTest
         List.of(
             new ScanOperatorFactory(
                 null,
-                new SelectorDimFilter("upper_property", "MATCH", null),
+                new SelectorDimFilter("property", "druid.host", null),
                 null,
                 null,
-                VirtualColumns.create(virtualColumn),
+                null,
                 null
             )
         )
     );
 
-    client.createRunner(query, AUTHENTICATION_RESULT, false)
-          .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
-          .toList();
+    final ScanQuery nodeQuery = captureNodeQuery(descriptor, query);
 
-    Assertions.assertEquals(
-        VirtualColumns.create(virtualColumn),
-        capturedNodeQuery.get().getVirtualColumns()
-    );
-  }
-
-  /**
-   * A window query is planned over a Scan subquery, which {@link WindowOperatorQuery} converts into a leaf scan. For a
-   * Scan without virtual columns the leaf stores null virtual columns; the filter is still pushed into the node scan,
-   * with no virtual columns.
-   */
-  @Test
-  public void testWindowLeafFilterWithoutVirtualColumns()
-  {
-    final SystemTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
-    final AtomicReference<ScanQuery> capturedNodeQuery = new AtomicReference<>();
-    final SystemTableQueryClient client = makeClient(
-        descriptor,
-        List.of(testNode()),
-        (queryPlus, responseContext) -> {
-          capturedNodeQuery.set((ScanQuery) queryPlus.getQuery());
-          return Sequences.empty();
-        }
-    );
-    final SelectorDimFilter filter = new SelectorDimFilter("property", "druid.host", null);
-    final WindowOperatorQuery query = new WindowOperatorQuery(
-        new QueryDataSource(
-            Druids.ScanQueryBuilder.copy(query(descriptor, Collections.emptyMap())).filters(filter).build()
-        ),
-        new LegacySegmentSpec(Intervals.ETERNITY),
-        Collections.emptyMap(),
-        descriptor.getRowSignature(),
-        Collections.emptyList(),
-        null
-    );
-    Assertions.assertNull(((ScanOperatorFactory) query.getLeafOperators().get(0)).getVirtualColumns());
-
-    client.createRunner(query, AUTHENTICATION_RESULT, false)
-          .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
-          .toList();
-
-    Assertions.assertEquals(filter, capturedNodeQuery.get().getFilter());
-    Assertions.assertEquals(VirtualColumns.EMPTY, capturedNodeQuery.get().getVirtualColumns());
+    Assertions.assertNull(nodeQuery.getFilter());
+    Assertions.assertEquals(VirtualColumns.EMPTY, nodeQuery.getVirtualColumns());
   }
 
   /** The private node transport always uses plain scan results even when the user query requests by-segment results. */
@@ -788,7 +751,7 @@ public class SystemTableQueryClientTest
   {
     final SystemTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
     final AtomicReference<ScanQuery> capturedNodeQuery = new AtomicReference<>();
-    final SystemTableQueryClient client = makeClient(
+    final TestClient client = makeClient(
         descriptor,
         List.of(testNode()),
         (queryPlus, responseContext) -> {
@@ -798,21 +761,21 @@ public class SystemTableQueryClientTest
     );
     final ScanQuery query = query(descriptor, QueryContext.ofMap(QueryContextParameters.BY_SEGMENT, true));
 
-    client.createRunner(query, AUTHENTICATION_RESULT, false)
+    client.createRunner(query, AUTHENTICATION_RESULT)
           .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
           .toList();
 
     Assertions.assertFalse(capturedNodeQuery.get().context().isBySegment());
   }
 
-  /// SELECT * FROM (SELECT * FROM sys.server_properties) must retain the outer query deadline.
+  /** SELECT * FROM (SELECT * FROM sys.server_properties) must retain the outer query deadline. */
   @ParameterizedTest
   @ValueSource(longs = {0L, 7_000L, Long.MAX_VALUE})
   public void testSubqueryRetainsOuterDeadline(final long innerTimeout)
   {
     final AtomicReference<ScanQuery> captured = new AtomicReference<>();
     final SystemTableDescriptor descriptor = new TestSystemTableDescriptor();
-    final SystemTableQueryClient client = makeClient(
+    final TestClient client = makeClient(
         descriptor,
         List.of(testNode()),
         ignored -> (queryPlus, responseContext) -> {
@@ -838,7 +801,7 @@ public class SystemTableQueryClientTest
     )
         .withDataSource(new QueryDataSource(inner));
 
-    client.createRunner(outer, AUTHENTICATION_RESULT, false)
+    client.createRunner(outer, AUTHENTICATION_RESULT)
           .run(QueryPlus.wrap(outer), ResponseContext.createEmpty())
           .toList();
 
@@ -852,7 +815,7 @@ public class SystemTableQueryClientTest
   {
     final AtomicReference<ScanQuery> capturedNodeQuery = new AtomicReference<>();
     final SystemTableDescriptor descriptor = new TestSystemTableDescriptor();
-    final SystemTableQueryClient client = makeClient(
+    final TestClient client = makeClient(
         descriptor,
         List.of(testNode()),
         (queryPlus, responseContext) -> {
@@ -870,7 +833,7 @@ public class SystemTableQueryClientTest
         )
     );
 
-    client.createRunner(query, AUTHENTICATION_RESULT, false)
+    client.createRunner(query, AUTHENTICATION_RESULT)
           .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
           .toList();
 
@@ -896,7 +859,7 @@ public class SystemTableQueryClientTest
         null
     };
     final AtomicInteger nodeNumber = new AtomicInteger();
-    final SystemTableQueryClient client = makeClient(
+    final TestClient client = makeClient(
         descriptor,
         List.of(healthyNode, failedNode),
         ignored -> {
@@ -918,7 +881,7 @@ public class SystemTableQueryClientTest
     );
     final ScanQuery query = query(descriptor, Collections.emptyMap());
 
-    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT, false)
+    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT)
                                                 .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
                                                 .toList();
 
@@ -942,14 +905,14 @@ public class SystemTableQueryClientTest
   public void testServerPropertiesWithNoDiscoveredNodesReturnsEmptyResult()
   {
     final ServerPropertiesTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
-    final SystemTableQueryClient client = makeClient(
+    final TestClient client = makeClient(
         descriptor,
         Collections.emptyList(),
         (queryPlus, responseContext) -> Sequences.empty()
     );
     final ScanQuery query = query(descriptor, Collections.emptyMap());
 
-    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT, false)
+    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT)
                                                 .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
                                                 .toList();
 
@@ -993,7 +956,7 @@ public class SystemTableQueryClientTest
   {
     final QueryTimeoutException failure = new QueryTimeoutException("node timed out while streaming");
     final ServerPropertiesTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
-    final SystemTableQueryClient client = makeClient(
+    final TestClient client = makeClient(
         descriptor,
         List.of(testNode()),
         (queryPlus, responseContext) -> Sequences.simple(List.of(scanResult(new Object[]{"ignored"})))
@@ -1005,7 +968,7 @@ public class SystemTableQueryClientTest
 
     final QueryTimeoutException thrown = Assertions.assertThrows(
         QueryTimeoutException.class,
-        () -> client.createRunner(query, AUTHENTICATION_RESULT, false)
+        () -> client.createRunner(query, AUTHENTICATION_RESULT)
                     .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
                     .toList()
     );
@@ -1040,23 +1003,20 @@ public class SystemTableQueryClientTest
       }
       return directClient;
     });
-    final QuerySegmentWalker querySegmentWalker = Mockito.mock(QuerySegmentWalker.class);
-    Mockito.when(querySegmentWalker.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
-           .thenAnswer(ignored -> passthroughRunner(descriptor.getRowSignature()));
-    final SystemTableQueryClient client = new SystemTableQueryClient(
-        nodeLocator,
-        directClientFactory,
-        Mockito.mock(QueryScheduler.class),
-        querySegmentWalker,
-        Map.of(descriptor.getTableName(), descriptor),
-        new AuthorizerMapper(Map.of("allow", new AllowAllAuthorizer(null))),
-        Mockito.mock(SystemTableQueryHandler.class),
-        NoopEscalator.getInstance(),
-        nonMatchingSelfNode()
+    final QueryRunner<?> queryRunner = passthroughRunner(descriptor.getRowSignature());
+    final TestClient client = new TestClient(
+        newClient(
+            nodeLocator,
+            directClientFactory,
+            Mockito.mock(QueryScheduler.class),
+            Map.of(descriptor.getTableName(), descriptor),
+            nonMatchingSelfNode()
+        ),
+        queryRunner
     );
     final ScanQuery query = query(descriptor, Collections.emptyMap());
 
-    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT, false)
+    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT)
                                                 .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
                                                 .toList();
 
@@ -1071,7 +1031,7 @@ public class SystemTableQueryClientTest
   private static void assertServerPropertiesQueryFailureIsPropagated(final RuntimeException failure)
   {
     final ServerPropertiesTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
-    final SystemTableQueryClient client = makeClient(
+    final TestClient client = makeClient(
         descriptor,
         List.of(testNode()),
         (queryPlus, responseContext) -> {
@@ -1082,14 +1042,14 @@ public class SystemTableQueryClientTest
 
     final RuntimeException thrown = Assertions.assertThrows(
         failure.getClass(),
-        () -> client.createRunner(query, AUTHENTICATION_RESULT, false)
+        () -> client.createRunner(query, AUTHENTICATION_RESULT)
                     .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
                     .toList()
     );
     Assertions.assertSame(failure, thrown);
   }
 
-  private static SystemTableQueryClient makeClient(
+  private static TestClient makeClient(
       final SystemTableDescriptor descriptor,
       final List<DiscoveryDruidNode> discoveryNodes,
       final QueryRunner<ScanResultValue> nodeRunner
@@ -1098,7 +1058,7 @@ public class SystemTableQueryClientTest
     return makeClient(descriptor, discoveryNodes, ignored -> nodeRunner);
   }
 
-  private static SystemTableQueryClient makeDirectClientBackedClient(
+  private static TestClient makeDirectClientBackedClient(
       final SystemTableDescriptor descriptor,
       final List<DiscoveryDruidNode> discoveryNodes,
       final ObjectMapper objectMapper,
@@ -1124,23 +1084,20 @@ public class SystemTableQueryClientTest
             cancellationExecutor
         )
     );
-    final QuerySegmentWalker querySegmentWalker = Mockito.mock(QuerySegmentWalker.class);
-    Mockito.when(querySegmentWalker.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
-           .thenAnswer(ignored -> passthroughRunner(descriptor.getRowSignature()));
-    return new SystemTableQueryClient(
-        nodeLocator,
-        directClientFactory,
-        queryScheduler,
-        querySegmentWalker,
-        Map.of(descriptor.getTableName(), descriptor),
-        new AuthorizerMapper(Map.of("allow", new AllowAllAuthorizer(null))),
-        Mockito.mock(SystemTableQueryHandler.class),
-        NoopEscalator.getInstance(),
-        nonMatchingSelfNode()
+    final QueryRunner<?> queryRunner = passthroughRunner(descriptor.getRowSignature());
+    return new TestClient(
+        newClient(
+            nodeLocator,
+            directClientFactory,
+            queryScheduler,
+            Map.of(descriptor.getTableName(), descriptor),
+            nonMatchingSelfNode()
+        ),
+        queryRunner
     );
   }
 
-  private static SystemTableQueryClient makeClient(
+  private static TestClient makeClient(
       final SystemTableDescriptor descriptor,
       final List<DiscoveryDruidNode> discoveryNodes,
       final Function<DruidServer, QueryRunner<ScanResultValue>> nodeRunnerFactory
@@ -1154,7 +1111,7 @@ public class SystemTableQueryClientTest
     );
   }
 
-  private static SystemTableQueryClient makeClient(
+  private static TestClient makeClient(
       final SystemTableDescriptor descriptor,
       final List<DiscoveryDruidNode> discoveryNodes,
       final Function<DruidServer, QueryRunner<ScanResultValue>> nodeRunnerFactory,
@@ -1184,20 +1141,82 @@ public class SystemTableQueryClientTest
       return directClient;
     });
 
-    final QuerySegmentWalker querySegmentWalker = Mockito.mock(QuerySegmentWalker.class);
-    Mockito.when(querySegmentWalker.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
-           .thenAnswer(invocation -> queryRunner);
+    return new TestClient(
+        newClient(
+            nodeLocator,
+            directClientFactory,
+            Mockito.mock(QueryScheduler.class),
+            Map.of(descriptor.getTableName(), descriptor),
+            nonMatchingSelfNode()
+        ),
+        queryRunner
+    );
+  }
 
+  /** Creates a client that reads no system table locally, for tests whose nodes are all remote. */
+  private static SystemTableQueryClient newClient(
+      final SystemTableNodeLocator nodeLocator,
+      final DirectDruidClientFactory directClientFactory,
+      final QueryScheduler queryScheduler,
+      final Map<String, SystemTableDescriptor> descriptors,
+      final DruidNode selfNode
+  )
+  {
     return new SystemTableQueryClient(
         nodeLocator,
         directClientFactory,
-        Mockito.mock(QueryScheduler.class),
-        querySegmentWalker,
-        Map.of(descriptor.getTableName(), descriptor),
-        new AuthorizerMapper(Map.of("allow", new AllowAllAuthorizer(null))),
-        Mockito.mock(SystemTableQueryHandler.class),
-        NoopEscalator.getInstance(),
-        nonMatchingSelfNode()
+        queryScheduler,
+        Mockito.mock(SegmentWrangler.class),
+        CONGLOMERATE.getConglomerate(),
+        descriptors,
+        new ServerConfig(),
+        selfNode
+    );
+  }
+
+  /**
+   * A client paired with the runner that stands in for the Broker's walker. {@link #createRunner} resolves the query
+   * with the client, as {@code NativeQueryMaker} does, and runs the resolved query with that runner.
+   */
+  private record TestClient(SystemTableQueryClient client, QueryRunner<?> queryRunner)
+  {
+    <T> QueryRunner<T> createRunner(final Query<T> query, final AuthenticationResult authenticationResult)
+    {
+      return createRunner(query, SystemTableAccess.ALL_ROWS);
+    }
+
+    /**
+     * Marks each system table in the query to be gathered from all services, with the given access attached, as
+     * {@code NativeQueryMaker} and {@code QueryLifecycle} do before the Broker walker resolves the query.
+     */
+    @SuppressWarnings("unchecked")
+    <T> QueryRunner<T> createRunner(final Query<T> query, final SystemTableAccess access)
+    {
+      return (queryPlus, responseContext) -> {
+        final SystemTableQueryClient.ResolvedQuery<T> resolvedQuery =
+            client.resolve(query.withDataSource(authorizedAndGathered(query.getDataSource(), access)));
+        return Sequences.withBaggage(
+            ((QueryRunner<T>) queryRunner).run(queryPlus.withQuery(resolvedQuery.query()), responseContext),
+            resolvedQuery.closer()
+        );
+      };
+    }
+  }
+
+  private static <T> List<T> runToList(final TestClient client, final Query<T> query)
+  {
+    return client.createRunner(query, AUTHENTICATION_RESULT)
+                 .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
+                 .toList();
+  }
+
+  private static DataSource authorizedAndGathered(final DataSource dataSource, final SystemTableAccess access)
+  {
+    if (dataSource instanceof SystemTableDataSource systemTable) {
+      return systemTable.withAccess(access).gatheredFromAllServices();
+    }
+    return dataSource.withChildren(
+        dataSource.getChildren().stream().map(child -> authorizedAndGathered(child, access)).toList()
     );
   }
 
@@ -1221,6 +1240,23 @@ public class SystemTableQueryClientTest
     );
   }
 
+  /** Resolves the query and returns the Scan sent to its only node. */
+  private static ScanQuery captureNodeQuery(final SystemTableDescriptor descriptor, final Query<?> query)
+  {
+    final AtomicReference<ScanQuery> capturedNodeQuery = new AtomicReference<>();
+    final TestClient client = makeClient(
+        descriptor,
+        List.of(testNode()),
+        (queryPlus, responseContext) -> {
+          capturedNodeQuery.set((ScanQuery) queryPlus.getQuery());
+          return Sequences.empty();
+        }
+    );
+    // Node scans start when the resolved query reads its rows.
+    runToList(client, query);
+    return capturedNodeQuery.get();
+  }
+
   private static List<ScanQuery> captureNodeQueries(
       final SystemTableDescriptor descriptor,
       final DataSource dataSource,
@@ -1239,19 +1275,16 @@ public class SystemTableQueryClientTest
     final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
     Mockito.when(directClientFactory.makeDirectClient(ArgumentMatchers.any()))
            .thenReturn(Mockito.mock(DirectDruidClient.class));
-    final QuerySegmentWalker querySegmentWalker = Mockito.mock(QuerySegmentWalker.class);
-    Mockito.when(querySegmentWalker.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
-           .thenReturn((queryPlus, responseContext) -> Sequences.empty());
-    final SystemTableQueryClient client = new SystemTableQueryClient(
-        nodeLocator,
-        directClientFactory,
-        Mockito.mock(QueryScheduler.class),
-        querySegmentWalker,
-        Map.of(descriptor.getTableName(), descriptor),
-        new AuthorizerMapper(Map.of("allow", new AllowAllAuthorizer(null))),
-        Mockito.mock(SystemTableQueryHandler.class),
-        NoopEscalator.getInstance(),
-        nonMatchingSelfNode()
+    final QueryRunner<?> queryRunner = (queryPlus, responseContext) -> Sequences.empty();
+    final TestClient client = new TestClient(
+        newClient(
+            nodeLocator,
+            directClientFactory,
+            Mockito.mock(QueryScheduler.class),
+            Map.of(descriptor.getTableName(), descriptor),
+            nonMatchingSelfNode()
+        ),
+        queryRunner
     );
     final ScanQuery query = Druids.newScanQueryBuilder()
                                  .dataSource(dataSource)
@@ -1260,7 +1293,7 @@ public class SystemTableQueryClientTest
                                  .filters(filter)
                                  .build();
 
-    client.createRunner(query, AUTHENTICATION_RESULT, false)
+    client.createRunner(query, AUTHENTICATION_RESULT)
           .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
           .toList();
     return nodeQueries;
@@ -1276,7 +1309,7 @@ public class SystemTableQueryClientTest
       resolvedDataSource.set(queryPlus.getQuery().getDataSource());
       return Sequences.empty();
     };
-    final SystemTableQueryClient client = makeClient(
+    final TestClient client = makeClient(
         descriptor,
         List.of(testNode()),
         ignored -> (queryPlus, responseContext) -> Sequences.simple(List.of(scanResult(new Object[]{"value"}))),
@@ -1288,7 +1321,7 @@ public class SystemTableQueryClientTest
                                  .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
                                  .build();
 
-    client.createRunner(query, AUTHENTICATION_RESULT, false)
+    client.createRunner(query, AUTHENTICATION_RESULT)
           .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
           .toList();
 
@@ -1470,7 +1503,7 @@ public class SystemTableQueryClientTest
     @Override
     public org.apache.druid.server.system.table.SystemTableRowAuthorizer getRowAuthorizer()
     {
-      return (rows, authenticationResult, authorizerMapper) -> rows;
+      return (authenticationResult, authorizerMapper) -> SystemTableAccess.ALL_ROWS;
     }
   }
 

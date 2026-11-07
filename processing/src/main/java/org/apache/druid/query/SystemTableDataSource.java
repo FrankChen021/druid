@@ -20,20 +20,33 @@
 package org.apache.druid.query;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.query.policy.Policy;
 import org.apache.druid.query.policy.PolicyEnforcer;
 
+import javax.annotation.Nullable;
+
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 /**
- * Identifies a Druid system table whose rows are supplied by a service rather than by segments.
+ * Identifies a Druid system table whose rows are supplied by a service rather than by segments. Each service reads its
+ * own rows of the table. The SQL layer on the Broker marks the tables it plans with {@link #gatherFromAllServices},
+ * and the Broker then gathers their rows from every service that serves them.
+ *
+ * <p>The server that authorizes a query attaches a {@link SystemTableAccess} with {@link #withAccess}, which says which
+ * rows the caller may read. The table can't be read without it.</p>
+ *
+ * <p>Neither the access nor the mark is serialized, so a client can't supply them, and a query that is sent to another
+ * service reads only that service's rows, under the access that service attaches.</p>
  */
 public class SystemTableDataSource extends LeafDataSource
 {
@@ -47,17 +60,94 @@ public class SystemTableDataSource extends LeafDataSource
    */
   private final String qualifiedTableName;
 
+  @Nullable
+  private final SystemTableAccess access;
+
+  private final boolean gatheredFromAllServices;
+
   @JsonCreator
   public SystemTableDataSource(@JsonProperty("table") final String table)
   {
+    this(table, null, false);
+  }
+
+  private SystemTableDataSource(
+      final String table,
+      @Nullable final SystemTableAccess access,
+      final boolean gatheredFromAllServices
+  )
+  {
     this.table = Preconditions.checkNotNull(table, "table");
     this.qualifiedTableName = "sys." + table;
+    this.access = access;
+    this.gatheredFromAllServices = gatheredFromAllServices;
   }
 
   @JsonProperty
   public String getTable()
   {
     return table;
+  }
+
+  /** Whether the datasource, or one of the datasources it reads, is a system table. */
+  public static boolean readsSystemTable(final DataSource dataSource)
+  {
+    if (dataSource instanceof SystemTableDataSource) {
+      return true;
+    }
+    for (final DataSource child : dataSource.getChildren()) {
+      if (readsSystemTable(child)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Returns a copy of the datasource in which every system table is {@link #gatheredFromAllServices()}. */
+  public static DataSource gatherFromAllServices(final DataSource dataSource)
+  {
+    if (dataSource instanceof SystemTableDataSource systemTable) {
+      return systemTable.gatheredFromAllServices();
+    }
+    final List<DataSource> children = dataSource.getChildren();
+    if (children.isEmpty()) {
+      return dataSource;
+    }
+    final List<DataSource> gatheredChildren = new ArrayList<>(children.size());
+    for (final DataSource child : children) {
+      gatheredChildren.add(gatherFromAllServices(child));
+    }
+    return dataSource.withChildren(gatheredChildren);
+  }
+
+  /** Returns the rows the caller may read, or null if the query hasn't been authorized on this server. */
+  @JsonIgnore
+  @Nullable
+  public SystemTableAccess getAccess()
+  {
+    return access;
+  }
+
+  /** Returns a copy of this datasource that carries the given access. */
+  public SystemTableDataSource withAccess(final SystemTableAccess access)
+  {
+    return new SystemTableDataSource(table, Preconditions.checkNotNull(access, "access"), gatheredFromAllServices);
+  }
+
+  /**
+   * Whether the query reads the rows of every service that serves the table, rather than only the rows of the service
+   * that runs it. Only the Broker gathers rows from other services, for the queries that the SQL layer plans.
+   */
+  @JsonIgnore
+  public boolean isGatheredFromAllServices()
+  {
+    return gatheredFromAllServices;
+  }
+
+  /** Returns a copy of this datasource whose rows are gathered from every service that serves the table. */
+  public SystemTableDataSource gatheredFromAllServices()
+  {
+    return new SystemTableDataSource(table, access, true);
   }
 
   @Override
@@ -93,11 +183,14 @@ public class SystemTableDataSource extends LeafDataSource
     return false;
   }
 
+  /**
+   * A system table can be processed once a server has authorized the query and attached the caller's access. Until
+   * then, as when the SQL layer plans a query, it's a datasource that something else must resolve.
+   */
   @Override
   public boolean isProcessable()
   {
-    // The owning service must first resolve this datasource to an InlineDataSource.
-    return false;
+    return access != null;
   }
 
   @Override
@@ -116,13 +209,15 @@ public class SystemTableDataSource extends LeafDataSource
       return false;
     }
     final SystemTableDataSource that = (SystemTableDataSource) o;
-    return Objects.equals(table, that.table);
+    return gatheredFromAllServices == that.gatheredFromAllServices
+           && Objects.equals(table, that.table)
+           && Objects.equals(access, that.access);
   }
 
   @Override
   public int hashCode()
   {
-    return Objects.hash(table);
+    return Objects.hash(table, access, gatheredFromAllServices);
   }
 
   @Override
@@ -130,6 +225,8 @@ public class SystemTableDataSource extends LeafDataSource
   {
     return "SystemTableDataSource{" +
            "table='" + table + '\'' +
+           ", authorized=" + (access != null) +
+           ", gatheredFromAllServices=" + gatheredFromAllServices +
            '}';
   }
 }
