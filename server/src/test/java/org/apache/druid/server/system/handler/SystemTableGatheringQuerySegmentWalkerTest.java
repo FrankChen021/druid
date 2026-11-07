@@ -1,0 +1,127 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.druid.server.system.handler;
+
+import org.apache.druid.error.DruidException;
+import org.apache.druid.java.util.common.guava.Sequences;
+import org.apache.druid.query.Druids;
+import org.apache.druid.query.InlineDataSource;
+import org.apache.druid.query.Query;
+import org.apache.druid.query.QueryPlus;
+import org.apache.druid.query.QueryRunner;
+import org.apache.druid.query.QuerySegmentWalker;
+import org.apache.druid.query.SystemTableAccess;
+import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.query.context.ResponseContext;
+import org.apache.druid.query.scan.ScanQuery;
+import org.apache.druid.segment.column.RowSignature;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
+
+import java.io.Closeable;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+
+public class SystemTableGatheringQuerySegmentWalkerTest
+{
+  private final QuerySegmentWalker delegate = Mockito.mock(QuerySegmentWalker.class);
+  private final SystemTableQueryClient client = Mockito.mock(SystemTableQueryClient.class);
+  private final SystemTableGatheringQuerySegmentWalker walker =
+      new SystemTableGatheringQuerySegmentWalker(delegate, client);
+
+  /** A native query on a system table isn't gathered: it reads the Broker's rows through the Broker's walker. */
+  @Test
+  public void testSystemTableNotGatheredGoesToDelegate()
+  {
+    final QueryRunner<Object> runner = (queryPlus, responseContext) -> Sequences.empty();
+    Mockito.when(delegate.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
+           .thenReturn(runner);
+    final ScanQuery query = scan(new SystemTableDataSource("server_properties").withAccess(SystemTableAccess.ALL_ROWS));
+
+    Assertions.assertSame(runner, walker.getQueryRunnerForIntervals(query, query.getIntervals()));
+    Mockito.verifyNoInteractions(client);
+  }
+
+  /** A gathered system table is replaced with gathered rows when the query runs, and the closer runs afterwards. */
+  @Test
+  public void testGatheredSystemTableIsResolvedWhenQueryRuns() throws Exception
+  {
+    final ScanQuery query = scan(
+        new SystemTableDataSource("server_properties").withAccess(SystemTableAccess.ALL_ROWS).gatheredFromAllServices()
+    );
+    final ScanQuery resolved = scan(InlineDataSource.fromIterable(List.of(), RowSignature.empty()));
+    final AtomicBoolean closed = new AtomicBoolean();
+    final Closeable closer = () -> closed.set(true);
+    Mockito.when(client.resolve(ArgumentMatchers.<Query<Object>>any()))
+           .thenAnswer(ignored -> new SystemTableQueryClient.ResolvedQuery<>(resolved, closer));
+    final AtomicReference<Query<?>> delegated = new AtomicReference<>();
+    Mockito.when(delegate.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
+           .thenAnswer(invocation -> {
+             delegated.set(invocation.getArgument(0));
+             return (QueryRunner<Object>) (queryPlus, responseContext) -> Sequences.empty();
+           });
+
+    final QueryRunner<?> runner = walker.getQueryRunnerForIntervals(query, query.getIntervals());
+    Mockito.verifyNoInteractions(client, delegate);
+
+    runner.run(QueryPlus.wrap((Query) query), ResponseContext.createEmpty()).toList();
+    Assertions.assertSame(resolved, delegated.get());
+    Assertions.assertTrue(closed.get());
+  }
+
+  /** The gathered rows are released if the Broker's walker fails to plan the resolved query. */
+  @Test
+  public void testCloserRunsWhenDelegateFails()
+  {
+    final ScanQuery query = scan(
+        new SystemTableDataSource("server_properties").withAccess(SystemTableAccess.ALL_ROWS).gatheredFromAllServices()
+    );
+    final AtomicBoolean closed = new AtomicBoolean();
+    Mockito.when(client.resolve(ArgumentMatchers.<Query<Object>>any()))
+           .thenAnswer(ignored -> new SystemTableQueryClient.ResolvedQuery<>(query, () -> closed.set(true)));
+    Mockito.when(delegate.getQueryRunnerForIntervals(ArgumentMatchers.any(), ArgumentMatchers.any()))
+           .thenThrow(new IllegalStateException("too many subquery rows"));
+
+    final QueryRunner<?> runner = walker.getQueryRunnerForIntervals(query, query.getIntervals());
+    Assertions.assertThrows(
+        IllegalStateException.class,
+        () -> runner.run(QueryPlus.wrap((Query) query), ResponseContext.createEmpty())
+    );
+    Assertions.assertTrue(closed.get());
+  }
+
+  @Test
+  public void testGatheredSystemTableCantBeQueriedForSegments()
+  {
+    final ScanQuery query = scan(
+        new SystemTableDataSource("server_properties").withAccess(SystemTableAccess.ALL_ROWS).gatheredFromAllServices()
+    );
+    Assertions.assertThrows(DruidException.class, () -> walker.getQueryRunnerForSegments(query, List.of()));
+    Mockito.verifyNoInteractions(client, delegate);
+  }
+
+  private static ScanQuery scan(final org.apache.druid.query.DataSource dataSource)
+  {
+    return Druids.newScanQueryBuilder().dataSource(dataSource).eternityInterval().build();
+  }
+}

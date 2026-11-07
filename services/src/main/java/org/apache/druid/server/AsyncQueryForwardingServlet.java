@@ -41,6 +41,7 @@ import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.GenericQueryMetricsFactory;
 import org.apache.druid.query.Query;
@@ -48,8 +49,10 @@ import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryToolChestWarehouse;
+import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
+import org.apache.druid.query.planning.ExecutionVertex;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.initialization.jetty.HttpException;
 import org.apache.druid.server.initialization.jetty.ResponseIdentityHeaderHandler;
@@ -269,7 +272,7 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
       byte[] requestBytes = objectMapper.writeValueAsBytes(requestMap);
       request.setAttribute(AVATICA_QUERY_ATTRIBUTE, requestBytes);
       LOG.debug("Forwarding JDBC connection [%s] to broker [%s]", connectionId, targetServer.getHost());
-    } else if (HttpMethod.DELETE.is(method) && isNativeQueryEndpoint && isLocalNativeQueryRoute(request)) {
+    } else if (HttpMethod.DELETE.is(method) && isNativeQueryEndpoint && isLocalSystemTableCancellation(request)) {
       dispatchNodeLocalCancellation(request, response);
       return;
     } else if (HttpMethod.DELETE.is(method)) {
@@ -282,7 +285,7 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
       try {
         Query inputQuery = objectMapper.readValue(request.getInputStream(), Query.class);
         if (inputQuery != null) {
-          if (isLocalSystemTableQuery(request, inputQuery)) {
+          if (isLocalSystemTableQuery(inputQuery)) {
             dispatchNodeLocalQuery(request, response, inputQuery, objectMapper);
             return;
           }
@@ -362,21 +365,41 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
     localQueryContainer.service(new NodeLocalRequest(request), response);
   }
 
-  private boolean isLocalSystemTableQuery(final HttpServletRequest request, final Query<?> query)
+  /**
+   * Whether the Router runs the query itself. Native queries on system tables read the rows of the service that
+   * receives them, so the Router answers them with its own rows, unless
+   * {@link SystemTableModule#ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY} is off. Queries that the Router can't run
+   * by itself, such as a join of a system table with a regular datasource, are forwarded to a Broker like any other.
+   */
+  private boolean isLocalSystemTableQuery(final Query<?> query)
   {
-    return query.getDataSource() instanceof SystemTableDataSource
-           && isLocalNativeQueryRoute(request);
+    if (!enableDruidEngineForSystemTables || !SystemTableDataSource.readsSystemTable(query.getDataSource())) {
+      return false;
+    }
+    // System tables become processable once their access is attached, which the Router's own query lifecycle does.
+    // Attach full access here only to check whether the Router can run a query of this shape.
+    final Query<?> shape = query.withDataSource(withFullAccess(query.getDataSource()));
+    return ExecutionVertex.of(shape).canRunQueryUsingLocalWalker();
+  }
+
+  private static DataSource withFullAccess(final DataSource dataSource)
+  {
+    if (dataSource instanceof SystemTableDataSource systemTable) {
+      return systemTable.withAccess(SystemTableAccess.ALL_ROWS);
+    }
+    return dataSource.withChildren(
+        dataSource.getChildren().stream().map(AsyncQueryForwardingServlet::withFullAccess).toList()
+    );
   }
 
   /**
-   * Whether the request asks the Router to run the query itself. The header is ignored, and the request forwarded to a
-   * Broker, unless {@link SystemTableModule#ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY} is set.
+   * Whether the request cancels a node query that a Broker sent to this Router while gathering the rows of a system
+   * table. Such queries run on the Router, so they are cancelled here rather than on the Brokers.
    */
-  private boolean isLocalNativeQueryRoute(final HttpServletRequest request)
+  private boolean isLocalSystemTableCancellation(final HttpServletRequest request)
   {
-    return enableDruidEngineForSystemTables && QueryResource.NATIVE_QUERY_ROUTE_LOCAL.equals(
-        request.getHeader(QueryResource.HEADER_NATIVE_QUERY_ROUTE)
-    );
+    return enableDruidEngineForSystemTables
+           && request.getRequestURI().startsWith("/druid/v2/" + SystemTableDataSource.NODE_QUERY_ID_PREFIX);
   }
 
   /**

@@ -20,11 +20,13 @@
 
 package org.apache.druid.query;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.query.filter.NullFilter;
 import org.apache.druid.query.policy.NoopPolicyEnforcer;
 import org.apache.druid.query.policy.RestrictAllTablesPolicyEnforcer;
 import org.apache.druid.query.policy.RowFilterPolicy;
+import org.apache.druid.segment.TestHelper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -54,6 +56,54 @@ public class SystemTableDataSourceTest
         Druids.newScanQueryBuilder().dataSource(dataSource).eternityInterval().build()
     );
     Assertions.assertEquals(queryDataSource, queryDataSource.withPolicies(Map.of(), NoopPolicyEnforcer.instance()));
+  }
+
+  /** The access attached on the authorizing server is never serialized, so a client can't supply one. */
+  @Test
+  public void testAccessIsNotSerialized() throws Exception
+  {
+    final ObjectMapper mapper = TestHelper.makeJsonMapper();
+    final SystemTableDataSource withAccess = dataSource.withAccess(SystemTableAccess.ALL_ROWS);
+
+    Assertions.assertSame(SystemTableAccess.ALL_ROWS, withAccess.getAccess());
+    Assertions.assertEquals(
+        mapper.writeValueAsString(dataSource),
+        mapper.writeValueAsString(withAccess)
+    );
+    final SystemTableDataSource deserialized = (SystemTableDataSource) mapper.readValue(
+        "{\"type\":\"systemTable\",\"table\":\"server_properties\",\"access\":{\"rowPredicate\":null}}",
+        DataSource.class
+    );
+    Assertions.assertNull(deserialized.getAccess());
+    Assertions.assertNotEquals(withAccess, deserialized);
+  }
+
+  /** A system table can be processed only once a server has attached the caller's access. */
+  @Test
+  public void testProcessableOnlyWithAccess()
+  {
+    Assertions.assertFalse(dataSource.isProcessable());
+    Assertions.assertTrue(dataSource.withAccess(SystemTableAccess.ALL_ROWS).isProcessable());
+  }
+
+  /** Attaching policies keeps the attached access. */
+  @Test
+  public void testWithPoliciesKeepsAccess()
+  {
+    final SystemTableDataSource withAccess = dataSource.withAccess(SystemTableAccess.ALL_ROWS);
+    Assertions.assertSame(withAccess, withAccess.withPolicies(Map.of(), NoopPolicyEnforcer.instance()));
+  }
+
+  @Test
+  public void testIsReadBy()
+  {
+    Assertions.assertTrue(SystemTableDataSource.readsSystemTable(dataSource));
+    Assertions.assertTrue(
+        SystemTableDataSource.readsSystemTable(
+            new QueryDataSource(Druids.newScanQueryBuilder().dataSource(dataSource).eternityInterval().build())
+        )
+    );
+    Assertions.assertFalse(SystemTableDataSource.readsSystemTable(new TableDataSource("wikipedia")));
   }
 
   @Test

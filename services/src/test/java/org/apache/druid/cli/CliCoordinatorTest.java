@@ -41,6 +41,7 @@ import org.apache.druid.segment.metadata.SegmentMetadataQuerySegmentWalker;
 import org.apache.druid.server.NoopQuerySegmentWalker;
 import org.apache.druid.server.QueryResource;
 import org.apache.druid.server.initialization.jetty.JettyBindings;
+import org.apache.druid.server.system.SystemTableQuerySegmentWalker;
 import org.apache.druid.server.system.handler.SystemTableQueryResource;
 import org.apache.druid.server.system.module.SystemTableModule;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
@@ -120,9 +121,10 @@ public class CliCoordinatorTest
     Assertions.assertFalse(jerseyResources(injector).contains(QueryResource.class));
     Assertions.assertTrue(jerseyResources(injector).contains(SystemTableQueryResource.class));
     Assertions.assertInstanceOf(
-        SegmentMetadataQuerySegmentWalker.class,
+        SystemTableQuerySegmentWalker.class,
         injector.getInstance(QuerySegmentWalker.class)
     );
+    Assertions.assertInstanceOf(SegmentMetadataQuerySegmentWalker.class, delegateWalker(injector));
     Assertions.assertTrue(queryRunnerFactories(injector).containsKey(ScanQuery.class));
     Assertions.assertTrue(queryRunnerFactories(injector).containsKey(SegmentMetadataQuery.class));
     Assertions.assertEquals("testValue", injector.getInstance(QueryConfigProvider.class).getContext().get("testKey"));
@@ -136,7 +138,8 @@ public class CliCoordinatorTest
     final Injector injector = makeCoordinatorInjector(properties);
 
     Assertions.assertNotNull(injector.getInstance(SystemTableQueryResource.class));
-    Assertions.assertInstanceOf(NoopQuerySegmentWalker.class, injector.getInstance(QuerySegmentWalker.class));
+    Assertions.assertInstanceOf(SystemTableQuerySegmentWalker.class, injector.getInstance(QuerySegmentWalker.class));
+    Assertions.assertInstanceOf(NoopQuerySegmentWalker.class, delegateWalker(injector));
     Assertions.assertTrue(queryRunnerFactories(injector).containsKey(ScanQuery.class));
     Assertions.assertFalse(queryRunnerFactories(injector).containsKey(SegmentMetadataQuery.class));
   }
@@ -160,6 +163,11 @@ public class CliCoordinatorTest
     final Injector withoutSchemaCache = makeCoordinatorInjector(new Properties());
     Assertions.assertFalse(jerseyResources(withoutSchemaCache).contains(SystemTableQueryResource.class));
     Assertions.assertTrue(systemTableDataProviders(withoutSchemaCache).isEmpty());
+  }
+
+  private static QuerySegmentWalker delegateWalker(final Injector injector)
+  {
+    return injector.getInstance(Key.get(QuerySegmentWalker.class, SystemTableQuerySegmentWalker.Delegate.class));
   }
 
   private static Map<String, SystemTableDataProvider> systemTableDataProviders(final Injector injector)

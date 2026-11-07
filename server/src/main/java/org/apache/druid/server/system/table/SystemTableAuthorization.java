@@ -20,6 +20,7 @@
 
 package org.apache.druid.server.system.table;
 
+import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationResult;
@@ -36,9 +37,9 @@ public final class SystemTableAuthorization
 {
   /** Row authorizer for tables whose rows are all visible to users with {@code STATE READ}, and to no one else. */
   public static final SystemTableRowAuthorizer STATE_READ_ROW_AUTHORIZER =
-      (rows, authenticationResult, authorizerMapper) -> {
+      (authenticationResult, authorizerMapper) -> {
         authorizeStateRead(authenticationResult, authorizerMapper);
-        return rows;
+        return SystemTableAccess.ALL_ROWS;
       };
 
   private SystemTableAuthorization()
