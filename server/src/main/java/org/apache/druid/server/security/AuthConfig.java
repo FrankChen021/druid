@@ -65,7 +65,7 @@ public class AuthConfig
 
   public AuthConfig()
   {
-    this(null, null, null, false, false, null, null, false, false);
+    this(null, null, null, false, false, null, null, false, false, false);
   }
 
   @JsonProperty
@@ -105,6 +105,13 @@ public class AuthConfig
   @JsonProperty
   private final boolean emitAuthMetrics;
 
+  /**
+   * If true, every server authorizes system tables queried with native queries as {@link ResourceType#SYSTEM_TABLE}
+   * resources, and the Broker does the same for system tables queried with SQL.
+   */
+  @JsonProperty
+  private final boolean authorizeSystemTablesDirectly;
+
   @JsonCreator
   public AuthConfig(
       @JsonProperty("authenticatorChain") List<String> authenticatorChain,
@@ -115,7 +122,8 @@ public class AuthConfig
       @JsonProperty("unsecuredContextKeys") Set<String> unsecuredContextKeys,
       @JsonProperty("securedContextKeys") Set<String> securedContextKeys,
       @JsonProperty("enableInputSourceSecurity") boolean enableInputSourceSecurity,
-      @JsonProperty("emitAuthMetrics") boolean emitAuthMetrics
+      @JsonProperty("emitAuthMetrics") boolean emitAuthMetrics,
+      @JsonProperty("authorizeSystemTablesDirectly") boolean authorizeSystemTablesDirectly
   )
   {
     this.authenticatorChain = authenticatorChain;
@@ -129,6 +137,7 @@ public class AuthConfig
     this.securedContextKeys = securedContextKeys;
     this.enableInputSourceSecurity = enableInputSourceSecurity;
     this.emitAuthMetrics = emitAuthMetrics;
+    this.authorizeSystemTablesDirectly = authorizeSystemTablesDirectly;
   }
 
   public List<String> getAuthenticatorChain()
@@ -164,6 +173,11 @@ public class AuthConfig
   public boolean isEmitAuthMetrics()
   {
     return emitAuthMetrics;
+  }
+
+  public boolean isAuthorizeSystemTablesDirectly()
+  {
+    return authorizeSystemTablesDirectly;
   }
 
   /**
@@ -209,6 +223,7 @@ public class AuthConfig
     return allowUnauthenticatedHttpOptions == that.allowUnauthenticatedHttpOptions
            && authorizeQueryContextParams == that.authorizeQueryContextParams
            && emitAuthMetrics == that.emitAuthMetrics
+           && authorizeSystemTablesDirectly == that.authorizeSystemTablesDirectly
            && Objects.equals(authenticatorChain, that.authenticatorChain)
            && Objects.equals(authorizers, that.authorizers)
            && Objects.equals(unsecuredPaths, that.unsecuredPaths)
@@ -229,7 +244,8 @@ public class AuthConfig
         unsecuredContextKeys,
         securedContextKeys,
         enableInputSourceSecurity,
-        emitAuthMetrics
+        emitAuthMetrics,
+        authorizeSystemTablesDirectly
     );
   }
 
@@ -246,6 +262,7 @@ public class AuthConfig
            ", securedContextKeys=" + securedContextKeys +
            ", enableInputSourceSecurity=" + enableInputSourceSecurity +
            ", emitAuthMetrics=" + emitAuthMetrics +
+           ", authorizeSystemTablesDirectly=" + authorizeSystemTablesDirectly +
            '}';
   }
 
@@ -268,6 +285,7 @@ public class AuthConfig
     private Set<String> securedContextKeys;
     private boolean enableInputSourceSecurity;
     private boolean emitAuthMetrics;
+    private boolean authorizeSystemTablesDirectly;
 
     public Builder setAuthenticatorChain(List<String> authenticatorChain)
     {
@@ -323,6 +341,12 @@ public class AuthConfig
       return this;
     }
 
+    public Builder setAuthorizeSystemTablesDirectly(boolean authorizeSystemTablesDirectly)
+    {
+      this.authorizeSystemTablesDirectly = authorizeSystemTablesDirectly;
+      return this;
+    }
+
     public AuthConfig build()
     {
       return new AuthConfig(
@@ -334,7 +358,8 @@ public class AuthConfig
           unsecuredContextKeys,
           securedContextKeys,
           enableInputSourceSecurity,
-          emitAuthMetrics
+          emitAuthMetrics,
+          authorizeSystemTablesDirectly
       );
     }
   }
