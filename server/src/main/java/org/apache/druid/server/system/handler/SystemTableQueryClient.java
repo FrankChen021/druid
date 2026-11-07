@@ -46,27 +46,26 @@ import org.apache.druid.query.QueryException;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
-import org.apache.druid.query.QuerySegmentWalker;
+import org.apache.druid.query.QueryRunnerFactory;
+import org.apache.druid.query.QueryRunnerFactoryConglomerate;
 import org.apache.druid.query.QueryTimeoutException;
+import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.DimFilter;
-import org.apache.druid.query.operator.OperatorFactory;
-import org.apache.druid.query.operator.ScanOperatorFactory;
-import org.apache.druid.query.operator.WindowOperatorQuery;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.segment.VirtualColumn;
-import org.apache.druid.segment.VirtualColumns;
-import org.apache.druid.server.DataSourceQueryHandler;
+import org.apache.druid.query.union.UnionQuery;
+import org.apache.druid.segment.Segment;
+import org.apache.druid.segment.SegmentWrangler;
+import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryScheduler;
+import org.apache.druid.server.SetAndVerifyContextQueryRunner;
 import org.apache.druid.server.coordination.ServerType;
-import org.apache.druid.server.security.AuthenticationResult;
-import org.apache.druid.server.security.AuthorizerMapper;
-import org.apache.druid.server.security.Escalator;
+import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableRoutingMode;
@@ -85,26 +84,31 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 /**
- * Recursively replaces native system-table datasources with authorized inline rows fetched from nodes, then
- * executes the rebuilt query through the Broker's normal native-query walker.
+ * Gathers the rows of system tables from the services that serve them, for the Broker.
+ *
+ * <p>{@link #resolve} replaces each system table with the {@link SystemTableDataSource.Scope#CLUSTER} scope with an
+ * {@link InlineDataSource} holding the rows that the caller may read, gathered with a Scan of the table on each
+ * service. The caller then runs the resolved query as usual. Services read the table with an escalated identity, so
+ * the rows are filtered here with the caller's {@link SystemTableAccess}, which the Broker attached when it authorized
+ * the query.</p>
  */
-public class SystemTableQueryClient implements DataSourceQueryHandler
+public class SystemTableQueryClient
 {
   private static final String SYSTEM_TABLE_TIER = "_system";
 
   private final SystemTableNodeLocator nodeLocator;
   private final DirectDruidClientFactory directDruidClientFactory;
   private final QueryScheduler queryScheduler;
-  private final QuerySegmentWalker querySegmentWalker;
+  private final SegmentWrangler segmentWrangler;
+  private final QueryRunnerFactoryConglomerate conglomerate;
   private final Map<String, SystemTableDescriptor> tableDescriptors;
-  private final AuthorizerMapper authorizerMapper;
-  private final SystemTableQueryHandler localQueryHandler;
-  private final AuthenticationResult escalatedAuthenticationResult;
+  private final ServerConfig serverConfig;
   private final DruidNode selfNode;
 
   @Inject
@@ -112,72 +116,73 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
       final SystemTableNodeLocator nodeLocator,
       final DirectDruidClientFactory directDruidClientFactory,
       final QueryScheduler queryScheduler,
-      final QuerySegmentWalker querySegmentWalker,
+      final SegmentWrangler segmentWrangler,
+      final QueryRunnerFactoryConglomerate conglomerate,
       final Map<String, SystemTableDescriptor> tableDescriptors,
-      final AuthorizerMapper authorizerMapper,
-      final SystemTableQueryHandler localQueryHandler,
-      final Escalator escalator,
+      final ServerConfig serverConfig,
       @Self final DruidNode selfNode
   )
   {
     this.nodeLocator = nodeLocator;
     this.directDruidClientFactory = directDruidClientFactory;
     this.queryScheduler = queryScheduler;
-    this.querySegmentWalker = querySegmentWalker;
+    this.segmentWrangler = segmentWrangler;
+    this.conglomerate = conglomerate;
     this.tableDescriptors = tableDescriptors;
-    this.authorizerMapper = authorizerMapper;
-    this.localQueryHandler = localQueryHandler;
-    this.escalatedAuthenticationResult = escalator.createEscalatedAuthenticationResult();
+    this.serverConfig = serverConfig;
     this.selfNode = selfNode;
   }
 
-  @Override
-  public <T> QueryRunner<T> createRunner(
-      final Query<T> query,
-      final AuthenticationResult authenticationResult,
-      final boolean executeLocally
-  )
+  /**
+   * Replaces each system table in the query that has the cluster scope with the rows of the table that the caller may
+   * read. The rows are read lazily, when the resolved query reads its datasource, and the returned closer cancels the
+   * node queries that are still running. The caller must close it once the resolved query is done.
+   */
+  public <T> ResolvedQuery<T> resolve(final Query<T> query)
   {
-    return (queryPlus, responseContext) -> {
-      final NodeSequencesCloser nodeSequencesCloser = new NodeSequencesCloser(queryScheduler);
-      try {
-        final DataSource resolvedDataSource = resolveDataSource(
-            query.getDataSource(),
-            query,
-            authenticationResult,
-            nodeSequencesCloser
-        );
-        final Query<T> resolvedQuery = query.withDataSource(resolvedDataSource).withOverriddenContext(
-            QueryContextParameters.QUERY_RESOURCE_ID,
-            UUID.randomUUID().toString()
-        );
-        final QueryRunner<T> queryRunner = querySegmentWalker.getQueryRunnerForIntervals(
-            resolvedQuery,
-            resolvedQuery.getIntervals()
-        );
-        return Sequences.withBaggage(
-            queryRunner.run(queryPlus.withQuery(resolvedQuery), responseContext),
-            nodeSequencesCloser
-        );
-      }
-      catch (Throwable t) {
-        throw CloseableUtils.closeAndWrapInCatch(t, nodeSequencesCloser);
-      }
-    };
+    // Node queries derive their timeout and scatter-gather limit from the query, so apply the server's limits first.
+    final Query<T> limitedQuery = SetAndVerifyContextQueryRunner.withTimeoutAndMaxScatterGatherBytes(
+        query,
+        serverConfig,
+        System.currentTimeMillis()
+    );
+    final NodeSequencesCloser nodeSequencesCloser = new NodeSequencesCloser(queryScheduler);
+    try {
+      final DataSource resolvedDataSource = resolveDataSource(
+          limitedQuery.getDataSource(),
+          limitedQuery,
+          nodeSequencesCloser
+      );
+      return new ResolvedQuery<>(limitedQuery.withDataSource(resolvedDataSource), nodeSequencesCloser);
+    }
+    catch (Throwable t) {
+      throw CloseableUtils.closeAndWrapInCatch(t, nodeSequencesCloser);
+    }
+  }
+
+  /**
+   * A query whose system tables were replaced with inline rows.
+   *
+   * @param query  the resolved query
+   * @param closer cancels the node queries that are still running; close it once the query is done
+   */
+  public record ResolvedQuery<T>(Query<T> query, Closeable closer)
+  {
   }
 
   private DataSource resolveDataSource(
       final DataSource dataSource,
       final Query<?> owningQuery,
-      final AuthenticationResult authenticationResult,
       final NodeSequencesCloser nodeSequencesCloser
   )
   {
     if (dataSource instanceof SystemTableDataSource systemTableDataSource) {
+      if (systemTableDataSource.getScope() != SystemTableDataSource.Scope.CLUSTER) {
+        return systemTableDataSource;
+      }
       return resolveSystemTableDataSource(
           systemTableDataSource,
           owningQuery,
-          authenticationResult,
           nodeSequencesCloser
       );
     }
@@ -187,14 +192,17 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
     if (dataSource instanceof QueryDataSource queryDataSource) {
       final Query<?> childQuery = queryDataSource.getQuery();
       // An inner query may tighten the outer guardrails, but must not discard them before node fanout.
-      childOwningQuery = childQuery.withOverriddenContext(
-          QueryContext.ofMap(
-              QueryContextParameters.QUERY_FAIL_TIME,
-              Math.min(getNodeFailTime(owningQuery), getNodeFailTime(childQuery)),
-              QueryContextParameters.MAX_SCATTER_GATHER_BYTES,
-              Math.min(owningQuery.context().getMaxScatterGatherBytes(), childQuery.context().getMaxScatterGatherBytes())
-          )
-      );
+      childOwningQuery = withGuardrails(childQuery, owningQuery);
+      if (childOwningQuery instanceof UnionQuery unionQuery) {
+        // Each child of a union is the datasource of one of its queries, which owns that child.
+        final List<DataSource> resolvedArms = new ArrayList<>();
+        for (final Query<?> arm : unionQuery.getQueries()) {
+          resolvedArms.add(
+              resolveDataSource(arm.getDataSource(), withGuardrails(arm, childOwningQuery), nodeSequencesCloser)
+          );
+        }
+        return new QueryDataSource(unionQuery.withDataSources(resolvedArms));
+      }
       resolvedParent = new QueryDataSource(childOwningQuery);
     } else {
       childOwningQuery = owningQuery;
@@ -206,7 +214,6 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
           resolveDataSource(
               child,
               childOwningQuery,
-              authenticationResult,
               nodeSequencesCloser
           )
       );
@@ -214,10 +221,22 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
     return resolvedParent.withChildren(resolvedChildren);
   }
 
+  /** Returns the inner query with the outer query's deadline and scatter-gather limit, where they are tighter. */
+  private static Query<?> withGuardrails(final Query<?> innerQuery, final Query<?> outerQuery)
+  {
+    return innerQuery.withOverriddenContext(
+        QueryContext.ofMap(
+            QueryContextParameters.QUERY_FAIL_TIME,
+            Math.min(getNodeFailTime(outerQuery), getNodeFailTime(innerQuery)),
+            QueryContextParameters.MAX_SCATTER_GATHER_BYTES,
+            Math.min(outerQuery.context().getMaxScatterGatherBytes(), innerQuery.context().getMaxScatterGatherBytes())
+        )
+    );
+  }
+
   private InlineDataSource resolveSystemTableDataSource(
       final SystemTableDataSource dataSource,
       final Query<?> owningQuery,
-      final AuthenticationResult authenticationResult,
       final NodeSequencesCloser nodeSequencesCloser
   )
   {
@@ -226,6 +245,10 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
       throw DruidException.defensive("No routing descriptor is registered for system table[%s]", dataSource.getTable());
     }
 
+    final SystemTableAccess access = dataSource.getAccess();
+    if (access == null) {
+      throw DruidException.defensive("System table[%s] was not authorized before execution", dataSource.getTable());
+    }
     final ScanQuery nodeQuery = makeNodeQuery(dataSource, descriptor, owningQuery);
     final List<QueryRunner<ScanResultValue>> nodeRunners = makeNodeRunners(
         nodeQuery,
@@ -256,15 +279,7 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
         DirectDruidClient.makeResponseContextForQuery(),
         nodeSequenceCloser
     );
-    final Iterable<Object[]> authorizedRows = descriptor.getRowAuthorizer().filterAuthorizedRows(
-        nodeRows,
-        authenticationResult,
-        authorizerMapper
-    );
-    final Iterable<Object[]> queryRows = requiresMaterializedRows(owningQuery)
-                                         ? materializeRows(authorizedRows)
-                                         : authorizedRows;
-    return InlineDataSource.fromIterable(queryRows, descriptor.getRowSignature());
+    return InlineDataSource.fromIterable(access.filter(nodeRows), descriptor.getRowSignature());
   }
 
   private ScanQuery makeNodeQuery(
@@ -273,26 +288,23 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
       final Query<?> owningQuery
   )
   {
-    final DimFilter nodeFilter = nodeFilter(dataSource, owningQuery);
     // The node endpoint always returns plain ScanResultValue objects. bySegment belongs to the user-facing query and
     // would make DirectDruidClient deserialize this private transport using an incompatible result type.
-    final Map<String, Object> nodeContext = owningQuery.withOverriddenContext(
-        QueryContext.ofMap(
-            QueryContextParameters.QUERY_FAIL_TIME,
-            getNodeFailTime(owningQuery),
-            QueryContextParameters.BY_SEGMENT,
-            false
-        )
-    ).getContext();
     return Druids.newScanQueryBuilder()
                  .dataSource(dataSource)
                  .eternityInterval()
                  .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
                  .limit(Long.MAX_VALUE)
-                 .filters(nodeFilter)
-                 .virtualColumns(nodeVirtualColumns(dataSource, owningQuery, nodeFilter))
+                 .filters(getNodeScanFilter(dataSource, descriptor, owningQuery))
                  .columns(descriptor.getRowSignature())
-                 .context(nodeContext)
+                 .context(owningQuery.withOverriddenContext(
+                     QueryContext.ofMap(
+                         QueryContextParameters.QUERY_FAIL_TIME,
+                         getNodeFailTime(owningQuery),
+                         QueryContextParameters.BY_SEGMENT,
+                         false
+                     )
+                 ).getContext())
                  .build();
   }
 
@@ -344,43 +356,27 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
             nodeResourceId
         )
     );
-    final QueryRunner<ScanResultValue> nodeRunner;
     if (SystemTableNodeLocator.sameServer(
         selfNode.getUriToUse(),
         node.getDiscoveryNode().getDruidNode().getUriToUse()
     )) {
-      // Invoke the raw local handler rather than the Broker handler. This avoids an HTTP request back to this
-      // Broker and, more importantly, prevents the local request from entering node fanout recursively.
-      nodeRunner = localQueryHandler.createRunner(subNativeQuery, escalatedAuthenticationResult, true);
-    } else {
-      nodeRunner = directDruidClientFactory.makeDirectClient(toDruidServer(node.getDiscoveryNode()));
-      nodeSequencesCloser.addQueryId(nodeQueryId);
+      // Read this Broker's rows directly rather than over HTTP. Like the other services, which read the table with an
+      // escalated identity, return every row: the rows are authorized once they are gathered. This doesn't go through
+      // a walker, so the node scan doesn't take a second scheduler lane besides the query's own.
+      final SystemTableDataSource localDataSource =
+          ((SystemTableDataSource) subNativeQuery.getDataSource()).withAccess(SystemTableAccess.ALL_ROWS);
+      final ScanQuery localQuery = subNativeQuery.withDataSource(localDataSource);
+      final Segment segment = Iterables.getOnlyElement(
+          segmentWrangler.getSegmentsForIntervals(localDataSource, localQuery.getIntervals())
+      );
+      final QueryRunnerFactory<ScanResultValue, ScanQuery> factory = conglomerate.findFactory(localQuery);
+      return factory.createRunner(segment).run(queryPlus.withQuery(localQuery), responseContext);
     }
+
+    final QueryRunner<ScanResultValue> nodeRunner =
+        directDruidClientFactory.makeDirectClient(toDruidServer(node.getDiscoveryNode()));
+    nodeSequencesCloser.addQueryId(nodeQueryId);
     return nodeRunner.run(queryPlus.withQuery(subNativeQuery), responseContext);
-  }
-
-  /**
-   * Window operators consume a {@code RowsAndColumns} view of the segment. The current row-based segment can only
-   * provide that view when its rows are list-backed, so preserve the existing materialized path for those queries.
-   */
-  private static boolean requiresMaterializedRows(final Query<?> query)
-  {
-    return query instanceof WindowOperatorQuery;
-  }
-
-  /**
-   * Eagerly consumes the lazy, single-pass node response into an {@link ArrayList} without changing its rows.
-   *
-   * <p>This representation change is required by {@link org.apache.druid.segment.InlineSegmentWrangler}: an inline
-   * datasource backed specifically by an {@code ArrayList} becomes an {@link org.apache.druid.segment.ArrayListSegment},
-   * which can provide the {@code RowsAndColumns} view required by window operators. Other query types retain the lazy
-   * iterable so the Broker can process rows while node responses are still arriving.</p>
-   */
-  private static Iterable<Object[]> materializeRows(final Iterable<Object[]> rows)
-  {
-    final List<Object[]> materializedRows = new ArrayList<>();
-    rows.forEach(materializedRows::add);
-    return materializedRows;
   }
 
   /**
@@ -853,57 +849,60 @@ public class SystemTableQueryClient implements DataSourceQueryHandler
   {
   }
 
+  /**
+   * Returns the filter to put on the Scan sent to each node, or null: the part of the query filter that the nodes can
+   * apply themselves. It doesn't choose which nodes are queried; {@link SystemTableNodeLocator} does. Filtering on the
+   * nodes only reduces the rows they return: the resolved query applies its whole filter to the gathered rows.
+   *
+   * <p>Only conjuncts that read columns of the table are pushed down, and only for a query that reads the table
+   * directly. Virtual columns are never pushed down: a virtual column can replace a column of the table, and the
+   * gathered rows must hold the table's own values, which are authorized after they are gathered.</p>
+   *
+   * <p>For example, take a Scan on {@code sys.server_properties} with the virtual column
+   * {@code v0 = upper("property")} and this filter:</p>
+   *
+   * <pre>
+   * AND(
+   *   service_name == 'druid/broker',   // reads service_name, a column of the table: pushed down
+   *   v0 == 'DRUID.HOST'                // reads v0, a virtual column: not pushed down
+   * )
+   * </pre>
+   *
+   * <p>The node scans get only {@code service_name == 'druid/broker'}, and return every column of the matching rows.
+   * The resolved query then applies the whole filter, including {@code v0 == 'DRUID.HOST'}, to the gathered rows.</p>
+   *
+   * <p>Likewise, if the query defines a virtual column named {@code server}, a filter on {@code server} reads that
+   * virtual column rather than the table's column, so it isn't pushed down. A filter on the root of a join of two
+   * system tables isn't pushed into either table.</p>
+   */
   @Nullable
-  private static DimFilter nodeFilter(final SystemTableDataSource dataSource, final Query<?> query)
-  {
-    // Push into the remote scan only when this query directly owns the system table. A join or other composite filter
-    // remains on the resolved Broker query, where the normal native query machinery can apply it with full datasource
-    // semantics; it cannot safely be attributed to an individual remote leaf here.
-    if (!dataSource.equals(query.getDataSource())) {
-      return null;
-    }
-
-    final List<DimFilter> filters = new ArrayList<>();
-    if (query.getFilter() != null) {
-      filters.add(query.getFilter());
-    }
-    if (query instanceof WindowOperatorQuery) {
-      for (final OperatorFactory operator : ((WindowOperatorQuery) query).getLeafOperators()) {
-        if (operator instanceof ScanOperatorFactory && ((ScanOperatorFactory) operator).getFilter() != null) {
-          filters.add(((ScanOperatorFactory) operator).getFilter());
-        }
-      }
-    }
-    if (filters.isEmpty()) {
-      return null;
-    } else if (filters.size() == 1) {
-      return filters.get(0);
-    } else {
-      return new AndDimFilter(filters);
-    }
-  }
-
-  private static VirtualColumns nodeVirtualColumns(
+  private static DimFilter getNodeScanFilter(
       final SystemTableDataSource dataSource,
-      final Query<?> query,
-      @Nullable final DimFilter nodeFilter
+      final SystemTableDescriptor descriptor,
+      final Query<?> query
   )
   {
-    if (!dataSource.equals(query.getDataSource()) || nodeFilter == null) {
-      return VirtualColumns.EMPTY;
+    // A filter on a join or another composite datasource can't be attributed to one of its system tables.
+    if (!dataSource.equals(query.getDataSource()) || query.getFilter() == null) {
+      return null;
     }
 
-    final List<VirtualColumn> virtualColumns = new ArrayList<>(List.of(query.getVirtualColumns().getVirtualColumns()));
-    if (query instanceof WindowOperatorQuery) {
-      for (final OperatorFactory operator : ((WindowOperatorQuery) query).getLeafOperators()) {
-        // WindowOperatorQuery stores null rather than empty virtual columns for a leaf scan without any.
-        if (operator instanceof ScanOperatorFactory
-            && ((ScanOperatorFactory) operator).getVirtualColumns() != null) {
-          virtualColumns.addAll(List.of(((ScanOperatorFactory) operator).getVirtualColumns().getVirtualColumns()));
-        }
+    final List<DimFilter> conjuncts = query.getFilter() instanceof AndDimFilter andFilter
+                                      ? andFilter.getFields()
+                                      : List.of(query.getFilter());
+    final RowSignature tableSignature = descriptor.getRowSignature();
+    final List<DimFilter> nodeConjuncts = new ArrayList<>();
+    for (final DimFilter conjunct : conjuncts) {
+      final Set<String> requiredColumns = conjunct.getRequiredColumns();
+      if (requiredColumns.stream().allMatch(tableSignature::contains)
+          && requiredColumns.stream().noneMatch(query.getVirtualColumns()::exists)) {
+        nodeConjuncts.add(conjunct);
       }
     }
-    return VirtualColumns.create(virtualColumns);
+    if (nodeConjuncts.isEmpty()) {
+      return null;
+    }
+    return nodeConjuncts.size() == 1 ? nodeConjuncts.getFirst() : new AndDimFilter(nodeConjuncts);
   }
 
   private static DruidServer toDruidServer(final DiscoveryDruidNode discoveryNode)

@@ -28,6 +28,7 @@ import org.joda.time.Interval;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 
 /**
  * A {@link Segment} that is based on a stream of objects.
@@ -85,6 +86,13 @@ public class RowBasedSegment<RowType> implements Segment
   {
     if (CursorFactory.class.equals(clazz)) {
       return (T) new RowBasedCursorFactory<>(rowSequence, rowAdapter, rowSignature);
+    } else if (CloseableShapeshifter.class.equals(clazz)) {
+      // Window queries read the segment as RowsAndColumns, which needs every row, so read the rows into a list once.
+      final ArrayList<RowType> rows = rowSequence.accumulate(new ArrayList<>(), (list, row) -> {
+        list.add(row);
+        return list;
+      });
+      return new ArrayListSegment<>(rows, rowAdapter, rowSignature).as(clazz);
     }
     return null;
   }

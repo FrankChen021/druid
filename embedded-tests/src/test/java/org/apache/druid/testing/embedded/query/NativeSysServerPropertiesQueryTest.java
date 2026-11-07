@@ -32,7 +32,6 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.scan.ScanQuery;
-import org.apache.druid.server.QueryResource;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.testing.embedded.EmbeddedBroker;
 import org.apache.druid.testing.embedded.EmbeddedCoordinator;
@@ -103,9 +102,8 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
 
   /**
    * Verifies that a native query for {@code sys.server_properties} reaches every persistent node type in the
-   * embedded cluster. In particular, the Router row proves that the Broker's native request included
-   * {@code X-Druid-Native-Query-Route: local}: without that header the Router would forward the request back to the
-   * Broker instead of reading its local system-table provider.
+   * embedded cluster. In particular, the Router row proves that the Router answers the Broker's node query with its own
+   * rows, rather than forwarding it to a Broker.
    */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)
@@ -226,6 +224,30 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
     Assertions.assertEquals(5, result.split("\n").length, result);
   }
 
+  /**
+   * Each query of a UNION ALL gathers the table's rows from every service. Only the DECOUPLED planner supports a union
+   * of inputs that aren't regular tables.
+   */
+  @Test
+  public void testUnionAll()
+  {
+    Assertions.assertEquals(
+        "2",
+        cluster.runSql(
+            """
+            SELECT COUNT(*) FROM (
+              SELECT server FROM sys.server_properties WHERE property = '%s'
+              UNION ALL
+              SELECT server FROM sys.server_properties WHERE property = '%s'
+            )
+            """,
+            nativeQueryContext(QueryContexts.PlannerStrategy.DECOUPLED),
+            COORDINATOR_PROPERTY,
+            ROUTER_PROPERTY
+        )
+    );
+  }
+
   /** Hidden properties are removed by the native SQL path, as they are by the SQL interpreter on the Broker. */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)
@@ -243,25 +265,20 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
   }
 
   /**
-   * Hidden properties are removed from native {@code /druid/v2/} queries, both for Broker fan-out and for
-   * execution on the contacted node with {@code X-Druid-Native-Query-Route: local}.
+   * Hidden properties are removed from native {@code /druid/v2/} queries, which read the rows of the service that
+   * receives them.
    */
   @Test
   public void testHiddenPropertiesAreNotReturnedByNativeQueries()
   {
-    final Map<String, String> local =
-        Map.of(QueryResource.HEADER_NATIVE_QUERY_ROUTE, QueryResource.NATIVE_QUERY_ROUTE_LOCAL);
-
-    // Each response must contain a visible property from the expected node, to show the query read that node.
-    // Router forwarding isn't covered here: this cluster renames the Broker service, so the Router can't route to it.
-    assertNativeQueryHidesProperties(broker, Map.of(), ROUTER_PROPERTY);
-    assertNativeQueryHidesProperties(broker, local, BROKER_PROPERTY);
-    assertNativeQueryHidesProperties(router, local, ROUTER_PROPERTY);
+    // Each response must contain a visible property from the contacted node, to show the query read that node.
+    assertNativeQueryHidesProperties(broker, BROKER_PROPERTY);
+    assertNativeQueryHidesProperties(router, ROUTER_PROPERTY);
+    assertNativeQueryHidesProperties(coordinator, COORDINATOR_PROPERTY);
   }
 
   private void assertNativeQueryHidesProperties(
       final EmbeddedDruidServer<?> server,
-      final Map<String, String> headers,
       final String expectedVisibleProperty
   )
   {
@@ -273,7 +290,6 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
     try {
       final Request request = new Request(HttpMethod.POST, URIs.toURL(getServerUrl(server) + "/druid/v2/"))
           .setContent(MediaType.APPLICATION_JSON, server.bindings().jsonMapper().writeValueAsBytes(query));
-      headers.forEach(request::setHeader);
       final StatusResponseHolder response = server.bindings()
                                                   .globalHttpClient()
                                                   .go(request, StatusResponseHandler.getInstance())

@@ -183,6 +183,9 @@ After Druid retrieves the system-table rows, the native engine applies the remai
 aggregations, sorting, and result processing. A system table that doesn't advertise native query support continues to
 use the Broker's SQL interpreter, even when `useDruidEngineForSystemTables` is `true`.
 
+The Broker gathers the rows of the table from every service that serves it. A native query sent to the `/druid/v2/`
+endpoint of a service, with a `systemTable` datasource, reads only the rows of that service.
+
 The parameter defaults to `false`. During a rolling upgrade, leave the server property and the parameter disabled
 until all services have been upgraded. After the upgrade, you can enable it by query or set
 `druid.query.default.context.useDruidEngineForSystemTables=true` on Brokers as the cluster-wide default. For more
