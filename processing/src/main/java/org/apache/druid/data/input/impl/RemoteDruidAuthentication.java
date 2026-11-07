@@ -1,0 +1,117 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.druid.data.input.impl;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.google.common.base.Preconditions;
+import org.apache.druid.metadata.DefaultPasswordProvider;
+import org.apache.druid.metadata.PasswordProvider;
+
+import javax.net.ssl.SSLContext;
+import java.util.Objects;
+
+/// Outbound authentication provider. Extensions can register additional Jackson subtypes.
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes({
+    @JsonSubTypes.Type(name = "none", value = RemoteDruidAuthentication.None.class),
+    @JsonSubTypes.Type(name = "basic", value = RemoteDruidAuthentication.Basic.class)
+})
+public interface RemoteDruidAuthentication
+{
+  /// Creates an authenticated transport with connection and read timeouts in milliseconds, using the given TLS context.
+  /// The caller closes the client after the operation and closes each response before closing the client.
+  RemoteDruidHttpClient createClient(int connectTimeout, int readTimeout, SSLContext sslContext);
+
+  class None implements RemoteDruidAuthentication
+  {
+    @Override
+    public RemoteDruidHttpClient createClient(final int connectTimeout, final int readTimeout, final SSLContext sslContext)
+    {
+      return new RemoteDruidHttpClient.DruidHttpClient(null, null, connectTimeout, readTimeout, sslContext);
+    }
+
+    @Override
+    public boolean equals(final Object other)
+    {
+      return other instanceof None;
+    }
+
+    @Override
+    public int hashCode()
+    {
+      return None.class.hashCode();
+    }
+  }
+
+  class Basic implements RemoteDruidAuthentication
+  {
+    private final String username;
+    private final PasswordProvider password;
+
+    @JsonCreator
+    public Basic(
+        @JsonProperty("username") final String username,
+        @JsonProperty("password") final PasswordProvider password
+    )
+    {
+      this.username = Preconditions.checkNotNull(username, "username");
+      this.password = Preconditions.checkNotNull(password, "password");
+      // Providers that resolve secrets on the server, such as environment variables, would let a query send those
+      // secrets to an endpoint of its choice, so only a password given in the request is accepted.
+      Preconditions.checkArgument(
+          password instanceof DefaultPasswordProvider,
+          "Remote Druid Basic authentication accepts only a plain password"
+      );
+    }
+
+    @JsonProperty
+    public String getUsername()
+    {
+      return username;
+    }
+
+    @JsonProperty
+    public PasswordProvider getPassword()
+    {
+      return password;
+    }
+
+    @Override
+    public RemoteDruidHttpClient createClient(final int connectTimeout, final int readTimeout, final SSLContext sslContext)
+    {
+      return new RemoteDruidHttpClient.DruidHttpClient(username, password, connectTimeout, readTimeout, sslContext);
+    }
+
+    @Override
+    public boolean equals(final Object other)
+    {
+      return other instanceof Basic that && username.equals(that.username) && password.equals(that.password);
+    }
+
+    @Override
+    public int hashCode()
+    {
+      return Objects.hash(username, password);
+    }
+  }
+}

@@ -824,6 +824,135 @@ Set this value in `maxNumConcurrentSubTasks` in `tuningConfig` based on the seco
 
 For more information on the `maxNumConcurrentSubTasks` field, see [Implementation considerations](native-batch.md#implementation-considerations).
 
+## Remote Druid input source
+
+The experimental `DRUID` table function lets MSQ ingestion read from a datasource on another Druid cluster through
+that cluster's SQL API. During SQL planning, Druid pushes the projections, filters, and aggregations directly above the
+remote table into a `SELECT` that runs on the source cluster. The target reads the streamed result and performs the rest
+of the query, including joins, `PARTITIONED BY`, and `CLUSTERED BY`. The source cluster needs no tasks, durable storage,
+or deep-storage access from the target.
+
+For example, submit this SQL to the target MSQ task API:
+
+```sql
+INSERT INTO events_by_day
+SELECT TIME_FLOOR(__time, 'P1D') AS __time, country, COUNT(*) AS "rows"
+FROM TABLE(DRUID(endpoint => 'https://source-router.example', dataSource => 'events'))
+WHERE country <> 'unknown'
+GROUP BY 1, 2
+PARTITIONED BY DAY
+```
+
+`EXPLAIN PLAN FOR` shows the pushed-down source SQL in the `sql` field of the `remoteDruidSql` input source.
+
+Omitting `EXTEND` discovers the schema during SQL planning using a native `segmentMetadata` query over all source intervals.
+Discovery supports primitive and primitive-array columns. Empty, ambiguous, or unsupported metadata fails planning.
+Discovery requests time out after at most 30 seconds, regardless of `readTimeoutMillis`.
+To skip schema discovery or select a subset of columns, provide an explicit schema:
+
+```sql
+INSERT INTO events_copy
+SELECT *
+FROM TABLE(
+  DRUID(
+    endpoint => 'https://source-router.example',
+    dataSource => 'events',
+    authType => 'basic',
+    username => 'reader',
+    password => ?,
+    splitDuration => 'P1D'
+  )
+) EXTEND (__time BIGINT, a VARCHAR, bytes BIGINT)
+WHERE a = 'keep'
+PARTITIONED BY DAY
+```
+
+The password is part of the planned input source, so it is stored in the ingestion task specification and shown by
+`EXPLAIN`, and SQL request logging records it, in the SQL text or in the bound `parameters`. Binding it with `?`, as above,
+keeps it out of the SQL text that the task stores. Restrict access to task specifications, reports, and request logs,
+and use a dedicated source account that can only read the datasources to copy. References to server-side secrets,
+such as environment variables, are not supported, since a query could send them to an endpoint of its choice.
+
+|Parameter|Description|Required|
+|---------|-----------|--------|
+|`endpoint`|HTTP(S) endpoint of the source Router or Broker.|yes|
+|`dataSource`|Source datasource to query.|yes|
+|`engine`|Source SQL engine: `msq-dart` (default) or `native`. Dart must be enabled on the source cluster.|no|
+|`splitDuration`|ISO-8601 period without negative fields, such as `P1D`. Reads without aggregation are split into time ranges of this length, aligned to UTC period boundaries, that target workers read in parallel.|no|
+|`intervals`|Array of ISO-8601 intervals restricting the source read. Overlapping intervals are combined.|no|
+|`includeSegmentSource`|With `engine => 'msq-dart'`, whether the source also reads segments that realtime tasks are still ingesting: `NONE` (default) reads only published segments, and `REALTIME` reads both. Not accepted with `engine => 'native'`, which always reads realtime segments.|no|
+|`authType`|`none` (default) or `basic`. `none` rejects credentials; `basic` requires both `username` and `password`.|no|
+|`username`|HTTP Basic authentication username.|for `basic`|
+|`password`|HTTP Basic authentication password.|for `basic`|
+|`connectTimeoutMillis`|HTTP connection timeout in milliseconds. Default: `10000`.|no|
+|`readTimeoutMillis`|Maximum time in milliseconds to wait for response data, including the time the source takes to produce its first row. Default: `300000`.|no|
+|`maxRetries`|Maximum retries of a source request that fails before returning its first row, from `0` to `10`. Default: `2`.|no|
+
+### Pushdown and splitting
+
+Projections, filters, expressions, `GROUP BY`, aggregates, and `HAVING` directly above the remote table run on the
+source. `LOOKUP` calls, window functions, `ORDER BY`, `LIMIT`, joins, and unions run on the target. Filters above a
+join are pushed into the remote side when possible. The source evaluates SQL with the target query's `sqlTimeZone`,
+current timestamp, and approximate-aggregation settings.
+
+With `EXTEND`, numeric column types are applied on the source with `CAST`, so pushed-down filters and aggregations
+use the declared types even if the source types differ. String columns are read as they are on the source: a numeric
+source column declared as `VARCHAR` compares numerically in pushed-down filters. A discovered schema has the source's
+own types, so no casts are added.
+
+Multi-value string columns are read with `MV_TO_ARRAY` and stored as multi-value strings on the target. This applies to
+source columns selected as they are without aggregation; a string expression computed from a multi-value column on the
+source, such as `UPPER(tags)`, is returned as JSON-encoded text.
+
+Without aggregation, the target splits the read into independent time ranges. It discovers the source time bounds with
+a native `timeBoundary` query, intersects them with `intervals`, and divides them at UTC `splitDuration` boundaries,
+up to 10,000 ranges.
+Each range is one source SQL query with `__time` bounds passed as SQL parameters. On Dart, the default
+`includeSegmentSource => 'NONE'` makes every range read the same published segments, unless the source publishes or
+replaces segments during the read. With aggregation, the source runs a
+single query and `splitDuration` does not apply.
+
+Each source query streams `arrayLines` results. A request that fails before returning its first row with a timeout,
+connection error, or HTTP `408`, `429`, or `5xx` status is retried; invalid responses and configuration errors are not.
+A failure after the first row fails the target worker, which MSQ fault tolerance can retry.
+Results are streamed with backpressure, so a target worker that stops reading for longer than `readTimeoutMillis`, or
+longer than the source's `druid.server.http.maxIdleTime`, loses the connection and fails. Both default to five minutes. Source reads are not a snapshot:
+ingestion or replacement on the source can change data between range queries.
+
+The source reads stored rows, including any existing rollup, rather than reconstructing original events.
+Complex metrics such as sketches and nested columns are not supported.
+
+### Security
+
+The source identity must have read access to the requested datasource. Target users need the applicable `EXTERNAL`
+read permission. The target processes performing planning and ingestion must be able to reach the source endpoint.
+This input source follows the existing HTTP ingestion trust model: grant ingestion permissions to trusted users and
+restrict outbound network access as needed. It accepts HTTP and HTTPS, subject to `druid.ingestion.http.allowedProtocols`,
+and does not restrict destination hosts or IP addresses. Unlike the HTTP input source, requests are also sent during
+SQL planning: the Broker queries the endpoint for schema discovery when `EXTEND` is omitted, and the controller task
+queries its time bounds. Users with `EXTERNAL` read access can therefore make these processes send requests to any
+reachable host. Requests do not follow redirects.
+HTTPS requests use the client TLS context that the `simple-client-sslcontext` extension configures, such as
+`druid.client.https.trustStorePath`, when the extension is loaded, and the JVM default otherwise.
+See [Security overview](../operations/security-overview.md) for deployment guidance.
+
+You can also reference a remote table with `EXTERN` and an explicit row signature. The input format is fixed; use the JSON string `'null'`:
+
+```sql
+SELECT *
+FROM TABLE(
+  EXTERN(
+    '{"type":"remoteDruid","connection":{"endpoint":"https://source-router.example"},"dataSource":"events"}',
+    'null',
+    '[{"name":"__time","type":"long"},{"name":"a","type":"string"}]'
+  )
+)
+```
+
+The `connection` object contains `endpoint`, optional `authentication`, `connectTimeout`, `readTimeout`, and `maxRetries`.
+For Basic authentication, use `"authentication":{"type":"basic","username":"reader","password":"password"}`.
+Extensions can register additional authentication provider subtypes for use through `EXTERN`.
+
 ## SQL input source
 
 :::info[Required extension]
