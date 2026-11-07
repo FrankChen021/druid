@@ -108,6 +108,19 @@ public class ServerPropertiesTableDataProviderTest
     );
   }
 
+  /**
+   * An equality filter compares values as its match type. A LONG equality on "01" matches the service name "1", so the
+   * provider must not drop the row by comparing the strings.
+   */
+  @Test
+  public void testDoesNotCompareNonStringEqualityAsStrings()
+  {
+    final ServerPropertiesTableDataProvider supplier = supplier("1", new Properties());
+    final Filter numericEquality = new EqualityFilter("service_name", ColumnType.LONG, "01", null);
+
+    Assertions.assertFalse(toRows(supplier.getRows(List.of(numericEquality))).isEmpty());
+  }
+
   @Test
   public void testReturnsPlaceholderWhenNoPropertiesExist()
   {
@@ -122,8 +135,13 @@ public class ServerPropertiesTableDataProviderTest
 
   private static ServerPropertiesTableDataProvider supplier(final Properties properties)
   {
+    return supplier("overlord", properties);
+  }
+
+  private static ServerPropertiesTableDataProvider supplier(final String serviceName, final Properties properties)
+  {
     return new ServerPropertiesTableDataProvider(
-        new DruidNode("overlord", "localhost", false, 8080, null, true, false),
+        new DruidNode(serviceName, "localhost", false, 8080, null, true, false),
         Set.of(NodeRole.OVERLORD),
         properties,
         new DruidServerConfig(null, null)

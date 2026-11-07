@@ -164,31 +164,8 @@ public class SystemTableQueryClientTest
   public void testBrokerNodeExecutesLocallyWithoutHttp()
   {
     final SystemTableDescriptor descriptor = new TestSystemTableDescriptor();
-    final DiscoveryDruidNode brokerNode = testNode();
-    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
-    final SystemTableNode node = new SystemTableNode(brokerNode);
-    node.addNodeRole(brokerNode.getNodeRole());
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor))).thenReturn(List.of(node));
-
     final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
-    final SystemTableDataProvider provider = filters -> List.<Object[]>of(new Object[]{"local"});
-    final SystemTableSegmentWrangler segmentWrangler = new SystemTableSegmentWrangler(
-        Map.of(descriptor.getTableName(), provider),
-        Map.of(descriptor.getTableName(), descriptor)
-    );
-    final TestClient client = new TestClient(
-        new SystemTableQueryClient(
-            nodeLocator,
-            directClientFactory,
-            Mockito.mock(QueryScheduler.class),
-            segmentWrangler,
-            CONGLOMERATE.getConglomerate(),
-            Map.of(descriptor.getTableName(), descriptor),
-            new ServerConfig(),
-            brokerNode.getDruidNode()
-        ),
-        passthroughRunner(descriptor.getRowSignature())
-    );
+    final TestClient client = makeBrokerLocalClient(descriptor, directClientFactory);
     final ScanQuery query = query(descriptor, Collections.emptyMap());
 
     final List<ScanResultValue> results = client.createRunner(query)
@@ -201,6 +178,54 @@ public class SystemTableQueryClientTest
     Assertions.assertArrayEquals(new Object[]{"local"}, (Object[]) events.get(0));
     Mockito.verifyNoInteractions(directClientFactory);
   }
+
+  /**
+   * The Broker's scan of its own rows stops at the query's deadline, like the scans sent to other services.
+   */
+  @Test
+  public void testBrokerNodeScanHonorsQueryDeadline()
+  {
+    final SystemTableDescriptor descriptor = new TestSystemTableDescriptor();
+    final TestClient client = makeBrokerLocalClient(descriptor, Mockito.mock(DirectDruidClientFactory.class));
+    final ScanQuery query = query(
+        descriptor,
+        QueryContext.ofMap(QueryContextParameters.QUERY_FAIL_TIME, System.currentTimeMillis() - 1_000L)
+    );
+
+    Assertions.assertThrows(QueryTimeoutException.class, () -> runToList(client, query));
+  }
+
+  private static TestClient makeBrokerLocalClient(
+      final SystemTableDescriptor descriptor,
+      final DirectDruidClientFactory directClientFactory
+  )
+  {
+    final DiscoveryDruidNode brokerNode = testNode();
+    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
+    final SystemTableNode node = new SystemTableNode(brokerNode);
+    node.addNodeRole(brokerNode.getNodeRole());
+    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor))).thenReturn(List.of(node));
+
+    final SystemTableDataProvider provider = filters -> List.<Object[]>of(new Object[]{"local"});
+    final SystemTableSegmentWrangler segmentWrangler = new SystemTableSegmentWrangler(
+        Map.of(descriptor.getTableName(), provider),
+        Map.of(descriptor.getTableName(), descriptor)
+    );
+    return new TestClient(
+        new SystemTableQueryClient(
+            nodeLocator,
+            directClientFactory,
+            Mockito.mock(QueryScheduler.class),
+            segmentWrangler,
+            CONGLOMERATE.getConglomerate(),
+            Map.of(descriptor.getTableName(), descriptor),
+            new ServerConfig(),
+            brokerNode.getDruidNode()
+        ),
+        passthroughRunner(descriptor.getRowSignature())
+    );
+  }
+
 
   /**
    * Nodes are queried with the escalated identity and return every row, so the rows are filtered on the Broker with the
@@ -525,6 +550,32 @@ public class SystemTableQueryClientTest
     Assertions.assertEquals(2, nodeQueries.size());
     Assertions.assertEquals(filter, nodeQueries.get(0).getFilter());
     Assertions.assertNull(nodeQueries.get(1).getFilter());
+  }
+
+  /**
+   * A query of a union keeps its own deadline when it's tighter than the union's, and its node scans use it.
+   */
+  @Test
+  public void testUnionQueryKeepsItsTighterDeadline()
+  {
+    final SystemTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
+    final long armDeadline = System.currentTimeMillis() + 60_000L;
+    final DataSource dataSource = new QueryDataSource(
+        new UnionQuery(
+            List.of(
+                query(descriptor, Collections.emptyMap()),
+                query(descriptor, QueryContext.ofMap(QueryContextParameters.QUERY_FAIL_TIME, armDeadline))
+            )
+        )
+    );
+
+    final List<ScanQuery> nodeQueries = captureNodeQueries(descriptor, dataSource, null);
+
+    Assertions.assertEquals(2, nodeQueries.size());
+    Assertions.assertTrue(
+        nodeQueries.get(0).context().get(QueryContextParameters.QUERY_FAIL_TIME) > armDeadline
+    );
+    Assertions.assertEquals(armDeadline, nodeQueries.get(1).context().get(QueryContextParameters.QUERY_FAIL_TIME));
   }
 
   /**

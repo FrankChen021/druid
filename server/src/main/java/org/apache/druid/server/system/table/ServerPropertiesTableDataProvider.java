@@ -27,6 +27,7 @@ import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.filter.SelectorFilter;
 import org.apache.druid.server.DruidNode;
 
@@ -168,6 +169,8 @@ public class ServerPropertiesTableDataProvider implements SystemTableDataProvide
       return selector.getValue();
     } else if (filter instanceof EqualityFilter equality
                && column.equals(equality.getColumn())
+               // Other match types compare values as that type, such as "01" equal to "1" as LONG.
+               && ColumnType.STRING.equals(equality.getMatchValueType())
                && equality.getMatchValue() instanceof String value) {
       return value;
     }

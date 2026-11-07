@@ -187,15 +187,19 @@ public class SystemTableQueryClient
       final Query<?> childQuery = queryDataSource.getQuery();
       // An inner query may tighten the outer guardrails, but must not discard them before node fanout.
       childOwningQuery = withGuardrails(childQuery, owningQuery);
-      if (childOwningQuery instanceof UnionQuery unionQuery) {
-        // Each child of a union is the datasource of one of its queries, which owns that child.
-        final List<DataSource> resolvedArms = new ArrayList<>();
+      if (childQuery instanceof UnionQuery unionQuery) {
+        // Each child of a union is the datasource of one of its queries, which owns that child. Guard the original
+        // queries: the guarded union has given every query the union's limits, losing any tighter limits of its own.
+        final List<Query<?>> resolvedArms = new ArrayList<>();
         for (final Query<?> arm : unionQuery.getQueries()) {
+          final Query<?> guardedArm = withGuardrails(arm, childOwningQuery);
           resolvedArms.add(
-              resolveDataSource(arm.getDataSource(), withGuardrails(arm, childOwningQuery), nodeSequencesCloser)
+              guardedArm.withDataSource(
+                  resolveDataSource(guardedArm.getDataSource(), guardedArm, nodeSequencesCloser)
+              )
           );
         }
-        return new QueryDataSource(unionQuery.withDataSources(resolvedArms));
+        return new QueryDataSource(new UnionQuery(resolvedArms, childOwningQuery.getContext()));
       }
       resolvedParent = new QueryDataSource(childOwningQuery);
     } else {
@@ -352,6 +356,10 @@ public class SystemTableQueryClient
           segmentWrangler.getSegmentsForIntervals(localDataSource, localQuery.getIntervals())
       );
       final QueryRunnerFactory<ScanResultValue, ScanQuery> factory = conglomerate.findFactory(localQuery);
+      // The Scan runner reads the deadline from the response context, and has none without it.
+      if (responseContext.getTimeoutTime() == null) {
+        responseContext.putTimeoutTime(getNodeFailTime(localQuery));
+      }
       return factory.createRunner(segment).run(queryPlus.withQuery(localQuery), responseContext);
     }
 

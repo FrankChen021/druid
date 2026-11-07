@@ -28,6 +28,8 @@ import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.server.SetAndVerifyContextQueryRunner;
+import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.utils.CloseableUtils;
 import org.joda.time.Interval;
 
@@ -45,22 +47,36 @@ public class SystemTableGatheringQuerySegmentWalker implements QuerySegmentWalke
 {
   private final QuerySegmentWalker delegate;
   private final SystemTableQueryClient systemTableQueryClient;
+  private final ServerConfig serverConfig;
 
   @Inject
   public SystemTableGatheringQuerySegmentWalker(
       @SystemTableQuerySegmentWalker.Delegate final QuerySegmentWalker delegate,
-      final SystemTableQueryClient systemTableQueryClient
+      final SystemTableQueryClient systemTableQueryClient,
+      final ServerConfig serverConfig
   )
   {
     this.delegate = delegate;
     this.systemTableQueryClient = systemTableQueryClient;
+    this.serverConfig = serverConfig;
   }
 
   @Override
   public <T> QueryRunner<T> getQueryRunnerForIntervals(final Query<T> query, final Iterable<Interval> intervals)
   {
     if (!isClusterWideQuery(query.getDataSource())) {
-      return delegate.getQueryRunnerForIntervals(query, intervals);
+      if (!SystemTableDataSource.readsSystemTable(query.getDataSource())) {
+        return delegate.getQueryRunnerForIntervals(query, intervals);
+      }
+      // The Broker's walker runs queries on system tables locally, without the server's timeout and scatter-gather
+      // limits, which it applies only to queries on segments. Apply them first, and create the walker's runner for
+      // the limited query, since that runner accepts only the query it was created for.
+      return (queryPlus, responseContext) -> {
+        final Query<T> limited = new SetAndVerifyContextQueryRunner<T>(serverConfig, null)
+            .withTimeoutAndMaxScatterGatherBytes(queryPlus.getQuery(), serverConfig);
+        return delegate.getQueryRunnerForIntervals(limited, limited.getIntervals())
+                       .run(queryPlus.withQuery(limited), responseContext);
+      };
     }
 
     return (queryPlus, responseContext) -> {
