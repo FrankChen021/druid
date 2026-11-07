@@ -37,8 +37,8 @@ import org.joda.time.Interval;
  * The Broker's walker when system tables are enabled. Before a query that reads system tables with the
  * {@link SystemTableDataSource.Scope#CLUSTER} scope runs, it replaces them with the rows that the caller may read,
  * gathered from every service by {@link SystemTableQueryClient}, and then passes the query to the Broker's own walker.
- * Every other query, including a native query on a system table, which has the local scope and reads only the
- * Broker's rows, goes to the Broker's walker unchanged.
+ * A native query on a system table has the local scope and reads only the Broker's rows; it goes to the Broker's walker
+ * with the server's timeout and scatter-gather limits applied. Every other query goes to the Broker's walker unchanged.
  *
  * <p>The rows are gathered after {@link org.apache.druid.server.QueryLifecycle} has authorized and logged the query,
  * so the request log, metrics and query blocklist see the system table rather than its rows.</p>

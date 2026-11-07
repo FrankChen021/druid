@@ -59,7 +59,9 @@ public class ServerPropertiesTableDataProviderTest
     );
   }
 
-  /** Configured {@code druid.server.hiddenProperties} are matched as case-insensitive substrings of property names. */
+  /**
+   * Configured {@code druid.server.hiddenProperties} are matched as case-insensitive substrings of property names.
+   */
   @Test
   public void testMasksConfiguredHiddenProperties()
   {

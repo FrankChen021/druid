@@ -232,6 +232,7 @@ public class CliCoordinator extends ServerRunnable
             binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(8281);
 
             binder.bind(MetadataStorage.class).toProvider(MetadataStorageProvider.class);
+
             JsonConfigProvider.bind(binder, "druid.manager.lookups", LookupCoordinatorManagerConfig.class);
             JsonConfigProvider.bind(binder, "druid.coordinator", CoordinatorRunConfig.class);
             JsonConfigProvider.bind(binder, "druid.coordinator.kill", CoordinatorKillConfigs.class);

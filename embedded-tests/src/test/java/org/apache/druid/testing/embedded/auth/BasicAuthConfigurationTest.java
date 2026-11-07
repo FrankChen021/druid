@@ -205,8 +205,10 @@ public class BasicAuthConfigurationTest extends AbstractAuthConfigurationTest
         new ResourceAction(new Resource("server_properties", ResourceType.SYSTEM_TABLE), Action.READ);
     final ResourceAction readState = new ResourceAction(new Resource(".*", ResourceType.STATE), Action.READ);
     // The Router sets queryId on native queries it forwards, and this cluster authorizes query context keys.
-    final ResourceAction writeQueryId =
-        new ResourceAction(new Resource(QueryContextParameters.QUERY_ID.getName(), ResourceType.QUERY_CONTEXT), Action.WRITE);
+    final ResourceAction writeQueryId = new ResourceAction(
+        new Resource(QueryContextParameters.QUERY_ID.getName(), ResourceType.QUERY_CONTEXT),
+        Action.WRITE
+    );
     // SQL queries on system tables set useDruidEngineForSystemTables to use the Druid engine.
     final ResourceAction writeUseDruidEngine = new ResourceAction(
         new Resource(QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES.getName(), ResourceType.QUERY_CONTEXT),

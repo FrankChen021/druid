@@ -41,7 +41,6 @@ import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
-import org.apache.druid.query.DataSource;
 import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.GenericQueryMetricsFactory;
 import org.apache.druid.query.Query;
@@ -49,10 +48,8 @@ import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryMetrics;
 import org.apache.druid.query.QueryToolChestWarehouse;
-import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
-import org.apache.druid.query.planning.ExecutionVertex;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.initialization.jetty.HttpException;
 import org.apache.druid.server.initialization.jetty.ResponseIdentityHeaderHandler;
@@ -352,30 +349,16 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
   }
 
   /**
-   * Whether the Router runs the query itself. Native queries on system tables read the rows of the service that
+   * Whether the Router runs the query itself. Native queries on a system table read the rows of the service that
    * receives them, so the Router answers them with its own rows, unless
-   * {@link SystemTableModule#ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY} is off. Queries that the Router can't run
-   * by itself, such as a join of a system table with a regular datasource, are forwarded to a Broker like any other.
+   * {@link SystemTableModule#ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY} is off. As on the Coordinator, Overlord
+   * and Middle Manager, the Router's local resource accepts only Scan queries, and rejects other query types on a
+   * system table. Queries that read a system table through another datasource, such as a subquery or a join, are
+   * forwarded to a Broker like any other.
    */
   private boolean isLocalSystemTableQuery(final Query<?> query)
   {
-    if (!enableDruidEngineForSystemTables || !SystemTableDataSource.readsSystemTable(query.getDataSource())) {
-      return false;
-    }
-    // System tables become processable once their access is attached, which the Router's own query lifecycle does.
-    // Attach full access here only to check whether the Router can run a query of this shape.
-    final Query<?> shape = query.withDataSource(withFullAccess(query.getDataSource()));
-    return ExecutionVertex.of(shape).canRunQueryUsingLocalWalker();
-  }
-
-  private static DataSource withFullAccess(final DataSource dataSource)
-  {
-    if (dataSource instanceof SystemTableDataSource systemTable) {
-      return systemTable.withAccess(SystemTableAccess.ALL_ROWS);
-    }
-    return dataSource.withChildren(
-        dataSource.getChildren().stream().map(AsyncQueryForwardingServlet::withFullAccess).toList()
-    );
+    return enableDruidEngineForSystemTables && query.getDataSource() instanceof SystemTableDataSource;
   }
 
   /**

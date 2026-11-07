@@ -26,7 +26,9 @@ import org.apache.druid.server.DruidNode;
 import java.util.Optional;
 import java.util.Set;
 
-/** Describes a native system table and how its rows are distributed across Druid services. */
+/**
+ * Describes a native system table and how its rows are distributed across Druid services.
+ */
 public interface SystemTableDescriptor
 {
   String getTableName();
@@ -41,7 +43,9 @@ public interface SystemTableDescriptor
 
   SystemTableRowAuthorizer getRowAuthorizer();
 
-  /** Whether an empty discovery result represents an empty table instead of unavailable infrastructure. */
+  /**
+   * Whether an empty discovery result represents an empty table instead of unavailable infrastructure.
+   */
   default boolean isEmptyDiscoveryAllowed()
   {
     return false;

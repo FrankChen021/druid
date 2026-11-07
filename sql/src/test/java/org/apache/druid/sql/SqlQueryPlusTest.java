@@ -64,8 +64,9 @@ public class SqlQueryPlusTest
 
     BaseCalciteQueryTest.assertDruidException(
         e,
-        DruidExceptionMatcher.invalidSqlInput()
-                             .expectMessageContains("Query context parameter [useDruidEngineForSystemTables] should be a boolean")
+        DruidExceptionMatcher.invalidSqlInput().expectMessageContains(
+            "Query context parameter [useDruidEngineForSystemTables] should be a boolean"
+        )
     );
   }
 

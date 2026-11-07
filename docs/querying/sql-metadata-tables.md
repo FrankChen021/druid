@@ -184,7 +184,9 @@ aggregations, sorting, and result processing. A system table that doesn't advert
 use the Broker's SQL interpreter, even when `useDruidEngineForSystemTables` is `true`.
 
 The Broker gathers the rows of the table from every service that serves it. A native query sent to the `/druid/v2/`
-endpoint of a service, with a `systemTable` datasource, reads only the rows of that service.
+endpoint of a service, with a `systemTable` datasource, reads only the rows of that service. The Router, Coordinator,
+Overlord, and Middle Manager accept only Scan queries on a `systemTable` datasource. The Router forwards queries that
+read a system table through a subquery or a join to a Broker, which reads its own rows.
 
 The parameter defaults to `false`. During a rolling upgrade, leave the server property and the parameter disabled
 until all services have been upgraded. After the upgrade, you can enable it by query or set

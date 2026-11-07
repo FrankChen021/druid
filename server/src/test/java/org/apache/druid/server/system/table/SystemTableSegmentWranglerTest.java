@@ -109,6 +109,9 @@ public class SystemTableSegmentWranglerTest
         return (authenticationResult, authorizerMapper) -> SystemTableAccess.ALL_ROWS;
       }
     };
-    return new SystemTableSegmentWrangler(Map.of("tasks", new SystemTableCursorFactoryTest.RecordingProvider()), Map.of("tasks", descriptor));
+    return new SystemTableSegmentWrangler(
+        Map.of("tasks", new SystemTableCursorFactoryTest.RecordingProvider()),
+        Map.of("tasks", descriptor)
+    );
   }
 }

@@ -273,7 +273,8 @@ public class SystemTableQueryClient
         nodeSequenceCloser
     );
     // Collect the rows into a list: an inline datasource backed by a list can be read more than once, and window
-    // queries can read it as RowsAndColumns. The node scans' scatter-gather limit bounds the rows held here.
+    // queries can read it as RowsAndColumns. The node scans' scatter-gather limit bounds the rows held here, per
+    // table, and the Broker's own rows aren't counted against it.
     final ArrayList<Object[]> rows = new ArrayList<>();
     access.filter(nodeRows).forEach(rows::add);
     return InlineDataSource.fromIterable(rows, descriptor.getRowSignature());
@@ -370,11 +371,8 @@ public class SystemTableQueryClient
   }
 
   /**
-   * Creates a lazy, single-pass view of the rows returned by the node scan runners.
-   *
-   * <p>The view is single-pass because a node response is backed by a live HTTP stream. The normal native query
-   * path consumes an {@link InlineDataSource} once per query. Re-iterating would otherwise issue duplicate node
-   * requests or retain all rows to support replay.</p>
+   * Returns the rows returned by the node scan runners, which can be read once. Reading them starts every node scan
+   * before waiting for any response, and the rows are read while the responses arrive.
    */
   static Iterable<Object[]> scanNodeRows(
       final List<QueryRunner<ScanResultValue>> nodeRunners,
@@ -526,11 +524,10 @@ public class SystemTableQueryClient
   }
 
   /**
-   * Adapts a Druid {@link Sequence} to the lazy {@link Iterable} accepted by {@link InlineDataSource}.
+   * Adapts a Druid {@link Sequence} to an {@link Iterable} that can be read once.
    *
-   * <p>The iterator owns the sequence yielder and closes it when the sequence is exhausted. This is important for
-   * direct node clients because closing the yielder closes the underlying response stream and allows an early
-   * terminating Broker query to cancel the node request.</p>
+   * <p>The iterator owns the sequence yielder and closes it when the sequence is exhausted, or registers it with the
+   * closer if reading stops early, so the node response streams are always closed.</p>
    */
   private static <T> Iterable<T> sequenceAsIterable(
       final Sequence<T> sequence,

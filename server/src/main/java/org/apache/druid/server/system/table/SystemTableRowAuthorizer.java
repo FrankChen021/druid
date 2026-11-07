@@ -26,6 +26,10 @@ import org.apache.druid.server.security.ForbiddenException;
 
 /**
  * Decides which rows of a system table a caller may read.
+ *
+ * <p>The returned access is applied to the provider's rows after filters on pushdown columns, and node scans apply
+ * their filters before the Broker applies it. A table whose access hides rows must therefore not reveal them through
+ * those filters, for example through an error from evaluating a filter on a hidden value.</p>
  */
 public interface SystemTableRowAuthorizer
 {

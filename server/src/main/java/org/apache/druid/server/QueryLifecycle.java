@@ -447,6 +447,9 @@ public class QueryLifecycle
    */
   private DataSource withSystemTableAccess(final DataSource dataSource, final AuthenticationResult authenticationResult)
   {
+    if (!SystemTableDataSource.readsSystemTable(dataSource)) {
+      return dataSource;
+    }
     if (dataSource instanceof SystemTableDataSource systemTable) {
       final SystemTableDescriptor descriptor = systemTableDescriptors.get(systemTable.getTable());
       if (descriptor == null) {

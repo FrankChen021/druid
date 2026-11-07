@@ -90,7 +90,9 @@ public class SystemSchemaDataSourceTableTest
     EasyMock.expect(bindableContext.getEngine()).andReturn(bindableEngine).once();
     EasyMock.expect(enabledContext.useDruidEngineForSystemTables()).andReturn(true).once();
     EasyMock.expect(enabledContext.getEngine()).andReturn(nativeEngine).once();
-    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class)).andReturn(ServerPropertiesDataSourceTable::new).once();
+    EasyMock.expect(table.unwrap(SystemTableDataSourceTable.class))
+            .andReturn(ServerPropertiesDataSourceTable::new)
+            .once();
     EasyMock.replay(table, nativeEngine, bindableEngine, disabledContext, bindableContext, enabledContext);
 
     Assertions.assertFalse(SystemSchema.canUseSystemTableDataSource(table, disabledContext));

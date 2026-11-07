@@ -38,8 +38,8 @@ public class SystemTableDataSourceTest
   private final SystemTableDataSource dataSource = new SystemTableDataSource("server_properties");
 
   /**
-   * System tables aren't validated by the policy enforcer, even one that requires a policy on every table, and attaching
-   * policies keeps the attached access, including inside a subquery.
+   * System tables aren't validated by the policy enforcer, even one that requires a policy on every table, and
+   * attaching policies keeps the attached access, including inside a subquery.
    */
   @Test
   public void testWithPoliciesReturnsSelfWithoutPolicy()

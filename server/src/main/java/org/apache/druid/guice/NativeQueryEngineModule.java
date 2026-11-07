@@ -94,7 +94,9 @@ public class NativeQueryEngineModule implements DruidModule
       return enableSystemTableQuery(SystemTableModule.isEnabled(properties));
     }
 
-    /** As {@link #enableSystemTableQuery(Properties)}, for callers that have already read the property. */
+    /**
+     * As {@link #enableSystemTableQuery(Properties)}, for callers that have already read the property.
+     */
     public Builder enableSystemTableQuery(final boolean enable)
     {
       systemTableQueryEnabled = enable;
@@ -115,14 +117,18 @@ public class NativeQueryEngineModule implements DruidModule
       return this;
     }
 
-    /** Applies role-specific overrides to the query execution bindings. */
+    /**
+     * Applies role-specific overrides to the query execution bindings.
+     */
     public Builder withOverrideModule(final Module module)
     {
       overrideModule = module;
       return this;
     }
 
-    /** Replaces the standard native query HTTP resource with a role-specific resource module. */
+    /**
+     * Replaces the standard native query HTTP resource with a role-specific resource module.
+     */
     public Builder withQueryResourceModule(final Module module)
     {
       queryResourceModule = module;

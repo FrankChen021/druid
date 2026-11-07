@@ -103,7 +103,9 @@ public class DruidEngineForSystemTablesDisabledTest extends EmbeddedClusterTestB
     assertSystemTableQueryRejected(router);
   }
 
-  /** Servers that don't otherwise handle queries don't serve {@code /druid/v2/}. */
+  /**
+   * Servers that don't otherwise handle queries don't serve {@code /druid/v2/}.
+   */
   @Test
   public void testNoNativeQueryEndpointOnCoordinatorAndOverlord()
   {

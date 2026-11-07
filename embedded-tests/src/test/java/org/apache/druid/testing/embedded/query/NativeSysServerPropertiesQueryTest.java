@@ -21,16 +21,20 @@ package org.apache.druid.testing.embedded.query;
 
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.URIs;
+import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.http.client.response.StatusResponseHandler;
 import org.apache.druid.java.util.http.client.response.StatusResponseHolder;
 import org.apache.druid.query.Druids;
+import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
+import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.testing.embedded.EmbeddedBroker;
@@ -49,6 +53,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.ws.rs.core.MediaType;
 
+import java.util.List;
 import java.util.Map;
 
 public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
@@ -60,7 +65,9 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
   private static final String HISTORICAL_PROPERTY = "native.sys.server.properties.historical";
   private static final String INDEXER_PROPERTY = "native.sys.server.properties.indexer";
   private static final String ROUTER_PROPERTY = "native.sys.server.properties.router";
-  /** Hidden by the default {@code druid.server.hiddenProperties}, which includes {@code password}. */
+  /**
+   * Hidden by the default {@code druid.server.hiddenProperties}, which includes {@code password}.
+   */
   private static final String HIDDEN_PROPERTY = "native.sys.server.properties.password";
   private static final String HIDDEN_VALUE = "native-sys-hidden-value";
 
@@ -226,7 +233,9 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
     );
   }
 
-  /** Hidden properties are removed by the native SQL path, as they are by the SQL interpreter on the Broker. */
+  /**
+   * Hidden properties are removed by the native SQL path, as they are by the SQL interpreter on the Broker.
+   */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)
   public void testHiddenPropertiesAreNotReturnedBySql(final QueryContexts.PlannerStrategy plannerStrategy)
@@ -255,6 +264,29 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
     assertNativeQueryHidesProperties(coordinator, COORDINATOR_PROPERTY);
   }
 
+  /**
+   * Services that don't process queries, including the Router, accept only Scan queries on a system table. Other query
+   * types are rejected instead of failing for lack of processing resources, such as the merge buffers of a GroupBy.
+   */
+  @Test
+  public void testNonScanNativeQueryIsRejectedByServicesThatDoNotProcessQueries()
+  {
+    final GroupByQuery query = GroupByQuery.builder()
+                                           .setDataSource(new SystemTableDataSource("server_properties"))
+                                           .setInterval(Intervals.ETERNITY)
+                                           .setGranularity(Granularities.ALL)
+                                           .addDimension("server")
+                                           .build();
+    for (final EmbeddedDruidServer<?> server : List.of(router, coordinator)) {
+      final StatusResponseHolder response = postNativeQuery(server, query);
+      Assertions.assertEquals(HttpResponseStatus.NOT_IMPLEMENTED, response.getStatus(), response.getContent());
+      Assertions.assertTrue(
+          response.getContent().contains("accepts only Scan queries on a systemTable datasource"),
+          response.getContent()
+      );
+    }
+  }
+
   private void assertNativeQueryHidesProperties(
       final EmbeddedDruidServer<?> server,
       final String expectedVisibleProperty
@@ -265,18 +297,23 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
                                   .eternityInterval()
                                   .columns("property", "value")
                                   .build();
+    final StatusResponseHolder response = postNativeQuery(server, query);
+
+    Assertions.assertEquals(HttpResponseStatus.OK, response.getStatus(), response.getContent());
+    Assertions.assertTrue(response.getContent().contains(expectedVisibleProperty), response.getContent());
+    Assertions.assertFalse(response.getContent().contains(HIDDEN_PROPERTY), response.getContent());
+    Assertions.assertFalse(response.getContent().contains(HIDDEN_VALUE), response.getContent());
+  }
+
+  private StatusResponseHolder postNativeQuery(final EmbeddedDruidServer<?> server, final Query<?> query)
+  {
     try {
       final Request request = new Request(HttpMethod.POST, URIs.toURL(getServerUrl(server) + "/druid/v2/"))
           .setContent(MediaType.APPLICATION_JSON, server.bindings().jsonMapper().writeValueAsBytes(query));
-      final StatusResponseHolder response = server.bindings()
-                                                  .globalHttpClient()
-                                                  .go(request, StatusResponseHandler.getInstance())
-                                                  .get();
-
-      Assertions.assertEquals(HttpResponseStatus.OK, response.getStatus(), response.getContent());
-      Assertions.assertTrue(response.getContent().contains(expectedVisibleProperty), response.getContent());
-      Assertions.assertFalse(response.getContent().contains(HIDDEN_PROPERTY), response.getContent());
-      Assertions.assertFalse(response.getContent().contains(HIDDEN_VALUE), response.getContent());
+      return server.bindings()
+                   .globalHttpClient()
+                   .go(request, StatusResponseHandler.getInstance())
+                   .get();
     }
     catch (Exception e) {
       throw new RuntimeException(e);

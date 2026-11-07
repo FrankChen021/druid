@@ -32,10 +32,14 @@ import org.apache.druid.server.security.ResourceAction;
 
 import java.util.Collections;
 
-/** Authorization checks shared by native system tables. */
+/**
+ * Authorization checks shared by native system tables.
+ */
 public final class SystemTableAuthorization
 {
-  /** Row authorizer for tables whose rows are all visible to users with {@code STATE READ}, and to no one else. */
+  /**
+   * Row authorizer for tables whose rows are all visible to users with {@code STATE READ}, and to no one else.
+   */
   public static final SystemTableRowAuthorizer STATE_READ_ROW_AUTHORIZER =
       (authenticationResult, authorizerMapper) -> {
         authorizeStateRead(authenticationResult, authorizerMapper);

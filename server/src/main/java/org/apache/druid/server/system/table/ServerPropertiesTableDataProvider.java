@@ -42,7 +42,9 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-/** Native row supplier for {@code sys.server_properties}. */
+/**
+ * Native row supplier for {@code sys.server_properties}.
+ */
 public class ServerPropertiesTableDataProvider implements SystemTableDataProvider
 {
   private static final Set<String> PUSHDOWN_COLUMNS = Set.of("server", "service_name");

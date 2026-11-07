@@ -28,7 +28,9 @@ import org.apache.druid.server.ResponseContextConfig;
 import org.apache.druid.server.metrics.QueryCountStatsProvider;
 import org.apache.druid.server.system.query.SystemTableQueryResource;
 
-/** Registers the restricted native query HTTP resource used by scan-only nodes. */
+/**
+ * Registers the restricted native query HTTP resource used by scan-only nodes.
+ */
 public class SystemTableQueryResourceModule implements DruidModule
 {
   @Override

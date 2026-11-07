@@ -311,7 +311,9 @@ public class SystemTableQueryClientTest
     Assertions.assertEquals(0L, callerResponseContext.getRowScanCount());
   }
 
-  /** Delayed node responses verify concurrent fanout through the real {@link DirectDruidClient} transport path. */
+  /**
+   * Delayed node responses verify concurrent fanout through the real {@link DirectDruidClient} transport path.
+   */
   @Test
   public void testDirectClientsStartRequestsBeforeWaitingForDelayedResponses() throws Exception
   {
@@ -324,7 +326,9 @@ public class SystemTableQueryClientTest
                                              .dataSource(new SystemTableDataSource("test"))
                                              .eternityInterval()
                                              .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
-                                             .context(QueryContext.ofMap(QueryContextParameters.QUERY_FAIL_TIME, Long.MAX_VALUE))
+                                             .context(
+                                                 QueryContext.ofMap(QueryContextParameters.QUERY_FAIL_TIME, Long.MAX_VALUE)
+                                             )
                                              .build();
       final List<QueryRunner<ScanResultValue>> nodeRunners = List.of(
           directClient(objectMapper, httpClient, "localhost:8081", cancellationExecutor),
@@ -635,7 +639,9 @@ public class SystemTableQueryClientTest
     Assertions.assertEquals(descriptor.getRowSignature().getColumnNames(), nodeQuery.getColumns());
   }
 
-  /** The private node transport always uses plain scan results even when the user query requests by-segment results. */
+  /**
+   * The private node transport always uses plain scan results even when the user query requests by-segment results.
+   */
   @Test
   public void testNodeQueryDisablesBySegmentContext()
   {
@@ -676,7 +682,8 @@ public class SystemTableQueryClientTest
         },
         (queryPlus, responseContext) -> {
           final QueryDataSource subquery = (QueryDataSource) queryPlus.getQuery().getDataSource();
-          Assertions.assertFalse(((InlineDataSource) subquery.getQuery().getDataSource()).getRows().iterator().hasNext());
+          final InlineDataSource inline = (InlineDataSource) subquery.getQuery().getDataSource();
+          Assertions.assertFalse(inline.getRows().iterator().hasNext());
           return Sequences.empty();
         }
     );
@@ -701,7 +708,9 @@ public class SystemTableQueryClientTest
     Assertions.assertEquals(1_234L, captured.get().context().getMaxScatterGatherBytes());
   }
 
-  /** A node query with {@code timeout = 0} retains Druid's no-timeout semantics. */
+  /**
+   * A node query with {@code timeout = 0} retains Druid's no-timeout semantics.
+   */
   @Test
   public void testNoTimeoutNodeQueryDoesNotGetImmediateDeadline()
   {
@@ -735,7 +744,9 @@ public class SystemTableQueryClientTest
     );
   }
 
-  /** A node made unavailable by a network failure contributes an {@code error_message} row. */
+  /**
+   * A node made unavailable by a network failure contributes an {@code error_message} row.
+   */
   @Test
   public void testServerPropertiesNodeFailureBecomesErrorRow()
   {
@@ -792,7 +803,9 @@ public class SystemTableQueryClientTest
     );
   }
 
-  /** No discovered nodes produce an empty {@code sys.server_properties} result, as in the Bindable path. */
+  /**
+   * No discovered nodes produce an empty {@code sys.server_properties} result, as in the Bindable path.
+   */
   @Test
   public void testServerPropertiesWithNoDiscoveredNodesReturnsEmptyResult()
   {
@@ -833,7 +846,9 @@ public class SystemTableQueryClientTest
     );
   }
 
-  /** A timeout raised while reading a node response is also propagated. */
+  /**
+   * A timeout raised while reading a node response is also propagated.
+   */
   @Test
   public void testServerPropertiesMidStreamTimeoutIsPropagated()
   {

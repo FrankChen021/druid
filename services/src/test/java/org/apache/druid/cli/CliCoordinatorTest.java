@@ -144,7 +144,9 @@ public class CliCoordinatorTest
     Assertions.assertFalse(queryRunnerFactories(injector).containsKey(SegmentMetadataQuery.class));
   }
 
-  /** Without the Druid engine for system tables, the Coordinator serves no {@code /druid/v2/}. */
+  /**
+   * Without the Druid engine for system tables, the Coordinator serves no {@code /druid/v2/}.
+   */
   @Test
   public void testCoordinatorWithoutDruidEngineForSystemTables()
   {
