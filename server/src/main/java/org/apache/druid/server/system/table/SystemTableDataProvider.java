@@ -28,12 +28,14 @@ import java.util.Set;
  * Supplies this server's rows of one system table. Authorization isn't applied here: the caller's
  * {@link org.apache.druid.query.SystemTableAccess} filters the rows wherever they are read.
  *
- * <p>The provider is bound on the services that serve the table. For example, the provider of {@code sys.tasks} is
- * bound on the Overlord.</p>
+ * <p>The provider is bound on the services that serve the table. For example, the provider of
+ * {@code sys.server_properties} is bound on every service.</p>
  */
 public interface SystemTableDataProvider
 {
-  /** Columns whose filters {@link #getRows} can use to read fewer rows from storage. */
+  /**
+   * Columns whose filters {@link #getRows} can use to read fewer rows from storage.
+   */
   default Set<String> getPushdownColumns()
   {
     return Set.of();

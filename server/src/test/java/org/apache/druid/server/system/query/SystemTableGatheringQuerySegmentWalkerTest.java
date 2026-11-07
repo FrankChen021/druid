@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.system.handler;
+package org.apache.druid.server.system.query;
 
 import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.guava.Sequences;
@@ -49,7 +49,9 @@ public class SystemTableGatheringQuerySegmentWalkerTest
   private final SystemTableGatheringQuerySegmentWalker walker =
       new SystemTableGatheringQuerySegmentWalker(delegate, client);
 
-  /** A native query on a system table has the local scope: it reads the Broker's rows through the Broker's walker. */
+  /**
+   * A native query on a system table has the local scope: it reads the Broker's rows through the Broker's walker.
+   */
   @Test
   public void testLocalScopedSystemTableGoesToDelegate()
   {
@@ -62,7 +64,9 @@ public class SystemTableGatheringQuerySegmentWalkerTest
     Mockito.verifyNoInteractions(client);
   }
 
-  /** A cluster-scoped system table is replaced with gathered rows when the query runs, then the closer runs. */
+  /**
+   * A cluster-scoped system table is replaced with gathered rows when the query runs, then the closer runs.
+   */
   @Test
   public void testClusterScopedSystemTableIsResolvedWhenQueryRuns() throws Exception
   {
@@ -91,7 +95,9 @@ public class SystemTableGatheringQuerySegmentWalkerTest
     Assertions.assertTrue(closed.get());
   }
 
-  /** The gathered rows are released if the Broker's walker fails to plan the resolved query. */
+  /**
+   * The gathered rows are released if the Broker's walker fails to plan the resolved query.
+   */
   @Test
   public void testCloserRunsWhenDelegateFails()
   {

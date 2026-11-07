@@ -77,7 +77,9 @@ public class UnionQuery implements Query<Object>
     throw DruidException.defensive("This is not supported. Use getDataSources instead!");
   }
 
-  /** Returns the queries whose results this query combines. */
+  /**
+   * Returns the queries whose results this query combines.
+   */
   public List<Query<?>> getQueries()
   {
     return queries;

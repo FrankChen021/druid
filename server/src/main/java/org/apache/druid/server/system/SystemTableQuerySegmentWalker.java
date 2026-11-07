@@ -49,7 +49,9 @@ import java.lang.annotation.Target;
  */
 public class SystemTableQuerySegmentWalker implements QuerySegmentWalker
 {
-  /** Binds the walker that this walker passes queries to when they don't read a system table. */
+  /**
+   * Binds the walker that this walker passes queries to when they don't read a system table.
+   */
   @BindingAnnotation
   @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
   @Retention(RetentionPolicy.RUNTIME)

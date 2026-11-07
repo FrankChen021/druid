@@ -148,7 +148,9 @@ public class DruidBinders
     );
   }
 
-  /** Binds the descriptors of the system tables, keyed by table name. */
+  /**
+   * Binds the descriptors of the system tables, keyed by table name.
+   */
   public static MapBinder<String, SystemTableDescriptor> systemTableDescriptorBinder(Binder binder)
   {
     return MapBinder.newMapBinder(binder, String.class, SystemTableDescriptor.class);

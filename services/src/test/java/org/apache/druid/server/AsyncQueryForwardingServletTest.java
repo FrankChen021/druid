@@ -266,14 +266,18 @@ public class AsyncQueryForwardingServletTest extends BaseJettyTest
     assertDelete("/druid/v2/" + SystemTableDataSource.NODE_QUERY_ID_PREFIX + "query-id", true, true);
   }
 
-  /** Node query cancellations are forwarded like any other unless the Druid engine is enabled for system tables. */
+  /**
+   * Node query cancellations are forwarded like any other unless the Druid engine is enabled for system tables.
+   */
   @Test
   public void testNodeQueryCancellationIsForwardedWhenDruidEngineForSystemTablesIsDisabled() throws Exception
   {
     assertDelete("/druid/v2/" + SystemTableDataSource.NODE_QUERY_ID_PREFIX + "query-id", false, false);
   }
 
-  /** Other cancellations are forwarded to the Brokers. */
+  /**
+   * Other cancellations are forwarded to the Brokers.
+   */
   @Test
   public void testOtherCancellationIsForwarded() throws Exception
   {

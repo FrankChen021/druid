@@ -32,15 +32,10 @@ public interface SystemTableDescriptor
   String getTableName();
 
   /**
-   * Returns the node roles capable of serving this table. {@link #getRoutingMode()} determines whether every node or
-   * only the leader for the role receives a query.
+   * Returns the node roles of the services that serve this table. Every discovered service with one of these roles
+   * contributes its own rows.
    */
   Set<NodeRole> getNodeRoles();
-
-  default SystemTableRoutingMode getRoutingMode()
-  {
-    return SystemTableRoutingMode.ALL_NODES;
-  }
 
   RowSignature getRowSignature();
 

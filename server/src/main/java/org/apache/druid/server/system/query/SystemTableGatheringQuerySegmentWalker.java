@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.system.handler;
+package org.apache.druid.server.system.query;
 
 import com.google.inject.Inject;
 import org.apache.druid.error.DruidException;

@@ -485,7 +485,9 @@ public class QueryLifecycle
     );
   }
 
-  /** Returns a system table in the datasource that this service has no descriptor for, if any. */
+  /**
+   * Returns a system table in the datasource that this service has no descriptor for, if any.
+   */
   @Nullable
   private SystemTableDataSource findUnservedSystemTable(final DataSource dataSource)
   {

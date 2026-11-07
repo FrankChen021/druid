@@ -57,7 +57,9 @@ public class SystemTableCursorFactoryTest
       new Object[]{"secret", "task2"}
   );
 
-  /** Only conjuncts that read pushdown columns, and that no virtual column replaces, reach the provider. */
+  /**
+   * Only conjuncts that read pushdown columns, and that no virtual column replaces, reach the provider.
+   */
   @Test
   public void testPushesDownOnlyConjunctsOnPushdownColumns()
   {

@@ -934,7 +934,9 @@ public class QueryLifecycleTest
     lifecycle.runSimple(query, authenticationResult, AuthorizationResult.ALLOW_NO_RESTRICTION);
   }
 
-  /** Authorizing a query attaches the caller's access to each system table it reads, including in subqueries. */
+  /**
+   * Authorizing a query attaches the caller's access to each system table it reads, including in subqueries.
+   */
   @Test
   public void testAuthorizeAttachesSystemTableAccess()
   {
@@ -961,7 +963,9 @@ public class QueryLifecycleTest
     Assertions.assertSame(access, ((SystemTableDataSource) innerDataSource).getAccess());
   }
 
-  /** A row authorizer that rejects the caller denies the query, so it never executes. */
+  /**
+   * A row authorizer that rejects the caller denies the query, so it never executes.
+   */
   @Test
   public void testRowAuthorizerDenialDeniesQuery()
   {
@@ -982,7 +986,9 @@ public class QueryLifecycleTest
     Assertions.assertThrows(DruidException.class, lifecycle::execute);
   }
 
-  /** A query run with {@code runSimple}, as by SQL, is forbidden when the table's row authorizer rejects it. */
+  /**
+   * A query run with {@code runSimple}, as by SQL, is forbidden when the table's row authorizer rejects it.
+   */
   @Test
   public void testRunSimpleRowAuthorizerDenialIsForbidden()
   {
@@ -1009,7 +1015,9 @@ public class QueryLifecycleTest
     Assertions.assertEquals("no state read", e.getMessage());
   }
 
-  /** With system tables enabled, a table that has no descriptor is rejected as invalid input. */
+  /**
+   * With system tables enabled, a table that has no descriptor is rejected as invalid input.
+   */
   @Test
   public void testUnknownSystemTableIsRejected()
   {
@@ -1152,7 +1160,9 @@ public class QueryLifecycleTest
                  .build();
   }
 
-  /** Expects an authorized system-table query to execute, and returns the query that reaches the walker. */
+  /**
+   * Expects an authorized system-table query to execute, and returns the query that reaches the walker.
+   */
   private AtomicReference<Query<?>> expectSystemTableExecution()
   {
     final AtomicReference<Query<?>> executed = new AtomicReference<>();

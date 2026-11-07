@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.system.handler;
+package org.apache.druid.server.system.query;
 
 import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.NodeRole;

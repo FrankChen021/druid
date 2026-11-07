@@ -58,7 +58,9 @@ public class SystemTableDataSourceTest
     Assertions.assertEquals(queryDataSource, queryDataSource.withPolicies(Map.of(), NoopPolicyEnforcer.instance()));
   }
 
-  /** The access attached on the authorizing server is never serialized, so a client can't supply one. */
+  /**
+   * The access attached on the authorizing server is never serialized, so a client can't supply one.
+   */
   @Test
   public void testAccessIsNotSerialized() throws Exception
   {
@@ -78,7 +80,9 @@ public class SystemTableDataSourceTest
     Assertions.assertNotEquals(withAccess, deserialized);
   }
 
-  /** A system table can be processed only once a server has attached the caller's access. */
+  /**
+   * A system table can be processed only once a server has attached the caller's access.
+   */
   @Test
   public void testProcessableOnlyWithAccess()
   {
@@ -86,7 +90,9 @@ public class SystemTableDataSourceTest
     Assertions.assertTrue(dataSource.withAccess(SystemTableAccess.ALL_ROWS).isProcessable());
   }
 
-  /** Attaching policies keeps the attached access. */
+  /**
+   * Attaching policies keeps the attached access.
+   */
   @Test
   public void testWithPoliciesKeepsAccess()
   {

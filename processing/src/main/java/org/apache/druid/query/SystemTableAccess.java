@@ -34,10 +34,14 @@ import java.util.function.Predicate;
  */
 public record SystemTableAccess(@Nullable Predicate<Object[]> rowPredicate)
 {
-  /** Access to every row of the table. */
+  /**
+   * Access to every row of the table.
+   */
   public static final SystemTableAccess ALL_ROWS = new SystemTableAccess(null);
 
-  /** Returns the rows the caller may read. */
+  /**
+   * Returns the rows the caller may read.
+   */
   public Iterable<Object[]> filter(final Iterable<Object[]> rows)
   {
     return rowPredicate == null ? rows : Iterables.filter(rows, rowPredicate::test);

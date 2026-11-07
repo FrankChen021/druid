@@ -24,7 +24,9 @@ import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
 
-/** Decides which rows of a system table a caller may read. */
+/**
+ * Decides which rows of a system table a caller may read.
+ */
 public interface SystemTableRowAuthorizer
 {
   /**

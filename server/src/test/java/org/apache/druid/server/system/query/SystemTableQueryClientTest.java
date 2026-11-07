@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.system.handler;
+package org.apache.druid.server.system.query;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.SettableFuture;
@@ -84,11 +84,9 @@ import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.ForbiddenException;
-import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
-import org.apache.druid.server.system.table.SystemTableRoutingMode;
 import org.apache.druid.server.system.table.SystemTableSegmentWrangler;
 import org.joda.time.Duration;
 import org.junit.jupiter.api.Assertions;
@@ -258,7 +256,9 @@ public class SystemTableQueryClientTest
     }
   }
 
-  /** The Broker reads its own rows of the table without an HTTP request, through the system-table segment. */
+  /**
+   * The Broker reads its own rows of the table without an HTTP request, through the system-table segment.
+   */
   @Test
   public void testBrokerNodeExecutesLocallyWithoutHttp()
   {
@@ -267,7 +267,7 @@ public class SystemTableQueryClientTest
     final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
     final SystemTableNode node = new SystemTableNode(brokerNode);
     node.addNodeRole(brokerNode.getNodeRole());
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor), ArgumentMatchers.any())).thenReturn(List.of(node));
+    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor))).thenReturn(List.of(node));
 
     final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
     final SystemTableDataProvider provider = filters -> List.<Object[]>of(new Object[]{"local"});
@@ -327,7 +327,9 @@ public class SystemTableQueryClientTest
     Assertions.assertArrayEquals(new Object[]{"allowed"}, (Object[]) ((List<?>) results.get(0).getEvents()).get(0));
   }
 
-  /** A system table that wasn't authorized on this Broker can't be gathered, and no node is queried. */
+  /**
+   * A system table that wasn't authorized on this Broker can't be gathered, and no node is queried.
+   */
   @Test
   public void testUnauthorizedSystemTableIsNotGathered()
   {
@@ -351,7 +353,9 @@ public class SystemTableQueryClientTest
     Mockito.verifyNoInteractions(nodeLocator, directClientFactory);
   }
 
-  /** A system table with the local scope, as in a native query, is left for this Broker to read. */
+  /**
+   * A system table with the local scope, as in a native query, is left for this Broker to read.
+   */
   @Test
   public void testLocalScopedSystemTableIsLeftAsIs()
   {
@@ -637,7 +641,9 @@ public class SystemTableQueryClientTest
     Assertions.assertEquals(rightFilter, nodeQueries.get(1).getFilter());
   }
 
-  /** Each query of a union gathers its own system table, with its own filter pushed into the node scans. */
+  /**
+   * Each query of a union gathers its own system table, with its own filter pushed into the node scans.
+   */
   @Test
   public void testUnionQueriesGatherTheirOwnSystemTables()
   {
@@ -716,7 +722,9 @@ public class SystemTableQueryClientTest
     Assertions.assertEquals(descriptor.getRowSignature().getColumnNames(), nodeQuery.getColumns());
   }
 
-  /** Filters of window queries aren't pushed into node scans; the window query applies them to the gathered rows. */
+  /**
+   * Filters of window queries aren't pushed into node scans; the window query applies them to the gathered rows.
+   */
   @Test
   public void testWindowQueryFilterIsNotPushed()
   {
@@ -768,7 +776,9 @@ public class SystemTableQueryClientTest
     Assertions.assertFalse(capturedNodeQuery.get().context().isBySegment());
   }
 
-  /** SELECT * FROM (SELECT * FROM sys.server_properties) must retain the outer query deadline. */
+  /**
+   * SELECT * FROM (SELECT * FROM sys.server_properties) must retain the outer query deadline.
+   */
   @ParameterizedTest
   @ValueSource(longs = {0L, 7_000L, Long.MAX_VALUE})
   public void testSubqueryRetainsOuterDeadline(final long innerTimeout)
@@ -975,59 +985,6 @@ public class SystemTableQueryClientTest
     Assertions.assertSame(failure, thrown);
   }
 
-  /** A leader-only node scan re-resolves the leader once when the selected node loses leadership before emitting rows. */
-  @Test
-  public void testLeaderOnlyQueryRetriesAfterLeadershipChange()
-  {
-    final SystemTableDescriptor descriptor = new LeaderOnlySystemTableDescriptor();
-    final SystemTableNode oldLeader = systemTableNode(testNode(8081));
-    final SystemTableNode newLeader = systemTableNode(testNode(8082));
-    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor), ArgumentMatchers.any()))
-           .thenReturn(List.of(oldLeader), List.of(newLeader));
-    final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
-    Mockito.when(directClientFactory.makeDirectClient(ArgumentMatchers.any())).thenAnswer(invocation -> {
-      final DruidServer server = invocation.getArgument(0);
-      @SuppressWarnings("unchecked")
-      final DirectDruidClient<ScanResultValue> directClient = Mockito.mock(DirectDruidClient.class);
-      if (server.getHost().endsWith(":8081")) {
-        Mockito.when(directClient.run(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(
-            Sequences.simple(List.of(scanResult(taskRow("stale")))).map(ignored -> {
-              throw new QueryInterruptedException(new SystemTableNotLeaderException("overlord"));
-            })
-        );
-      } else {
-        Mockito.when(directClient.run(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(
-            Sequences.simple(List.of(scanResult(taskRow("current"))))
-        );
-      }
-      return directClient;
-    });
-    final QueryRunner<?> queryRunner = passthroughRunner(descriptor.getRowSignature());
-    final TestClient client = new TestClient(
-        newClient(
-            nodeLocator,
-            directClientFactory,
-            Mockito.mock(QueryScheduler.class),
-            Map.of(descriptor.getTableName(), descriptor),
-            nonMatchingSelfNode()
-        ),
-        queryRunner
-    );
-    final ScanQuery query = query(descriptor, Collections.emptyMap());
-
-    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT)
-                                                .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
-                                                .toList();
-
-    Assertions.assertEquals(1, results.size());
-    Assertions.assertArrayEquals(
-        taskRow("current"),
-        (Object[]) ((List<?>) results.get(0).getEvents()).get(0)
-    );
-    Mockito.verify(nodeLocator, Mockito.times(2)).locate(Mockito.eq(descriptor), ArgumentMatchers.any());
-  }
-
   private static void assertServerPropertiesQueryFailureIsPropagated(final RuntimeException failure)
   {
     final ServerPropertiesTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
@@ -1068,7 +1025,7 @@ public class SystemTableQueryClientTest
   )
   {
     final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor), ArgumentMatchers.any())).thenReturn(
+    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor))).thenReturn(
         discoveryNodes.stream().map(discoveryNode -> {
           final SystemTableNode systemTableNode = new SystemTableNode(discoveryNode);
           systemTableNode.addNodeRole(discoveryNode.getNodeRole());
@@ -1119,7 +1076,7 @@ public class SystemTableQueryClientTest
   )
   {
     final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor), ArgumentMatchers.any())).thenReturn(
+    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor))).thenReturn(
         discoveryNodes.stream().map(discoveryNode -> {
           final SystemTableNode systemTableNode = new SystemTableNode(discoveryNode);
           systemTableNode.addNodeRole(discoveryNode.getNodeRole());
@@ -1153,7 +1110,9 @@ public class SystemTableQueryClientTest
     );
   }
 
-  /** Creates a client that reads no system table locally, for tests whose nodes are all remote. */
+  /**
+   * Creates a client that reads no system table locally, for tests whose nodes are all remote.
+   */
   private static SystemTableQueryClient newClient(
       final SystemTableNodeLocator nodeLocator,
       final DirectDruidClientFactory directClientFactory,
@@ -1240,7 +1199,9 @@ public class SystemTableQueryClientTest
     );
   }
 
-  /** Resolves the query and returns the Scan sent to its only node. */
+  /**
+   * Resolves the query and returns the Scan sent to its only node.
+   */
   private static ScanQuery captureNodeQuery(final SystemTableDescriptor descriptor, final Query<?> query)
   {
     final AtomicReference<ScanQuery> capturedNodeQuery = new AtomicReference<>();
@@ -1268,14 +1229,22 @@ public class SystemTableQueryClientTest
     final DiscoveryDruidNode discoveryNode = testNode();
     final SystemTableNode systemTableNode = new SystemTableNode(discoveryNode);
     systemTableNode.addNodeRole(discoveryNode.getNodeRole());
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor), ArgumentMatchers.any())).thenAnswer(invocation -> {
-      nodeQueries.add(invocation.getArgument(1));
-      return List.of(systemTableNode);
-    });
+    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor))).thenReturn(List.of(systemTableNode));
     final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
-    Mockito.when(directClientFactory.makeDirectClient(ArgumentMatchers.any()))
-           .thenReturn(Mockito.mock(DirectDruidClient.class));
-    final QueryRunner<?> queryRunner = (queryPlus, responseContext) -> Sequences.empty();
+    Mockito.when(directClientFactory.makeDirectClient(ArgumentMatchers.any())).thenAnswer(ignored -> {
+      @SuppressWarnings("unchecked")
+      final DirectDruidClient<ScanResultValue> directClient = Mockito.mock(DirectDruidClient.class);
+      Mockito.when(directClient.run(ArgumentMatchers.any(), ArgumentMatchers.any())).thenAnswer(invocation -> {
+        nodeQueries.add((ScanQuery) ((QueryPlus<?>) invocation.getArgument(0)).getQuery());
+        return Sequences.empty();
+      });
+      return directClient;
+    });
+    // Node scans start when the resolved query reads its rows, so read every inline datasource of the query.
+    final QueryRunner<?> queryRunner = (queryPlus, responseContext) -> {
+      readInlineRows(queryPlus.getQuery().getDataSource());
+      return Sequences.empty();
+    };
     final TestClient client = new TestClient(
         newClient(
             nodeLocator,
@@ -1297,6 +1266,14 @@ public class SystemTableQueryClientTest
           .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
           .toList();
     return nodeQueries;
+  }
+
+  private static void readInlineRows(final DataSource dataSource)
+  {
+    if (dataSource instanceof InlineDataSource inlineDataSource) {
+      inlineDataSource.getRows().forEach(row -> {});
+    }
+    dataSource.getChildren().forEach(SystemTableQueryClientTest::readInlineRows);
   }
 
   private static void assertWrappedSystemTableIsResolved(
@@ -1504,21 +1481,6 @@ public class SystemTableQueryClientTest
     public org.apache.druid.server.system.table.SystemTableRowAuthorizer getRowAuthorizer()
     {
       return (authenticationResult, authorizerMapper) -> SystemTableAccess.ALL_ROWS;
-    }
-  }
-
-  private static class LeaderOnlySystemTableDescriptor extends TestSystemTableDescriptor
-  {
-    @Override
-    public String getTableName()
-    {
-      return "tasks";
-    }
-
-    @Override
-    public SystemTableRoutingMode getRoutingMode()
-    {
-      return SystemTableRoutingMode.LEADER_ONLY;
     }
   }
 }

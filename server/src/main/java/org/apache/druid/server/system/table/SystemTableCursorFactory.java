@@ -78,7 +78,9 @@ public class SystemTableCursorFactory implements ResidentCursorFactory
     return new RowBasedCursorFactory<>(Sequences.simple(rows), rowAdapter, rowSignature).makeCursorHolder(spec);
   }
 
-  /** Reads the columns of a row of the table by name. */
+  /**
+   * Reads the columns of a row of the table by name.
+   */
   public RowAdapter<Object[]> getRowAdapter()
   {
     return rowAdapter;

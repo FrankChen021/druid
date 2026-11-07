@@ -158,7 +158,9 @@ public class ServerPropertiesTableDataProvider implements SystemTableDataProvide
     return new TreeMap<>(filteredProperties);
   }
 
-  /** Returns the value that the filter requires the column to equal, or null if it isn't such a filter. */
+  /**
+   * Returns the value that the filter requires the column to equal, or null if it isn't such a filter.
+   */
   @Nullable
   private static String getStringEqualityValue(final Filter filter, final String column)
   {

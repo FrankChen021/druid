@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.system.handler;
+package org.apache.druid.server.system.query;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.jackson.DefaultObjectMapper;

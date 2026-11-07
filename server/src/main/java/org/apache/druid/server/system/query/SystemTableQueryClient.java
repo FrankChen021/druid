@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.system.handler;
+package org.apache.druid.server.system.query;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
@@ -42,7 +42,6 @@ import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryDataSource;
-import org.apache.druid.query.QueryException;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
@@ -66,9 +65,7 @@ import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.SetAndVerifyContextQueryRunner;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.initialization.ServerConfig;
-import org.apache.druid.server.system.SystemTableNotLeaderException;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
-import org.apache.druid.server.system.table.SystemTableRoutingMode;
 import org.apache.druid.utils.CloseableUtils;
 
 import javax.annotation.Nullable;
@@ -141,11 +138,8 @@ public class SystemTableQueryClient
   public <T> ResolvedQuery<T> resolve(final Query<T> query)
   {
     // Node queries derive their timeout and scatter-gather limit from the query, so apply the server's limits first.
-    final Query<T> limitedQuery = SetAndVerifyContextQueryRunner.withTimeoutAndMaxScatterGatherBytes(
-        query,
-        serverConfig,
-        System.currentTimeMillis()
-    );
+    final Query<T> limitedQuery = new SetAndVerifyContextQueryRunner<T>(serverConfig, null)
+        .withTimeoutAndMaxScatterGatherBytes(query, serverConfig);
     final NodeSequencesCloser nodeSequencesCloser = new NodeSequencesCloser(queryScheduler);
     try {
       final DataSource resolvedDataSource = resolveDataSource(
@@ -221,7 +215,9 @@ public class SystemTableQueryClient
     return resolvedParent.withChildren(resolvedChildren);
   }
 
-  /** Returns the inner query with the outer query's deadline and scatter-gather limit, where they are tighter. */
+  /**
+   * Returns the inner query with the outer query's deadline and scatter-gather limit, where they are tighter.
+   */
   private static Query<?> withGuardrails(final Query<?> innerQuery, final Query<?> outerQuery)
   {
     return innerQuery.withOverriddenContext(
@@ -261,13 +257,6 @@ public class SystemTableQueryClient
                           .build("No node is available to serve system table[%s]", dataSource.getTable());
     }
 
-    /*
-     * Keep the scan result transport lazy. The node response is a Sequence, so this lets the local query
-     * runner consume and process rows while the HTTP response is still arriving instead of materializing every
-     * node row in two Broker-side lists. The scan transport is intentionally kept behind this adapter so a
-     * future node-side aggregation mode can use a different result adapter without changing routing or
-     * authorization orchestration here.
-     */
     final NodeSequenceCloser nodeSequenceCloser = new NodeSequenceCloser();
     nodeSequencesCloser.add(nodeSequenceCloser);
     // Node scans get their own response context. Sharing the caller's would add the node scans' row counts to the
@@ -279,7 +268,11 @@ public class SystemTableQueryClient
         DirectDruidClient.makeResponseContextForQuery(),
         nodeSequenceCloser
     );
-    return InlineDataSource.fromIterable(access.filter(nodeRows), descriptor.getRowSignature());
+    // Collect the rows into a list: an inline datasource backed by a list can be read more than once, and window
+    // queries can read it as RowsAndColumns. The node scans' scatter-gather limit bounds the rows held here.
+    final ArrayList<Object[]> rows = new ArrayList<>();
+    access.filter(nodeRows).forEach(rows::add);
+    return InlineDataSource.fromIterable(rows, descriptor.getRowSignature());
   }
 
   private ScanQuery makeNodeQuery(
@@ -315,23 +308,12 @@ public class SystemTableQueryClient
   )
   {
     final List<QueryRunner<ScanResultValue>> nodeRunners = new ArrayList<>();
-    for (final SystemTableNode node : nodeLocator.locate(descriptor, nodeQuery)) {
+    for (final SystemTableNode node : nodeLocator.locate(descriptor)) {
       nodeRunners.add(
           (queryPlus, responseContext) -> recoverNodeFailure(
               () -> runNodeQuery(nodeQuery, node, nodeSequencesCloser, queryPlus, responseContext),
               node,
-              descriptor,
-              descriptor.getRoutingMode() == SystemTableRoutingMode.LEADER_ONLY
-              ? () -> {
-                final SystemTableNode currentLeader = Iterables.getOnlyElement(
-                    nodeLocator.locate(descriptor, nodeQuery)
-                );
-                return new NodeQuerySequence(
-                    currentLeader,
-                    runNodeQuery(nodeQuery, currentLeader, nodeSequencesCloser, queryPlus, responseContext)
-                );
-              }
-              : null
+              descriptor
           )
       );
     }
@@ -424,8 +406,7 @@ public class SystemTableQueryClient
   private static Sequence<ScanResultValue> recoverNodeFailure(
       final Supplier<Sequence<ScanResultValue>> sequenceSupplier,
       final SystemTableNode node,
-      final SystemTableDescriptor descriptor,
-      @Nullable final Supplier<NodeQuerySequence> leaderRetrySupplier
+      final SystemTableDescriptor descriptor
   )
   {
     final Sequence<ScanResultValue> sequence;
@@ -433,24 +414,14 @@ public class SystemTableQueryClient
       sequence = sequenceSupplier.get();
     }
     catch (Exception failure) {
-      if (leaderRetrySupplier != null && isLeaderChangeFailure(failure)) {
-        try {
-          final NodeQuerySequence retry = leaderRetrySupplier.get();
-          return recoveringSequence(retry, descriptor, null);
-        }
-        catch (Exception retryFailure) {
-          return failureSequence(retryFailure, node, descriptor);
-        }
-      }
       return failureSequence(failure, node, descriptor);
     }
-    return recoveringSequence(new NodeQuerySequence(node, sequence), descriptor, leaderRetrySupplier);
+    return recoveringSequence(new NodeQuerySequence(node, sequence), descriptor);
   }
 
   private static Sequence<ScanResultValue> recoveringSequence(
       final NodeQuerySequence nodeQuerySequence,
-      final SystemTableDescriptor descriptor,
-      @Nullable final Supplier<NodeQuerySequence> leaderRetrySupplier
+      final SystemTableDescriptor descriptor
   )
   {
     return new BaseSequence<>(
@@ -459,7 +430,7 @@ public class SystemTableQueryClient
           @Override
           public RecoveringNodeIterator make()
           {
-            return new RecoveringNodeIterator(nodeQuerySequence, descriptor, leaderRetrySupplier);
+            return new RecoveringNodeIterator(nodeQuerySequence, descriptor);
           }
 
           @Override
@@ -506,20 +477,6 @@ public class SystemTableQueryClient
           || cause instanceof EOFException
           || cause instanceof ClosedChannelException
           || cause instanceof ChannelException) {
-        return true;
-      }
-      cause = cause.getCause();
-    }
-    return false;
-  }
-
-  private static boolean isLeaderChangeFailure(final Throwable failure)
-  {
-    Throwable cause = failure;
-    while (cause != null) {
-      if (cause instanceof SystemTableNotLeaderException
-          || cause instanceof QueryException
-             && SystemTableNotLeaderException.class.getName().equals(((QueryException) cause).getErrorClass())) {
         return true;
       }
       cause = cause.getCause();
@@ -710,10 +667,7 @@ public class SystemTableQueryClient
   private static class RecoveringNodeIterator implements Iterator<ScanResultValue>, Closeable
   {
     private final SystemTableDescriptor descriptor;
-    @Nullable
-    private final Supplier<NodeQuerySequence> leaderRetrySupplier;
-
-    private NodeQuerySequence nodeQuerySequence;
+    private final NodeQuerySequence nodeQuerySequence;
 
     @Nullable
     private Yielder<ScanResultValue> yielder;
@@ -721,18 +675,14 @@ public class SystemTableQueryClient
     private ScanResultValue failureResult;
     private boolean started;
     private boolean finished;
-    private boolean retriedLeader;
-    private boolean emittedResult;
 
     private RecoveringNodeIterator(
         final NodeQuerySequence nodeQuerySequence,
-        final SystemTableDescriptor descriptor,
-        @Nullable final Supplier<NodeQuerySequence> leaderRetrySupplier
+        final SystemTableDescriptor descriptor
     )
     {
       this.nodeQuerySequence = nodeQuerySequence;
       this.descriptor = descriptor;
-      this.leaderRetrySupplier = leaderRetrySupplier;
     }
 
     @Override
@@ -758,7 +708,9 @@ public class SystemTableQueryClient
         return true;
       }
       catch (Exception e) {
-        return !recoverOrThrow(e) || hasNext();
+        // A failure row is now pending.
+        recoverOrThrow(e);
+        return true;
       }
     }
 
@@ -779,10 +731,9 @@ public class SystemTableQueryClient
       final ScanResultValue result;
       try {
         result = currentYielder.get();
-        emittedResult = true;
       }
       catch (Exception e) {
-        // Either the leader retry restarted the sequence or a failure row is pending; next() serves both.
+        // A failure row is now pending, and next() serves it.
         recoverOrThrow(e);
         return next();
       }
@@ -795,22 +746,12 @@ public class SystemTableQueryClient
       return result;
     }
 
-    private boolean recoverOrThrow(final Exception originalFailure)
+    /**
+     * Turns a failure to reach the node into the table's failure row, which {@link #next()} returns. Other failures,
+     * and failures of tables without failure rows, fail the query.
+     */
+    private void recoverOrThrow(final Exception failure)
     {
-      Exception failure = originalFailure;
-      if (!emittedResult && !retriedLeader && leaderRetrySupplier != null && isLeaderChangeFailure(failure)) {
-        retriedLeader = true;
-        try {
-          close();
-          nodeQuerySequence = leaderRetrySupplier.get();
-          started = false;
-          finished = false;
-          return true;
-        }
-        catch (Exception retryFailure) {
-          failure = retryFailure;
-        }
-      }
       if (!isNodeAvailabilityFailure(failure)) {
         throw CloseableUtils.closeAndWrapInCatch(failure, this);
       }
@@ -833,7 +774,6 @@ public class SystemTableQueryClient
           descriptor.getRowSignature().getColumnNames(),
           List.of((Object) failureRow.get())
       );
-      return false;
     }
 
     @Override

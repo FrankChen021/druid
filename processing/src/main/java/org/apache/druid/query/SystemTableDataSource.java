@@ -50,13 +50,19 @@ import java.util.Set;
  */
 public class SystemTableDataSource extends LeafDataSource
 {
-  /** Which services' rows of a system table a query reads. */
+  /**
+   * Which services' rows of a system table a query reads.
+   */
   public enum Scope
   {
-    /** The rows of the service that runs the query. */
+    /**
+     * The rows of the service that runs the query.
+     */
     LOCAL,
 
-    /** The rows of every service that serves the table, which only the Broker gathers. */
+    /**
+     * The rows of every service that serves the table, which only the Broker gathers.
+     */
     CLUSTER
   }
 
@@ -95,7 +101,9 @@ public class SystemTableDataSource extends LeafDataSource
     return table;
   }
 
-  /** Whether the datasource, or one of the datasources it reads, is a system table. */
+  /**
+   * Whether the datasource, or one of the datasources it reads, is a system table.
+   */
   public static boolean readsSystemTable(final DataSource dataSource)
   {
     if (dataSource instanceof SystemTableDataSource) {
@@ -109,7 +117,9 @@ public class SystemTableDataSource extends LeafDataSource
     return false;
   }
 
-  /** Returns a copy of the datasource in which every system table has the given scope. */
+  /**
+   * Returns a copy of the datasource in which every system table has the given scope.
+   */
   public static DataSource withScope(final DataSource dataSource, final Scope scope)
   {
     if (dataSource instanceof SystemTableDataSource systemTable) {
@@ -126,7 +136,9 @@ public class SystemTableDataSource extends LeafDataSource
     return dataSource.withChildren(scopedChildren);
   }
 
-  /** Returns the rows the caller may read, or null if the query hasn't been authorized on this server. */
+  /**
+   * Returns the rows the caller may read, or null if the query hasn't been authorized on this server.
+   */
   @JsonIgnore
   @Nullable
   public SystemTableAccess getAccess()
@@ -134,7 +146,9 @@ public class SystemTableDataSource extends LeafDataSource
     return access;
   }
 
-  /** Returns a copy of this datasource that carries the given access. */
+  /**
+   * Returns a copy of this datasource that carries the given access.
+   */
   public SystemTableDataSource withAccess(final SystemTableAccess access)
   {
     return new SystemTableDataSource(table, Preconditions.checkNotNull(access, "access"), scope);
@@ -150,7 +164,9 @@ public class SystemTableDataSource extends LeafDataSource
     return scope;
   }
 
-  /** Returns a copy of this datasource with the given scope. */
+  /**
+   * Returns a copy of this datasource with the given scope.
+   */
   public SystemTableDataSource withScope(final Scope scope)
   {
     return new SystemTableDataSource(table, access, scope);

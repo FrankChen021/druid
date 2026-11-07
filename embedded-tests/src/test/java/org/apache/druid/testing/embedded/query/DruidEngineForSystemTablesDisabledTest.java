@@ -94,7 +94,9 @@ public class DruidEngineForSystemTablesDisabledTest extends EmbeddedClusterTestB
     assertSystemTableQueryRejected(broker);
   }
 
-  /** The Router doesn't answer system-table queries itself: it forwards them to the Broker, which rejects them. */
+  /**
+   * The Router doesn't answer system-table queries itself: it forwards them to the Broker, which rejects them.
+   */
   @Test
   public void testRouterForwardsSystemTableQuery()
   {

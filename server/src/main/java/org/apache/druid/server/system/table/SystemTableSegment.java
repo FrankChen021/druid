@@ -34,7 +34,9 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-/** The rows of a system table on this server, as read by one caller. */
+/**
+ * The rows of a system table on this server, as read by one caller.
+ */
 public class SystemTableSegment implements Segment
 {
   private final SystemTableDataProvider provider;

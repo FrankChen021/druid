@@ -64,7 +64,9 @@ public class SystemTableQuerySegmentWalkerTest
     Mockito.verifyNoInteractions(localWalker);
   }
 
-  /** Queries on system tables run locally, under the server's timeout and scatter-gather limits. */
+  /**
+   * Queries on system tables run locally, under the server's timeout and scatter-gather limits.
+   */
   @Test
   public void testQueryOnSystemTableRunsLocally()
   {
@@ -93,7 +95,9 @@ public class SystemTableQuerySegmentWalkerTest
     Mockito.verifyNoInteractions(delegate);
   }
 
-  /** A system table that the server hasn't authorized can't be read. */
+  /**
+   * A system table that the server hasn't authorized can't be read.
+   */
   @Test
   public void testUnauthorizedSystemTableIsRejected()
   {

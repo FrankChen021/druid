@@ -34,11 +34,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-public class SystemTableDataProviderTest
+public class SystemSchemaDataSourceTableTest
 {
-  /** The typed flag defaults to false and accepts boolean or SQL SET string values. */
+  /**
+   * The typed flag defaults to false and accepts boolean or SQL SET string values.
+   */
   @Test
-  public void testUseQueryEngineUsesTypedQueryContext()
+  public void testUseDruidEngineForSystemTablesUsesTypedQueryContext()
   {
     final PlannerContext context = EasyMock.partialMockBuilder(PlannerContext.class)
                                           .addMockedMethod("queryContext")

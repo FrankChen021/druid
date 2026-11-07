@@ -680,7 +680,6 @@ public abstract class AbstractAuthConfigurationTest extends EmbeddedClusterTestB
           HttpMethod.POST,
           getServerUrl(server) + "/druid/v2/",
           query,
-          Map.of(),
           expectedStatus
       );
       if (HttpResponseStatus.OK.equals(expectedStatus)) {
