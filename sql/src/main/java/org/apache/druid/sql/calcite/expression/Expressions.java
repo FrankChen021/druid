@@ -25,6 +25,7 @@ import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
@@ -249,6 +250,8 @@ public class Expressions
     } else if (kind == SqlKind.LITERAL) {
       final DruidLiteral eval = calciteLiteralToDruidLiteral(plannerContext, rexNode);
       return eval != null ? DruidExpression.ofLiteral(eval) : null;
+    } else if (rexNode instanceof RexDynamicParam) {
+      return plannerContext.getScalarInArrayDynamicParameters().toDruidExpression(rexNode);
     } else {
       // Can't translate.
       return null;

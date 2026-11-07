@@ -28,9 +28,11 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.InlineDataSource;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.FilteredAggregatorFactory;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.scan.ScanQuery;
@@ -753,5 +755,35 @@ public class CalciteParameterQueryTest extends BaseCalciteQueryTest
         ),
         ImmutableList.of(new SqlParameter(SqlType.VARCHAR, null), new SqlParameter(SqlType.VARCHAR, "parameter"))
     );
+  }
+
+  @Test
+  public void testParamsWithInLiteralArray()
+  {
+    // The IN list is converted to SCALAR_IN_ARRAY with a synthesized parameter, which must not collide with the
+    // parameters of the statement on either side of it.
+    testBuilder()
+        .sql("SELECT COUNT(*) FROM druid.foo WHERE dim1 = ? OR dim1 IN ('abc', 'def', 'nonmatching') OR dim1 = ?")
+        .queryContext(
+            QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD, 2)
+        )
+        .parameters(ImmutableList.of(new SqlParameter(SqlType.VARCHAR, "1"), new SqlParameter(SqlType.VARCHAR, "2")))
+        .expectedResults(ImmutableList.of(new Object[]{4L}))
+        .run();
+  }
+
+  @Test
+  public void testUnboundParamWithInLiteralArray()
+  {
+    // A DATE parameter given as an integer is left as a dynamic parameter until after validation, so the synthesized
+    // parameter for the IN list must not reuse its index.
+    testBuilder()
+        .sql("SELECT COUNT(*) FROM druid.foo WHERE __time >= ? AND dim1 IN ('abc', 'def', 'nonmatching')")
+        .queryContext(
+            QueryContexts.override(QUERY_CONTEXT_DEFAULT, QueryContextParameters.IN_FUNCTION_THRESHOLD, 2)
+        )
+        .parameters(ImmutableList.of(new SqlParameter(SqlType.DATE, 0)))
+        .expectedResults(ImmutableList.of(new Object[]{2L}))
+        .run();
   }
 }
