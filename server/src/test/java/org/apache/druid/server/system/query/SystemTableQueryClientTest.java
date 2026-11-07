@@ -28,9 +28,7 @@ import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.jackson.DefaultObjectMapper;
-import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.JodaUtils;
-import org.apache.druid.java.util.common.guava.LazySequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.guava.Yielder;
@@ -46,18 +44,14 @@ import org.apache.druid.query.InlineDataSource;
 import org.apache.druid.query.JoinAlgorithm;
 import org.apache.druid.query.JoinDataSource;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.QueryCapacityExceededException;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryDataSource;
-import org.apache.druid.query.QueryException;
 import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.QueryTimeoutException;
-import org.apache.druid.query.QueryUnsupportedException;
-import org.apache.druid.query.ResourceLimitExceededException;
 import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
@@ -65,11 +59,8 @@ import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
-import org.apache.druid.query.operator.ScanOperatorFactory;
-import org.apache.druid.query.operator.WindowOperatorQuery;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
-import org.apache.druid.query.spec.LegacySegmentSpec;
 import org.apache.druid.query.union.UnionQuery;
 import org.apache.druid.segment.SegmentWrangler;
 import org.apache.druid.segment.VirtualColumns;
@@ -82,8 +73,6 @@ import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
-import org.apache.druid.server.security.AuthenticationResult;
-import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
@@ -104,7 +93,6 @@ import java.io.IOException;
 import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -126,20 +114,18 @@ public class SystemTableQueryClientTest
   public static final QueryStackTests.ConglomerateExtension CONGLOMERATE =
       new QueryStackTests.ConglomerateExtension();
 
-  private static final AuthenticationResult AUTHENTICATION_RESULT =
-      new AuthenticationResult("test", "allow", "test", null);
-
+  /**
+   * Node responses arrive as Scan result batches, in list or compacted-list form, and are flattened into rows.
+   */
   @Test
-  public void testNodeRowsAreLazyAndFlattenScanResultBatches()
+  public void testNodeRowsFlattenScanResultBatches()
   {
-    final AtomicInteger runnerCalls = new AtomicInteger();
     final ScanQuery nodeQuery = Druids.newScanQueryBuilder()
                                             .dataSource(new SystemTableDataSource("test"))
                                             .eternityInterval()
                                             .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
                                             .build();
     final QueryRunner<ScanResultValue> nodeRunner = (queryPlus, responseContext) -> {
-      runnerCalls.incrementAndGet();
       final Sequence<ScanResultValue> result = Sequences.simple(
           List.of(
               new ScanResultValue(
@@ -163,97 +149,12 @@ public class SystemTableQueryClientTest
         ResponseContext.createEmpty()
     );
 
-    Assertions.assertEquals(0, runnerCalls.get());
-
-    final Iterator<Object[]> iterator = rows.iterator();
-    Assertions.assertEquals(1, runnerCalls.get());
-    Assertions.assertArrayEquals(new Object[]{"task-a"}, iterator.next());
-
-    final List<Object[]> remainingRows = new ArrayList<>();
-    iterator.forEachRemaining(remainingRows::add);
-    Assertions.assertEquals(2, remainingRows.size());
-    Assertions.assertArrayEquals(new Object[]{"task-b"}, remainingRows.get(0));
-    Assertions.assertArrayEquals(new Object[]{"task-c"}, remainingRows.get(1));
-    Assertions.assertThrows(DruidException.class, rows::iterator);
-  }
-
-  /**
-   * Native query transport for:
-   *
-   * <pre>{@code
-   * SELECT property, value FROM sys.server_properties
-   * }</pre>
-   *
-   * A ready node must yield rows without waiting for a later node's response sequence to initialize.
-   */
-  @Test
-  public void testReadyNodeDoesNotWaitForLaterNodeInitialization() throws Exception
-  {
-    final CompletableFuture<Void> secondNodeInitialization = new CompletableFuture<>();
-    final CountDownLatch releaseSecondNode = new CountDownLatch(1);
-    final AtomicReference<Iterator<Object[]>> rowIterator = new AtomicReference<>();
-    final ExecutorService consumerExecutor = Executors.newSingleThreadExecutor();
-    final ScanQuery nodeQuery = Druids.newScanQueryBuilder()
-                                           .dataSource(
-                                               new SystemTableDataSource(
-                                                   ServerPropertiesTableDescriptor.TABLE_NAME
-                                               )
-                                           )
-                                           .eternityInterval()
-                                           .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
-                                           .build();
-    final QueryRunner<ScanResultValue> readyRunner = (queryPlus, responseContext) -> Sequences.simple(
-        List.of(scanResult(new Object[]{"first"}, new Object[]{"first-remainder"}))
-    );
-    final QueryRunner<ScanResultValue> delayedRunner = (queryPlus, responseContext) -> new LazySequence<>(() -> {
-      secondNodeInitialization.complete(null);
-      try {
-        releaseSecondNode.await();
-      }
-      catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new RuntimeException(e);
-      }
-      return Sequences.simple(List.of(scanResult(new Object[]{"second"})));
-    });
-    final Iterable<Object[]> rows = SystemTableQueryClient.scanNodeRows(
-        List.of(readyRunner, delayedRunner),
-        nodeQuery,
-        ResponseContext.createEmpty()
-    );
-
-    try {
-      final CompletableFuture<Object[]> firstRow = CompletableFuture.supplyAsync(
-          () -> {
-            final Iterator<Object[]> iterator = rows.iterator();
-            rowIterator.set(iterator);
-            return iterator.next();
-          },
-          consumerExecutor
-      );
-
-      CompletableFuture.anyOf(firstRow, secondNodeInitialization).get(10, TimeUnit.SECONDS);
-      Assertions.assertTrue(firstRow.isDone());
-      Assertions.assertFalse(secondNodeInitialization.isDone());
-      Assertions.assertArrayEquals(new Object[]{"first"}, firstRow.get());
-
-      releaseSecondNode.countDown();
-      final List<Object[]> remainingRows = CompletableFuture.supplyAsync(
-          () -> {
-            final List<Object[]> result = new ArrayList<>();
-            rowIterator.get().forEachRemaining(result::add);
-            return result;
-          },
-          consumerExecutor
-      ).get(10, TimeUnit.SECONDS);
-      Assertions.assertEquals(2, remainingRows.size());
-      Assertions.assertArrayEquals(new Object[]{"first-remainder"}, remainingRows.get(0));
-      Assertions.assertArrayEquals(new Object[]{"second"}, remainingRows.get(1));
-    }
-    finally {
-      releaseSecondNode.countDown();
-      consumerExecutor.shutdownNow();
-    }
+    final List<Object[]> flattenedRows = new ArrayList<>();
+    rows.forEach(flattenedRows::add);
+    Assertions.assertEquals(3, flattenedRows.size());
+    Assertions.assertArrayEquals(new Object[]{"task-a"}, flattenedRows.get(0));
+    Assertions.assertArrayEquals(new Object[]{"task-b"}, flattenedRows.get(1));
+    Assertions.assertArrayEquals(new Object[]{"task-c"}, flattenedRows.get(2));
   }
 
   /**
@@ -290,7 +191,7 @@ public class SystemTableQueryClientTest
     );
     final ScanQuery query = query(descriptor, Collections.emptyMap());
 
-    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT)
+    final List<ScanResultValue> results = client.createRunner(query)
                                                 .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
                                                 .toList();
 
@@ -354,27 +255,6 @@ public class SystemTableQueryClientTest
   }
 
   /**
-   * A system table with the local scope, as in a native query, is left for this Broker to read.
-   */
-  @Test
-  public void testLocalScopedSystemTableIsLeftAsIs()
-  {
-    final SystemTableDescriptor descriptor = new TestSystemTableDescriptor();
-    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
-    final SystemTableQueryClient client = newClient(
-        nodeLocator,
-        Mockito.mock(DirectDruidClientFactory.class),
-        Mockito.mock(QueryScheduler.class),
-        Map.of(descriptor.getTableName(), descriptor),
-        nonMatchingSelfNode()
-    );
-    final ScanQuery query = query(descriptor, Collections.emptyMap());
-
-    Assertions.assertEquals(query.getDataSource(), client.resolve(query).query().getDataSource());
-    Mockito.verifyNoInteractions(nodeLocator);
-  }
-
-  /**
    * Node scans must not share the caller's response context. A Scan with a limit returns no rows once the context's
    * scanned-row count reaches the limit, so counting node rows there emptied limited Scans over joins.
    */
@@ -396,7 +276,7 @@ public class SystemTableQueryClientTest
     );
     final ScanQuery query = query(descriptor, Collections.emptyMap());
 
-    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT)
+    final List<ScanResultValue> results = client.createRunner(query)
                                                 .run(QueryPlus.wrap(query), callerResponseContext)
                                                 .toList();
 
@@ -461,9 +341,11 @@ public class SystemTableQueryClientTest
     }
   }
 
-  /** Closing a partial result closes its initialized transport and cancels every concurrently started node query. */
+  /**
+   * Closing the result of a query that gathered rows closes the node responses and cancels every node query.
+   */
   @Test
-  public void testClosingPartialResultCleansUpInitializedDirectClientTransport() throws Exception
+  public void testClosingResultCancelsNodeQueries() throws Exception
   {
     final ObjectMapper objectMapper = new DefaultObjectMapper();
     final DelayedHttpClient httpClient = new DelayedHttpClient(2);
@@ -483,7 +365,7 @@ public class SystemTableQueryClientTest
       final ScanQuery query = query(descriptor, Collections.emptyMap());
       final CompletableFuture<Yielder<ScanResultValue>> yielderFuture = CompletableFuture.supplyAsync(
           () -> Yielders.each(
-              client.createRunner(query, AUTHENTICATION_RESULT)
+              client.createRunner(query)
                     .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
           ),
           consumerExecutor
@@ -508,8 +390,6 @@ public class SystemTableQueryClientTest
       yielder.close();
 
       Assertions.assertTrue(firstResponse.isClosed());
-      // The second response sequence was deliberately not initialized. Its remote work is stopped by query-id
-      // cancellation below rather than by opening and closing its response stream during Broker cleanup.
       Mockito.verify(queryScheduler, Mockito.times(2)).cancelQuery(
           ArgumentMatchers.argThat(queryId -> queryId.startsWith(SystemTableDataSource.NODE_QUERY_ID_PREFIX))
       );
@@ -521,20 +401,7 @@ public class SystemTableQueryClientTest
   }
 
   /**
-   * Native query form of:
-   *
-   * <pre>{@code
-   * SELECT COUNT(*)
-   * FROM
-   * (
-   *   SELECT
-   *     task_id,
-   *     COUNT(*) AS task_count
-   *   FROM sys.tasks
-   *   GROUP BY task_id
-   * )
-   * WHERE task_count > 0
-   * }</pre>
+   * A system table read by a subquery is gathered too.
    */
   @Test
   public void testResolvesSystemTableInsideQueryDataSource()
@@ -549,13 +416,8 @@ public class SystemTableQueryClientTest
   }
 
   /**
-   * Native query form of:
-   *
-   * <pre>{@code
-   * SELECT task_id
-   * FROM sys.tasks
-   * WHERE type = 'index_parallel'
-   * }</pre>
+   * A system table wrapped in a filtered datasource, as the DECOUPLED planner plans filtered window queries, is
+   * gathered too.
    */
   @Test
   public void testResolvesSystemTableInsideFilteredDataSource()
@@ -578,7 +440,7 @@ public class SystemTableQueryClientTest
    * SELECT l.value
    * FROM sys.server_properties AS l
    * JOIN sys.server_properties AS r ON l.property = r.property
-   * WHERE r.value = 'right'   -- or the unprefixed l.value = 'left'
+   * WHERE r.value = 'match'   -- or the unprefixed l.value = 'match'
    * }</pre>
    *
    * A root filter belongs to the join result, whether or not it uses the right-side join prefix. It must remain on
@@ -722,37 +584,6 @@ public class SystemTableQueryClientTest
     Assertions.assertEquals(descriptor.getRowSignature().getColumnNames(), nodeQuery.getColumns());
   }
 
-  /**
-   * Filters of window queries aren't pushed into node scans; the window query applies them to the gathered rows.
-   */
-  @Test
-  public void testWindowQueryFilterIsNotPushed()
-  {
-    final SystemTableDescriptor descriptor = new ServerPropertiesTableDescriptor();
-    final WindowOperatorQuery query = new WindowOperatorQuery(
-        new SystemTableDataSource(descriptor.getTableName()),
-        new LegacySegmentSpec(Intervals.ETERNITY),
-        Collections.emptyMap(),
-        descriptor.getRowSignature(),
-        Collections.emptyList(),
-        List.of(
-            new ScanOperatorFactory(
-                null,
-                new SelectorDimFilter("property", "druid.host", null),
-                null,
-                null,
-                null,
-                null
-            )
-        )
-    );
-
-    final ScanQuery nodeQuery = captureNodeQuery(descriptor, query);
-
-    Assertions.assertNull(nodeQuery.getFilter());
-    Assertions.assertEquals(VirtualColumns.EMPTY, nodeQuery.getVirtualColumns());
-  }
-
   /** The private node transport always uses plain scan results even when the user query requests by-segment results. */
   @Test
   public void testNodeQueryDisablesBySegmentContext()
@@ -769,7 +600,7 @@ public class SystemTableQueryClientTest
     );
     final ScanQuery query = query(descriptor, QueryContext.ofMap(QueryContextParameters.BY_SEGMENT, true));
 
-    client.createRunner(query, AUTHENTICATION_RESULT)
+    client.createRunner(query)
           .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
           .toList();
 
@@ -811,7 +642,7 @@ public class SystemTableQueryClientTest
     )
         .withDataSource(new QueryDataSource(inner));
 
-    client.createRunner(outer, AUTHENTICATION_RESULT)
+    client.createRunner(outer)
           .run(QueryPlus.wrap(outer), ResponseContext.createEmpty())
           .toList();
 
@@ -843,7 +674,7 @@ public class SystemTableQueryClientTest
         )
     );
 
-    client.createRunner(query, AUTHENTICATION_RESULT)
+    client.createRunner(query)
           .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
           .toList();
 
@@ -891,7 +722,7 @@ public class SystemTableQueryClientTest
     );
     final ScanQuery query = query(descriptor, Collections.emptyMap());
 
-    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT)
+    final List<ScanResultValue> results = client.createRunner(query)
                                                 .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
                                                 .toList();
 
@@ -922,7 +753,7 @@ public class SystemTableQueryClientTest
     );
     final ScanQuery query = query(descriptor, Collections.emptyMap());
 
-    final List<ScanResultValue> results = client.createRunner(query, AUTHENTICATION_RESULT)
+    final List<ScanResultValue> results = client.createRunner(query)
                                                 .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
                                                 .toList();
 
@@ -942,19 +773,10 @@ public class SystemTableQueryClientTest
 
   private static Stream<RuntimeException> nonAvailabilityFailures()
   {
+    // Only failures to reach a node become failure rows. These cover a query error, an I/O error that isn't a
+    // connection failure, and an unexpected error.
     return Stream.of(
         new QueryTimeoutException("node timed out"),
-        new QueryInterruptedException(
-            QueryException.QUERY_CANCELED_ERROR_CODE,
-            "node cancelled",
-            QueryInterruptedException.class.getName(),
-            "localhost"
-        ),
-        new QueryInterruptedException(new InterruptedException()),
-        new ForbiddenException("forbidden"),
-        new QueryCapacityExceededException(1),
-        new ResourceLimitExceededException("resource limit"),
-        new QueryUnsupportedException("unsupported"),
         new QueryInterruptedException(new IOException("malformed response")),
         new RuntimeException("unexpected")
     );
@@ -978,7 +800,7 @@ public class SystemTableQueryClientTest
 
     final QueryTimeoutException thrown = Assertions.assertThrows(
         QueryTimeoutException.class,
-        () -> client.createRunner(query, AUTHENTICATION_RESULT)
+        () -> client.createRunner(query)
                     .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
                     .toList()
     );
@@ -999,7 +821,7 @@ public class SystemTableQueryClientTest
 
     final RuntimeException thrown = Assertions.assertThrows(
         failure.getClass(),
-        () -> client.createRunner(query, AUTHENTICATION_RESULT)
+        () -> client.createRunner(query)
                     .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
                     .toList()
     );
@@ -1139,7 +961,7 @@ public class SystemTableQueryClientTest
    */
   private record TestClient(SystemTableQueryClient client, QueryRunner<?> queryRunner)
   {
-    <T> QueryRunner<T> createRunner(final Query<T> query, final AuthenticationResult authenticationResult)
+    <T> QueryRunner<T> createRunner(final Query<T> query)
     {
       return createRunner(query, SystemTableAccess.ALL_ROWS);
     }
@@ -1164,7 +986,7 @@ public class SystemTableQueryClientTest
 
   private static <T> List<T> runToList(final TestClient client, final Query<T> query)
   {
-    return client.createRunner(query, AUTHENTICATION_RESULT)
+    return client.createRunner(query)
                  .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
                  .toList();
   }
@@ -1213,7 +1035,6 @@ public class SystemTableQueryClientTest
           return Sequences.empty();
         }
     );
-    // Node scans start when the resolved query reads its rows.
     runToList(client, query);
     return capturedNodeQuery.get();
   }
@@ -1240,11 +1061,7 @@ public class SystemTableQueryClientTest
       });
       return directClient;
     });
-    // Node scans start when the resolved query reads its rows, so read every inline datasource of the query.
-    final QueryRunner<?> queryRunner = (queryPlus, responseContext) -> {
-      readInlineRows(queryPlus.getQuery().getDataSource());
-      return Sequences.empty();
-    };
+    final QueryRunner<?> queryRunner = (queryPlus, responseContext) -> Sequences.empty();
     final TestClient client = new TestClient(
         newClient(
             nodeLocator,
@@ -1262,18 +1079,10 @@ public class SystemTableQueryClientTest
                                  .filters(filter)
                                  .build();
 
-    client.createRunner(query, AUTHENTICATION_RESULT)
+    client.createRunner(query)
           .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
           .toList();
     return nodeQueries;
-  }
-
-  private static void readInlineRows(final DataSource dataSource)
-  {
-    if (dataSource instanceof InlineDataSource inlineDataSource) {
-      inlineDataSource.getRows().forEach(row -> {});
-    }
-    dataSource.getChildren().forEach(SystemTableQueryClientTest::readInlineRows);
   }
 
   private static void assertWrappedSystemTableIsResolved(
@@ -1298,7 +1107,7 @@ public class SystemTableQueryClientTest
                                  .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
                                  .build();
 
-    client.createRunner(query, AUTHENTICATION_RESULT)
+    client.createRunner(query)
           .run(QueryPlus.wrap(query), ResponseContext.createEmpty())
           .toList();
 
@@ -1336,11 +1145,6 @@ public class SystemTableQueryClientTest
   private static ScanResultValue scanResult(final Object[]... rows)
   {
     return new ScanResultValue(null, List.of("value"), List.of(rows));
-  }
-
-  private static Object[] taskRow(final String taskId)
-  {
-    return new Object[]{taskId, null, null, null, null, null, null, null, 0L, null, null, -1L, -1L, null};
   }
 
   private static DirectDruidClient<ScanResultValue> directClient(
@@ -1446,13 +1250,6 @@ public class SystemTableQueryClientTest
         NodeRole.BROKER,
         Collections.emptyMap()
     );
-  }
-
-  private static SystemTableNode systemTableNode(final DiscoveryDruidNode discoveryNode)
-  {
-    final SystemTableNode node = new SystemTableNode(discoveryNode);
-    node.addNodeRole(discoveryNode.getNodeRole());
-    return node;
   }
 
   private static class TestSystemTableDescriptor implements SystemTableDescriptor

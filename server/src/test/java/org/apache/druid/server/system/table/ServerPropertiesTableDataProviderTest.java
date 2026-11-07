@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.system;
+package org.apache.druid.server.system.table;
 
 import org.apache.druid.client.DruidServerConfig;
 import org.apache.druid.discovery.NodeRole;
@@ -26,7 +26,6 @@ import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

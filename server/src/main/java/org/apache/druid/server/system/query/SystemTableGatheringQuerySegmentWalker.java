@@ -28,7 +28,6 @@ import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.SegmentDescriptor;
 import org.apache.druid.query.SystemTableDataSource;
-import org.apache.druid.server.system.SystemTableQuerySegmentWalker;
 import org.apache.druid.utils.CloseableUtils;
 import org.joda.time.Interval;
 
@@ -60,9 +59,10 @@ public class SystemTableGatheringQuerySegmentWalker implements QuerySegmentWalke
   @Override
   public <T> QueryRunner<T> getQueryRunnerForIntervals(final Query<T> query, final Iterable<Interval> intervals)
   {
-    if (!readsClusterScopedSystemTable(query.getDataSource())) {
+    if (!isClusterWideQuery(query.getDataSource())) {
       return delegate.getQueryRunnerForIntervals(query, intervals);
     }
+
     return (queryPlus, responseContext) -> {
       final SystemTableQueryClient.ResolvedQuery<T> resolvedQuery =
           systemTableQueryClient.resolve(queryPlus.getQuery());
@@ -83,7 +83,7 @@ public class SystemTableGatheringQuerySegmentWalker implements QuerySegmentWalke
   @Override
   public <T> QueryRunner<T> getQueryRunnerForSegments(final Query<T> query, final Iterable<SegmentDescriptor> specs)
   {
-    if (readsClusterScopedSystemTable(query.getDataSource())) {
+    if (isClusterWideQuery(query.getDataSource())) {
       throw DruidException.forPersona(DruidException.Persona.USER)
                           .ofCategory(DruidException.Category.UNSUPPORTED)
                           .build("System tables can't be queried for specific segments");
@@ -91,13 +91,13 @@ public class SystemTableGatheringQuerySegmentWalker implements QuerySegmentWalke
     return delegate.getQueryRunnerForSegments(query, specs);
   }
 
-  private static boolean readsClusterScopedSystemTable(final DataSource dataSource)
+  private static boolean isClusterWideQuery(final DataSource dataSource)
   {
     if (dataSource instanceof SystemTableDataSource systemTable) {
       return systemTable.getScope() == SystemTableDataSource.Scope.CLUSTER;
     }
     for (final DataSource child : dataSource.getChildren()) {
-      if (readsClusterScopedSystemTable(child)) {
+      if (isClusterWideQuery(child)) {
         return true;
       }
     }

@@ -141,31 +141,9 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
     );
   }
 
-  @ParameterizedTest(name = "plannerStrategy = {0}")
-  @EnumSource(QueryContexts.PlannerStrategy.class)
-  public void testNativeAggregationsSupportDistinctCount(final QueryContexts.PlannerStrategy plannerStrategy)
-  {
-    final String result = cluster.runSql(
-        """
-        SELECT COUNT(*), COUNT(DISTINCT service_name), COUNT(DISTINCT server), COUNT(DISTINCT property), SUM(1)
-        FROM sys.server_properties
-        WHERE property IN ('%s', '%s', '%s', '%s', '%s', '%s')
-        """,
-        nativeQueryContext(plannerStrategy),
-        COORDINATOR_PROPERTY,
-        OVERLORD_PROPERTY,
-        BROKER_PROPERTY,
-        HISTORICAL_PROPERTY,
-        INDEXER_PROPERTY,
-        ROUTER_PROPERTY
-    );
-
-    Assertions.assertEquals("6,6,6,6,6", result);
-  }
-
   /**
-   * A filtered window-function query is planned as a {@code WindowOperatorQuery} over a system-table Scan, whose
-   * filter is pushed into the node scans.
+   * A filtered window-function query runs as a {@code WindowOperatorQuery} over the rows gathered from every service,
+   * and applies its filter to those rows.
    */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)

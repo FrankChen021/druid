@@ -132,8 +132,8 @@ public class SystemTableQueryClient
 
   /**
    * Replaces each system table in the query that has the cluster scope with the rows of the table that the caller may
-   * read. The rows are read lazily, when the resolved query reads its datasource, and the returned closer cancels the
-   * node queries that are still running. The caller must close it once the resolved query is done.
+   * read. The rows are gathered from every service before this method returns. The returned closer cancels any node
+   * queries that are still running; the caller must close it once the resolved query is done.
    */
   public <T> ResolvedQuery<T> resolve(final Query<T> query)
   {

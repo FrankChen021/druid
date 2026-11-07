@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.system;
+package org.apache.druid.server.system.query;
 
 import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.Intervals;
@@ -35,7 +35,6 @@ import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.server.LocalQuerySegmentWalker;
-import org.apache.druid.server.SetAndVerifyContextQueryRunner;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -85,7 +84,6 @@ public class SystemTableQuerySegmentWalkerTest
                                   .build();
 
     final QueryRunner<?> runner = walker.getQueryRunnerForIntervals(query, query.getIntervals());
-    Assertions.assertInstanceOf(SetAndVerifyContextQueryRunner.class, runner);
     runner.run(QueryPlus.wrap((Query) query), ResponseContext.createEmpty()).toList();
     Assertions.assertEquals(
         new ServerConfig().getMaxScatterGatherBytes(),

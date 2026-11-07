@@ -28,9 +28,9 @@ import org.apache.druid.initialization.DruidModule;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.server.NoopQuerySegmentWalker;
-import org.apache.druid.server.system.SystemTableQuerySegmentWalker;
 import org.apache.druid.server.system.module.SystemTableModule;
 import org.apache.druid.server.system.module.SystemTableQueryResourceModule;
+import org.apache.druid.server.system.query.SystemTableQuerySegmentWalker;
 
 import javax.annotation.Nullable;
 import java.util.List;

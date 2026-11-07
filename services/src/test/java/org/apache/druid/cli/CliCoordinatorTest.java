@@ -41,9 +41,9 @@ import org.apache.druid.segment.metadata.SegmentMetadataQuerySegmentWalker;
 import org.apache.druid.server.NoopQuerySegmentWalker;
 import org.apache.druid.server.QueryResource;
 import org.apache.druid.server.initialization.jetty.JettyBindings;
-import org.apache.druid.server.system.SystemTableQuerySegmentWalker;
 import org.apache.druid.server.system.module.SystemTableModule;
 import org.apache.druid.server.system.query.SystemTableQueryResource;
+import org.apache.druid.server.system.query.SystemTableQuerySegmentWalker;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -117,7 +117,6 @@ public class CliCoordinatorTest
 
     final Injector injector = makeCoordinatorInjector(properties);
 
-    Assertions.assertNotNull(injector.getInstance(SystemTableQueryResource.class));
     Assertions.assertFalse(jerseyResources(injector).contains(QueryResource.class));
     Assertions.assertTrue(jerseyResources(injector).contains(SystemTableQueryResource.class));
     Assertions.assertInstanceOf(
@@ -137,7 +136,8 @@ public class CliCoordinatorTest
     properties.setProperty(SystemTableModule.ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY, "true");
     final Injector injector = makeCoordinatorInjector(properties);
 
-    Assertions.assertNotNull(injector.getInstance(SystemTableQueryResource.class));
+    Assertions.assertFalse(jerseyResources(injector).contains(QueryResource.class));
+    Assertions.assertTrue(jerseyResources(injector).contains(SystemTableQueryResource.class));
     Assertions.assertInstanceOf(SystemTableQuerySegmentWalker.class, injector.getInstance(QuerySegmentWalker.class));
     Assertions.assertInstanceOf(NoopQuerySegmentWalker.class, delegateWalker(injector));
     Assertions.assertTrue(queryRunnerFactories(injector).containsKey(ScanQuery.class));

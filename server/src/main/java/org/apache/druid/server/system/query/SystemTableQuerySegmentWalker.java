@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.system;
+package org.apache.druid.server.system.query;
 
 import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;

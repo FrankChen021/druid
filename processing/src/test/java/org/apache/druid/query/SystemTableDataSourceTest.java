@@ -37,7 +37,10 @@ public class SystemTableDataSourceTest
 {
   private final SystemTableDataSource dataSource = new SystemTableDataSource("server_properties");
 
-  /** System tables aren't validated by the policy enforcer, even one that requires a policy on every table. */
+  /**
+   * System tables aren't validated by the policy enforcer, even one that requires a policy on every table, and attaching
+   * policies keeps the attached access, including inside a subquery.
+   */
   @Test
   public void testWithPoliciesReturnsSelfWithoutPolicy()
   {
@@ -46,38 +49,35 @@ public class SystemTableDataSourceTest
         dataSource,
         dataSource.withPolicies(Map.of("sys.server_properties", Optional.empty()), NoopPolicyEnforcer.instance())
     );
-  }
 
-  /** A query over a system table resolves policies through its children without failing. */
-  @Test
-  public void testWithPoliciesInsideQueryDataSource()
-  {
+    final SystemTableDataSource withAccess = dataSource.withAccess(SystemTableAccess.ALL_ROWS);
     final QueryDataSource queryDataSource = new QueryDataSource(
-        Druids.newScanQueryBuilder().dataSource(dataSource).eternityInterval().build()
+        Druids.newScanQueryBuilder().dataSource(withAccess).eternityInterval().build()
     );
-    Assertions.assertEquals(queryDataSource, queryDataSource.withPolicies(Map.of(), NoopPolicyEnforcer.instance()));
+    final DataSource withPolicies = queryDataSource.withPolicies(Map.of(), NoopPolicyEnforcer.instance());
+    Assertions.assertSame(withAccess, withPolicies.getChildren().get(0));
   }
 
   /**
-   * The access attached on the authorizing server is never serialized, so a client can't supply one.
+   * Neither the access nor the scope that a server attaches is serialized, so a client can't supply them: a table read
+   * from JSON has no access and the local scope.
    */
   @Test
-  public void testAccessIsNotSerialized() throws Exception
+  public void testAccessAndScopeAreNotSerialized() throws Exception
   {
     final ObjectMapper mapper = TestHelper.makeJsonMapper();
-    final SystemTableDataSource withAccess = dataSource.withAccess(SystemTableAccess.ALL_ROWS);
+    final SystemTableDataSource attached =
+        dataSource.withAccess(SystemTableAccess.ALL_ROWS).withScope(SystemTableDataSource.Scope.CLUSTER);
 
-    Assertions.assertSame(SystemTableAccess.ALL_ROWS, withAccess.getAccess());
-    Assertions.assertEquals(
-        mapper.writeValueAsString(dataSource),
-        mapper.writeValueAsString(withAccess)
-    );
+    Assertions.assertEquals(mapper.writeValueAsString(dataSource), mapper.writeValueAsString(attached));
     final SystemTableDataSource deserialized = (SystemTableDataSource) mapper.readValue(
-        "{\"type\":\"systemTable\",\"table\":\"server_properties\",\"access\":{\"rowPredicate\":null}}",
+        "{\"type\":\"systemTable\",\"table\":\"server_properties\","
+        + "\"access\":{\"rowPredicate\":null},\"scope\":\"CLUSTER\"}",
         DataSource.class
     );
     Assertions.assertNull(deserialized.getAccess());
-    Assertions.assertNotEquals(withAccess, deserialized);
+    Assertions.assertEquals(SystemTableDataSource.Scope.LOCAL, deserialized.getScope());
+    Assertions.assertEquals(dataSource, deserialized);
   }
 
   /**
@@ -90,18 +90,8 @@ public class SystemTableDataSourceTest
     Assertions.assertTrue(dataSource.withAccess(SystemTableAccess.ALL_ROWS).isProcessable());
   }
 
-  /**
-   * Attaching policies keeps the attached access.
-   */
   @Test
-  public void testWithPoliciesKeepsAccess()
-  {
-    final SystemTableDataSource withAccess = dataSource.withAccess(SystemTableAccess.ALL_ROWS);
-    Assertions.assertSame(withAccess, withAccess.withPolicies(Map.of(), NoopPolicyEnforcer.instance()));
-  }
-
-  @Test
-  public void testIsReadBy()
+  public void testReadsSystemTable()
   {
     Assertions.assertTrue(SystemTableDataSource.readsSystemTable(dataSource));
     Assertions.assertTrue(
@@ -110,6 +100,27 @@ public class SystemTableDataSourceTest
         )
     );
     Assertions.assertFalse(SystemTableDataSource.readsSystemTable(new TableDataSource("wikipedia")));
+  }
+
+  /**
+   * Setting the scope of a datasource sets it on every system table it reads, including in subqueries.
+   */
+  @Test
+  public void testWithScopeAppliesToNestedSystemTables()
+  {
+    final DataSource scoped = SystemTableDataSource.withScope(
+        new QueryDataSource(Druids.newScanQueryBuilder().dataSource(dataSource).eternityInterval().build()),
+        SystemTableDataSource.Scope.CLUSTER
+    );
+
+    Assertions.assertEquals(
+        SystemTableDataSource.Scope.CLUSTER,
+        ((SystemTableDataSource) scoped.getChildren().get(0)).getScope()
+    );
+    Assertions.assertSame(
+        dataSource.getScope(),
+        SystemTableDataSource.Scope.LOCAL
+    );
   }
 
   @Test

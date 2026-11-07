@@ -19,20 +19,15 @@
 
 package org.apache.druid.server.system.table;
 
-import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.error.DruidException;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.SystemTableAccess;
-import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.Filter;
-import org.apache.druid.segment.CloseableShapeshifter;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.CursorBuildSpec;
 import org.apache.druid.segment.CursorFactory;
 import org.apache.druid.segment.CursorHolder;
-import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
@@ -43,16 +38,15 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 public class SystemTableCursorFactoryTest
 {
-  private static final RowSignature SIGNATURE = RowSignature.builder()
+  static final RowSignature SIGNATURE = RowSignature.builder()
                                                             .add("datasource", ColumnType.STRING)
                                                             .add("task_id", ColumnType.STRING)
                                                             .build();
-  private static final List<Object[]> ROWS = List.of(
+  static final List<Object[]> ROWS = List.of(
       new Object[]{"allowed", "task1"},
       new Object[]{"secret", "task2"}
   );
@@ -110,80 +104,12 @@ public class SystemTableCursorFactoryTest
     Assertions.assertEquals(List.of("task1"), taskIds);
   }
 
-  @Test
-  public void testWranglerRequiresAccess()
-  {
-    final SystemTableSegmentWrangler wrangler = wrangler();
-    final DruidException e = Assertions.assertThrows(
-        DruidException.class,
-        () -> wrangler.getSegmentsForIntervals(new SystemTableDataSource("tasks"), List.of())
-    );
-    Assertions.assertEquals(DruidException.Category.DEFENSIVE, e.getCategory());
-  }
-
-  @Test
-  public void testWranglerRejectsUnservedTable()
-  {
-    final DruidException e = Assertions.assertThrows(
-        DruidException.class,
-        () -> wrangler().getSegmentsForIntervals(
-            new SystemTableDataSource("segments").withAccess(SystemTableAccess.ALL_ROWS),
-            List.of()
-        )
-    );
-    Assertions.assertEquals("System table[segments] is not served by this service", e.getMessage());
-  }
-
-  @Test
-  public void testWranglerAppliesAccess()
-  {
-    final SystemTableAccess access = new SystemTableAccess(row -> "allowed".equals(row[0]));
-    final Segment segment = wrangler().getSegmentsForIntervals(
-        new SystemTableDataSource("tasks").withAccess(access),
-        List.of()
-    ).iterator().next();
-
-    Assertions.assertEquals(List.of("task1"), readTaskIds(segment.as(CursorFactory.class), CursorBuildSpec.FULL_SCAN));
-    Assertions.assertNotNull(segment.as(CloseableShapeshifter.class));
-  }
-
-  private static SystemTableSegmentWrangler wrangler()
-  {
-    final SystemTableDescriptor descriptor = new SystemTableDescriptor()
-    {
-      @Override
-      public String getTableName()
-      {
-        return "tasks";
-      }
-
-      @Override
-      public Set<NodeRole> getNodeRoles()
-      {
-        return Set.of();
-      }
-
-      @Override
-      public RowSignature getRowSignature()
-      {
-        return SIGNATURE;
-      }
-
-      @Override
-      public SystemTableRowAuthorizer getRowAuthorizer()
-      {
-        return (authenticationResult, authorizerMapper) -> SystemTableAccess.ALL_ROWS;
-      }
-    };
-    return new SystemTableSegmentWrangler(Map.of("tasks", new RecordingProvider()), Map.of("tasks", descriptor));
-  }
-
   private static ExpressionVirtualColumn spoofedDatasource()
   {
     return new ExpressionVirtualColumn("datasource", "'allowed'", ColumnType.STRING, ExprMacroTable.nil());
   }
 
-  private static List<Object> readTaskIds(final CursorFactory cursorFactory, final CursorBuildSpec spec)
+  static List<Object> readTaskIds(final CursorFactory cursorFactory, final CursorBuildSpec spec)
   {
     final List<Object> taskIds = new ArrayList<>();
     try (CursorHolder holder = cursorFactory.makeCursorHolder(spec)) {
@@ -197,7 +123,7 @@ public class SystemTableCursorFactoryTest
     return taskIds;
   }
 
-  private static class RecordingProvider implements SystemTableDataProvider
+  static class RecordingProvider implements SystemTableDataProvider
   {
     private List<Filter> filters;
 
