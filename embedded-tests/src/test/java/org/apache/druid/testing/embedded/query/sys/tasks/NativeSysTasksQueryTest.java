@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.testing.embedded.query;
+package org.apache.druid.testing.embedded.query.sys.tasks;
 
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -28,6 +28,7 @@ import org.apache.druid.java.util.http.client.response.StatusResponseHandler;
 import org.apache.druid.java.util.http.client.response.StatusResponseHolder;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.scan.ScanQuery;
@@ -42,6 +43,8 @@ import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.ws.rs.core.MediaType;
 
@@ -151,12 +154,25 @@ public class NativeSysTasksQueryTest extends EmbeddedClusterTestBase
   /**
    * Native execution returns the same rows as the Broker's SQL interpreter for the web console's tasks query.
    */
-  @Test
-  public void testNativeResultsMatchSqlInterpreter()
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testNativeResultsMatchSqlInterpreter(final QueryContexts.PlannerStrategy plannerStrategy)
   {
+    final Map<String, Object> context = nativeQueryContext(plannerStrategy);
+    if (plannerStrategy == QueryContexts.PlannerStrategy.COUPLED) {
+      // Only the coupled planner explains the native query, which names the system table it reads.
+      final String plan = cluster.runSql("EXPLAIN PLAN FOR " + WEB_CONSOLE_TASKS_SQL, context);
+      Assertions.assertTrue(plan.contains("systemTable"), plan);
+    }
+
     final List<String> nativeRows =
-        Arrays.stream(cluster.runSql(WEB_CONSOLE_TASKS_SQL, nativeQueryContext()).split("\n")).sorted().toList();
-    final List<String> sqlRows = Arrays.stream(cluster.runSql(WEB_CONSOLE_TASKS_SQL).split("\n")).sorted().toList();
+        Arrays.stream(cluster.runSql(WEB_CONSOLE_TASKS_SQL, context).split("\n")).sorted().toList();
+    final List<String> sqlRows = Arrays.stream(
+        cluster.runSql(
+            WEB_CONSOLE_TASKS_SQL,
+            QueryContext.ofMap(QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES, false)
+        ).split("\n")
+    ).sorted().toList();
     Assertions.assertEquals(sqlRows, nativeRows);
   }
 
@@ -251,6 +267,18 @@ public class NativeSysTasksQueryTest extends EmbeddedClusterTestBase
         NativeSqlEngine.NAME,
         QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES,
         true
+    );
+  }
+
+  private static Map<String, Object> nativeQueryContext(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    return QueryContext.ofMap(
+        QueryContextParameters.ENGINE,
+        NativeSqlEngine.NAME,
+        QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES,
+        true,
+        QueryContextParameters.PLANNER_STRATEGY,
+        plannerStrategy
     );
   }
 }

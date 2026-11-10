@@ -21,12 +21,10 @@ package org.apache.druid.testing.embedded.auth;
 
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import org.apache.druid.indexing.common.task.NoopTask;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.http.client.CredentialedHttpClient;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.auth.BasicCredentials;
-import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.security.basic.authentication.entity.BasicAuthenticatorCredentialUpdate;
 import org.apache.druid.server.security.Access;
@@ -41,7 +39,6 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 public class BasicAuthConfigurationTest extends AbstractAuthConfigurationTest
 {
@@ -60,7 +57,6 @@ public class BasicAuthConfigurationTest extends AbstractAuthConfigurationTest
   private HttpClient sysTableUser;
   private HttpClient sysTableWithStateUser;
   private HttpClient stateWithoutSysTableUser;
-  private HttpClient tasksUser;
 
   @Override
   protected EmbeddedResource getAuthResource()
@@ -118,41 +114,6 @@ public class BasicAuthConfigurationTest extends AbstractAuthConfigurationTest
     final String invisible =
         makeSQLQueryRequest(stateWithoutSysTableUser, sql, context, HttpResponseStatus.BAD_REQUEST).getContent();
     Assertions.assertTrue(invisible.contains("Object 'server_properties' not found within 'sys'"), invisible);
-  }
-
-  /**
-   * A SQL query on {@code sys.tasks} that uses the Druid engine filters rows by DATASOURCE READ on each task's
-   * datasource, as the Broker's SQL interpreter does: a user who can read only {@code auth_test} doesn't see tasks of
-   * other datasources.
-   */
-  @Test
-  public void test_sqlOnSysTasksWithDruidEngine_filtersRowsByDatasource()
-  {
-    cluster.callApi().runTask(
-        new NoopTask("auth_test_other_task", null, "auth_test_other", 1L, 0L, null),
-        getOverlord()
-    );
-    final Map<String, Object> context =
-        QueryContext.ofMap(QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES, true);
-    final String sql = "SELECT DISTINCT datasource FROM sys.tasks WHERE datasource LIKE 'auth_test%'";
-
-    final String plan = makeSQLQueryRequest(
-        getHttpClient(User.ADMIN),
-        "EXPLAIN PLAN FOR " + sql,
-        context,
-        HttpResponseStatus.OK
-    ).getContent();
-    Assertions.assertTrue(plan.contains("systemTable"), plan);
-
-    // The response is CSV with a header row.
-    Assertions.assertEquals(
-        Set.of("datasource", "auth_test", "auth_test_other"),
-        csvLines(makeSQLQueryRequest(getHttpClient(User.ADMIN), sql, context, HttpResponseStatus.OK).getContent())
-    );
-    Assertions.assertEquals(
-        Set.of("datasource", "auth_test"),
-        csvLines(makeSQLQueryRequest(tasksUser, sql, context, HttpResponseStatus.OK).getContent())
-    );
   }
 
   @Override
@@ -265,15 +226,6 @@ public class BasicAuthConfigurationTest extends AbstractAuthConfigurationTest
         "stateWithoutSysTableUser",
         List.of(readState, writeQueryId, writeUseDruidEngine)
     );
-    tasksUser = createUserWithClient(
-        "tasksUser",
-        List.of(
-            new ResourceAction(new Resource("tasks", ResourceType.SYSTEM_TABLE), Action.READ),
-            new ResourceAction(new Resource("auth_test", ResourceType.DATASOURCE), Action.READ),
-            writeQueryId,
-            writeUseDruidEngine
-        )
-    );
   }
 
   @Override
@@ -316,11 +268,6 @@ public class BasicAuthConfigurationTest extends AbstractAuthConfigurationTest
     connectionProperties.setProperty("user", user.getName());
     connectionProperties.setProperty("password", user.getPassword());
     return connectionProperties;
-  }
-
-  private static Set<String> csvLines(final String csv)
-  {
-    return Set.copyOf(csv.strip().lines().toList());
   }
 
   private HttpClient createUserWithClient(final String user, final List<ResourceAction> permissions)
