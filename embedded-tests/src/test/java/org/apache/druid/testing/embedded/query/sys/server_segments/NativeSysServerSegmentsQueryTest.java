@@ -17,22 +17,21 @@
  * under the License.
  */
 
-package org.apache.druid.testing.embedded.query;
+package org.apache.druid.testing.embedded.query.sys.server_segments;
 
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.testing.embedded.EmbeddedDruidCluster;
+import org.apache.druid.testing.embedded.query.QueryTestBase;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
-public class NativeSysSegmentsQueryTest extends QueryTestBase
+public class NativeSysServerSegmentsQueryTest extends QueryTestBase
 {
   private String dataSource;
 
@@ -50,56 +49,19 @@ public class NativeSysSegmentsQueryTest extends QueryTestBase
 
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)
-  public void testNativeSegmentAggregations(final QueryContexts.PlannerStrategy plannerStrategy)
+  public void testNativeAggregationUsesBrokerLocalProvider(final QueryContexts.PlannerStrategy plannerStrategy)
   {
     final String result = cluster.runSql(
         """
-        SELECT COUNT(*), COUNT(DISTINCT segment_id), COUNT(DISTINCT datasource), SUM(1)
-        FROM sys.segments
+        SELECT COUNT(*), COUNT(DISTINCT server), COUNT(DISTINCT segment_id), COUNT(DISTINCT datasource)
+        FROM sys.server_segments
         WHERE datasource = '%s'
         """,
         nativeQueryContext(plannerStrategy),
         dataSource
     );
 
-    Assertions.assertEquals("10,10,1,10", result);
-  }
-
-  @ParameterizedTest(name = "plannerStrategy = {0}")
-  @EnumSource(QueryContexts.PlannerStrategy.class)
-  public void testNativeNestedSegmentAggregation(final QueryContexts.PlannerStrategy plannerStrategy)
-  {
-    final String result = cluster.runSql(
-        """
-        SELECT COUNT(*) FROM (
-          SELECT segment_id FROM sys.segments WHERE datasource = '%s' GROUP BY segment_id
-        )
-        """,
-        nativeQueryContext(plannerStrategy),
-        dataSource
-    );
-
-    Assertions.assertEquals("10", result);
-  }
-
-  @ParameterizedTest(name = "plannerStrategy = {0}")
-  @EnumSource(QueryContexts.PlannerStrategy.class)
-  public void testNativeWindowFunction(final QueryContexts.PlannerStrategy plannerStrategy)
-  {
-    final String result = cluster.runSql(
-        """
-        SELECT datasource, ROW_NUMBER() OVER (ORDER BY "start")
-        FROM sys.segments
-        WHERE datasource = '%s'
-        """,
-        nativeQueryContext(plannerStrategy),
-        dataSource
-    );
-
-    final String expected = IntStream.rangeClosed(1, 10)
-                                     .mapToObj(rowNumber -> dataSource + "," + rowNumber)
-                                     .collect(Collectors.joining("\n"));
-    Assertions.assertEquals(expected, result);
+    Assertions.assertEquals("10,1,10,1", result);
   }
 
   private static Map<String, Object> nativeQueryContext(final QueryContexts.PlannerStrategy plannerStrategy)
