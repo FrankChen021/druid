@@ -433,12 +433,13 @@ WHERE deprecation IS NOT NULL
 
 ### STACK_TRACE table
 
-The `stack_trace` table exposes an on-demand snapshot of the live Java platform threads in Druid server processes. It is
-available only through [native system-table execution](#native-query-execution), so set `useDruidEngineForSystemTables`
-to `true` and use the `native` SQL engine. It has no effect unless `druid.query.enableDruidEngineForSystemTables` is
-set on all services: without it, the table doesn't appear in the `sys` schema. Virtual threads are not included. The
-query must contain an equality or `IN` filter on `server`, whose value is the server's `host:port` address and aligns
-with `sys.servers.server`.
+The `stack_trace` table exposes an on-demand snapshot of the live Java platform threads in Druid server processes. The
+table always appears in the `sys` schema, but it is available only through
+[native system-table execution](#native-query-execution): you can query it only when
+`druid.query.enableDruidEngineForSystemTables` is set on all services and the query sets
+`useDruidEngineForSystemTables` to `true` with the `native` SQL engine. Otherwise, Druid rejects the query with an
+error that explains these requirements. Virtual threads are not included. The query must contain an equality or `IN`
+filter on `server`, whose value is the server's `host:port` address and aligns with `sys.servers.server`.
 Druid rejects a query without this filter before it queries any server. A native query sent to the `/druid/v2/`
 endpoint of a service, with the `systemTable` datasource `stack_trace`, returns only the threads of that service, and
 doesn't require the filter.

@@ -113,7 +113,6 @@ import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.NoopEscalator;
 import org.apache.druid.server.security.ResourceType;
-import org.apache.druid.server.system.module.SystemTableModule;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.apache.druid.sql.calcite.schema.SystemSchema.QueriesTable;
@@ -562,8 +561,6 @@ public class SystemSchemaTest extends CalciteTestBase
   public void testGetTables()
   {
     final PlannerConfig plannerConfig = new PlannerConfig();
-    final Properties properties = new Properties();
-    properties.setProperty(SystemTableModule.ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY, "true");
     final SystemSchema schema = new SystemSchema(
         segmentMetadataCache,
         metadataView,
@@ -578,9 +575,9 @@ public class SystemSchemaTest extends CalciteTestBase
         () -> new SqlEngineRegistry(Collections.emptySet()),
         plannerConfig,
         new DefaultQueryConfig(null),
-        properties,
+        new Properties(),
         createAuthResult(Users.SUPER),
-        SystemSchemaProvider.computeAllTableNames(plannerConfig, true)
+        SystemSchemaProvider.computeAllTableNames(plannerConfig)
     );
 
     Assertions.assertEquals(
@@ -643,34 +640,6 @@ public class SystemSchemaTest extends CalciteTestBase
     final RelDataType stackTraceRowType = stackTraceTable.getRowType(new JavaTypeFactoryImpl());
     Assertions.assertEquals(17, stackTraceRowType.getFieldCount());
     Assertions.assertEquals("stack", stackTraceRowType.getFieldList().get(15).getName());
-  }
-
-  @Test
-  public void testGetTablesWithoutDruidEngineForSystemTables()
-  {
-    final PlannerConfig plannerConfig = new PlannerConfig();
-    final SystemSchema schema = new SystemSchema(
-        segmentMetadataCache,
-        metadataView,
-        serverView,
-        serverInventoryView,
-        AuthTestUtils.TEST_AUTHORIZER_MAPPER,
-        coordinatorClient,
-        overlordClient,
-        druidNodeDiscoveryProvider,
-        MAPPER,
-        httpClient,
-        () -> new SqlEngineRegistry(Collections.emptySet()),
-        plannerConfig,
-        new DefaultQueryConfig(null),
-        new Properties(),
-        createAuthResult(Users.SUPER),
-        SystemSchemaProvider.computeAllTableNames(plannerConfig, false)
-    );
-
-    // sys.stack_trace can only be queried with the Druid engine, so it doesn't exist unless the engine is enabled.
-    Assertions.assertFalse(schema.getTableNames().contains("stack_trace"));
-    Assertions.assertNull(schema.tables().get("stack_trace"));
   }
 
   @Test

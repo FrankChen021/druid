@@ -57,6 +57,7 @@ import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.tools.ValidationException;
 import org.apache.calcite.util.Pair;
 import org.apache.druid.error.DruidException;
+import org.apache.druid.error.InvalidInput;
 import org.apache.druid.error.InvalidSqlInput;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.guava.BaseSequence;
@@ -72,6 +73,7 @@ import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.server.system.module.SystemTableModule;
 import org.apache.druid.sql.calcite.planner.querygen.DruidQueryGenerator;
 import org.apache.druid.sql.calcite.rel.DruidConvention;
 import org.apache.druid.sql.calcite.rel.DruidQuery;
@@ -192,6 +194,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
   public PlannerResult plan()
   {
     prepare();
+    validateDruidEngineOnlySystemTables(rootQueryRel.rel, handlerContext.plannerContext());
     final Set<RelOptTable> bindableTables = getBindableTables(rootQueryRel.rel, handlerContext.plannerContext());
 
     // the planner's type factory is not available until after parsing
@@ -265,6 +268,41 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
         null,
         null
     );
+  }
+
+  /**
+   * Rejects queries on system tables that can only be served by the Druid engine, such as {@code sys.stack_trace},
+   * when the Druid engine can't serve them. Such tables have no interpreter fallback (see
+   * {@link SystemSchema#isDruidEngineOnlySystemTable}), so without this check planning would fail with an opaque
+   * Calcite error.
+   */
+  private static void validateDruidEngineOnlySystemTables(
+      final RelNode relNode,
+      final PlannerContext plannerContext
+  )
+  {
+    new RelVisitor()
+    {
+      @Override
+      public void visit(final RelNode node, final int ordinal, final RelNode parent)
+      {
+        if (node instanceof TableScan) {
+          final RelOptTable table = node.getTable();
+          if (SystemSchema.isDruidEngineOnlySystemTable(table)
+              && !SystemSchema.canUseSystemTableDataSource(table, plannerContext)) {
+            throw InvalidInput.exception(
+                "%s can only be queried with the Druid engine: set the query context parameter %s to true and use "
+                + "the native SQL engine. The Druid engine must also be enabled with %s on all services.",
+                Joiner.on(".").join(table.getQualifiedName()),
+                QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES.getName(),
+                SystemTableModule.ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY
+            );
+          }
+        }
+
+        super.visit(node, ordinal, parent);
+      }
+    }.go(relNode);
   }
 
   private static Set<RelOptTable> getBindableTables(

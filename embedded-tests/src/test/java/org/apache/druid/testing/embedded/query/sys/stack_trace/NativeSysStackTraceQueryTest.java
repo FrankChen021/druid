@@ -141,6 +141,41 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
     Assertions.assertTrue(exception.getMessage().contains("requires a filter on the server column"));
   }
 
+  /**
+   * Without {@code useDruidEngineForSystemTables}, {@code sys.stack_trace} has no interpreter fallback, so the query
+   * is rejected with a user error instead of failing during planning.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void test_stackTraceTableRequiresDruidEngine(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    final RuntimeException exception = Assertions.assertThrows(
+        RuntimeException.class,
+        () -> cluster.runSql(
+            """
+            SELECT thread_name
+            FROM sys.stack_trace
+            WHERE server = '%s'
+            """,
+            QueryContext.ofMap(
+                QueryContextParameters.ENGINE,
+                NativeSqlEngine.NAME,
+                QueryContextParameters.PLANNER_STRATEGY,
+                plannerStrategy
+            ),
+            StringUtils.format("localhost:%s", BROKER_PORT)
+        )
+    );
+    Assertions.assertTrue(exception.getMessage().contains("400 Bad Request"), exception.getMessage());
+    Assertions.assertTrue(
+        exception.getMessage().contains(
+            "sys.stack_trace can only be queried with the Druid engine: set the query context parameter "
+            + "useDruidEngineForSystemTables to true and use the native SQL engine."
+        ),
+        exception.getMessage()
+    );
+  }
+
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)
   public void test_stackTraceTableInFilter(final QueryContexts.PlannerStrategy plannerStrategy)

@@ -35,7 +35,6 @@ import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
-import org.apache.druid.server.system.module.SystemTableModule;
 import org.apache.druid.server.system.table.StackTraceTableDescriptor;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.http.SqlEngineRegistry;
@@ -97,7 +96,7 @@ public class SystemSchemaProvider implements SchemaProvider
     this.plannerConfig = withSystemTableAuthorization(plannerConfig, authConfig);
     this.queryConfigProvider = queryConfigProvider;
     this.properties = properties;
-    this.allTableNames = computeAllTableNames(plannerConfig, SystemTableModule.isEnabled(properties));
+    this.allTableNames = computeAllTableNames(plannerConfig);
   }
 
   /**
@@ -120,13 +119,9 @@ public class SystemSchemaProvider implements SchemaProvider
   }
 
   /**
-   * Compute the list of tables configured to exist on this server. Tables that can only be queried with the Druid
-   * engine, such as {@code sys.stack_trace}, exist only if {@code enableDruidEngineForSystemTables} is set.
+   * Compute the list of tables configured to exist on this server.
    */
-  public static Set<String> computeAllTableNames(
-      final PlannerConfig plannerConfig,
-      final boolean enableDruidEngineForSystemTables
-  )
+  public static Set<String> computeAllTableNames(final PlannerConfig plannerConfig)
   {
     final ImmutableSet.Builder<String> allTableNames = ImmutableSet.builder();
     allTableNames.add(SystemSchema.SEGMENTS_TABLE);
@@ -136,10 +131,7 @@ public class SystemSchemaProvider implements SchemaProvider
     allTableNames.add(SystemSchema.SUPERVISOR_TABLE);
     allTableNames.add(SystemServerPropertiesTable.TABLE_NAME);
     allTableNames.add(SystemQueryContextParametersTable.TABLE_NAME);
-
-    if (enableDruidEngineForSystemTables) {
-      allTableNames.add(StackTraceTableDescriptor.TABLE_NAME);
-    }
+    allTableNames.add(StackTraceTableDescriptor.TABLE_NAME);
 
     if (plannerConfig.isEnableSysQueriesTable()) {
       allTableNames.add(SystemSchema.QUERIES_TABLE);
