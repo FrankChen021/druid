@@ -20,6 +20,7 @@
 package org.apache.druid.server.system;
 
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.context.QueryContextParameters;
@@ -33,15 +34,20 @@ import org.apache.druid.segment.filter.SelectorFilter;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.system.table.StackTraceTableDataProvider;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 import java.lang.Thread.State;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class StackTraceTableDataProviderTest
 {
@@ -227,6 +233,214 @@ public class StackTraceTableDataProviderTest
     finally {
       waitingThread.interrupt();
       waitingThread.join(TimeUnit.SECONDS.toMillis(5));
+    }
+  }
+
+  @Test
+  public void testFormatsLockedMonitorAfterOwningFrame() throws Exception
+  {
+    final Object monitor = new Object();
+    final CountDownLatch enteredMonitor = new CountDownLatch(1);
+    final CountDownLatch release = new CountDownLatch(1);
+    final Thread lockingThread = new Thread(
+        () -> {
+          synchronized (monitor) {
+            enteredMonitor.countDown();
+            awaitQuietly(release);
+          }
+        },
+        "stack-trace-locking-thread"
+    );
+    lockingThread.start();
+
+    try {
+      Assertions.assertTrue(enteredMonitor.await(5, TimeUnit.SECONDS));
+      awaitState(lockingThread, State.WAITING);
+
+      final Object[] thread = findThreadRow(
+          toRows(provider().getRows(SELF_SERVER_FILTER)),
+          lockingThread.threadId()
+      );
+      Assertions.assertNotNull(thread);
+      final String stack = (String) thread[15];
+      final List<String> lines = stack.lines().toList();
+      final int lockedLine = lines.indexOf("\t-  locked " + lockString(monitor));
+      // Like ThreadInfo.toString(), the locked monitor follows the frame that entered it.
+      Assertions.assertTrue(lockedLine > 1, stack);
+      Assertions.assertTrue(lines.get(lockedLine - 1).startsWith("\tat "), stack);
+      Assertions.assertTrue(lines.get(lockedLine - 1).contains(StackTraceTableDataProviderTest.class.getName()), stack);
+    }
+    finally {
+      release.countDown();
+      lockingThread.join(TimeUnit.SECONDS.toMillis(5));
+    }
+  }
+
+  @Test
+  public void testFormatsBlockedLockOnStackFrame() throws Exception
+  {
+    final Object monitor = new Object();
+    final Thread blockedThread = new Thread(
+        () -> {
+          synchronized (monitor) {
+            // The test only observes the thread while it is blocked on entry.
+            monitor.notifyAll();
+          }
+        },
+        "stack-trace-blocked-thread"
+    );
+
+    final Object[] thread;
+    synchronized (monitor) {
+      blockedThread.start();
+      awaitState(blockedThread, State.BLOCKED);
+      thread = findThreadRow(toRows(provider().getRows(SELF_SERVER_FILTER)), blockedThread.threadId());
+    }
+    blockedThread.join(TimeUnit.SECONDS.toMillis(5));
+
+    Assertions.assertNotNull(thread);
+    Assertions.assertEquals(State.BLOCKED.name(), thread[6]);
+    final String lock = lockString(monitor);
+    Assertions.assertEquals(lock, thread[11]);
+    final String stack = (String) thread[15];
+    final String[] lines = stack.split("\n");
+    Assertions.assertEquals(
+        StringUtils.format(
+            "\"stack-trace-blocked-thread\"%s prio=%d Id=%d BLOCKED on %s owned by \"%s\" Id=%d",
+            blockedThread.isDaemon() ? " daemon" : "",
+            blockedThread.getPriority(),
+            blockedThread.threadId(),
+            lock,
+            Thread.currentThread().getName(),
+            Thread.currentThread().threadId()
+        ),
+        lines[0],
+        stack
+    );
+    Assertions.assertTrue(lines[1].startsWith("\tat "), stack);
+    Assertions.assertEquals("\t-  blocked on " + lock, lines[2], stack);
+  }
+
+  @Test
+  public void testFormatsLockedSynchronizers() throws Exception
+  {
+    final ReentrantLock lock = new ReentrantLock();
+    final CountDownLatch acquiredLock = new CountDownLatch(1);
+    final CountDownLatch release = new CountDownLatch(1);
+    final Thread lockingThread = new Thread(
+        () -> {
+          lock.lock();
+          try {
+            acquiredLock.countDown();
+            awaitQuietly(release);
+          }
+          finally {
+            lock.unlock();
+          }
+        },
+        "stack-trace-synchronizer-thread"
+    );
+    lockingThread.start();
+
+    try {
+      Assertions.assertTrue(acquiredLock.await(5, TimeUnit.SECONDS));
+      awaitState(lockingThread, State.WAITING);
+
+      final ThreadInfo threadInfo =
+          ManagementFactory.getThreadMXBean().getThreadInfo(new long[]{lockingThread.threadId()}, true, true)[0];
+      Assertions.assertNotNull(threadInfo);
+      Assertions.assertEquals(1, threadInfo.getLockedSynchronizers().length);
+
+      final Object[] thread = findThreadRow(
+          toRows(provider().getRows(SELF_SERVER_FILTER)),
+          lockingThread.threadId()
+      );
+      Assertions.assertNotNull(thread);
+      final String stack = (String) thread[15];
+      // Like ThreadInfo.toString(), the synchronizers follow the frames after a blank line, and the stack ends with
+      // a blank line.
+      Assertions.assertTrue(
+          stack.endsWith(
+              "\n\n\tNumber of locked synchronizers = 1\n\t- " + threadInfo.getLockedSynchronizers()[0] + "\n\n"
+          ),
+          stack
+      );
+    }
+    finally {
+      release.countDown();
+      lockingThread.join(TimeUnit.SECONDS.toMillis(5));
+    }
+  }
+
+  /**
+   * JVM-internal threads such as {@code Signal Dispatcher} have no Java frames. Like {@link ThreadInfo#toString()},
+   * their stack is the header line followed by a blank line.
+   */
+  @Test
+  public void testFormatsThreadWithoutFrames()
+  {
+    final ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
+    final List<Long> threadIdsWithoutFrames = new ArrayList<>();
+    for (final ThreadInfo threadInfo : threadMxBean.getThreadInfo(threadMxBean.getAllThreadIds(), true, true)) {
+      if (threadInfo != null && threadInfo.getStackTrace().length == 0
+          && threadInfo.getLockName() == null && threadInfo.getLockedSynchronizers().length == 0) {
+        threadIdsWithoutFrames.add(threadInfo.getThreadId());
+      }
+    }
+    Assumptions.assumeFalse(threadIdsWithoutFrames.isEmpty(), "No thread without frames in this JVM");
+
+    final List<Object[]> rows = toRows(provider().getRows(SELF_SERVER_FILTER));
+    boolean found = false;
+    for (final long threadId : threadIdsWithoutFrames) {
+      final Object[] thread = findThreadRow(rows, threadId);
+      if (thread == null) {
+        continue;
+      }
+      found = true;
+      final String stack = (String) thread[15];
+      Assertions.assertEquals(0, countStackFrames(stack), stack);
+      Assertions.assertTrue(stack.endsWith("\n\n"), stack);
+      final List<String> lines = stack.lines().toList();
+      Assertions.assertEquals(List.of(lines.get(0), ""), lines, stack);
+      // The header may end with " (suspended)" or " (in native)", as in ThreadInfo.toString().
+      Assertions.assertTrue(
+          lines.get(0).startsWith(
+              StringUtils.format(
+                  "\"%s\"%s prio=%d Id=%d %s",
+                  thread[5],
+                  Long.valueOf(1L).equals(thread[7]) ? " daemon" : "",
+                  thread[8],
+                  threadId,
+                  thread[6]
+              )
+          ),
+          stack
+      );
+    }
+    Assertions.assertTrue(found);
+  }
+
+  private static String lockString(final Object lock)
+  {
+    return lock.getClass().getName() + '@' + Integer.toHexString(System.identityHashCode(lock));
+  }
+
+  private static void awaitState(final Thread thread, final State state)
+  {
+    final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+    while (thread.getState() != state && System.nanoTime() < deadline) {
+      Thread.yield();
+    }
+    Assertions.assertEquals(state, thread.getState());
+  }
+
+  private static void awaitQuietly(final CountDownLatch latch)
+  {
+    try {
+      latch.await();
+    }
+    catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
     }
   }
 

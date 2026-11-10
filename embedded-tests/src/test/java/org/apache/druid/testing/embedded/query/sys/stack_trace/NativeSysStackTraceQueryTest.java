@@ -221,6 +221,10 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
   /**
    * Without {@code useDruidEngineForSystemTables}, a query with a subquery on {@code sys.server_properties} still
    * runs through the Broker's SQL interpreter.
+   * <p>
+   * This test lives with the {@code sys.stack_trace} tests because it guards a planner change made for that table:
+   * the check that rejects {@code sys.stack_trace} without the Druid engine must not break the interpreter fallback
+   * for other system tables.
    */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)
