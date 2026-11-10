@@ -17,12 +17,9 @@
  * under the License.
  */
 
-package org.apache.druid.server.system;
+package org.apache.druid.server.system.table;
 
 import org.apache.druid.discovery.NodeRole;
-import org.apache.druid.server.system.table.ServersTableDescriptor;
-import org.apache.druid.server.system.table.SystemTableAuthorization;
-import org.apache.druid.server.system.table.SystemTableRoutingMode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

@@ -178,7 +178,7 @@ execution:
 |Table|Source of rows|
 |-----|--------------|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Every server is queried, and filters on `server` and `service_name` let a server that doesn't match return no rows.|
-|[`sys.servers`](#servers-table)|The Druid servers that the Broker running the query has discovered. Only that Broker is read, since every Broker sees the same servers. Only Brokers serve the table.|
+|[`sys.servers`](#servers-table)|The Druid servers that the Broker running the query has discovered. Only that Broker is read: each Broker reports its own view of the cluster. Only Brokers serve the table, so send native queries on it to a Broker; the Router rejects them.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
 aggregations, sorting, and result processing. A system table that doesn't advertise native query support continues to

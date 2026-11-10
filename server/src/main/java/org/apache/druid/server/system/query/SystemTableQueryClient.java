@@ -95,6 +95,10 @@ import java.util.function.Supplier;
  * service. The caller then runs the resolved query as usual. Services read the table with an escalated identity, so
  * the rows are filtered here with the caller's {@link SystemTableAccess}, which the Broker attached when it authorized
  * the query.</p>
+ *
+ * <p>A {@link SystemTableRoutingMode#LOCAL_NODE} table is the view of the Broker that runs the query, so it isn't
+ * gathered: {@link #resolve} gives it the {@link SystemTableDataSource.Scope#LOCAL} scope instead, and the Broker
+ * reads its own rows.</p>
  */
 public class SystemTableQueryClient
 {

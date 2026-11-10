@@ -149,6 +149,12 @@ public class NativeSysServersQueryTest extends EmbeddedClusterTestBase
         QueryContext.ofMap(QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES, false)
     );
 
+    if (plannerStrategy == QueryContexts.PlannerStrategy.COUPLED) {
+      // Only the coupled planner explains the native query, which names the system table it reads.
+      final String plan = cluster.runSql("EXPLAIN PLAN FOR " + sql, nativeQueryContext(plannerStrategy));
+      Assertions.assertTrue(plan.contains("systemTable"), plan);
+    }
+
     Assertions.assertFalse(interpreterRows.isEmpty());
     Assertions.assertEquals(interpreterRows, cluster.runSql(sql, nativeQueryContext(plannerStrategy)));
   }

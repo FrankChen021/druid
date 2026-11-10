@@ -34,8 +34,9 @@ public interface SystemTableDescriptor
   String getTableName();
 
   /**
-   * Returns the node roles of the services that serve this table. Every discovered service with one of these roles
-   * contributes its own rows.
+   * Returns the node roles of the services that serve this table. With {@link SystemTableRoutingMode#ALL_NODES}, every
+   * discovered service with one of these roles contributes its own rows. A {@link SystemTableRoutingMode#LOCAL_NODE}
+   * table is read only on the querying Broker, and these roles only describe it.
    */
   Set<NodeRole> getNodeRoles();
 

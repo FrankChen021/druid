@@ -45,7 +45,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Native row supplier for {@code sys.servers}.
+ * Supplies the rows of {@code sys.servers}, for both the Druid engine and the Broker's SQL interpreter.
  */
 public class ServersTableDataProvider implements SystemTableDataProvider
 {
