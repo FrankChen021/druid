@@ -32,6 +32,7 @@ import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.client.coordinator.NoopCoordinatorClient;
 import org.apache.druid.collections.ResourceHolder;
 import org.apache.druid.collections.StupidResourceHolder;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Sequence;
@@ -373,7 +374,7 @@ public class SysSegmentsSqlBenchmark
     for (final String executionPath : List.of(NATIVE_PROVIDER, NATIVE_PROVIDER_NO_PUSHDOWN)) {
       final List<Object[]> nativeResults = runQuery(executionPath);
       if (bindableResults.size() != workload.expectedResultRows || !rowsEqual(bindableResults, nativeResults)) {
-        throw new IllegalStateException("Bindable and native benchmark results do not match for " + executionPath);
+        throw DruidException.defensive("Bindable and native benchmark results do not match for [%s]", executionPath);
       }
     }
   }
@@ -495,7 +496,7 @@ public class SysSegmentsSqlBenchmark
         context = NATIVE_CONTEXT;
         break;
       default:
-        throw new IllegalArgumentException("Unknown execution path " + executionPath);
+        throw DruidException.defensive("Unknown execution path[%s]", executionPath);
     }
 
     final DruidPlanner planner = plannerFactory.createPlannerForTesting(

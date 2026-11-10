@@ -79,22 +79,20 @@ public class SystemTableCursorFactory implements ResidentCursorFactory
   @Override
   public CursorHolder makeCursorHolder(final CursorBuildSpec spec)
   {
-    final Sequence<Object[]> rows = makeRowSequence(
-        provider.getRows(getPushdownFilters(spec), spec.getPhysicalColumns())
+    final Sequence<Object[]> rows = makeAuthorizedRowSequence(
+        provider.getRows(getPushdownFilters(spec), spec.getPhysicalColumns()),
+        access
     );
-    final Sequence<Object[]> authorizedRows = access.rowPredicate() == null
-                                              ? rows
-                                              : rows.filter(access.rowPredicate()::test);
-    return new RowBasedCursorFactory<>(authorizedRows, rowAdapter, rowSignature).makeCursorHolder(spec);
+    return new RowBasedCursorFactory<>(rows, rowAdapter, rowSignature).makeCursorHolder(spec);
   }
 
   /**
-   * Returns the provider's rows as a sequence that closes their iterator, if it's {@link Closeable}, once the cursor
-   * holder is closed, even if the query stopped reading early.
+   * Returns the provider's rows that the caller may read, as a sequence that closes the rows' iterator, if it's
+   * {@link Closeable}, once the sequence is closed or fully read, even if reading stopped early or failed.
    */
-  private static Sequence<Object[]> makeRowSequence(final Iterable<Object[]> rows)
+  static Sequence<Object[]> makeAuthorizedRowSequence(final Iterable<Object[]> rows, final SystemTableAccess access)
   {
-    return new BaseSequence<>(
+    final Sequence<Object[]> rowSequence = new BaseSequence<>(
         new BaseSequence.IteratorMaker<Object[], Iterator<Object[]>>()
         {
           @Override
@@ -112,6 +110,7 @@ public class SystemTableCursorFactory implements ResidentCursorFactory
           }
         }
     );
+    return access.rowPredicate() == null ? rowSequence : rowSequence.filter(access.rowPredicate()::test);
   }
 
   /**

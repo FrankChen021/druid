@@ -84,6 +84,25 @@ public class SegmentsTableDataProviderTest
   }
 
   /**
+   * Filters that allow no datasource return no rows without reading either view.
+   */
+  @Test
+  public void testDisjointFiltersReadNoSegments()
+  {
+    final BrokerSegmentMetadataCache metadataCache = Mockito.mock(BrokerSegmentMetadataCache.class);
+    final MetadataSegmentView metadataView = Mockito.mock(MetadataSegmentView.class);
+    final SegmentsTableDataProvider provider = new SegmentsTableDataProvider(
+        () -> metadataCache,
+        metadataView,
+        new DefaultObjectMapper()
+    );
+
+    final List<Filter> filters = List.of(new SelectorFilter("datasource", "foo"), new SelectorFilter("datasource", "bar"));
+    Assertions.assertTrue(toRows(provider.getRows(filters)).isEmpty());
+    Mockito.verifyNoInteractions(metadataCache, metadataView);
+  }
+
+  /**
    * The Coordinator segment response closes once its rows are read, for callers that don't close the iterator.
    */
   @Test

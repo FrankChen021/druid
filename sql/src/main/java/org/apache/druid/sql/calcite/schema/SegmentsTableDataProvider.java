@@ -119,6 +119,10 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
   public Iterable<Object[]> getRows(final List<Filter> filters, @Nullable final Set<String> columns)
   {
     final Map<String, Set<String>> stringValues = SystemTableStringFilters.getStringValues(filters);
+    if (stringValues.values().stream().anyMatch(Set::isEmpty)) {
+      // The filters allow no value of some column, such as datasource = 'a' AND datasource = 'b'.
+      return List.of();
+    }
     final int[] projects = getProjects(columns);
     return () -> {
       final Closer closer = Closer.create();

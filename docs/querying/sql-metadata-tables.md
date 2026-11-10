@@ -177,7 +177,7 @@ execution:
 
 |Table|Source of rows|
 |-----|--------------|
-|[`sys.segments`](#segments-table)|The Broker that receives the SQL query, from its segment metadata cache and its Coordinator metadata view. Other Brokers aren't queried. Exact equality and `IN` filters on `datasource`, `segment_id`, `start`, `end`, and `version` let the Broker skip segments that don't match, and a filter on `datasource` also limits which segments it reads from both views.|
+|[`sys.segments`](#segments-table)|The Broker that receives the SQL query, from its segment metadata cache and its Coordinator metadata view. Other Brokers aren't queried. Exact equality and `IN` filters on `datasource`, `segment_id`, `start`, `end`, and `version` let the Broker skip building rows for segments that don't match.|
 |[`sys.server_segments`](#server_segments-table)|The Broker that receives the SQL query, from its view of the segments that each server has loaded. Other Brokers aren't queried. Exact equality and `IN` filters on `server`, `segment_id`, and `datasource` let the Broker skip servers and segments that don't match.|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Every server is queried, and filters on `server` and `service_name` let a server that doesn't match return no rows.|
 
@@ -185,10 +185,12 @@ After Druid retrieves the system-table rows, the native engine applies the remai
 aggregations, sorting, and result processing. A system table that doesn't advertise native query support continues to
 use the Broker's SQL interpreter, even when `useDruidEngineForSystemTables` is `true`.
 
-The Broker gathers the rows of the table from every service that serves it. A native query sent to the `/druid/v2/`
-endpoint of a service, with a `systemTable` datasource, reads only the rows of that service. The Router, Coordinator,
-Overlord, and Middle Manager accept only Scan queries on a `systemTable` datasource. The Router forwards queries that
-read a system table through a subquery or a join to a Broker, which reads its own rows.
+For `sys.server_properties`, the Broker gathers the rows of the table from every service that serves it. For
+`sys.segments` and `sys.server_segments`, it reads its own rows. A native query sent to the `/druid/v2/` endpoint of a
+service that serves the table, with a `systemTable` datasource, reads only the rows of that service. Only Brokers serve
+`sys.segments` and `sys.server_segments`. The Router, Coordinator, Overlord, and Middle Manager accept only Scan queries
+on a system table they serve. The Router forwards to a Broker the queries on a system table that the Router doesn't
+serve, and the queries that read a system table through a subquery or a join. The Broker then reads its own rows.
 
 The parameter defaults to `false`. During a rolling upgrade, leave the server property and the parameter disabled
 until all services have been upgraded. After the upgrade, you can enable it by query or set

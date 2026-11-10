@@ -90,6 +90,7 @@ import org.apache.druid.server.security.AuthenticatorMapper;
 import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.system.module.SystemTableModule;
+import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.sql.http.ResultFormat;
 import org.apache.druid.sql.http.SqlQuery;
 import org.easymock.EasyMock;
@@ -112,6 +113,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.Timeout.ThreadMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -143,6 +147,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Stream;
 import java.util.zip.Deflater;
 
 public class AsyncQueryForwardingServletTest extends BaseJettyTest
@@ -343,6 +348,7 @@ public class AsyncQueryForwardingServletTest extends BaseJettyTest
     );
     final GuiceContainer localQueryContainer = Mockito.mock(GuiceContainer.class);
     servlet.setLocalQueryContainer(localQueryContainer);
+    servlet.setSystemTableDataProviders(Map.of("server_properties", Mockito.mock(SystemTableDataProvider.class)));
 
     final HttpServletRequest request = Mockito.mock(HttpServletRequest.class);
     final HttpServletResponse response = Mockito.mock(HttpServletResponse.class);
@@ -385,24 +391,14 @@ public class AsyncQueryForwardingServletTest extends BaseJettyTest
   }
 
   /**
-   * A query that the Router can't run by itself, such as a query on a subquery of a system table, goes to a Broker,
-   * which runs the subquery.
+   * A query that the Router can't run by itself goes to a Broker: a query on a subquery of a system table, which the
+   * Broker runs, or a query on a system table that the Router doesn't serve, such as {@code sys.segments}.
    */
-  @Test
-  public void testSystemTableSubqueryIsForwarded() throws Exception
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("forwardedSystemTableQueries")
+  public void testSystemTableQueryIsForwarded(final String name, final Query<?> query) throws Exception
   {
     final ObjectMapper objectMapper = TestHelper.makeJsonMapper();
-    final Query<?> query = Druids.newScanQueryBuilder()
-                                  .dataSource(
-                                      new QueryDataSource(
-                                          Druids.newScanQueryBuilder()
-                                                .dataSource(new SystemTableDataSource("server_properties"))
-                                                .eternityInterval()
-                                                .build()
-                                      )
-                                  )
-                                  .eternityInterval()
-                                  .build();
     final byte[] body = objectMapper.writeValueAsBytes(query);
     final ByteArrayInputStream input = new ByteArrayInputStream(body);
     final ServletInputStream requestInputStream = new ServletInputStream()
@@ -457,6 +453,7 @@ public class AsyncQueryForwardingServletTest extends BaseJettyTest
     };
     final GuiceContainer localQueryContainer = Mockito.mock(GuiceContainer.class);
     servlet.setLocalQueryContainer(localQueryContainer);
+    servlet.setSystemTableDataProviders(Map.of("server_properties", Mockito.mock(SystemTableDataProvider.class)));
 
     final HttpServletRequest request = Mockito.mock(HttpServletRequest.class);
     Mockito.when(request.getContentType()).thenReturn(MediaType.APPLICATION_JSON);
@@ -470,6 +467,33 @@ public class AsyncQueryForwardingServletTest extends BaseJettyTest
 
     Mockito.verifyNoInteractions(localQueryContainer);
     Assertions.assertEquals(1, proxyCalls.get());
+  }
+
+  private static Stream<Arguments> forwardedSystemTableQueries()
+  {
+    return Stream.of(
+        Arguments.of(
+            "subquery",
+            Druids.newScanQueryBuilder()
+                  .dataSource(
+                      new QueryDataSource(
+                          Druids.newScanQueryBuilder()
+                                .dataSource(new SystemTableDataSource("server_properties"))
+                                .eternityInterval()
+                                .build()
+                      )
+                  )
+                  .eternityInterval()
+                  .build()
+        ),
+        Arguments.of(
+            "table not served by the Router",
+            Druids.newScanQueryBuilder()
+                  .dataSource(new SystemTableDataSource("segments"))
+                  .eternityInterval()
+                  .build()
+        )
+    );
   }
 
   private static Properties enableDruidEngineForSystemTablesProperties(final boolean enabled)

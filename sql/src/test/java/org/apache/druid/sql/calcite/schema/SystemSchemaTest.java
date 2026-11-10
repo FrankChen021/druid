@@ -1424,9 +1424,9 @@ public class SystemSchemaTest extends CalciteTestBase
     // it will have 5 rows as follows
     // localhost:0000 | test1_2010-01-01T00:00:00.000Z_2011-01-01T00:00:00.000Z_version1 | test1
     // localhost:0000 | test2_2011-01-01T00:00:00.000Z_2012-01-01T00:00:00.000Z_version2 | test2
-    // server2:1234   | test3_2012-01-01T00:00:00.000Z_2013-01-01T00:00:00.000Z_version3 | test3
-    // server2:1234   | test4_2017-01-01T00:00:00.000Z_2018-01-01T00:00:00.000Z_version4 | test4
-    // server2:1234   | test5_2017-01-01T00:00:00.000Z_2018-01-01T00:00:00.000Z_version5 | test5
+    // server2:1234   | test3_2012-01-01T00:00:00.000Z_2013-01-01T00:00:00.000Z_version3_2 | test3
+    // server2:1234   | test4_2014-01-01T00:00:00.000Z_2015-01-01T00:00:00.000Z_version4 | test4
+    // server2:1234   | test5_2015-01-01T00:00:00.000Z_2016-01-01T00:00:00.000Z_version5 | test5
 
     final List<Object[]> rows = serverSegmentsTable.scan(dataContext).toList();
     Assertions.assertEquals(5, rows.size());

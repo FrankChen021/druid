@@ -24,6 +24,7 @@ import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.segment.CloseableShapeshifter;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.CursorBuildSpec;
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -137,6 +139,38 @@ public class SystemTableCursorFactoryTest
       Assertions.assertFalse(holder.asCursor().isDone());
     }
 
+    Assertions.assertTrue(closed.get());
+  }
+
+  /**
+   * Window queries read every row of the segment at once. If reading the provider's rows fails, their iterator is still
+   * closed.
+   */
+  @Test
+  public void testWindowReadClosesProviderIteratorOnFailure()
+  {
+    final AtomicBoolean closed = new AtomicBoolean();
+    final Iterator<Object[]> failingRows = new Iterator<>()
+    {
+      @Override
+      public boolean hasNext()
+      {
+        return true;
+      }
+
+      @Override
+      public Object[] next()
+      {
+        throw new IllegalStateException("failed to read rows");
+      }
+    };
+    final SystemTableDataProvider provider = filters -> () -> CloseableIterators.wrap(
+        failingRows,
+        () -> closed.set(true)
+    );
+    final SystemTableSegment segment = new SystemTableSegment(provider, SIGNATURE, SystemTableAccess.ALL_ROWS);
+
+    Assertions.assertThrows(IllegalStateException.class, () -> segment.as(CloseableShapeshifter.class));
     Assertions.assertTrue(closed.get());
   }
 

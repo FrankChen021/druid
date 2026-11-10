@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.system;
+package org.apache.druid.server.system.table;
 
 import org.apache.druid.client.DruidServer;
 import org.apache.druid.client.TimelineServerView;
@@ -32,8 +32,6 @@ import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.ResourceType;
-import org.apache.druid.server.system.table.ServerSegmentsTableDataProvider;
-import org.apache.druid.server.system.table.ServerSegmentsTableDescriptor;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.easymock.EasyMock;
@@ -79,6 +77,25 @@ public class ServerSegmentsTableDataProviderTest
         new Object[]{"selected:8083", selectedSegment.getId().toString(), "selected"},
         rows.get(0)
     );
+    EasyMock.verify(serverView);
+  }
+
+  /**
+   * Filters that allow no datasource return no rows without reading the server view.
+   */
+  @Test
+  public void testDisjointFiltersReadNoServers()
+  {
+    final TimelineServerView serverView = EasyMock.mock(TimelineServerView.class);
+    EasyMock.replay(serverView);
+
+    final List<Object[]> rows = toRows(
+        new ServerSegmentsTableDataProvider(serverView).getRows(
+            List.of(new SelectorFilter("datasource", "foo"), new SelectorFilter("datasource", "bar"))
+        )
+    );
+
+    Assertions.assertTrue(rows.isEmpty());
     EasyMock.verify(serverView);
   }
 

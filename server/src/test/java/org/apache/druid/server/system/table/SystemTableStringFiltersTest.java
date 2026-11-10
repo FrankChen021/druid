@@ -19,6 +19,7 @@
 
 package org.apache.druid.server.system.table;
 
+import org.apache.druid.query.extraction.UpperExtractionFn;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.InDimFilter;
@@ -30,6 +31,7 @@ import org.apache.druid.segment.filter.SelectorFilter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -83,10 +85,24 @@ public class SystemTableStringFiltersTest
         new EqualityFilter("size", ColumnType.LONG, 1L, null),
         new RangeFilter("datasource", ColumnType.STRING, "a", "b", false, false, null),
         new OrFilter(List.of(new SelectorFilter("start", "x"), new SelectorFilter("end", "y"))),
-        new SelectorFilter("version", null)
+        new SelectorFilter("version", null),
+        new InDimFilter("server", List.of("a"), new UpperExtractionFn(null)),
+        new InDimFilter("segment_id", Arrays.asList("s1", null), null),
+        new TypedInFilter("num_rows", ColumnType.LONG, List.of(1L, 2L), null, null)
     );
 
     Assertions.assertEquals(Map.of(), SystemTableStringFilters.getStringValues(filters));
+  }
+
+  /**
+   * Filters that allow no common value give the column an empty set of values.
+   */
+  @Test
+  public void testDisjointFiltersAllowNoValue()
+  {
+    final List<Filter> filters = List.of(new SelectorFilter("datasource", "foo"), new SelectorFilter("datasource", "bar"));
+
+    Assertions.assertEquals(Map.of("datasource", Set.of()), SystemTableStringFilters.getStringValues(filters));
   }
 
   @Test

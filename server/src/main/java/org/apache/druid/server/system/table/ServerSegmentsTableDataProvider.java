@@ -25,11 +25,11 @@ import org.apache.druid.client.ImmutableDruidDataSource;
 import org.apache.druid.client.ImmutableDruidServer;
 import org.apache.druid.client.TimelineServerView;
 import org.apache.druid.query.filter.Filter;
-import org.apache.druid.timeline.DataSegment;
 
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -57,6 +57,10 @@ public class ServerSegmentsTableDataProvider implements SystemTableDataProvider
   public Iterable<Object[]> getRows(final List<Filter> filters)
   {
     final Map<String, Set<String>> stringValues = SystemTableStringFilters.getStringValues(filters);
+    if (stringValues.values().stream().anyMatch(Set::isEmpty)) {
+      // The filters allow no value of some column, such as datasource = 'a' AND datasource = 'b'.
+      return List.of();
+    }
     final Set<String> serverFilter = stringValues.get("server");
     final Set<String> segmentFilter = stringValues.get("segment_id");
     final Set<String> dataSourceFilter = stringValues.get("datasource");
@@ -75,17 +79,19 @@ public class ServerSegmentsTableDataProvider implements SystemTableDataProvider
       @Nullable final Set<String> dataSourceFilter
   )
   {
-    final Iterable<ImmutableDruidDataSource> dataSources = Iterables.filter(
-        server.getDataSources(),
-        dataSource -> SystemTableStringFilters.matches(dataSourceFilter, dataSource.getName())
-    );
-    final Iterable<DataSegment> segments = Iterables.filter(
+    final Iterable<ImmutableDruidDataSource> dataSources = dataSourceFilter == null
+                                                           ? server.getDataSources()
+                                                           : Iterables.filter(
+                                                               Iterables.transform(
+                                                                   dataSourceFilter,
+                                                                   server::getDataSource
+                                                               ),
+                                                               Objects::nonNull
+                                                           );
+    final Iterable<Object[]> rows = Iterables.transform(
         Iterables.concat(Iterables.transform(dataSources, ImmutableDruidDataSource::getSegments)),
-        segment -> SystemTableStringFilters.matches(segmentFilter, segment.getId().toString())
-    );
-    return Iterables.transform(
-        segments,
         segment -> new Object[]{server.getHost(), segment.getId().toString(), segment.getDataSource()}
     );
+    return Iterables.filter(rows, row -> SystemTableStringFilters.matches(segmentFilter, (String) row[1]));
   }
 }
