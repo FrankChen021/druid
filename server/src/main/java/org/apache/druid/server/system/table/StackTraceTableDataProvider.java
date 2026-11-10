@@ -25,13 +25,7 @@ import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.context.QueryContextParameters;
-import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.Filter;
-import org.apache.druid.query.filter.InDimFilter;
-import org.apache.druid.query.filter.TypedInFilter;
-import org.apache.druid.segment.column.ColumnType;
-import org.apache.druid.segment.filter.OrFilter;
-import org.apache.druid.segment.filter.SelectorFilter;
 import org.apache.druid.server.DruidNode;
 
 import javax.annotation.Nullable;
@@ -93,8 +87,8 @@ public class StackTraceTableDataProvider implements SystemTableDataProvider
     final int maxStackTraceFrameDepth = queryContext.get(QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH);
 
     final String server = selfNode.getHostAndPortToUse();
-    if (!matchesAll(filters, SERVER_COLUMN, server)
-        || !matchesAll(filters, SERVICE_NAME_COLUMN, selfNode.getServiceName())) {
+    if (!SystemTableFilters.allowsValue(filters, SERVER_COLUMN, server)
+        || !SystemTableFilters.allowsValue(filters, SERVICE_NAME_COLUMN, selfNode.getServiceName())) {
       return Collections.emptyList();
     }
 
@@ -104,73 +98,6 @@ public class StackTraceTableDataProvider implements SystemTableDataProvider
                                           .toList()
                                           .toString();
     return collectRows(server, selfNode.getServiceName(), nodeRoles, maxStackTraceFrameDepth);
-  }
-
-  /**
-   * Whether every filter that requires the column to equal one of a set of values accepts the given value.
-   */
-  private static boolean matchesAll(final List<Filter> filters, final String column, final String value)
-  {
-    for (final Filter filter : filters) {
-      final Set<String> values = getStringValues(filter, column);
-      if (values != null && !values.contains(value)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Returns the values one of which the filter requires the column to equal, or null if it isn't such a filter.
-   * Supports {@code =}, {@code IN}, and an {@code OR} of them on the same column, comparing values as strings.
-   */
-  @Nullable
-  static Set<String> getStringValues(final Filter filter, final String column)
-  {
-    if (filter instanceof SelectorFilter selector) {
-      return column.equals(selector.getDimension()) && selector.getValue() != null
-             ? Set.of(selector.getValue())
-             : null;
-    } else if (filter instanceof EqualityFilter equality) {
-      // Other match types compare values as that type, such as "01" equal to "1" as LONG.
-      return column.equals(equality.getColumn())
-             && ColumnType.STRING.equals(equality.getMatchValueType())
-             && equality.getMatchValue() instanceof String value
-             ? Set.of(value)
-             : null;
-    } else if (filter instanceof InDimFilter in) {
-      return column.equals(in.getDimension())
-             && in.getExtractionFn() == null
-             && !in.getValues().isEmpty()
-             && !in.getValues().contains(null)
-             ? Set.copyOf(in.getValues())
-             : null;
-    } else if (filter instanceof TypedInFilter in) {
-      if (!column.equals(in.getColumn())
-          || !ColumnType.STRING.equals(in.getMatchValueType())
-          || in.getSortedValues().isEmpty()) {
-        return null;
-      }
-      final Set<String> values = new HashSet<>();
-      for (final Object value : in.getSortedValues()) {
-        if (!(value instanceof String stringValue)) {
-          return null;
-        }
-        values.add(stringValue);
-      }
-      return values;
-    } else if (filter instanceof OrFilter or) {
-      final Set<String> values = new HashSet<>();
-      for (final Filter child : or.getFilters()) {
-        final Set<String> childValues = getStringValues(child, column);
-        if (childValues == null) {
-          return null;
-        }
-        values.addAll(childValues);
-      }
-      return values.isEmpty() ? null : values;
-    }
-    return null;
   }
 
   private static List<Object[]> collectRows(

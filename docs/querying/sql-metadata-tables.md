@@ -177,14 +177,15 @@ execution:
 
 |Table|Source of rows|
 |-----|--------------|
-|[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Every server is queried, and filters on `server` and `service_name` let a server that doesn't match return no rows.|
-|[`sys.stack_trace`](#stack_trace-table)|A live snapshot of Java platform threads from Druid server processes. The `server` filter is required. Druid sends the query to every server process, and each process returns rows only when it matches the `server` filter.|
+|[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Equality and `IN` filters on `server` and `service_name` limit which servers are queried; otherwise every server is queried. A value that matches no server returns no rows.|
+|[`sys.stack_trace`](#stack_trace-table)|A live snapshot of Java platform threads from Druid server processes. The `server` filter is required, and Druid queries only the servers that the equality and `IN` filters on `server` and `service_name` match. A value that matches no server returns no rows.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
 aggregations, sorting, and result processing. A system table that doesn't advertise native query support continues to
 use the Broker's SQL interpreter, even when `useDruidEngineForSystemTables` is `true`.
 
-The Broker gathers the rows of the table from every service that serves it. A native query sent to the `/druid/v2/`
+The Broker gathers the rows of the table from every service that serves it, except the services that the table's
+filters on `server` and `service_name` rule out, as described in the table above. A native query sent to the `/druid/v2/`
 endpoint of a service, with a `systemTable` datasource, reads only the rows of that service. The Router, Coordinator,
 Overlord, and Middle Manager accept only Scan queries on a `systemTable` datasource. The Router forwards queries that
 read a system table through a subquery or a join to a Broker, which reads its own rows.
@@ -388,6 +389,11 @@ The `server_properties` table exposes the runtime properties configured on each 
 |value|VARCHAR|Value of the property|
 |error_message|VARCHAR|Describes why properties could not be retrieved from the server (e.g., connection refused, HTTP error). Null when properties were fetched successfully.|
 
+With [native system-table execution](#native-query-execution), an equality or `IN` filter on `server` or
+`service_name` that applies directly to the scan of `server_properties` limits which servers Druid queries, and a value
+that matches no server returns no rows. Other filters, such as `LIKE` or an `OR` across columns, don't limit which
+servers are queried, but still apply to the results.
+
 For example, to retrieve properties for a specific server, use the query
 
 ```sql
@@ -441,8 +447,10 @@ table always appears in the `sys` schema, but it is available only through
 error that explains these requirements. Virtual threads are not included. The query must contain an equality or `IN`
 filter on `server`, whose value is the server's `host:port` address and aligns with `sys.servers.server`.
 The filter must apply directly to the scan of `stack_trace`. In joins and subqueries, filter `stack_trace` on `server`
-in its own subquery. Druid rejects a query without this filter before it queries any server. `UNION ALL` of
-`sys.stack_trace` queries isn't supported; query each server in its own statement, or use `server IN (...)`. A native
+in its own subquery. Druid rejects a query without this filter before it queries any server. Druid queries only the
+servers that the equality and `IN` filters on `server` and `service_name` match, and a value that matches no server
+returns no rows. `UNION ALL` of `sys.stack_trace` queries isn't supported; query each server in its own statement,
+or use `server IN (...)`. A native
 query sent to the `/druid/v2/` endpoint of a service, with the `systemTable` datasource `stack_trace`, returns only
 the threads of that service, and doesn't require the filter.
 

@@ -25,10 +25,7 @@ import org.apache.druid.client.DruidServerConfig;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.Filter;
-import org.apache.druid.segment.column.ColumnType;
-import org.apache.druid.segment.filter.SelectorFilter;
 import org.apache.druid.server.DruidNode;
 
 import javax.annotation.Nullable;
@@ -47,7 +44,9 @@ import java.util.stream.Collectors;
  */
 public class ServerPropertiesTableDataProvider implements SystemTableDataProvider
 {
-  private static final Set<String> PUSHDOWN_COLUMNS = Set.of("server", "service_name");
+  private static final String SERVER_COLUMN = "server";
+  private static final String SERVICE_NAME_COLUMN = "service_name";
+  private static final Set<String> PUSHDOWN_COLUMNS = Set.of(SERVER_COLUMN, SERVICE_NAME_COLUMN);
 
   private final DruidNode selfNode;
   private final Set<NodeRole> selfNodeRoles;
@@ -77,23 +76,9 @@ public class ServerPropertiesTableDataProvider implements SystemTableDataProvide
   @Override
   public Iterable<Object[]> getRows(final List<Filter> filters)
   {
-    String serverFilter = null;
-    String serviceNameFilter = null;
-    for (final Filter filter : filters) {
-      final String serverValue = getStringEqualityValue(filter, "server");
-      final String serviceNameValue = getStringEqualityValue(filter, "service_name");
-      if (serverValue != null) {
-        serverFilter = serverValue;
-      } else if (serviceNameValue != null) {
-        serviceNameFilter = serviceNameValue;
-      }
-    }
-
     final String server = selfNode.getHostAndPortToUse();
-    if (serverFilter != null && !serverFilter.equals(server)) {
-      return Collections.emptyList();
-    }
-    if (serviceNameFilter != null && !serviceNameFilter.equals(selfNode.getServiceName())) {
+    if (!SystemTableFilters.allowsValue(filters, SERVER_COLUMN, server)
+        || !SystemTableFilters.allowsValue(filters, SERVICE_NAME_COLUMN, selfNode.getServiceName())) {
       return Collections.emptyList();
     }
 
@@ -159,24 +144,6 @@ public class ServerPropertiesTableDataProvider implements SystemTableDataProvide
         )
     );
     return new TreeMap<>(filteredProperties);
-  }
-
-  /**
-   * Returns the value that the filter requires the column to equal, or null if it isn't such a filter.
-   */
-  @Nullable
-  private static String getStringEqualityValue(final Filter filter, final String column)
-  {
-    if (filter instanceof SelectorFilter selector && column.equals(selector.getDimension())) {
-      return selector.getValue();
-    } else if (filter instanceof EqualityFilter equality
-               && column.equals(equality.getColumn())
-               // Other match types compare values as that type, such as "01" equal to "1" as LONG.
-               && ColumnType.STRING.equals(equality.getMatchValueType())
-               && equality.getMatchValue() instanceof String value) {
-      return value;
-    }
-    return null;
   }
 
   private static class ServerProperties

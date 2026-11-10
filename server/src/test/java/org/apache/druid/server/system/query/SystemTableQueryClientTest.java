@@ -58,6 +58,11 @@ import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.query.filter.EqualityFilter;
+import org.apache.druid.query.filter.InDimFilter;
+import org.apache.druid.query.filter.LikeDimFilter;
+import org.apache.druid.query.filter.NotDimFilter;
+import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -645,7 +650,8 @@ public class SystemTableQueryClientTest
         ColumnType.STRING,
         ExprMacroTable.nil()
     );
-    final SelectorDimFilter tableFilter = new SelectorDimFilter("service_name", "druid/broker", null);
+    // Matches the test node, which the Broker would otherwise not query.
+    final SelectorDimFilter tableFilter = new SelectorDimFilter("service_name", "broker-service", null);
     final ScanQuery nodeQuery = captureNodeQuery(
         descriptor,
         Druids.newScanQueryBuilder()
@@ -941,6 +947,340 @@ public class SystemTableQueryClientTest
                     .toList()
     );
     Assertions.assertSame(failure, thrown);
+  }
+
+  private static final DiscoveryDruidNode BROKER_NODE = new DiscoveryDruidNode(
+      new DruidNode("druid/broker", "localhost", false, 8082, null, true, false),
+      NodeRole.BROKER,
+      Collections.emptyMap()
+  );
+  private static final DiscoveryDruidNode COORDINATOR_NODE = new DiscoveryDruidNode(
+      new DruidNode("druid/coordinator", "localhost", false, 8081, null, true, false),
+      NodeRole.COORDINATOR,
+      Collections.emptyMap()
+  );
+  private static final DiscoveryDruidNode OVERLORD_ROLE_OF_COORDINATOR_NODE = new DiscoveryDruidNode(
+      new DruidNode("druid/coordinator", "localhost", false, 8081, null, true, false),
+      NodeRole.OVERLORD,
+      Collections.emptyMap()
+  );
+  private static final DiscoveryDruidNode HISTORICAL_NODE = new DiscoveryDruidNode(
+      new DruidNode("druid/historical", "localhost", false, 8083, null, true, false),
+      NodeRole.HISTORICAL,
+      Collections.emptyMap()
+  );
+
+  private static Stream<SystemTableDescriptor> nodeColumnDescriptors()
+  {
+    return Stream.of(new ServerPropertiesTableDescriptor(), new StackTraceTableDescriptor());
+  }
+
+  /**
+   * An {@code =} filter on {@code server} queries only the matching node.
+   */
+  @ParameterizedTest
+  @MethodSource("nodeColumnDescriptors")
+  public void testServerEqualityFilterQueriesOnlyMatchingNode(final SystemTableDescriptor descriptor)
+  {
+    final NarrowingClient client = makeNarrowingClient(descriptor);
+
+    final List<Object[]> rows = client.run(new EqualityFilter("server", ColumnType.STRING, "localhost:8083", null));
+
+    Assertions.assertEquals(List.of("localhost:8083"), client.createdClients());
+    Assertions.assertEquals(List.of("localhost:8083"), client.queriedNodes());
+    Assertions.assertEquals(List.of("localhost:8083"), servers(rows));
+  }
+
+  /**
+   * An {@code IN} filter on {@code server} queries only the matching nodes, and a merged multi-role node once.
+   */
+  @ParameterizedTest
+  @MethodSource("nodeColumnDescriptors")
+  public void testServerInFilterQueriesOnlyMatchingNodes(final SystemTableDescriptor descriptor)
+  {
+    final NarrowingClient client = makeNarrowingClient(descriptor);
+
+    final List<Object[]> rows = client.run(
+        new InDimFilter("server", Set.of("localhost:8081", "localhost:8082", "localhost:9999"))
+    );
+
+    Assertions.assertEquals(List.of("localhost:8082", "localhost:8081"), client.createdClients());
+    Assertions.assertEquals(List.of("localhost:8082", "localhost:8081"), client.queriedNodes());
+    Assertions.assertEquals(List.of("localhost:8082", "localhost:8081"), servers(rows));
+  }
+
+  /**
+   * A filter on {@code service_name} queries only the nodes of that service. The Coordinator that also runs as an
+   * Overlord is one node, queried once.
+   */
+  @ParameterizedTest
+  @MethodSource("nodeColumnDescriptors")
+  public void testServiceNameFilterQueriesOnlyMatchingNodes(final SystemTableDescriptor descriptor)
+  {
+    final NarrowingClient client = makeNarrowingClient(descriptor);
+
+    client.run(
+        new AndDimFilter(
+            // sys.stack_trace requires a server filter; this one allows every node.
+            new InDimFilter("server", Set.of("localhost:8081", "localhost:8082", "localhost:8083")),
+            new EqualityFilter("service_name", ColumnType.STRING, "druid/coordinator", null)
+        )
+    );
+
+    Assertions.assertEquals(List.of("localhost:8081"), client.createdClients());
+    Assertions.assertEquals(List.of("localhost:8081"), client.queriedNodes());
+  }
+
+  /**
+   * Filters on {@code server} and {@code service_name} must both allow a node.
+   */
+  @ParameterizedTest
+  @MethodSource("nodeColumnDescriptors")
+  public void testServerAndServiceNameFiltersIntersect(final SystemTableDescriptor descriptor)
+  {
+    final NarrowingClient client = makeNarrowingClient(descriptor);
+
+    client.run(
+        new AndDimFilter(
+            new InDimFilter("server", Set.of("localhost:8081", "localhost:8082")),
+            new InDimFilter("service_name", Set.of("druid/broker", "druid/historical"))
+        )
+    );
+
+    Assertions.assertEquals(List.of("localhost:8082"), client.createdClients());
+    Assertions.assertEquals(List.of("localhost:8082"), client.queriedNodes());
+  }
+
+  /**
+   * Filters that don't restrict {@code server} or {@code service_name} to a set of values query every node.
+   */
+  @ParameterizedTest
+  @MethodSource("nonNarrowingFilters")
+  public void testNonNarrowingFilterQueriesEveryNode(final DimFilter filter)
+  {
+    final NarrowingClient client = makeNarrowingClient(new ServerPropertiesTableDescriptor());
+
+    client.run(filter);
+
+    final List<String> allNodes = List.of("localhost:8082", "localhost:8081", "localhost:8083");
+    Assertions.assertEquals(allNodes, client.createdClients());
+    Assertions.assertEquals(allNodes, client.queriedNodes());
+  }
+
+  private static Stream<DimFilter> nonNarrowingFilters()
+  {
+    return Stream.of(
+        new LikeDimFilter("server", "localhost:808%", null, null),
+        new OrDimFilter(
+            new EqualityFilter("server", ColumnType.STRING, "localhost:8082", null),
+            new EqualityFilter("service_name", ColumnType.STRING, "druid/historical", null)
+        ),
+        new NotDimFilter(new EqualityFilter("server", ColumnType.STRING, "localhost:8082", null)),
+        new EqualityFilter("property", ColumnType.STRING, "druid.host", null)
+    );
+  }
+
+  /**
+   * A {@code LIKE} filter on {@code service_name} doesn't narrow {@code sys.stack_trace}: every node that the required
+   * {@code server} filter allows is queried.
+   */
+  @Test
+  public void testStackTraceLikeFilterOnServiceNameDoesNotNarrow()
+  {
+    final NarrowingClient client = makeNarrowingClient(new StackTraceTableDescriptor());
+
+    client.run(
+        new AndDimFilter(
+            new InDimFilter("server", Set.of("localhost:8081", "localhost:8082", "localhost:8083")),
+            new LikeDimFilter("service_name", "druid/%", null, null)
+        )
+    );
+
+    final List<String> allNodes = List.of("localhost:8082", "localhost:8081", "localhost:8083");
+    Assertions.assertEquals(allNodes, client.createdClients());
+    Assertions.assertEquals(allNodes, client.queriedNodes());
+  }
+
+  /**
+   * A filter that no discovered node matches returns an empty result without querying any node, even for a table
+   * whose empty discovery is an error: nodes were discovered, and none of them has rows that match.
+   */
+  @ParameterizedTest
+  @MethodSource("noMatchDescriptors")
+  public void testUnmatchedNodeFilterReturnsEmptyResult(final SystemTableDescriptor descriptor)
+  {
+    final NarrowingClient client = makeNarrowingClient(descriptor);
+
+    final List<Object[]> rows = client.run(
+        new AndDimFilter(
+            new EqualityFilter("server", ColumnType.STRING, "localhost:8082", null),
+            new EqualityFilter("service_name", ColumnType.STRING, "druid/historical", null)
+        )
+    );
+
+    Assertions.assertTrue(rows.isEmpty());
+    Assertions.assertEquals(List.of(), client.createdClients());
+    Assertions.assertEquals(List.of(), client.queriedNodes());
+  }
+
+  private static Stream<SystemTableDescriptor> noMatchDescriptors()
+  {
+    return Stream.of(
+        new ServerPropertiesTableDescriptor(),
+        new StackTraceTableDescriptor(),
+        new NoEmptyDiscoveryServerPropertiesTableDescriptor()
+    );
+  }
+
+  /**
+   * A table whose empty discovery is an error still fails when no node is discovered, whatever the filter.
+   */
+  @Test
+  public void testNoDiscoveredNodeFailsTableWithoutEmptyDiscovery()
+  {
+    final SystemTableDescriptor descriptor = new NoEmptyDiscoveryServerPropertiesTableDescriptor();
+    final TestClient client = makeClient(descriptor, List.of(), (queryPlus, responseContext) -> Sequences.empty());
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                 .dataSource(new SystemTableDataSource(descriptor.getTableName()))
+                                 .eternityInterval()
+                                 .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                 .filters(new EqualityFilter("server", ColumnType.STRING, "localhost:8082", null))
+                                 .build();
+
+    final DruidException e = Assertions.assertThrows(DruidException.class, () -> runToList(client, query));
+    Assertions.assertEquals(DruidException.Category.SERVICE_UNAVAILABLE, e.getCategory());
+    Assertions.assertEquals("No node is available to serve system table[server_properties]", e.getMessage());
+  }
+
+  /**
+   * A table that declares no node columns queries every node, whatever the filter on its columns.
+   */
+  @Test
+  public void testTableWithoutNodeColumnsQueriesEveryNode()
+  {
+    final NarrowingClient client = makeNarrowingClient(new NoNodeColumnsServerPropertiesTableDescriptor());
+
+    client.run(new EqualityFilter("server", ColumnType.STRING, "localhost:8083", null));
+
+    final List<String> allNodes = List.of("localhost:8082", "localhost:8081", "localhost:8083");
+    Assertions.assertEquals(allNodes, client.createdClients());
+    Assertions.assertEquals(allNodes, client.queriedNodes());
+  }
+
+  /**
+   * Creates a client for a table served by a Broker, a Coordinator that also runs as an Overlord, and a Historical,
+   * which records the nodes it creates clients for and queries. Each node returns one row with its {@code server}
+   * and {@code service_name}.
+   */
+  private static NarrowingClient makeNarrowingClient(final SystemTableDescriptor descriptor)
+  {
+    final SystemTableNode brokerNode = new SystemTableNode(BROKER_NODE);
+    brokerNode.addNodeRole(NodeRole.BROKER);
+    final SystemTableNode coordinatorNode = new SystemTableNode(COORDINATOR_NODE);
+    coordinatorNode.addNodeRole(NodeRole.COORDINATOR);
+    coordinatorNode.addNodeRole(OVERLORD_ROLE_OF_COORDINATOR_NODE.getNodeRole());
+    final SystemTableNode historicalNode = new SystemTableNode(HISTORICAL_NODE);
+    historicalNode.addNodeRole(NodeRole.HISTORICAL);
+    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
+    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor)))
+           .thenReturn(List.of(brokerNode, coordinatorNode, historicalNode));
+
+    final Map<String, String> serviceNames = Map.of(
+        "localhost:8082", "druid/broker",
+        "localhost:8081", "druid/coordinator",
+        "localhost:8083", "druid/historical"
+    );
+    final List<String> createdClients = Collections.synchronizedList(new ArrayList<>());
+    final List<String> queriedNodes = Collections.synchronizedList(new ArrayList<>());
+    final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
+    Mockito.when(directClientFactory.makeDirectClient(ArgumentMatchers.any())).thenAnswer(invocation -> {
+      final String server = ((DruidServer) invocation.getArgument(0)).getHost();
+      createdClients.add(server);
+      @SuppressWarnings("unchecked")
+      final DirectDruidClient<ScanResultValue> directClient = Mockito.mock(DirectDruidClient.class);
+      Mockito.when(directClient.run(ArgumentMatchers.any(), ArgumentMatchers.any())).thenAnswer(runInvocation -> {
+        queriedNodes.add(server);
+        final Object[] row = new Object[descriptor.getRowSignature().size()];
+        row[0] = server;
+        row[1] = serviceNames.get(server);
+        return Sequences.simple(
+            List.of(new ScanResultValue(null, descriptor.getRowSignature().getColumnNames(), List.of((Object) row)))
+        );
+      });
+      return directClient;
+    });
+
+    final TestClient client = new TestClient(
+        newClient(
+            nodeLocator,
+            directClientFactory,
+            Mockito.mock(QueryScheduler.class),
+            Map.of(descriptor.getTableName(), descriptor),
+            nonMatchingSelfNode()
+        ),
+        passthroughRunner(descriptor.getRowSignature())
+    );
+    return new NarrowingClient(client, descriptor, createdClients, queriedNodes);
+  }
+
+  private static List<String> servers(final List<Object[]> rows)
+  {
+    return rows.stream().map(row -> (String) row[0]).toList();
+  }
+
+  /**
+   * A client from {@link #makeNarrowingClient}, with the nodes it created clients for and queried, in order.
+   */
+  private record NarrowingClient(
+      TestClient client,
+      SystemTableDescriptor descriptor,
+      List<String> createdClients,
+      List<String> queriedNodes
+  )
+  {
+    /**
+     * Runs a Scan of the table with the filter, and returns the gathered rows.
+     */
+    List<Object[]> run(final DimFilter filter)
+    {
+      final ScanQuery query = Druids.newScanQueryBuilder()
+                                   .dataSource(new SystemTableDataSource(descriptor.getTableName()))
+                                   .eternityInterval()
+                                   .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                   .filters(filter)
+                                   .build();
+      final List<Object[]> rows = new ArrayList<>();
+      for (final ScanResultValue result : runToList(client, query)) {
+        for (final Object event : (List<?>) result.getEvents()) {
+          rows.add((Object[]) event);
+        }
+      }
+      return rows;
+    }
+  }
+
+  /**
+   * {@code sys.server_properties}, except that an empty discovery result is an error.
+   */
+  private static class NoEmptyDiscoveryServerPropertiesTableDescriptor extends ServerPropertiesTableDescriptor
+  {
+    @Override
+    public boolean isEmptyDiscoveryAllowed()
+    {
+      return false;
+    }
+  }
+
+  /**
+   * {@code sys.server_properties}, except that it declares no node columns.
+   */
+  private static class NoNodeColumnsServerPropertiesTableDescriptor extends ServerPropertiesTableDescriptor
+  {
+    @Override
+    public Map<String, NodeAttribute> getNodeColumns()
+    {
+      return Map.of();
+    }
   }
 
   private static TestClient makeClient(

@@ -52,6 +52,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
 {
@@ -194,6 +195,45 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
     Assertions.assertTrue(result.contains(brokerHost));
     Assertions.assertTrue(result.contains(coordinatorHost));
     Assertions.assertFalse(result.contains(host(overlord)));
+  }
+
+  /**
+   * The Broker queries only the servers that the filter on {@code server} allows, and the result holds the rows of
+   * exactly those servers. A value that matches no server returns no rows.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void test_stackTraceTableServerFilterReturnsOnlyMatchingServers(
+      final QueryContexts.PlannerStrategy plannerStrategy
+  )
+  {
+    final String brokerHost = host(broker);
+    final String coordinatorHost = host(coordinator);
+
+    Assertions.assertEquals(
+        brokerHost,
+        cluster.runSql(
+            "SELECT DISTINCT server FROM sys.stack_trace WHERE server = '%s'",
+            nativeQueryContext(plannerStrategy),
+            brokerHost
+        )
+    );
+    Assertions.assertEquals(
+        String.join("\n", Stream.of(brokerHost, coordinatorHost).sorted().toList()),
+        cluster.runSql(
+            "SELECT DISTINCT server FROM sys.stack_trace WHERE server IN ('%s', '%s') ORDER BY server",
+            nativeQueryContext(plannerStrategy),
+            brokerHost,
+            coordinatorHost
+        )
+    );
+    Assertions.assertEquals(
+        "",
+        cluster.runSql(
+            "SELECT DISTINCT server FROM sys.stack_trace WHERE server = 'unknown.host:1'",
+            nativeQueryContext(plannerStrategy)
+        )
+    );
   }
 
   /**

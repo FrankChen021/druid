@@ -21,6 +21,7 @@ package org.apache.druid.server.system.query;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 import io.netty.channel.ChannelException;
 import org.apache.druid.client.DirectDruidClient;
@@ -54,18 +55,21 @@ import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.query.union.UnionQuery;
 import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.SegmentWrangler;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.segment.filter.Filters;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.SetAndVerifyContextQueryRunner;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
+import org.apache.druid.server.system.table.SystemTableFilters;
 import org.apache.druid.utils.CloseableUtils;
 
 import javax.annotation.Nullable;
@@ -76,6 +80,7 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -91,9 +96,9 @@ import java.util.function.Supplier;
  *
  * <p>{@link #resolve} replaces each system table with the {@link SystemTableDataSource.Scope#CLUSTER} scope with an
  * {@link InlineDataSource} holding the rows that the caller may read, gathered with a Scan of the table on each
- * service. The caller then runs the resolved query as usual. Services read the table with an escalated identity, so
- * the rows are filtered here with the caller's {@link SystemTableAccess}, which the Broker attached when it authorized
- * the query.</p>
+ * service that serves it and that the query's filter doesn't rule out. The caller then runs the resolved query as
+ * usual. Services read the table with an escalated identity, so the rows are filtered here with the caller's
+ * {@link SystemTableAccess}, which the Broker attached when it authorized the query.</p>
  */
 public class SystemTableQueryClient
 {
@@ -251,16 +256,19 @@ public class SystemTableQueryClient
     }
     final ScanQuery nodeQuery = makeNodeQuery(dataSource, descriptor, owningQuery);
     descriptor.validateNodeQuery(nodeQuery);
-    final List<QueryRunner<ScanResultValue>> nodeRunners = makeNodeRunners(
-        nodeQuery,
-        descriptor,
-        nodeSequencesCloser
-    );
-    if (nodeRunners.isEmpty() && !descriptor.isEmptyDiscoveryAllowed()) {
+    final List<SystemTableNode> locatedNodes = nodeLocator.locate(descriptor);
+    if (locatedNodes.isEmpty() && !descriptor.isEmptyDiscoveryAllowed()) {
       throw DruidException.forPersona(DruidException.Persona.OPERATOR)
                           .ofCategory(DruidException.Category.SERVICE_UNAVAILABLE)
                           .build("No node is available to serve system table[%s]", dataSource.getTable());
     }
+    // Nodes were discovered, so if the filter matches none of them, the table is just empty for this query.
+    final List<QueryRunner<ScanResultValue>> nodeRunners = makeNodeRunners(
+        nodeQuery,
+        descriptor,
+        selectNodes(locatedNodes, nodeQuery, descriptor),
+        nodeSequencesCloser
+    );
 
     final NodeSequenceCloser nodeSequenceCloser = new NodeSequenceCloser();
     nodeSequencesCloser.add(nodeSequenceCloser);
@@ -307,14 +315,54 @@ public class SystemTableQueryClient
                  .build();
   }
 
+  /**
+   * Returns the nodes whose {@link SystemTableDescriptor#getNodeColumns() node columns} the node Scan's filter allows.
+   * For example, a filter {@code server IN ('a:8082', 'b:8083')} keeps only the nodes whose {@code host:port} is one
+   * of those values. This is best-effort: a column that the filter doesn't restrict with {@code =} or {@code IN}, as
+   * read by {@link SystemTableFilters#getStringValues(Filter, String)}, doesn't remove any node. It never changes the
+   * result, since each node applies the whole filter to its rows, and a node that it removes would return no rows.
+   */
+  private static List<SystemTableNode> selectNodes(
+      final List<SystemTableNode> nodes,
+      final ScanQuery nodeQuery,
+      final SystemTableDescriptor descriptor
+  )
+  {
+    final Map<String, NodeAttribute> nodeColumns = descriptor.getNodeColumns();
+    final Filter filter = Filters.toFilter(nodeQuery.getFilter());
+    if (nodeColumns.isEmpty() || filter == null) {
+      return nodes;
+    }
+
+    final Map<NodeAttribute, Set<String>> allowedValues = new EnumMap<>(NodeAttribute.class);
+    for (final Map.Entry<String, NodeAttribute> nodeColumn : nodeColumns.entrySet()) {
+      final Set<String> values = SystemTableFilters.getStringValues(filter, nodeColumn.getKey());
+      if (values != null) {
+        // Two columns holding the same attribute must both allow the node's value.
+        allowedValues.merge(nodeColumn.getValue(), values, Sets::intersection);
+      }
+    }
+    if (allowedValues.isEmpty()) {
+      return nodes;
+    }
+    return nodes.stream()
+                .filter(
+                    node -> allowedValues.entrySet()
+                                         .stream()
+                                         .allMatch(entry -> entry.getValue().contains(entry.getKey().getValue(node)))
+                )
+                .toList();
+  }
+
   private List<QueryRunner<ScanResultValue>> makeNodeRunners(
       final ScanQuery nodeQuery,
       final SystemTableDescriptor descriptor,
+      final List<SystemTableNode> nodes,
       final NodeSequencesCloser nodeSequencesCloser
   )
   {
     final List<QueryRunner<ScanResultValue>> nodeRunners = new ArrayList<>();
-    for (final SystemTableNode node : nodeLocator.locate(descriptor)) {
+    for (final SystemTableNode node : nodes) {
       nodeRunners.add(
           (queryPlus, responseContext) -> recoverNodeFailure(
               () -> runNodeQuery(nodeQuery, node, nodeSequencesCloser, queryPlus, responseContext),
@@ -797,8 +845,8 @@ public class SystemTableQueryClient
 
   /**
    * Returns the filter to put on the Scan sent to each node, or null: the part of the query filter that the nodes can
-   * apply themselves. It doesn't choose which nodes are queried; {@link SystemTableNodeLocator} does. Filtering on the
-   * nodes only reduces the rows they return: the resolved query applies its whole filter to the gathered rows.
+   * apply themselves. {@link #selectNodes} also reads it to skip the nodes it rules out. Filtering on the nodes only
+   * reduces the rows they return: the resolved query applies its whole filter to the gathered rows.
    *
    * <p>Only conjuncts that read columns of the table are pushed down, and only for a query that reads the table
    * directly. Virtual columns are never pushed down: a virtual column can replace a column of the table, and the

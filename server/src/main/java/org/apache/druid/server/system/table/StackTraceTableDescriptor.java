@@ -23,14 +23,13 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.error.InvalidInput;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.context.QueryContextParameters;
-import org.apache.druid.query.filter.Filter;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
-import org.apache.druid.segment.filter.AndFilter;
 import org.apache.druid.segment.filter.Filters;
 import org.apache.druid.server.DruidNode;
+import org.apache.druid.server.system.query.NodeAttribute;
 
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -66,6 +65,10 @@ public class StackTraceTableDescriptor implements SystemTableDescriptor
       + "In joins and subqueries, filter sys.stack_trace in its own subquery";
 
   private static final Set<NodeRole> NODE_ROLES = Set.of(NodeRole.values());
+  private static final Map<String, NodeAttribute> NODE_COLUMNS = Map.of(
+      "server", NodeAttribute.HOST_AND_PORT,
+      "service_name", NodeAttribute.SERVICE_NAME
+  );
 
   @Override
   public String getTableName()
@@ -92,6 +95,12 @@ public class StackTraceTableDescriptor implements SystemTableDescriptor
   }
 
   @Override
+  public Map<String, NodeAttribute> getNodeColumns()
+  {
+    return NODE_COLUMNS;
+  }
+
+  @Override
   public boolean isEmptyDiscoveryAllowed()
   {
     return true;
@@ -106,27 +115,16 @@ public class StackTraceTableDescriptor implements SystemTableDescriptor
   @Override
   public void validateNodeQuery(final Query<?> nodeQuery)
   {
-    final Filter filter = Filters.toFilter(nodeQuery.getFilter());
-    final List<Filter> conjuncts = filter instanceof AndFilter andFilter
-                                   ? List.copyOf(andFilter.getFilters())
-                                   : filter == null ? List.of() : List.of(filter);
-    InvalidInput.conditionalException(hasServerFilter(conjuncts), SERVER_FILTER_REQUIRED_MESSAGE);
+    InvalidInput.conditionalException(
+        SystemTableFilters.getStringValues(
+            Filters.toFilter(nodeQuery.getFilter()),
+            StackTraceTableDataProvider.SERVER_COLUMN
+        ) != null,
+        SERVER_FILTER_REQUIRED_MESSAGE
+    );
 
     // Parsing validates the range of the parameter.
     nodeQuery.context().get(QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH);
-  }
-
-  /**
-   * Whether one of the filters requires {@code server} to equal one of a set of values.
-   */
-  private static boolean hasServerFilter(final Iterable<Filter> filters)
-  {
-    for (final Filter filter : filters) {
-      if (StackTraceTableDataProvider.getStringValues(filter, StackTraceTableDataProvider.SERVER_COLUMN) != null) {
-        return true;
-      }
-    }
-    return false;
   }
 
   @Override
