@@ -22,6 +22,8 @@ package org.apache.druid.msq.test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
+import org.apache.druid.client.coordinator.CoordinatorClient;
+import org.apache.druid.client.coordinator.NoopCoordinatorClient;
 import org.apache.druid.collections.NonBlockingPool;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.guice.LazySingleton;
@@ -40,6 +42,8 @@ import org.apache.druid.msq.exec.WorkerRunRef;
 import org.apache.druid.query.TestBufferPool;
 import org.apache.druid.rpc.ServiceClientFactory;
 import org.apache.druid.rpc.guice.ServiceClientModule;
+import org.apache.druid.rpc.indexing.NoopOverlordClient;
+import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.SpecificSegmentsQuerySegmentWalker;
 import org.apache.druid.sql.avatica.DartDruidMeta;
 import org.apache.druid.sql.avatica.DruidMeta;
@@ -124,6 +128,8 @@ public abstract class AbstractDartComponentSupplier extends AbstractMSQComponent
     @Override
     public void configure(Binder binder)
     {
+      binder.bind(CoordinatorClient.class).to(NoopCoordinatorClient.class).in(LazySingleton.class);
+      binder.bind(OverlordClient.class).to(NoopOverlordClient.class).in(LazySingleton.class);
     }
   }
 

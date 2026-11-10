@@ -29,6 +29,7 @@ import org.apache.druid.msq.logical.stages.OffsetLimitStage;
 import org.apache.druid.msq.logical.stages.ReadStage;
 import org.apache.druid.msq.logical.stages.SortStage;
 import org.apache.druid.msq.logical.stages.UnnestStage;
+import org.apache.druid.query.DataSource;
 import org.apache.druid.query.groupby.orderby.OrderByColumnSpec;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.planner.querygen.DruidQueryGenerator.DruidNodeStack;
@@ -41,6 +42,7 @@ import org.apache.druid.sql.calcite.rule.logical.DruidUnnest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 
 /**
  * Translates the logical plan defined by the {@link DruidLogicalNode} into a
@@ -54,10 +56,24 @@ import java.util.Optional;
 public class DruidLogicalToQueryDefinitionTranslator
 {
   private PlannerContext plannerContext;
+  private final UnaryOperator<DataSource> sourceResolver;
 
   public DruidLogicalToQueryDefinitionTranslator(PlannerContext plannerContext)
   {
+    this(plannerContext, UnaryOperator.identity());
+  }
+
+  /**
+   * @param sourceResolver replaces the datasource that each read stage reads, for example with rows gathered before
+   *                       the query runs
+   */
+  public DruidLogicalToQueryDefinitionTranslator(
+      PlannerContext plannerContext,
+      UnaryOperator<DataSource> sourceResolver
+  )
+  {
     this.plannerContext = plannerContext;
+    this.sourceResolver = sourceResolver;
   }
 
   /**
@@ -84,7 +100,7 @@ public class DruidLogicalToQueryDefinitionTranslator
     List<LogicalStage> inputStages = buildInputStages(stack);
     DruidLogicalNode node = stack.getNode();
     if (inputStages.size() == 0) {
-      Optional<ReadStage> stage = ReadStage.buildReadStage(stack);
+      Optional<ReadStage> stage = ReadStage.buildReadStage(stack, sourceResolver);
       if (stage.isPresent()) {
         return stage.get();
       }

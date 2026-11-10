@@ -19,16 +19,19 @@
 
 package org.apache.druid.msq.dart.controller.sql;
 
+import org.apache.druid.error.InvalidInput;
 import org.apache.druid.msq.exec.QueryKitBasedMSQPlanner;
 import org.apache.druid.msq.exec.ResultsContext;
 import org.apache.druid.msq.indexing.LegacyMSQSpec;
 import org.apache.druid.msq.indexing.QueryDefMSQSpec;
+import org.apache.druid.msq.input.table.TableInputSpec;
 import org.apache.druid.msq.kernel.QueryDefinition;
 import org.apache.druid.msq.logical.DruidLogicalToQueryDefinitionTranslator;
 import org.apache.druid.msq.logical.StageMaker;
 import org.apache.druid.msq.logical.stages.LogicalStage;
 import org.apache.druid.msq.sql.MSQTaskQueryMaker;
 import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.security.ForbiddenException;
@@ -39,8 +42,8 @@ import org.apache.druid.sql.calcite.rel.DruidQuery;
 import org.apache.druid.sql.calcite.rel.logical.DruidLogicalNode;
 import org.apache.druid.sql.calcite.run.QueryMaker;
 
-import java.util.List;
-import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 
 /**
  * Executes Dart queries with up-front planned {@link QueryDefinition}.
@@ -66,12 +69,26 @@ class PrePlannedDartQueryMaker implements QueryMaker, QueryMaker.FromDruidLogica
     if (!plannerContext.getAuthorizationResult().allowAccessWithNoRestriction()) {
       throw new ForbiddenException(plannerContext.getAuthorizationResult().getErrorMessage());
     }
-    DruidLogicalToQueryDefinitionTranslator qdt = new DruidLogicalToQueryDefinitionTranslator(plannerContext);
+    final AtomicBoolean readsSystemTables = new AtomicBoolean();
+    DruidLogicalToQueryDefinitionTranslator qdt = new DruidLogicalToQueryDefinitionTranslator(
+        plannerContext,
+        dataSource -> {
+          if (!SystemTableDataSource.readsSystemTable(dataSource)) {
+            return dataSource;
+          }
+          readsSystemTables.set(true);
+          return dartQueryMaker.resolveSystemTables(dataSource);
+        }
+    );
     LogicalStage logicalStage = qdt.translate(rootRel);
 
     StageMaker maker = new StageMaker(plannerContext);
     maker.buildStage(logicalStage);
     QueryDefinition queryDef = maker.buildQueryDefinition();
+    if (readsSystemTables.get() && readsSegments(queryDef)) {
+      // The rows of system tables are processed by the Dart worker embedded in the Broker, which can't read segments.
+      throw InvalidInput.exception("Dart queries can't read system tables together with other datasources");
+    }
 
     QueryContext context = plannerContext.queryContext();
     ColumnMappings columnMappings = QueryUtils.buildColumnMappings(dartQueryMaker.fieldMapping, logicalStage.getLogicalRowSignature());
@@ -85,7 +102,8 @@ class PrePlannedDartQueryMaker implements QueryMaker, QueryMaker.FromDruidLogica
     ResultsContext resultsContext = MSQTaskQueryMaker.makeSimpleResultContext(
         querySpec.getQueryDef(), rootRel.getRowType(), dartQueryMaker.fieldMapping, plannerContext
     );
-    QueryResponse<Object[]> response = dartQueryMaker.runQueryDefMSQSpec(querySpec, context, resultsContext);
+    QueryResponse<Object[]> response =
+        dartQueryMaker.runQueryDefMSQSpec(querySpec, context, resultsContext, readsSystemTables.get());
     return response;
   }
 
@@ -94,24 +112,35 @@ class PrePlannedDartQueryMaker implements QueryMaker, QueryMaker.FromDruidLogica
   {
     QueryContext queryContext = druidQuery.getQuery().context();
     ResultsContext resultsContext = DartQueryMaker.makeResultsContext(druidQuery, dartQueryMaker.fieldMapping, plannerContext);
-    QueryDefMSQSpec msqSpec = buildMSQSpec(druidQuery, dartQueryMaker.fieldMapping, queryContext, resultsContext);
-    return dartQueryMaker.runQueryDefMSQSpec(msqSpec, queryContext, resultsContext);
-  }
-
-  private QueryDefMSQSpec buildMSQSpec(
-      DruidQuery druidQuery,
-      List<Entry<Integer, String>> fieldMapping,
-      QueryContext queryContext,
-      ResultsContext resultsContext)
-  {
-    ColumnMappings columnMappings = QueryUtils.buildColumnMappings(fieldMapping, druidQuery.getOutputRowSignature());
-    LegacyMSQSpec querySpec = MSQTaskQueryMaker.buildLegacyMSQSpec(
+    ColumnMappings columnMappings =
+        QueryUtils.buildColumnMappings(dartQueryMaker.fieldMapping, druidQuery.getOutputRowSignature());
+    LegacyMSQSpec plannedSpec = MSQTaskQueryMaker.buildLegacyMSQSpec(
         null,
         druidQuery,
         columnMappings,
         plannerContext,
         null
     );
+    QueryDefMSQSpec msqSpec = buildMSQSpec(
+        dartQueryMaker.resolveSystemTables(plannedSpec),
+        columnMappings,
+        queryContext,
+        resultsContext
+    );
+    return dartQueryMaker.runQueryDefMSQSpec(
+        msqSpec,
+        queryContext,
+        resultsContext,
+        DartQueryMaker.readsSystemTables(plannedSpec)
+    );
+  }
+
+  private QueryDefMSQSpec buildMSQSpec(
+      LegacyMSQSpec querySpec,
+      ColumnMappings columnMappings,
+      QueryContext queryContext,
+      ResultsContext resultsContext)
+  {
 
     final String dartQueryId = queryContext.get(QueryContextParameters.DART_QUERY_ID);
 
@@ -134,5 +163,13 @@ class PrePlannedDartQueryMaker implements QueryMaker, QueryMaker.FromDruidLogica
         null,
         queryDef
     );
+  }
+
+  private static boolean readsSegments(final QueryDefinition queryDef)
+  {
+    return queryDef.getStageDefinitions()
+                   .stream()
+                   .flatMap(stage -> stage.getInputSpecs().stream())
+                   .anyMatch(TableInputSpec.class::isInstance);
   }
 }

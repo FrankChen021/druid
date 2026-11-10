@@ -56,6 +56,15 @@ public interface SqlEngine
   boolean featureAvailable(EngineFeature feature);
 
   /**
+   * Whether this engine can execute a particular table as a {@code SystemTableDataSource}. Engines opt in per table so
+   * unsupported tables remain on the Bindable fallback path.
+   */
+  default boolean supportsSystemTableDataSource(final PlannerContext plannerContext, final String tableName)
+  {
+    return false;
+  }
+
+  /**
    * Validates a provided query context. Returns quietly if the context is OK; throws {@link ValidationException}
    * if the context has a problem.
    */

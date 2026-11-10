@@ -465,6 +465,21 @@ public class EmbeddedDartReportApiTest extends BaseDartQueryTest
   }
 
   /**
+   * Dart requires STATE READ before planning or executing {@code sys.server_properties}.
+   */
+  @Test
+  @Timeout(60)
+  public void test_serverProperties_authorization()
+  {
+    final String sql = "SET engine = 'msq-dart'; SELECT COUNT(*) FROM sys.server_properties";
+
+    Assertions.assertFalse(runSqlWithClient(sql, adminClient).isBlank());
+    ThrowableMatcher.of(RuntimeException.class)
+                    .expectMessageContains("403 Forbidden")
+                    .assertThrowsAndMatches(() -> runSqlWithClient(sql, regularUserClient));
+  }
+
+  /**
    * Extracts SQL query IDs from a {@link GetQueriesResponse} for Dart queries only.
    */
   private static List<String> getSqlQueryIds(GetQueriesResponse response)

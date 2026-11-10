@@ -96,7 +96,12 @@ public class DartControllerContext implements ControllerContext
   private final ServiceEmitter emitter;
   private final QueryContext context;
   private final DruidNodeDiscovery dartWorkerDiscovery;
+  private final boolean useBrokerWorker;
 
+  /**
+   * @param useBrokerWorker whether the query runs only on the Dart worker embedded in this Broker. Queries on system
+   *                        tables do, since their rows are gathered on the Broker before the query runs.
+   */
   public DartControllerContext(
       final Injector injector,
       final ObjectMapper jsonMapper,
@@ -107,7 +112,8 @@ public class DartControllerContext implements ControllerContext
       final List<InputSpecSlicerProvider> inputSpecSlicerProviders,
       final ServiceEmitter emitter,
       final QueryContext context,
-      final DruidNodeDiscovery dartWorkerDiscovery
+      final DruidNodeDiscovery dartWorkerDiscovery,
+      final boolean useBrokerWorker
   )
   {
     this.injector = injector;
@@ -120,6 +126,7 @@ public class DartControllerContext implements ControllerContext
     this.emitter = emitter;
     this.context = context;
     this.dartWorkerDiscovery = dartWorkerDiscovery;
+    this.useBrokerWorker = useBrokerWorker;
   }
 
   @Override
@@ -131,6 +138,10 @@ public class DartControllerContext implements ControllerContext
   @Override
   public ControllerQueryKernelConfig queryKernelConfig(final MSQSpec querySpec)
   {
+    if (useBrokerWorker) {
+      return makeQueryKernelConfig(querySpec, List.of(WorkerId.fromDruidNode(selfNode, queryId()).toString()));
+    }
+
     final List<DruidServerMetadata> servers = serverView.getDruidServerMetadatas();
 
     final Set<String> dartWorkerHosts =
@@ -170,6 +181,11 @@ public class DartControllerContext implements ControllerContext
     // workers when maxWorkerCount for a stage is less than the total number of workers.
     Collections.shuffle(workerIds);
 
+    return makeQueryKernelConfig(querySpec, workerIds);
+  }
+
+  private ControllerQueryKernelConfig makeQueryKernelConfig(final MSQSpec querySpec, final List<String> workerIds)
+  {
     final ControllerMemoryParameters memoryParameters =
         ControllerMemoryParameters.createProductionInstance(
             memoryIntrospector,

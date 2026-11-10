@@ -83,6 +83,14 @@ public class LegacyMSQSpec extends MSQSpec
     return QueryContext.of(query.getContext());
   }
 
+  /**
+   * Returns a copy of this spec that runs the given query.
+   */
+  public LegacyMSQSpec withQuery(final Query<?> newQuery)
+  {
+    return new LegacyMSQSpec(newQuery, getColumnMappings(), getDestination(), getAssignmentStrategy(), getTuningConfig());
+  }
+
   public LegacyMSQSpec withOverriddenContext(Map<String, Object> contextOverride)
   {
     if (contextOverride == null || contextOverride.isEmpty()) {

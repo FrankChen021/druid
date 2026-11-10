@@ -63,6 +63,7 @@ import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.module.SystemTableModule;
+import org.apache.druid.server.system.table.SystemTableAuthorization;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -447,25 +448,7 @@ public class QueryLifecycle
    */
   private DataSource withSystemTableAccess(final DataSource dataSource, final AuthenticationResult authenticationResult)
   {
-    if (!SystemTableDataSource.readsSystemTable(dataSource)) {
-      return dataSource;
-    }
-    if (dataSource instanceof SystemTableDataSource systemTable) {
-      final SystemTableDescriptor descriptor = systemTableDescriptors.get(systemTable.getTable());
-      if (descriptor == null) {
-        return systemTable;
-      }
-      return systemTable.withAccess(descriptor.getRowAuthorizer().authorize(authenticationResult, authorizerMapper));
-    }
-    final List<DataSource> children = dataSource.getChildren();
-    if (children.isEmpty()) {
-      return dataSource;
-    }
-    final List<DataSource> authorizedChildren = new ArrayList<>(children.size());
-    for (final DataSource child : children) {
-      authorizedChildren.add(withSystemTableAccess(child, authenticationResult));
-    }
-    return dataSource.withChildren(authorizedChildren);
+    return SystemTableAuthorization.withAccess(dataSource, systemTableDescriptors, authenticationResult, authorizerMapper);
   }
 
   private DruidException unservedSystemTableException(final SystemTableDataSource systemTable)

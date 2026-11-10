@@ -52,6 +52,7 @@ import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 /**
  * Represents a stage that reads data from input sources.
@@ -119,20 +120,31 @@ public class ReadStage extends AbstractFrameProcessorStage
     return StageMaker.makeScanStageProcessor(VirtualColumns.EMPTY, signature, null);
   }
 
-  public static Optional<ReadStage> buildReadStage(DruidNodeStack stack)
+  /**
+   * @param sourceResolver replaces the datasource that the stage reads
+   */
+  public static Optional<ReadStage> buildReadStage(DruidNodeStack stack, UnaryOperator<DataSource> sourceResolver)
   {
     DruidLogicalNode node = stack.getNode();
     if (node instanceof DruidValues || node instanceof DruidTableScan) {
-      return translateViaSourceDesc(stack, (SourceDescProducer) node);
+      return translateViaSourceDesc(stack, (SourceDescProducer) node, sourceResolver);
     }
     return Optional.empty();
   }
 
-  private static Optional<ReadStage> translateViaSourceDesc(DruidNodeStack stack, SourceDescProducer node)
+  private static Optional<ReadStage> translateViaSourceDesc(
+      DruidNodeStack stack,
+      SourceDescProducer node,
+      UnaryOperator<DataSource> sourceResolver
+  )
   {
     PlannerContext plannerContext = stack.getPlannerContext();
     SourceDesc sd = node.getSourceDesc(plannerContext, Collections.emptyList());
-    InputSpec inputSpec = translateDataSource(plannerContext, sd.dataSource, isDirectRightOfBroadcastJoin(stack));
+    InputSpec inputSpec = translateDataSource(
+        plannerContext,
+        sourceResolver.apply(sd.dataSource),
+        isDirectRightOfBroadcastJoin(stack)
+    );
     ReadStage stage = new ReadStage(sd.rowSignature, LogicalInputSpec.of(inputSpec, sd.rowSignature));
     return Optional.of(stage);
   }

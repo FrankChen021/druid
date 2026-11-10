@@ -28,6 +28,7 @@ import org.apache.druid.msq.input.InputSlice;
 import org.apache.druid.msq.input.InputSliceReaderProvider;
 import org.apache.druid.msq.kernel.WorkOrder;
 import org.apache.druid.msq.util.MultiStageQueryContext;
+import org.apache.druid.query.QueryProcessingPool;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.policy.PolicyEnforcer;
 import org.apache.druid.server.DruidNode;
@@ -35,6 +36,7 @@ import org.apache.druid.server.DruidNode;
 import java.io.Closeable;
 import java.io.File;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Context used by multi-stage query workers.
@@ -60,6 +62,15 @@ public interface WorkerContext extends Closeable
 
   // Using an Injector directly because tasks do not have a way to provide their own Guice modules.
   Injector injector();
+
+  /**
+   * Executor used by frame processors. Persistent query servers normally use their server-wide query processing pool.
+   * Worker contexts hosted on a service without such a pool may override this method with a dedicated executor.
+   */
+  default ExecutorService processingExecutor()
+  {
+    return injector().getInstance(QueryProcessingPool.class);
+  }
 
   /**
    * Emit the metric in the {@link MSQMetricEventBuilder} using a {@link ServiceEmitter}. Might sets up addtional

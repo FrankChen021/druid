@@ -84,7 +84,7 @@ public class DartControllerContextFactoryImpl implements DartControllerContextFa
   }
 
   @Override
-  public ControllerContext newContext(final QueryContext context)
+  public ControllerContext newContext(final QueryContext context, final boolean useBrokerWorker)
   {
     final String queryId = context.get(QueryContextParameters.DART_QUERY_ID);
     return new DartControllerContext(
@@ -97,7 +97,8 @@ public class DartControllerContextFactoryImpl implements DartControllerContextFa
         inputSpecSlicerProviders,
         emitter,
         context,
-        discoveryProvider.getForServiceAndRoles(DartWorkerService.NAME, Set.of(NodeRole.HISTORICAL))
+        discoveryProvider.getForServiceAndRoles(DartWorkerService.NAME, Set.of(NodeRole.HISTORICAL)),
+        useBrokerWorker
     );
   }
 }

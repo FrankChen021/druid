@@ -28,5 +28,10 @@ import org.apache.druid.query.QueryContext;
  */
 public interface DartControllerContextFactory
 {
-  ControllerContext newContext(QueryContext queryContext);
+  /**
+   * Creates the context of one query's controller.
+   *
+   * @param useBrokerWorker whether the query runs only on the Dart worker embedded in this Broker
+   */
+  ControllerContext newContext(QueryContext queryContext, boolean useBrokerWorker);
 }

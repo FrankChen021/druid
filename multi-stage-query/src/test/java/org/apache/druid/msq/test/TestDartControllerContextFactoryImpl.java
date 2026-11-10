@@ -110,7 +110,7 @@ public class TestDartControllerContextFactoryImpl extends DartControllerContextF
   }
 
   @Override
-  public ControllerContext newContext(QueryContext context)
+  public ControllerContext newContext(QueryContext context, boolean useBrokerWorker)
   {
     return new DartControllerContext(
         injector,
@@ -122,7 +122,9 @@ public class TestDartControllerContextFactoryImpl extends DartControllerContextF
         inputSpecSlicerProviders,
         emitter,
         context,
-        advertiseAllHistoricals(serverView)
+        advertiseAllHistoricals(serverView),
+        // Test workers run in-process, so the query never needs the Broker's embedded worker.
+        false
     )
     {
       @Override

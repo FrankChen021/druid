@@ -57,6 +57,7 @@ import org.apache.druid.query.OrderBy;
 import org.apache.druid.query.ProjectDataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryDataSource;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.UnionDataSource;
 import org.apache.druid.query.UnnestDataSource;
@@ -1515,7 +1516,7 @@ public class DruidQuery
     if (dataSource.isProcessable()) {
       return null;
     }
-    if (dataSource instanceof TableDataSource) {
+    if (dataSource instanceof TableDataSource || dataSource instanceof SystemTableDataSource) {
       // We need a scan query to pull the results up for us before applying the window
       // Returning null here to ensure that the planner generates that alternative
       return null;
