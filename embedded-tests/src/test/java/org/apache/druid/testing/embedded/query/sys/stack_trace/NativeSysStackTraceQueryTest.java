@@ -133,7 +133,10 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
         )
     );
     Assertions.assertTrue(exception.getMessage().contains("400 Bad Request"), exception.getMessage());
-    Assertions.assertTrue(exception.getMessage().contains("requires a filter on the server column"));
+    Assertions.assertTrue(
+        exception.getMessage().contains("using '=' or 'IN' that applies directly to its scan"),
+        exception.getMessage()
+    );
   }
 
   /**
@@ -191,6 +194,53 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
     Assertions.assertTrue(result.contains(brokerHost));
     Assertions.assertTrue(result.contains(coordinatorHost));
     Assertions.assertFalse(result.contains(host(overlord)));
+  }
+
+  /**
+   * A query on {@code sys.stack_trace} with a subquery on another native system table passes the planner's
+   * authorization sanity check, which must account for system tables scanned inside subqueries. The {@code server}
+   * filter is in the subquery on {@code sys.stack_trace}, so it applies directly to the stack-trace scan.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void test_stackTraceTableWithSystemTableSubquery(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    final String result = cluster.runSql(
+        """
+        SELECT COUNT(*) > 0
+        FROM (SELECT server FROM sys.stack_trace WHERE server = '%s') t
+        WHERE t.server IN (SELECT server FROM sys.server_properties WHERE property = 'druid.service')
+        """,
+        nativeQueryContext(plannerStrategy),
+        host(broker)
+    );
+
+    Assertions.assertEquals("true", result.trim());
+  }
+
+  /**
+   * Without {@code useDruidEngineForSystemTables}, a query with a subquery on {@code sys.server_properties} still
+   * runs through the Broker's SQL interpreter.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void test_serverPropertiesSubqueryWithoutDruidEngine(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    final String result = cluster.runSql(
+        """
+        SELECT server
+        FROM sys.servers
+        WHERE server IN (SELECT server FROM sys.server_properties WHERE property = 'druid.service')
+        """,
+        QueryContext.ofMap(
+            QueryContextParameters.ENGINE,
+            NativeSqlEngine.NAME,
+            QueryContextParameters.PLANNER_STRATEGY,
+            plannerStrategy
+        )
+    );
+
+    Assertions.assertTrue(result.contains(host(broker)), result);
   }
 
   /**

@@ -45,19 +45,19 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.LongUnaryOperator;
 
 /**
  * Native row supplier for {@code sys.stack_trace}.
  *
- * <p>Each call takes a thread dump of this service, so the query must filter on {@code server} with {@code =} or
- * {@code IN}. The service returns no rows unless it matches the filters on {@code server} and {@code service_name}.</p>
+ * <p>Each call takes a thread dump of this service. The service returns no rows unless it matches the filters on
+ * {@code server} and {@code service_name}. SQL queries must filter on {@code server}, which
+ * {@link StackTraceTableDescriptor#validateNodeQuery} checks on the Broker.</p>
  */
 public class StackTraceTableDataProvider implements SystemTableDataProvider
 {
-  private static final String SERVER_COLUMN = "server";
+  static final String SERVER_COLUMN = "server";
   private static final String SERVICE_NAME_COLUMN = "service_name";
-  static final String SERVER_FILTER_REQUIRED_MESSAGE =
-      "sys.stack_trace requires a filter on the server column using '=' or 'IN'";
 
   private static final Set<String> PUSHDOWN_COLUMNS = Set.of(SERVER_COLUMN, SERVICE_NAME_COLUMN);
 
@@ -104,19 +104,6 @@ public class StackTraceTableDataProvider implements SystemTableDataProvider
                                           .toList()
                                           .toString();
     return collectRows(server, selfNode.getServiceName(), nodeRoles, maxStackTraceFrameDepth);
-  }
-
-  /**
-   * Whether one of the filters requires {@code server} to equal one of a set of values.
-   */
-  static boolean hasServerFilter(final Iterable<Filter> filters)
-  {
-    for (final Filter filter : filters) {
-      if (getStringValues(filter, SERVER_COLUMN) != null) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /**
@@ -224,8 +211,8 @@ public class StackTraceTableDataProvider implements SystemTableDataProvider
               threadInfo.getThreadState().name(),
               threadInfo.isDaemon() ? 1L : 0L,
               (long) threadInfo.getPriority(),
-              getThreadCpuTime(threadMxBean, threadId, cpuTimeEnabled, false),
-              getThreadCpuTime(threadMxBean, threadId, cpuTimeEnabled, true),
+              cpuTimeEnabled ? getThreadTime(threadMxBean::getThreadCpuTime, threadId) : null,
+              cpuTimeEnabled ? getThreadTime(threadMxBean::getThreadUserTime, threadId) : null,
               threadInfo.getLockName(),
               rawLockOwnerId < 0 ? null : rawLockOwnerId,
               threadInfo.getLockOwnerName(),
@@ -241,8 +228,8 @@ public class StackTraceTableDataProvider implements SystemTableDataProvider
 
   /**
    * Formats a thread stack in the format of {@link ThreadInfo#toString()}, but includes all frames returned by the
-   * MX bean. {@code ThreadInfo.toString()} intentionally limits
-   * its output to eight frames and appends an ellipsis.
+   * MX bean, up to {@code maxStackTraceFrameDepth}. {@code ThreadInfo.toString()} intentionally limits its output to
+   * eight frames and appends an ellipsis.
    */
   private static String formatThreadInfo(final ThreadInfo threadInfo)
   {
@@ -278,26 +265,24 @@ public class StackTraceTableDataProvider implements SystemTableDataProvider
     final StackTraceElement[] stackTrace = threadInfo.getStackTrace();
     final MonitorInfo[] lockedMonitors = threadInfo.getLockedMonitors();
     for (int i = 0; i < stackTrace.length; i++) {
-      builder.append("\tat ").append(stackTrace[i]);
+      builder.append("\tat ").append(stackTrace[i]).append('\n');
 
       if (i == 0) {
         final LockInfo lockInfo = threadInfo.getLockInfo();
         if (lockInfo != null) {
           switch (threadInfo.getThreadState()) {
             case BLOCKED:
-              builder.append(" - blocked on ").append(lockInfo);
+              builder.append("\t-  blocked on ").append(lockInfo).append('\n');
               break;
             case WAITING:
             case TIMED_WAITING:
-              builder.append(" - waiting on ").append(lockInfo);
+              builder.append("\t-  waiting on ").append(lockInfo).append('\n');
               break;
             default:
               break;
           }
         }
       }
-
-      builder.append('\n');
 
       for (final MonitorInfo monitorInfo : lockedMonitors) {
         if (monitorInfo.getLockedStackDepth() == i) {
@@ -329,23 +314,16 @@ public class StackTraceTableDataProvider implements SystemTableDataProvider
     }
   }
 
+  /**
+   * Reads a thread's time in nanoseconds with a {@link ThreadMXBean} method such as
+   * {@link ThreadMXBean#getThreadCpuTime}, or returns null if the time is unavailable.
+   */
   @Nullable
-  private static Long getThreadCpuTime(
-      final ThreadMXBean threadMxBean,
-      final long threadId,
-      final boolean cpuTimeEnabled,
-      final boolean userTime
-  )
+  private static Long getThreadTime(final LongUnaryOperator threadTimeReader, final long threadId)
   {
-    if (!cpuTimeEnabled) {
-      return null;
-    }
-
     try {
-      final long cpuTime = userTime
-                           ? threadMxBean.getThreadUserTime(threadId)
-                           : threadMxBean.getThreadCpuTime(threadId);
-      return cpuTime < 0 ? null : cpuTime;
+      final long time = threadTimeReader.applyAsLong(threadId);
+      return time < 0 ? null : time;
     }
     catch (UnsupportedOperationException | SecurityException e) {
       return null;

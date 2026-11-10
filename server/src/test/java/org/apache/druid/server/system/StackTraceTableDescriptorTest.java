@@ -143,7 +143,11 @@ public class StackTraceTableDescriptorTest
         DruidException.class,
         () -> descriptor.validateNodeQuery(query(null))
     );
-    Assertions.assertTrue(exception.getMessage().contains("requires a filter on the server column"));
+    Assertions.assertEquals(
+        "sys.stack_trace requires a filter on the server column using '=' or 'IN' that applies directly to its scan. "
+        + "In joins and subqueries, filter sys.stack_trace in its own subquery",
+        exception.getMessage()
+    );
 
     Assertions.assertThrows(
         DruidException.class,

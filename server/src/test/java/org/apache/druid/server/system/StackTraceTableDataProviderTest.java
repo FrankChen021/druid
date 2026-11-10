@@ -219,8 +219,10 @@ public class StackTraceTableDataProviderTest
       Assertions.assertNotNull(thread);
       Assertions.assertEquals(State.WAITING.name(), thread[6]);
       final String stack = (String) thread[15];
-      Assertions.assertTrue(stack.contains(" - waiting on " + thread[11] + "\n"));
-      Assertions.assertFalse(stack.contains("\n\t-  waiting on "));
+      // Like ThreadInfo.toString(), the lock is on its own line after the first frame.
+      final String[] lines = stack.split("\n");
+      Assertions.assertTrue(lines[1].startsWith("\tat "), stack);
+      Assertions.assertEquals("\t-  waiting on " + thread[11], lines[2], stack);
     }
     finally {
       waitingThread.interrupt();

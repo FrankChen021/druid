@@ -440,7 +440,8 @@ table always appears in the `sys` schema, but it is available only through
 `useDruidEngineForSystemTables` to `true` with the `native` SQL engine. Otherwise, Druid rejects the query with an
 error that explains these requirements. Virtual threads are not included. The query must contain an equality or `IN`
 filter on `server`, whose value is the server's `host:port` address and aligns with `sys.servers.server`.
-Druid rejects a query without this filter before it queries any server. A native query sent to the `/druid/v2/`
+The filter must apply directly to the scan of `stack_trace`. In joins and subqueries, filter `stack_trace` on `server`
+in its own subquery. Druid rejects a query without this filter before it queries any server. A native query sent to the `/druid/v2/`
 endpoint of a service, with the `systemTable` datasource `stack_trace`, returns only the threads of that service, and
 doesn't require the filter.
 
@@ -466,7 +467,7 @@ IDs, and each query collects a full thread dump on every server that matches, so
 |lock_owner_id|BIGINT|Identifier of the thread owning the lock, when available|
 |lock_owner_name|VARCHAR|Name of the thread owning the lock, when available|
 |is_deadlocked|BIGINT|Boolean represented as long type where 1 = the JVM reports the thread as part of a deadlock and 0 = it is not reported as deadlocked|
-|stack|VARCHAR|One string in the format of Java's `ThreadInfo.toString()`: a header line with the thread name, priority, ID, and state, followed by up to `maxStackTraceFrameDepth` stack frames with lock and synchronizer annotations. The first frame line notes the lock that a blocked or waiting thread is blocked on or waiting on. The default is 100 frames. Unlike `ThreadInfo.toString()`, the value is not truncated to eight frames|
+|stack|VARCHAR|One string in the format of Java's `ThreadInfo.toString()`: a header line with the thread name, priority, ID, and state, followed by up to `maxStackTraceFrameDepth` stack frames with lock and synchronizer annotations. For a blocked or waiting thread, the line after the first frame notes the lock that the thread is blocked on or waiting on. The default is 100 frames. Unlike `ThreadInfo.toString()`, the value is not truncated to eight frames|
 |error_message|VARCHAR|Describes why the snapshot could not be retrieved, such as an HTTP or connection error. Null for successful thread rows|
 
 The `cpu_time_ns` and `user_cpu_time_ns` values are nullable. Do not assume that either value is present, because

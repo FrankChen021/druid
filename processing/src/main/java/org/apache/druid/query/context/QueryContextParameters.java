@@ -2514,8 +2514,8 @@ public final class QueryContextParameters
           .constraint(Range.closedRange(10, 1000))
           .description(
               """
-              For native queries on [`sys.stack_trace`](sql-metadata-tables.md#stack_trace-table), the maximum number
-              of stack frames returned for each thread. Defaults to `100`; valid values are integers from `10` through
+              For queries on [`sys.stack_trace`](sql-metadata-tables.md#stack_trace-table), the maximum number of
+              stack frames returned for each thread. Defaults to `100`; valid values are integers from `10` through
               `1000`. Has no effect unless `druid.query.enableDruidEngineForSystemTables` is set on all services.
               """
           )

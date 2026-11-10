@@ -321,7 +321,10 @@ public class SystemTableQueryClientTest
 
     final DruidException e = Assertions.assertThrows(DruidException.class, () -> client.resolve(query));
     Assertions.assertEquals(DruidException.Category.INVALID_INPUT, e.getCategory());
-    Assertions.assertTrue(e.getMessage().contains("requires a filter on the server column"), e.getMessage());
+    Assertions.assertTrue(
+        e.getMessage().contains("requires a filter on the server column using '=' or 'IN' that applies directly"),
+        e.getMessage()
+    );
     Mockito.verifyNoInteractions(nodeLocator, directClientFactory);
   }
 

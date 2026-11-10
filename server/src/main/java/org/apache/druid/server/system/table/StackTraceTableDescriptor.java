@@ -61,6 +61,10 @@ public class StackTraceTableDescriptor implements SystemTableDescriptor
       .add("error_message", ColumnType.STRING)
       .build();
 
+  private static final String SERVER_FILTER_REQUIRED_MESSAGE =
+      "sys.stack_trace requires a filter on the server column using '=' or 'IN' that applies directly to its scan. "
+      + "In joins and subqueries, filter sys.stack_trace in its own subquery";
+
   private static final Set<NodeRole> NODE_ROLES = Set.of(NodeRole.values());
 
   @Override
@@ -106,13 +110,23 @@ public class StackTraceTableDescriptor implements SystemTableDescriptor
     final List<Filter> conjuncts = filter instanceof AndFilter andFilter
                                    ? List.copyOf(andFilter.getFilters())
                                    : filter == null ? List.of() : List.of(filter);
-    InvalidInput.conditionalException(
-        StackTraceTableDataProvider.hasServerFilter(conjuncts),
-        StackTraceTableDataProvider.SERVER_FILTER_REQUIRED_MESSAGE
-    );
+    InvalidInput.conditionalException(hasServerFilter(conjuncts), SERVER_FILTER_REQUIRED_MESSAGE);
 
     // Parsing validates the range of the parameter.
     nodeQuery.context().get(QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH);
+  }
+
+  /**
+   * Whether one of the filters requires {@code server} to equal one of a set of values.
+   */
+  private static boolean hasServerFilter(final Iterable<Filter> filters)
+  {
+    for (final Filter filter : filters) {
+      if (StackTraceTableDataProvider.getStringValues(filter, StackTraceTableDataProvider.SERVER_COLUMN) != null) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override

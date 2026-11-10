@@ -746,26 +746,19 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
   }
 
   /**
-   * Returns the datasource names of the system-table datasources scanned by the logical plan. Reading them from the
-   * logical plan avoids generating the native query just for the authorization sanity check.
+   * Returns the datasource names of the system-table datasources scanned by the logical plan, including those scanned
+   * by subqueries. Reading them from the logical plan avoids generating the native query just for the authorization
+   * sanity check.
    */
   private static Set<String> getSystemTableDataSourceNames(final RelNode relNode)
   {
     final Set<String> names = new HashSet<>();
-    new RelVisitor()
-    {
-      @Override
-      public void visit(RelNode node, int ordinal, RelNode parent)
-      {
-        if (node instanceof TableScan) {
-          final DruidTable dataSourceTable = SystemSchema.getSystemTableDataSourceTable(node.getTable());
-          if (dataSourceTable != null) {
-            names.addAll(dataSourceTable.getDataSource().getTableNames());
-          }
-        }
-        super.visit(node, ordinal, parent);
+    for (final RelOptTable table : getAllTables(relNode)) {
+      final DruidTable dataSourceTable = SystemSchema.getSystemTableDataSourceTable(table);
+      if (dataSourceTable != null) {
+        names.addAll(dataSourceTable.getDataSource().getTableNames());
       }
-    }.go(relNode);
+    }
     return names;
   }
 
