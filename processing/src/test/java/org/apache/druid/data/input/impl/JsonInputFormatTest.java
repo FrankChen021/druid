@@ -67,6 +67,24 @@ public class JsonInputFormatTest
   }
 
   @Test
+  public void testSerdeAllowOptimizedReader() throws IOException
+  {
+    final ObjectMapper mapper = new DefaultObjectMapper();
+    final JsonInputFormat enabled = (JsonInputFormat) mapper.readValue(
+        "{\"type\":\"json\",\"allowOptimizedReader\":true}",
+        InputFormat.class
+    );
+    Assertions.assertTrue(enabled.isAllowOptimizedReader());
+    Assertions.assertEquals(enabled, mapper.readValue(mapper.writeValueAsBytes(enabled), InputFormat.class));
+    Assertions.assertTrue(enabled.withLineSplittable(false).isAllowOptimizedReader());
+
+    final JsonInputFormat disabled = (JsonInputFormat) mapper.readValue("{\"type\":\"json\"}", InputFormat.class);
+    Assertions.assertFalse(disabled.isAllowOptimizedReader());
+    Assertions.assertNotEquals(enabled, disabled);
+    Assertions.assertFalse(mapper.writeValueAsString(disabled).contains("allowOptimizedReader"));
+  }
+
+  @Test
   public void testWithLineSplittable()
   {
     final JsonInputFormat format = new JsonInputFormat(
