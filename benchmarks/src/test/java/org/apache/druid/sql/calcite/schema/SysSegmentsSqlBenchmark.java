@@ -22,6 +22,7 @@ package org.apache.druid.sql.calcite.schema;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.druid.client.BrokerSegmentWatcherConfig;
@@ -48,12 +49,15 @@ import org.apache.druid.rpc.indexing.NoopOverlordClient;
 import org.apache.druid.segment.MapSegmentWrangler;
 import org.apache.druid.segment.join.JoinableFactory;
 import org.apache.druid.segment.join.JoinableFactoryWrapper;
+import org.apache.druid.segment.metadata.AvailableSegmentMetadata;
 import org.apache.druid.segment.metadata.CentralizedDatasourceSchemaConfig;
 import org.apache.druid.server.QueryLifecycleFactory;
 import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.SegmentManager;
 import org.apache.druid.server.SpecificSegmentsQuerySegmentWalker;
+import org.apache.druid.server.coordination.DruidServerMetadata;
+import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.log.NoopRequestLogger;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
@@ -101,10 +105,12 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -146,6 +152,7 @@ public class SysSegmentsSqlBenchmark
 
   public enum Workload
   {
+    ALL_DATASOURCES("", NUM_DATASOURCES),
     SINGLE_DATASOURCE_EQUALS("WHERE datasource = 'datasource_0'\n", 1),
     MULTI_DATASOURCE_IN("WHERE datasource IN ('datasource_0', 'datasource_1', 'datasource_2')\n", 3),
     SEGMENT_ID_EQUALS("WHERE segment_id = '" + FIRST_SEGMENT_ID + "'\n", 1);
@@ -241,9 +248,14 @@ public class SysSegmentsSqlBenchmark
     }
   }
 
-  private static class EmptyBrokerSegmentMetadataCache extends BrokerSegmentMetadataCache
+  /**
+   * A metadata cache in which every published segment is loaded on one server, as on a healthy cluster.
+   */
+  private static class LoadedBrokerSegmentMetadataCache extends BrokerSegmentMetadataCache
   {
-    EmptyBrokerSegmentMetadataCache()
+    private final Map<SegmentId, AvailableSegmentMetadata> segments = new LinkedHashMap<>();
+
+    LoadedBrokerSegmentMetadataCache(final List<SegmentStatusInCluster> publishedSegments)
     {
       super(
           EasyMock.mock(QueryLifecycleFactory.class),
@@ -259,6 +271,36 @@ public class SysSegmentsSqlBenchmark
           new NoopCoordinatorClient(),
           CentralizedDatasourceSchemaConfig.create()
       );
+      final DruidServerMetadata server =
+          new DruidServerMetadata("historical", "historical:8083", null, 0L, null, ServerType.HISTORICAL, "_default", 0);
+      for (final SegmentStatusInCluster published : publishedSegments) {
+        final DataSegment segment = published.getDataSegment();
+        segments.put(
+            segment.getId(),
+            AvailableSegmentMetadata.builder(segment, 0L, Set.of(server), null, segment.getTotalRows()).build()
+        );
+      }
+    }
+
+    @Override
+    public AvailableSegmentMetadata getAvailableSegmentMetadata(final String datasource, final SegmentId segmentId)
+    {
+      return segments.get(segmentId);
+    }
+
+    @Override
+    public Iterator<AvailableSegmentMetadata> iterateSegmentMetadata(@Nullable final Set<String> dataSources)
+    {
+      final Iterator<AvailableSegmentMetadata> iterator = segments.values().iterator();
+      return dataSources == null
+             ? iterator
+             : Iterators.filter(iterator, metadata -> dataSources.contains(metadata.getSegment().getDataSource()));
+    }
+
+    @Override
+    public int getTotalSegments()
+    {
+      return segments.size();
     }
   }
 
@@ -287,7 +329,7 @@ public class SysSegmentsSqlBenchmark
         metadataConfig,
         NoopServiceEmitter.instance()
     );
-    final BrokerSegmentMetadataCache segmentMetadataCache = new EmptyBrokerSegmentMetadataCache();
+    final BrokerSegmentMetadataCache segmentMetadataCache = new LoadedBrokerSegmentMetadataCache(segments);
     final SegmentsTableDescriptor descriptor = new SegmentsTableDescriptor();
     final SegmentsTableDataProvider dataProvider = new SegmentsTableDataProvider(
         () -> segmentMetadataCache,

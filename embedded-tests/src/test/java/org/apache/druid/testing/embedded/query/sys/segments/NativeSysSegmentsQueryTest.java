@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -116,6 +117,37 @@ public class NativeSysSegmentsQueryTest extends QueryTestBase
                                      .mapToObj(rowNumber -> dataSource + "," + rowNumber)
                                      .collect(Collectors.joining("\n"));
     Assertions.assertEquals(expected, result);
+  }
+
+  /**
+   * The Broker reads the table in batches for vectorized queries, and row by row otherwise, with the same results.
+   * Forcing vectorization fails the query if it can't be vectorized.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testVectorizedAndRowResultsMatch(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    final String sql = """
+        SELECT
+          datasource,
+          COUNT(*) FILTER (WHERE is_active = 1),
+          COUNT(*) FILTER (WHERE is_published = 1 AND is_overshadowed = 0),
+          SUM("size") FILTER (WHERE is_available = 1),
+          MIN("num_rows"),
+          MAX("num_rows"),
+          SUM("num_rows" * "num_replicas")
+        FROM sys.segments
+        GROUP BY 1
+        ORDER BY 1
+        """;
+    final Map<String, Object> vectorized = new HashMap<>(nativeQueryContext(plannerStrategy));
+    vectorized.putAll(QueryContext.ofMap(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.FORCE));
+    final Map<String, Object> rowByRow = new HashMap<>(nativeQueryContext(plannerStrategy));
+    rowByRow.putAll(QueryContext.ofMap(QueryContextParameters.VECTORIZE, QueryContexts.Vectorize.FALSE));
+
+    final String vectorizedResult = cluster.runSql(sql, vectorized);
+    Assertions.assertTrue(vectorizedResult.contains(dataSource), vectorizedResult);
+    Assertions.assertEquals(cluster.runSql(sql, rowByRow), vectorizedResult);
   }
 
   /**

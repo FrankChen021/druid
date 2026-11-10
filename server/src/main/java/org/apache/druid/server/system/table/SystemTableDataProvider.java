@@ -43,8 +43,9 @@ public interface SystemTableDataProvider
   }
 
   /**
-   * Returns the table's rows, in row-signature order, each time it's called. It's called synchronously on the thread
-   * that runs the query.
+   * Returns the table's rows, in row-signature order, each time it's called. A {@code STRING} column holds a single
+   * {@link String} or null, and a {@code LONG} column holds a {@link Number} or null. It's called synchronously on
+   * the thread that runs the query.
    *
    * @param filters filters that read only {@link #getPushdownColumns() pushdown columns}. The result must include
    *                every row matching all of them, and may include other rows: the query applies its whole filter to

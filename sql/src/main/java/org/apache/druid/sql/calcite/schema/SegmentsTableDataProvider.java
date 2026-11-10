@@ -24,11 +24,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.CloseableIterators;
 import org.apache.druid.java.util.common.io.Closer;
@@ -45,13 +43,13 @@ import org.apache.druid.utils.CloseableUtils;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
@@ -70,15 +68,29 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
   private static final long IS_OVERSHADOWED_TRUE = 1L;
 
   private static final int[] PROJECT_ALL = IntStream.range(0, SegmentsTableDescriptor.ROW_SIGNATURE.size()).toArray();
-  private static final IntSet JSON_FIELDS = new IntOpenHashSet(
-      new int[]{
-          SegmentsTableDescriptor.ROW_SIGNATURE.indexOf("shard_spec"),
-          SegmentsTableDescriptor.ROW_SIGNATURE.indexOf("dimensions"),
-          SegmentsTableDescriptor.ROW_SIGNATURE.indexOf("metrics"),
-          SegmentsTableDescriptor.ROW_SIGNATURE.indexOf("projections"),
-          SegmentsTableDescriptor.ROW_SIGNATURE.indexOf("last_compaction_state")
-      }
-  );
+  private static final Set<String> JSON_COLUMN_NAMES =
+      Set.of("shard_spec", "dimensions", "metrics", "projections", "last_compaction_state");
+  /**
+   * Whether each column is declared as a string, so its raw value is converted to a string when read.
+   */
+  private static final boolean[] STRING_COLUMNS = new boolean[SegmentsTableDescriptor.ROW_SIGNATURE.size()];
+  /**
+   * Whether each column holds an object that is serialized as JSON when read.
+   */
+  private static final boolean[] JSON_COLUMNS = new boolean[SegmentsTableDescriptor.ROW_SIGNATURE.size()];
+
+  static {
+    for (int column = 0; column < SegmentsTableDescriptor.ROW_SIGNATURE.size(); column++) {
+      STRING_COLUMNS[column] =
+          SegmentsTableDescriptor.ROW_SIGNATURE.getColumnType(column).orElseThrow().is(ValueType.STRING);
+      JSON_COLUMNS[column] = JSON_COLUMN_NAMES.contains(SegmentsTableDescriptor.ROW_SIGNATURE.getColumnName(column));
+    }
+  }
+
+  /**
+   * Columns read from the Broker's segment metadata cache for published segments.
+   */
+  private static final Set<String> AVAILABILITY_COLUMNS = Set.of("num_replicas", "is_available", "num_rows");
   private static final Set<String> PUSHDOWN_COLUMNS = Set.of("datasource", "segment_id", "start", "end", "version");
   private static final int DATASOURCE_COLUMN = SegmentsTableDescriptor.ROW_SIGNATURE.indexOf("datasource");
 
@@ -123,7 +135,8 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
       // The filters allow no value of some column, such as datasource = 'a' AND datasource = 'b'.
       return List.of();
     }
-    final int[] projects = getProjects(columns);
+    final boolean[] projects = getProjects(columns);
+    final boolean readAvailability = columns == null || columns.stream().anyMatch(AVAILABILITY_COLUMNS::contains);
     return () -> {
       final Closer closer = Closer.create();
       final Iterator<Object[]> rawRows = Iterators.filter(
@@ -131,7 +144,8 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
               segmentMetadataCacheProvider.get(),
               metadataView,
               stringValues.get("datasource"),
-              segment -> matchesStringValues(segment, stringValues),
+              makeSegmentFilter(stringValues),
+              readAvailability,
               closer
           ),
           Objects::nonNull
@@ -162,7 +176,7 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
       final Closer closer
   )
   {
-    return () -> getRawRowsIterator(segmentMetadataCache, metadataView, dataSourceFilter, segmentFilter, closer);
+    return () -> getRawRowsIterator(segmentMetadataCache, metadataView, dataSourceFilter, segmentFilter, true, closer);
   }
 
   /**
@@ -173,22 +187,27 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
       final MetadataSegmentView metadataView,
       @Nullable final Set<String> dataSourceFilter,
       final Predicate<DataSegment> segmentFilter,
+      final boolean readAvailability,
       final Closer closer
   )
   {
+    // Every published segment is recorded, so that available segments returned below don't repeat them.
     final Set<SegmentId> segmentsAlreadySeen = dataSourceFilter == null
-                                                ? Sets.newHashSetWithExpectedSize(
-                                                    segmentMetadataCache.getTotalSegments()
-                                                )
-                                                : new HashSet<>();
+                                                ? new ObjectOpenHashSet<>(segmentMetadataCache.getTotalSegments())
+                                                : new ObjectOpenHashSet<>();
 
     final FluentIterable<Object[]> publishedSegments = FluentIterable
         .from(() -> closer.register(new CloseWhenExhaustedIterator<>(metadataView.getSegments(dataSourceFilter))))
         .filter(val -> segmentFilter.test(val.getDataSegment()))
         .transform(val -> {
           final DataSegment segment = val.getDataSegment();
-          final AvailableSegmentMetadata availableSegmentMetadata =
-              segmentMetadataCache.getAvailableSegmentMetadata(segment.getDataSource(), segment.getId());
+          // Without the availability columns, num_replicas, is_available and num_rows aren't read.
+          final AvailableSegmentMetadata availableSegmentMetadata = readAvailability
+                                                                    ? segmentMetadataCache.getAvailableSegmentMetadata(
+                                                                        segment.getDataSource(),
+                                                                        segment.getId()
+                                                                    )
+                                                                    : null;
           segmentsAlreadySeen.add(segment.getId());
 
           long numReplicas = 0L;
@@ -295,11 +314,9 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
   @Nullable
   private static Object convertValue(final int column, @Nullable final Object value, final ObjectMapper jsonMapper)
   {
-    if (value == null
-        || value instanceof String
-        || !SegmentsTableDescriptor.ROW_SIGNATURE.getColumnType(column).get().is(ValueType.STRING)) {
+    if (value == null || value instanceof String || !STRING_COLUMNS[column]) {
       return value;
-    } else if (!JSON_FIELDS.contains(column)) {
+    } else if (!JSON_COLUMNS[column]) {
       return value.toString();
     }
     try {
@@ -316,45 +333,52 @@ public class SegmentsTableDataProvider implements SystemTableDataProvider
   }
 
   /**
-   * Returns a full-width row holding the given columns of the raw row, converted to their declared types. The other
-   * columns are null.
+   * Converts the given columns of the raw row to their declared types, in place, and sets the other columns to null.
    */
-  private static Object[] fillRow(final Object[] row, final int[] projects, final ObjectMapper jsonMapper)
+  private static Object[] fillRow(final Object[] row, final boolean[] projects, final ObjectMapper jsonMapper)
   {
-    final Object[] filledRow = new Object[row.length];
-    for (final int column : projects) {
-      filledRow[column] = convertValue(column, row[column], jsonMapper);
+    for (int column = 0; column < row.length; column++) {
+      row[column] = projects[column] ? convertValue(column, row[column], jsonMapper) : null;
     }
-    return filledRow;
+    return row;
   }
 
   /**
    * Returns the columns to fill for a query that reads the given columns, or every column if null. The
    * {@code datasource} column is always filled, since rows are authorized by it.
    */
-  private static int[] getProjects(@Nullable final Set<String> columns)
+  private static boolean[] getProjects(@Nullable final Set<String> columns)
   {
-    if (columns == null) {
-      return PROJECT_ALL;
+    final boolean[] projects = new boolean[SegmentsTableDescriptor.ROW_SIGNATURE.size()];
+    for (int column = 0; column < projects.length; column++) {
+      projects[column] = columns == null
+                         || column == DATASOURCE_COLUMN
+                         || columns.contains(SegmentsTableDescriptor.ROW_SIGNATURE.getColumnName(column));
     }
-    final IntSet projects = new IntOpenHashSet();
-    projects.add(DATASOURCE_COLUMN);
-    for (final String column : columns) {
-      final int columnNumber = SegmentsTableDescriptor.ROW_SIGNATURE.indexOf(column);
-      if (columnNumber >= 0) {
-        projects.add(columnNumber);
-      }
-    }
-    return projects.toIntArray();
+    return projects;
   }
 
-  private static boolean matchesStringValues(final DataSegment segment, final Map<String, Set<String>> stringValues)
+  /**
+   * Returns a filter on segments that checks only the columns the pushdown filters constrain, so a segment's id and
+   * interval are formatted as strings only when a filter needs them.
+   */
+  private static Predicate<DataSegment> makeSegmentFilter(final Map<String, Set<String>> stringValues)
   {
-    return SystemTableStringFilters.matches(stringValues.get("datasource"), segment.getDataSource())
-           && SystemTableStringFilters.matches(stringValues.get("segment_id"), segment.getId().toString())
-           && SystemTableStringFilters.matches(stringValues.get("start"), segment.getInterval().getStart().toString())
-           && SystemTableStringFilters.matches(stringValues.get("end"), segment.getInterval().getEnd().toString())
-           && SystemTableStringFilters.matches(stringValues.get("version"), segment.getVersion());
+    Predicate<DataSegment> filter = segment -> true;
+    filter = and(filter, stringValues.get("datasource"), DataSegment::getDataSource);
+    filter = and(filter, stringValues.get("segment_id"), segment -> segment.getId().toString());
+    filter = and(filter, stringValues.get("start"), segment -> segment.getInterval().getStart().toString());
+    filter = and(filter, stringValues.get("end"), segment -> segment.getInterval().getEnd().toString());
+    return and(filter, stringValues.get("version"), DataSegment::getVersion);
+  }
+
+  private static Predicate<DataSegment> and(
+      final Predicate<DataSegment> filter,
+      @Nullable final Set<String> allowedValues,
+      final Function<DataSegment, String> value
+  )
+  {
+    return allowedValues == null ? filter : filter.and(segment -> allowedValues.contains(value.apply(segment)));
   }
 
   /**
