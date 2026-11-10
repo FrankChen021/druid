@@ -107,8 +107,8 @@ public class StackTraceTableDescriptor implements SystemTableDescriptor
 
   /**
    * Rejects a SQL query that would take a thread dump on every service: the Scan sent to the services must filter on
-   * {@code server} with {@code =} or {@code IN}, checked before any service is queried. A native query reaches only
-   * the contacted service, so it doesn't go through this check. Also rejects an invalid
+   * {@code server} with {@code =}, {@code IN}, or an {@code OR} of them, checked before any service is queried. A
+   * native query reaches only the contacted service, so it doesn't go through this check. Also rejects an invalid
    * {@code maxStackTraceFrameDepth}.
    */
   @Override

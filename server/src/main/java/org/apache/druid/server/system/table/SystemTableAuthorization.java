@@ -51,7 +51,7 @@ public final class SystemTableAuthorization
   /**
    * Row authorizer for tables whose rows are all visible to users with both {@code STATE READ} and
    * {@code CONFIG READ}, and to no one else, such as {@code sys.stack_trace}: thread names expose datasource names and
-   * query IDs of other users, and each query takes a thread dump on every node.
+   * query IDs of other users, and each query takes a thread dump on every node that its {@code server} filter matches.
    */
   public static final SystemTableRowAuthorizer STATE_AND_CONFIG_READ_ROW_AUTHORIZER =
       (authenticationResult, authorizerMapper) -> {
