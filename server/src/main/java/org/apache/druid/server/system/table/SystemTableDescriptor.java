@@ -45,7 +45,7 @@ public interface SystemTableDescriptor
   SystemTableRowAuthorizer getRowAuthorizer();
 
   /**
-   * Returns which services' rows SQL reads for this table.
+   * Returns which services' rows a cluster-scoped read of this table returns.
    */
   default SystemTableRoutingMode getRoutingMode()
   {

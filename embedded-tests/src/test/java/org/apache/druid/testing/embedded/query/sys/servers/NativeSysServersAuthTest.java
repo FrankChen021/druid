@@ -62,8 +62,7 @@ public class NativeSysServersAuthTest extends NativeSysServersAuthTestBase
   {
     final String sql = "SELECT server, server_type FROM sys.servers WHERE server_type = 'broker'";
 
-    final String plan = sql(adminClient, "EXPLAIN PLAN FOR " + sql, HttpResponseStatus.OK).getContent();
-    Assertions.assertTrue(plan.contains("systemTable"), plan);
+    assertPlannedOnDruidEngine(sql);
 
     final String rows = sql(sysTableWithStateUser, sql, HttpResponseStatus.OK).getContent();
     Assertions.assertTrue(rows.contains(brokerServer() + ",broker"), rows);

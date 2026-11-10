@@ -20,7 +20,7 @@
 package org.apache.druid.server.system.table;
 
 /**
- * Which services' rows make up a system table when SQL reads it.
+ * Which services' rows a cluster-scoped read of a system table returns.
  */
 public enum SystemTableRoutingMode
 {

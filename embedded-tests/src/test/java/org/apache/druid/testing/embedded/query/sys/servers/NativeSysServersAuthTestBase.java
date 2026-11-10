@@ -42,6 +42,7 @@ import org.apache.druid.testing.embedded.EmbeddedOverlord;
 import org.apache.druid.testing.embedded.auth.EmbeddedBasicAuthResource;
 import org.apache.druid.testing.embedded.auth.HttpUtil;
 import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 
 import java.util.List;
@@ -120,6 +121,16 @@ public abstract class NativeSysServersAuthTestBase extends EmbeddedClusterTestBa
         request,
         expectedStatus
     );
+  }
+
+  /**
+   * Checks, as the admin, that the Broker plans the SQL on the Druid engine, so the test can't pass on the Broker's
+   * SQL interpreter, which returns the same rows and errors.
+   */
+  protected void assertPlannedOnDruidEngine(final String sql)
+  {
+    final String plan = sql(adminClient, "EXPLAIN PLAN FOR " + sql, HttpResponseStatus.OK).getContent();
+    Assertions.assertTrue(plan.contains("systemTable"), plan);
   }
 
   /**

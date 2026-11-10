@@ -59,6 +59,8 @@ public class NativeSysServersStateReadAuthTest extends NativeSysServersAuthTestB
   {
     final String sql = "SELECT server, server_type FROM sys.servers WHERE server_type = 'broker'";
 
+    assertPlannedOnDruidEngine(sql);
+
     final String rows = sql(stateUser, sql, HttpResponseStatus.OK).getContent();
     Assertions.assertTrue(rows.contains(brokerServer() + ",broker"), rows);
 
