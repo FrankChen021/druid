@@ -216,7 +216,8 @@ public class SysSegmentsTableBenchmark
         metadataView,
         new DefaultObjectMapper(),
         authorizerMapper,
-        new AuthenticationResult("benchmark", "benchmark", null, null)
+        new AuthenticationResult("benchmark", "benchmark", null, null),
+        true
     );
 
     filtersByQuery = buildFilters();

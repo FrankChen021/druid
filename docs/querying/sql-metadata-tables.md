@@ -177,6 +177,8 @@ execution:
 
 |Table|Source of rows|
 |-----|--------------|
+|[`sys.segments`](#segments-table)|The Broker that receives the SQL query, from its segment metadata cache and its Coordinator metadata view. Other Brokers aren't queried. Exact equality and `IN` filters on `datasource`, `segment_id`, `start`, `end`, and `version` let the Broker skip segments that don't match, and a filter on `datasource` also limits which segments it reads from both views.|
+|[`sys.server_segments`](#server_segments-table)|The Broker that receives the SQL query, from its view of the segments that each server has loaded. Other Brokers aren't queried. Exact equality and `IN` filters on `server`, `segment_id`, and `datasource` let the Broker skip servers and segments that don't match.|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Every server is queried, and filters on `server` and `service_name` let a server that doesn't match return no rows.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
@@ -304,23 +306,23 @@ SELECT * FROM sys.servers;
 
 ### SERVER_SEGMENTS table
 
-SERVER_SEGMENTS is used to join servers with segments table
+SERVER_SEGMENTS maps servers to their loaded segments and datasources.
 
 |Column|Type|Notes|
 |------|-----|-----|
 |server|VARCHAR|Server name in format host:port (Primary key of [servers table](#servers-table))|
 |segment_id|VARCHAR|Segment identifier (Primary key of [segments table](#segments-table))|
+|datasource|VARCHAR|Datasource name|
 
 JOIN between "servers" and "segments" can be used to query the number of segments for a specific datasource,
 grouped by server, example query:
 
 ```sql
-SELECT count(segments.segment_id) as num_segments from sys.segments as segments
-INNER JOIN sys.server_segments as server_segments
-ON segments.segment_id  = server_segments.segment_id
+SELECT count(server_segments.segment_id) as num_segments
+FROM sys.server_segments as server_segments
 INNER JOIN sys.servers as servers
 ON servers.server = server_segments.server
-WHERE segments.datasource = 'wikipedia'
+WHERE server_segments.datasource = 'wikipedia'
 GROUP BY servers.server;
 ```
 

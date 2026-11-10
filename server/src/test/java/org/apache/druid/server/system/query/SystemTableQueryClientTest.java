@@ -280,6 +280,47 @@ public class SystemTableQueryClientTest
   }
 
   /**
+   * A table that only the receiving Broker serves is read on this Broker with its own access, and no node is queried.
+   */
+  @Test
+  public void testLocalOnlySystemTableIsNotGathered() throws IOException
+  {
+    final SystemTableDescriptor descriptor = new TestSystemTableDescriptor()
+    {
+      @Override
+      public boolean isLocalOnly()
+      {
+        return true;
+      }
+    };
+    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
+    final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
+    final SystemTableQueryClient client = newClient(
+        nodeLocator,
+        directClientFactory,
+        Mockito.mock(QueryScheduler.class),
+        Map.of(descriptor.getTableName(), descriptor),
+        nonMatchingSelfNode()
+    );
+    final SystemTableAccess access = new SystemTableAccess(row -> "allowed".equals(row[0]));
+    final SystemTableDataSource dataSource = new SystemTableDataSource(descriptor.getTableName())
+        .withScope(SystemTableDataSource.Scope.CLUSTER)
+        .withAccess(access);
+    final ScanQuery query = Druids.ScanQueryBuilder.copy(query(descriptor, Collections.emptyMap()))
+                                                   .dataSource(dataSource)
+                                                   .build();
+
+    final SystemTableQueryClient.ResolvedQuery<ScanResultValue> resolved = client.resolve(query);
+    resolved.closer().close();
+
+    final SystemTableDataSource resolvedDataSource =
+        Assertions.assertInstanceOf(SystemTableDataSource.class, resolved.query().getDataSource());
+    Assertions.assertEquals(SystemTableDataSource.Scope.LOCAL, resolvedDataSource.getScope());
+    Assertions.assertSame(access, resolvedDataSource.getAccess());
+    Mockito.verifyNoInteractions(nodeLocator, directClientFactory);
+  }
+
+  /**
    * Node scans must not share the caller's response context. A Scan with a limit returns no rows once the context's
    * scanned-row count reaches the limit, so counting node rows there emptied limited Scans over joins.
    */

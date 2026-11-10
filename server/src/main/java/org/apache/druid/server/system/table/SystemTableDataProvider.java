@@ -21,6 +21,7 @@ package org.apache.druid.server.system.table;
 
 import org.apache.druid.query.filter.Filter;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Set;
 
@@ -50,4 +51,20 @@ public interface SystemTableDataProvider
    *                the result.
    */
   Iterable<Object[]> getRows(List<Filter> filters);
+
+  /**
+   * Like {@link #getRows(List)}, for a query that reads only some columns. The default implementation ignores the
+   * columns and returns full rows.
+   *
+   * <p>A provider can leave the other columns null to skip computing them. It must still fill every column that the
+   * table's {@link SystemTableRowAuthorizer} reads, since rows are authorized after this method returns. If the
+   * iterator of the returned rows is {@link java.io.Closeable}, it's closed once the query stops reading it, even if
+   * the query stops early.</p>
+   *
+   * @param columns columns the query reads, or null if it may read every column
+   */
+  default Iterable<Object[]> getRows(final List<Filter> filters, @Nullable final Set<String> columns)
+  {
+    return getRows(filters);
+  }
 }

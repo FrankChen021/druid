@@ -19,6 +19,8 @@
 
 package org.apache.druid.server.system.table;
 
+import org.apache.druid.java.util.common.guava.BaseSequence;
+import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.query.filter.Filter;
@@ -31,10 +33,13 @@ import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.filter.AndFilter;
+import org.apache.druid.utils.CloseableUtils;
 
 import javax.annotation.Nullable;
+import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -74,8 +79,39 @@ public class SystemTableCursorFactory implements ResidentCursorFactory
   @Override
   public CursorHolder makeCursorHolder(final CursorBuildSpec spec)
   {
-    final Iterable<Object[]> rows = access.filter(provider.getRows(getPushdownFilters(spec)));
-    return new RowBasedCursorFactory<>(Sequences.simple(rows), rowAdapter, rowSignature).makeCursorHolder(spec);
+    final Sequence<Object[]> rows = makeRowSequence(
+        provider.getRows(getPushdownFilters(spec), spec.getPhysicalColumns())
+    );
+    final Sequence<Object[]> authorizedRows = access.rowPredicate() == null
+                                              ? rows
+                                              : rows.filter(access.rowPredicate()::test);
+    return new RowBasedCursorFactory<>(authorizedRows, rowAdapter, rowSignature).makeCursorHolder(spec);
+  }
+
+  /**
+   * Returns the provider's rows as a sequence that closes their iterator, if it's {@link Closeable}, once the cursor
+   * holder is closed, even if the query stopped reading early.
+   */
+  private static Sequence<Object[]> makeRowSequence(final Iterable<Object[]> rows)
+  {
+    return new BaseSequence<>(
+        new BaseSequence.IteratorMaker<Object[], Iterator<Object[]>>()
+        {
+          @Override
+          public Iterator<Object[]> make()
+          {
+            return rows.iterator();
+          }
+
+          @Override
+          public void cleanup(final Iterator<Object[]> iterator)
+          {
+            if (iterator instanceof Closeable closeable) {
+              CloseableUtils.closeAndWrapExceptions(closeable);
+            }
+          }
+        }
+    );
   }
 
   /**

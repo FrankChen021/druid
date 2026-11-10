@@ -64,6 +64,15 @@ public class SystemSchemaDataSourceTableTest
   @Test
   public void testNativeTablesExposeSystemMetadata()
   {
+    Assertions.assertEquals(
+        "segments",
+        ((SystemTableDataSource) new SegmentsDataSourceTable().getDataSource()).getTable()
+    );
+    Assertions.assertEquals(
+        "server_segments",
+        ((SystemTableDataSource) new ServerSegmentsDataSourceTable().getDataSource()).getTable()
+    );
+
     final ServerPropertiesDataSourceTable serverProperties = new ServerPropertiesDataSourceTable();
     Assertions.assertEquals(
         "server_properties",
@@ -72,6 +81,21 @@ public class SystemSchemaDataSourceTableTest
     Assertions.assertFalse(serverProperties.isJoinable());
     Assertions.assertFalse(serverProperties.isBroadcast());
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, serverProperties.getJdbcTableType());
+  }
+
+  @Test
+  public void testSegmentsTablesOfferDataSourceOnlyWhenEnabled()
+  {
+    Assertions.assertNull(new SystemSchema.SegmentsTable(null, null, null, null, null, false).asDataSourceTable());
+    Assertions.assertInstanceOf(
+        SegmentsDataSourceTable.class,
+        new SystemSchema.SegmentsTable(null, null, null, null, null, true).asDataSourceTable()
+    );
+    Assertions.assertNull(new SystemSchema.ServerSegmentsTable(null, null, null, false).asDataSourceTable());
+    Assertions.assertInstanceOf(
+        ServerSegmentsDataSourceTable.class,
+        new SystemSchema.ServerSegmentsTable(null, null, null, true).asDataSourceTable()
+    );
   }
 
   @Test
