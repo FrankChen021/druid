@@ -23,7 +23,6 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.system.query.NodeAttribute;
 
 import java.util.Map;
 import java.util.Optional;

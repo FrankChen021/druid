@@ -211,8 +211,9 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
   }
 
   /**
-   * The Broker queries only the servers that the filters on {@code server} and {@code service_name} allow, and the
-   * result holds the rows of exactly those servers. A value that matches no server returns no rows.
+   * Queries filtered on {@code server} and {@code service_name} return exactly the rows of the servers that match, and
+   * a value that matches no server returns no rows. This checks only the results; {@code SystemTableQueryClientTest}
+   * checks which services the Broker contacts.
    */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)

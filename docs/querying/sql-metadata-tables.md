@@ -389,10 +389,11 @@ The `server_properties` table exposes the runtime properties configured on each 
 |value|VARCHAR|Value of the property|
 |error_message|VARCHAR|Describes why properties could not be retrieved from the server (e.g., connection refused, HTTP error). Null when properties were fetched successfully.|
 
-With [native system-table execution](#native-query-execution), an equality or `IN` filter on `server` or
-`service_name` that applies directly to the scan of `server_properties` limits which servers Druid queries, and a value
-that matches no server returns no rows. Other filters, such as `LIKE` or an `OR` across columns, don't limit which
-servers are queried, but still apply to the results.
+With [native system-table execution](#native-query-execution), an equality filter, an `IN` filter, or an `OR` of
+equalities on `server` or `service_name` that applies directly to the scan of `server_properties` limits which servers
+Druid queries, and a value that matches no server returns no rows. Other filters, such as `LIKE` or an `OR` across
+columns, don't limit which servers are queried, but still apply to the results. Because Druid doesn't query a server
+that the filter rules out, an error on that server, such as an error response or a timeout, doesn't fail the query.
 
 For example, to retrieve properties for a specific server, use the query
 
@@ -448,11 +449,11 @@ error that explains these requirements. Virtual threads are not included. The qu
 filter on `server`, whose value is the server's `host:port` address and aligns with `sys.servers.server`.
 The filter must apply directly to the scan of `stack_trace`. In joins and subqueries, filter `stack_trace` on `server`
 in its own subquery. Druid rejects a query without this filter before it queries any server. Druid queries only the
-servers that the equality and `IN` filters on `server` and `service_name` match, and a value that matches no server
-returns no rows. `UNION ALL` of `sys.stack_trace` queries isn't supported; query each server in its own statement,
-or use `server IN (...)`. A native
-query sent to the `/druid/v2/` endpoint of a service, with the `systemTable` datasource `stack_trace`, returns only
-the threads of that service, and doesn't require the filter.
+servers that the equality filters, `IN` filters, and `OR`s of equalities on `server` and `service_name` match, and a
+value that matches no server returns no rows. `UNION ALL` of `sys.stack_trace` queries isn't supported; query each
+server in its own statement, or use `server IN (...)`. A native query sent to the `/druid/v2/` endpoint of a service,
+with the `systemTable` datasource `stack_trace`, returns only the threads of that service, and doesn't require the
+filter.
 
 The table requires `READ` permission on the `STATE` resource and `READ` permission on the `CONFIG` resource. When
 `druid.auth.authorizeSystemTablesDirectly` is true, it also requires `READ` permission on the `SYSTEM_TABLE` resource

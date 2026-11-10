@@ -23,12 +23,15 @@ import org.apache.druid.client.DruidServerConfig;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.query.filter.InDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.filter.OrFilter;
 import org.apache.druid.server.DruidNode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
@@ -111,6 +114,65 @@ public class ServerPropertiesTableDataProviderTest
   }
 
   /**
+   * The provider skips its rows when an {@code IN} or an {@code OR} of equalities on {@code server} or
+   * {@code service_name} excludes it, and returns them when it includes it.
+   */
+  @Test
+  public void testAppliesInAndOrFilters()
+  {
+    final ServerPropertiesTableDataProvider supplier = supplier(new Properties());
+
+    Assertions.assertTrue(
+        toRows(supplier.getRows(List.of(new InDimFilter("server", Set.of("a:1", "b:2")).toFilter()))).isEmpty()
+    );
+    Assertions.assertTrue(
+        toRows(supplier.getRows(List.of(new InDimFilter("service_name", Set.of("broker")).toFilter()))).isEmpty()
+    );
+    Assertions.assertTrue(
+        toRows(supplier.getRows(List.of(or("server", "a:1", "b:2")))).isEmpty()
+    );
+    Assertions.assertFalse(
+        toRows(supplier.getRows(List.of(new InDimFilter("server", Set.of("a:1", "localhost:8080")).toFilter())))
+            .isEmpty()
+    );
+    Assertions.assertFalse(
+        toRows(supplier.getRows(List.of(new InDimFilter("service_name", Set.of("broker", "overlord")).toFilter())))
+            .isEmpty()
+    );
+    Assertions.assertFalse(
+        toRows(supplier.getRows(List.of(or("server", "a:1", "localhost:8080")))).isEmpty()
+    );
+  }
+
+  /**
+   * A provider with TLS enabled reports, and is matched by, its TLS {@code host:port}, which differs from its plaintext
+   * one. This is the value that the Broker matches against discovery.
+   */
+  @Test
+  public void testTlsNodeIsMatchedByTlsHostAndPort()
+  {
+    final DruidNode tlsNode = new DruidNode("router", "localhost", false, 8888, 9088, true, true);
+    final ServerPropertiesTableDataProvider supplier = new ServerPropertiesTableDataProvider(
+        tlsNode,
+        Set.of(NodeRole.ROUTER),
+        new Properties(),
+        new DruidServerConfig(null, null)
+    );
+
+    final List<Object[]> rows = toRows(
+        supplier.getRows(List.of(new EqualityFilter("server", ColumnType.STRING, "localhost:9088", null)))
+    );
+    Assertions.assertEquals(1, rows.size());
+    Assertions.assertEquals("localhost:9088", rows.getFirst()[0]);
+    Assertions.assertEquals(NodeAttribute.HOST_AND_PORT.getValue(tlsNode), rows.getFirst()[0]);
+    Assertions.assertTrue(
+        toRows(
+            supplier.getRows(List.of(new EqualityFilter("server", ColumnType.STRING, "localhost:8888", null)))
+        ).isEmpty()
+    );
+  }
+
+  /**
    * An equality filter compares values as its match type. A LONG equality on "01" matches the service name "1", so the
    * provider must not drop the row by comparing the strings.
    */
@@ -147,6 +209,15 @@ public class ServerPropertiesTableDataProviderTest
         Set.of(NodeRole.OVERLORD),
         properties,
         new DruidServerConfig(null, null)
+    );
+  }
+
+  private static Filter or(final String column, final String... values)
+  {
+    return new OrFilter(
+        Arrays.stream(values)
+              .map(value -> (Filter) new EqualityFilter(column, ColumnType.STRING, value, null))
+              .toList()
     );
   }
 

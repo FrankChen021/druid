@@ -68,6 +68,7 @@ import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.SetAndVerifyContextQueryRunner;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.initialization.ServerConfig;
+import org.apache.druid.server.system.table.NodeAttribute;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableFilters;
 import org.apache.druid.utils.CloseableUtils;
@@ -318,9 +319,16 @@ public class SystemTableQueryClient
   /**
    * Returns the nodes whose {@link SystemTableDescriptor#getNodeColumns() node columns} the node Scan's filter allows.
    * For example, a filter {@code server IN ('a:8082', 'b:8083')} keeps only the nodes whose {@code host:port} is one
-   * of those values. This is best-effort: a column that the filter doesn't restrict with {@code =} or {@code IN}, as
-   * read by {@link SystemTableFilters#getStringValues(Filter, String)}, doesn't remove any node. It never changes the
-   * result, since each node applies the whole filter to its rows, and a node that it removes would return no rows.
+   * of those values. This is best-effort: a column that the filter doesn't restrict with {@code =}, {@code IN}, or an
+   * {@code OR} of them, as read by {@link SystemTableFilters#getStringValues(Filter, String)}, doesn't remove any node.
+   *
+   * <p>A node that this removes would otherwise return no rows that the filter keeps. Every row it returns, including
+   * the {@link SystemTableDescriptor#getNodeFailureRow failure row} that {@code stack_trace} or
+   * {@code server_properties} returns for a node that can't be reached, holds the node's own values in its node
+   * columns, so the full filter drops it. The behavior differs only when a node fails in a way that fails the query,
+   * such as an error response or a timeout: a node that the filter rules out isn't contacted, so its failure no longer
+   * fails the query. For example, a {@code sys.server_properties} query with {@code server = 'a:8082'} no longer fails
+   * because another server returns an error.</p>
    */
   private static List<SystemTableNode> selectNodes(
       final List<SystemTableNode> nodes,
@@ -349,7 +357,9 @@ public class SystemTableQueryClient
                 .filter(
                     node -> allowedValues.entrySet()
                                          .stream()
-                                         .allMatch(entry -> entry.getValue().contains(entry.getKey().getValue(node)))
+                                         .allMatch(entry -> entry.getValue().contains(
+                                             entry.getKey().getValue(node.getDiscoveryNode().getDruidNode())
+                                         ))
                 )
                 .toList();
   }

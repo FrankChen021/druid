@@ -25,6 +25,8 @@ import org.apache.druid.client.DirectDruidClient;
 import org.apache.druid.client.DirectDruidClientFactory;
 import org.apache.druid.client.DruidServer;
 import org.apache.druid.discovery.DiscoveryDruidNode;
+import org.apache.druid.discovery.DruidNodeDiscovery;
+import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.jackson.DefaultObjectMapper;
@@ -64,6 +66,7 @@ import org.apache.druid.query.filter.LikeDimFilter;
 import org.apache.druid.query.filter.NotDimFilter;
 import org.apache.druid.query.filter.OrDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.query.filter.TypedInFilter;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
 import org.apache.druid.query.union.UnionQuery;
@@ -78,6 +81,7 @@ import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
+import org.apache.druid.server.system.table.NodeAttribute;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.StackTraceTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
@@ -98,6 +102,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -119,6 +124,43 @@ public class SystemTableQueryClientTest
   @RegisterExtension
   public static final QueryStackTests.ConglomerateExtension CONGLOMERATE =
       new QueryStackTests.ConglomerateExtension();
+
+  private static final DiscoveryDruidNode BROKER_NODE = new DiscoveryDruidNode(
+      new DruidNode("druid/broker", "localhost", false, 8082, null, true, false),
+      NodeRole.BROKER,
+      Collections.emptyMap()
+  );
+  private static final DruidNode COORDINATOR_DRUID_NODE =
+      new DruidNode("druid/coordinator", "localhost", false, 8081, null, true, false);
+  private static final DiscoveryDruidNode COORDINATOR_NODE = new DiscoveryDruidNode(
+      COORDINATOR_DRUID_NODE,
+      NodeRole.COORDINATOR,
+      Collections.emptyMap()
+  );
+  /**
+   * The Overlord role of the Coordinator process in {@link #COORDINATOR_NODE}, which discovery announces separately.
+   */
+  private static final DiscoveryDruidNode OVERLORD_ROLE_OF_COORDINATOR_NODE = new DiscoveryDruidNode(
+      COORDINATOR_DRUID_NODE,
+      NodeRole.OVERLORD,
+      Collections.emptyMap()
+  );
+  private static final DiscoveryDruidNode HISTORICAL_NODE = new DiscoveryDruidNode(
+      new DruidNode("druid/historical", "localhost", false, 8083, null, true, false),
+      NodeRole.HISTORICAL,
+      Collections.emptyMap()
+  );
+  /**
+   * A node with TLS enabled, whose plaintext port 8888 differs from its TLS port 9088. Peers reach it at the TLS
+   * {@code host:port}.
+   */
+  private static final DiscoveryDruidNode TLS_ROUTER_NODE = new DiscoveryDruidNode(
+      new DruidNode("druid/router", "localhost", false, 8888, 9088, true, true),
+      NodeRole.ROUTER,
+      Collections.emptyMap()
+  );
+  private static final List<String> ALL_NARROWING_NODES =
+      List.of("localhost:8081", "localhost:8082", "localhost:8083", "localhost:9088");
 
   /**
    * Node responses arrive as Scan result batches, in list or compacted-list form, and are flattened into rows.
@@ -689,6 +731,8 @@ public class SystemTableQueryClientTest
               .build()
     );
 
+    // The filter on the virtual column must not narrow the nodes queried, so the only node is still queried.
+    Assertions.assertNotNull(nodeQuery, "the node was not queried");
     Assertions.assertNull(nodeQuery.getFilter());
     Assertions.assertEquals(VirtualColumns.EMPTY, nodeQuery.getVirtualColumns());
     Assertions.assertEquals(descriptor.getRowSignature().getColumnNames(), nodeQuery.getColumns());
@@ -949,27 +993,6 @@ public class SystemTableQueryClientTest
     Assertions.assertSame(failure, thrown);
   }
 
-  private static final DiscoveryDruidNode BROKER_NODE = new DiscoveryDruidNode(
-      new DruidNode("druid/broker", "localhost", false, 8082, null, true, false),
-      NodeRole.BROKER,
-      Collections.emptyMap()
-  );
-  private static final DiscoveryDruidNode COORDINATOR_NODE = new DiscoveryDruidNode(
-      new DruidNode("druid/coordinator", "localhost", false, 8081, null, true, false),
-      NodeRole.COORDINATOR,
-      Collections.emptyMap()
-  );
-  private static final DiscoveryDruidNode OVERLORD_ROLE_OF_COORDINATOR_NODE = new DiscoveryDruidNode(
-      new DruidNode("druid/coordinator", "localhost", false, 8081, null, true, false),
-      NodeRole.OVERLORD,
-      Collections.emptyMap()
-  );
-  private static final DiscoveryDruidNode HISTORICAL_NODE = new DiscoveryDruidNode(
-      new DruidNode("druid/historical", "localhost", false, 8083, null, true, false),
-      NodeRole.HISTORICAL,
-      Collections.emptyMap()
-  );
-
   private static Stream<SystemTableDescriptor> nodeColumnDescriptors()
   {
     return Stream.of(new ServerPropertiesTableDescriptor(), new StackTraceTableDescriptor());
@@ -984,15 +1007,14 @@ public class SystemTableQueryClientTest
   {
     final NarrowingClient client = makeNarrowingClient(descriptor);
 
-    final List<Object[]> rows = client.run(new EqualityFilter("server", ColumnType.STRING, "localhost:8083", null));
+    client.run(new EqualityFilter("server", ColumnType.STRING, "localhost:8083", null));
 
     Assertions.assertEquals(List.of("localhost:8083"), client.createdClients());
     Assertions.assertEquals(List.of("localhost:8083"), client.queriedNodes());
-    Assertions.assertEquals(List.of("localhost:8083"), servers(rows));
   }
 
   /**
-   * An {@code IN} filter on {@code server} queries only the matching nodes, and a merged multi-role node once.
+   * An {@code IN} filter on {@code server} queries only the matching nodes.
    */
   @ParameterizedTest
   @MethodSource("nodeColumnDescriptors")
@@ -1000,18 +1022,33 @@ public class SystemTableQueryClientTest
   {
     final NarrowingClient client = makeNarrowingClient(descriptor);
 
-    final List<Object[]> rows = client.run(
-        new InDimFilter("server", Set.of("localhost:8081", "localhost:8082", "localhost:9999"))
-    );
+    client.run(new InDimFilter("server", Set.of("localhost:8081", "localhost:8082", "localhost:9999")));
 
-    Assertions.assertEquals(List.of("localhost:8082", "localhost:8081"), client.createdClients());
-    Assertions.assertEquals(List.of("localhost:8082", "localhost:8081"), client.queriedNodes());
-    Assertions.assertEquals(List.of("localhost:8082", "localhost:8081"), servers(rows));
+    Assertions.assertEquals(List.of("localhost:8081", "localhost:8082"), client.createdClients());
+    Assertions.assertEquals(List.of("localhost:8081", "localhost:8082"), client.queriedNodes());
   }
 
   /**
-   * A filter on {@code service_name} queries only the nodes of that service. The Coordinator that also runs as an
-   * Overlord is one node, queried once.
+   * An {@code OR} of {@code =} filters on {@code server} queries only the matching nodes.
+   */
+  @ParameterizedTest
+  @MethodSource("nodeColumnDescriptors")
+  public void testServerOrFilterQueriesOnlyMatchingNodes(final SystemTableDescriptor descriptor)
+  {
+    final NarrowingClient client = makeNarrowingClient(descriptor);
+
+    client.run(
+        new OrDimFilter(
+            new EqualityFilter("server", ColumnType.STRING, "localhost:8082", null),
+            new EqualityFilter("server", ColumnType.STRING, "localhost:8083", null)
+        )
+    );
+
+    Assertions.assertEquals(List.of("localhost:8082", "localhost:8083"), client.queriedNodes());
+  }
+
+  /**
+   * A filter on {@code service_name} queries only the nodes of that service.
    */
   @ParameterizedTest
   @MethodSource("nodeColumnDescriptors")
@@ -1022,13 +1059,63 @@ public class SystemTableQueryClientTest
     client.run(
         new AndDimFilter(
             // sys.stack_trace requires a server filter; this one allows every node.
-            new InDimFilter("server", Set.of("localhost:8081", "localhost:8082", "localhost:8083")),
-            new EqualityFilter("service_name", ColumnType.STRING, "druid/coordinator", null)
+            new InDimFilter("server", Set.copyOf(ALL_NARROWING_NODES)),
+            new EqualityFilter("service_name", ColumnType.STRING, "druid/historical", null)
         )
     );
 
+    Assertions.assertEquals(List.of("localhost:8083"), client.createdClients());
+    Assertions.assertEquals(List.of("localhost:8083"), client.queriedNodes());
+  }
+
+  /**
+   * Discovery announces a Coordinator that also runs as an Overlord once for each role, with the same
+   * {@code host:port}. The real {@link SystemTableNodeLocator} merges the two into one node with both roles, and a
+   * filter on its {@code server} queries it once.
+   */
+  @ParameterizedTest
+  @MethodSource("nodeColumnDescriptors")
+  public void testMergedMultiRoleNodeIsQueriedOnce(final SystemTableDescriptor descriptor)
+  {
+    final NarrowingClient client = makeNarrowingClient(descriptor);
+
+    final List<SystemTableNode> coordinatorNodes =
+        client.nodeLocator()
+              .locate(descriptor)
+              .stream()
+              .filter(node -> "localhost:8081".equals(node.getDiscoveryNode().getDruidNode().getHostAndPortToUse()))
+              .toList();
+    Assertions.assertEquals(1, coordinatorNodes.size());
+    Assertions.assertEquals(
+        Set.of(NodeRole.COORDINATOR, NodeRole.OVERLORD),
+        coordinatorNodes.getFirst().getNodeRoles()
+    );
+
+    client.run(new EqualityFilter("server", ColumnType.STRING, "localhost:8081", null));
+
     Assertions.assertEquals(List.of("localhost:8081"), client.createdClients());
     Assertions.assertEquals(List.of("localhost:8081"), client.queriedNodes());
+  }
+
+  /**
+   * A node with TLS enabled is matched by its TLS {@code host:port}, which it reports in its own rows, and not by its
+   * plaintext {@code host:port}.
+   */
+  @ParameterizedTest
+  @MethodSource("nodeColumnDescriptors")
+  public void testServerFilterMatchesTlsHostAndPort(final SystemTableDescriptor descriptor)
+  {
+    final DruidNode tlsNode = TLS_ROUTER_NODE.getDruidNode();
+    Assertions.assertEquals("localhost:9088", NodeAttribute.HOST_AND_PORT.getValue(tlsNode));
+    Assertions.assertEquals(tlsNode.getHostAndPortToUse(), NodeAttribute.HOST_AND_PORT.getValue(tlsNode));
+
+    final NarrowingClient tlsClient = makeNarrowingClient(descriptor);
+    tlsClient.run(new EqualityFilter("server", ColumnType.STRING, "localhost:9088", null));
+    Assertions.assertEquals(List.of("localhost:9088"), tlsClient.queriedNodes());
+
+    final NarrowingClient plaintextClient = makeNarrowingClient(descriptor);
+    plaintextClient.run(new EqualityFilter("server", ColumnType.STRING, "localhost:8888", null));
+    Assertions.assertEquals(List.of(), plaintextClient.queriedNodes());
   }
 
   /**
@@ -1052,6 +1139,27 @@ public class SystemTableQueryClientTest
   }
 
   /**
+   * Two node columns that hold the same attribute must both allow a node: their allowed values are intersected.
+   */
+  @Test
+  public void testNodeColumnsWithSameAttributeIntersect()
+  {
+    final NarrowingClient client = makeNarrowingClient(new ServerAliasServerPropertiesTableDescriptor());
+
+    client.run(
+        new AndDimFilter(
+            new InDimFilter("server", Set.of("localhost:8081", "localhost:8082")),
+            new InDimFilter(
+                ServerAliasServerPropertiesTableDescriptor.SERVER_ALIAS_COLUMN,
+                Set.of("localhost:8082", "localhost:8083")
+            )
+        )
+    );
+
+    Assertions.assertEquals(List.of("localhost:8082"), client.queriedNodes());
+  }
+
+  /**
    * Filters that don't restrict {@code server} or {@code service_name} to a set of values query every node.
    */
   @ParameterizedTest
@@ -1062,9 +1170,8 @@ public class SystemTableQueryClientTest
 
     client.run(filter);
 
-    final List<String> allNodes = List.of("localhost:8082", "localhost:8081", "localhost:8083");
-    Assertions.assertEquals(allNodes, client.createdClients());
-    Assertions.assertEquals(allNodes, client.queriedNodes());
+    Assertions.assertEquals(ALL_NARROWING_NODES, client.createdClients());
+    Assertions.assertEquals(ALL_NARROWING_NODES, client.queriedNodes());
   }
 
   private static Stream<DimFilter> nonNarrowingFilters()
@@ -1076,8 +1183,30 @@ public class SystemTableQueryClientTest
             new EqualityFilter("service_name", ColumnType.STRING, "druid/historical", null)
         ),
         new NotDimFilter(new EqualityFilter("server", ColumnType.STRING, "localhost:8082", null)),
-        new EqualityFilter("property", ColumnType.STRING, "druid.host", null)
+        new EqualityFilter("property", ColumnType.STRING, "druid.host", null),
+        // A null in the list doesn't narrow.
+        new InDimFilter("server", Arrays.asList("localhost:8082", null), null),
+        new TypedInFilter("server", ColumnType.STRING, Arrays.asList("localhost:8082", null), null, null)
     );
+  }
+
+  /**
+   * A virtual column named {@code server} shadows the table's column, so a filter on it isn't pushed into the node
+   * scans and doesn't narrow them: every node is queried.
+   */
+  @Test
+  public void testFilterOnVirtualColumnShadowingNodeColumnQueriesEveryNode()
+  {
+    final NarrowingClient client = makeNarrowingClient(new ServerPropertiesTableDescriptor());
+
+    client.run(
+        new EqualityFilter("server", ColumnType.STRING, "localhost:8083", null),
+        VirtualColumns.create(
+            new ExpressionVirtualColumn("server", "'localhost:8083'", ColumnType.STRING, ExprMacroTable.nil())
+        )
+    );
+
+    Assertions.assertEquals(ALL_NARROWING_NODES, client.queriedNodes());
   }
 
   /**
@@ -1091,14 +1220,13 @@ public class SystemTableQueryClientTest
 
     client.run(
         new AndDimFilter(
-            new InDimFilter("server", Set.of("localhost:8081", "localhost:8082", "localhost:8083")),
+            new InDimFilter("server", Set.copyOf(ALL_NARROWING_NODES)),
             new LikeDimFilter("service_name", "druid/%", null, null)
         )
     );
 
-    final List<String> allNodes = List.of("localhost:8082", "localhost:8081", "localhost:8083");
-    Assertions.assertEquals(allNodes, client.createdClients());
-    Assertions.assertEquals(allNodes, client.queriedNodes());
+    Assertions.assertEquals(ALL_NARROWING_NODES, client.createdClients());
+    Assertions.assertEquals(ALL_NARROWING_NODES, client.queriedNodes());
   }
 
   /**
@@ -1162,33 +1290,39 @@ public class SystemTableQueryClientTest
 
     client.run(new EqualityFilter("server", ColumnType.STRING, "localhost:8083", null));
 
-    final List<String> allNodes = List.of("localhost:8082", "localhost:8081", "localhost:8083");
-    Assertions.assertEquals(allNodes, client.createdClients());
-    Assertions.assertEquals(allNodes, client.queriedNodes());
+    Assertions.assertEquals(ALL_NARROWING_NODES, client.createdClients());
+    Assertions.assertEquals(ALL_NARROWING_NODES, client.queriedNodes());
   }
 
   /**
-   * Creates a client for a table served by a Broker, a Coordinator that also runs as an Overlord, and a Historical,
-   * which records the nodes it creates clients for and queries. Each node returns one row with its {@code server}
-   * and {@code service_name}.
+   * Creates a client for a table served by a Broker, a Coordinator that also runs as an Overlord, a Historical, and a
+   * Router with TLS enabled, located by a real {@link SystemTableNodeLocator} from mocked discovery. The client records
+   * the nodes it creates clients for and queries. Each node returns one row with its {@code server} and
+   * {@code service_name}, whatever the filter.
    */
   private static NarrowingClient makeNarrowingClient(final SystemTableDescriptor descriptor)
   {
-    final SystemTableNode brokerNode = new SystemTableNode(BROKER_NODE);
-    brokerNode.addNodeRole(NodeRole.BROKER);
-    final SystemTableNode coordinatorNode = new SystemTableNode(COORDINATOR_NODE);
-    coordinatorNode.addNodeRole(NodeRole.COORDINATOR);
-    coordinatorNode.addNodeRole(OVERLORD_ROLE_OF_COORDINATOR_NODE.getNodeRole());
-    final SystemTableNode historicalNode = new SystemTableNode(HISTORICAL_NODE);
-    historicalNode.addNodeRole(NodeRole.HISTORICAL);
-    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor)))
-           .thenReturn(List.of(brokerNode, coordinatorNode, historicalNode));
+    final Map<NodeRole, List<DiscoveryDruidNode>> discoveredNodes = Map.of(
+        NodeRole.BROKER, List.of(BROKER_NODE),
+        NodeRole.COORDINATOR, List.of(COORDINATOR_NODE),
+        NodeRole.OVERLORD, List.of(OVERLORD_ROLE_OF_COORDINATOR_NODE),
+        NodeRole.HISTORICAL, List.of(HISTORICAL_NODE),
+        NodeRole.ROUTER, List.of(TLS_ROUTER_NODE)
+    );
+    final DruidNodeDiscoveryProvider discoveryProvider = Mockito.mock(DruidNodeDiscoveryProvider.class);
+    Mockito.when(discoveryProvider.getForNodeRole(ArgumentMatchers.any())).thenAnswer(invocation -> {
+      final DruidNodeDiscovery discovery = Mockito.mock(DruidNodeDiscovery.class);
+      Mockito.when(discovery.getAllNodes())
+             .thenReturn(discoveredNodes.getOrDefault(invocation.<NodeRole>getArgument(0), List.of()));
+      return discovery;
+    });
+    final SystemTableNodeLocator nodeLocator = new SystemTableNodeLocator(discoveryProvider);
 
     final Map<String, String> serviceNames = Map.of(
         "localhost:8082", "druid/broker",
         "localhost:8081", "druid/coordinator",
-        "localhost:8083", "druid/historical"
+        "localhost:8083", "druid/historical",
+        "localhost:9088", "druid/router"
     );
     final List<String> createdClients = Collections.synchronizedList(new ArrayList<>());
     final List<String> queriedNodes = Collections.synchronizedList(new ArrayList<>());
@@ -1220,22 +1354,19 @@ public class SystemTableQueryClientTest
         ),
         passthroughRunner(descriptor.getRowSignature())
     );
-    return new NarrowingClient(client, descriptor, createdClients, queriedNodes);
-  }
-
-  private static List<String> servers(final List<Object[]> rows)
-  {
-    return rows.stream().map(row -> (String) row[0]).toList();
+    return new NarrowingClient(client, descriptor, nodeLocator, createdClients, queriedNodes);
   }
 
   /**
-   * A client from {@link #makeNarrowingClient}, with the nodes it created clients for and queried, in order.
+   * A client from {@link #makeNarrowingClient}, with its node locator and the nodes it created clients for and
+   * queried.
    */
   private record NarrowingClient(
       TestClient client,
       SystemTableDescriptor descriptor,
-      List<String> createdClients,
-      List<String> queriedNodes
+      SystemTableNodeLocator nodeLocator,
+      List<String> createdClientLog,
+      List<String> queriedNodeLog
   )
   {
     /**
@@ -1243,10 +1374,19 @@ public class SystemTableQueryClientTest
      */
     List<Object[]> run(final DimFilter filter)
     {
+      return run(filter, VirtualColumns.EMPTY);
+    }
+
+    /**
+     * Runs a Scan of the table with the filter and virtual columns, and returns the gathered rows.
+     */
+    List<Object[]> run(final DimFilter filter, final VirtualColumns virtualColumns)
+    {
       final ScanQuery query = Druids.newScanQueryBuilder()
                                    .dataSource(new SystemTableDataSource(descriptor.getTableName()))
                                    .eternityInterval()
                                    .resultFormat(ScanQuery.ResultFormat.RESULT_FORMAT_COMPACTED_LIST)
+                                   .virtualColumns(virtualColumns)
                                    .filters(filter)
                                    .build();
       final List<Object[]> rows = new ArrayList<>();
@@ -1256,6 +1396,29 @@ public class SystemTableQueryClientTest
         }
       }
       return rows;
+    }
+
+    /**
+     * The nodes that clients were created for, sorted, since discovery order isn't fixed.
+     */
+    List<String> createdClients()
+    {
+      return sorted(createdClientLog);
+    }
+
+    /**
+     * The nodes that were queried, sorted, since discovery order isn't fixed.
+     */
+    List<String> queriedNodes()
+    {
+      return sorted(queriedNodeLog);
+    }
+
+    private static List<String> sorted(final List<String> nodes)
+    {
+      synchronized (nodes) {
+        return nodes.stream().sorted().toList();
+      }
     }
   }
 
@@ -1280,6 +1443,33 @@ public class SystemTableQueryClientTest
     public Map<String, NodeAttribute> getNodeColumns()
     {
       return Map.of();
+    }
+  }
+
+  /**
+   * {@code sys.server_properties} with an extra column, {@code server_alias}, that also holds the node's
+   * {@code host:port}.
+   */
+  private static class ServerAliasServerPropertiesTableDescriptor extends ServerPropertiesTableDescriptor
+  {
+    private static final String SERVER_ALIAS_COLUMN = "server_alias";
+
+    @Override
+    public RowSignature getRowSignature()
+    {
+      return RowSignature.builder()
+                         .addAll(super.getRowSignature())
+                         .add(SERVER_ALIAS_COLUMN, ColumnType.STRING)
+                         .build();
+    }
+
+    @Override
+    public Map<String, NodeAttribute> getNodeColumns()
+    {
+      return Map.of(
+          "server", NodeAttribute.HOST_AND_PORT,
+          SERVER_ALIAS_COLUMN, NodeAttribute.HOST_AND_PORT
+      );
     }
   }
 

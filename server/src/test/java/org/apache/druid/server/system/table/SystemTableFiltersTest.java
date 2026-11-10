@@ -34,6 +34,7 @@ import org.apache.druid.segment.filter.SelectorFilter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -158,6 +159,29 @@ public class SystemTableFiltersTest
         SystemTableFilters.getStringValues(
             new TypedInFilter(SERVER, ColumnType.LONG, List.of(1L, 2L), null, null),
             SERVER
+        )
+    );
+  }
+
+  /**
+   * An {@code IN} list that contains null also matches null values, so it doesn't restrict the column to a set of
+   * strings.
+   */
+  @Test
+  public void testInWithNullDoesNotRestrict()
+  {
+    Assertions.assertNull(values(new InDimFilter(SERVER, Arrays.asList("a:1", null), null)));
+    Assertions.assertNull(
+        SystemTableFilters.getStringValues(
+            new TypedInFilter(SERVER, ColumnType.STRING, Arrays.asList("a:1", null), null, null),
+            SERVER
+        )
+    );
+    Assertions.assertTrue(
+        SystemTableFilters.allowsValue(
+            List.of(Filters.toFilter(new InDimFilter(SERVER, Arrays.asList("a:1", null), null))),
+            SERVER,
+            "b:2"
         )
     );
   }

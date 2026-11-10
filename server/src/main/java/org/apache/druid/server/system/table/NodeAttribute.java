@@ -17,9 +17,9 @@
  * under the License.
  */
 
-package org.apache.druid.server.system.query;
+package org.apache.druid.server.system.table;
 
-import org.apache.druid.server.system.table.SystemTableDescriptor;
+import org.apache.druid.server.DruidNode;
 
 /**
  * An attribute of a Druid service process that a column of a system table can hold, so the Broker can choose which
@@ -32,16 +32,15 @@ import org.apache.druid.server.system.table.SystemTableDescriptor;
 public enum NodeAttribute
 {
   /**
-   * The {@code host:port} that peers use to reach the process, as in {@link
-   * org.apache.druid.server.DruidNode#getHostAndPortToUse()}: the TLS port if it is enabled, else the plaintext port.
-   * Providers report their own {@code @Self} node the same way, and services announce that node in discovery, so the
-   * values agree.
+   * The {@code host:port} that peers use to reach the process, as in {@link DruidNode#getHostAndPortToUse()}: the TLS
+   * port if it is enabled, else the plaintext port. Providers report their own {@code @Self} node the same way, and
+   * services announce that node in discovery, so the values agree.
    */
   HOST_AND_PORT {
     @Override
-    String getValue(final SystemTableNode node)
+    public String getValue(final DruidNode node)
     {
-      return node.getDiscoveryNode().getDruidNode().getHostAndPortToUse();
+      return node.getHostAndPortToUse();
     }
   },
 
@@ -50,14 +49,15 @@ public enum NodeAttribute
    */
   SERVICE_NAME {
     @Override
-    String getValue(final SystemTableNode node)
+    public String getValue(final DruidNode node)
     {
-      return node.getDiscoveryNode().getDruidNode().getServiceName();
+      return node.getServiceName();
     }
   };
 
   /**
-   * Returns the value of the attribute for the process, which has one value per process.
+   * Returns the value of the attribute for the process, which has one value per process. A Coordinator running as an
+   * Overlord is one process with one {@code host:port} and one service name, so it has one value of each.
    */
-  abstract String getValue(SystemTableNode node);
+  public abstract String getValue(DruidNode node);
 }

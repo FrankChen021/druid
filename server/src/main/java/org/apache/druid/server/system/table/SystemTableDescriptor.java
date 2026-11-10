@@ -23,7 +23,6 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.query.Query;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.system.query.NodeAttribute;
 
 import java.util.Map;
 import java.util.Optional;
@@ -59,9 +58,10 @@ public interface SystemTableDescriptor
   /**
    * Returns the columns of the table whose value on every row is an attribute of the service that returned the row,
    * keyed by column name. The Broker queries only the services whose attributes the node Scan's filter allows, by
-   * reading {@code =} and {@code IN} filters on these columns with {@link SystemTableFilters}. The services still
-   * apply the whole filter, so this only reduces the services queried and never changes the result. By default no
-   * column is declared, and every service with one of the table's {@link #getNodeRoles() roles} is queried.
+   * reading {@code =}, {@code IN}, and {@code OR}-of-{@code =} filters on these columns with
+   * {@link SystemTableFilters}. The services still apply the whole filter, so this doesn't change the rows returned,
+   * except that a service the filter rules out can no longer fail the query. By default no column is declared, and
+   * every service with one of the table's {@link #getNodeRoles() roles} is queried.
    */
   default Map<String, NodeAttribute> getNodeColumns()
   {
