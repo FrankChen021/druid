@@ -444,8 +444,10 @@ The `stack_trace` table exposes an on-demand snapshot of the live Java platform 
 table always appears in the `sys` schema, but it is available only through
 [native system-table execution](#native-query-execution): you can query it only when
 `druid.query.enableDruidEngineForSystemTables` is set on all services and the query sets
-`useDruidEngineForSystemTables` to `true` with the `native` SQL engine. Otherwise, Druid rejects the query with an
-error that explains these requirements. Virtual threads are not included. The query must contain an equality or `IN`
+`useDruidEngineForSystemTables` to `true` with the `native` SQL engine. Otherwise, the query fails with an error that
+explains these requirements. The query also fails with this error when it combines `stack_trace` with a system table
+that uses the Broker's SQL interpreter, such as `sys.servers`, because Druid then runs the whole query on the
+interpreter. Virtual threads are not included. The query must contain an equality or `IN`
 filter on `server`, whose value is the server's `host:port` address and aligns with `sys.servers.server`.
 The filter must apply directly to the scan of `stack_trace`. In joins and subqueries, filter `stack_trace` on `server`
 in its own subquery. Druid rejects a query without this filter before it queries any server. Druid queries only the

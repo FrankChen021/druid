@@ -20,7 +20,9 @@
 package org.apache.druid.sql.calcite.schema;
 
 import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.schema.ScannableTable;
 import org.apache.calcite.schema.Schema;
+import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.SystemTableDataSource;
@@ -83,10 +85,28 @@ public class SystemSchemaDataSourceTableTest
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, stackTrace.getJdbcTableType());
 
     final SystemStackTraceTable systemStackTrace = new SystemStackTraceTable(true);
-    Assertions.assertTrue(SystemSchema.isDruidEngineOnlySystemTable(relOptTable(systemStackTrace)));
-    Assertions.assertTrue(SystemSchema.isDruidEngineOnlySystemTable(relOptTable(new SystemStackTraceTable(false))));
     Assertions.assertInstanceOf(StackTraceDataSourceTable.class, systemStackTrace.asDataSourceTable());
     Assertions.assertNull(new SystemStackTraceTable(false).asDataSourceTable());
+  }
+
+  /**
+   * {@code sys.stack_trace} is a {@link ScannableTable} only so that a query that mixes it with tables served by the
+   * Broker's SQL interpreter can plan there; its scan always fails with an error that explains how to query the table.
+   */
+  @Test
+  public void testStackTraceInterpreterScanFails()
+  {
+    for (final boolean enableDruidEngineForSystemTables : new boolean[]{true, false}) {
+      final ScannableTable table = Assertions.assertInstanceOf(
+          ScannableTable.class,
+          new SystemStackTraceTable(enableDruidEngineForSystemTables)
+      );
+      DruidExceptionMatcher.invalidInput().expectMessageIs(
+          "sys.stack_trace can only be queried with the Druid engine: set the query context parameter "
+          + "useDruidEngineForSystemTables to true and use the native SQL engine. The Druid engine must also be "
+          + "enabled with druid.query.enableDruidEngineForSystemTables on all services."
+      ).assertThrowsAndMatches(() -> table.scan(null));
+    }
   }
 
   @Test
@@ -115,23 +135,5 @@ public class SystemSchemaDataSourceTableTest
     Assertions.assertTrue(SystemSchema.canUseSystemTableDataSource(table, enabledContext));
 
     EasyMock.verify(table, nativeEngine, bindableEngine, disabledContext, bindableContext, enabledContext);
-  }
-
-  /**
-   * Returns a {@link RelOptTable} that unwraps to the given table, as Calcite's own implementation does.
-   */
-  private static RelOptTable relOptTable(final Object table)
-  {
-    final RelOptTable relOptTable = EasyMock.createMock(RelOptTable.class);
-    EasyMock.expect(relOptTable.unwrap(EasyMock.anyObject()))
-            .andAnswer(
-                () -> {
-                  final Class<?> clazz = (Class<?>) EasyMock.getCurrentArgument(0);
-                  return clazz.isInstance(table) ? clazz.cast(table) : null;
-                }
-            )
-            .anyTimes();
-    EasyMock.replay(relOptTable);
-    return relOptTable;
   }
 }

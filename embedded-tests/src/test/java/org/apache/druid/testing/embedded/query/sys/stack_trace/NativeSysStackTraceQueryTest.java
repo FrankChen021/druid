@@ -141,38 +141,41 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
   }
 
   /**
-   * Without {@code useDruidEngineForSystemTables}, {@code sys.stack_trace} has no interpreter fallback, so the query
-   * is rejected with a user error instead of failing during planning.
+   * Without {@code useDruidEngineForSystemTables}, a query on {@code sys.stack_trace}, including one in a subquery,
+   * fails with a user error that explains how to query the table.
    */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)
   public void test_stackTraceTableRequiresDruidEngine(final QueryContexts.PlannerStrategy plannerStrategy)
   {
-    final RuntimeException exception = Assertions.assertThrows(
-        RuntimeException.class,
-        () -> cluster.runSql(
-            """
-            SELECT thread_name
-            FROM sys.stack_trace
-            WHERE server = '%s'
-            """,
-            QueryContext.ofMap(
-                QueryContextParameters.ENGINE,
-                NativeSqlEngine.NAME,
-                QueryContextParameters.PLANNER_STRATEGY,
-                plannerStrategy
-            ),
-            host(broker)
-        )
-    );
-    Assertions.assertTrue(exception.getMessage().contains("400 Bad Request"), exception.getMessage());
-    Assertions.assertTrue(
-        exception.getMessage().contains(
-            "sys.stack_trace can only be queried with the Druid engine: set the query context parameter "
-            + "useDruidEngineForSystemTables to true and use the native SQL engine."
-        ),
-        exception.getMessage()
-    );
+    for (final String sql : List.of(
+        """
+        SELECT thread_name
+        FROM sys.stack_trace
+        WHERE server = '%s'
+        """,
+        """
+        SELECT server
+        FROM sys.server_properties
+        WHERE server IN (SELECT server FROM sys.stack_trace WHERE server = '%s')
+        """
+    )) {
+      assertDruidEngineRequired(
+          Assertions.assertThrows(
+              RuntimeException.class,
+              () -> cluster.runSql(
+                  sql,
+                  QueryContext.ofMap(
+                      QueryContextParameters.ENGINE,
+                      NativeSqlEngine.NAME,
+                      QueryContextParameters.PLANNER_STRATEGY,
+                      plannerStrategy
+                  ),
+                  host(broker)
+              )
+          )
+      );
+    }
   }
 
   @ParameterizedTest(name = "plannerStrategy = {0}")
@@ -263,9 +266,9 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
    * Without {@code useDruidEngineForSystemTables}, a query with a subquery on {@code sys.server_properties} still
    * runs through the Broker's SQL interpreter.
    * <p>
-   * This test lives with the {@code sys.stack_trace} tests because it guards a planner change made for that table:
-   * the check that rejects {@code sys.stack_trace} without the Druid engine must not break the interpreter fallback
-   * for other system tables.
+   * This test lives with the {@code sys.stack_trace} tests because it guards the planner changes made for that table:
+   * rejecting {@code sys.stack_trace} without the Druid engine must not break the interpreter fallback for other
+   * system tables.
    */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)
@@ -314,36 +317,34 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
   }
 
   /**
-   * With the Druid engine, {@code sys.stack_trace} can't be combined with a system table that only the Broker's SQL
-   * interpreter serves, which would send the whole query to the interpreter.
+   * With the Druid engine, a query that combines {@code sys.stack_trace} with a system table that only the Broker's SQL
+   * interpreter serves goes to the interpreter as a whole, where reading {@code sys.stack_trace} fails with a user
+   * error.
    */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)
-  public void test_stackTraceTableCannotBeCombinedWithInterpreterOnlyTable(
-      final QueryContexts.PlannerStrategy plannerStrategy
-  )
+  public void test_stackTraceTableWithInterpreterOnlyTable(final QueryContexts.PlannerStrategy plannerStrategy)
   {
-    final RuntimeException exception = Assertions.assertThrows(
-        RuntimeException.class,
-        () -> cluster.runSql(
-            """
-            SELECT t.thread_name, s.server_type
-            FROM sys.stack_trace t
-            JOIN sys.servers s ON t.server = s.server
-            WHERE t.server = '%s'
-            """,
-            nativeQueryContext(plannerStrategy),
-            host(broker)
-        )
-    );
-    Assertions.assertTrue(exception.getMessage().contains("400 Bad Request"), exception.getMessage());
-    Assertions.assertTrue(
-        exception.getMessage().contains(
-            "sys.stack_trace can't be combined with system tables that aren't served by the Druid engine: "
-            + "[sys.servers]"
-        ),
-        exception.getMessage()
-    );
+    for (final String sql : List.of(
+        """
+        SELECT t.thread_name, s.server_type
+        FROM sys.stack_trace t
+        JOIN sys.servers s ON t.server = s.server
+        WHERE t.server = '%s'
+        """,
+        """
+        SELECT server_type
+        FROM sys.servers
+        WHERE server IN (SELECT server FROM sys.stack_trace WHERE server = '%s')
+        """
+    )) {
+      assertDruidEngineRequired(
+          Assertions.assertThrows(
+              RuntimeException.class,
+              () -> cluster.runSql(sql, nativeQueryContext(plannerStrategy), host(broker))
+          )
+      );
+    }
   }
 
   /**
@@ -390,6 +391,25 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
   private static Map<String, Object> invalidDepthContext()
   {
     return Map.of(QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH.getName(), 5);
+  }
+
+  /**
+   * Asserts that a SQL query failed with HTTP 400 and the {@code INVALID_INPUT} error that explains how to query
+   * {@code sys.stack_trace}.
+   */
+  private static void assertDruidEngineRequired(final RuntimeException exception)
+  {
+    final String message = exception.getMessage();
+    Assertions.assertTrue(message.contains("400 Bad Request"), message);
+    Assertions.assertTrue(message.contains("INVALID_INPUT"), message);
+    Assertions.assertTrue(
+        message.contains(
+            "sys.stack_trace can only be queried with the Druid engine: set the query context parameter "
+            + "useDruidEngineForSystemTables to true and use the native SQL engine. The Druid engine must also be "
+            + "enabled with druid.query.enableDruidEngineForSystemTables on all services."
+        ),
+        message
+    );
   }
 
   private static String host(final EmbeddedDruidServer<?> server)

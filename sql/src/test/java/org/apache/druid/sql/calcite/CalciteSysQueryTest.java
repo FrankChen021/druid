@@ -113,8 +113,8 @@ public class CalciteSysQueryTest extends BaseCalciteQueryTest
   }
 
   /**
-   * {@code sys.stack_trace} has no interpreter fallback, so a query that doesn't set
-   * {@code useDruidEngineForSystemTables} is rejected before Calcite planning.
+   * A query on {@code sys.stack_trace} that doesn't set {@code useDruidEngineForSystemTables} fails with an error that
+   * explains how to query the table.
    */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)
@@ -159,7 +159,7 @@ public class CalciteSysQueryTest extends BaseCalciteQueryTest
   }
 
   /**
-   * Subqueries stay as row expressions until planning, so the check must also look inside them.
+   * The error is raised wherever the table appears in the query, including subqueries and {@code EXPLAIN}.
    */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)

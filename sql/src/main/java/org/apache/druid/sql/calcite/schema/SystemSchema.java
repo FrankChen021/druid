@@ -37,7 +37,6 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.schema.FilterableTable;
 import org.apache.calcite.schema.ProjectableFilterableTable;
 import org.apache.calcite.schema.ScannableTable;
 import org.apache.calcite.schema.Table;
@@ -154,19 +153,6 @@ public class SystemSchema extends AbstractTableSchema
     return plannerContext.useDruidEngineForSystemTables()
            && NativeSqlEngine.NAME.equals(plannerContext.getEngine().name())
            && getSystemTableDataSourceTable(table) != null;
-  }
-
-  /**
-   * Whether a system table can be queried only as a {@code SystemTableDataSource} on the Druid engine. Such a table
-   * implements {@link SystemTableDataSourceTable} but none of the Calcite interfaces that the Broker's SQL interpreter
-   * (Bindable) needs, so there is no fallback when {@link #canUseSystemTableDataSource} is false.
-   */
-  public static boolean isDruidEngineOnlySystemTable(final RelOptTable table)
-  {
-    return table.unwrap(SystemTableDataSourceTable.class) != null
-           && table.unwrap(ScannableTable.class) == null
-           && table.unwrap(FilterableTable.class) == null
-           && table.unwrap(ProjectableFilterableTable.class) == null;
   }
 
   /**
