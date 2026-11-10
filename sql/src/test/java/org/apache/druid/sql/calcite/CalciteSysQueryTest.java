@@ -32,6 +32,9 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import java.util.List;
+import java.util.Map;
+
 public class CalciteSysQueryTest extends BaseCalciteQueryTest
 {
   @RegisterExtension
@@ -153,5 +156,33 @@ public class CalciteSysQueryTest extends BaseCalciteQueryTest
         DruidException.class,
         DruidExceptionMatcher.invalidInput().expectMessageIs(STACK_TRACE_REQUIRES_DRUID_ENGINE_MESSAGE)
     );
+  }
+
+  /**
+   * Subqueries stay as row expressions until planning, so the check must also look inside them.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testStackTraceInSubqueryWithoutDruidEngineEnabled(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    final Map<String, Object> context = QueryContext.ofMap(
+        QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES,
+        true,
+        QueryContextParameters.PLANNER_STRATEGY,
+        plannerStrategy
+    );
+    for (final String sql : List.of(
+        "SELECT dim1 FROM foo WHERE dim1 IN (SELECT thread_name FROM sys.stack_trace WHERE server = 'x')",
+        "SELECT * FROM sys.servers WHERE server IN (SELECT server FROM sys.stack_trace WHERE server = 'x')",
+        "SELECT dim1, (SELECT COUNT(*) FROM sys.stack_trace WHERE server = 'x') FROM foo",
+        "EXPLAIN PLAN FOR SELECT dim1 FROM foo WHERE dim1 IN (SELECT thread_name FROM sys.stack_trace WHERE server = 'x')"
+    )) {
+      testQueryThrows(
+          sql,
+          context,
+          DruidException.class,
+          DruidExceptionMatcher.invalidInput().expectMessageIs(STACK_TRACE_REQUIRES_DRUID_ENGINE_MESSAGE)
+      );
+    }
   }
 }

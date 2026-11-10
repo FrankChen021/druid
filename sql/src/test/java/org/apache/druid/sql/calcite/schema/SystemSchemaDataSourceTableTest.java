@@ -83,7 +83,8 @@ public class SystemSchemaDataSourceTableTest
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, stackTrace.getJdbcTableType());
 
     final SystemStackTraceTable systemStackTrace = new SystemStackTraceTable(true);
-    Assertions.assertFalse(systemStackTrace instanceof org.apache.calcite.schema.ProjectableFilterableTable);
+    Assertions.assertTrue(SystemSchema.isDruidEngineOnlySystemTable(relOptTable(systemStackTrace)));
+    Assertions.assertTrue(SystemSchema.isDruidEngineOnlySystemTable(relOptTable(new SystemStackTraceTable(false))));
     Assertions.assertInstanceOf(StackTraceDataSourceTable.class, systemStackTrace.asDataSourceTable());
     Assertions.assertNull(new SystemStackTraceTable(false).asDataSourceTable());
   }
@@ -114,5 +115,23 @@ public class SystemSchemaDataSourceTableTest
     Assertions.assertTrue(SystemSchema.canUseSystemTableDataSource(table, enabledContext));
 
     EasyMock.verify(table, nativeEngine, bindableEngine, disabledContext, bindableContext, enabledContext);
+  }
+
+  /**
+   * Returns a {@link RelOptTable} that unwraps to the given table, as Calcite's own implementation does.
+   */
+  private static RelOptTable relOptTable(final Object table)
+  {
+    final RelOptTable relOptTable = EasyMock.createMock(RelOptTable.class);
+    EasyMock.expect(relOptTable.unwrap(EasyMock.anyObject()))
+            .andAnswer(
+                () -> {
+                  final Class<?> clazz = (Class<?>) EasyMock.getCurrentArgument(0);
+                  return clazz.isInstance(table) ? clazz.cast(table) : null;
+                }
+            )
+            .anyTimes();
+    EasyMock.replay(relOptTable);
+    return relOptTable;
   }
 }

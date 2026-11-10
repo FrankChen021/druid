@@ -21,7 +21,6 @@ package org.apache.druid.testing.embedded.query.sys.stack_trace;
 
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.URIs;
 import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.http.client.response.StatusResponseHandler;
@@ -49,29 +48,25 @@ import org.junit.jupiter.params.provider.EnumSource;
 import javax.annotation.Nullable;
 import javax.ws.rs.core.MediaType;
 
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
 {
-  private static final String BROKER_PORT = "9082";
   private static final String BROKER_SERVICE = "test/broker";
-  private static final String OVERLORD_PORT = "9090";
   private static final String OVERLORD_SERVICE = "test/overlord";
-  private static final String COORDINATOR_PORT = "9081";
   private static final String COORDINATOR_SERVICE = "test/coordinator";
 
   private final EmbeddedBroker broker = new EmbeddedBroker()
-      .addProperty("druid.service", BROKER_SERVICE)
-      .addProperty("druid.plaintextPort", BROKER_PORT);
+      .addProperty("druid.service", BROKER_SERVICE);
 
   private final EmbeddedOverlord overlord = new EmbeddedOverlord()
-      .addProperty("druid.service", OVERLORD_SERVICE)
-      .addProperty("druid.plaintextPort", OVERLORD_PORT);
+      .addProperty("druid.service", OVERLORD_SERVICE);
 
   private final EmbeddedCoordinator coordinator = new EmbeddedCoordinator()
-      .addProperty("druid.service", COORDINATOR_SERVICE)
-      .addProperty("druid.plaintextPort", COORDINATOR_PORT);
+      .addProperty("druid.service", COORDINATOR_SERVICE);
 
   @Override
   protected EmbeddedDruidCluster createCluster()
@@ -88,7 +83,7 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
   @EnumSource(QueryContexts.PlannerStrategy.class)
   public void test_stackTraceTable(final QueryContexts.PlannerStrategy plannerStrategy)
   {
-    final String brokerHost = StringUtils.format("localhost:%s", BROKER_PORT);
+    final String brokerHost = host(broker);
     final String result = cluster.runSql(
         """
         SELECT server, service_name, node_roles, collected_at, thread_id,
@@ -163,7 +158,7 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
                 QueryContextParameters.PLANNER_STRATEGY,
                 plannerStrategy
             ),
-            StringUtils.format("localhost:%s", BROKER_PORT)
+            host(broker)
         )
     );
     Assertions.assertTrue(exception.getMessage().contains("400 Bad Request"), exception.getMessage());
@@ -180,8 +175,8 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
   @EnumSource(QueryContexts.PlannerStrategy.class)
   public void test_stackTraceTableInFilter(final QueryContexts.PlannerStrategy plannerStrategy)
   {
-    final String brokerHost = StringUtils.format("localhost:%s", BROKER_PORT);
-    final String coordinatorHost = StringUtils.format("localhost:%s", COORDINATOR_PORT);
+    final String brokerHost = host(broker);
+    final String coordinatorHost = host(coordinator);
     final String result = cluster.runSql(
         """
         SELECT DISTINCT server
@@ -195,40 +190,116 @@ public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
 
     Assertions.assertTrue(result.contains(brokerHost));
     Assertions.assertTrue(result.contains(coordinatorHost));
-    Assertions.assertFalse(result.contains(StringUtils.format("localhost:%s", OVERLORD_PORT)));
+    Assertions.assertFalse(result.contains(host(overlord)));
   }
 
   /**
-   * A native query sent to a service reads only that service's threads, even when the filter accepts other servers.
+   * The Broker rejects a SQL query with an invalid {@code maxStackTraceFrameDepth} before it queries any service.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void test_stackTraceTableRejectsInvalidDepth(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    final Map<String, Object> context = new HashMap<>(nativeQueryContext(plannerStrategy));
+    context.putAll(invalidDepthContext());
+    final RuntimeException exception = Assertions.assertThrows(
+        RuntimeException.class,
+        () -> cluster.runSql(
+            """
+            SELECT thread_name
+            FROM sys.stack_trace
+            WHERE server = '%s'
+            """,
+            context,
+            host(broker)
+        )
+    );
+    Assertions.assertTrue(exception.getMessage().contains("400 Bad Request"), exception.getMessage());
+    Assertions.assertTrue(exception.getMessage().contains("maxStackTraceFrameDepth"), exception.getMessage());
+  }
+
+  /**
+   * With the Druid engine, {@code sys.stack_trace} can't be combined with a system table that only the Broker's SQL
+   * interpreter serves, which would send the whole query to the interpreter.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void test_stackTraceTableCannotBeCombinedWithInterpreterOnlyTable(
+      final QueryContexts.PlannerStrategy plannerStrategy
+  )
+  {
+    final RuntimeException exception = Assertions.assertThrows(
+        RuntimeException.class,
+        () -> cluster.runSql(
+            """
+            SELECT t.thread_name, s.server_type
+            FROM sys.stack_trace t
+            JOIN sys.servers s ON t.server = s.server
+            WHERE t.server = '%s'
+            """,
+            nativeQueryContext(plannerStrategy),
+            host(broker)
+        )
+    );
+    Assertions.assertTrue(exception.getMessage().contains("400 Bad Request"), exception.getMessage());
+    Assertions.assertTrue(
+        exception.getMessage().contains(
+            "sys.stack_trace can't be combined with system tables that aren't served by the Druid engine: "
+            + "[sys.servers]"
+        ),
+        exception.getMessage()
+    );
+  }
+
+  /**
+   * A native query sent to a service reads only that service's threads, whether it has no {@code server} filter or a
+   * filter that accepts other servers.
    */
   @Test
   public void test_nativeQueryReadsOnlyContactedService()
   {
-    final String brokerHost = StringUtils.format("localhost:%s", BROKER_PORT);
-    final String coordinatorHost = StringUtils.format("localhost:%s", COORDINATOR_PORT);
-    final StatusResponseHolder response = postNativeQuery(
-        coordinator,
-        stackTraceQuery(new InDimFilter("server", List.of(brokerHost, coordinatorHost), null))
-    );
+    final String brokerHost = host(broker);
+    final String coordinatorHost = host(coordinator);
+    for (final DimFilter filter : Arrays.asList(
+        null,
+        new InDimFilter("server", List.of(brokerHost, coordinatorHost), null)
+    )) {
+      final StatusResponseHolder response = postNativeQuery(coordinator, stackTraceQuery(filter));
 
-    Assertions.assertEquals(HttpResponseStatus.OK, response.getStatus(), response.getContent());
-    Assertions.assertTrue(response.getContent().contains(coordinatorHost), response.getContent());
-    Assertions.assertFalse(response.getContent().contains(brokerHost), response.getContent());
+      Assertions.assertEquals(HttpResponseStatus.OK, response.getStatus(), response.getContent());
+      Assertions.assertTrue(response.getContent().contains(coordinatorHost), response.getContent());
+      Assertions.assertFalse(response.getContent().contains(brokerHost), response.getContent());
+    }
   }
 
   /**
-   * A native query sent to a service doesn't need a {@code server} filter: it reads only that service's threads.
+   * A native query with an invalid {@code maxStackTraceFrameDepth} is rejected by the contacted service.
    */
   @Test
-  public void test_nativeQueryWithoutServerFilterReadsOnlyContactedService()
+  public void test_nativeQueryRejectsInvalidDepth()
   {
-    final String brokerHost = StringUtils.format("localhost:%s", BROKER_PORT);
-    final String coordinatorHost = StringUtils.format("localhost:%s", COORDINATOR_PORT);
-    final StatusResponseHolder response = postNativeQuery(coordinator, stackTraceQuery(null));
+    for (final EmbeddedDruidServer<?> server : List.<EmbeddedDruidServer<?>>of(broker, coordinator)) {
+      final StatusResponseHolder response = postNativeQuery(
+          server,
+          stackTraceQuery(null).withOverriddenContext(invalidDepthContext())
+      );
 
-    Assertions.assertEquals(HttpResponseStatus.OK, response.getStatus(), response.getContent());
-    Assertions.assertTrue(response.getContent().contains(coordinatorHost), response.getContent());
-    Assertions.assertFalse(response.getContent().contains(brokerHost), response.getContent());
+      Assertions.assertEquals(HttpResponseStatus.BAD_REQUEST, response.getStatus(), response.getContent());
+      Assertions.assertTrue(response.getContent().contains("maxStackTraceFrameDepth"), response.getContent());
+    }
+  }
+
+  /**
+   * The typed builders reject an out-of-range value, so the invalid context is built with the parameter name.
+   */
+  private static Map<String, Object> invalidDepthContext()
+  {
+    return Map.of(QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH.getName(), 5);
+  }
+
+  private static String host(final EmbeddedDruidServer<?> server)
+  {
+    return server.bindings().selfNode().getHostAndPortToUse();
   }
 
   private static ScanQuery stackTraceQuery(@Nullable final DimFilter filter)

@@ -39,6 +39,7 @@ import org.apache.druid.server.system.table.StackTraceTableDescriptor;
 import org.apache.druid.testing.embedded.EmbeddedBroker;
 import org.apache.druid.testing.embedded.EmbeddedCoordinator;
 import org.apache.druid.testing.embedded.EmbeddedDruidCluster;
+import org.apache.druid.testing.embedded.EmbeddedDruidServer;
 import org.apache.druid.testing.embedded.EmbeddedOverlord;
 import org.apache.druid.testing.embedded.auth.EmbeddedBasicAuthResource;
 import org.apache.druid.testing.embedded.auth.HttpUtil;
@@ -60,6 +61,10 @@ public class NativeSysStackTraceAuthTest extends EmbeddedClusterTestBase
   private static final String PASSWORD = "helloworld";
   private static final String INSUFFICIENT_PERMISSION =
       "Insufficient permission to view thread stack traces, which requires STATE READ and CONFIG READ";
+  /**
+   * Message of the table-level SYSTEM_TABLE check, which rejects the caller before the row authorizer runs.
+   */
+  private static final String NO_SYSTEM_TABLE_PERMISSION = "Unauthorized";
   private static final ResourceAction READ_STACK_TRACE_TABLE =
       new ResourceAction(new Resource(StackTraceTableDescriptor.TABLE_NAME, ResourceType.SYSTEM_TABLE), Action.READ);
   private static final ResourceAction READ_STATE =
@@ -133,51 +138,31 @@ public class NativeSysStackTraceAuthTest extends EmbeddedClusterTestBase
   }
 
   /**
-   * SQL gathers the table from every service named by the {@code server} filter.
-   */
-  @Test
-  public void testSqlGathersFromEveryService()
-  {
-    final String sql = StringUtils.format(
-        """
-        SELECT DISTINCT server
-        FROM sys.stack_trace
-        WHERE server IN ('%s', '%s')
-        """,
-        brokerHost(),
-        coordinatorHost()
-    );
-
-    final String rows = sql(fullUser, sql, HttpResponseStatus.OK).getContent();
-    Assertions.assertTrue(rows.contains(brokerHost()), rows);
-    Assertions.assertTrue(rows.contains(coordinatorHost()), rows);
-  }
-
-  /**
-   * A native query on the Broker needs the same three permissions, and no {@code server} filter.
+   * A native query needs the same three permissions, and no {@code server} filter, on the Broker and on any other
+   * service.
    */
   @Test
   public void testNativeQueryRequiresSystemTableStateAndConfigRead()
   {
-    final StatusResponseHolder rows = nativeQuery(fullUser, HttpResponseStatus.OK);
-    Assertions.assertTrue(rows.getContent().contains(brokerHost()), rows.getContent());
+    for (final EmbeddedDruidServer<?> server : List.<EmbeddedDruidServer<?>>of(broker, coordinator)) {
+      final String host = server.bindings().selfNode().getHostAndPortToUse();
+      final StatusResponseHolder rows = nativeQuery(server, fullUser, HttpResponseStatus.OK);
+      Assertions.assertTrue(rows.getContent().contains(host), rows.getContent());
 
-    for (final HttpClient forbiddenUser : List.of(noConfigUser, noStateUser, sysTableUser)) {
-      final StatusResponseHolder forbidden = nativeQuery(forbiddenUser, HttpResponseStatus.FORBIDDEN);
-      Assertions.assertTrue(forbidden.getContent().contains(INSUFFICIENT_PERMISSION), forbidden.getContent());
+      for (final HttpClient forbiddenUser : List.of(noConfigUser, noStateUser, sysTableUser)) {
+        final StatusResponseHolder forbidden = nativeQuery(server, forbiddenUser, HttpResponseStatus.FORBIDDEN);
+        Assertions.assertTrue(forbidden.getContent().contains(INSUFFICIENT_PERMISSION), forbidden.getContent());
+      }
+
+      final StatusResponseHolder noSysTable = nativeQuery(server, noSysTableUser, HttpResponseStatus.FORBIDDEN);
+      Assertions.assertTrue(noSysTable.getContent().contains(NO_SYSTEM_TABLE_PERMISSION), noSysTable.getContent());
+      Assertions.assertFalse(noSysTable.getContent().contains(INSUFFICIENT_PERMISSION), noSysTable.getContent());
     }
-
-    nativeQuery(noSysTableUser, HttpResponseStatus.FORBIDDEN);
   }
 
   private String brokerHost()
   {
     return broker.bindings().selfNode().getHostAndPortToUse();
-  }
-
-  private String coordinatorHost()
-  {
-    return coordinator.bindings().selfNode().getHostAndPortToUse();
   }
 
   private StatusResponseHolder sql(
@@ -200,7 +185,11 @@ public class NativeSysStackTraceAuthTest extends EmbeddedClusterTestBase
     );
   }
 
-  private StatusResponseHolder nativeQuery(final HttpClient client, final HttpResponseStatus expectedStatus)
+  private StatusResponseHolder nativeQuery(
+      final EmbeddedDruidServer<?> server,
+      final HttpClient client,
+      final HttpResponseStatus expectedStatus
+  )
   {
     final ScanQuery query = Druids.newScanQueryBuilder()
                                   .dataSource(new SystemTableDataSource(StackTraceTableDescriptor.TABLE_NAME))
@@ -210,7 +199,7 @@ public class NativeSysStackTraceAuthTest extends EmbeddedClusterTestBase
     return HttpUtil.makeRequest(
         client,
         HttpMethod.POST,
-        getServerUrl(broker) + "/druid/v2/",
+        getServerUrl(server) + "/druid/v2/",
         query,
         expectedStatus
     );

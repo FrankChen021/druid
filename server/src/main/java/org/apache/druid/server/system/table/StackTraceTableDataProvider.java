@@ -54,8 +54,8 @@ import java.util.Set;
  */
 public class StackTraceTableDataProvider implements SystemTableDataProvider
 {
-  public static final String SERVER_COLUMN = "server";
-  public static final String SERVICE_NAME_COLUMN = "service_name";
+  private static final String SERVER_COLUMN = "server";
+  private static final String SERVICE_NAME_COLUMN = "service_name";
   static final String SERVER_FILTER_REQUIRED_MESSAGE =
       "sys.stack_trace requires a filter on the server column using '=' or 'IN'";
 
@@ -240,8 +240,8 @@ public class StackTraceTableDataProvider implements SystemTableDataProvider
   }
 
   /**
-   * Formats a thread stack in a jstack-style format based on {@link ThreadInfo#toString()}, but
-   * includes all frames returned by the MX bean. {@code ThreadInfo.toString()} intentionally limits
+   * Formats a thread stack in the format of {@link ThreadInfo#toString()}, but includes all frames returned by the
+   * MX bean. {@code ThreadInfo.toString()} intentionally limits
    * its output to eight frames and appends an ellipsis.
    */
   private static String formatThreadInfo(final ThreadInfo threadInfo)

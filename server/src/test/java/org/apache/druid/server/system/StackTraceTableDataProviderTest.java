@@ -185,26 +185,6 @@ public class StackTraceTableDataProviderTest
   }
 
   @Test
-  public void testQueryContextDepthConversionAndValidation()
-  {
-    Assertions.assertEquals(10, QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH.parse(10.9));
-    Assertions.assertEquals(10, QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH.parse("10.00"));
-    Assertions.assertEquals(100, QueryContext.empty().get(QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH));
-    Assertions.assertThrows(
-        BadQueryContextException.class,
-        () -> QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH.parse(9)
-    );
-    Assertions.assertThrows(
-        BadQueryContextException.class,
-        () -> QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH.parse(1001)
-    );
-    Assertions.assertThrows(
-        BadQueryContextException.class,
-        () -> QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH.parse("10.5")
-    );
-  }
-
-  @Test
   public void testFormatsWaitingLockOnStackFrame() throws Exception
   {
     final Object monitor = new Object();

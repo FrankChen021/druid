@@ -48,6 +48,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.rex.RexSubQuery;
 import org.apache.calcite.schema.ProjectableFilterableTable;
 import org.apache.calcite.schema.ScannableTable;
 import org.apache.calcite.sql.SqlExplain;
@@ -96,6 +98,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -272,37 +275,101 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
 
   /**
    * Rejects queries on system tables that can only be served by the Druid engine, such as {@code sys.stack_trace},
-   * when the Druid engine can't serve them. Such tables have no interpreter fallback (see
-   * {@link SystemSchema#isDruidEngineOnlySystemTable}), so without this check planning would fail with an opaque
-   * Calcite error.
+   * when the Druid engine can't serve them, or when they are combined with tables that the Druid engine can't serve
+   * and would send the whole query to the Broker's SQL interpreter (Bindable). Such tables have no interpreter
+   * fallback (see {@link SystemSchema#isDruidEngineOnlySystemTable}), so without this check planning would fail with
+   * an opaque Calcite error.
+   * <p>
+   * Tables are collected from the whole plan, including subqueries, which remain as {@link RexSubQuery} at this point.
    */
   private static void validateDruidEngineOnlySystemTables(
       final RelNode relNode,
       final PlannerContext plannerContext
   )
   {
+    final Set<RelOptTable> tables = getAllTables(relNode);
+    final List<RelOptTable> druidEngineOnlyTables = new ArrayList<>();
+    for (final RelOptTable table : tables) {
+      if (SystemSchema.isDruidEngineOnlySystemTable(table)) {
+        if (!SystemSchema.canUseSystemTableDataSource(table, plannerContext)) {
+          throw InvalidInput.exception(
+              "%s can only be queried with the Druid engine: set the query context parameter %s to true and use "
+              + "the native SQL engine. The Druid engine must also be enabled with %s on all services.",
+              tableName(table),
+              QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES.getName(),
+              SystemTableModule.ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY
+          );
+        }
+        druidEngineOnlyTables.add(table);
+      }
+    }
+
+    if (druidEngineOnlyTables.isEmpty()) {
+      return;
+    }
+
+    final List<String> bindableTableNames =
+        tables.stream()
+              .filter(table -> isBindableTable(table, plannerContext))
+              .map(QueryHandler::tableName)
+              .distinct()
+              .sorted()
+              .collect(Collectors.toList());
+    if (!bindableTableNames.isEmpty()) {
+      throw InvalidInput.exception(
+          "%s can't be combined with system tables that aren't served by the Druid engine: [%s]",
+          tableName(druidEngineOnlyTables.get(0)),
+          String.join(", ", bindableTableNames)
+      );
+    }
+  }
+
+  /**
+   * Returns every table scanned by the plan, including the tables scanned by subqueries in row expressions.
+   */
+  private static Set<RelOptTable> getAllTables(final RelNode relNode)
+  {
+    final Set<RelOptTable> tables = new LinkedHashSet<>();
     new RelVisitor()
     {
+      private final RexShuttle subQueryVisitor = new RexShuttle()
+      {
+        @Override
+        public RexNode visitSubQuery(final RexSubQuery subQuery)
+        {
+          go(subQuery.rel);
+          return super.visitSubQuery(subQuery);
+        }
+      };
+
       @Override
       public void visit(final RelNode node, final int ordinal, final RelNode parent)
       {
         if (node instanceof TableScan) {
-          final RelOptTable table = node.getTable();
-          if (SystemSchema.isDruidEngineOnlySystemTable(table)
-              && !SystemSchema.canUseSystemTableDataSource(table, plannerContext)) {
-            throw InvalidInput.exception(
-                "%s can only be queried with the Druid engine: set the query context parameter %s to true and use "
-                + "the native SQL engine. The Druid engine must also be enabled with %s on all services.",
-                Joiner.on(".").join(table.getQualifiedName()),
-                QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES.getName(),
-                SystemTableModule.ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY
-            );
-          }
+          tables.add(node.getTable());
         }
-
+        node.accept(subQueryVisitor);
         super.visit(node, ordinal, parent);
       }
     }.go(relNode);
+    return tables;
+  }
+
+  private static String tableName(final RelOptTable table)
+  {
+    return Joiner.on(".").join(table.getQualifiedName());
+  }
+
+  /**
+   * Whether a table can only be read through the Broker's SQL interpreter (Bindable), which makes
+   * {@link #getBindableTables} send the whole query to Bindable.
+   */
+  private static boolean isBindableTable(final RelOptTable table, final PlannerContext plannerContext)
+  {
+    // This is the routing point that decides whether a system table uses Bindable or native planning.
+    return (table.unwrap(ScannableTable.class) != null || table.unwrap(ProjectableFilterableTable.class) != null)
+           && table.unwrap(DruidTable.class) == null
+           && !SystemSchema.canUseSystemTableDataSource(table, plannerContext);
   }
 
   private static Set<RelOptTable> getBindableTables(
@@ -319,10 +386,7 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
       {
         if (node instanceof TableScan) {
           RelOptTable table = node.getTable();
-          // This is the routing point that decides whether a system table uses Bindable or native planning.
-          if ((table.unwrap(ScannableTable.class) != null || table.unwrap(ProjectableFilterableTable.class) != null)
-              && table.unwrap(DruidTable.class) == null
-              && !SystemSchema.canUseSystemTableDataSource(table, plannerContext)) {
+          if (isBindableTable(table, plannerContext)) {
             found.add(table);
             return;
           }

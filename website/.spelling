@@ -2653,7 +2653,6 @@ reachability
 ownership_mismatch
 giveup
 retryable
-jstack
 STACK_TRACE
 collected_at
 thread_id

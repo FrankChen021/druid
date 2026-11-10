@@ -466,7 +466,7 @@ IDs, and each query collects a full thread dump on every server that matches, so
 |lock_owner_id|BIGINT|Identifier of the thread owning the lock, when available|
 |lock_owner_name|VARCHAR|Name of the thread owning the lock, when available|
 |is_deadlocked|BIGINT|Boolean represented as long type where 1 = the JVM reports the thread as part of a deadlock and 0 = it is not reported as deadlocked|
-|stack|VARCHAR|One jstack-style string containing the thread header, up to `maxStackTraceFrameDepth` stack frames, and lock or synchronizer annotations. The default is 100 frames. Unlike `ThreadInfo.toString()`, the value is not truncated to eight frames|
+|stack|VARCHAR|One string in the format of Java's `ThreadInfo.toString()`: a header line with the thread name, priority, ID, and state, followed by up to `maxStackTraceFrameDepth` stack frames with lock and synchronizer annotations. The first frame line notes the lock that a blocked or waiting thread is blocked on or waiting on. The default is 100 frames. Unlike `ThreadInfo.toString()`, the value is not truncated to eight frames|
 |error_message|VARCHAR|Describes why the snapshot could not be retrieved, such as an HTTP or connection error. Null for successful thread rows|
 
 The `cpu_time_ns` and `user_cpu_time_ns` values are nullable. Do not assume that either value is present, because
@@ -490,9 +490,7 @@ WHERE server IN ('192.168.1.1:8081', '192.168.1.1:8082')
 
 Use the `maxStackTraceFrameDepth` query context to control the maximum number of frames returned for each thread. Like
 the table, it has no effect unless `druid.query.enableDruidEngineForSystemTables` is set on all services. It
-defaults to 100 and accepts values from 10 through 1000. Numeric values use their truncated integer value when Druid
-converts the query context, while quoted values are parsed as integers; values outside the range or values that cannot
-be parsed as integers are rejected.
+defaults to 100 and accepts integers from 10 through 1000. Druid rejects other values.
 
 ```json
 {

@@ -22,7 +22,6 @@ package org.apache.druid.server.system.table;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.error.InvalidInput;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.segment.column.ColumnType;
@@ -30,13 +29,6 @@ import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.segment.filter.AndFilter;
 import org.apache.druid.segment.filter.Filters;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.security.Action;
-import org.apache.druid.server.security.AuthorizationResult;
-import org.apache.druid.server.security.AuthorizationUtils;
-import org.apache.druid.server.security.ForbiddenException;
-import org.apache.druid.server.security.Resource;
-import org.apache.druid.server.security.ResourceAction;
-import org.apache.druid.server.security.ResourceType;
 
 import java.util.List;
 import java.util.Optional;
@@ -70,29 +62,6 @@ public class StackTraceTableDescriptor implements SystemTableDescriptor
       .build();
 
   private static final Set<NodeRole> NODE_ROLES = Set.of(NodeRole.values());
-  /**
-   * Thread names expose datasource names and query IDs of other users, and each query takes a thread dump on every
-   * node, so the table requires both {@code STATE READ} and {@code CONFIG READ}.
-   */
-  private static final List<ResourceAction> REQUIRED_PERMISSIONS = List.of(
-      new ResourceAction(Resource.STATE_RESOURCE, Action.READ),
-      new ResourceAction(new Resource("CONFIG", ResourceType.CONFIG), Action.READ)
-  );
-  private static final SystemTableRowAuthorizer ROW_AUTHORIZER =
-      (authenticationResult, authorizerMapper) -> {
-        final AuthorizationResult authorizationResult = AuthorizationUtils.authorizeAllResourceActions(
-            authenticationResult,
-            REQUIRED_PERMISSIONS,
-            authorizerMapper
-        );
-        if (!authorizationResult.allowAccessWithNoRestriction()) {
-          throw new ForbiddenException(
-              "Insufficient permission to view thread stack traces, which requires STATE READ and CONFIG READ: "
-              + authorizationResult.getErrorMessage()
-          );
-        }
-        return SystemTableAccess.ALL_ROWS;
-      };
 
   @Override
   public String getTableName()
@@ -115,7 +84,7 @@ public class StackTraceTableDescriptor implements SystemTableDescriptor
   @Override
   public SystemTableRowAuthorizer getRowAuthorizer()
   {
-    return ROW_AUTHORIZER;
+    return SystemTableAuthorization.STATE_AND_CONFIG_READ_ROW_AUTHORIZER;
   }
 
   @Override
