@@ -56,11 +56,11 @@ public interface SystemTableDescriptor
   }
 
   /**
-   * Returns which services' rows SQL reads for this table.
+   * Returns which nodes a cluster-scoped read of this table reads rows from.
    */
-  default SystemTableRoutingMode getRoutingMode()
+  default SystemTableTargetNodes getTargetNodes()
   {
-    return SystemTableRoutingMode.ALL_NODES;
+    return SystemTableTargetNodes.ALL_NODES;
   }
 
   /**

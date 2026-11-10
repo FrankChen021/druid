@@ -99,7 +99,7 @@ public class TaskTableDescriptorTest
   @Test
   public void testReadFromLeaderOverlordOnly()
   {
-    Assertions.assertEquals(SystemTableRoutingMode.LEADER_ONLY, new TaskTableDescriptor().getRoutingMode());
+    Assertions.assertEquals(SystemTableTargetNodes.LEADER_ONLY, new TaskTableDescriptor().getTargetNodes());
     Assertions.assertEquals(Set.of(NodeRole.OVERLORD), new TaskTableDescriptor().getNodeRoles());
   }
 

@@ -34,7 +34,7 @@ import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
-import org.apache.druid.server.system.table.SystemTableRoutingMode;
+import org.apache.druid.server.system.table.SystemTableTargetNodes;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -59,7 +59,7 @@ public class SystemTableNodeLocatorTest
     final DiscoveryDruidNode first = node(8081);
     final DiscoveryDruidNode second = node(8082);
     final SystemTableNodeLocator locator = locator(List.of(first, second), null);
-    final SystemTableDescriptor descriptor = descriptor(SystemTableRoutingMode.ALL_NODES);
+    final SystemTableDescriptor descriptor = descriptor(SystemTableTargetNodes.ALL_NODES);
 
     final List<SystemTableNode> nodes = locator.locate(descriptor, query());
 
@@ -76,7 +76,7 @@ public class SystemTableNodeLocatorTest
     final DiscoveryDruidNode leader = node(8082);
     final SystemTableNodeLocator locator = locator(List.of(standby, leader), URI.create("http://localhost:8082"));
 
-    final List<SystemTableNode> nodes = locator.locate(descriptor(SystemTableRoutingMode.LEADER_ONLY), query());
+    final List<SystemTableNode> nodes = locator.locate(descriptor(SystemTableTargetNodes.LEADER_ONLY), query());
 
     Assertions.assertEquals(List.of(leader), nodes.stream().map(SystemTableNode::getDiscoveryNode).toList());
   }
@@ -91,7 +91,7 @@ public class SystemTableNodeLocatorTest
 
     final DruidException e = Assertions.assertThrows(
         DruidException.class,
-        () -> locator.locate(descriptor(SystemTableRoutingMode.LEADER_ONLY), query())
+        () -> locator.locate(descriptor(SystemTableTargetNodes.LEADER_ONLY), query())
     );
     Assertions.assertEquals(DruidException.Category.SERVICE_UNAVAILABLE, e.getCategory());
   }
@@ -109,7 +109,7 @@ public class SystemTableNodeLocatorTest
 
     Assertions.assertThrows(
         QueryTimeoutException.class,
-        () -> locator.locate(descriptor(SystemTableRoutingMode.LEADER_ONLY), expiredQuery)
+        () -> locator.locate(descriptor(SystemTableTargetNodes.LEADER_ONLY), expiredQuery)
     );
   }
 
@@ -126,7 +126,7 @@ public class SystemTableNodeLocatorTest
 
     final DruidException e = Assertions.assertThrows(
         DruidException.class,
-        () -> locator.locate(descriptor(SystemTableRoutingMode.LEADER_ONLY), query())
+        () -> locator.locate(descriptor(SystemTableTargetNodes.LEADER_ONLY), query())
     );
     Assertions.assertEquals(DruidException.Category.SERVICE_UNAVAILABLE, e.getCategory());
   }
@@ -142,7 +142,7 @@ public class SystemTableNodeLocatorTest
 
       final DruidException e = Assertions.assertThrows(
           DruidException.class,
-          () -> locator.locate(descriptor(SystemTableRoutingMode.LEADER_ONLY), query())
+          () -> locator.locate(descriptor(SystemTableTargetNodes.LEADER_ONLY), query())
       );
       Assertions.assertEquals(DruidException.Category.SERVICE_UNAVAILABLE, e.getCategory());
     }
@@ -158,11 +158,11 @@ public class SystemTableNodeLocatorTest
     return new SystemTableNodeLocator(discoveryProvider(nodes), overlordClient);
   }
 
-  private static SystemTableDescriptor descriptor(final SystemTableRoutingMode routingMode)
+  private static SystemTableDescriptor descriptor(final SystemTableTargetNodes targetNodes)
   {
     final SystemTableDescriptor descriptor = Mockito.mock(SystemTableDescriptor.class);
     Mockito.when(descriptor.getNodeRoles()).thenReturn(Set.of(NodeRole.OVERLORD));
-    Mockito.when(descriptor.getRoutingMode()).thenReturn(routingMode);
+    Mockito.when(descriptor.getTargetNodes()).thenReturn(targetNodes);
     return descriptor;
   }
 

@@ -66,9 +66,9 @@ public class TaskTableDescriptor implements SystemTableDescriptor
   }
 
   @Override
-  public SystemTableRoutingMode getRoutingMode()
+  public SystemTableTargetNodes getTargetNodes()
   {
-    return SystemTableRoutingMode.LEADER_ONLY;
+    return SystemTableTargetNodes.LEADER_ONLY;
   }
 
   @Override

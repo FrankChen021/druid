@@ -32,7 +32,7 @@ import org.apache.druid.query.QueryTimeoutException;
 import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
-import org.apache.druid.server.system.table.SystemTableRoutingMode;
+import org.apache.druid.server.system.table.SystemTableTargetNodes;
 
 import javax.annotation.Nullable;
 
@@ -48,7 +48,7 @@ import java.util.function.Supplier;
 
 /**
  * Finds the Druid services that serve a system table: every discovered service with one of the table's node roles, or
- * only the current leader for a {@link SystemTableRoutingMode#LEADER_ONLY} table.
+ * only the current leader for a {@link SystemTableTargetNodes#LEADER_ONLY} table.
  */
 public class SystemTableNodeLocator
 {
@@ -66,12 +66,12 @@ public class SystemTableNodeLocator
   }
 
   /**
-   * Returns the services to read the table from. For a {@link SystemTableRoutingMode#LEADER_ONLY} table, this is the
+   * Returns the services to read the table from. For a {@link SystemTableTargetNodes#LEADER_ONLY} table, this is the
    * current leader, located within the deadline of the given query.
    */
   List<SystemTableNode> locate(final SystemTableDescriptor descriptor, final Query<?> query)
   {
-    if (descriptor.getRoutingMode() != SystemTableRoutingMode.LEADER_ONLY) {
+    if (descriptor.getTargetNodes() != SystemTableTargetNodes.LEADER_ONLY) {
       return discoverAllNodes(descriptor);
     }
 
