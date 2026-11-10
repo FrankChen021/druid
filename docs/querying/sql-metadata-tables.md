@@ -457,10 +457,12 @@ server in its own statement, or use `server IN (...)`. A native query sent to th
 with the `systemTable` datasource `stack_trace`, returns only the threads of that service, and doesn't require the
 filter.
 
-The table requires `READ` permission on the `STATE` resource and `READ` permission on the `CONFIG` resource. When
-`druid.auth.authorizeSystemTablesDirectly` is true, it also requires `READ` permission on the `SYSTEM_TABLE` resource
-`stack_trace`. Thread names and stacks can expose implementation details and other users' datasource names and query
-IDs, and each query collects a full thread dump on every server that matches, so grant access only to trusted operators.
+The table requires `READ` permission on the `STATE` resource. When `druid.auth.authorizeSystemTablesDirectly` is
+true, it also requires `READ` permission on the `SYSTEM_TABLE` resource `stack_trace`. Thread names and stacks can
+expose implementation details and other users' query activity, such as datasource names and query IDs, and each query
+collects a thread dump on every server it reaches. We recommend that you enable
+`druid.auth.authorizeSystemTablesDirectly` and grant `SYSTEM_TABLE` `READ` on `stack_trace` only to trusted users.
+Without that property, any user with `STATE` `READ` can query the table.
 
 |Column|Type|Notes|
 |------|-----|-----|

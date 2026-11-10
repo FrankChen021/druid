@@ -29,10 +29,8 @@ import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
-import org.apache.druid.server.security.ResourceType;
 
 import java.util.Collections;
-import java.util.List;
 
 /**
  * Authorization checks shared by native system tables.
@@ -45,30 +43,6 @@ public final class SystemTableAuthorization
   public static final SystemTableRowAuthorizer STATE_READ_ROW_AUTHORIZER =
       (authenticationResult, authorizerMapper) -> {
         authorizeStateRead(authenticationResult, authorizerMapper);
-        return SystemTableAccess.ALL_ROWS;
-      };
-
-  /**
-   * Row authorizer for tables whose rows are all visible to users with both {@code STATE READ} and
-   * {@code CONFIG READ}, and to no one else, such as {@code sys.stack_trace}: thread names expose datasource names and
-   * query IDs of other users, and each query takes a thread dump on every node that its {@code server} filter matches.
-   */
-  public static final SystemTableRowAuthorizer STATE_AND_CONFIG_READ_ROW_AUTHORIZER =
-      (authenticationResult, authorizerMapper) -> {
-        final AuthorizationResult authorizationResult = AuthorizationUtils.authorizeAllResourceActions(
-            authenticationResult,
-            List.of(
-                new ResourceAction(Resource.STATE_RESOURCE, Action.READ),
-                new ResourceAction(new Resource("CONFIG", ResourceType.CONFIG), Action.READ)
-            ),
-            authorizerMapper
-        );
-        if (!authorizationResult.allowAccessWithNoRestriction()) {
-          throw new ForbiddenException(
-              "Insufficient permission to view thread stack traces, which requires STATE READ and CONFIG READ: "
-              + authorizationResult.getErrorMessage()
-          );
-        }
         return SystemTableAccess.ALL_ROWS;
       };
 

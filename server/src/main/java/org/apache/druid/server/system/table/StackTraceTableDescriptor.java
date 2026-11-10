@@ -90,7 +90,7 @@ public class StackTraceTableDescriptor implements SystemTableDescriptor
   @Override
   public SystemTableRowAuthorizer getRowAuthorizer()
   {
-    return SystemTableAuthorization.STATE_AND_CONFIG_READ_ROW_AUTHORIZER;
+    return SystemTableAuthorization.STATE_READ_ROW_AUTHORIZER;
   }
 
   @Override

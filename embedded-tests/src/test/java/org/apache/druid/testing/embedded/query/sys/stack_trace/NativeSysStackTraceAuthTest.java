@@ -53,14 +53,14 @@ import java.util.Map;
 
 /**
  * Authorization of {@code sys.stack_trace} on the Druid engine, with {@code druid.auth.authorizeSystemTablesDirectly}
- * set. A caller needs SYSTEM_TABLE READ on {@code stack_trace}, STATE READ and CONFIG READ, whether it queries the
- * table with SQL or with a native query.
+ * set. A caller needs SYSTEM_TABLE READ on {@code stack_trace} and STATE READ, whether it queries the table with SQL
+ * or with a native query.
  */
 public class NativeSysStackTraceAuthTest extends EmbeddedClusterTestBase
 {
   private static final String PASSWORD = "helloworld";
   private static final String INSUFFICIENT_PERMISSION =
-      "Insufficient permission to view thread stack traces, which requires STATE READ and CONFIG READ";
+      "Insufficient permission to view servers";
   /**
    * Message of the table-level SYSTEM_TABLE check, which rejects the caller before the row authorizer runs.
    */
@@ -69,16 +69,12 @@ public class NativeSysStackTraceAuthTest extends EmbeddedClusterTestBase
       new ResourceAction(new Resource(StackTraceTableDescriptor.TABLE_NAME, ResourceType.SYSTEM_TABLE), Action.READ);
   private static final ResourceAction READ_STATE =
       new ResourceAction(new Resource(".*", ResourceType.STATE), Action.READ);
-  private static final ResourceAction READ_CONFIG =
-      new ResourceAction(new Resource(".*", ResourceType.CONFIG), Action.READ);
 
   private final EmbeddedCoordinator coordinator = new EmbeddedCoordinator();
   private final EmbeddedBroker broker = new EmbeddedBroker();
 
   private HttpClient adminClient;
   private HttpClient fullUser;
-  private HttpClient noConfigUser;
-  private HttpClient noStateUser;
   private HttpClient sysTableUser;
   private HttpClient noSysTableUser;
 
@@ -99,19 +95,16 @@ public class NativeSysStackTraceAuthTest extends EmbeddedClusterTestBase
   public void setupUsers()
   {
     adminClient = client(EmbeddedBasicAuthResource.ADMIN_USER, EmbeddedBasicAuthResource.ADMIN_PASSWORD);
-    fullUser = createUser("fullUser", List.of(READ_STACK_TRACE_TABLE, READ_STATE, READ_CONFIG));
-    noConfigUser = createUser("noConfigUser", List.of(READ_STACK_TRACE_TABLE, READ_STATE));
-    noStateUser = createUser("noStateUser", List.of(READ_STACK_TRACE_TABLE, READ_CONFIG));
+    fullUser = createUser("fullUser", List.of(READ_STACK_TRACE_TABLE, READ_STATE));
     sysTableUser = createUser("sysTableUser", List.of(READ_STACK_TRACE_TABLE));
-    noSysTableUser = createUser("noSysTableUser", List.of(READ_STATE, READ_CONFIG));
+    noSysTableUser = createUser("noSysTableUser", List.of(READ_STATE));
   }
 
   /**
-   * SQL on the Druid engine needs SYSTEM_TABLE READ, without which the table isn't visible, plus STATE READ and
-   * CONFIG READ.
+   * SQL on the Druid engine needs SYSTEM_TABLE READ, without which the table isn't visible, plus STATE READ.
    */
   @Test
-  public void testSqlRequiresSystemTableStateAndConfigRead()
+  public void testSqlRequiresSystemTableAndStateRead()
   {
     final String sql = StringUtils.format(
         """
@@ -128,31 +121,27 @@ public class NativeSysStackTraceAuthTest extends EmbeddedClusterTestBase
     final String rows = sql(fullUser, sql, HttpResponseStatus.OK).getContent();
     Assertions.assertTrue(rows.contains(brokerHost()), rows);
 
-    for (final HttpClient forbiddenUser : List.of(noConfigUser, noStateUser, sysTableUser)) {
-      final String forbidden = sql(forbiddenUser, sql, HttpResponseStatus.FORBIDDEN).getContent();
-      Assertions.assertTrue(forbidden.contains(INSUFFICIENT_PERMISSION), forbidden);
-    }
+    final String forbidden = sql(sysTableUser, sql, HttpResponseStatus.FORBIDDEN).getContent();
+    Assertions.assertTrue(forbidden.contains(INSUFFICIENT_PERMISSION), forbidden);
 
     final String invisible = sql(noSysTableUser, sql, HttpResponseStatus.BAD_REQUEST).getContent();
     Assertions.assertTrue(invisible.contains("Object 'stack_trace' not found within 'sys'"), invisible);
   }
 
   /**
-   * A native query needs the same three permissions, and no {@code server} filter, on the Broker and on any other
+   * A native query needs the same two permissions, and no {@code server} filter, on the Broker and on any other
    * service.
    */
   @Test
-  public void testNativeQueryRequiresSystemTableStateAndConfigRead()
+  public void testNativeQueryRequiresSystemTableAndStateRead()
   {
     for (final EmbeddedDruidServer<?> server : List.<EmbeddedDruidServer<?>>of(broker, coordinator)) {
       final String host = server.bindings().selfNode().getHostAndPortToUse();
       final StatusResponseHolder rows = nativeQuery(server, fullUser, HttpResponseStatus.OK);
       Assertions.assertTrue(rows.getContent().contains(host), rows.getContent());
 
-      for (final HttpClient forbiddenUser : List.of(noConfigUser, noStateUser, sysTableUser)) {
-        final StatusResponseHolder forbidden = nativeQuery(server, forbiddenUser, HttpResponseStatus.FORBIDDEN);
-        Assertions.assertTrue(forbidden.getContent().contains(INSUFFICIENT_PERMISSION), forbidden.getContent());
-      }
+      final StatusResponseHolder forbidden = nativeQuery(server, sysTableUser, HttpResponseStatus.FORBIDDEN);
+      Assertions.assertTrue(forbidden.getContent().contains(INSUFFICIENT_PERMISSION), forbidden.getContent());
 
       final StatusResponseHolder noSysTable = nativeQuery(server, noSysTableUser, HttpResponseStatus.FORBIDDEN);
       Assertions.assertTrue(noSysTable.getContent().contains(NO_SYSTEM_TABLE_PERMISSION), noSysTable.getContent());

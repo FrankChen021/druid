@@ -45,7 +45,6 @@ import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
-import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.table.StackTraceTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.junit.jupiter.api.Assertions;
@@ -56,7 +55,6 @@ import java.util.Set;
 
 public class StackTraceTableDescriptorTest
 {
-  private static final Resource CONFIG_RESOURCE = new Resource("CONFIG", ResourceType.CONFIG);
   private static final DimFilter SERVER_FILTER = new SelectorDimFilter("server", "localhost:8080", null);
 
   private final SystemTableDescriptor descriptor = new StackTraceTableDescriptor();
@@ -96,33 +94,25 @@ public class StackTraceTableDescriptorTest
   }
 
   @Test
-  public void testRowAuthorizerDeniesStateReadOnly()
+  public void testRowAuthorizerDeniesWithoutStateRead()
   {
-    final Authorizer stateReadOnly = (identity, resource, action) ->
-        Resource.STATE_RESOURCE.equals(resource) && action == Action.READ ? Access.OK : Access.DENIED;
+    final Authorizer denyAll = (identity, resource, action) -> Access.DENIED;
     final ForbiddenException exception = Assertions.assertThrows(
         ForbiddenException.class,
-        () -> authorize(stateReadOnly)
+        () -> authorize(denyAll)
     );
-    Assertions.assertTrue(exception.getMessage().contains("STATE READ and CONFIG READ"), exception.getMessage());
+    Assertions.assertTrue(
+        exception.getMessage().contains("Insufficient permission to view servers"),
+        exception.getMessage()
+    );
   }
 
   @Test
-  public void testRowAuthorizerDeniesConfigReadOnly()
+  public void testRowAuthorizerAllowsStateRead()
   {
-    final Authorizer configReadOnly = (identity, resource, action) ->
-        CONFIG_RESOURCE.equals(resource) && action == Action.READ ? Access.OK : Access.DENIED;
-    Assertions.assertThrows(ForbiddenException.class, () -> authorize(configReadOnly));
-  }
-
-  @Test
-  public void testRowAuthorizerAllowsStateReadAndConfigRead()
-  {
-    final Authorizer stateAndConfigRead = (identity, resource, action) ->
-        (Resource.STATE_RESOURCE.equals(resource) || CONFIG_RESOURCE.equals(resource)) && action == Action.READ
-        ? Access.OK
-        : Access.DENIED;
-    Assertions.assertSame(SystemTableAccess.ALL_ROWS, authorize(stateAndConfigRead));
+    final Authorizer stateRead = (identity, resource, action) ->
+        Resource.STATE_RESOURCE.equals(resource) && action == Action.READ ? Access.OK : Access.DENIED;
+    Assertions.assertSame(SystemTableAccess.ALL_ROWS, authorize(stateRead));
   }
 
   @Test
