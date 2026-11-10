@@ -25,7 +25,9 @@ import org.apache.druid.segment.column.RowSignature;
 
 import java.util.Set;
 
-/** Descriptor for the native {@code sys.servers} table. */
+/**
+ * Descriptor for the native {@code sys.servers} table.
+ */
 public class ServersTableDescriptor implements SystemTableDescriptor
 {
   public static final String TABLE_NAME = "servers";
@@ -67,7 +69,7 @@ public class ServersTableDescriptor implements SystemTableDescriptor
   @Override
   public SystemTableRoutingMode getRoutingMode()
   {
-    return SystemTableRoutingMode.LOCAL;
+    return SystemTableRoutingMode.LOCAL_NODE;
   }
 
   @Override

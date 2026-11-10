@@ -22,6 +22,7 @@ package org.apache.druid.server.system.module;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
+import org.apache.druid.guice.DruidBinders;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.server.system.table.ServersTableDataProvider;
 import org.apache.druid.server.system.table.ServersTableDescriptor;
@@ -30,9 +31,9 @@ import org.apache.druid.server.system.table.SystemTableDataProvider;
 import java.util.Properties;
 
 /**
- * Registers the native system-table providers that only the Broker serves. They depend on Broker-only services, such
- * as the server inventory view, so they must not be bound on other nodes, where injecting the provider map would
- * construct them. Like {@link SystemTableModule}, it binds nothing unless
+ * Registers the native system tables that only the Broker serves: their descriptors and providers. The providers
+ * depend on Broker-only services, such as the server inventory view, so they must not be bound on other services,
+ * where injecting the provider map would construct them. Like {@link SystemTableModule}, it binds nothing unless
  * {@link SystemTableModule#ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY} is set.
  */
 public class BrokerSystemTableModule implements Module
@@ -50,6 +51,9 @@ public class BrokerSystemTableModule implements Module
     if (!enabled) {
       return;
     }
+    DruidBinders.systemTableDescriptorBinder(binder)
+                .addBinding(ServersTableDescriptor.TABLE_NAME)
+                .toInstance(new ServersTableDescriptor());
     MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class)
              .addBinding(ServersTableDescriptor.TABLE_NAME)
              .to(ServersTableDataProvider.class)

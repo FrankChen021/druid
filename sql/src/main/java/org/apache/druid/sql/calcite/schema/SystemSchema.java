@@ -721,7 +721,9 @@ public class SystemSchema extends AbstractTableSchema
       return enableDruidEngineForSystemTables ? new ServersDataSourceTable() : null;
     }
 
-    /** Builds the same rows as the native path, after the same STATE READ check its row authorizer applies. */
+    /**
+     * Builds the same rows as the native path, after the same STATE READ check its row authorizer applies.
+     */
     @Override
     public Enumerable<Object[]> scan(DataContext root)
     {

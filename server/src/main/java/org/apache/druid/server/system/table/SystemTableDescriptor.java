@@ -44,6 +44,14 @@ public interface SystemTableDescriptor
   SystemTableRowAuthorizer getRowAuthorizer();
 
   /**
+   * Returns which services' rows SQL reads for this table.
+   */
+  default SystemTableRoutingMode getRoutingMode()
+  {
+    return SystemTableRoutingMode.ALL_NODES;
+  }
+
+  /**
    * Whether an empty discovery result represents an empty table instead of unavailable infrastructure.
    */
   default boolean isEmptyDiscoveryAllowed()

@@ -82,7 +82,9 @@ public class SystemSchemaDataSourceTableTest
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, servers.getJdbcTableType());
   }
 
-  /** Without druid.query.enableDruidEngineForSystemTables, sys.servers has no datasource representation. */
+  /**
+   * Without druid.query.enableDruidEngineForSystemTables, sys.servers has no datasource representation.
+   */
   @Test
   public void testServersTableHasDataSourceTableOnlyWhenEnabled()
   {

@@ -74,6 +74,7 @@ import org.apache.druid.server.QueryStackTests;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.metrics.NoopServiceEmitter;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
+import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableSegmentWrangler;
@@ -276,6 +277,41 @@ public class SystemTableQueryClientTest
 
     final DruidException e = Assertions.assertThrows(DruidException.class, () -> client.resolve(query));
     Assertions.assertEquals(DruidException.Category.DEFENSIVE, e.getCategory());
+    Mockito.verifyNoInteractions(nodeLocator, directClientFactory);
+  }
+
+  /**
+   * {@code sys.servers} is the querying Broker's view of the cluster. SQL reads only that Broker's rows: the table keeps
+   * the caller's access and becomes local-scoped, for the Broker's own walker to read, without any node scan.
+   */
+  @Test
+  public void testLocalNodeTableIsReadByThisBrokerOnly()
+  {
+    final ServersTableDescriptor descriptor = new ServersTableDescriptor();
+    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
+    final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
+    final SystemTableQueryClient client = newClient(
+        nodeLocator,
+        directClientFactory,
+        Mockito.mock(QueryScheduler.class),
+        Map.of(descriptor.getTableName(), descriptor),
+        nonMatchingSelfNode()
+    );
+    final SystemTableAccess access = SystemTableAccess.ALL_ROWS;
+    final ScanQuery query = Druids.ScanQueryBuilder
+        .copy(query(descriptor, Collections.emptyMap()))
+        .dataSource(
+            new SystemTableDataSource(descriptor.getTableName())
+                .withAccess(access)
+                .withScope(SystemTableDataSource.Scope.CLUSTER)
+        )
+        .build();
+
+    final SystemTableDataSource resolved =
+        (SystemTableDataSource) client.resolve(query).query().getDataSource();
+
+    Assertions.assertEquals(SystemTableDataSource.Scope.LOCAL, resolved.getScope());
+    Assertions.assertSame(access, resolved.getAccess());
     Mockito.verifyNoInteractions(nodeLocator, directClientFactory);
   }
 

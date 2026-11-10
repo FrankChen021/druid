@@ -66,6 +66,7 @@ import org.apache.druid.server.SetAndVerifyContextQueryRunner;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
+import org.apache.druid.server.system.table.SystemTableRoutingMode;
 import org.apache.druid.utils.CloseableUtils;
 
 import javax.annotation.Nullable;
@@ -173,6 +174,12 @@ public class SystemTableQueryClient
     if (dataSource instanceof SystemTableDataSource systemTableDataSource) {
       if (systemTableDataSource.getScope() != SystemTableDataSource.Scope.CLUSTER) {
         return systemTableDataSource;
+      }
+      final SystemTableDescriptor descriptor = tableDescriptors.get(systemTableDataSource.getTable());
+      if (descriptor != null && descriptor.getRoutingMode() == SystemTableRoutingMode.LOCAL_NODE) {
+        // The table is this Broker's view, so read only this Broker's rows: the Broker's own walker reads the table
+        // with the local scope, and the cursor factory applies the caller's access.
+        return systemTableDataSource.withScope(SystemTableDataSource.Scope.LOCAL);
       }
       return resolveSystemTableDataSource(
           systemTableDataSource,

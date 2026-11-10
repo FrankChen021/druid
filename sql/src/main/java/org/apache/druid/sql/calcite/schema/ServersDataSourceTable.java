@@ -28,7 +28,9 @@ import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.sql.calcite.table.DruidTable;
 
-/** Druid datasource representation of {@code sys.servers}. */
+/**
+ * Druid datasource representation of {@code sys.servers}.
+ */
 class ServersDataSourceTable extends DruidTable
 {
   private static final DataSource DATA_SOURCE = new SystemTableDataSource(ServersTableDescriptor.TABLE_NAME);

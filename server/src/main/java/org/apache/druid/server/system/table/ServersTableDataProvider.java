@@ -33,7 +33,7 @@ import org.apache.druid.error.DruidException;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.jackson.JacksonUtils;
-import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.query.filter.Filter;
 import org.apache.druid.rpc.indexing.OverlordClient;
 import org.apache.druid.server.DruidNode;
 
@@ -43,7 +43,9 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
-/** Native row supplier for {@code sys.servers}. */
+/**
+ * Native row supplier for {@code sys.servers}.
+ */
 public class ServersTableDataProvider implements SystemTableDataProvider
 {
   // This is used for maxSize and currentSize when they are unknown.
@@ -76,7 +78,7 @@ public class ServersTableDataProvider implements SystemTableDataProvider
   }
 
   @Override
-  public Iterable<Object[]> getRows(final List<DimFilter> filters)
+  public Iterable<Object[]> getRows(final List<Filter> filters)
   {
     final Iterator<DiscoveryDruidNode> druidServers = getDruidServers();
     String tmpCoordinatorLeader = "";
