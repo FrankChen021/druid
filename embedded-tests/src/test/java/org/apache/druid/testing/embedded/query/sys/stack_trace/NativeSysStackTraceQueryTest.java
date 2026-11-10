@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.testing.embedded.schema;
+package org.apache.druid.testing.embedded.query.sys.stack_trace;
 
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -52,7 +52,7 @@ import javax.ws.rs.core.MediaType;
 import java.util.List;
 import java.util.Map;
 
-public class SystemStackTraceTableTest extends EmbeddedClusterTestBase
+public class NativeSysStackTraceQueryTest extends EmbeddedClusterTestBase
 {
   private static final String BROKER_PORT = "9082";
   private static final String BROKER_SERVICE = "test/broker";
