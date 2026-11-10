@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.testing.embedded.query;
+package org.apache.druid.testing.embedded.query.sys.servers;
 
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
