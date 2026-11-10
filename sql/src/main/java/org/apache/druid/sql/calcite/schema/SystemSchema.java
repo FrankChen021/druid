@@ -48,7 +48,6 @@ import org.apache.druid.client.coordinator.CoordinatorClient;
 import org.apache.druid.common.guava.FutureUtils;
 import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
-import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.indexer.TaskStatusPlus;
 import org.apache.druid.indexing.overlord.supervisor.SupervisorStatus;
@@ -66,13 +65,13 @@ import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationResult;
 import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
-import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.module.SystemTableModule;
 import org.apache.druid.server.system.table.ServersTableDataProvider;
 import org.apache.druid.server.system.table.ServersTableDescriptor;
+import org.apache.druid.server.system.table.SystemTableAuthorization;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
@@ -90,7 +89,6 @@ import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -98,7 +96,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class SystemSchema extends AbstractTableSchema
@@ -1084,15 +1081,7 @@ public class SystemSchema extends AbstractTableSchema
       AuthorizerMapper authorizerMapper
   )
   {
-    final AuthorizationResult authResult = AuthorizationUtils.authorizeAllResourceActions(
-        authenticationResult,
-        Collections.singletonList(new ResourceAction(Resource.STATE_RESOURCE, Action.READ)),
-        authorizerMapper
-    );
-
-    if (!authResult.allowAccessWithNoRestriction()) {
-      throw new ForbiddenException("Insufficient permission to view servers: " + authResult.getErrorMessage());
-    }
+    SystemTableAuthorization.authorizeStateRead(authenticationResult, authorizerMapper);
   }
 
   /**
@@ -1100,10 +1089,7 @@ public class SystemSchema extends AbstractTableSchema
    */
   public static Iterator<DiscoveryDruidNode> getDruidServers(DruidNodeDiscoveryProvider druidNodeDiscoveryProvider)
   {
-    return Arrays.stream(NodeRole.values())
-                 .flatMap(nodeRole -> druidNodeDiscoveryProvider.getForNodeRole(nodeRole).getAllNodes().stream())
-                 .collect(Collectors.toList())
-                 .iterator();
+    return ServersTableDataProvider.getDruidServers(druidNodeDiscoveryProvider);
   }
 
   /**

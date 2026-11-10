@@ -75,7 +75,6 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.io.Closer;
-import org.apache.druid.java.util.common.jackson.JacksonUtils;
 import org.apache.druid.java.util.http.client.HttpClient;
 import org.apache.druid.java.util.http.client.Request;
 import org.apache.druid.java.util.http.client.response.HttpResponseHandler;
@@ -625,13 +624,9 @@ public class SystemSchemaTest extends CalciteTestBase
     final SystemSchema.ServersTable serversTable = (SystemSchema.ServersTable) schema.tables().get("servers");
     final RelDataType serverRowType = serversTable.getRowType(new JavaTypeFactoryImpl());
     final List<RelDataTypeField> serverFields = serverRowType.getFieldList();
-    Assertions.assertEquals(17, serverFields.size());
+    Assertions.assertEquals(16, serverFields.size());
     Assertions.assertEquals("server", serverFields.get(0).getName());
     Assertions.assertEquals(SqlTypeName.VARCHAR, serverFields.get(0).getType().getSqlTypeName());
-    Assertions.assertEquals("labels", serverFields.get(13).getName());
-    Assertions.assertEquals(SqlTypeName.VARCHAR, serverFields.get(13).getType().getSqlTypeName());
-    Assertions.assertEquals("labels_json", serverFields.get(16).getName());
-    Assertions.assertEquals(SqlTypeName.OTHER, serverFields.get(16).getType().getSqlTypeName());
 
     final SystemServerPropertiesTable propertiesTable = (SystemServerPropertiesTable) schema.tables()
                                                                                             .get("server_properties");
@@ -1203,7 +1198,7 @@ public class SystemSchemaTest extends CalciteTestBase
             startTimeStr,
             version,
             buildRevision,
-            ImmutableMap.of("brokerKey", "brokerValue", "brokerKey2", "brokerValue2"),
+            "{\"brokerKey\":\"brokerValue\",\"brokerKey2\":\"brokerValue2\"}",
             availableProcessors,
             totalMemory
         )
@@ -1243,7 +1238,7 @@ public class SystemSchemaTest extends CalciteTestBase
             startTimeStr,
             version,
             buildRevision,
-            ImmutableMap.of("overlordKey", "overlordValue"),
+            "{\"overlordKey\":\"overlordValue\"}",
             availableProcessors,
             totalMemory
         )
@@ -1387,7 +1382,7 @@ public class SystemSchemaTest extends CalciteTestBase
       String startTime,
       String version,
       String buildRevision,
-      @Nullable Map<String, String> labels,
+      String labels,
       long availableProcessors,
       long totalMemory
   )
@@ -1406,10 +1401,9 @@ public class SystemSchemaTest extends CalciteTestBase
         startTime,
         version,
         buildRevision,
-        labels == null ? null : JacksonUtils.writeValueAsString(MAPPER, labels),
+        labels,
         availableProcessors,
-        totalMemory,
-        labels
+        totalMemory
     };
   }
 
@@ -2601,10 +2595,6 @@ public class SystemSchemaTest extends CalciteTestBase
             break;
           case STRING:
             expectedClass = String.class;
-            break;
-          case COMPLEX:
-            // The only complex system-table column is sys.servers.labels_json, a JSON object.
-            expectedClass = Map.class;
             break;
           default:
             throw new IAE("Don't know what class to expect for valueType[%s]", columnType);

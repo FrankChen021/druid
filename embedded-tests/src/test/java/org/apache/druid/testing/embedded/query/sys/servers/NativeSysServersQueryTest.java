@@ -19,9 +19,19 @@
 
 package org.apache.druid.testing.embedded.query.sys.servers;
 
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import org.apache.druid.java.util.common.URIs;
+import org.apache.druid.java.util.http.client.Request;
+import org.apache.druid.java.util.http.client.response.StatusResponseHandler;
+import org.apache.druid.java.util.http.client.response.StatusResponseHolder;
+import org.apache.druid.query.Druids;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.query.context.QueryContextParameters;
+import org.apache.druid.query.scan.ScanQuery;
+import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.testing.embedded.EmbeddedBroker;
 import org.apache.druid.testing.embedded.EmbeddedCoordinator;
@@ -29,13 +39,17 @@ import org.apache.druid.testing.embedded.EmbeddedDruidCluster;
 import org.apache.druid.testing.embedded.EmbeddedOverlord;
 import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+
+import javax.ws.rs.core.MediaType;
 
 import java.util.Map;
 
 public class NativeSysServersQueryTest extends EmbeddedClusterTestBase
 {
+  private final EmbeddedCoordinator coordinator = new EmbeddedCoordinator();
   private final EmbeddedBroker broker = new EmbeddedBroker()
       .addProperty("druid.labels", "{\"environment\":\"test\"}");
   /**
@@ -51,19 +65,22 @@ public class NativeSysServersQueryTest extends EmbeddedClusterTestBase
     return EmbeddedDruidCluster.withEmbeddedDerbyAndZookeeper()
                                .addCommonProperty("druid.query.enableDruidEngineForSystemTables", "true")
                                .useLatchableEmitter()
-                               .addServer(new EmbeddedCoordinator())
+                               .addServer(coordinator)
                                .addServer(new EmbeddedOverlord())
                                .addServer(broker)
                                .addServer(secondBroker);
   }
 
+  /**
+   * The Druid engine can parse the {@code labels} JSON string, which the Broker's SQL interpreter can't.
+   */
   @ParameterizedTest(name = "plannerStrategy = {0}")
   @EnumSource(QueryContexts.PlannerStrategy.class)
-  public void testJsonValueOnJsonLabels(final QueryContexts.PlannerStrategy plannerStrategy)
+  public void testJsonValueOnLabels(final QueryContexts.PlannerStrategy plannerStrategy)
   {
     final String result = cluster.runSql(
         """
-        SELECT JSON_VALUE(labels_json, '$.environment')
+        SELECT JSON_VALUE(PARSE_JSON(labels), '$.environment')
         FROM sys.servers
         WHERE server = '%s'
         """,
@@ -117,6 +134,69 @@ public class NativeSysServersQueryTest extends EmbeddedClusterTestBase
     );
 
     Assertions.assertEquals("4", result);
+  }
+
+  /**
+   * The Druid engine returns the same rows as the Broker's SQL interpreter, which builds them with the same code.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testSameRowsAsSqlInterpreter(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    final String sql = "SELECT * FROM sys.servers ORDER BY server";
+    final String interpreterRows = cluster.runSql(
+        sql,
+        QueryContext.ofMap(QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES, false)
+    );
+
+    Assertions.assertFalse(interpreterRows.isEmpty());
+    Assertions.assertEquals(interpreterRows, cluster.runSql(sql, nativeQueryContext(plannerStrategy)));
+  }
+
+  /**
+   * The Coordinator and Overlord leaders are flagged as leaders.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testLeaders(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    final String result = cluster.runSql(
+        """
+        SELECT server_type, is_leader
+        FROM sys.servers
+        WHERE server_type IN ('coordinator', 'overlord')
+        ORDER BY server_type
+        """,
+        nativeQueryContext(plannerStrategy)
+    );
+
+    Assertions.assertEquals(
+        """
+        coordinator,1
+        overlord,1""",
+        result
+    );
+  }
+
+  /**
+   * Only Brokers serve {@code sys.servers}: a native query on the Coordinator is rejected.
+   */
+  @Test
+  public void testCoordinatorRejectsNativeQuery() throws Exception
+  {
+    final ScanQuery query = Druids.newScanQueryBuilder()
+                                  .dataSource(new SystemTableDataSource(ServersTableDescriptor.TABLE_NAME))
+                                  .eternityInterval()
+                                  .build();
+    final Request request = new Request(HttpMethod.POST, URIs.toURL(getServerUrl(coordinator) + "/druid/v2/"))
+        .setContent(MediaType.APPLICATION_JSON, coordinator.bindings().jsonMapper().writeValueAsBytes(query));
+    final StatusResponseHolder response = coordinator.bindings()
+                                                     .globalHttpClient()
+                                                     .go(request, StatusResponseHandler.getInstance())
+                                                     .get();
+
+    Assertions.assertEquals(HttpResponseStatus.BAD_REQUEST, response.getStatus(), response.getContent());
+    Assertions.assertTrue(response.getContent().contains("System table[servers]"), response.getContent());
   }
 
   private static Map<String, Object> nativeQueryContext(final QueryContexts.PlannerStrategy plannerStrategy)

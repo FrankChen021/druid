@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Native row supplier for {@code sys.servers}.
@@ -80,7 +81,7 @@ public class ServersTableDataProvider implements SystemTableDataProvider
   @Override
   public Iterable<Object[]> getRows(final List<Filter> filters)
   {
-    final Iterator<DiscoveryDruidNode> druidServers = getDruidServers();
+    final Iterator<DiscoveryDruidNode> druidServers = getDruidServers(druidNodeDiscoveryProvider);
     String tmpCoordinatorLeader = "";
     String tmpOverlordLeader = "";
 
@@ -145,10 +146,14 @@ public class ServersTableDataProvider implements SystemTableDataProvider
     return rows;
   }
 
-  private Iterator<DiscoveryDruidNode> getDruidServers()
+  /**
+   * Returns every discovered Druid service, of every node role.
+   */
+  public static Iterator<DiscoveryDruidNode> getDruidServers(final DruidNodeDiscoveryProvider discoveryProvider)
   {
     return Arrays.stream(NodeRole.values())
-                 .flatMap(nodeRole -> druidNodeDiscoveryProvider.getForNodeRole(nodeRole).getAllNodes().stream())
+                 .flatMap(nodeRole -> discoveryProvider.getForNodeRole(nodeRole).getAllNodes().stream())
+                 .collect(Collectors.toList())
                  .iterator();
   }
 
@@ -171,8 +176,7 @@ public class ServersTableDataProvider implements SystemTableDataProvider
         node.getBuildRevision(),
         node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
         (long) discoveryDruidNode.getAvailableProcessors(),
-        discoveryDruidNode.getTotalMemory(),
-        node.getLabels()
+        discoveryDruidNode.getTotalMemory()
     };
   }
 
@@ -198,8 +202,7 @@ public class ServersTableDataProvider implements SystemTableDataProvider
         node.getBuildRevision(),
         node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
         (long) discoveryDruidNode.getAvailableProcessors(),
-        discoveryDruidNode.getTotalMemory(),
-        node.getLabels()
+        discoveryDruidNode.getTotalMemory()
     };
   }
 
@@ -231,8 +234,7 @@ public class ServersTableDataProvider implements SystemTableDataProvider
         node.getBuildRevision(),
         node.getLabels() == null ? null : JacksonUtils.writeValueAsString(jsonMapper, node.getLabels()),
         (long) discoveryDruidNode.getAvailableProcessors(),
-        discoveryDruidNode.getTotalMemory(),
-        node.getLabels()
+        discoveryDruidNode.getTotalMemory()
     };
   }
 

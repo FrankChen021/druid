@@ -23,7 +23,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import org.apache.druid.client.FilteredServerInventoryView;
@@ -33,6 +32,7 @@ import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.rpc.indexing.OverlordClient;
+import org.apache.druid.server.system.table.ServersTableDataProvider;
 import org.apache.druid.server.system.table.ServersTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
@@ -41,46 +41,27 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.Map;
-import java.util.Properties;
 
 public class BrokerSystemTableModuleTest
 {
   /**
-   * With the Druid engine enabled for system tables, the Broker serves {@code sys.servers}: both its descriptor, which
-   * authorizes and routes queries, and its provider are bound.
+   * The module binds the {@code sys.servers} descriptor, which authorizes and routes queries, and a provider that can
+   * be injected from the Broker's services.
    */
   @Test
-  public void testBindsServersTableWhenEnabled()
+  public void testBindsServersTable()
   {
-    final Properties properties = new Properties();
-    properties.setProperty(SystemTableModule.ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY, "true");
-    final Injector injector = injector(properties);
+    final Injector injector = injector();
 
     final Map<String, SystemTableDescriptor> descriptors =
         injector.getInstance(Key.get(new TypeLiteral<Map<String, SystemTableDescriptor>>() {}));
     Assertions.assertInstanceOf(ServersTableDescriptor.class, descriptors.get(ServersTableDescriptor.TABLE_NAME));
-    final Map<String, Provider<SystemTableDataProvider>> providers =
-        injector.getInstance(Key.get(new TypeLiteral<Map<String, Provider<SystemTableDataProvider>>>() {}));
-    Assertions.assertTrue(providers.containsKey(ServersTableDescriptor.TABLE_NAME));
+    final Map<String, SystemTableDataProvider> providers =
+        injector.getInstance(Key.get(new TypeLiteral<Map<String, SystemTableDataProvider>>() {}));
+    Assertions.assertInstanceOf(ServersTableDataProvider.class, providers.get(ServersTableDescriptor.TABLE_NAME));
   }
 
-  /**
-   * Without the property, the module binds nothing.
-   */
-  @Test
-  public void testBindsNothingWhenDisabled()
-  {
-    final Injector injector = injector(new Properties());
-
-    Assertions.assertNull(
-        injector.getExistingBinding(Key.get(new TypeLiteral<Map<String, SystemTableDescriptor>>() {}))
-    );
-    Assertions.assertNull(
-        injector.getExistingBinding(Key.get(new TypeLiteral<Map<String, SystemTableDataProvider>>() {}))
-    );
-  }
-
-  private static Injector injector(final Properties properties)
+  private static Injector injector()
   {
     return Guice.createInjector(
         binder -> {
@@ -91,7 +72,7 @@ public class BrokerSystemTableModuleTest
           binder.bind(CoordinatorClient.class).toInstance(Mockito.mock(CoordinatorClient.class));
           binder.bind(ObjectMapper.class).annotatedWith(Json.class).toInstance(new DefaultObjectMapper());
         },
-        new BrokerSystemTableModule(properties)
+        new BrokerSystemTableModule()
     );
   }
 }

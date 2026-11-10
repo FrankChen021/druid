@@ -178,16 +178,16 @@ execution:
 |Table|Source of rows|
 |-----|--------------|
 |[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Every server is queried, and filters on `server` and `service_name` let a server that doesn't match return no rows.|
-|[`sys.servers`](#servers-table)|The Broker's local discovered-cluster view of Druid servers.|
+|[`sys.servers`](#servers-table)|The Druid servers that the Broker running the query has discovered. Only that Broker is read, since every Broker sees the same servers. Only Brokers serve the table.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
 aggregations, sorting, and result processing. A system table that doesn't advertise native query support continues to
 use the Broker's SQL interpreter, even when `useDruidEngineForSystemTables` is `true`.
 
-The Broker gathers the rows of the table from every service that serves it. A native query sent to the `/druid/v2/`
-endpoint of a service, with a `systemTable` datasource, reads only the rows of that service. The Router, Coordinator,
-Overlord, and Middle Manager accept only Scan queries on a `systemTable` datasource. The Router forwards queries that
-read a system table through a subquery or a join to a Broker, which reads its own rows.
+Except for `sys.servers`, the Broker gathers the rows of the table from every service that serves it. A native query
+sent to the `/druid/v2/` endpoint of a service, with a `systemTable` datasource, reads only the rows of that service.
+The Router, Coordinator, Overlord, and Middle Manager accept only Scan queries on a `systemTable` datasource. The Router
+forwards queries that read a system table through a subquery or a join to a Broker, which reads its own rows.
 
 The parameter defaults to `false`. During a rolling upgrade, leave the server property and the parameter disabled
 until all services have been upgraded. After the upgrade, you can enable it by query or set
@@ -296,7 +296,6 @@ Servers table lists all discovered servers in the cluster.
 |labels|VARCHAR|Labels for the server configured using the property [`druid.labels`](../configuration/index.md)|
 |available_processors|BIGINT|Total number of CPU processors available to the server|
 |total_memory|BIGINT|Total memory in bytes available to the server|
-|labels_json|COMPLEX&lt;json&gt;|Labels for the server as a JSON object. This column is appended to preserve the existing column ordinals.|
 
 To retrieve information about all servers, use the query:
 

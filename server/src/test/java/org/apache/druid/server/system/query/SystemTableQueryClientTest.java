@@ -282,37 +282,59 @@ public class SystemTableQueryClientTest
 
   /**
    * {@code sys.servers} is the querying Broker's view of the cluster. SQL reads only that Broker's rows: the table keeps
-   * the caller's access and becomes local-scoped, for the Broker's own walker to read, without any node scan.
+   * the caller's access and becomes local-scoped, for the Broker's own walker to read, without any node scan. A
+   * gathered table in the same query is still resolved, and only it is looked up for node scans.
    */
   @Test
   public void testLocalNodeTableIsReadByThisBrokerOnly()
   {
-    final ServersTableDescriptor descriptor = new ServersTableDescriptor();
+    final ServersTableDescriptor serversDescriptor = new ServersTableDescriptor();
+    final ServerPropertiesTableDescriptor propertiesDescriptor = new ServerPropertiesTableDescriptor();
     final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
     final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
     final SystemTableQueryClient client = newClient(
         nodeLocator,
         directClientFactory,
         Mockito.mock(QueryScheduler.class),
-        Map.of(descriptor.getTableName(), descriptor),
+        Map.of(
+            serversDescriptor.getTableName(),
+            serversDescriptor,
+            propertiesDescriptor.getTableName(),
+            propertiesDescriptor
+        ),
         nonMatchingSelfNode()
     );
-    final SystemTableAccess access = SystemTableAccess.ALL_ROWS;
+    // A distinct access, so the test fails if the scope change replaces or drops the caller's access.
+    final SystemTableAccess callerAccess = new SystemTableAccess(row -> false);
+    final DataSource join = JoinDataSource.create(
+        new SystemTableDataSource(serversDescriptor.getTableName())
+            .withAccess(callerAccess)
+            .withScope(SystemTableDataSource.Scope.CLUSTER),
+        new SystemTableDataSource(propertiesDescriptor.getTableName())
+            .withAccess(callerAccess)
+            .withScope(SystemTableDataSource.Scope.CLUSTER),
+        "j.",
+        "server == \"j.server\"",
+        JoinType.INNER,
+        null,
+        ExprMacroTable.nil(),
+        null,
+        JoinAlgorithm.BROADCAST
+    );
     final ScanQuery query = Druids.ScanQueryBuilder
-        .copy(query(descriptor, Collections.emptyMap()))
-        .dataSource(
-            new SystemTableDataSource(descriptor.getTableName())
-                .withAccess(access)
-                .withScope(SystemTableDataSource.Scope.CLUSTER)
-        )
+        .copy(query(serversDescriptor, Collections.emptyMap()))
+        .dataSource(join)
         .build();
 
-    final SystemTableDataSource resolved =
-        (SystemTableDataSource) client.resolve(query).query().getDataSource();
+    final JoinDataSource resolved = (JoinDataSource) client.resolve(query).query().getDataSource();
 
-    Assertions.assertEquals(SystemTableDataSource.Scope.LOCAL, resolved.getScope());
-    Assertions.assertSame(access, resolved.getAccess());
-    Mockito.verifyNoInteractions(nodeLocator, directClientFactory);
+    final SystemTableDataSource servers = (SystemTableDataSource) resolved.getLeft();
+    Assertions.assertEquals(SystemTableDataSource.Scope.LOCAL, servers.getScope());
+    Assertions.assertSame(callerAccess, servers.getAccess());
+    Assertions.assertInstanceOf(InlineDataSource.class, resolved.getRight());
+    Mockito.verify(nodeLocator).locate(propertiesDescriptor);
+    Mockito.verifyNoMoreInteractions(nodeLocator);
+    Mockito.verifyNoInteractions(directClientFactory);
   }
 
   /**

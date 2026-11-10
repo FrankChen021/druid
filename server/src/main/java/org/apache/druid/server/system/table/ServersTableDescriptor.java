@@ -49,7 +49,6 @@ public class ServersTableDescriptor implements SystemTableDescriptor
       .add("labels", ColumnType.STRING)
       .add("available_processors", ColumnType.LONG)
       .add("total_memory", ColumnType.LONG)
-      .add("labels_json", ColumnType.NESTED_DATA)
       .build();
 
   private static final Set<NodeRole> NODE_ROLES = Set.of(NodeRole.BROKER);

@@ -22,8 +22,10 @@ package org.apache.druid.cli;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.Provider;
 import com.google.inject.ProvisionException;
 import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -43,10 +45,15 @@ import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.guice.LifecycleModule;
 import org.apache.druid.jackson.JacksonModule;
+import org.apache.druid.server.system.module.SystemTableModule;
+import org.apache.druid.server.system.table.ServersTableDescriptor;
+import org.apache.druid.server.system.table.SystemTableDataProvider;
+import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -428,6 +435,33 @@ public class CliBrokerTest
         "Problem parsing object at prefix[druid.broker.realtime.select.tier.pooled]: Cannot construct instance of"
         + " `PooledTierSelectorStrategyConfig`, problem: priorities must be non-empty when using pooled tier selector on the Broker. Found priorities[null]."
     ));
+  }
+
+  /**
+   * The Broker binds {@code sys.servers}, the table only it serves, only when the Druid engine is enabled for system
+   * tables.
+   */
+  @Test
+  public void testServersTableIsBoundOnlyWhenEnabled()
+  {
+    final Properties enabled = new Properties();
+    enabled.setProperty(SystemTableModule.ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY, "true");
+    final Injector injector = makeBrokerInjector(enabled);
+    Assertions.assertInstanceOf(
+        ServersTableDescriptor.class,
+        injector.getInstance(Key.get(new TypeLiteral<Map<String, SystemTableDescriptor>>() {}))
+                .get(ServersTableDescriptor.TABLE_NAME)
+    );
+    Assertions.assertTrue(
+        injector.getInstance(Key.get(new TypeLiteral<Map<String, Provider<SystemTableDataProvider>>>() {}))
+                .containsKey(ServersTableDescriptor.TABLE_NAME)
+    );
+
+    final Injector disabled = makeBrokerInjector(new Properties());
+    Assertions.assertFalse(
+        disabled.getInstance(Key.get(new TypeLiteral<Map<String, SystemTableDescriptor>>() {}))
+                .containsKey(ServersTableDescriptor.TABLE_NAME)
+    );
   }
 
   private Injector makeBrokerInjector(final Properties props)

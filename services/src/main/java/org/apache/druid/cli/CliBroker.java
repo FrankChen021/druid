@@ -165,6 +165,7 @@ public class CliBroker extends ServerRunnable
             binder.bind(QuerySegmentWalker.class)
                   .to(SystemTableGatheringQuerySegmentWalker.class)
                   .in(LazySingleton.class);
+            binder.install(new BrokerSystemTableModule());
           } else {
             binder.bind(QuerySegmentWalker.class).to(ClientQuerySegmentWalker.class).in(LazySingleton.class);
           }
@@ -209,8 +210,7 @@ public class CliBroker extends ServerRunnable
         new SqlTaskModule(),
         new DartControllerModule(),
         new DartControllerMemoryManagementModule(),
-        new BrokerRealtimeSelectorModule(),
-        new BrokerSystemTableModule(getProperties())
+        new BrokerRealtimeSelectorModule()
     );
   }
 }

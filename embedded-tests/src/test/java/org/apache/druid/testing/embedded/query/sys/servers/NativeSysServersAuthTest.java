@@ -133,7 +133,8 @@ public class NativeSysServersAuthTest extends EmbeddedClusterTestBase
         forbidden.getContent()
     );
 
-    nativeQuery(stateUser, HttpResponseStatus.FORBIDDEN);
+    final StatusResponseHolder invisible = nativeQuery(stateUser, HttpResponseStatus.FORBIDDEN);
+    Assertions.assertTrue(invisible.getContent().contains("Unauthorized"), invisible.getContent());
   }
 
   private StatusResponseHolder sql(
