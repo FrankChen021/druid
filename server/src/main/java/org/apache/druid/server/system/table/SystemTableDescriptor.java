@@ -44,6 +44,26 @@ public interface SystemTableDescriptor
   SystemTableRowAuthorizer getRowAuthorizer();
 
   /**
+   * Whether the row authorizer can hide some rows from a caller while showing others. The services the Broker reads
+   * the table from use the Broker's escalated identity, and the Broker applies the caller's access only to the gathered
+   * rows. For such a table, the Broker keeps the node scans from revealing hidden rows: it pushes only filters that
+   * can't fail on a row's values, and it doesn't let the caller lower the scans' scatter-gather limit, whose error
+   * would report the bytes of hidden rows.
+   */
+  default boolean hidesRows()
+  {
+    return false;
+  }
+
+  /**
+   * Returns which services' rows SQL reads for this table.
+   */
+  default SystemTableRoutingMode getRoutingMode()
+  {
+    return SystemTableRoutingMode.ALL_NODES;
+  }
+
+  /**
    * Whether an empty discovery result represents an empty table instead of unavailable infrastructure.
    */
   default boolean isEmptyDiscoveryAllowed()

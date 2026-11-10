@@ -61,9 +61,30 @@ public class SystemSchemaDataSourceTableTest
     EasyMock.verify(context);
   }
 
+  /**
+
+   * sys.tasks offers a Druid datasource only when druid.query.enableDruidEngineForSystemTables is set.
+
+   */
+  @Test
+  public void testTasksTableHasDataSourceTableOnlyWhenEnabled()
+  {
+    Assertions.assertInstanceOf(
+        TasksDataSourceTable.class,
+        new SystemSchema.TasksTable(null, null, null, true).asDataSourceTable()
+    );
+    Assertions.assertNull(new SystemSchema.TasksTable(null, null, null, false).asDataSourceTable());
+  }
+
   @Test
   public void testNativeTablesExposeSystemMetadata()
   {
+    final TasksDataSourceTable tasks = new TasksDataSourceTable();
+    Assertions.assertEquals("tasks", ((SystemTableDataSource) tasks.getDataSource()).getTable());
+    Assertions.assertFalse(tasks.isJoinable());
+    Assertions.assertFalse(tasks.isBroadcast());
+    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, tasks.getJdbcTableType());
+
     final ServerPropertiesDataSourceTable serverProperties = new ServerPropertiesDataSourceTable();
     Assertions.assertEquals(
         "server_properties",
