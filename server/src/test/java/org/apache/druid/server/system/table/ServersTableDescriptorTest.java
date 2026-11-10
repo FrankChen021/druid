@@ -40,7 +40,7 @@ public class ServersTableDescriptorTest
     final ServersTableDescriptor descriptor = new ServersTableDescriptor();
 
     Assertions.assertEquals(Set.of(NodeRole.BROKER), descriptor.getNodeRoles());
-    Assertions.assertEquals(SystemTableRoutingMode.LOCAL_NODE, descriptor.getRoutingMode());
+    Assertions.assertEquals(SystemTableTargetNodes.LOCAL_NODE, descriptor.getTargetNodes());
     Assertions.assertSame(SystemTableAuthorization.STATE_READ_ROW_AUTHORIZER, descriptor.getRowAuthorizer());
   }
 }

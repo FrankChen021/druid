@@ -34,8 +34,8 @@ public interface SystemTableDescriptor
   String getTableName();
 
   /**
-   * Returns the node roles of the services that serve this table. With {@link SystemTableRoutingMode#ALL_NODES}, every
-   * discovered service with one of these roles contributes its own rows. A {@link SystemTableRoutingMode#LOCAL_NODE}
+   * Returns the node roles of the services that serve this table. With {@link SystemTableTargetNodes#ALL_NODES}, every
+   * discovered service with one of these roles contributes its own rows. A {@link SystemTableTargetNodes#LOCAL_NODE}
    * table is read only on the querying Broker, and these roles only describe it.
    */
   Set<NodeRole> getNodeRoles();
@@ -45,11 +45,11 @@ public interface SystemTableDescriptor
   SystemTableRowAuthorizer getRowAuthorizer();
 
   /**
-   * Returns which services' rows a cluster-scoped read of this table returns.
+   * Returns which nodes a cluster-scoped read of this table reads rows from.
    */
-  default SystemTableRoutingMode getRoutingMode()
+  default SystemTableTargetNodes getTargetNodes()
   {
-    return SystemTableRoutingMode.ALL_NODES;
+    return SystemTableTargetNodes.ALL_NODES;
   }
 
   /**

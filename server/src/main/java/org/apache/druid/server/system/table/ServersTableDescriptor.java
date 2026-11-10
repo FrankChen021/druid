@@ -66,9 +66,9 @@ public class ServersTableDescriptor implements SystemTableDescriptor
   }
 
   @Override
-  public SystemTableRoutingMode getRoutingMode()
+  public SystemTableTargetNodes getTargetNodes()
   {
-    return SystemTableRoutingMode.LOCAL_NODE;
+    return SystemTableTargetNodes.LOCAL_NODE;
   }
 
   @Override

@@ -20,9 +20,9 @@
 package org.apache.druid.server.system.table;
 
 /**
- * Which services' rows a cluster-scoped read of a system table returns.
+ * Which nodes a cluster-scoped read of a system table reads rows from.
  */
-public enum SystemTableRoutingMode
+public enum SystemTableTargetNodes
 {
   /**
    * Every discovered service with one of the table's node roles contributes its own rows, gathered by the Broker.
