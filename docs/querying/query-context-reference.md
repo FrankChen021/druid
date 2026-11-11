@@ -79,6 +79,7 @@ Unless otherwise noted, the following parameters apply to all query types, and t
 |`numRetriesOnMissingSegments`| `druid.broker.retryPolicy.numTries` for native queries, `3` for MSQ tasks | Maximum number of times Druid retries a query for segments that a data server reports as missing. For native queries, this overrides `druid.broker.retryPolicy.numTries`.| <!-- GENERATED QUERY CONTEXT PARAMETER: numRetriesOnMissingSegments -->
 |`returnPartialResults`| `false` | If true, the Broker returns partial results when segments are still missing after all retries. If false, the query fails instead.| <!-- GENERATED QUERY CONTEXT PARAMETER: returnPartialResults -->
 |`uncoveredIntervalsLimit`| `0` | Maximum number of query intervals not covered by any segment that the Broker reports in the `uncoveredIntervals` entry of the response context. If more intervals are uncovered, the Broker also sets `uncoveredIntervalsOverflowed` to true. A value of 0 disables the check.| <!-- GENERATED QUERY CONTEXT PARAMETER: uncoveredIntervalsLimit -->
+|`maxStackTraceFrameDepth`| `100` | For queries on [`sys.stack_trace`](sql-metadata-tables.md#stack_trace-table), the maximum number of stack frames returned for each thread. Defaults to `100`; valid values are integers from `10` through `1000`. Has no effect unless `druid.query.enableDruidEngineForSystemTables` is set on all services.| <!-- GENERATED QUERY CONTEXT PARAMETER: maxStackTraceFrameDepth -->
 
 ## Parameters by query type
 

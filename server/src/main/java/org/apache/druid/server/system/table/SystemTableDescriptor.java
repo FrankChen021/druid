@@ -20,9 +20,11 @@
 package org.apache.druid.server.system.table;
 
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.query.Query;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.DruidNode;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -42,6 +44,31 @@ public interface SystemTableDescriptor
   RowSignature getRowSignature();
 
   SystemTableRowAuthorizer getRowAuthorizer();
+
+  /**
+   * Validates the Scan that the Broker sends to the services it queries to gather the table's rows, before it sends it.
+   * A table can reject a query here that would be too costly to run on those services.
+   *
+   * @throws org.apache.druid.error.DruidException if the query is invalid
+   */
+  default void validateNodeQuery(final Query<?> nodeQuery)
+  {
+  }
+
+  /**
+   * Returns the columns of the table whose value on every row is an attribute of the service that returned the row,
+   * keyed by column name. The Broker queries only the services whose attributes the node Scan's filter allows, by
+   * reading {@code =}, {@code IN}, and {@code OR}-of-{@code =} filters on these columns with
+   * {@link SystemTableFilters}. Every row carries its own service's values in these columns and the Broker applies the
+   * whole filter, so this doesn't change the rows returned, except that a service the filter rules out can no longer
+   * fail the query. Each column must be a STRING column of {@link #getRowSignature()}; nothing checks this, and a
+   * column that isn't one never matches a filter, so it doesn't narrow. By default no column is declared, and every
+   * service with one of the table's {@link #getNodeRoles() roles} is queried.
+   */
+  default Map<String, NodeAttribute> getNodeColumns()
+  {
+    return Map.of();
+  }
 
   /**
    * Whether an empty discovery result represents an empty table instead of unavailable infrastructure.

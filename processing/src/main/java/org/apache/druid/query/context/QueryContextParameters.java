@@ -2508,6 +2508,22 @@ public final class QueryContextParameters
           .visibility(Visibility.SYSTEM)
           .build();
 
+  public static final QueryContextParameter<Integer> MAX_STACK_TRACE_FRAME_DEPTH =
+      integerParameter("maxStackTraceFrameDepth")
+          .defaultValue(100)
+          .constraint(Range.closedRange(10, 1000))
+          .description(
+              """
+              For queries on [`sys.stack_trace`](sql-metadata-tables.md#stack_trace-table), the maximum number of
+              stack frames returned for each thread. Defaults to `100`; valid values are integers from `10` through
+              `1000`. Has no effect unless `druid.query.enableDruidEngineForSystemTables` is set on all services.
+              """
+          )
+          .since("40.0.0")
+          .query(Query.JSON, Query.SQL)
+          .engine(Engine.NATIVE)
+          .build();
+
   // endregion
 
   private QueryContextParameters()

@@ -24,6 +24,7 @@ import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.DruidNode;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -44,6 +45,10 @@ public class ServerPropertiesTableDescriptor implements SystemTableDescriptor
       .build();
 
   private static final Set<NodeRole> NODE_ROLES = Set.of(NodeRole.values());
+  private static final Map<String, NodeAttribute> NODE_COLUMNS = Map.of(
+      "server", NodeAttribute.HOST_AND_PORT,
+      "service_name", NodeAttribute.SERVICE_NAME
+  );
 
   @Override
   public String getTableName()
@@ -67,6 +72,12 @@ public class ServerPropertiesTableDescriptor implements SystemTableDescriptor
   public SystemTableRowAuthorizer getRowAuthorizer()
   {
     return SystemTableAuthorization.STATE_READ_ROW_AUTHORIZER;
+  }
+
+  @Override
+  public Map<String, NodeAttribute> getNodeColumns()
+  {
+    return NODE_COLUMNS;
   }
 
   @Override

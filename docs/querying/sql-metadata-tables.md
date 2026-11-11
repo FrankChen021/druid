@@ -177,16 +177,18 @@ execution:
 
 |Table|Source of rows|
 |-----|--------------|
-|[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Every server is queried, and filters on `server` and `service_name` let a server that doesn't match return no rows.|
+|[`sys.server_properties`](#server_properties-table)|The Druid server processes discovered in the cluster. Equality, `IN`, and `OR`-of-equality filters on `server` and `service_name` limit which servers are queried; otherwise every server is queried. A value that matches no server returns no rows.|
+|[`sys.stack_trace`](#stack_trace-table)|A live snapshot of Java platform threads from Druid server processes. The `server` filter is required, and Druid queries only the servers that the equality, `IN`, and `OR`-of-equality filters on `server` and `service_name` match. A value that matches no server returns no rows.|
 
 After Druid retrieves the system-table rows, the native engine applies the remaining filters, expressions,
 aggregations, sorting, and result processing. A system table that doesn't advertise native query support continues to
 use the Broker's SQL interpreter, even when `useDruidEngineForSystemTables` is `true`.
 
-The Broker gathers the rows of the table from every service that serves it. A native query sent to the `/druid/v2/`
-endpoint of a service, with a `systemTable` datasource, reads only the rows of that service. The Router, Coordinator,
-Overlord, and Middle Manager accept only Scan queries on a `systemTable` datasource. The Router forwards queries that
-read a system table through a subquery or a join to a Broker, which reads its own rows.
+The Broker gathers the rows of the table from every service that serves it, except the services that the table's
+filters on `server` and `service_name` rule out, as described in the table above. A native query sent to the
+`/druid/v2/` endpoint of a service, with a `systemTable` datasource, reads only the rows of that service. The Router,
+Coordinator, Overlord, and Middle Manager accept only Scan queries on a `systemTable` datasource. The Router forwards
+queries that read a system table through a subquery or a join to a Broker, which reads its own rows.
 
 The parameter defaults to `false`. During a rolling upgrade, leave the server property and the parameter disabled
 until all services have been upgraded. After the upgrade, you can enable it by query or set
@@ -387,6 +389,12 @@ The `server_properties` table exposes the runtime properties configured on each 
 |value|VARCHAR|Value of the property|
 |error_message|VARCHAR|Describes why properties could not be retrieved from the server (e.g., connection refused, HTTP error). Null when properties were fetched successfully.|
 
+With [native system-table execution](#native-query-execution), an equality filter, an `IN` filter, or an `OR` of
+equalities on `server` or `service_name` that applies directly to the scan of `server_properties` limits which servers
+Druid queries, and a value that matches no server returns no rows. Other filters, such as `LIKE` or an `OR` across
+columns, don't limit which servers are queried, but still apply to the results. Because Druid doesn't query a server
+that the filter rules out, an error on that server, such as an error response or a timeout, doesn't fail the query.
+
 For example, to retrieve properties for a specific server, use the query
 
 ```sql
@@ -428,6 +436,85 @@ For example, to list the deprecated parameters and their replacements, use the q
 SELECT name, deprecation
 FROM sys.query_context_parameters
 WHERE deprecation IS NOT NULL
+```
+
+### STACK_TRACE table
+
+The `stack_trace` table exposes an on-demand snapshot of the live Java platform threads in Druid server processes. The
+table always appears in the `sys` schema, but it is available only through
+[native system-table execution](#native-query-execution): you can query it only when
+`druid.query.enableDruidEngineForSystemTables` is set on all services and the query sets
+`useDruidEngineForSystemTables` to `true` with the `native` SQL engine. Otherwise, the query fails with an error that
+explains these requirements. The query also fails with this error when it combines `stack_trace` with a system table
+that uses the Broker's SQL interpreter, such as `sys.servers`, because Druid then runs the whole query on the
+interpreter. Virtual threads are not included. The query must contain an equality or `IN`
+filter on `server`, whose value is the server's `host:port` address and aligns with `sys.servers.server`.
+The filter must apply directly to the scan of `stack_trace`. In joins and subqueries, filter `stack_trace` on `server`
+in its own subquery. Druid rejects a query without this filter before it queries any server. Druid queries only the
+servers that the equality filters, `IN` filters, and `OR`s of equalities on `server` and `service_name` match, and a
+value that matches no server returns no rows. `UNION ALL` of `sys.stack_trace` queries isn't supported; query each
+server in its own statement, or use `server IN (...)`. A native query sent to the `/druid/v2/` endpoint of a service,
+with the `systemTable` datasource `stack_trace`, returns only the threads of that service, and doesn't require the
+filter.
+
+The table requires `READ` permission on the `STATE` resource. When `druid.auth.authorizeSystemTablesDirectly` is
+true, it also requires `READ` permission on the `SYSTEM_TABLE` resource `stack_trace`. Thread names and stacks can
+expose implementation details and other users' query activity, such as datasource names and query IDs, and each query
+collects a thread dump on every server it reaches. We recommend that you enable
+`druid.auth.authorizeSystemTablesDirectly` and grant `SYSTEM_TABLE` `READ` on `stack_trace` only to trusted users.
+Without that property, any user with `STATE` `READ` can query the table.
+
+|Column|Type|Notes|
+|------|-----|-----|
+|server|VARCHAR|Host and port of the server, in the form `host:port`; aligns with `sys.servers.server`|
+|service_name|VARCHAR|Service name of the server, as defined by `druid.service`|
+|node_roles|VARCHAR|Lexicographically sorted list of roles announced by the process, in the same format as `sys.server_properties.node_roles`. A process with multiple roles is represented as, for example, `[coordinator, overlord]`|
+|collected_at|VARCHAR|UTC ISO-8601 timestamp recorded when collection of the server snapshot begins. All successful thread rows from one server snapshot have the same value|
+|thread_id|BIGINT|JVM thread identifier, unique while the platform thread exists|
+|thread_name|VARCHAR|JVM thread name|
+|thread_state|VARCHAR|JVM state of the platform thread, such as `RUNNABLE`, `BLOCKED`, `WAITING`, or `TIMED_WAITING`|
+|daemon|BIGINT|Boolean represented as long type where 1 = true and 0 = false|
+|priority|BIGINT|JVM thread priority|
+|cpu_time_ns|BIGINT|Cumulative thread CPU time in nanoseconds at collection time. Null when unavailable or disabled|
+|user_cpu_time_ns|BIGINT|Cumulative thread user CPU time in nanoseconds at collection time. Null when unavailable or disabled|
+|lock_name|VARCHAR|Name of the object or synchronizer on which the thread is blocked or waiting, when available; otherwise null|
+|lock_owner_id|BIGINT|Identifier of the thread owning the lock, when available|
+|lock_owner_name|VARCHAR|Name of the thread owning the lock, when available|
+|is_deadlocked|BIGINT|Boolean represented as long type where 1 = the JVM reports the thread as part of a deadlock and 0 = it is not reported as deadlocked|
+|stack|VARCHAR|One string in the format of Java's `ThreadInfo.toString()`: a header line with the thread name, priority, ID, and state, followed by up to `maxStackTraceFrameDepth` stack frames with lock and synchronizer annotations. For a blocked or waiting thread, the line after the first frame notes the lock that the thread is blocked on or waiting on. The default is 100 frames. Unlike `ThreadInfo.toString()`, the value is not truncated to eight frames|
+|error_message|VARCHAR|Describes why the snapshot could not be retrieved, such as a connection error. Null for successful thread rows|
+
+The `cpu_time_ns` and `user_cpu_time_ns` values are nullable. Do not assume that either value is present, because
+availability depends on JVM support and configuration, and a thread can terminate while its snapshot is being collected.
+
+For example, to inspect threads and cumulative CPU time on one Broker:
+
+```sql
+SELECT thread_name, thread_state, cpu_time_ns, user_cpu_time_ns, stack
+FROM sys.stack_trace
+WHERE server = '192.168.1.1:8082'
+```
+
+To select more than one server, use `IN`:
+
+```sql
+SELECT server, service_name, thread_name, stack
+FROM sys.stack_trace
+WHERE server IN ('192.168.1.1:8081', '192.168.1.1:8082')
+```
+
+Use the `maxStackTraceFrameDepth` query context to control the maximum number of frames returned for each thread. Like
+the table, it has no effect unless `druid.query.enableDruidEngineForSystemTables` is set on all services. It
+defaults to 100 and accepts integers from 10 through 1000. Druid rejects other values.
+
+```json
+{
+  "query": "SELECT thread_name, stack FROM sys.stack_trace WHERE server = '192.168.1.1:8082'",
+  "context": {
+    "useDruidEngineForSystemTables": true,
+    "maxStackTraceFrameDepth": 250
+  }
+}
 ```
 
 ### QUERIES table

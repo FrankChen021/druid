@@ -20,7 +20,9 @@
 package org.apache.druid.server.system.table;
 
 import org.apache.druid.math.expr.ExprMacroTable;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.SystemTableAccess;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.segment.ColumnValueSelector;
@@ -39,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class SystemTableCursorFactoryTest
 {
@@ -102,6 +105,38 @@ public class SystemTableCursorFactoryTest
     );
 
     Assertions.assertEquals(List.of("task1"), taskIds);
+  }
+
+  /**
+   * The provider receives the context of the query that reads the table, for options that the query sets there.
+   */
+  @Test
+  public void testPassesQueryContextToProvider()
+  {
+    final QueryContext queryContext = QueryContext.of(QueryContextParameters.MAX_STACK_TRACE_FRAME_DEPTH, 10);
+    final AtomicReference<QueryContext> receivedContext = new AtomicReference<>();
+    final SystemTableDataProvider provider = new SystemTableDataProvider()
+    {
+      @Override
+      public Iterable<Object[]> getRows(final List<Filter> filters)
+      {
+        throw new AssertionError("The cursor factory must pass the query context");
+      }
+
+      @Override
+      public Iterable<Object[]> getRows(final List<Filter> filters, final QueryContext context)
+      {
+        receivedContext.set(context);
+        return ROWS;
+      }
+    };
+
+    readTaskIds(
+        new SystemTableCursorFactory(provider, SIGNATURE, SystemTableAccess.ALL_ROWS),
+        CursorBuildSpec.builder().setQueryContext(queryContext).build()
+    );
+
+    Assertions.assertSame(queryContext, receivedContext.get());
   }
 
   private static ExpressionVirtualColumn spoofedDatasource()

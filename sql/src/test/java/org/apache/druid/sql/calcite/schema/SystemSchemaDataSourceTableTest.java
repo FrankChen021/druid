@@ -20,7 +20,9 @@
 package org.apache.druid.sql.calcite.schema;
 
 import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.schema.ScannableTable;
 import org.apache.calcite.schema.Schema;
+import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.query.BadQueryContextException;
 import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.SystemTableDataSource;
@@ -72,6 +74,39 @@ public class SystemSchemaDataSourceTableTest
     Assertions.assertFalse(serverProperties.isJoinable());
     Assertions.assertFalse(serverProperties.isBroadcast());
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, serverProperties.getJdbcTableType());
+
+    final StackTraceDataSourceTable stackTrace = new StackTraceDataSourceTable();
+    Assertions.assertEquals(
+        "stack_trace",
+        ((SystemTableDataSource) stackTrace.getDataSource()).getTable()
+    );
+    Assertions.assertFalse(stackTrace.isJoinable());
+    Assertions.assertFalse(stackTrace.isBroadcast());
+    Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, stackTrace.getJdbcTableType());
+
+    final SystemStackTraceTable systemStackTrace = new SystemStackTraceTable(true);
+    Assertions.assertInstanceOf(StackTraceDataSourceTable.class, systemStackTrace.asDataSourceTable());
+    Assertions.assertNull(new SystemStackTraceTable(false).asDataSourceTable());
+  }
+
+  /**
+   * {@code sys.stack_trace} is a {@link ScannableTable} only so that a query that mixes it with tables served by the
+   * Broker's SQL interpreter can plan there; its scan always fails with an error that explains how to query the table.
+   */
+  @Test
+  public void testStackTraceInterpreterScanFails()
+  {
+    for (final boolean enableDruidEngineForSystemTables : new boolean[]{true, false}) {
+      final ScannableTable table = Assertions.assertInstanceOf(
+          ScannableTable.class,
+          new SystemStackTraceTable(enableDruidEngineForSystemTables)
+      );
+      DruidExceptionMatcher.invalidInput().expectMessageIs(
+          "sys.stack_trace can only be queried with the Druid engine: set the query context parameter "
+          + "useDruidEngineForSystemTables to true and use the native SQL engine. The Druid engine must also be "
+          + "enabled with druid.query.enableDruidEngineForSystemTables on all services."
+      ).assertThrowsAndMatches(() -> table.scan(null));
+    }
   }
 
   @Test

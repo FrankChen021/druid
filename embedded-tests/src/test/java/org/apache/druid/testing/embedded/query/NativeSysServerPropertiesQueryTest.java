@@ -55,6 +55,7 @@ import javax.ws.rs.core.MediaType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
 {
@@ -210,6 +211,53 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
   }
 
   /**
+   * Queries filtered on {@code server} and {@code service_name} return exactly the rows of the servers that match, and
+   * a value that matches no server returns no rows. This checks only the results; {@code SystemTableQueryClientTest}
+   * checks which services the Broker contacts.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testServerFilterReturnsOnlyMatchingServers(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    final String brokerHost = host(broker);
+    final String coordinatorHost = host(coordinator);
+
+    Assertions.assertEquals(
+        brokerHost,
+        cluster.runSql(
+            "SELECT DISTINCT server FROM sys.server_properties WHERE server = '%s'",
+            nativeQueryContext(plannerStrategy),
+            brokerHost
+        )
+    );
+    Assertions.assertEquals(
+        String.join("\n", Stream.of(brokerHost, coordinatorHost).sorted().toList()),
+        cluster.runSql(
+            "SELECT DISTINCT server FROM sys.server_properties WHERE server IN ('%s', '%s') ORDER BY server",
+            nativeQueryContext(plannerStrategy),
+            brokerHost,
+            coordinatorHost
+        )
+    );
+    Assertions.assertEquals(
+        host(historical),
+        cluster.runSql(
+            "SELECT DISTINCT server FROM sys.server_properties WHERE service_name = 'druid/historical'",
+            nativeQueryContext(plannerStrategy)
+        )
+    );
+    Assertions.assertEquals(
+        "",
+        cluster.runSql(
+            "SELECT DISTINCT server FROM sys.server_properties WHERE server = '%s' AND service_name = '%s'",
+            nativeQueryContext(plannerStrategy),
+            brokerHost,
+            "druid/historical"
+        )
+    );
+  }
+
+  /**
    * Each query of a UNION ALL gathers the table's rows from every service. Only the DECOUPLED planner supports a union
    * of inputs that aren't regular tables.
    */
@@ -303,6 +351,11 @@ public class NativeSysServerPropertiesQueryTest extends EmbeddedClusterTestBase
     Assertions.assertTrue(response.getContent().contains(expectedVisibleProperty), response.getContent());
     Assertions.assertFalse(response.getContent().contains(HIDDEN_PROPERTY), response.getContent());
     Assertions.assertFalse(response.getContent().contains(HIDDEN_VALUE), response.getContent());
+  }
+
+  private static String host(final EmbeddedDruidServer<?> server)
+  {
+    return server.bindings().selfNode().getHostAndPortToUse();
   }
 
   private StatusResponseHolder postNativeQuery(final EmbeddedDruidServer<?> server, final Query<?> query)

@@ -48,6 +48,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.rex.RexSubQuery;
 import org.apache.calcite.schema.ProjectableFilterableTable;
 import org.apache.calcite.schema.ScannableTable;
 import org.apache.calcite.sql.SqlExplain;
@@ -94,6 +96,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -644,27 +647,51 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
   }
 
   /**
-   * Returns the datasource names of the system-table datasources scanned by the logical plan. Reading them from the
-   * logical plan avoids generating the native query just for the authorization sanity check.
+   * Returns the datasource names of the system-table datasources scanned by the logical plan, including those scanned
+   * by subqueries. Reading them from the logical plan avoids generating the native query just for the authorization
+   * sanity check.
    */
   private static Set<String> getSystemTableDataSourceNames(final RelNode relNode)
   {
     final Set<String> names = new HashSet<>();
+    for (final RelOptTable table : getAllTables(relNode)) {
+      final DruidTable dataSourceTable = SystemSchema.getSystemTableDataSourceTable(table);
+      if (dataSourceTable != null) {
+        names.addAll(dataSourceTable.getDataSource().getTableNames());
+      }
+    }
+    return names;
+  }
+
+  /**
+   * Returns every table scanned by the plan, including the tables scanned by subqueries in row expressions.
+   */
+  private static Set<RelOptTable> getAllTables(final RelNode relNode)
+  {
+    final Set<RelOptTable> tables = new LinkedHashSet<>();
     new RelVisitor()
     {
+      private final RexShuttle subQueryVisitor = new RexShuttle()
+      {
+        @Override
+        public RexNode visitSubQuery(final RexSubQuery subQuery)
+        {
+          go(subQuery.rel);
+          return super.visitSubQuery(subQuery);
+        }
+      };
+
       @Override
-      public void visit(RelNode node, int ordinal, RelNode parent)
+      public void visit(final RelNode node, final int ordinal, final RelNode parent)
       {
         if (node instanceof TableScan) {
-          final DruidTable dataSourceTable = SystemSchema.getSystemTableDataSourceTable(node.getTable());
-          if (dataSourceTable != null) {
-            names.addAll(dataSourceTable.getDataSource().getTableNames());
-          }
+          tables.add(node.getTable());
         }
+        node.accept(subQueryVisitor);
         super.visit(node, ordinal, parent);
       }
     }.go(relNode);
-    return names;
+    return tables;
   }
 
   /**

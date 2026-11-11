@@ -20,15 +20,30 @@
 package org.apache.druid.sql.calcite;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.druid.error.DruidException;
+import org.apache.druid.error.DruidExceptionMatcher;
+import org.apache.druid.query.QueryContext;
+import org.apache.druid.query.QueryContexts;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.sql.calcite.NotYetSupported.Modes;
 import org.apache.druid.sql.calcite.NotYetSupported.NotYetSupportedProcessor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+
+import java.util.List;
+import java.util.Map;
 
 public class CalciteSysQueryTest extends BaseCalciteQueryTest
 {
   @RegisterExtension
   NotYetSupportedProcessor notYetSupportedProcessor = new NotYetSupportedProcessor(NotYetSupported.Scope.BINDABLE);
+
+  private static final String STACK_TRACE_REQUIRES_DRUID_ENGINE_MESSAGE =
+      "sys.stack_trace can only be queried with the Druid engine: set the query context parameter "
+      + "useDruidEngineForSystemTables to true and use the native SQL engine. The Druid engine must also be enabled "
+      + "with druid.query.enableDruidEngineForSystemTables on all services.";
 
   @Test
   public void testTasksSum()
@@ -95,5 +110,79 @@ public class CalciteSysQueryTest extends BaseCalciteQueryTest
                              + "    LogicalProject(exprs=[[$8]])\n"
                              + "      LogicalTableScan(table=[[sys, tasks]])\n")
         .run();
+  }
+
+  /**
+   * A query on {@code sys.stack_trace} that doesn't set {@code useDruidEngineForSystemTables} fails with an error that
+   * explains how to query the table.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testStackTraceWithoutDruidEngineForSystemTables(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    testQueryThrows(
+        """
+        SELECT thread_name
+        FROM sys.stack_trace
+        WHERE server = 'localhost:8082'
+        """,
+        QueryContext.ofMap(QueryContextParameters.PLANNER_STRATEGY, plannerStrategy),
+        DruidException.class,
+        DruidExceptionMatcher.invalidInput().expectMessageIs(STACK_TRACE_REQUIRES_DRUID_ENGINE_MESSAGE)
+    );
+  }
+
+  /**
+   * Setting {@code useDruidEngineForSystemTables} isn't enough when {@code druid.query.enableDruidEngineForSystemTables}
+   * is off, as it is in this test, because {@code sys.stack_trace} then has no datasource representation.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testStackTraceWithoutDruidEngineEnabled(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    testQueryThrows(
+        """
+        EXPLAIN PLAN FOR
+        SELECT thread_name
+        FROM sys.stack_trace
+        WHERE server = 'localhost:8082'
+        """,
+        QueryContext.ofMap(
+            QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES,
+            true,
+            QueryContextParameters.PLANNER_STRATEGY,
+            plannerStrategy
+        ),
+        DruidException.class,
+        DruidExceptionMatcher.invalidInput().expectMessageIs(STACK_TRACE_REQUIRES_DRUID_ENGINE_MESSAGE)
+    );
+  }
+
+  /**
+   * The error is raised wherever the table appears in the query, including subqueries and {@code EXPLAIN}.
+   */
+  @ParameterizedTest(name = "plannerStrategy = {0}")
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testStackTraceInSubqueryWithoutDruidEngineEnabled(final QueryContexts.PlannerStrategy plannerStrategy)
+  {
+    final Map<String, Object> context = QueryContext.ofMap(
+        QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES,
+        true,
+        QueryContextParameters.PLANNER_STRATEGY,
+        plannerStrategy
+    );
+    for (final String sql : List.of(
+        "SELECT dim1 FROM foo WHERE dim1 IN (SELECT thread_name FROM sys.stack_trace WHERE server = 'x')",
+        "SELECT * FROM sys.servers WHERE server IN (SELECT server FROM sys.stack_trace WHERE server = 'x')",
+        "SELECT dim1, (SELECT COUNT(*) FROM sys.stack_trace WHERE server = 'x') FROM foo",
+        "EXPLAIN PLAN FOR SELECT dim1 FROM foo WHERE dim1 IN (SELECT thread_name FROM sys.stack_trace WHERE server = 'x')"
+    )) {
+      testQueryThrows(
+          sql,
+          context,
+          DruidException.class,
+          DruidExceptionMatcher.invalidInput().expectMessageIs(STACK_TRACE_REQUIRES_DRUID_ENGINE_MESSAGE)
+      );
+    }
   }
 }

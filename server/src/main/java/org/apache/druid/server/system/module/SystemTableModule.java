@@ -27,6 +27,8 @@ import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.query.SystemTableDataSource;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
+import org.apache.druid.server.system.table.StackTraceTableDataProvider;
+import org.apache.druid.server.system.table.StackTraceTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableSegmentWrangler;
@@ -34,7 +36,8 @@ import org.apache.druid.server.system.table.SystemTableSegmentWrangler;
 import java.util.Properties;
 
 /**
- * Registers the segment wrangler that reads system tables, and the {@code sys.server_properties} table.
+ * Registers the segment wrangler that reads system tables, and the {@code sys.server_properties} and
+ * {@code sys.stack_trace} tables.
  *
  * <p>Table-specific integrations contribute their own entries to the native system-table multibinders.</p>
  */
@@ -64,10 +67,15 @@ public class SystemTableModule implements Module
     final MapBinder<String, SystemTableDescriptor> descriptorBinder = DruidBinders.systemTableDescriptorBinder(binder);
     descriptorBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                     .toInstance(new ServerPropertiesTableDescriptor());
+    descriptorBinder.addBinding(StackTraceTableDescriptor.TABLE_NAME)
+                    .toInstance(new StackTraceTableDescriptor());
     final MapBinder<String, SystemTableDataProvider> dataProviderBinder =
         MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class);
     dataProviderBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                       .to(ServerPropertiesTableDataProvider.class)
+                      .in(LazySingleton.class);
+    dataProviderBinder.addBinding(StackTraceTableDescriptor.TABLE_NAME)
+                      .to(StackTraceTableDataProvider.class)
                       .in(LazySingleton.class);
   }
 }
