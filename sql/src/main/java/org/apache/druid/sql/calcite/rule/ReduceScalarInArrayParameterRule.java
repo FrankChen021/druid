@@ -21,7 +21,9 @@ package org.apache.druid.sql.calcite.rule;
 
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
+import org.apache.calcite.plan.RelRule;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.rules.SubstitutionRule;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
@@ -29,11 +31,13 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.tools.RelBuilder;
+import org.apache.calcite.tools.RelBuilderFactory;
 import org.apache.druid.sql.calcite.expression.builtin.ScalarInArrayOperatorConversion;
 import org.apache.druid.sql.calcite.planner.DruidRexExecutor;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.planner.ScalarInArrayDynamicParameters;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -48,14 +52,20 @@ import java.util.List;
  * The call is evaluated with {@link DruidRexExecutor}, as {@code ReduceExpressionsRule} would evaluate the
  * {@code ARRAY[...]} form.
  */
-public class ReduceScalarInArrayParameterRule extends RelOptRule implements SubstitutionRule
+public class ReduceScalarInArrayParameterRule extends RelRule<ReduceScalarInArrayParameterRule.Config>
+    implements SubstitutionRule
 {
   private final PlannerContext plannerContext;
 
   public ReduceScalarInArrayParameterRule(final PlannerContext plannerContext)
   {
-    super(operand(RelNode.class, any()));
-    this.plannerContext = plannerContext;
+    this(new Config(plannerContext, RelFactories.LOGICAL_BUILDER, null));
+  }
+
+  private ReduceScalarInArrayParameterRule(final Config config)
+  {
+    super(config);
+    this.plannerContext = config.plannerContext;
   }
 
   @Override
@@ -113,6 +123,73 @@ public class ReduceScalarInArrayParameterRule extends RelOptRule implements Subs
       final List<RexNode> operands = ((RexCall) node).getOperands();
       return plannerContext.getScalarInArrayDynamicParameters().get(operands.get(1)) != null
              && RexUtil.isConstant(operands.get(0));
+    }
+  }
+
+  /**
+   * Configuration of {@link ReduceScalarInArrayParameterRule}, which matches any {@link RelNode}.
+   *
+   * Written by hand rather than generated with Immutables, which Druid does not use.
+   */
+  public static class Config implements RelRule.Config
+  {
+    private final PlannerContext plannerContext;
+    private final RelBuilderFactory relBuilderFactory;
+    @Nullable
+    private final String description;
+
+    private Config(
+        final PlannerContext plannerContext,
+        final RelBuilderFactory relBuilderFactory,
+        @Nullable final String description
+    )
+    {
+      this.plannerContext = plannerContext;
+      this.relBuilderFactory = relBuilderFactory;
+      this.description = description;
+    }
+
+    @Override
+    public RelOptRule toRule()
+    {
+      return new ReduceScalarInArrayParameterRule(this);
+    }
+
+    @Override
+    public RelBuilderFactory relBuilderFactory()
+    {
+      return relBuilderFactory;
+    }
+
+    @Override
+    public Config withRelBuilderFactory(final RelBuilderFactory factory)
+    {
+      return new Config(plannerContext, factory, description);
+    }
+
+    @Nullable
+    @Override
+    public String description()
+    {
+      return description;
+    }
+
+    @Override
+    public Config withDescription(@Nullable final String description)
+    {
+      return new Config(plannerContext, relBuilderFactory, description);
+    }
+
+    @Override
+    public OperandTransform operandSupplier()
+    {
+      return b -> b.operand(RelNode.class).anyInputs();
+    }
+
+    @Override
+    public Config withOperandSupplier(final OperandTransform transform)
+    {
+      throw new UnsupportedOperationException("The operands of this rule cannot be changed");
     }
   }
 }
