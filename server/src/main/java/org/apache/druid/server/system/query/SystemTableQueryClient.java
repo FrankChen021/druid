@@ -65,6 +65,7 @@ import org.apache.druid.server.QueryScheduler;
 import org.apache.druid.server.SetAndVerifyContextQueryRunner;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.initialization.ServerConfig;
+import org.apache.druid.server.system.table.SystemTableAuthorization;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.utils.CloseableUtils;
 
@@ -76,6 +77,7 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -295,15 +297,31 @@ public class SystemTableQueryClient
                  .limit(Long.MAX_VALUE)
                  .filters(getNodeScanFilter(dataSource, descriptor, owningQuery))
                  .columns(descriptor.getRowSignature())
-                 .context(owningQuery.withOverriddenContext(
-                     QueryContext.ofMap(
-                         QueryContextParameters.QUERY_FAIL_TIME,
-                         getNodeFailTime(owningQuery),
-                         QueryContextParameters.BY_SEGMENT,
-                         false
-                     )
-                 ).getContext())
+                 .context(owningQuery.withOverriddenContext(makeNodeContextOverrides(descriptor, owningQuery))
+                                     .getContext())
                  .build();
+  }
+
+  private Map<String, Object> makeNodeContextOverrides(
+      final SystemTableDescriptor descriptor,
+      final Query<?> owningQuery
+  )
+  {
+    final Map<String, Object> overrides = new HashMap<>(
+        QueryContext.ofMap(
+            QueryContextParameters.QUERY_FAIL_TIME,
+            getNodeFailTime(owningQuery),
+            QueryContextParameters.BY_SEGMENT,
+            false
+        )
+    );
+    if (descriptor.hasRowLevelAuthorization()) {
+      // The node scans read rows the caller may not see, so a limit the caller lowered must not report their bytes.
+      overrides.putAll(
+          QueryContext.ofMap(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, serverConfig.getMaxScatterGatherBytes())
+      );
+    }
+    return overrides;
   }
 
   private List<QueryRunner<ScanResultValue>> makeNodeRunners(
@@ -313,7 +331,7 @@ public class SystemTableQueryClient
   )
   {
     final List<QueryRunner<ScanResultValue>> nodeRunners = new ArrayList<>();
-    for (final SystemTableNode node : nodeLocator.locate(descriptor)) {
+    for (final SystemTableNode node : nodeLocator.locate(descriptor, nodeQuery)) {
       nodeRunners.add(
           (queryPlus, responseContext) -> recoverNodeFailure(
               () -> runNodeQuery(nodeQuery, node, nodeSequencesCloser, queryPlus, responseContext),
@@ -840,7 +858,8 @@ public class SystemTableQueryClient
     for (final DimFilter conjunct : conjuncts) {
       final Set<String> requiredColumns = conjunct.getRequiredColumns();
       if (requiredColumns.stream().allMatch(tableSignature::contains)
-          && requiredColumns.stream().noneMatch(query.getVirtualColumns()::exists)) {
+          && requiredColumns.stream().noneMatch(query.getVirtualColumns()::exists)
+          && (!descriptor.hasRowLevelAuthorization() || SystemTableAuthorization.isRowSafeFilter(conjunct))) {
         nodeConjuncts.add(conjunct);
       }
     }
