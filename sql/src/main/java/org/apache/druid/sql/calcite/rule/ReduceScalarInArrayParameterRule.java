@@ -52,17 +52,17 @@ import java.util.List;
  * The call is evaluated with {@link DruidRexExecutor}, as {@code ReduceExpressionsRule} would evaluate the
  * {@code ARRAY[...]} form.
  */
-public class ReduceScalarInArrayParameterRule extends RelRule<ReduceScalarInArrayParameterRule.Config>
+public class ReduceScalarInArrayParameterRule extends RelRule<ReduceScalarInArrayParameterRule.RuleConfig>
     implements SubstitutionRule
 {
   private final PlannerContext plannerContext;
 
   public ReduceScalarInArrayParameterRule(final PlannerContext plannerContext)
   {
-    this(new Config(plannerContext, RelFactories.LOGICAL_BUILDER, null));
+    this(new RuleConfig(plannerContext, RelFactories.LOGICAL_BUILDER, null));
   }
 
-  private ReduceScalarInArrayParameterRule(final Config config)
+  private ReduceScalarInArrayParameterRule(final RuleConfig config)
   {
     super(config);
     this.plannerContext = config.plannerContext;
@@ -131,14 +131,14 @@ public class ReduceScalarInArrayParameterRule extends RelRule<ReduceScalarInArra
    *
    * Written by hand rather than generated with Immutables, which Druid does not use.
    */
-  public static class Config implements RelRule.Config
+  public static class RuleConfig implements RelRule.Config
   {
     private final PlannerContext plannerContext;
     private final RelBuilderFactory relBuilderFactory;
     @Nullable
     private final String description;
 
-    private Config(
+    private RuleConfig(
         final PlannerContext plannerContext,
         final RelBuilderFactory relBuilderFactory,
         @Nullable final String description
@@ -162,9 +162,9 @@ public class ReduceScalarInArrayParameterRule extends RelRule<ReduceScalarInArra
     }
 
     @Override
-    public Config withRelBuilderFactory(final RelBuilderFactory factory)
+    public RuleConfig withRelBuilderFactory(final RelBuilderFactory factory)
     {
-      return new Config(plannerContext, factory, description);
+      return new RuleConfig(plannerContext, factory, description);
     }
 
     @Nullable
@@ -175,9 +175,9 @@ public class ReduceScalarInArrayParameterRule extends RelRule<ReduceScalarInArra
     }
 
     @Override
-    public Config withDescription(@Nullable final String description)
+    public RuleConfig withDescription(@Nullable final String description)
     {
-      return new Config(plannerContext, relBuilderFactory, description);
+      return new RuleConfig(plannerContext, relBuilderFactory, description);
     }
 
     @Override
@@ -187,7 +187,7 @@ public class ReduceScalarInArrayParameterRule extends RelRule<ReduceScalarInArra
     }
 
     @Override
-    public Config withOperandSupplier(final OperandTransform transform)
+    public RuleConfig withOperandSupplier(final OperandTransform transform)
     {
       throw new UnsupportedOperationException("The operands of this rule cannot be changed");
     }
