@@ -66,6 +66,7 @@ import org.apache.druid.server.SetAndVerifyContextQueryRunner;
 import org.apache.druid.server.coordination.ServerType;
 import org.apache.druid.server.initialization.ServerConfig;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
+import org.apache.druid.server.system.table.SystemTableTargetNodes;
 import org.apache.druid.utils.CloseableUtils;
 
 import javax.annotation.Nullable;
@@ -94,6 +95,10 @@ import java.util.function.Supplier;
  * service. The caller then runs the resolved query as usual. Services read the table with an escalated identity, so
  * the rows are filtered here with the caller's {@link SystemTableAccess}, which the Broker attached when it authorized
  * the query.</p>
+ *
+ * <p>A {@link SystemTableTargetNodes#LOCAL_NODE} table is the view of the Broker that runs the query, so it isn't
+ * gathered: {@link #resolve} gives it the {@link SystemTableDataSource.Scope#LOCAL} scope instead, and the Broker
+ * reads its own rows.</p>
  */
 public class SystemTableQueryClient
 {
@@ -173,6 +178,12 @@ public class SystemTableQueryClient
     if (dataSource instanceof SystemTableDataSource systemTableDataSource) {
       if (systemTableDataSource.getScope() != SystemTableDataSource.Scope.CLUSTER) {
         return systemTableDataSource;
+      }
+      final SystemTableDescriptor descriptor = tableDescriptors.get(systemTableDataSource.getTable());
+      if (descriptor != null && descriptor.getTargetNodes() == SystemTableTargetNodes.LOCAL_NODE) {
+        // The table is this Broker's view, so read only this Broker's rows: the Broker's own walker reads the table
+        // with the local scope, and the cursor factory applies the caller's access.
+        return systemTableDataSource.withScope(SystemTableDataSource.Scope.LOCAL);
       }
       return resolveSystemTableDataSource(
           systemTableDataSource,

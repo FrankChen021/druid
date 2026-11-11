@@ -34,14 +34,23 @@ public interface SystemTableDescriptor
   String getTableName();
 
   /**
-   * Returns the node roles of the services that serve this table. Every discovered service with one of these roles
-   * contributes its own rows.
+   * Returns the node roles of the services that serve this table. With {@link SystemTableTargetNodes#ALL_NODES}, every
+   * discovered service with one of these roles contributes its own rows. A {@link SystemTableTargetNodes#LOCAL_NODE}
+   * table is read only on the querying Broker, and these roles only describe it.
    */
   Set<NodeRole> getNodeRoles();
 
   RowSignature getRowSignature();
 
   SystemTableRowAuthorizer getRowAuthorizer();
+
+  /**
+   * Returns which nodes a cluster-scoped read of this table reads rows from.
+   */
+  default SystemTableTargetNodes getTargetNodes()
+  {
+    return SystemTableTargetNodes.ALL_NODES;
+  }
 
   /**
    * Whether an empty discovery result represents an empty table instead of unavailable infrastructure.

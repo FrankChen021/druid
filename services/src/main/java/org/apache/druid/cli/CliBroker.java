@@ -81,6 +81,7 @@ import org.apache.druid.server.http.SelfDiscoveryResource;
 import org.apache.druid.server.initialization.jetty.JettyServerInitializer;
 import org.apache.druid.server.metrics.SubqueryCountStatsProvider;
 import org.apache.druid.server.router.TieredBrokerConfig;
+import org.apache.druid.server.system.module.BrokerSystemTableModule;
 import org.apache.druid.server.system.module.SystemTableModule;
 import org.apache.druid.server.system.query.SystemTableGatheringQuerySegmentWalker;
 import org.apache.druid.server.system.query.SystemTableQuerySegmentWalker;
@@ -164,6 +165,7 @@ public class CliBroker extends ServerRunnable
             binder.bind(QuerySegmentWalker.class)
                   .to(SystemTableGatheringQuerySegmentWalker.class)
                   .in(LazySingleton.class);
+            binder.install(new BrokerSystemTableModule());
           } else {
             binder.bind(QuerySegmentWalker.class).to(ClientQuerySegmentWalker.class).in(LazySingleton.class);
           }
