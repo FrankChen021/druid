@@ -156,7 +156,7 @@ The native SQL engine can plan supported system tables as native datasources. To
 
 ```json
 {
-  "query": "SELECT COUNT(DISTINCT task_id) FROM sys.tasks",
+  "query": "SELECT COUNT(DISTINCT server) FROM sys.server_properties",
   "context": {
     "useDruidEngineForSystemTables": true
   }
@@ -168,7 +168,7 @@ execution with `SET`:
 
 ```sql
 SET useDruidEngineForSystemTables = 'true';
-SELECT COUNT(DISTINCT datasource) FROM sys.tasks;
+SELECT COUNT(DISTINCT server) FROM sys.server_properties;
 ```
 
 Native system-table execution is available when the resolved SQL engine is `native`. You don't need to explicitly set
