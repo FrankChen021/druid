@@ -31,6 +31,7 @@ import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCharStringLiteral;
+import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
@@ -108,6 +109,7 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
   public static final String CTX_ROWS_PER_SEGMENT = "rowsPerSegment";
 
   private final PlannerContext plannerContext;
+  private final ScalarInArrayOperandBuilder scalarInArrayOperandBuilder;
 
   protected DruidSqlValidator(
       SqlOperatorTable opTab,
@@ -119,6 +121,8 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
   {
     super(opTab, catalogReader, typeFactory, validatorConfig);
     this.plannerContext = plannerContext;
+    this.scalarInArrayOperandBuilder =
+        new ScalarInArrayOperandBuilder(this, plannerContext.getScalarInArrayDynamicParameters());
   }
 
   @Override
@@ -902,10 +906,11 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
       // values, whereas IN does not.)
       if (valuesNode.size() > plannerContext.queryContext().getInFunctionThreshold()
           && valuesNode.stream().allMatch(node -> node.getKind() == SqlKind.LITERAL && !SqlUtil.isNull(node))) {
+        final SqlNode rewrittenExprNode = performUnconditionalRewrites(exprNode, underFrom);
         final SqlCall newCall = ScalarInArrayOperatorConversion.SQL_FUNCTION.createCall(
             call.getParserPosition(),
-            performUnconditionalRewrites(exprNode, underFrom),
-            SqlStdOperatorTable.ARRAY_VALUE_CONSTRUCTOR.createCall(valuesNode)
+            rewrittenExprNode,
+            scalarInArrayOperandBuilder.toArrayOperand(rewrittenExprNode, valuesNode)
         );
 
         if (call.getKind() == SqlKind.NOT_IN) {
@@ -917,6 +922,44 @@ public class DruidSqlValidator extends BaseDruidSqlValidator
     }
 
     return call;
+  }
+
+  /**
+   * Skips type inference for dynamic parameters synthesized by {@link ScalarInArrayOperandBuilder}, whose types are
+   * set when they are created.
+   */
+  @Override
+  protected void inferUnknownTypes(
+      final RelDataType inferredType,
+      final SqlValidatorScope scope,
+      final SqlNode node
+  )
+  {
+    if (scalarInArrayOperandBuilder.isSynthesizedParameter(node)) {
+      return;
+    }
+    super.inferUnknownTypes(inferredType, scope, node);
+  }
+
+  /**
+   * Validates the literals of dynamic parameters synthesized by {@link ScalarInArrayOperandBuilder} at the point where
+   * the {@code ARRAY[...]} form would validate them.
+   */
+  @Override
+  public void validateDynamicParam(final SqlDynamicParam dynamicParam)
+  {
+    scalarInArrayOperandBuilder.validateLiterals(dynamicParam);
+    super.validateDynamicParam(dynamicParam);
+  }
+
+  /**
+   * Excludes dynamic parameters synthesized by {@link ScalarInArrayOperandBuilder}, since they are not parameters of
+   * the original statement.
+   */
+  @Override
+  public RelDataType getParameterRowType(final SqlNode sqlQuery)
+  {
+    return scalarInArrayOperandBuilder.getParameterRowType(sqlQuery);
   }
 
   public static CalciteContextException buildCalciteContextException(String message, SqlNode call)
