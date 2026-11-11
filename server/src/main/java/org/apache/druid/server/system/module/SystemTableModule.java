@@ -30,13 +30,16 @@ import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableSegmentWrangler;
+import org.apache.druid.server.system.table.TaskTableDescriptor;
 
 import java.util.Properties;
 
 /**
- * Registers the segment wrangler that reads system tables, and the {@code sys.server_properties} table.
+ * Registers the segment wrangler that reads system tables, the {@code sys.server_properties} table, and the
+ * {@code sys.tasks} descriptor.
  *
- * <p>Table-specific integrations contribute their own entries to the native system-table multibinders.</p>
+ * <p>Table-specific integrations contribute their providers to the system-table multibinders on the services that
+ * serve them, such as the {@code sys.tasks} provider on the Overlord.</p>
  */
 public class SystemTableModule implements Module
 {
@@ -64,6 +67,8 @@ public class SystemTableModule implements Module
     final MapBinder<String, SystemTableDescriptor> descriptorBinder = DruidBinders.systemTableDescriptorBinder(binder);
     descriptorBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                     .toInstance(new ServerPropertiesTableDescriptor());
+    descriptorBinder.addBinding(TaskTableDescriptor.TABLE_NAME)
+                    .toInstance(new TaskTableDescriptor());
     final MapBinder<String, SystemTableDataProvider> dataProviderBinder =
         MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class);
     dataProviderBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)

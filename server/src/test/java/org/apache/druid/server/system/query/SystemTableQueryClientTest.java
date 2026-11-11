@@ -58,6 +58,8 @@ import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.query.context.ResponseContext;
 import org.apache.druid.query.filter.AndDimFilter;
 import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.query.filter.EqualityFilter;
+import org.apache.druid.query.filter.ExpressionDimFilter;
 import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.query.scan.ScanQuery;
 import org.apache.druid.query.scan.ScanResultValue;
@@ -77,6 +79,7 @@ import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableSegmentWrangler;
+import org.apache.druid.server.system.table.TaskTableDescriptor;
 import org.joda.time.Duration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -204,7 +207,7 @@ public class SystemTableQueryClientTest
     final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
     final SystemTableNode node = new SystemTableNode(brokerNode);
     node.addNodeRole(brokerNode.getNodeRole());
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor))).thenReturn(List.of(node));
+    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor), Mockito.any())).thenReturn(List.of(node));
 
     final SystemTableDataProvider provider = filters -> List.<Object[]>of(new Object[]{"local"});
     final SystemTableSegmentWrangler segmentWrangler = new SystemTableSegmentWrangler(
@@ -612,6 +615,55 @@ public class SystemTableQueryClientTest
   }
 
   /**
+   * A table with row-level authorization keeps conjuncts that could fail on a hidden row, such as an expression, off
+   * the node scans, which run before the caller's access is applied. The resolved query still applies them.
+   */
+  @Test
+  public void testRowAuthorizedTableKeepsUnsafeConjunctsOffNodeScans()
+  {
+    final SystemTableDescriptor descriptor = new TaskTableDescriptor();
+    final EqualityFilter dataSourceFilter = new EqualityFilter("datasource", ColumnType.STRING, "secret", null);
+    final ScanQuery nodeQuery = captureNodeQuery(
+        descriptor,
+        Druids.newScanQueryBuilder()
+              .dataSource(new SystemTableDataSource(descriptor.getTableName()))
+              .eternityInterval()
+              .filters(
+                  new AndDimFilter(
+                      dataSourceFilter,
+                      new ExpressionDimFilter("strlen(error_msg) > 100", ExprMacroTable.nil())
+                  )
+              )
+              .build()
+    );
+
+    Assertions.assertEquals(dataSourceFilter, nodeQuery.getFilter());
+  }
+
+  /**
+   * The node scans of a table with row-level authorization use the server's scatter-gather limit, since a lower limit
+   * set by the caller would fail with the bytes of rows the caller may not see.
+   */
+  @Test
+  public void testRowAuthorizedTableIgnoresCallerScatterGatherLimit()
+  {
+    final SystemTableDescriptor descriptor = new TaskTableDescriptor();
+    final ScanQuery nodeQuery = captureNodeQuery(
+        descriptor,
+        Druids.newScanQueryBuilder()
+              .dataSource(new SystemTableDataSource(descriptor.getTableName()))
+              .eternityInterval()
+              .context(QueryContext.ofMap(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, 1L))
+              .build()
+    );
+
+    Assertions.assertEquals(
+        new ServerConfig().getMaxScatterGatherBytes(),
+        nodeQuery.context().get(QueryContextParameters.MAX_SCATTER_GATHER_BYTES)
+    );
+  }
+
+  /**
    * A virtual column that replaces a column of the table must not reach the node scans: the gathered rows must hold the
    * table's own values, which are authorized on the Broker after they are gathered. Filters on such a column aren't
    * pushed down either.
@@ -913,7 +965,7 @@ public class SystemTableQueryClientTest
   )
   {
     final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor))).thenReturn(
+    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor), Mockito.any())).thenReturn(
         discoveryNodes.stream().map(discoveryNode -> {
           final SystemTableNode systemTableNode = new SystemTableNode(discoveryNode);
           systemTableNode.addNodeRole(discoveryNode.getNodeRole());
@@ -964,7 +1016,7 @@ public class SystemTableQueryClientTest
   )
   {
     final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor))).thenReturn(
+    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor), Mockito.any())).thenReturn(
         discoveryNodes.stream().map(discoveryNode -> {
           final SystemTableNode systemTableNode = new SystemTableNode(discoveryNode);
           systemTableNode.addNodeRole(discoveryNode.getNodeRole());
@@ -1116,7 +1168,7 @@ public class SystemTableQueryClientTest
     final DiscoveryDruidNode discoveryNode = testNode();
     final SystemTableNode systemTableNode = new SystemTableNode(discoveryNode);
     systemTableNode.addNodeRole(discoveryNode.getNodeRole());
-    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor))).thenReturn(List.of(systemTableNode));
+    Mockito.when(nodeLocator.locate(Mockito.eq(descriptor), Mockito.any())).thenReturn(List.of(systemTableNode));
     final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
     Mockito.when(directClientFactory.makeDirectClient(ArgumentMatchers.any())).thenAnswer(ignored -> {
       @SuppressWarnings("unchecked")

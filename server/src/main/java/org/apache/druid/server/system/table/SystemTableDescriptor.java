@@ -44,6 +44,26 @@ public interface SystemTableDescriptor
   SystemTableRowAuthorizer getRowAuthorizer();
 
   /**
+   * Whether the row authorizer can show a caller some rows of the table but not others. The services the Broker reads
+   * the table from use the Broker's escalated identity, and the Broker applies the caller's access only to the gathered
+   * rows. For such a table, the Broker keeps the node scans from revealing rows the caller can't see: it pushes only
+   * filters that can't fail on a row's values, and it doesn't let the caller lower the scans' scatter-gather limit,
+   * whose error would report the bytes of those rows. Tables whose access is all-or-nothing keep the default.
+   */
+  default boolean hasRowLevelAuthorization()
+  {
+    return false;
+  }
+
+  /**
+   * Returns which nodes a cluster-scoped read of this table reads rows from.
+   */
+  default SystemTableTargetNodes getTargetNodes()
+  {
+    return SystemTableTargetNodes.ALL_NODES;
+  }
+
+  /**
    * Whether an empty discovery result represents an empty table instead of unavailable infrastructure.
    */
   default boolean isEmptyDiscoveryAllowed()
