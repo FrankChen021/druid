@@ -84,10 +84,10 @@ public class TaskTableDescriptor implements SystemTableDescriptor
   }
 
   /**
-   * The row authorizer hides tasks of datasources the caller can't read.
+   * The row authorizer shows only the tasks of datasources the caller can read.
    */
   @Override
-  public boolean hidesRows()
+  public boolean hasRowLevelAuthorization()
   {
     return true;
   }

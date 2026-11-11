@@ -44,13 +44,13 @@ public interface SystemTableDescriptor
   SystemTableRowAuthorizer getRowAuthorizer();
 
   /**
-   * Whether the row authorizer can hide some rows from a caller while showing others. The services the Broker reads
+   * Whether the row authorizer can show a caller some rows of the table but not others. The services the Broker reads
    * the table from use the Broker's escalated identity, and the Broker applies the caller's access only to the gathered
-   * rows. For such a table, the Broker keeps the node scans from revealing hidden rows: it pushes only filters that
-   * can't fail on a row's values, and it doesn't let the caller lower the scans' scatter-gather limit, whose error
-   * would report the bytes of hidden rows.
+   * rows. For such a table, the Broker keeps the node scans from revealing rows the caller can't see: it pushes only
+   * filters that can't fail on a row's values, and it doesn't let the caller lower the scans' scatter-gather limit,
+   * whose error would report the bytes of those rows. Tables whose access is all-or-nothing keep the default.
    */
-  default boolean hidesRows()
+  default boolean hasRowLevelAuthorization()
   {
     return false;
   }

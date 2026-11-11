@@ -315,7 +315,7 @@ public class SystemTableQueryClient
             false
         )
     );
-    if (descriptor.hidesRows()) {
+    if (descriptor.hasRowLevelAuthorization()) {
       // The node scans read rows the caller may not see, so a limit the caller lowered must not report their bytes.
       overrides.putAll(
           QueryContext.ofMap(QueryContextParameters.MAX_SCATTER_GATHER_BYTES, serverConfig.getMaxScatterGatherBytes())
@@ -859,7 +859,7 @@ public class SystemTableQueryClient
       final Set<String> requiredColumns = conjunct.getRequiredColumns();
       if (requiredColumns.stream().allMatch(tableSignature::contains)
           && requiredColumns.stream().noneMatch(query.getVirtualColumns()::exists)
-          && (!descriptor.hidesRows() || SystemTableAuthorization.isRowSafeFilter(conjunct))) {
+          && (!descriptor.hasRowLevelAuthorization() || SystemTableAuthorization.isRowSafeFilter(conjunct))) {
         nodeConjuncts.add(conjunct);
       }
     }

@@ -109,7 +109,7 @@ public class TaskTableDescriptorTest
   @Test
   public void testOnlyRowSafeFiltersReachNodeScans()
   {
-    Assertions.assertTrue(new TaskTableDescriptor().hidesRows());
+    Assertions.assertTrue(new TaskTableDescriptor().hasRowLevelAuthorization());
     Assertions.assertTrue(SystemTableAuthorization.isRowSafeFilter(
         new OrDimFilter(
             new EqualityFilter("datasource", ColumnType.STRING, "wikipedia", null),

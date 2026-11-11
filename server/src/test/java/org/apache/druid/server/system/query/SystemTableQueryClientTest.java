@@ -615,8 +615,8 @@ public class SystemTableQueryClientTest
   }
 
   /**
-   * A table whose row authorizer hides rows keeps conjuncts that could fail on a hidden row, such as an expression,
-   * off the node scans, which run before the caller's access is applied. The resolved query still applies them.
+   * A table with row-level authorization keeps conjuncts that could fail on a hidden row, such as an expression, off
+   * the node scans, which run before the caller's access is applied. The resolved query still applies them.
    */
   @Test
   public void testRowAuthorizedTableKeepsUnsafeConjunctsOffNodeScans()
@@ -641,8 +641,8 @@ public class SystemTableQueryClientTest
   }
 
   /**
-   * The node scans of a table whose row authorizer hides rows use the server's scatter-gather limit, since a lower
-   * limit set by the caller would fail with the bytes of rows the caller may not see.
+   * The node scans of a table with row-level authorization use the server's scatter-gather limit, since a lower limit
+   * set by the caller would fail with the bytes of rows the caller may not see.
    */
   @Test
   public void testRowAuthorizedTableIgnoresCallerScatterGatherLimit()
