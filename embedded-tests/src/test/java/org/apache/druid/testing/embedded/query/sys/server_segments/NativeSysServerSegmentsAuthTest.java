@@ -17,6 +17,7 @@
  * under the License.
  */
 
+
 package org.apache.druid.testing.embedded.query.sys.server_segments;
 
 import io.netty.handler.codec.http.HttpMethod;
@@ -49,179 +50,309 @@ import org.apache.druid.testing.embedded.indexing.MoreResources;
 import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
 
 /**
- * Authorization of {@code sys.server_segments} on the Druid engine, with
- * {@code druid.auth.authorizeSystemTablesDirectly} set. A caller needs SYSTEM_TABLE READ on {@code server_segments}
- * and STATE READ to query the table with SQL or with a native query, and sees only the segments of the datasources it
- * has DATASOURCE READ on. The table is read on the Broker that runs the query, which applies the caller's access while
- * reading its own rows.
+ * Authorization of {@code sys.server_segments} on the Druid engine, with SQL and native queries, as users with given
+ * permissions. A caller needs STATE READ, and sees only the segments of the datasources it has DATASOURCE READ on.
+ * Each nested class runs its own cluster, with or without {@code druid.auth.authorizeSystemTablesDirectly}.
  */
-public class NativeSysServerSegmentsAuthTest extends EmbeddedClusterTestBase
+public class NativeSysServerSegmentsAuthTest
 {
-  private static final String PASSWORD = "helloworld";
-  private static final String ALLOWED_DATASOURCE = "allowed_datasource";
-  private static final String OTHER_DATASOURCE = "other_datasource";
-  private static final ResourceAction READ_SERVER_SEGMENTS_TABLE = new ResourceAction(
-      new Resource(ServerSegmentsTableDescriptor.TABLE_NAME, ResourceType.SYSTEM_TABLE),
-      Action.READ
-  );
-  private static final ResourceAction READ_STATE =
-      new ResourceAction(new Resource(".*", ResourceType.STATE), Action.READ);
-  private static final ResourceAction READ_ALLOWED_DATASOURCE =
-      new ResourceAction(new Resource(ALLOWED_DATASOURCE, ResourceType.DATASOURCE), Action.READ);
-
-  private final EmbeddedCoordinator coordinator = new EmbeddedCoordinator();
-  private final EmbeddedOverlord overlord = new EmbeddedOverlord();
-  private final EmbeddedBroker broker = new EmbeddedBroker();
-
-  private HttpClient adminClient;
-  private HttpClient fullUser;
-  private HttpClient noDatasourceUser;
-  private HttpClient noStateUser;
-  private HttpClient noSysTableUser;
-
-  @Override
-  protected EmbeddedDruidCluster createCluster()
+  /**
+   * Authorization with {@code druid.auth.authorizeSystemTablesDirectly} set. A caller also needs SYSTEM_TABLE READ on
+   * {@code server_segments}, whether it queries the table with SQL or with a native query. The table is read on the
+   * Broker that runs the query, which applies the caller's access while reading its own rows.
+   */
+  @Nested
+  public class AuthorizeSystemTablesDirectly extends AuthTestBase
   {
-    return EmbeddedDruidCluster.withEmbeddedDerbyAndZookeeper()
-                               .addResource(new EmbeddedBasicAuthResource())
-                               .addCommonProperty("druid.query.enableDruidEngineForSystemTables", "true")
-                               .addCommonProperty("druid.auth.authorizeSystemTablesDirectly", "true")
-                               .useLatchableEmitter()
-                               .addServer(coordinator)
-                               .addServer(overlord)
-                               .addServer(new EmbeddedIndexer())
-                               .addServer(new EmbeddedHistorical())
-                               .addServer(broker);
-  }
+    private HttpClient fullUser;
+    private HttpClient noDatasourceUser;
+    private HttpClient noStateUser;
+    private HttpClient noSysTableUser;
 
-  @BeforeAll
-  public void setupDataAndUsers()
-  {
-    ingest(ALLOWED_DATASOURCE);
-    ingest(OTHER_DATASOURCE);
+    @Override
+    protected boolean authorizeSystemTablesDirectly()
+    {
+      return true;
+    }
 
-    adminClient = client(EmbeddedBasicAuthResource.ADMIN_USER, EmbeddedBasicAuthResource.ADMIN_PASSWORD);
-    fullUser = createUser("fullUser", List.of(READ_SERVER_SEGMENTS_TABLE, READ_STATE, READ_ALLOWED_DATASOURCE));
-    noDatasourceUser = createUser("noDatasourceUser", List.of(READ_SERVER_SEGMENTS_TABLE, READ_STATE));
-    noStateUser = createUser("noStateUser", List.of(READ_SERVER_SEGMENTS_TABLE, READ_ALLOWED_DATASOURCE));
-    noSysTableUser = createUser("noSysTableUser", List.of(READ_STATE, READ_ALLOWED_DATASOURCE));
+    @BeforeAll
+    public void setupUsers()
+    {
+      fullUser = createUser("fullUser", List.of(READ_SERVER_SEGMENTS_TABLE, READ_STATE, READ_ALLOWED_DATASOURCE));
+      noDatasourceUser = createUser("noDatasourceUser", List.of(READ_SERVER_SEGMENTS_TABLE, READ_STATE));
+      noStateUser = createUser("noStateUser", List.of(READ_SERVER_SEGMENTS_TABLE, READ_ALLOWED_DATASOURCE));
+      noSysTableUser = createUser("noSysTableUser", List.of(READ_STATE, READ_ALLOWED_DATASOURCE));
+    }
+
+    /**
+     * SQL on the Druid engine needs SYSTEM_TABLE READ, without which the table isn't visible, and STATE READ, and
+     * returns only the segments of datasources the caller may read.
+     */
+    @Test
+    public void testSqlReturnsSegmentsOfReadableDatasources()
+    {
+      assertPlannedOnDruidEngine(SEGMENT_COUNT_SQL);
+
+      Assertions.assertEquals(
+          ALLOWED_DATASOURCE + ",1\n" + OTHER_DATASOURCE + ",1",
+          sql(adminClient, SEGMENT_COUNT_SQL, HttpResponseStatus.OK).getContent().trim()
+      );
+      Assertions.assertEquals(
+          ALLOWED_DATASOURCE + ",1",
+          sql(fullUser, SEGMENT_COUNT_SQL, HttpResponseStatus.OK).getContent().trim()
+      );
+      Assertions.assertEquals("", sql(noDatasourceUser, SEGMENT_COUNT_SQL, HttpResponseStatus.OK).getContent().trim());
+
+      final String forbidden = sql(noStateUser, SEGMENT_COUNT_SQL, HttpResponseStatus.FORBIDDEN).getContent();
+      Assertions.assertTrue(forbidden.contains("Insufficient permission to view servers"), forbidden);
+
+      final String invisible = sql(noSysTableUser, SEGMENT_COUNT_SQL, HttpResponseStatus.BAD_REQUEST).getContent();
+      Assertions.assertTrue(invisible.contains("Object 'server_segments' not found within 'sys'"), invisible);
+    }
+
+    /**
+     * A native query on the Broker needs the same permissions, and returns only the segments of datasources the
+     * caller may read.
+     */
+    @Test
+    public void testNativeQueryReturnsSegmentsOfReadableDatasources()
+    {
+      assertOnlyAllowedDatasource(nativeQuery(fullUser, HttpResponseStatus.OK).getContent());
+      assertNoDatasource(nativeQuery(noDatasourceUser, HttpResponseStatus.OK).getContent());
+
+      final String forbidden = nativeQuery(noStateUser, HttpResponseStatus.FORBIDDEN).getContent();
+      Assertions.assertTrue(forbidden.contains("Insufficient permission to view servers"), forbidden);
+
+      final String invisible = nativeQuery(noSysTableUser, HttpResponseStatus.FORBIDDEN).getContent();
+      Assertions.assertTrue(invisible.contains("Unauthorized"), invisible);
+    }
   }
 
   /**
-   * SQL on the Druid engine needs SYSTEM_TABLE READ, without which the table isn't visible, and STATE READ, and returns
-   * only the segments of datasources the caller may read.
+   * Authorization without {@code druid.auth.authorizeSystemTablesDirectly}, the default. System tables then have no
+   * table-level check, so STATE READ and DATASOURCE READ let a caller read the segments of that datasource, with SQL
+   * or with a native query. A caller without STATE READ is rejected.
    */
-  @Test
-  public void testSqlReturnsSegmentsOfReadableDatasources()
+  @Nested
+  public class DefaultAuthorization extends AuthTestBase
   {
-    final String sql = "SELECT datasource, COUNT(*) FROM sys.server_segments GROUP BY 1 ORDER BY 1";
+    private HttpClient stateWithDatasourceUser;
+    private HttpClient stateUser;
+    private HttpClient noPermissionUser;
 
-    final String plan = sql(adminClient, "EXPLAIN PLAN FOR " + sql, HttpResponseStatus.OK).getContent();
-    Assertions.assertTrue(plan.contains("systemTable"), plan);
+    @Override
+    protected boolean authorizeSystemTablesDirectly()
+    {
+      return false;
+    }
 
-    Assertions.assertEquals(
-        ALLOWED_DATASOURCE + ",1\n" + OTHER_DATASOURCE + ",1",
-        sql(adminClient, sql, HttpResponseStatus.OK).getContent().trim()
-    );
-    Assertions.assertEquals(ALLOWED_DATASOURCE + ",1", sql(fullUser, sql, HttpResponseStatus.OK).getContent().trim());
-    Assertions.assertEquals("", sql(noDatasourceUser, sql, HttpResponseStatus.OK).getContent().trim());
+    @BeforeAll
+    public void setupUsers()
+    {
+      stateWithDatasourceUser = createUser("stateWithDatasourceUser", List.of(READ_STATE, READ_ALLOWED_DATASOURCE));
+      stateUser = createUser("stateUser", List.of(READ_STATE));
+      noPermissionUser = createUser("noPermissionUser", List.of());
+    }
 
-    final String forbidden = sql(noStateUser, sql, HttpResponseStatus.FORBIDDEN).getContent();
-    Assertions.assertTrue(forbidden.contains("Insufficient permission to view servers"), forbidden);
+    /**
+     * SQL on the Druid engine needs STATE READ, and returns only the segments of datasources the caller may read.
+     */
+    @Test
+    public void testSqlReturnsSegmentsOfReadableDatasources()
+    {
+      assertPlannedOnDruidEngine(SEGMENT_COUNT_SQL);
 
-    final String invisible = sql(noSysTableUser, sql, HttpResponseStatus.BAD_REQUEST).getContent();
-    Assertions.assertTrue(invisible.contains("Object 'server_segments' not found within 'sys'"), invisible);
+      Assertions.assertEquals(
+          ALLOWED_DATASOURCE + ",1",
+          sql(stateWithDatasourceUser, SEGMENT_COUNT_SQL, HttpResponseStatus.OK).getContent().trim()
+      );
+      Assertions.assertEquals("", sql(stateUser, SEGMENT_COUNT_SQL, HttpResponseStatus.OK).getContent().trim());
+
+      final String forbidden = sql(noPermissionUser, SEGMENT_COUNT_SQL, HttpResponseStatus.FORBIDDEN).getContent();
+      Assertions.assertTrue(forbidden.contains("Insufficient permission to view servers"), forbidden);
+    }
+
+    /**
+     * A native query on the Broker needs STATE READ, and returns only the segments of datasources the caller may read.
+     */
+    @Test
+    public void testNativeQueryReturnsSegmentsOfReadableDatasources()
+    {
+      assertOnlyAllowedDatasource(nativeQuery(stateWithDatasourceUser, HttpResponseStatus.OK).getContent());
+      assertNoDatasource(nativeQuery(stateUser, HttpResponseStatus.OK).getContent());
+
+      final String forbidden = nativeQuery(noPermissionUser, HttpResponseStatus.FORBIDDEN).getContent();
+      Assertions.assertTrue(forbidden.contains("Insufficient permission to view servers"), forbidden);
+    }
   }
 
   /**
-   * A native query on the Broker needs the same permissions, and returns only the segments of datasources the caller
-   * may read.
+   * Cluster and helpers for the {@code sys.server_segments} authorization tests: a cluster with basic authentication
+   * and the Druid engine enabled for system tables, holding one segment in each of two datasources, queried on the
+   * Broker with SQL and native queries as users with given permissions.
    */
-  @Test
-  public void testNativeQueryReturnsSegmentsOfReadableDatasources()
+  abstract static class AuthTestBase extends EmbeddedClusterTestBase
   {
-    final String rows = nativeQuery(fullUser, HttpResponseStatus.OK).getContent();
-    Assertions.assertTrue(rows.contains(ALLOWED_DATASOURCE), rows);
-    Assertions.assertFalse(rows.contains(OTHER_DATASOURCE), rows);
-
-    final String noRows = nativeQuery(noDatasourceUser, HttpResponseStatus.OK).getContent();
-    Assertions.assertFalse(noRows.contains(ALLOWED_DATASOURCE), noRows);
-    Assertions.assertFalse(noRows.contains(OTHER_DATASOURCE), noRows);
-
-    final String forbidden = nativeQuery(noStateUser, HttpResponseStatus.FORBIDDEN).getContent();
-    Assertions.assertTrue(forbidden.contains("Insufficient permission to view servers"), forbidden);
-
-    nativeQuery(noSysTableUser, HttpResponseStatus.FORBIDDEN);
-  }
-
-  private void ingest(final String dataSource)
-  {
-    final Task task = MoreResources.Task.BASIC_INDEX
-        .get()
-        .segmentGranularity("YEAR")
-        .dataSource(dataSource)
-        .withId(IdUtils.getRandomId());
-    cluster.callApi().runTask(task, overlord);
-    cluster.callApi().waitForAllSegmentsToBeAvailable(dataSource, coordinator, broker);
-  }
-
-  private StatusResponseHolder sql(
-      final HttpClient client,
-      final String sql,
-      final HttpResponseStatus expectedStatus
-  )
-  {
-    final Map<String, Object> request = Map.of(
-        "query", sql,
-        "context", QueryContext.ofMap(QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES, true),
-        "resultFormat", "csv"
+    protected static final String ALLOWED_DATASOURCE = "allowed_datasource";
+    protected static final String OTHER_DATASOURCE = "other_datasource";
+    protected static final String SEGMENT_COUNT_SQL =
+        "SELECT datasource, COUNT(*) FROM sys.server_segments GROUP BY 1 ORDER BY 1";
+    protected static final ResourceAction READ_SERVER_SEGMENTS_TABLE = new ResourceAction(
+        new Resource(ServerSegmentsTableDescriptor.TABLE_NAME, ResourceType.SYSTEM_TABLE),
+        Action.READ
     );
-    return HttpUtil.makeRequest(
-        client,
-        HttpMethod.POST,
-        getServerUrl(broker) + "/druid/v2/sql",
-        request,
-        expectedStatus
-    );
-  }
+    protected static final ResourceAction READ_STATE =
+        new ResourceAction(new Resource(".*", ResourceType.STATE), Action.READ);
+    protected static final ResourceAction READ_ALLOWED_DATASOURCE =
+        new ResourceAction(new Resource(ALLOWED_DATASOURCE, ResourceType.DATASOURCE), Action.READ);
+    private static final String PASSWORD = "helloworld";
 
-  private StatusResponseHolder nativeQuery(final HttpClient client, final HttpResponseStatus expectedStatus)
-  {
-    final ScanQuery query = Druids.newScanQueryBuilder()
-                                  .dataSource(new SystemTableDataSource(ServerSegmentsTableDescriptor.TABLE_NAME))
-                                  .eternityInterval()
-                                  .columns("server", "segment_id", "datasource")
-                                  .build();
-    return HttpUtil.makeRequest(
-        client,
-        HttpMethod.POST,
-        getServerUrl(broker) + "/druid/v2/",
-        query,
-        expectedStatus
-    );
-  }
+    private final EmbeddedCoordinator coordinator = new EmbeddedCoordinator();
+    private final EmbeddedOverlord overlord = new EmbeddedOverlord();
+    private final EmbeddedBroker broker = new EmbeddedBroker();
 
-  private HttpClient createUser(final String user, final List<ResourceAction> permissions)
-  {
-    EmbeddedBasicAuthResource.createUserWithPermissions(
-        adminClient,
-        coordinator,
-        user,
-        PASSWORD,
-        user + "Role",
-        permissions
-    );
-    return client(user, PASSWORD);
-  }
+    protected HttpClient adminClient;
 
-  private HttpClient client(final String user, final String password)
-  {
-    return new CredentialedHttpClient(new BasicCredentials(user, password), broker.bindings().globalHttpClient());
+    /**
+     * Returns the value of {@code druid.auth.authorizeSystemTablesDirectly} for the cluster.
+     */
+    protected abstract boolean authorizeSystemTablesDirectly();
+
+    @Override
+    protected EmbeddedDruidCluster createCluster()
+    {
+      return EmbeddedDruidCluster.withEmbeddedDerbyAndZookeeper()
+                                 .addResource(new EmbeddedBasicAuthResource())
+                                 .addCommonProperty("druid.query.enableDruidEngineForSystemTables", "true")
+                                 .addCommonProperty(
+                                     "druid.auth.authorizeSystemTablesDirectly",
+                                     String.valueOf(authorizeSystemTablesDirectly())
+                                 )
+                                 .useLatchableEmitter()
+                                 .addServer(coordinator)
+                                 .addServer(overlord)
+                                 .addServer(new EmbeddedIndexer())
+                                 .addServer(new EmbeddedHistorical())
+                                 .addServer(broker);
+    }
+
+    @BeforeAll
+    public void setupAdminAndData()
+    {
+      adminClient = client(EmbeddedBasicAuthResource.ADMIN_USER, EmbeddedBasicAuthResource.ADMIN_PASSWORD);
+      ingest(ALLOWED_DATASOURCE);
+      ingest(OTHER_DATASOURCE);
+    }
+
+    /**
+     * Sends SQL to the Broker with the Druid engine for system tables, and checks the response status.
+     */
+    protected StatusResponseHolder sql(
+        final HttpClient client,
+        final String sql,
+        final HttpResponseStatus expectedStatus
+    )
+    {
+      final Map<String, Object> request = Map.of(
+          "query", sql,
+          "context", QueryContext.ofMap(QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES, true),
+          "resultFormat", "csv"
+      );
+      return HttpUtil.makeRequest(
+          client,
+          HttpMethod.POST,
+          getServerUrl(broker) + "/druid/v2/sql",
+          request,
+          expectedStatus
+      );
+    }
+
+    /**
+     * Checks, as the admin, that the Broker plans the SQL on the Druid engine, so the test can't pass on the Broker's
+     * SQL interpreter, which returns the same rows and errors.
+     */
+    protected void assertPlannedOnDruidEngine(final String sql)
+    {
+      final String plan = sql(adminClient, "EXPLAIN PLAN FOR " + sql, HttpResponseStatus.OK).getContent();
+      Assertions.assertTrue(plan.contains("systemTable"), plan);
+    }
+
+    /**
+     * Sends a native Scan on {@code sys.server_segments} to the Broker, and checks the response status.
+     */
+    protected StatusResponseHolder nativeQuery(final HttpClient client, final HttpResponseStatus expectedStatus)
+    {
+      final ScanQuery query = Druids.newScanQueryBuilder()
+                                    .dataSource(
+                                        new SystemTableDataSource(ServerSegmentsTableDescriptor.TABLE_NAME)
+                                    )
+                                    .eternityInterval()
+                                    .columns("server", "segment_id", "datasource")
+                                    .build();
+      return HttpUtil.makeRequest(
+          client,
+          HttpMethod.POST,
+          getServerUrl(broker) + "/druid/v2/",
+          query,
+          expectedStatus
+      );
+    }
+
+    /**
+     * Checks that a native query's rows hold the segments of the allowed datasource only.
+     */
+    protected static void assertOnlyAllowedDatasource(final String rows)
+    {
+      Assertions.assertTrue(rows.contains(ALLOWED_DATASOURCE), rows);
+      Assertions.assertFalse(rows.contains(OTHER_DATASOURCE), rows);
+    }
+
+    /**
+     * Checks that a native query returned no segment of either datasource.
+     */
+    protected static void assertNoDatasource(final String rows)
+    {
+      Assertions.assertFalse(rows.contains(ALLOWED_DATASOURCE), rows);
+      Assertions.assertFalse(rows.contains(OTHER_DATASOURCE), rows);
+    }
+
+    /**
+     * Creates a user with the given permissions, and returns a client authenticated as that user.
+     */
+    protected HttpClient createUser(final String user, final List<ResourceAction> permissions)
+    {
+      EmbeddedBasicAuthResource.createUserWithPermissions(
+          adminClient,
+          coordinator,
+          user,
+          PASSWORD,
+          user + "Role",
+          permissions
+      );
+      return client(user, PASSWORD);
+    }
+
+    private void ingest(final String dataSource)
+    {
+      final Task task = MoreResources.Task.BASIC_INDEX
+          .get()
+          .segmentGranularity("YEAR")
+          .dataSource(dataSource)
+          .withId(IdUtils.getRandomId());
+      cluster.callApi().runTask(task, overlord);
+      cluster.callApi().waitForAllSegmentsToBeAvailable(dataSource, coordinator, broker);
+    }
+
+    private HttpClient client(final String user, final String password)
+    {
+      return new CredentialedHttpClient(new BasicCredentials(user, password), broker.bindings().globalHttpClient());
+    }
   }
 }
