@@ -44,6 +44,17 @@ public interface SystemTableDescriptor
   SystemTableRowAuthorizer getRowAuthorizer();
 
   /**
+   * Whether only the Broker that receives a SQL query serves the table, from its own state. Such a table is read on
+   * that Broker instead of being gathered from every service with one of {@link #getNodeRoles()}. For example, every
+   * Broker serves the whole of {@code sys.segments}, so gathering it from every Broker would repeat its rows.
+   * {@link #getNodeRoles()} still names the roles of the services that serve such a table.
+   */
+  default boolean isLocalOnly()
+  {
+    return false;
+  }
+
+  /**
    * Whether an empty discovery result represents an empty table instead of unavailable infrastructure.
    */
   default boolean isEmptyDiscoveryAllowed()

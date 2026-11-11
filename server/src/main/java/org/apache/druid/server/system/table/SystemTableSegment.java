@@ -20,6 +20,7 @@
 package org.apache.druid.server.system.table;
 
 import org.apache.druid.java.util.common.Intervals;
+import org.apache.druid.java.util.common.guava.Accumulators;
 import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.segment.ArrayListSegment;
 import org.apache.druid.segment.CloseableShapeshifter;
@@ -77,9 +78,12 @@ public class SystemTableSegment implements Segment
     if (CursorFactory.class.equals(clazz)) {
       return (T) cursorFactory;
     } else if (CloseableShapeshifter.class.equals(clazz)) {
-      // Window queries read the segment as RowsAndColumns, which needs every row the caller may read.
-      final ArrayList<Object[]> rows = new ArrayList<>();
-      access.filter(provider.getRows(List.of())).forEach(rows::add);
+      // Window queries read the segment as RowsAndColumns, which needs every row the caller may read, with every
+      // column: the rows aren't read through a cursor, so no filter is pushed down and no column is left out. Reading
+      // them through a sequence closes the provider's rows even if reading them fails.
+      final ArrayList<Object[]> rows = SystemTableCursorFactory
+          .makeAuthorizedRowSequence(provider.getRows(List.of()), access)
+          .accumulate(new ArrayList<>(), Accumulators.list());
       return new ArrayListSegment<>(rows, cursorFactory.getRowAdapter(), rowSignature).as(clazz);
     }
     return null;

@@ -20,17 +20,23 @@
 
 package org.apache.druid.server.system.table;
 
+import org.apache.druid.error.DruidException;
 import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.server.security.Action;
+import org.apache.druid.server.security.AllowAllAuthorizer;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationResult;
 import org.apache.druid.server.security.AuthorizationUtils;
+import org.apache.druid.server.security.Authorizer;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.server.security.ResourceType;
 
 import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Authorization checks shared by native system tables.
@@ -48,6 +54,35 @@ public final class SystemTableAuthorization
 
   private SystemTableAuthorization()
   {
+  }
+
+  /**
+   * Row authorizer for tables whose rows belong to datasources, like SQL {@code sys.segments}. The caller may read the
+   * rows whose datasource, read from column {@code dataSourceColumn}, it has {@code DATASOURCE READ} on.
+   */
+  public static SystemTableRowAuthorizer dataSourceReadRowAuthorizer(final int dataSourceColumn)
+  {
+    return (authenticationResult, authorizerMapper) -> {
+      final Authorizer authorizer = authorizerMapper.getAuthorizer(authenticationResult.getAuthorizerName());
+      if (authorizer == null) {
+        throw DruidException.defensive("No authorizer found with name[%s]", authenticationResult.getAuthorizerName());
+      }
+      if (authorizer instanceof AllowAllAuthorizer) {
+        return SystemTableAccess.ALL_ROWS;
+      }
+      // Rows of one datasource share a decision, so ask the authorizer once per datasource.
+      final Map<String, Boolean> readableDataSources = new ConcurrentHashMap<>();
+      return new SystemTableAccess(
+          row -> readableDataSources.computeIfAbsent(
+              (String) row[dataSourceColumn],
+              dataSource -> authorizer.authorize(
+                  authenticationResult,
+                  new Resource(dataSource, ResourceType.DATASOURCE),
+                  Action.READ
+              ).isAllowed()
+          )
+      );
+    };
   }
 
   /**

@@ -19,10 +19,12 @@
 
 package org.apache.druid.server.system.table;
 
+import org.apache.druid.java.util.common.CloseableIterators;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.query.filter.EqualityFilter;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.segment.CloseableShapeshifter;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.CursorBuildSpec;
@@ -36,9 +38,12 @@ import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SystemTableCursorFactoryTest
 {
@@ -104,6 +109,71 @@ public class SystemTableCursorFactoryTest
     Assertions.assertEquals(List.of("task1"), taskIds);
   }
 
+  @Test
+  public void testPassesQueriedColumnsToProvider()
+  {
+    final RecordingProvider provider = new RecordingProvider();
+
+    readTaskIds(
+        new SystemTableCursorFactory(provider, SIGNATURE, SystemTableAccess.ALL_ROWS),
+        CursorBuildSpec.builder().setPhysicalColumns(Set.of("task_id")).build()
+    );
+
+    Assertions.assertEquals(Set.of("task_id"), provider.columns);
+  }
+
+  /**
+   * A query that stops reading early, like one with a limit, still closes the iterator of the provider's rows.
+   */
+  @Test
+  public void testClosesProviderIteratorWhenQueryStopsEarly()
+  {
+    final AtomicBoolean closed = new AtomicBoolean();
+    final SystemTableDataProvider provider = filters -> () -> CloseableIterators.wrap(
+        ROWS.iterator(),
+        () -> closed.set(true)
+    );
+
+    try (CursorHolder holder = new SystemTableCursorFactory(provider, SIGNATURE, SystemTableAccess.ALL_ROWS)
+        .makeCursorHolder(CursorBuildSpec.FULL_SCAN)) {
+      Assertions.assertFalse(holder.asCursor().isDone());
+    }
+
+    Assertions.assertTrue(closed.get());
+  }
+
+  /**
+   * Window queries read every row of the segment at once. If reading the provider's rows fails, their iterator is still
+   * closed.
+   */
+  @Test
+  public void testWindowReadClosesProviderIteratorOnFailure()
+  {
+    final AtomicBoolean closed = new AtomicBoolean();
+    final Iterator<Object[]> failingRows = new Iterator<>()
+    {
+      @Override
+      public boolean hasNext()
+      {
+        return true;
+      }
+
+      @Override
+      public Object[] next()
+      {
+        throw new IllegalStateException("failed to read rows");
+      }
+    };
+    final SystemTableDataProvider provider = filters -> () -> CloseableIterators.wrap(
+        failingRows,
+        () -> closed.set(true)
+    );
+    final SystemTableSegment segment = new SystemTableSegment(provider, SIGNATURE, SystemTableAccess.ALL_ROWS);
+
+    Assertions.assertThrows(IllegalStateException.class, () -> segment.as(CloseableShapeshifter.class));
+    Assertions.assertTrue(closed.get());
+  }
+
   private static ExpressionVirtualColumn spoofedDatasource()
   {
     return new ExpressionVirtualColumn("datasource", "'allowed'", ColumnType.STRING, ExprMacroTable.nil());
@@ -126,6 +196,7 @@ public class SystemTableCursorFactoryTest
   static class RecordingProvider implements SystemTableDataProvider
   {
     private List<Filter> filters;
+    private Set<String> columns;
 
     @Override
     public Set<String> getPushdownColumns()
@@ -138,6 +209,13 @@ public class SystemTableCursorFactoryTest
     {
       this.filters = filters;
       return ROWS;
+    }
+
+    @Override
+    public Iterable<Object[]> getRows(final List<Filter> filters, @Nullable final Set<String> columns)
+    {
+      this.columns = columns;
+      return getRows(filters);
     }
   }
 }

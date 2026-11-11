@@ -19,9 +19,15 @@
 
 package org.apache.druid.server.system.table;
 
+import org.apache.druid.error.DruidException;
+import org.apache.druid.java.util.common.guava.BaseSequence;
+import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
+import org.apache.druid.java.util.common.io.Closer;
+import org.apache.druid.query.OrderBy;
 import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.CursorBuildSpec;
 import org.apache.druid.segment.CursorHolder;
 import org.apache.druid.segment.ResidentCursorFactory;
@@ -29,14 +35,21 @@ import org.apache.druid.segment.RowAdapter;
 import org.apache.druid.segment.RowBasedCursorFactory;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnCapabilities;
+import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.filter.AndFilter;
+import org.apache.druid.segment.vector.VectorCursor;
+import org.apache.druid.utils.CloseableUtils;
 
 import javax.annotation.Nullable;
+import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Reads the rows of a system table from its {@link SystemTableDataProvider}.
@@ -45,6 +58,9 @@ import java.util.Set;
  * {@link SystemTableDataProvider#getPushdownColumns() pushdown columns}, keeps the rows the caller may read according
  * to its {@link SystemTableAccess}, and then applies the whole query filter and the query's virtual columns. Rows are
  * authorized before any virtual column is computed, so a virtual column can't change which rows the caller sees.</p>
+ *
+ * <p>Queries without a filter whose columns, virtual columns and aggregators can be vectorized read the rows in
+ * batches through {@link SystemTableVectorCursor}.</p>
  */
 public class SystemTableCursorFactory implements ResidentCursorFactory
 {
@@ -74,8 +90,76 @@ public class SystemTableCursorFactory implements ResidentCursorFactory
   @Override
   public CursorHolder makeCursorHolder(final CursorBuildSpec spec)
   {
-    final Iterable<Object[]> rows = access.filter(provider.getRows(getPushdownFilters(spec)));
-    return new RowBasedCursorFactory<>(Sequences.simple(rows), rowAdapter, rowSignature).makeCursorHolder(spec);
+    final Iterable<Object[]> providerRows = provider.getRows(getPushdownFilters(spec), spec.getPhysicalColumns());
+    final Supplier<Sequence<Object[]>> rows = () -> makeAuthorizedRowSequence(providerRows, access);
+    // Row-based cursor holders read their rows only once a cursor is made, so this reads nothing yet.
+    final CursorHolder rowCursorHolder =
+        new RowBasedCursorFactory<>(rows.get(), rowAdapter, rowSignature).makeCursorHolder(spec);
+    final Closer closer = Closer.create();
+    closer.register(rowCursorHolder);
+    return new CursorHolder()
+    {
+      @Override
+      public Cursor asCursor()
+      {
+        return rowCursorHolder.asCursor();
+      }
+
+      @Override
+      public boolean canVectorize()
+      {
+        return SystemTableVectorCursor.canVectorize(spec, rowSignature);
+      }
+
+      @Override
+      public VectorCursor asVectorCursor()
+      {
+        if (!canVectorize()) {
+          throw DruidException.defensive("This query on a system table can't be vectorized");
+        }
+        return closer.register(new SystemTableVectorCursor(rows, rowSignature, spec));
+      }
+
+      @Nullable
+      @Override
+      public List<OrderBy> getOrdering()
+      {
+        return rowCursorHolder.getOrdering();
+      }
+
+      @Override
+      public void close()
+      {
+        CloseableUtils.closeAndWrapExceptions(closer);
+      }
+    };
+  }
+
+  /**
+   * Returns the provider's rows that the caller may read, as a sequence that closes the rows' iterator, if it's
+   * {@link Closeable}, once the sequence is closed or fully read, even if reading stopped early or failed.
+   */
+  static Sequence<Object[]> makeAuthorizedRowSequence(final Iterable<Object[]> rows, final SystemTableAccess access)
+  {
+    final Sequence<Object[]> rowSequence = new BaseSequence<>(
+        new BaseSequence.IteratorMaker<Object[], Iterator<Object[]>>()
+        {
+          @Override
+          public Iterator<Object[]> make()
+          {
+            return rows.iterator();
+          }
+
+          @Override
+          public void cleanup(final Iterator<Object[]> iterator)
+          {
+            if (iterator instanceof Closeable closeable) {
+              CloseableUtils.closeAndWrapExceptions(closeable);
+            }
+          }
+        }
+    );
+    return access.rowPredicate() == null ? rowSequence : rowSequence.filter(access.rowPredicate()::test);
   }
 
   /**
@@ -96,7 +180,12 @@ public class SystemTableCursorFactory implements ResidentCursorFactory
   @Override
   public ColumnCapabilities getColumnCapabilities(final String column)
   {
-    return capabilitiesCursorFactory.getColumnCapabilities(column);
+    final ColumnCapabilities capabilities = capabilitiesCursorFactory.getColumnCapabilities(column);
+    if (capabilities != null && capabilities.is(ValueType.STRING)) {
+      // String columns of system tables hold single values, which lets vectorized engines group by them.
+      return ColumnCapabilitiesImpl.copyOf(capabilities).setHasMultipleValues(false);
+    }
+    return capabilities;
   }
 
   /**

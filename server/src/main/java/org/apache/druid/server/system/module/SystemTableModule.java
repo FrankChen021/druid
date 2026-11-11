@@ -25,8 +25,10 @@ import com.google.inject.multibindings.MapBinder;
 import org.apache.druid.guice.DruidBinders;
 import org.apache.druid.guice.LazySingleton;
 import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.server.system.table.SegmentsTableDescriptor;
 import org.apache.druid.server.system.table.ServerPropertiesTableDataProvider;
 import org.apache.druid.server.system.table.ServerPropertiesTableDescriptor;
+import org.apache.druid.server.system.table.ServerSegmentsTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.server.system.table.SystemTableDescriptor;
 import org.apache.druid.server.system.table.SystemTableSegmentWrangler;
@@ -34,7 +36,8 @@ import org.apache.druid.server.system.table.SystemTableSegmentWrangler;
 import java.util.Properties;
 
 /**
- * Registers the segment wrangler that reads system tables, and the {@code sys.server_properties} table.
+ * Registers the segment wrangler that reads system tables, the descriptors of the native system tables, and the
+ * {@code sys.server_properties} table.
  *
  * <p>Table-specific integrations contribute their own entries to the native system-table multibinders.</p>
  */
@@ -64,6 +67,11 @@ public class SystemTableModule implements Module
     final MapBinder<String, SystemTableDescriptor> descriptorBinder = DruidBinders.systemTableDescriptorBinder(binder);
     descriptorBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)
                     .toInstance(new ServerPropertiesTableDescriptor());
+    // Only Brokers bind the providers of the segment tables, which read the Broker's segment views.
+    descriptorBinder.addBinding(SegmentsTableDescriptor.TABLE_NAME)
+                    .toInstance(new SegmentsTableDescriptor());
+    descriptorBinder.addBinding(ServerSegmentsTableDescriptor.TABLE_NAME)
+                    .toInstance(new ServerSegmentsTableDescriptor());
     final MapBinder<String, SystemTableDataProvider> dataProviderBinder =
         MapBinder.newMapBinder(binder, String.class, SystemTableDataProvider.class);
     dataProviderBinder.addBinding(ServerPropertiesTableDescriptor.TABLE_NAME)

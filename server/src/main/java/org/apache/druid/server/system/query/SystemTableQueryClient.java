@@ -174,6 +174,11 @@ public class SystemTableQueryClient
       if (systemTableDataSource.getScope() != SystemTableDataSource.Scope.CLUSTER) {
         return systemTableDataSource;
       }
+      final SystemTableDescriptor descriptor = tableDescriptors.get(systemTableDataSource.getTable());
+      if (descriptor != null && descriptor.isLocalOnly()) {
+        // This Broker serves the whole table, so read its own rows rather than gathering them from every service.
+        return systemTableDataSource.withScope(SystemTableDataSource.Scope.LOCAL);
+      }
       return resolveSystemTableDataSource(
           systemTableDataSource,
           owningQuery,

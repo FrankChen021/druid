@@ -64,6 +64,7 @@ import org.apache.druid.server.security.Authenticator;
 import org.apache.druid.server.security.AuthenticatorMapper;
 import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.system.module.SystemTableModule;
+import org.apache.druid.server.system.table.SystemTableDataProvider;
 import org.apache.druid.sql.http.SqlQuery;
 import org.apache.druid.sql.http.SqlResource;
 import org.eclipse.jetty.client.BytesRequestContent;
@@ -91,6 +92,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -159,6 +161,7 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
 
   private final boolean routeSqlByStrategy;
   private final boolean enableDruidEngineForSystemTables;
+  private Set<String> servedSystemTables = Set.of();
 
   private HttpClient broadcastClient;
 
@@ -200,6 +203,16 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
   public void setLocalQueryContainer(final GuiceContainer localQueryContainer)
   {
     this.localQueryContainer = localQueryContainer;
+  }
+
+  /**
+   * Sets the system tables that the Router serves, which are bound only when
+   * {@link SystemTableModule#ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY} is on.
+   */
+  @Inject(optional = true)
+  public void setSystemTableDataProviders(final Map<String, SystemTableDataProvider> dataProviders)
+  {
+    this.servedSystemTables = Set.copyOf(dataProviders.keySet());
   }
 
   @Override
@@ -353,12 +366,15 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet implements Qu
    * receives them, so the Router answers them with its own rows, unless
    * {@link SystemTableModule#ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY} is off. As on the Coordinator, Overlord
    * and Middle Manager, the Router's local resource accepts only Scan queries, and rejects other query types on a
-   * system table. Queries that read a system table through another datasource, such as a subquery or a join, are
-   * forwarded to a Broker like any other.
+   * system table. A system table that the Router doesn't serve, such as {@code sys.segments}, which only Brokers serve,
+   * and queries that read a system table through another datasource, such as a subquery or a join, are forwarded to a
+   * Broker like any other.
    */
   private boolean isLocalSystemTableQuery(final Query<?> query)
   {
-    return enableDruidEngineForSystemTables && query.getDataSource() instanceof SystemTableDataSource;
+    return enableDruidEngineForSystemTables
+           && query.getDataSource() instanceof SystemTableDataSource systemTable
+           && servedSystemTables.contains(systemTable.getTable());
   }
 
   /**

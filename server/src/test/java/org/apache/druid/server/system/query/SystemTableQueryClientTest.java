@@ -280,6 +280,118 @@ public class SystemTableQueryClientTest
   }
 
   /**
+   * A table that only the receiving Broker serves is read on this Broker with its own access, and no node is queried.
+   */
+  @Test
+  public void testLocalOnlySystemTableIsNotGathered() throws IOException
+  {
+    final SystemTableDescriptor descriptor = new TestSystemTableDescriptor()
+    {
+      @Override
+      public boolean isLocalOnly()
+      {
+        return true;
+      }
+    };
+    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
+    final DirectDruidClientFactory directClientFactory = Mockito.mock(DirectDruidClientFactory.class);
+    final SystemTableQueryClient client = newClient(
+        nodeLocator,
+        directClientFactory,
+        Mockito.mock(QueryScheduler.class),
+        Map.of(descriptor.getTableName(), descriptor),
+        nonMatchingSelfNode()
+    );
+    final SystemTableAccess access = new SystemTableAccess(row -> "allowed".equals(row[0]));
+    final SystemTableDataSource dataSource = new SystemTableDataSource(descriptor.getTableName())
+        .withScope(SystemTableDataSource.Scope.CLUSTER)
+        .withAccess(access);
+    final ScanQuery query = Druids.ScanQueryBuilder.copy(query(descriptor, Collections.emptyMap()))
+                                                   .dataSource(dataSource)
+                                                   .build();
+
+    final SystemTableQueryClient.ResolvedQuery<ScanResultValue> resolved = client.resolve(query);
+    resolved.closer().close();
+
+    final SystemTableDataSource resolvedDataSource =
+        Assertions.assertInstanceOf(SystemTableDataSource.class, resolved.query().getDataSource());
+    Assertions.assertEquals(SystemTableDataSource.Scope.LOCAL, resolvedDataSource.getScope());
+    Assertions.assertSame(access, resolvedDataSource.getAccess());
+    Mockito.verifyNoInteractions(nodeLocator, directClientFactory);
+  }
+
+  /**
+   * In a join of a table that only the receiving Broker serves with one gathered from every service, only the
+   * gathered table's nodes are located, and the other table is read on this Broker.
+   */
+  @Test
+  public void testLocalOnlySystemTableInJoinIsNotGathered() throws IOException
+  {
+    final SystemTableDescriptor localOnly = new TestSystemTableDescriptor()
+    {
+      @Override
+      public String getTableName()
+      {
+        return "local";
+      }
+
+      @Override
+      public boolean isLocalOnly()
+      {
+        return true;
+      }
+    };
+    final SystemTableDescriptor gathered = new TestSystemTableDescriptor()
+    {
+      @Override
+      public boolean isEmptyDiscoveryAllowed()
+      {
+        return true;
+      }
+    };
+    final SystemTableNodeLocator nodeLocator = Mockito.mock(SystemTableNodeLocator.class);
+    Mockito.when(nodeLocator.locate(gathered)).thenReturn(List.of());
+    final SystemTableQueryClient client = newClient(
+        nodeLocator,
+        Mockito.mock(DirectDruidClientFactory.class),
+        Mockito.mock(QueryScheduler.class),
+        Map.of(localOnly.getTableName(), localOnly, gathered.getTableName(), gathered),
+        nonMatchingSelfNode()
+    );
+    final DataSource join = JoinDataSource.create(
+        clusterTable(localOnly),
+        clusterTable(gathered),
+        "j.",
+        "value == \"j.value\"",
+        JoinType.INNER,
+        null,
+        ExprMacroTable.nil(),
+        null,
+        JoinAlgorithm.BROADCAST
+    );
+    final ScanQuery query = Druids.ScanQueryBuilder.copy(query(gathered, Collections.emptyMap()))
+                                                   .dataSource(join)
+                                                   .build();
+
+    final SystemTableQueryClient.ResolvedQuery<ScanResultValue> resolved = client.resolve(query);
+    resolved.closer().close();
+
+    final List<DataSource> children = resolved.query().getDataSource().getChildren();
+    final SystemTableDataSource left = Assertions.assertInstanceOf(SystemTableDataSource.class, children.get(0));
+    Assertions.assertEquals(SystemTableDataSource.Scope.LOCAL, left.getScope());
+    Assertions.assertInstanceOf(InlineDataSource.class, children.get(1));
+    Mockito.verify(nodeLocator).locate(gathered);
+    Mockito.verifyNoMoreInteractions(nodeLocator);
+  }
+
+  private static SystemTableDataSource clusterTable(final SystemTableDescriptor descriptor)
+  {
+    return new SystemTableDataSource(descriptor.getTableName())
+        .withScope(SystemTableDataSource.Scope.CLUSTER)
+        .withAccess(SystemTableAccess.ALL_ROWS);
+  }
+
+  /**
    * Node scans must not share the caller's response context. A Scan with a limit returns no rows once the context's
    * scanned-row count reaches the limit, so counting node rows there emptied limited Scans over joins.
    */
