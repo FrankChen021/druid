@@ -57,6 +57,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPOutputStream;
 
 public class RemoteInputSourceTest
 {
@@ -77,6 +78,8 @@ public class RemoteInputSourceTest
   private final List<JsonNode> nativeRequests = new CopyOnWriteArrayList<>();
   private final List<String> canceledQueries = new CopyOnWriteArrayList<>();
   private final Queue<Response> sqlResponses = new ConcurrentLinkedQueue<>();
+  private final List<String> acceptEncodings = new CopyOnWriteArrayList<>();
+  private volatile boolean gzipResponses;
   private volatile String timeBoundaryResponse =
       """
       [{"timestamp":"2020-01-01T00:00:00.000Z",
@@ -106,13 +109,19 @@ public class RemoteInputSourceTest
         final Response response;
         if ("/druid/v2/sql".equals(path)) {
           sqlRequests.add(request);
+          acceptEncodings.add(String.valueOf(exchange.getRequestHeaders().getFirst("Accept-Encoding")));
           response = sqlResponses.isEmpty() ? new Response(500, "{\"error\":\"no response\"}") : sqlResponses.poll();
         } else {
           nativeRequests.add(request);
           response = new Response(200, timeBoundaryResponse);
         }
+        if (gzipResponses) {
+          exchange.getResponseHeaders().set("Content-Encoding", "gzip");
+        }
         exchange.sendResponseHeaders(response.status, 0);
-        try (final OutputStream out = exchange.getResponseBody()) {
+        try (final OutputStream out = gzipResponses
+                                      ? new GZIPOutputStream(exchange.getResponseBody())
+                                      : exchange.getResponseBody()) {
           out.write(StringUtils.toUtf8(response.body));
         }
       }
@@ -210,6 +219,17 @@ public class RemoteInputSourceTest
     Assertions.assertFalse(request.path("context").path("sqlStringifyArrays").asBoolean());
     Assertions.assertEquals("UTC", request.path("context").path("sqlTimeZone").asText());
     Assertions.assertTrue(canceledQueries.isEmpty());
+  }
+
+  @Test
+  public void testReadsGzippedResults() throws IOException
+  {
+    gzipResponses = true;
+    sqlResponses.add(new Response(200, HEADER + "[\"2020-01-01T00:00:00.000Z\",\"x\",true,[1]]\n\n"));
+    final List<InputRow> rows = read(source(false, null, null));
+    Assertions.assertEquals(1, rows.size());
+    Assertions.assertEquals("x", rows.get(0).getRaw("a"));
+    Assertions.assertEquals(List.of("gzip"), acceptEncodings);
   }
 
   @Test

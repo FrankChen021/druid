@@ -117,7 +117,9 @@ public interface RemoteHttpClient extends AutoCloseable
                             .withReadTimeout(Duration.millis(readTimeout))
                             .withSslHandshakeTimeout(Duration.millis(connectTimeout))
                             .withSslContext(sslContext)
-                            .withCompressionCodec(HttpClientConfig.CompressionCodec.IDENTITY)
+                            // Druid servers gzip responses on request, which shrinks text results several times over.
+                            // The client decompresses them as they stream, so limits apply to the decompressed bytes.
+                            .withCompressionCodec(HttpClientConfig.CompressionCodec.GZIP)
                             .build(),
             lifecycle
         );
