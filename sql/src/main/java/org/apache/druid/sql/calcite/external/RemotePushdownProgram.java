@@ -114,8 +114,9 @@ import java.util.Set;
  * reference to a datasource on another Druid cluster and cannot be read as it is. This program runs before the Volcano
  * planner, and only for queries that contain such a table. For each one, it:
  * <ol>
- * <li>Moves filters above joins that have a remote input into the join inputs, so that the remote side can absorb
- * them. Joins of local inputs are not changed.</li>
+ * <li>Before expression reduction, {@link #filterPushdownProgram()} moves filters above joins that have a remote input
+ * into the join inputs, and filters above projections over a remote input below them, so that the remote side can
+ * absorb them and they are reduced like other filters. Joins of local inputs are not changed.</li>
  * <li>Collects the longest chain of {@link Project}, {@link Filter}, and {@link Aggregate} operators directly above
  * the remote scan that the source can evaluate. The chain stops at operators that must run on the target: joins,
  * sorts, {@code LIMIT}, window functions, subqueries, {@code LOOKUP} calls, which depend on the cluster's lookups,
@@ -180,50 +181,62 @@ public class RemotePushdownProgram implements Program
   )
   {
     validateRemoteScans(rel);
-    if (!containsRemoteScan(rel)) {
-      return rel;
-    }
-    // Move filters above joins with a remote input into the join inputs, so that the remote input can absorb them.
-    // Joins of local inputs are left alone, as are join conditions that Druid cannot evaluate.
-    final HepProgramBuilder builder = HepProgram.builder();
-    builder.addMatchLimit(CalciteRulesManager.HEP_DEFAULT_MATCH_LIMIT);
-    builder.addRuleInstance(
-        FilterIntoJoinRuleConfig.DEFAULT
-            .withOperandSupplier(
-                b0 -> b0.operand(Filter.class)
-                        .oneInput(b1 -> b1.operand(Join.class)
-                                          .predicate(RemotePushdownProgram::hasRemoteInput)
-                                          .anyInputs())
-            )
-            .as(FilterIntoJoinRuleConfig.class)
-            .withPredicate(DruidJoinRule::isSupportedPredicate)
-            .toRule()
-    );
-    builder.addRuleInstance(
-        JoinConditionPushRuleConfig.DEFAULT
-            .withOperandSupplier(
-                b0 -> b0.operand(Join.class).predicate(RemotePushdownProgram::hasRemoteInput).anyInputs()
-            )
-            .as(JoinConditionPushRuleConfig.class)
-            .withPredicate(DruidJoinRule::isSupportedPredicate)
-            .toRule()
-    );
-    // Move filters below projections over a remote input, so that they are pushed down even when a projection above
-    // the remote scan must run on the target.
-    builder.addRuleInstance(
-        FilterProjectTransposeRule.Config.DEFAULT
-            .withOperandSupplier(
-                b0 -> b0.operand(Filter.class)
-                        .oneInput(b1 -> b1.operand(Project.class)
-                                          .predicate(RemotePushdownProgram::containsRemoteScan)
-                                          .anyInputs())
-            )
-            .as(FilterProjectTransposeRule.Config.class)
-            .toRule()
-    );
-    final RelNode pushed = Programs.of(builder.build(), true, DefaultRelMetadataProvider.INSTANCE)
-                                   .run(planner, rel, requiredOutputTraits, materializations, lattices);
-    return rewrite(pushed);
+    return containsRemoteScan(rel) ? rewrite(rel) : rel;
+  }
+
+  /**
+   * Returns a program that moves filters toward remote inputs, so that the remote reads can absorb them. It runs
+   * before expression reduction, so that the moved filters are reduced like any other; for example, a column fixed
+   * by an equality filter is replaced by its value in the projections above.
+   */
+  public static Program filterPushdownProgram()
+  {
+    return (planner, rel, requiredOutputTraits, materializations, lattices) -> {
+      if (!containsRemoteScan(rel)) {
+        return rel;
+      }
+      final HepProgramBuilder builder = HepProgram.builder();
+      builder.addMatchLimit(CalciteRulesManager.HEP_DEFAULT_MATCH_LIMIT);
+      // Move filters above joins with a remote input into the join inputs. Joins of local inputs are left alone, as
+      // are join conditions that Druid cannot evaluate.
+      builder.addRuleInstance(
+          FilterIntoJoinRuleConfig.DEFAULT
+              .withOperandSupplier(
+                  b0 -> b0.operand(Filter.class)
+                          .oneInput(b1 -> b1.operand(Join.class)
+                                            .predicate(RemotePushdownProgram::hasRemoteInput)
+                                            .anyInputs())
+              )
+              .as(FilterIntoJoinRuleConfig.class)
+              .withPredicate(DruidJoinRule::isSupportedPredicate)
+              .toRule()
+      );
+      builder.addRuleInstance(
+          JoinConditionPushRuleConfig.DEFAULT
+              .withOperandSupplier(
+                  b0 -> b0.operand(Join.class).predicate(RemotePushdownProgram::hasRemoteInput).anyInputs()
+              )
+              .as(JoinConditionPushRuleConfig.class)
+              .withPredicate(DruidJoinRule::isSupportedPredicate)
+              .toRule()
+      );
+      // Move filters below projections over a remote input, so that they are pushed down even when a projection
+      // above the remote scan must run on the target.
+      builder.addRuleInstance(
+          FilterProjectTransposeRule.Config.DEFAULT
+              .withOperandSupplier(
+                  b0 -> b0.operand(Filter.class)
+                          .predicate(filter -> !RexUtil.containsCorrelation(filter.getCondition()))
+                          .oneInput(b1 -> b1.operand(Project.class)
+                                            .predicate(RemotePushdownProgram::containsRemoteScan)
+                                            .anyInputs())
+              )
+              .as(FilterProjectTransposeRule.Config.class)
+              .toRule()
+      );
+      return Programs.of(builder.build(), true, DefaultRelMetadataProvider.INSTANCE)
+                     .run(planner, rel, requiredOutputTraits, materializations, lattices);
+    };
   }
 
   /**
@@ -788,11 +801,11 @@ public class RemotePushdownProgram implements Program
             }
             select.setSelectList(columns);
           }
-          if (select.getHaving() != null) {
-            // Druid resolves a name in HAVING to a select alias before a column of the same name, so qualify the
-            // columns, which are what the converter means, to keep them from referring to an alias.
-            select.setHaving(qualifyColumns(select.getHaving(), tableName(select.getFrom())));
-          }
+        }
+        if (call instanceof SqlSelect select && select.getHaving() != null) {
+          // Druid resolves a name in HAVING to a select alias before a column of the same name, so qualify the
+          // columns, which are what the converter means, to keep them from referring to an alias.
+          select.setHaving(qualifyColumns(select.getHaving(), fromName(select.getFrom())));
         }
         return super.visit(call);
       }
@@ -824,10 +837,19 @@ public class RemotePushdownProgram implements Program
     return from instanceof SqlCall call && call.getKind() == SqlKind.AS && call.operand(0) instanceof SqlIdentifier;
   }
 
-  private static String tableName(final SqlNode from)
+  /**
+   * Returns the name that qualifies the columns of a FROM item: the alias of an aliased table or subquery, or the
+   * table name.
+   */
+  private static String fromName(final SqlNode from)
   {
-    final SqlIdentifier identifier = (SqlIdentifier) (from instanceof SqlCall call ? call.operand(1) : from);
-    return Util.last(identifier.names);
+    if (from instanceof SqlCall call && call.getKind() == SqlKind.AS) {
+      return ((SqlIdentifier) call.operand(1)).getSimple();
+    }
+    if (from instanceof SqlIdentifier identifier) {
+      return Util.last(identifier.names);
+    }
+    throw new IllegalStateException("Unexpected FROM item in pushed-down SQL: " + from);
   }
 
   private static SqlNode qualifyColumns(final SqlNode node, final String tableName)

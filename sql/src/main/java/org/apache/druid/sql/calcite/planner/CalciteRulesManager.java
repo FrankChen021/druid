@@ -337,6 +337,9 @@ public class CalciteRulesManager
     prePrograms.add(new LoggingProgram("Finished subquery program", isDebug));
     prePrograms.add(DecorrelateAndTrimFieldsProgram.INSTANCE);
     prePrograms.add(new LoggingProgram("Finished decorrelate and trim fields program", isDebug));
+    if (isDruid) {
+      prePrograms.add(RemotePushdownProgram.filterPushdownProgram());
+    }
     prePrograms.add(buildReductionProgram(plannerContext, isDruid));
     prePrograms.add(new LoggingProgram("Finished expression reduction program", isDebug));
 

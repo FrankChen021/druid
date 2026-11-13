@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.ArrayList;
@@ -365,7 +366,7 @@ public class RemoteInputSourceTest
       sqlResponses.add(new Response(503, "{\"error\":\"busy\"}"));
     }
     sqlResponses.add(new Response(200, HEADER + "\n"));
-    final RuntimeException e = readFailure();
+    final UncheckedIOException e = readFailure(UncheckedIOException.class);
     Assertions.assertTrue(e.getMessage().contains("HTTP status[503]"), e.getMessage());
     Assertions.assertEquals(3, sqlRequests.size());
   }
@@ -390,7 +391,9 @@ public class RemoteInputSourceTest
       sqlResponses.add(new Response(200, response.getKey()));
       // Would succeed if the read were retried.
       sqlResponses.add(new Response(200, HEADER + "\n"));
-      final RuntimeException e = readFailure();
+      // A corrupt result is not retried here, nor by relaunching the reader.
+      final DruidException e = readFailure(DruidException.class);
+      Assertions.assertEquals(DruidException.Category.RUNTIME_FAILURE, e.getCategory(), response.getKey());
       Assertions.assertTrue(e.getMessage().contains(response.getValue()), response.getKey() + " -> " + e.getMessage());
       Assertions.assertEquals(1, sqlRequests.size(), response.getKey());
     }
@@ -437,7 +440,8 @@ public class RemoteInputSourceTest
     // The source stopped streaming before its completion marker, after a row was already handed out.
     sqlResponses.add(new Response(200, HEADER + "[\"2020-01-01T00:00:00.000Z\",\"x\",true,[]]\n"));
     sqlResponses.add(new Response(200, HEADER + "\n"));
-    final RuntimeException e = readFailure();
+    // A relaunched reader rereads the whole range, so this failure stays retryable for MSQ.
+    final UncheckedIOException e = readFailure(UncheckedIOException.class);
     Assertions.assertTrue(e.getMessage().contains("completion marker"), e.getMessage());
     Assertions.assertEquals(1, sqlRequests.size());
     Assertions.assertEquals(1, canceledQueries.size());
@@ -464,9 +468,9 @@ public class RemoteInputSourceTest
   /**
    * Reads the plain source and returns the failure, which the test expects.
    */
-  private RuntimeException readFailure()
+  private <T extends Throwable> T readFailure(final Class<T> type)
   {
-    return Assertions.assertThrows(RuntimeException.class, () -> read(source(false, null, null)));
+    return Assertions.assertThrows(type, () -> read(source(false, null, null)));
   }
 
   private static List<Interval> splits(final RemoteInputSource source) throws IOException

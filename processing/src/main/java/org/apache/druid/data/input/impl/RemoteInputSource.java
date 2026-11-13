@@ -471,7 +471,7 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
     if (e instanceof RemoteSchemaException || (e instanceof RemoteStatusException status && status.isUserError())) {
       return InvalidInput.exception(e, "Remote Druid read failed: %s", e.getMessage());
     }
-    if (e instanceof NonRetryableException) {
+    if (e instanceof NonRetryableException || e instanceof JsonProcessingException) {
       return DruidException.forPersona(DruidException.Persona.USER)
                            .ofCategory(DruidException.Category.RUNTIME_FAILURE)
                            .build(e, "Remote Druid read failed: %s", e.getMessage());
@@ -668,7 +668,7 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
           }
           if (line.length == 0) {
             if (body.read() != -1) {
-              throw new IOException("Remote Druid result has data after its completion marker");
+              throw new NonRetryableException("Remote Druid result has data after its completion marker");
             }
             done = true;
             closeResponse(true);

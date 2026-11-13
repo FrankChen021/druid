@@ -287,6 +287,66 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
   }
 
   @Test
+  public void testEqualityFilterAboveStringExpression()
+  {
+    // The filter is pushed down, and the column it fixes is read as its value rather than through MV_TO_ARRAY, which
+    // the source rejects for a literal.
+    testIngestQuery()
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT * FROM (SELECT __time, dim1, UPPER(dim1) AS u FROM %s)
+            WHERE dim1 = 'abc'
+            PARTITIONED BY DAY
+            """,
+            remote("")
+        ))
+        .setQueryContext(DEFAULT_MSQ_CONTEXT)
+        .setExpectedDataSource("foo1")
+        .setExpectedRowSignature(
+            RowSignature.builder()
+                        .add("__time", ColumnType.LONG)
+                        .add("dim1", ColumnType.STRING)
+                        .add("u", ColumnType.STRING)
+                        .build()
+        )
+        .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), "abc", "ABC"}))
+        .verifyResults();
+  }
+
+  @Test
+  public void testFilterOnSwappedNamesOfNestedAggregation()
+  {
+    // Each of the six source rows has cnt 1, so the inner aggregation is (k = 1, v = 6) and the outer one swaps the
+    // names to (k = 6, v = 1). The filter becomes HAVING on a subquery, whose columns must not resolve to the aliases.
+    testIngestQuery()
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT TIMESTAMP '2000-01-01' AS __time, k, v, n
+            FROM (SELECT v AS k, k AS v, COUNT(*) AS n
+                  FROM (SELECT cnt AS k, COUNT(*) AS v FROM %s GROUP BY cnt)
+                  GROUP BY k, v)
+            WHERE k = 6
+            PARTITIONED BY ALL
+            """,
+            remote("")
+        ))
+        .setQueryContext(DEFAULT_MSQ_CONTEXT)
+        .setExpectedDataSource("foo1")
+        .setExpectedRowSignature(
+            RowSignature.builder()
+                        .add("__time", ColumnType.LONG)
+                        .add("k", ColumnType.LONG)
+                        .add("v", ColumnType.LONG)
+                        .add("n", ColumnType.LONG)
+                        .build()
+        )
+        .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2000-01-01").getMillis(), 6L, 1L, 1L}))
+        .verifyResults();
+  }
+
+  @Test
   public void testForwardsTargetTimeZone()
   {
     sourceDefaultTimeZone = "America/Los_Angeles";
