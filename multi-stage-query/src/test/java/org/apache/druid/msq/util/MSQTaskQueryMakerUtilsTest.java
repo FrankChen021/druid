@@ -178,4 +178,31 @@ public class MSQTaskQueryMakerUtilsTest
         MSQTaskQueryMakerUtils.maskSensitiveJsonKeys(sql5)
     );
   }
+
+  @Test
+  public void maskRemotePasswords()
+  {
+    Assertions.assertEquals(
+        "SELECT * FROM TABLE(REMOTE(endpoint => 'http://a', username => 'admin', password => '<masked>',"
+        + " \"PASSWORD\"=>'<masked>'))",
+        MSQTaskQueryMakerUtils.maskSensitiveJsonKeys(
+            "SELECT * FROM TABLE(REMOTE(endpoint => 'http://a', username => 'admin', password => 'it''s secret',"
+            + " \"PASSWORD\"=>'s'))"
+        )
+    );
+    // A remote input source in EXTERN, with a plain or a default password provider.
+    Assertions.assertEquals(
+        "EXTERN('{\"authentication\":{\"type\":\"basic\",\"password\":\"<masked>\"}}',"
+        + " '{\"password\": {\"type\":\"default\",\"password\" : \"<masked>\"}}')",
+        MSQTaskQueryMakerUtils.maskSensitiveJsonKeys(
+            "EXTERN('{\"authentication\":{\"type\":\"basic\",\"password\":\"a\\\"b\"}}',"
+            + " '{\"password\": {\"type\":\"default\",\"password\" : \"secret\"}}')"
+        )
+    );
+    // Other arguments that merely end with "password" are left alone.
+    Assertions.assertEquals(
+        "f(oldpassword => 'x')",
+        MSQTaskQueryMakerUtils.maskSensitiveJsonKeys("f(oldpassword => 'x')")
+    );
+  }
 }
