@@ -117,6 +117,58 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
         remoteInputSource(explainInsert("SELECT __time, m AS a, a AS m FROM %s", "").path("dataSource"))
             .path("sql").asText()
     );
+    // A read without string columns has no projection left after flattening, so one is added for the names.
+    Assertions.assertEquals(
+        "SELECT \"__time\", CAST(\"m\" AS BIGINT) AS \"y\"" + where,
+        remoteInputSource(explainInsert("SELECT __time, m AS y FROM %s", "").path("dataSource")).path("sql").asText()
+    );
+  }
+
+  @Test
+  public void testHavingRefersToSourceColumns()
+  {
+    // Druid resolves a name in HAVING to a select alias before a column, so HAVING names the source columns in full.
+    Assertions.assertEquals(
+        """
+        SELECT TIME_SHIFT("__time", 'PT1H', 1) AS "__time", "a", COUNT(*) AS "c"
+        FROM "events"
+        GROUP BY TIME_SHIFT("__time", 'PT1H', 1), "a"
+        HAVING TIME_SHIFT("events"."__time", 'PT1H', 1) >= TIMESTAMP '2000-01-02 00:00:00.000'\
+        """,
+        remoteInputSource(
+            explainInsert(
+                "SELECT * FROM (SELECT TIME_SHIFT(__time, 'PT1H', 1) AS __time, a, COUNT(*) AS c FROM %s GROUP BY 1, 2)"
+                + " WHERE __time >= TIMESTAMP '2000-01-02'",
+                ""
+            ).path("dataSource")
+        ).path("sql").asText()
+    );
+    Assertions.assertTrue(
+        remoteInputSource(
+            explainInsert(
+                "SELECT * FROM (SELECT TIME_FLOOR(__time, 'P1D') AS __time, a AS x, SUM(m) AS a FROM %s"
+                + " GROUP BY 1, a) WHERE x = 'z'",
+                ""
+            ).path("dataSource")
+        ).path("sql").asText().endsWith("HAVING \"events\".\"a\" = 'z'")
+    );
+  }
+
+  @Test
+  public void testFilterAboveStringExpressionIsPushedDown()
+  {
+    final JsonNode inputSource = remoteInputSource(
+        explainInsert(
+            "SELECT * FROM (SELECT __time, UPPER(a) AS ua, m FROM %s) WHERE m > 3 AND __time >= TIMESTAMP '2000-01-02'",
+            ", splitDuration => 'P1D'"
+        ).path("dataSource")
+    );
+    Assertions.assertTrue(
+        inputSource.path("sql").asText()
+                   .endsWith("AND CAST(\"m\" AS BIGINT) > 3 AND \"__time\" >= TIMESTAMP '2000-01-02 00:00:00.000'"),
+        inputSource.toString()
+    );
+    Assertions.assertTrue(inputSource.path("intervals").get(0).asText().startsWith("2000-01-02T00:00:00.000Z/"));
   }
 
   @Test
@@ -186,6 +238,42 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
                 .path("dataSource")
         ).path("intervals").toString()
     );
+    // Exclusive lower and inclusive upper bounds keep every matching millisecond.
+    Assertions.assertEquals(
+        "[\"2000-01-02T00:00:00.001Z/2000-01-03T00:00:00.001Z\"]",
+        remoteInputSource(
+            explainInsert(
+                "SELECT * FROM %s WHERE __time > TIMESTAMP '2000-01-02' AND __time <= TIMESTAMP '2000-01-03'",
+                ", splitDuration => 'PT1H'"
+            ).path("dataSource")
+        ).path("intervals").toString()
+    );
+    Assertions.assertEquals(
+        "[\"2000-01-02T00:00:00.000Z/2000-01-03T00:00:00.001Z\"]",
+        remoteInputSource(
+            explainInsert(
+                "SELECT * FROM %s WHERE __time BETWEEN TIMESTAMP '2000-01-02' AND TIMESTAMP '2000-01-03'",
+                ", splitDuration => 'PT1H'"
+            ).path("dataSource")
+        ).path("intervals").toString()
+    );
+    // A range outside the requested intervals requests nothing.
+    Assertions.assertEquals(
+        "[]",
+        remoteInputSource(
+            explainInsert(day, ", intervals => ARRAY['2001/2002'], splitDuration => 'PT1H'").path("dataSource")
+        ).path("intervals").toString()
+    );
+    // A __time computed from another column does not bound the source's __time.
+    Assertions.assertTrue(
+        remoteInputSource(
+            explainInsert(
+                "SELECT * FROM (SELECT MILLIS_TO_TIMESTAMP(m) AS __time, a FROM %s)"
+                + " WHERE __time >= TIMESTAMP '2000-01-02'",
+                ", splitDuration => 'PT1H'"
+            ).path("dataSource")
+        ).path("intervals").isMissingNode()
+    );
     // A disjunction does not bound the range, so it is read in full.
     Assertions.assertTrue(
         remoteInputSource(
@@ -212,7 +300,7 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
         FROM "events"
         WHERE TIMESTAMP_TO_MILLIS("__time") >= 946684800000 AND TIMESTAMP_TO_MILLIS("__time") < 946771200000 AND "a" <> 'z'
         GROUP BY TIME_FLOOR("__time", 'PT1H'), "a"
-        HAVING SUM(CAST("m" AS BIGINT)) > 1\
+        HAVING SUM(CAST("events"."m" AS BIGINT)) > 1\
         """,
         inputSource.path("sql").asText()
     );

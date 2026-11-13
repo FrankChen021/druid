@@ -49,6 +49,7 @@ import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.FilterJoinRule.FilterIntoJoinRule.FilterIntoJoinRuleConfig;
 import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule.JoinConditionPushRuleConfig;
+import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -78,6 +79,7 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.Programs;
+import org.apache.calcite.util.Util;
 import org.apache.druid.data.input.impl.RemoteInputSource;
 import org.apache.druid.error.InvalidInput;
 import org.apache.druid.java.util.common.Intervals;
@@ -204,6 +206,19 @@ public class RemotePushdownProgram implements Program
             )
             .as(JoinConditionPushRuleConfig.class)
             .withPredicate(DruidJoinRule::isSupportedPredicate)
+            .toRule()
+    );
+    // Move filters below projections over a remote input, so that they are pushed down even when a projection above
+    // the remote scan must run on the target.
+    builder.addRuleInstance(
+        FilterProjectTransposeRule.Config.DEFAULT
+            .withOperandSupplier(
+                b0 -> b0.operand(Filter.class)
+                        .oneInput(b1 -> b1.operand(Project.class)
+                                          .predicate(RemotePushdownProgram::containsRemoteScan)
+                                          .anyInputs())
+            )
+            .as(FilterProjectTransposeRule.Config.class)
             .toRule()
     );
     final RelNode pushed = Programs.of(builder.build(), true, DefaultRelMetadataProvider.INSTANCE)
@@ -773,6 +788,11 @@ public class RemotePushdownProgram implements Program
             }
             select.setSelectList(columns);
           }
+          if (select.getHaving() != null) {
+            // Druid resolves a name in HAVING to a select alias before a column of the same name, so qualify the
+            // columns, which are what the converter means, to keep them from referring to an alias.
+            select.setHaving(qualifyColumns(select.getHaving(), tableName(select.getFrom())));
+          }
         }
         return super.visit(call);
       }
@@ -802,6 +822,26 @@ public class RemotePushdownProgram implements Program
       return true;
     }
     return from instanceof SqlCall call && call.getKind() == SqlKind.AS && call.operand(0) instanceof SqlIdentifier;
+  }
+
+  private static String tableName(final SqlNode from)
+  {
+    final SqlIdentifier identifier = (SqlIdentifier) (from instanceof SqlCall call ? call.operand(1) : from);
+    return Util.last(identifier.names);
+  }
+
+  private static SqlNode qualifyColumns(final SqlNode node, final String tableName)
+  {
+    return node.accept(new SqlShuttle()
+    {
+      @Override
+      public SqlNode visit(final SqlIdentifier identifier)
+      {
+        return identifier.isSimple()
+               ? new SqlIdentifier(List.of(tableName, identifier.getSimple()), SqlParserPos.ZERO)
+               : identifier;
+      }
+    });
   }
 
   private static boolean isStar(final SqlNode node)

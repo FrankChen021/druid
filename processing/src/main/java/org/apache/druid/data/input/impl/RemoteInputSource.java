@@ -38,6 +38,7 @@ import org.apache.druid.data.input.InputSourceReader;
 import org.apache.druid.data.input.InputSplit;
 import org.apache.druid.data.input.InputStats;
 import org.apache.druid.data.input.SplitHintSpec;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.error.InvalidInput;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.DateTimes;
@@ -462,12 +463,18 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
 
   /**
    * Reports a read failure that the query must change to fix, such as rejected credentials or invalid source SQL, as
-   * invalid input, and other failures as I/O errors.
+   * invalid input, and a corrupt result as a runtime failure, so that neither is retried by relaunching the reader.
+   * Other failures, such as a broken connection, are I/O errors.
    */
   private static RuntimeException readFailure(final IOException e)
   {
     if (e instanceof RemoteSchemaException || (e instanceof RemoteStatusException status && status.isUserError())) {
       return InvalidInput.exception(e, "Remote Druid read failed: %s", e.getMessage());
+    }
+    if (e instanceof NonRetryableException) {
+      return DruidException.forPersona(DruidException.Persona.USER)
+                           .ofCategory(DruidException.Category.RUNTIME_FAILURE)
+                           .build(e, "Remote Druid read failed: %s", e.getMessage());
     }
     return new UncheckedIOException(e);
   }

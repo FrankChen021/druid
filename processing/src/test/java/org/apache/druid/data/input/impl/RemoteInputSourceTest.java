@@ -46,7 +46,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.ArrayList;
@@ -81,6 +80,7 @@ public class RemoteInputSourceTest
   private final Queue<Response> sqlResponses = new ConcurrentLinkedQueue<>();
   private final List<String> acceptEncodings = new CopyOnWriteArrayList<>();
   private volatile boolean gzipResponses;
+  private volatile int timeBoundaryStatus = 200;
   private volatile String timeBoundaryResponse =
       """
       [{"timestamp":"2020-01-01T00:00:00.000Z",
@@ -114,7 +114,7 @@ public class RemoteInputSourceTest
           response = sqlResponses.isEmpty() ? new Response(500, "{\"error\":\"no response\"}") : sqlResponses.poll();
         } else {
           nativeRequests.add(request);
-          response = new Response(200, timeBoundaryResponse);
+          response = new Response(timeBoundaryStatus, timeBoundaryResponse);
         }
         if (gzipResponses) {
           exchange.getResponseHeaders().set("Content-Encoding", "gzip");
@@ -301,6 +301,18 @@ public class RemoteInputSourceTest
   }
 
   @Test
+  public void testRejectedTimeBoundaryIsInvalidInput()
+  {
+    timeBoundaryStatus = 401;
+    timeBoundaryResponse = "{\"error\":\"Unauthorized\"}";
+    final DruidException e =
+        Assertions.assertThrows(DruidException.class, () -> splits(source(true, null, Period.days(1))));
+    Assertions.assertEquals(DruidException.Category.INVALID_INPUT, e.getCategory());
+    Assertions.assertTrue(e.getMessage().contains("rejected the credentials"), e.getMessage());
+    Assertions.assertEquals(1, nativeRequests.size());
+  }
+
+  @Test
   public void testBoundSplitSendsTimeRangeParameters() throws IOException
   {
     final RemoteInputSource unbound = source(true, null, null);
@@ -353,7 +365,7 @@ public class RemoteInputSourceTest
       sqlResponses.add(new Response(503, "{\"error\":\"busy\"}"));
     }
     sqlResponses.add(new Response(200, HEADER + "\n"));
-    final UncheckedIOException e = readFailure();
+    final RuntimeException e = readFailure();
     Assertions.assertTrue(e.getMessage().contains("HTTP status[503]"), e.getMessage());
     Assertions.assertEquals(3, sqlRequests.size());
   }
@@ -378,7 +390,7 @@ public class RemoteInputSourceTest
       sqlResponses.add(new Response(200, response.getKey()));
       // Would succeed if the read were retried.
       sqlResponses.add(new Response(200, HEADER + "\n"));
-      final UncheckedIOException e = readFailure();
+      final RuntimeException e = readFailure();
       Assertions.assertTrue(e.getMessage().contains(response.getValue()), response.getKey() + " -> " + e.getMessage());
       Assertions.assertEquals(1, sqlRequests.size(), response.getKey());
     }
@@ -412,7 +424,10 @@ public class RemoteInputSourceTest
     // Druid returns 501 for unsupported queries, which retrying cannot fix either.
     sqlRequests.clear();
     sqlResponses.add(new Response(501, "{\"error\":\"Unsupported operation\"}"));
-    Assertions.assertThrows(DruidException.class, () -> read(source(false, null, null)));
+    Assertions.assertEquals(
+        DruidException.Category.INVALID_INPUT,
+        Assertions.assertThrows(DruidException.class, () -> read(source(false, null, null))).getCategory()
+    );
     Assertions.assertEquals(1, sqlRequests.size());
   }
 
@@ -422,7 +437,7 @@ public class RemoteInputSourceTest
     // The source stopped streaming before its completion marker, after a row was already handed out.
     sqlResponses.add(new Response(200, HEADER + "[\"2020-01-01T00:00:00.000Z\",\"x\",true,[]]\n"));
     sqlResponses.add(new Response(200, HEADER + "\n"));
-    final UncheckedIOException e = readFailure();
+    final RuntimeException e = readFailure();
     Assertions.assertTrue(e.getMessage().contains("completion marker"), e.getMessage());
     Assertions.assertEquals(1, sqlRequests.size());
     Assertions.assertEquals(1, canceledQueries.size());
@@ -449,9 +464,9 @@ public class RemoteInputSourceTest
   /**
    * Reads the plain source and returns the failure, which the test expects.
    */
-  private UncheckedIOException readFailure()
+  private RuntimeException readFailure()
   {
-    return Assertions.assertThrows(UncheckedIOException.class, () -> read(source(false, null, null)));
+    return Assertions.assertThrows(RuntimeException.class, () -> read(source(false, null, null)));
   }
 
   private static List<Interval> splits(final RemoteInputSource source) throws IOException

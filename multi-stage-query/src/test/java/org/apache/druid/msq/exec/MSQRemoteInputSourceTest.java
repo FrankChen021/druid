@@ -258,6 +258,35 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
   }
 
   @Test
+  public void testFilterOnRenamedGroupKey()
+  {
+    // The filter becomes HAVING on the source, where the alias dim1 of the sum must not shadow the column dim1.
+    testIngestQuery()
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT * FROM (
+              SELECT TIME_FLOOR(__time, 'P1D') AS __time, dim1 AS x, SUM(cnt) AS dim1 FROM %s GROUP BY 1, dim1
+            )
+            WHERE x = 'abc'
+            PARTITIONED BY DAY
+            """,
+            remote("")
+        ))
+        .setQueryContext(DEFAULT_MSQ_CONTEXT)
+        .setExpectedDataSource("foo1")
+        .setExpectedRowSignature(
+            RowSignature.builder()
+                        .add("__time", ColumnType.LONG)
+                        .add("x", ColumnType.STRING)
+                        .add("dim1", ColumnType.LONG)
+                        .build()
+        )
+        .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), "abc", 1L}))
+        .verifyResults();
+  }
+
+  @Test
   public void testForwardsTargetTimeZone()
   {
     sourceDefaultTimeZone = "America/Los_Angeles";
