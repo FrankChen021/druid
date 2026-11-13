@@ -111,7 +111,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -284,7 +283,6 @@ public class RemotePushdownProgram implements Program
                 && value instanceof RexLiteral literal
                 && SqlTypeUtil.isCharacter(literal.getType())
                 && !RexLiteral.isNullLiteral(literal)
-                && !Objects.requireNonNull(literal.getValueAs(String.class)).isEmpty()
                 && isRemoteColumn(visited.getInput(), ref.getIndex())) {
               return rexBuilder.makeCall(
                   MultiValueStringOperatorConversions.CONTAINS.calciteOperator(),

@@ -904,7 +904,8 @@ Multi-value string columns are read with `MV_TO_ARRAY` and stored as multi-value
 aggregation, expressions over string columns, such as `UPPER(tags)` or `CHAR_LENGTH(tags)`, are evaluated on the target
 rather than the source, so that they handle multi-value strings as they would on the target. Filters are still pushed
 down; an equality filter on a string column, such as `tags = 'a'`, is sent as `MV_CONTAINS(tags, 'a')`, which matches
-the same rows and keeps every value of the matching multi-value rows.
+the same rows and keeps every value of the matching multi-value rows. Expressions over the filtered column therefore see
+all of its values, whereas the same query on a Druid table may see only the filtered value.
 
 Without aggregation, the target splits the read into independent time ranges. It discovers the source time bounds with
 a native `timeBoundary` query, intersects them with `intervals` and with any `__time` range that the `WHERE` clause

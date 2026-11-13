@@ -89,7 +89,7 @@ public class RemoteStatusException extends IOException
     final String summary;
     if (status == 401) {
       summary = StringUtils.format(
-          "Remote Druid at [%s] rejected the credentials with HTTP status[401]; check authType, userName, and password",
+          "Remote Druid at [%s] rejected the credentials with HTTP status[401]; check the authentication type, user name, and password",
           endpoint
       );
     } else if (status == 403) {

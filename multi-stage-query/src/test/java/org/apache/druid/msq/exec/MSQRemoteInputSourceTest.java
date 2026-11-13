@@ -289,8 +289,8 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
   @Test
   public void testEqualityFilterAboveStringExpression()
   {
-    // The filter is pushed down, and the column it fixes is read as its value rather than through MV_TO_ARRAY, which
-    // the source rejects for a literal.
+    // The filter is pushed down below the expression, which runs on the target. The source would reject the read if
+    // the filtered column were replaced by its value inside MV_TO_ARRAY.
     testIngestQuery()
         .setSql(StringUtils.format(
             """
