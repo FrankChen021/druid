@@ -36,9 +36,12 @@ import org.apache.druid.data.input.impl.HttpInputSourceConfig;
 import org.apache.druid.data.input.impl.RemoteAuthentication;
 import org.apache.druid.data.input.impl.RemoteConnection;
 import org.apache.druid.data.input.impl.RemoteInputSource;
+import org.apache.druid.data.input.impl.RemoteSchemaException;
+import org.apache.druid.data.input.impl.RemoteStatusException;
 import org.apache.druid.data.input.impl.RemoteTlsContext;
+import org.apache.druid.error.DruidException;
+import org.apache.druid.error.InvalidInput;
 import org.apache.druid.guice.annotations.Json;
-import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.metadata.DefaultPasswordProvider;
 import org.apache.druid.segment.column.ColumnHolder;
@@ -87,12 +90,12 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
   static void validateSignature(final RowSignature signature)
   {
     if (!ColumnType.LONG.equals(signature.getColumnType(ColumnHolder.TIME_COLUMN_NAME).orElse(null))) {
-      throw new IAE("A remote table requires an __time column of type BIGINT");
+      throw InvalidInput.exception("A remote table requires an __time column of type BIGINT");
     }
     for (final String name : signature.getColumnNames()) {
       final ColumnType type = signature.getColumnType(name).orElse(null);
       if (type == null || !(type.isPrimitive() || type.isPrimitiveArray())) {
-        throw new IAE("A remote table supports only primitive and primitive-array columns, but [%s] is not", name);
+        throw InvalidInput.exception("A remote table supports only primitive and primitive-array columns, but [%s] is not", name);
       }
     }
   }
@@ -187,39 +190,45 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
       final RemoteAuthentication authentication;
       if ("none".equals(authType)) {
         if (username != null || password != null) {
-          throw new IAE("Authentication type [none] does not accept credentials");
+          throw InvalidInput.exception("Authentication type [none] does not accept credentials");
         }
         authentication = new RemoteAuthentication.None();
       } else if ("basic".equals(authType)) {
         if (username == null || password == null) {
-          throw new IAE("Authentication type [basic] requires username and password");
+          throw InvalidInput.exception("Authentication type [basic] requires username and password");
         }
         authentication = new RemoteAuthentication.Basic(username, new DefaultPasswordProvider(password));
       } else {
-        throw new IAE("Unsupported remote authentication type");
+        throw InvalidInput.exception("Unsupported remote authentication type");
       }
       final URI endpoint;
       try {
         endpoint = URI.create(CatalogUtils.getString(args, "endpoint"));
       }
       catch (RuntimeException e) {
-        throw new IAE("Invalid remote Druid endpoint");
+        throw InvalidInput.exception("Invalid remote Druid endpoint");
       }
-      final RemoteConnection connection = new RemoteConnection(
-          endpoint,
-          authentication,
-          integerArg(args, "connectTimeoutMillis"),
-          integerArg(args, "readTimeoutMillis"),
-          integerArg(args, "maxRetries"),
-          tlsContext
-      );
+      final RemoteConnection connection;
+      try {
+        connection = new RemoteConnection(
+            endpoint,
+            authentication,
+            integerArg(args, "connectTimeoutMillis"),
+            integerArg(args, "readTimeoutMillis"),
+            integerArg(args, "maxRetries"),
+            tlsContext
+        );
+      }
+      catch (IllegalArgumentException e) {
+        throw InvalidInput.exception(e, "Invalid remote Druid connection: %s", e.getMessage());
+      }
       final List<String> intervalStrings = CatalogUtils.getStringArray(args, "intervals");
       final List<Interval> intervals;
       try {
         intervals = intervalStrings == null ? null : intervalStrings.stream().map(Intervals::of).toList();
       }
       catch (RuntimeException e) {
-        throw new IAE("Invalid remote Druid intervals");
+        throw InvalidInput.exception("Invalid remote Druid intervals");
       }
       final String splitDurationString = CatalogUtils.getString(args, "splitDuration");
       final Period splitDuration;
@@ -227,19 +236,25 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
         splitDuration = splitDurationString == null ? null : new Period(splitDurationString);
       }
       catch (RuntimeException e) {
-        throw new IAE("Invalid remote Druid splitDuration; use an ISO-8601 period such as P1D");
+        throw InvalidInput.exception("Invalid remote Druid splitDuration; use an ISO-8601 period such as P1D");
       }
-      final RemoteInputSource source = RemoteInputSource.table(
-          connection,
-          CatalogUtils.getString(args, "dataSource"),
-          intervals,
-          CatalogUtils.getString(args, "engine"),
-          splitDuration,
-          CatalogUtils.getString(args, "includeSegmentSource"),
-          columns != null,
-          config,
-          jsonMapper
-      );
+      final RemoteInputSource source;
+      try {
+        source = RemoteInputSource.table(
+            connection,
+            CatalogUtils.getString(args, "dataSource"),
+            intervals,
+            CatalogUtils.getString(args, "engine"),
+            splitDuration,
+            CatalogUtils.getString(args, "includeSegmentSource"),
+            columns != null,
+            config,
+            jsonMapper
+        );
+      }
+      catch (IllegalArgumentException e) {
+        throw InvalidInput.exception(e, "Invalid remote Druid table: %s", e.getMessage());
+      }
       final RowSignature signature;
       if (columns != null) {
         final RowSignature.Builder builder = RowSignature.builder();
@@ -252,11 +267,28 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
           signature = source.discoverSchema();
         }
         catch (IOException e) {
-          throw new IAE("Remote Druid schema discovery failed: %s", e.getMessage());
+          throw discoveryFailure(e);
         }
       }
       validateSignature(signature);
       return new ExternalTableSpec(source, null, signature, source::getTypes);
+    }
+
+    /**
+     * Reports a failed schema discovery as invalid input when the query must change to succeed, such as rejected
+     * credentials or a missing datasource, and as a runtime failure when the source or network is at fault.
+     */
+    private static DruidException discoveryFailure(final IOException e)
+    {
+      final boolean userError = e instanceof RemoteSchemaException
+                                || (e instanceof RemoteStatusException status && status.isUserError());
+      return DruidException.forPersona(DruidException.Persona.USER)
+                           .ofCategory(
+                               userError
+                               ? DruidException.Category.INVALID_INPUT
+                               : DruidException.Category.RUNTIME_FAILURE
+                           )
+                           .build(e, "Remote Druid schema discovery failed: %s", e.getMessage());
     }
 
     @Nullable
@@ -273,7 +305,7 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
         return null;
       }
       if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
-        throw new IAE("Remote Druid argument [%s] exceeds the supported integer range", name);
+        throw InvalidInput.exception("Remote Druid argument [%s] exceeds the supported integer range", name);
       }
       return value.intValue();
     }

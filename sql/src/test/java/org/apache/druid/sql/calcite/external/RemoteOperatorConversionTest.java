@@ -32,6 +32,7 @@ import org.apache.druid.data.input.impl.RemoteAuthentication;
 import org.apache.druid.data.input.impl.RemoteConnection;
 import org.apache.druid.data.input.impl.RemoteInputSource;
 import org.apache.druid.data.input.impl.RemoteTlsContext;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.server.security.Access;
@@ -144,10 +145,11 @@ public class RemoteOperatorConversionTest
         Map.of("authType", "basic", "password", "secret"),
         Map.of("authType", "unsupported", "password", "secret")
     )) {
-      final IllegalArgumentException exception = Assertions.assertThrows(
-          IllegalArgumentException.class,
+      final DruidException exception = Assertions.assertThrows(
+          DruidException.class,
           () -> apply(options, schema(SqlTypeName.BIGINT))
       );
+      Assertions.assertEquals(DruidException.Category.INVALID_INPUT, exception.getCategory());
       Assertions.assertFalse(exception.getMessage().contains("secret"));
     }
   }
@@ -160,10 +162,12 @@ public class RemoteOperatorConversionTest
         Map.of("splitDuration", "not-a-period"),
         Map.of("intervals", List.of("invalid"))
     )) {
-      Assertions.assertThrows(IllegalArgumentException.class, () -> apply(options, schema(SqlTypeName.BIGINT)));
+      Assertions.assertThrows(DruidException.class, () -> apply(options, schema(SqlTypeName.BIGINT)));
     }
-    Assertions.assertThrows(IllegalArgumentException.class, () -> apply(Map.of(), schema(SqlTypeName.VARCHAR)));
-    Assertions.assertThrows(IllegalArgumentException.class, () -> apply(Map.of(), SqlNodeList.EMPTY));
+    Assertions.assertThrows(DruidException.class, () -> apply(Map.of(), schema(SqlTypeName.VARCHAR)));
+    Assertions.assertThrows(DruidException.class, () -> apply(Map.of(), SqlNodeList.EMPTY));
+    // Connection checks made by the input source are reported the same way.
+    Assertions.assertThrows(DruidException.class, () -> apply(Map.of("maxRetries", 11L), schema(SqlTypeName.BIGINT)));
   }
 
   @Test

@@ -336,14 +336,21 @@ public class RemoteInputSourceTableTest
       metadataResponse.set(invalid.getKey());
       final IOException e = Assertions.assertThrows(IOException.class, () -> source(null).discoverSchema());
       Assertions.assertTrue(e.getMessage().contains(invalid.getValue()), invalid.getKey() + " -> " + e.getMessage());
+      // Only a malformed response is the source's fault; the others need a different table or an EXTEND schema.
+      Assertions.assertEquals(!invalid.getValue().contains("structure"), e instanceof RemoteSchemaException);
     }
   }
 
   @Test
-  public void testFailedMetadataQueryIsNotCanceled()
+  public void testRejectedMetadataQueryIsReportedWithoutRetryOrCancel()
   {
-    status.set(400);
-    Assertions.assertThrows(IOException.class, () -> source(null).discoverSchema());
+    status.set(401);
+    metadataResponse.set("{\"error\":\"Unauthorized\"}");
+    final RemoteStatusException e =
+        Assertions.assertThrows(RemoteStatusException.class, () -> source(null).discoverSchema());
+    Assertions.assertTrue(e.isUserError());
+    Assertions.assertTrue(e.getMessage().contains("rejected the credentials"), e.getMessage());
+    Assertions.assertTrue(e.getMessage().endsWith(": Unauthorized"), e.getMessage());
     // The source rejected the query, so there is nothing to cancel or retry.
     Assertions.assertEquals(1, requests.size());
     Assertions.assertEquals(List.of(), canceledQueries);

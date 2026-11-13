@@ -96,7 +96,7 @@ class RemoteMetadataClient implements AutoCloseable
       final JsonNode result = mapper.readTree(response);
       require(result.isArray());
       if (result.isEmpty()) {
-        throw new NonRetryableException(
+        throw new RemoteSchemaException(
             StringUtils.format("Remote Druid datasource[%s] was not found or has no segments", dataSource)
         );
       }
@@ -109,7 +109,7 @@ class RemoteMetadataClient implements AutoCloseable
       for (final String name : names) {
         final JsonNode column = columns.get(name);
         if (column.hasNonNull("errorMessage") && !column.get("errorMessage").asText().isEmpty()) {
-          throw new IOException("Remote Druid column metadata is ambiguous; provide an explicit EXTEND schema");
+          throw new RemoteSchemaException("Remote Druid column metadata is ambiguous; provide an explicit EXTEND schema");
         }
         final JsonNode typeNode = column.hasNonNull("typeSignature") ? column.get("typeSignature") : column.get("type");
         require(typeNode != null && typeNode.isTextual());
@@ -118,10 +118,10 @@ class RemoteMetadataClient implements AutoCloseable
           type = ColumnType.fromString(typeNode.textValue());
         }
         catch (RuntimeException e) {
-          throw new IOException("Unsupported remote Druid column type; provide an explicit EXTEND schema");
+          throw new RemoteSchemaException("Unsupported remote Druid column type; provide an explicit EXTEND schema");
         }
         if (type == null || !(type.isPrimitive() || type.isPrimitiveArray())) {
-          throw new IOException("Unsupported remote Druid column type; provide an explicit EXTEND schema");
+          throw new RemoteSchemaException("Unsupported remote Druid column type; provide an explicit EXTEND schema");
         }
         signature.add(name, type);
       }
@@ -204,10 +204,13 @@ class RemoteMetadataClient implements AutoCloseable
       )) {
         final int status = http.status();
         if (status != 200) {
-          if (status != 408 && status != 429 && status < 500) {
-            throw new NonRetryableException("Remote Druid query failed with HTTP status[" + status + ']');
+          try (final InputStream in = http.body()) {
+            throw new RemoteStatusException(
+                connection.getEndpoint(),
+                status,
+                RemoteStatusException.readMessage(in, mapper)
+            );
           }
-          throw new IOException("Remote Druid query failed with HTTP status[" + status + ']');
         }
         sourceRunning = true;
         try (final InputStream in = http.body(); final OutputStream out = Files.newOutputStream(file.toPath())) {
@@ -217,7 +220,7 @@ class RemoteMetadataClient implements AutoCloseable
           while ((read = in.read(buffer)) != -1) {
             checkInterrupted();
             if (read > maxBytes - total) {
-              throw new NonRetryableException(
+              throw new RemoteSchemaException(
                   "Remote Druid metadata exceeds its response limit; provide an explicit EXTEND schema"
               );
             }
@@ -270,6 +273,8 @@ class RemoteMetadataClient implements AutoCloseable
   private static boolean isRetryable(final IOException e)
   {
     return !(e instanceof NonRetryableException)
+           && !(e instanceof RemoteSchemaException)
+           && !(e instanceof RemoteStatusException status && !status.isRetryable())
            && !(e instanceof RemoteHttpClient.ConfigurationException)
            && !(e instanceof InterruptedIOException)
            && !Thread.currentThread().isInterrupted();

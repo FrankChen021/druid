@@ -217,12 +217,7 @@ public class RemotePushdownProgram implements Program
         && scan.getDruidTable().getDataSource() instanceof ExternalDataSource dataSource
         && dataSource.getInputSource() instanceof RemoteInputSource remote) {
       if (remote.getSql() == null) {
-        try {
-          RemoteOperatorConversion.validateSignature(dataSource.getSignature());
-        }
-        catch (IllegalArgumentException e) {
-          throw InvalidInput.exception(e.getMessage());
-        }
+        RemoteOperatorConversion.validateSignature(dataSource.getSignature());
       } else if (!remote.getSignature().equals(dataSource.getSignature())) {
         throw InvalidInput.exception(
             "A remote read with sql must declare its signature %s, but declares %s",

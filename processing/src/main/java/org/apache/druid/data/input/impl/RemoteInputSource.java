@@ -105,7 +105,6 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
   public static final Set<String> SEGMENT_SOURCES = Set.of(SEGMENT_SOURCE_NONE, SEGMENT_SOURCE_REALTIME);
   static final int MAX_SPLITS = 10_000;
   static final int MAX_LINE_BYTES = 16 * 1024 * 1024;
-  private static final int MAX_ERROR_BYTES = 64 * 1024;
   private static final Logger LOG = new Logger(RemoteInputSource.class);
 
   /**
@@ -673,10 +672,11 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
       checkInterrupted();
       attempts++;
       sqlQueryId = UUID.randomUUID().toString();
-      response = httpClient.execute(sqlEndpoint(), "POST", mapper.writeValueAsBytes(makeRequest(sqlQueryId)));
+      final URI endpoint = sqlEndpoint();
+      response = httpClient.execute(endpoint, "POST", mapper.writeValueAsBytes(makeRequest(sqlQueryId)));
       body = new BufferedInputStream(response.body());
       if (response.status() != 200) {
-        throw new StatusException(response.status(), readError(body));
+        throw new RemoteStatusException(endpoint, response.status(), RemoteStatusException.readMessage(body, mapper));
       }
       sourceRunning = true;
       final byte[] header = readLine(body);
@@ -808,9 +808,8 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
         || e instanceof InterruptedIOException) {
       return false;
     }
-    if (e instanceof StatusException) {
-      final int status = ((StatusException) e).status;
-      return status == 408 || status == 429 || status >= 500;
+    if (e instanceof RemoteStatusException status) {
+      return status.isRetryable();
     }
     return !Thread.currentThread().isInterrupted();
   }
@@ -837,19 +836,6 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
     }
     checkInterrupted();
     return line.toByteArray();
-  }
-
-  private String readError(final InputStream in)
-  {
-    try {
-      final byte[] bytes = in.readNBytes(MAX_ERROR_BYTES);
-      final Map<String, Object> error = mapper.readValue(bytes, new TypeReference<>() {});
-      final Object message = error.getOrDefault("errorMessage", error.get("error"));
-      return message == null ? "unknown error" : StringUtils.chop(String.valueOf(message), 1024);
-    }
-    catch (Exception e) {
-      return "unknown error";
-    }
   }
 
   private static void checkInterrupted() throws InterruptedIOException
@@ -912,17 +898,6 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
            + ", sql=" + sql
            + ", range=" + range
            + '}';
-  }
-
-  private static class StatusException extends IOException
-  {
-    private final int status;
-
-    StatusException(final int status, final String message)
-    {
-      super("Remote Druid SQL request failed with HTTP status[" + status + "]: " + message);
-      this.status = status;
-    }
   }
 
   private static class NonRetryableException extends IOException
