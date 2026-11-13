@@ -40,6 +40,7 @@ import org.apache.druid.data.input.impl.RemoteSchemaException;
 import org.apache.druid.data.input.impl.RemoteStatusException;
 import org.apache.druid.data.input.impl.RemoteTlsContext;
 import org.apache.druid.error.DruidException;
+import org.apache.druid.error.Forbidden;
 import org.apache.druid.error.InvalidInput;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.Intervals;
@@ -48,7 +49,6 @@ import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.AuthorizationUtils;
-import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.ResourceAction;
 import org.apache.druid.sql.calcite.planner.DruidSqlValidator;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
@@ -118,7 +118,7 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
     {
       // Schema discovery performs HTTP during validation, before the normal statement authorization.
       if (!(binding instanceof SqlCallBinding call) || !(call.getValidator() instanceof DruidSqlValidator validator)) {
-        throw new ForbiddenException();
+        throw Forbidden.exception();
       }
       final PlannerContext context = validator.getPlannerContext();
       final boolean typeSecurity = context.getPlannerToolbox().getAuthConfig().isEnableInputSourceSecurity();
@@ -126,7 +126,8 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
       if (!AuthorizationUtils.authorizeResourceAction(
           context.getAuthenticationResult(), resource, context.getPlannerToolbox().getAuthorizerMapper()
       ).allowAccessWithNoRestriction()) {
-        throw new ForbiddenException();
+        // A DruidException passes through validation as it is, so the caller sees a permission error.
+        throw Forbidden.exception();
       }
       final TranslatableTable cached = tables.getIfPresent(call.getCall());
       if (cached != null) {
@@ -282,12 +283,11 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
     {
       final boolean userError = e instanceof RemoteSchemaException
                                 || (e instanceof RemoteStatusException status && status.isUserError());
+      if (userError) {
+        return InvalidInput.exception(e, "Remote Druid schema discovery failed: %s", e.getMessage());
+      }
       return DruidException.forPersona(DruidException.Persona.USER)
-                           .ofCategory(
-                               userError
-                               ? DruidException.Category.INVALID_INPUT
-                               : DruidException.Category.RUNTIME_FAILURE
-                           )
+                           .ofCategory(DruidException.Category.RUNTIME_FAILURE)
                            .build(e, "Remote Druid schema discovery failed: %s", e.getMessage());
     }
 

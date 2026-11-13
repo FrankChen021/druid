@@ -40,7 +40,6 @@ import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
 import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
-import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.sql.calcite.planner.DruidSqlValidator;
@@ -197,7 +196,10 @@ public class RemoteOperatorConversionTest
                               : Externals.EXTERNAL_RESOURCE_ACTION),
           operator.computeResources(null, typeSecurity)
       );
-      Assertions.assertThrows(ForbiddenException.class, () -> operator.getTable(binding));
+      Assertions.assertEquals(
+          DruidException.Category.FORBIDDEN,
+          Assertions.assertThrows(DruidException.class, () -> operator.getTable(binding)).getCategory()
+      );
       Assertions.assertEquals(
           new Resource(typeSecurity ? "remote" : "EXTERNAL", ResourceType.EXTERNAL),
           checkedResource.get()

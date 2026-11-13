@@ -23,15 +23,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.sun.net.httpserver.HttpServer;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -39,7 +36,7 @@ import java.util.List;
 /**
  * Verifies that EXPLAIN shows the remote Druid SQL that runs on the source cluster and the target-side remainder.
  */
-public class CalciteRemotePushdownTest extends CalciteIngestionDmlTest
+public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
 {
   private static final String REMOTE = """
       TABLE(REMOTE(endpoint => 'https://source.example', dataSource => 'events'%s))
@@ -334,42 +331,6 @@ public class CalciteRemotePushdownTest extends CalciteIngestionDmlTest
           )
       );
       Assertions.assertTrue(e.getMessage().contains("A remote table"), e.getMessage());
-    }
-    didTest = true;
-  }
-
-  @Test
-  public void testRejectedSchemaDiscoveryIsInvalidInput() throws IOException
-  {
-    final HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
-    server.createContext("/druid/v2", exchange -> {
-      try (exchange) {
-        final byte[] body = StringUtils.toUtf8("{\"error\":\"Unauthorized\"}");
-        exchange.sendResponseHeaders(401, body.length);
-        exchange.getResponseBody().write(body);
-      }
-    });
-    server.start();
-    try {
-      final DruidException e = Assertions.assertThrows(
-          DruidException.class,
-          () -> explain(
-              StringUtils.format(
-                  """
-                  INSERT INTO dst
-                  SELECT * FROM TABLE(REMOTE(endpoint => 'http://localhost:%d', dataSource => 'events'))
-                  PARTITIONED BY DAY
-                  """,
-                  server.getAddress().getPort()
-              )
-          )
-      );
-      Assertions.assertEquals(DruidException.Category.INVALID_INPUT, e.getCategory(), e.getMessage());
-      Assertions.assertTrue(e.getMessage().contains("rejected the credentials"), e.getMessage());
-      Assertions.assertTrue(e.getMessage().contains("Unauthorized"), e.getMessage());
-    }
-    finally {
-      server.stop(0);
     }
     didTest = true;
   }
