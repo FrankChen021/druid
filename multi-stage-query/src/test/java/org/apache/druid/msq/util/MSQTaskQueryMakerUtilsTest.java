@@ -183,10 +183,10 @@ public class MSQTaskQueryMakerUtilsTest
   public void maskRemotePasswords()
   {
     Assertions.assertEquals(
-        "SELECT * FROM TABLE(REMOTE(endpoint => 'http://a', username => 'admin', password => '<masked>',"
+        "SELECT * FROM TABLE(REMOTE(endpoint => 'http://a', userName => 'admin', password => '<masked>',"
         + " \"PASSWORD\"=>'<masked>'))",
         MSQTaskQueryMakerUtils.maskSensitiveJsonKeys(
-            "SELECT * FROM TABLE(REMOTE(endpoint => 'http://a', username => 'admin', password => 'it''s secret',"
+            "SELECT * FROM TABLE(REMOTE(endpoint => 'http://a', userName => 'admin', password => 'it''s secret',"
             + " \"PASSWORD\"=>'s'))"
         )
     );

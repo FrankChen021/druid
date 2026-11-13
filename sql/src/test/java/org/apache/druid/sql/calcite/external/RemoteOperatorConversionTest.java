@@ -105,7 +105,7 @@ public class RemoteOperatorConversionTest
     Assertions.assertInstanceOf(RemoteAuthentication.None.class, anonymous.getAuthentication());
     Assertions.assertEquals(URI.create("https://source.example/druid/v2"), anonymous.getEndpoint());
     final RemoteConnection basic = connection(apply(Map.of(
-        "authType", "basic", "username", "reader", "password", "secret",
+        "authType", "basic", "userName", "reader", "password", "secret",
         "connectTimeoutMillis", 123L, "readTimeoutMillis", 456L, "maxRetries", 0L
     ), schema(SqlTypeName.BIGINT)));
     final RemoteAuthentication.Basic authentication = Assertions.assertInstanceOf(
@@ -140,8 +140,8 @@ public class RemoteOperatorConversionTest
   public void testInvalidAuthenticationArguments()
   {
     for (final Map<String, Object> options : List.<Map<String, Object>>of(
-        Map.of("username", "reader", "password", "secret"),
-        Map.of("authType", "basic", "username", "reader"),
+        Map.of("userName", "reader", "password", "secret"),
+        Map.of("authType", "basic", "userName", "reader"),
         Map.of("authType", "basic", "password", "secret"),
         Map.of("authType", "unsupported", "password", "secret")
     )) {

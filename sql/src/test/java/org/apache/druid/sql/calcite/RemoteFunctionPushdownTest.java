@@ -221,6 +221,41 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
   }
 
   @Test
+  public void testMultiValueSafeReadsWithoutAggregation()
+  {
+    // Any expression over a string column runs on the target, whatever its type.
+    final JsonNode length = explainInsert("SELECT __time, CHAR_LENGTH(a) AS l FROM %s", "");
+    Assertions.assertTrue(
+        remoteInputSource(length.path("dataSource")).path("sql").asText()
+                                                    .startsWith("SELECT \"__time\", MV_TO_ARRAY(\"a\")"),
+        length.toString()
+    );
+    Assertions.assertTrue(length.path("virtualColumns").toString().contains("strlen"), length.toString());
+    // An equality filter on a string column is sent as MV_CONTAINS, so the column is still read with all its values.
+    Assertions.assertEquals(
+        """
+        SELECT "__time", MV_TO_ARRAY("a") AS "a"
+        FROM "events"
+        WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ? AND MV_CONTAINS("a", 'x')\
+        """,
+        remoteInputSource(explainInsert("SELECT __time, a FROM %s WHERE a = 'x'", "").path("dataSource"))
+            .path("sql").asText()
+    );
+  }
+
+  @Test
+  public void testFilterAboveProjectedJoinIsPushedDown()
+  {
+    final JsonNode query = explainInsert(
+        "SELECT * FROM (SELECT r.__time, r.a, r.m, f.dim2 FROM %s r INNER JOIN foo f ON r.a = f.dim1) WHERE m > 1",
+        ""
+    );
+    final List<JsonNode> remotes = findByType(query, "remote");
+    Assertions.assertEquals(1, remotes.size(), query.toString());
+    Assertions.assertTrue(remotes.get(0).path("sql").asText().endsWith("CAST(\"m\" AS BIGINT) > 1"), query.toString());
+  }
+
+  @Test
   public void testTimeFilterNarrowsSplitIntervals()
   {
     final String day = "SELECT * FROM %s WHERE __time >= TIMESTAMP '2000-01-02' AND __time < TIMESTAMP '2000-01-03'";
@@ -334,7 +369,7 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
     final List<JsonNode> inputSources = findByType(query, "remote");
     Assertions.assertEquals(1, inputSources.size(), query.toString());
     final String sql = inputSources.get(0).path("sql").asText();
-    Assertions.assertTrue(sql.contains("\"a\" = 'x'"), sql);
+    Assertions.assertTrue(sql.contains("MV_CONTAINS(\"a\", 'x')"), sql);
     Assertions.assertFalse(sql.contains("SINGLE_VALUE"), sql);
     // The aggregate runs on the target instead.
     Assertions.assertFalse(findByType(query, "singleValue").isEmpty(), query.toString());

@@ -858,7 +858,7 @@ FROM TABLE(
     endpoint => 'https://source-router.example',
     dataSource => 'events',
     authType => 'basic',
-    username => 'reader',
+    userName => 'reader',
     password => ?,
     splitDuration => 'P1D'
   )
@@ -881,8 +881,8 @@ such as environment variables, are not supported, since a query could send them 
 |`splitDuration`|ISO-8601 period without negative fields, such as `P1D`. Reads without aggregation are split into time ranges of this length, aligned to UTC period boundaries, that target workers read in parallel.|no|
 |`intervals`|Array of ISO-8601 intervals restricting the source read. Overlapping intervals are combined.|no|
 |`includeSegmentSource`|With `engine => 'msq-dart'`, whether the source also reads segments that realtime tasks are still ingesting: `NONE` (default) reads only published segments, and `REALTIME` reads both. Not accepted with `engine => 'native'`, which always reads realtime segments.|no|
-|`authType`|`none` (default) or `basic`. `none` rejects credentials; `basic` requires both `username` and `password`.|no|
-|`username`|HTTP Basic authentication username.|for `basic`|
+|`authType`|`none` (default) or `basic`. `none` rejects credentials; `basic` requires both `userName` and `password`.|no|
+|`userName`|HTTP Basic authentication user name.|for `basic`|
 |`password`|HTTP Basic authentication password.|for `basic`|
 |`connectTimeoutMillis`|HTTP connection timeout in milliseconds. Default: `10000`.|no|
 |`readTimeoutMillis`|Maximum time in milliseconds to wait for response data, including the time the source takes to produce its first row. Default: `300000`.|no|
@@ -901,8 +901,10 @@ must be a string column on the source, since reads without aggregation select it
 rejects for other types. A discovered schema has the source's own types, so no casts are added.
 
 Multi-value string columns are read with `MV_TO_ARRAY` and stored as multi-value strings on the target. Without
-aggregation, string expressions over string columns, such as `UPPER(tags)`, are evaluated on the target rather than the
-source, so that they handle multi-value strings as they would on the target.
+aggregation, expressions over string columns, such as `UPPER(tags)` or `CHAR_LENGTH(tags)`, are evaluated on the target
+rather than the source, so that they handle multi-value strings as they would on the target. Filters are still pushed
+down; an equality filter on a string column, such as `tags = 'a'`, is sent as `MV_CONTAINS(tags, 'a')`, which matches
+the same rows and keeps every value of the matching multi-value rows.
 
 Without aggregation, the target splits the read into independent time ranges. It discovers the source time bounds with
 a native `timeBoundary` query, intersects them with `intervals` and with any `__time` range that the `WHERE` clause

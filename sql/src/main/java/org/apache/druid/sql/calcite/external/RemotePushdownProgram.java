@@ -34,6 +34,7 @@ import org.apache.calcite.plan.hep.HepProgram;
 import org.apache.calcite.plan.hep.HepProgramBuilder;
 import org.apache.calcite.prepare.RelOptTableImpl;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.Filter;
@@ -61,16 +62,20 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexOver;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexSubQuery;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.schema.impl.AbstractTable;
+import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
@@ -87,6 +92,7 @@ import org.apache.druid.query.QueryContexts;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.sql.calcite.expression.builtin.MultiValueStringOperatorConversions;
 import org.apache.druid.sql.calcite.expression.builtin.MultiValueStringToArrayOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.TimestampToMillisOperatorConversion;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
@@ -105,6 +111,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -121,8 +128,7 @@ import java.util.Set;
  * the remote scan that the source can evaluate. The chain stops at operators that must run on the target: joins,
  * sorts, {@code LIMIT}, window functions, subqueries, {@code LOOKUP} calls, which depend on the cluster's lookups,
  * planner-generated aggregates such as {@code SINGLE_VALUE} that older sources may not support, and, without
- * aggregation, string expressions over string columns, which the source would return as JSON-encoded text for
- * multi-value inputs.</li>
+ * aggregation, expressions over string columns, which the source evaluates differently for multi-value inputs.</li>
  * <li>Converts the chain to one source SELECT in Druid SQL. With an {@code EXTEND} schema, numeric columns are cast
  * to their declared types. Reads without aggregation filter {@code __time} on two parameters, so that they can be
  * split into time ranges, and request plain string columns with {@code MV_TO_ARRAY}, so that multi-value strings
@@ -197,6 +203,9 @@ public class RemotePushdownProgram implements Program
       }
       final HepProgramBuilder builder = HepProgram.builder();
       builder.addMatchLimit(CalciteRulesManager.HEP_DEFAULT_MATCH_LIMIT);
+      // The rules run as a group until none applies, since moving a filter below a projection can place it above a
+      // join, and the other way around.
+      builder.addGroupBegin();
       // Move filters above joins with a remote input into the join inputs. Joins of local inputs are left alone, as
       // are join conditions that Druid cannot evaluate.
       builder.addRuleInstance(
@@ -234,9 +243,82 @@ public class RemotePushdownProgram implements Program
               .as(FilterProjectTransposeRule.Config.class)
               .toRule()
       );
-      return Programs.of(builder.build(), true, DefaultRelMetadataProvider.INSTANCE)
-                     .run(planner, rel, requiredOutputTraits, materializations, lattices);
+      builder.addGroupEnd();
+      return withMultiValueEqualities(
+          Programs.of(builder.build(), true, DefaultRelMetadataProvider.INSTANCE)
+                  .run(planner, rel, requiredOutputTraits, materializations, lattices)
+      );
     };
+  }
+
+  /**
+   * Replaces equality filters on string columns of remote tables, such as {@code dim3 = 'b'}, with
+   * {@code MV_CONTAINS(dim3, 'b')}, which matches the same rows. Expression reduction would otherwise use the equality
+   * to replace the column by its value in the projections above, and a multi-value row such as {@code ['a', 'b']} would
+   * be read as just {@code 'b'}.
+   */
+  private static RelNode withMultiValueEqualities(final RelNode rel)
+  {
+    return rel.accept(new RelShuttleImpl()
+    {
+      @Override
+      public RelNode visit(final LogicalFilter filter)
+      {
+        final LogicalFilter visited = (LogicalFilter) super.visit(filter);
+        final RexBuilder rexBuilder = visited.getCluster().getRexBuilder();
+        final RexNode condition = visited.getCondition().accept(new RexShuttle()
+        {
+          @Override
+          public RexNode visitCall(final RexCall call)
+          {
+            final RexCall visitedCall = (RexCall) super.visitCall(call);
+            if (visitedCall.getKind() != SqlKind.EQUALS) {
+              return visitedCall;
+            }
+            final RexNode left = visitedCall.getOperands().get(0);
+            final RexNode right = visitedCall.getOperands().get(1);
+            final RexNode column = left instanceof RexInputRef ? left : right;
+            final RexNode value = column == left ? right : left;
+            if (column instanceof RexInputRef ref
+                && SqlTypeUtil.isCharacter(ref.getType())
+                && value instanceof RexLiteral literal
+                && SqlTypeUtil.isCharacter(literal.getType())
+                && !RexLiteral.isNullLiteral(literal)
+                && !Objects.requireNonNull(literal.getValueAs(String.class)).isEmpty()
+                && isRemoteColumn(visited.getInput(), ref.getIndex())) {
+              return rexBuilder.makeCall(
+                  MultiValueStringOperatorConversions.CONTAINS.calciteOperator(),
+                  column,
+                  value
+              );
+            }
+            return visitedCall;
+          }
+        });
+        return condition == visited.getCondition()
+               ? visited
+               : visited.copy(visited.getTraitSet(), visited.getInput(), condition);
+      }
+    });
+  }
+
+  /**
+   * Whether a field of {@code node} is a column of a remote table, passed through projections and filters unchanged.
+   */
+  private static boolean isRemoteColumn(final RelNode node, final int index)
+  {
+    final RelNode rel = node.stripped();
+    if (isRemoteScan(rel)) {
+      return true;
+    }
+    if (rel instanceof Project project) {
+      return project.getProjects().get(index) instanceof RexInputRef ref
+             && isRemoteColumn(project.getInput(), ref.getIndex());
+    }
+    if (rel instanceof Filter filter) {
+      return isRemoteColumn(filter.getInput(), index);
+    }
+    return false;
   }
 
   /**
@@ -318,25 +400,26 @@ public class RemotePushdownProgram implements Program
     }
     chain.add(current);
     if (chain.stream().noneMatch(rel -> rel instanceof Aggregate)
-        && chain.stream().anyMatch(RemotePushdownProgram::computesStringFromString)) {
-      // Rewriting starts again below this node, so the string expression runs on the target.
+        && chain.stream().anyMatch(RemotePushdownProgram::computesFromString)) {
+      // Rewriting starts again below this node, so the expression over a string column runs on the target.
       return null;
     }
     return chain;
   }
 
   /**
-   * Whether a projection computes a string from a string column. Without aggregation, the source would return the
-   * result for a multi-value input as JSON-encoded text, while the target evaluates it to a multi-value string.
+   * Whether a projection computes a value from a string column. Without aggregation, a multi-value input would reach
+   * the expression as several values: the source returns a string result as JSON-encoded text and fails to coerce
+   * other results, while the target evaluates the expression as Druid does for multi-value strings.
    */
-  private static boolean computesStringFromString(final RelNode node)
+  private static boolean computesFromString(final RelNode node)
   {
     if (!(node instanceof Project project)) {
       return false;
     }
     final List<RelDataTypeField> inputFields = project.getInput().getRowType().getFieldList();
     for (final RexNode expression : project.getProjects()) {
-      if (expression instanceof RexInputRef || !SqlTypeUtil.isCharacter(expression.getType())) {
+      if (expression instanceof RexInputRef) {
         continue;
       }
       for (final int index : RelOptUtil.InputFinder.bits(expression)) {
@@ -802,6 +885,9 @@ public class RemotePushdownProgram implements Program
             select.setSelectList(columns);
           }
         }
+        if (call instanceof SqlSelect select && select.getGroup() != null) {
+          select.setGroupBy(withoutOrdinals(select.getGroup()));
+        }
         if (call instanceof SqlSelect select && select.getHaving() != null) {
           // Druid resolves a name in HAVING to a select alias before a column of the same name, so qualify the
           // columns, which are what the converter means, to keep them from referring to an alias.
@@ -835,6 +921,27 @@ public class RemotePushdownProgram implements Program
       return true;
     }
     return from instanceof SqlCall call && call.getKind() == SqlKind.AS && call.operand(0) instanceof SqlIdentifier;
+  }
+
+  /**
+   * Casts numeric constants among grouping keys, which Druid would otherwise read as positions in the select list.
+   */
+  private static SqlNodeList withoutOrdinals(final SqlNodeList group)
+  {
+    final SqlNodeList keys = new SqlNodeList(group.getParserPosition());
+    for (final SqlNode key : group) {
+      if (key instanceof SqlNumericLiteral literal) {
+        final SqlTypeName type = literal.isExact() && literal.getScale() == 0 ? SqlTypeName.BIGINT : SqlTypeName.DOUBLE;
+        keys.add(SqlStdOperatorTable.CAST.createCall(
+            SqlParserPos.ZERO,
+            literal,
+            new SqlDataTypeSpec(new SqlBasicTypeNameSpec(type, SqlParserPos.ZERO), SqlParserPos.ZERO)
+        ));
+      } else {
+        keys.add(key);
+      }
+    }
+    return keys;
   }
 
   /**

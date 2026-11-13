@@ -162,7 +162,7 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
           new Parameter("endpoint", ParameterType.VARCHAR, false),
           new Parameter("dataSource", ParameterType.VARCHAR, false),
           new Parameter("authType", ParameterType.VARCHAR, true),
-          new Parameter("username", ParameterType.VARCHAR, true),
+          new Parameter("userName", ParameterType.VARCHAR, true),
           new Parameter("password", ParameterType.VARCHAR, true),
           new Parameter("intervals", ParameterType.VARCHAR_ARRAY, true),
           new Parameter("connectTimeoutMillis", ParameterType.BIGINT, true),
@@ -184,7 +184,7 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
         final ObjectMapper jsonMapper
     )
     {
-      final String username = CatalogUtils.getString(args, "username");
+      final String username = CatalogUtils.getString(args, "userName");
       final String password = CatalogUtils.getString(args, "password");
       final String requestedAuthType = CatalogUtils.getString(args, "authType");
       final String authType = requestedAuthType == null ? "none" : requestedAuthType;
@@ -196,7 +196,7 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
         authentication = new RemoteAuthentication.None();
       } else if ("basic".equals(authType)) {
         if (username == null || password == null) {
-          throw InvalidInput.exception("Authentication type [basic] requires username and password");
+          throw InvalidInput.exception("Authentication type [basic] requires userName and password");
         }
         authentication = new RemoteAuthentication.Basic(username, new DefaultPasswordProvider(password));
       } else {

@@ -347,6 +347,61 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
   }
 
   @Test
+  public void testEqualityFilterKeepsMultiValueRows()
+  {
+    // Rows match if any value equals 'b', and are copied with all of their values.
+    testIngestQuery()
+        .setSql(StringUtils.format(
+            "INSERT INTO foo1 SELECT __time, dim1, dim3 FROM %s WHERE dim3 = 'b' PARTITIONED BY DAY",
+            remote("")
+        ))
+        .setQueryContext(DEFAULT_MSQ_CONTEXT)
+        .setExpectedDataSource("foo1")
+        .setExpectedRowSignature(
+            RowSignature.builder()
+                        .add("__time", ColumnType.LONG)
+                        .add("dim1", ColumnType.STRING)
+                        .add("dim3", ColumnType.STRING)
+                        .build()
+        )
+        .setExpectedResultRows(List.<Object[]>of(
+            new Object[]{DateTimes.of("2000-01-01").getMillis(), "", List.of("a", "b")},
+            new Object[]{DateTimes.of("2000-01-02").getMillis(), "10.1", List.of("b", "c")}
+        ))
+        .verifyResults();
+  }
+
+  @Test
+  public void testConstantGroupingKey()
+  {
+    // Druid reads a numeric constant in GROUP BY as a position in the select list, so the source must not see one;
+    // position 4 here is COUNT(*).
+    testIngestQuery()
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT TIMESTAMP '2000-01-01' AS __time, dim1, n, COUNT(*) AS c
+            FROM (SELECT dim1, CAST(4 AS INTEGER) AS n FROM %s WHERE dim1 = 'abc')
+            GROUP BY dim1, n
+            PARTITIONED BY ALL
+            """,
+            remote("")
+        ))
+        .setQueryContext(DEFAULT_MSQ_CONTEXT)
+        .setExpectedDataSource("foo1")
+        .setExpectedRowSignature(
+            RowSignature.builder()
+                        .add("__time", ColumnType.LONG)
+                        .add("dim1", ColumnType.STRING)
+                        .add("n", ColumnType.LONG)
+                        .add("c", ColumnType.LONG)
+                        .build()
+        )
+        .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2000-01-01").getMillis(), "abc", 4L, 1L}))
+        .verifyResults();
+  }
+
+  @Test
   public void testForwardsTargetTimeZone()
   {
     sourceDefaultTimeZone = "America/Los_Angeles";
@@ -386,7 +441,7 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
     final String remote = StringUtils.format(
         """
         TABLE(REMOTE(endpoint => 'http://localhost:%d/druid/v2/', dataSource => 'foo',
-                    authType => 'basic', username => 'reader', password => ?))
+                    authType => 'basic', userName => 'reader', password => ?))
         """,
         server.getAddress().getPort()
     );
