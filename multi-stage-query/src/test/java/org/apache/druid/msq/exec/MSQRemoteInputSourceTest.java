@@ -235,6 +235,29 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
   }
 
   @Test
+  public void testRenamedColumns()
+  {
+    testIngestQuery()
+        .setSql(StringUtils.format(
+            "INSERT INTO foo1 SELECT __time, dim1 AS d, cnt AS c, dim3 AS m FROM %s"
+            + " WHERE dim1 = 'abc' PARTITIONED BY DAY",
+            remote("")
+        ))
+        .setQueryContext(DEFAULT_MSQ_CONTEXT)
+        .setExpectedDataSource("foo1")
+        .setExpectedRowSignature(
+            RowSignature.builder()
+                        .add("__time", ColumnType.LONG)
+                        .add("d", ColumnType.STRING)
+                        .add("c", ColumnType.LONG)
+                        .add("m", ColumnType.STRING)
+                        .build()
+        )
+        .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), "abc", 1L, null}))
+        .verifyResults();
+  }
+
+  @Test
   public void testForwardsTargetTimeZone()
   {
     sourceDefaultTimeZone = "America/Los_Angeles";

@@ -26,7 +26,6 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.AuthConfig;
-import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.sql.calcite.external.Externals;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.junit.jupiter.api.Test;
@@ -40,7 +39,8 @@ import java.net.InetSocketAddress;
  * <p>
  * Without input source security, a remote table needs {@code EXTERNAL} read access. With it, the remote table needs
  * read access to the {@code remote} input source type specifically, so a grant on another type, such as {@code http},
- * is not enough. In both modes the target datasource needs write access as usual.
+ * is not enough; the tests pin down the exact resources that are checked. In both modes the target datasource needs
+ * write access as usual.
  */
 public class RemoteFunctionAuthTest extends CalciteIngestionDmlTest
 {
@@ -73,26 +73,6 @@ public class RemoteFunctionAuthTest extends CalciteIngestionDmlTest
   }
 
   @Test
-  public void testRemoteRequiresExternalPermission()
-  {
-    testIngestionQuery()
-        .sql(insertFrom(REMOTE_TABLE))
-        .authentication(CalciteTests.REGULAR_USER_AUTH_RESULT)
-        .expectValidationError(ForbiddenException.class)
-        .verify();
-  }
-
-  @Test
-  public void testExternRemoteRequiresExternalPermission()
-  {
-    testIngestionQuery()
-        .sql(insertFrom(EXTERN_REMOTE_TABLE))
-        .authentication(CalciteTests.REGULAR_USER_AUTH_RESULT)
-        .expectValidationError(ForbiddenException.class)
-        .verify();
-  }
-
-  @Test
   public void testRemoteDiscoveryRequiresExternalPermission()
   {
     // Without EXTEND the schema is discovered from the source while the statement is validated. The caller is
@@ -114,28 +94,6 @@ public class RemoteFunctionAuthTest extends CalciteIngestionDmlTest
         .authentication(CalciteTests.SUPER_USER_AUTH_RESULT)
         .expectTarget("dst", TARGET_SIGNATURE)
         .expectResources(dataSourceRead("dst"), dataSourceWrite("dst"), Externals.EXTERNAL_RESOURCE_ACTION)
-        .verify();
-  }
-
-  @Test
-  public void testRemoteWithInputSourceSecurityRequiresRemotePermission()
-  {
-    testIngestionQuery()
-        .sql(insertFrom(REMOTE_TABLE))
-        .authentication(CalciteTests.REGULAR_USER_AUTH_RESULT)
-        .authConfig(INPUT_SOURCE_SECURITY)
-        .expectValidationError(ForbiddenException.class)
-        .verify();
-  }
-
-  @Test
-  public void testExternRemoteWithInputSourceSecurityRequiresRemotePermission()
-  {
-    testIngestionQuery()
-        .sql(insertFrom(EXTERN_REMOTE_TABLE))
-        .authentication(CalciteTests.REGULAR_USER_AUTH_RESULT)
-        .authConfig(INPUT_SOURCE_SECURITY)
-        .expectValidationError(ForbiddenException.class)
         .verify();
   }
 

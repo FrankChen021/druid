@@ -29,6 +29,7 @@ import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.InputRowSchema;
 import org.apache.druid.data.input.InputSource;
 import org.apache.druid.data.input.InputSplit;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
@@ -172,7 +173,8 @@ public class RemoteInputSourceTest
         timeRangeParameters,
         SIGNATURE,
         List.of("__time"),
-        Map.of("sqlTimeZone", "UTC")
+        Map.of("sqlTimeZone", "UTC"),
+        null
     );
   }
 
@@ -383,14 +385,34 @@ public class RemoteInputSourceTest
   }
 
   @Test
+  public void testReadsResultsLargerThanTheBackpressureLimit() throws IOException
+  {
+    // About 1 MB, so the transport suspends and resumes reading many times.
+    final StringBuilder body = new StringBuilder(HEADER);
+    for (int i = 0; i < 20_000; i++) {
+      body.append("[\"2020-01-01T00:00:00.000Z\",\"row-").append(i).append("-padding-padding\",true,[]]\n");
+    }
+    sqlResponses.add(new Response(200, body.append('\n').toString()));
+    final List<InputRow> rows = read(source(false, null, null));
+    Assertions.assertEquals(20_000, rows.size());
+    Assertions.assertEquals("row-19999-padding-padding", rows.get(19_999).getRaw("a"));
+  }
+
+  @Test
   public void testDoesNotRetryUserErrors()
   {
     sqlResponses.add(new Response(
         400,
         "{\"error\":\"Plan validation failed\",\"errorMessage\":\"Column 'x' not found\"}"
     ));
-    final UncheckedIOException e = readFailure();
+    final DruidException e = Assertions.assertThrows(DruidException.class, () -> read(source(false, null, null)));
+    Assertions.assertEquals(DruidException.Category.INVALID_INPUT, e.getCategory());
     Assertions.assertTrue(e.getMessage().contains("Column 'x' not found"), e.getMessage());
+    Assertions.assertEquals(1, sqlRequests.size());
+    // Druid returns 501 for unsupported queries, which retrying cannot fix either.
+    sqlRequests.clear();
+    sqlResponses.add(new Response(501, "{\"error\":\"Unsupported operation\"}"));
+    Assertions.assertThrows(DruidException.class, () -> read(source(false, null, null)));
     Assertions.assertEquals(1, sqlRequests.size());
   }
 

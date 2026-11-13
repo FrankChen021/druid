@@ -38,6 +38,7 @@ import org.apache.druid.data.input.InputSourceReader;
 import org.apache.druid.data.input.InputSplit;
 import org.apache.druid.data.input.InputStats;
 import org.apache.druid.data.input.SplitHintSpec;
+import org.apache.druid.error.InvalidInput;
 import org.apache.druid.guice.annotations.Json;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
@@ -252,19 +253,22 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
    * @param signature           output columns, in the order of the SQL result
    * @param timestampColumns    output columns that the source returns as SQL timestamps
    * @param context             source query context
+   * @param filteredTimeRange   {@code __time} range outside which the SQL matches no rows, or null if unbounded; reads
+   *                            split by time are only split over this range
    */
   public RemoteInputSource withPlannedQuery(
       final String sql,
       final boolean timeRangeParameters,
       final RowSignature signature,
       final List<String> timestampColumns,
-      final Map<String, Object> context
+      final Map<String, Object> context,
+      @Nullable final Interval filteredTimeRange
   )
   {
     return new RemoteInputSource(
         connection,
         dataSource,
-        intervals,
+        restrictIntervals(intervals, filteredTimeRange),
         engine,
         // Only reads that are split by time use the split duration.
         timeRangeParameters ? splitDuration : null,
@@ -419,6 +423,12 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
     try (final RemoteMetadataClient client = new RemoteMetadataClient(connection, mapper)) {
       bounds = client.discoverTimeBounds(dataSource);
     }
+    catch (RemoteStatusException e) {
+      if (e.isUserError()) {
+        throw InvalidInput.exception(e, "Remote Druid read failed: %s", e.getMessage());
+      }
+      throw e;
+    }
     final List<Interval> requested = intervals == null ? null : JodaUtils.condenseIntervals(intervals);
     if (bounds == null) {
       // An empty result also comes from a missing datasource or a Broker without a segment view. Read the requested
@@ -448,6 +458,36 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
       }
     }
     return ranges.stream().map(InputSplit::new);
+  }
+
+  /**
+   * Reports a read failure that the query must change to fix, such as rejected credentials or invalid source SQL, as
+   * invalid input, and other failures as I/O errors.
+   */
+  private static RuntimeException readFailure(final IOException e)
+  {
+    if (e instanceof RemoteSchemaException || (e instanceof RemoteStatusException status && status.isUserError())) {
+      return InvalidInput.exception(e, "Remote Druid read failed: %s", e.getMessage());
+    }
+    return new UncheckedIOException(e);
+  }
+
+  /**
+   * Intersects the requested intervals with a range outside which no rows match.
+   */
+  @Nullable
+  private static List<Interval> restrictIntervals(
+      @Nullable final List<Interval> intervals,
+      @Nullable final Interval range
+  )
+  {
+    if (range == null) {
+      return intervals;
+    }
+    if (intervals == null) {
+      return List.of(range);
+    }
+    return intervals.stream().filter(range::overlaps).map(range::overlap).toList();
   }
 
   @Override
@@ -637,7 +677,7 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
           closeResponse(false);
           if (rowsReturned > 0 || !isRetryable(e) || attempts > connection.getMaxRetries()) {
             close();
-            throw new UncheckedIOException(e);
+            throw readFailure(e);
           }
           LOG.noStackTrace().warn(e, "Retrying remote Druid read of datasource[%s], range[%s]", dataSource, range);
           backoff();

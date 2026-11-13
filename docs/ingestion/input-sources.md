@@ -900,13 +900,14 @@ use the declared types even if the source types differ. String columns are not c
 must be a string column on the source, since reads without aggregation select it with `MV_TO_ARRAY`, which the source
 rejects for other types. A discovered schema has the source's own types, so no casts are added.
 
-Multi-value string columns are read with `MV_TO_ARRAY` and stored as multi-value strings on the target. This applies to
-source columns selected as they are without aggregation; a string expression computed from a multi-value column on the
-source, such as `UPPER(tags)`, is returned as JSON-encoded text.
+Multi-value string columns are read with `MV_TO_ARRAY` and stored as multi-value strings on the target. Without
+aggregation, string expressions over string columns, such as `UPPER(tags)`, are evaluated on the target rather than the
+source, so that they handle multi-value strings as they would on the target.
 
 Without aggregation, the target splits the read into independent time ranges. It discovers the source time bounds with
-a native `timeBoundary` query, intersects them with `intervals`, and divides them at UTC `splitDuration` boundaries,
-up to 10,000 ranges. If the source reports no time bounds, for example because the datasource does not exist, the
+a native `timeBoundary` query, intersects them with `intervals` and with any `__time` range that the `WHERE` clause
+sets with `AND`-ed comparisons to timestamp literals, and divides them at UTC `splitDuration` boundaries, up to 10,000
+ranges. If the source reports no time bounds, for example because the datasource does not exist, the
 target still queries each of the `intervals` (or all time), so that a missing datasource fails the ingestion rather
 than ingesting no rows.
 Each range is one source SQL query with `__time` bounds passed as SQL parameters. On Dart, the default
@@ -935,7 +936,9 @@ SQL planning: the Broker queries the endpoint for schema discovery when `EXTEND`
 queries its time bounds. Users with `EXTERNAL` read access can therefore make these processes send requests to any
 reachable host. Requests do not follow redirects.
 HTTPS requests use the client TLS context that the `simple-client-sslcontext` extension configures, such as
-`druid.client.https.trustStorePath`, when the extension is loaded, and the JVM default otherwise.
+`druid.client.https.trustStorePath`, when the extension is loaded, and the JVM default otherwise. If that context
+has a client certificate, such as `druid.client.https.keyStorePath`, it is presented to every remote endpoint, including
+ones chosen by users.
 See [Security overview](../operations/security-overview.md) for deployment guidance.
 
 You can also reference a remote table with `EXTERN` and an explicit row signature. The input format is fixed; use the JSON string `'null'`:

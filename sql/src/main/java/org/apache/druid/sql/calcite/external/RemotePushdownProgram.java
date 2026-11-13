@@ -27,6 +27,7 @@ import org.apache.calcite.plan.RelOptCostImpl;
 import org.apache.calcite.plan.RelOptLattice;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.plan.hep.HepPlanner;
 import org.apache.calcite.plan.hep.HepProgram;
@@ -55,6 +56,8 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexDynamicParam;
+import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexOver;
 import org.apache.calcite.rex.RexSubQuery;
@@ -85,6 +88,7 @@ import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.sql.calcite.expression.builtin.MultiValueStringToArrayOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.TimestampToMillisOperatorConversion;
 import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
+import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.rule.logical.DruidJoinRule;
@@ -112,8 +116,10 @@ import java.util.Set;
  * them. Joins of local inputs are not changed.</li>
  * <li>Collects the longest chain of {@link Project}, {@link Filter}, and {@link Aggregate} operators directly above
  * the remote scan that the source can evaluate. The chain stops at operators that must run on the target: joins,
- * sorts, {@code LIMIT}, window functions, subqueries, {@code LOOKUP} calls, which depend on the cluster's lookups, and
- * planner-generated aggregates such as {@code SINGLE_VALUE} that older sources may not support.</li>
+ * sorts, {@code LIMIT}, window functions, subqueries, {@code LOOKUP} calls, which depend on the cluster's lookups,
+ * planner-generated aggregates such as {@code SINGLE_VALUE} that older sources may not support, and, without
+ * aggregation, string expressions over string columns, which the source would return as JSON-encoded text for
+ * multi-value inputs.</li>
  * <li>Converts the chain to one source SELECT in Druid SQL. With an {@code EXTEND} schema, numeric columns are cast
  * to their declared types. Reads without aggregation filter {@code __time} on two parameters, so that they can be
  * split into time ranges, and request plain string columns with {@code MV_TO_ARRAY}, so that multi-value strings
@@ -283,7 +289,35 @@ public class RemotePushdownProgram implements Program
       current = current.getInput(0);
     }
     chain.add(current);
+    if (chain.stream().noneMatch(rel -> rel instanceof Aggregate)
+        && chain.stream().anyMatch(RemotePushdownProgram::computesStringFromString)) {
+      // Rewriting starts again below this node, so the string expression runs on the target.
+      return null;
+    }
     return chain;
+  }
+
+  /**
+   * Whether a projection computes a string from a string column. Without aggregation, the source would return the
+   * result for a multi-value input as JSON-encoded text, while the target evaluates it to a multi-value string.
+   */
+  private static boolean computesStringFromString(final RelNode node)
+  {
+    if (!(node instanceof Project project)) {
+      return false;
+    }
+    final List<RelDataTypeField> inputFields = project.getInput().getRowType().getFieldList();
+    for (final RexNode expression : project.getProjects()) {
+      if (expression instanceof RexInputRef || !SqlTypeUtil.isCharacter(expression.getType())) {
+        continue;
+      }
+      for (final int index : RelOptUtil.InputFinder.bits(expression)) {
+        if (SqlTypeUtil.isCharacter(inputFields.get(index).getType())) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private static boolean isRemoteScan(final RelNode node)
@@ -402,9 +436,12 @@ public class RemotePushdownProgram implements Program
     }
     // Grouping returns one row per value of a multi-value string, so only plain reads return multi-value rows.
     source = flatten(source);
-    final String sql = toSql(timeRangeParameters ? withMultiValueArrays(source) : source, remoteScan.getRowType());
-
     final RelDataType rowType = top.getRowType();
+    final String sql = toSql(
+        withFieldNames(timeRangeParameters ? withMultiValueArrays(source) : source, rowType.getFieldNames()),
+        remoteScan.getRowType()
+    );
+
     final RowSignature signature = RowSignatures.fromRelDataType(rowType.getFieldNames(), rowType);
     final List<String> timestampColumns = new ArrayList<>();
     for (final RelDataTypeField field : rowType.getFieldList()) {
@@ -421,7 +458,8 @@ public class RemotePushdownProgram implements Program
         timeRangeParameters,
         signature,
         timestampColumns,
-        sourceContext()
+        sourceContext(),
+        timeRangeParameters ? filteredTimeRange(source) : null
     );
     final ExternalTable table = new RemoteSqlTable(
         new ExternalDataSource(inputSource, null, signature),
@@ -594,7 +632,8 @@ public class RemotePushdownProgram implements Program
   /**
    * Wraps string outputs that are source columns, unchanged, in {@code MV_TO_ARRAY}. Druid SQL returns multi-value
    * strings as JSON-encoded text, while arrays arrive as JSON arrays that the reader turns back into multi-value
-   * values. {@code MV_TO_ARRAY} only accepts columns, so computed strings are returned as they are.
+   * values. {@code MV_TO_ARRAY} only accepts columns, so computed strings, which here never derive from string
+   * columns, are returned as they are.
    */
   private static RelNode withMultiValueArrays(final RelNode source)
   {
@@ -619,6 +658,98 @@ public class RemotePushdownProgram implements Program
       return source;
     }
     return LogicalProject.create(source, List.of(), projects, source.getRowType().getFieldNames(), Set.of());
+  }
+
+  /**
+   * Returns the {@code __time} range that the filters of a read without aggregation allow, so that the read is split
+   * only over that range, or null if the filters do not bound {@code __time}. Only top-level conjuncts that compare the
+   * source {@code __time} with a timestamp literal are used, so the range always covers every matching row; the source
+   * SQL still applies the filters themselves.
+   */
+  @Nullable
+  private Interval filteredTimeRange(final RelNode source)
+  {
+    final RexBuilder rexBuilder = source.getCluster().getRexBuilder();
+    final RelMetadataQuery metadataQuery = source.getCluster().getMetadataQuery();
+    long start = Long.MIN_VALUE;
+    long end = Long.MAX_VALUE;
+    boolean bounded = false;
+    for (RelNode node = source; node.getInputs().size() == 1; node = node.getInput(0)) {
+      if (!(node instanceof Filter filter)) {
+        continue;
+      }
+      final RexNode condition = RexUtil.expandSearch(rexBuilder, null, filter.getCondition());
+      for (final RexNode conjunct : RelOptUtil.conjunctions(condition)) {
+        if (!(conjunct instanceof RexCall call) || call.getOperands().size() != 2) {
+          continue;
+        }
+        final boolean timeFirst = isSourceTime(metadataQuery, filter.getInput(), call.getOperands().get(0));
+        final RexNode other = call.getOperands().get(timeFirst ? 1 : 0);
+        if (!(timeFirst || isSourceTime(metadataQuery, filter.getInput(), call.getOperands().get(1)))
+            || !(other instanceof RexLiteral)
+            || other.getType().getSqlTypeName() != SqlTypeName.TIMESTAMP) {
+          continue;
+        }
+        final long millis = Calcites.calciteDateTimeLiteralToJoda(other, plannerContext.getTimeZone()).getMillis();
+        final SqlKind kind = timeFirst ? call.getKind() : call.getKind().reverse();
+        switch (kind) {
+          case GREATER_THAN -> start = Math.max(start, millis + 1);
+          case GREATER_THAN_OR_EQUAL -> start = Math.max(start, millis);
+          case LESS_THAN -> end = Math.min(end, millis);
+          case LESS_THAN_OR_EQUAL -> end = Math.min(end, millis + 1);
+          case EQUALS -> {
+            start = Math.max(start, millis);
+            end = Math.min(end, millis + 1);
+          }
+          default -> {
+            continue;
+          }
+        }
+        bounded = true;
+      }
+    }
+    if (!bounded) {
+      return null;
+    }
+    final long clampedStart = Math.max(start, Intervals.ETERNITY.getStartMillis());
+    final long clampedEnd = Math.min(end, Intervals.ETERNITY.getEndMillis());
+    return Intervals.utc(clampedStart, Math.max(clampedStart, clampedEnd));
+  }
+
+  private static boolean isSourceTime(final RelMetadataQuery metadataQuery, final RelNode input, final RexNode node)
+  {
+    if (!(node instanceof RexInputRef ref)) {
+      return false;
+    }
+    final Set<RelColumnOrigin> origins = metadataQuery.getColumnOrigins(input, ref.getIndex());
+    if (origins == null || origins.size() != 1) {
+      return false;
+    }
+    final RelColumnOrigin origin = origins.iterator().next();
+    return !origin.isDerived()
+           && ColumnHolder.TIME_COLUMN_NAME.equals(
+               origin.getOriginTable().getRowType().getFieldNames().get(origin.getOriginColumnOrdinal())
+           );
+  }
+
+  /**
+   * Names the outputs of the source fragment as the replaced operators named them. Flattening drops projections that
+   * only rename columns, but the reader requires the source to return the planned names.
+   */
+  private static RelNode withFieldNames(final RelNode source, final List<String> names)
+  {
+    if (source.getRowType().getFieldNames().equals(names)) {
+      return source;
+    }
+    if (source instanceof Project project) {
+      return LogicalProject.create(project.getInput(), List.of(), project.getProjects(), names, Set.of());
+    }
+    final RexBuilder rexBuilder = source.getCluster().getRexBuilder();
+    final List<RexNode> projects = new ArrayList<>();
+    for (int i = 0; i < names.size(); i++) {
+      projects.add(rexBuilder.makeInputRef(source, i));
+    }
+    return LogicalProject.create(source, List.of(), projects, names, Set.of());
   }
 
   /**

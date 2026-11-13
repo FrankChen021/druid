@@ -51,11 +51,12 @@ public class RemoteStatusException extends IOException
   }
 
   /**
-   * Whether the status reports a transient condition, such as a timeout, throttling, or a server error.
+   * Whether the status reports a transient condition, such as a timeout, throttling, or a server error. A 501, which
+   * Druid returns for unsupported queries, is not transient.
    */
   public boolean isRetryable()
   {
-    return status == 408 || status == 429 || status >= 500;
+    return status == 408 || status == 429 || (status >= 500 && status != 501);
   }
 
   /**
@@ -63,7 +64,7 @@ public class RemoteStatusException extends IOException
    */
   public boolean isUserError()
   {
-    return status >= 400 && status < 500 && !isRetryable();
+    return (status >= 400 && status < 500 || status == 501) && !isRetryable();
   }
 
   /**

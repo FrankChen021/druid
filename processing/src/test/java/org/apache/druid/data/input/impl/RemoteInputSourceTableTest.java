@@ -295,7 +295,7 @@ public class RemoteInputSourceTableTest
   private Map<String, Object> sourceContext(@Nullable final String engine, @Nullable final String includeSegmentSource)
   {
     return (Map<String, Object>) marker(engine, includeSegmentSource)
-        .withPlannedQuery("SELECT 1", false, RowSignature.empty(), List.of(), Map.of())
+        .withPlannedQuery("SELECT 1", false, RowSignature.empty(), List.of(), Map.of(), null)
         .makeRequest("query-id")
         .get("context");
   }

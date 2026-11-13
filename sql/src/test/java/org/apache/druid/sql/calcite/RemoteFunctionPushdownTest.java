@@ -102,13 +102,31 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
   }
 
   @Test
+  public void testRenamedColumnsKeepTheirNames()
+  {
+    // Projections that only rename columns are flattened away, but the source must return the planned names.
+    final String where = "\nFROM \"events\"\n"
+                         + "WHERE TIMESTAMP_TO_MILLIS(\"__time\") >= ? AND TIMESTAMP_TO_MILLIS(\"__time\") < ?";
+    Assertions.assertEquals(
+        "SELECT \"__time\", MV_TO_ARRAY(\"a\") AS \"x\", CAST(\"m\" AS BIGINT) AS \"y\"" + where,
+        remoteInputSource(explainInsert("SELECT __time, a AS x, m AS y FROM %s", "").path("dataSource"))
+            .path("sql").asText()
+    );
+    Assertions.assertEquals(
+        "SELECT \"__time\", CAST(\"m\" AS BIGINT) AS \"a\", MV_TO_ARRAY(\"a\") AS \"m\"" + where,
+        remoteInputSource(explainInsert("SELECT __time, m AS a, a AS m FROM %s", "").path("dataSource"))
+            .path("sql").asText()
+    );
+  }
+
+  @Test
   public void testFilterAndProjectionArePushedDownAndSplittable()
   {
-    final JsonNode query = explainInsert("SELECT __time, UPPER(a) AS ua, m * 2 AS m2 FROM %s WHERE m > 3", "");
+    final JsonNode query = explainInsert("SELECT __time, a, m * 2 AS m2 FROM %s WHERE m > 3", "");
     final JsonNode inputSource = remoteInputSource(query.path("dataSource"));
     Assertions.assertEquals(
         """
-        SELECT "__time", UPPER("a") AS "ua", CAST("m" AS BIGINT) * 2 AS "m2"
+        SELECT "__time", MV_TO_ARRAY("a") AS "a", CAST("m" AS BIGINT) * 2 AS "m2"
         FROM "events"
         WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ? AND CAST("m" AS BIGINT) > 3\
         """,
@@ -131,6 +149,52 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
     // Nothing is left to evaluate on the target.
     Assertions.assertTrue(query.path("filter").isMissingNode(), query.toString());
     Assertions.assertTrue(query.path("virtualColumns").isEmpty(), query.toString());
+  }
+
+  @Test
+  public void testStringExpressionsWithoutAggregationRunOnTarget()
+  {
+    // The source would return UPPER of a multi-value string as JSON-encoded text, so the column is read as an array
+    // and the expression is evaluated on the target, while the filter below it is still pushed down.
+    final JsonNode query = explainInsert("SELECT __time, UPPER(a) AS ua FROM %s WHERE m > 3", "");
+    Assertions.assertEquals(
+        """
+        SELECT "__time", MV_TO_ARRAY("a") AS "a", CAST("m" AS BIGINT) AS "m"
+        FROM "events"
+        WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ? AND CAST("m" AS BIGINT) > 3\
+        """,
+        remoteInputSource(query.path("dataSource")).path("sql").asText()
+    );
+    Assertions.assertTrue(query.path("virtualColumns").toString().contains("upper"), query.toString());
+  }
+
+  @Test
+  public void testTimeFilterNarrowsSplitIntervals()
+  {
+    final String day = "SELECT * FROM %s WHERE __time >= TIMESTAMP '2000-01-02' AND __time < TIMESTAMP '2000-01-03'";
+    // Without intervals, only the filtered day is split.
+    Assertions.assertEquals(
+        "[\"2000-01-02T00:00:00.000Z/2000-01-03T00:00:00.000Z\"]",
+        remoteInputSource(explainInsert(day, ", splitDuration => 'PT1H'").path("dataSource"))
+            .path("intervals").toString()
+    );
+    // Requested intervals are intersected with the filtered range.
+    Assertions.assertEquals(
+        "[\"2000-01-02T00:00:00.000Z/2000-01-02T12:00:00.000Z\"]",
+        remoteInputSource(
+            explainInsert(day, ", intervals => ARRAY['1999/2000-01-02T12'], splitDuration => 'PT1H'")
+                .path("dataSource")
+        ).path("intervals").toString()
+    );
+    // A disjunction does not bound the range, so it is read in full.
+    Assertions.assertTrue(
+        remoteInputSource(
+            explainInsert(
+                "SELECT * FROM %s WHERE __time < TIMESTAMP '2000-01-02' OR a = 'x'",
+                ", splitDuration => 'PT1H'"
+            ).path("dataSource")
+        ).path("intervals").isMissingNode()
+    );
   }
 
   @Test

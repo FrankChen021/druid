@@ -49,6 +49,7 @@ import org.apache.druid.sql.calcite.table.ExternalTable;
 import org.joda.time.Period;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mockito;
 
 import java.net.URI;
@@ -161,12 +162,20 @@ public class RemoteOperatorConversionTest
         Map.of("splitDuration", "not-a-period"),
         Map.of("intervals", List.of("invalid"))
     )) {
-      Assertions.assertThrows(DruidException.class, () -> apply(options, schema(SqlTypeName.BIGINT)));
+      assertInvalidInput(() -> apply(options, schema(SqlTypeName.BIGINT)));
     }
-    Assertions.assertThrows(DruidException.class, () -> apply(Map.of(), schema(SqlTypeName.VARCHAR)));
-    Assertions.assertThrows(DruidException.class, () -> apply(Map.of(), SqlNodeList.EMPTY));
+    assertInvalidInput(() -> apply(Map.of(), schema(SqlTypeName.VARCHAR)));
+    assertInvalidInput(() -> apply(Map.of(), SqlNodeList.EMPTY));
     // Connection checks made by the input source are reported the same way.
-    Assertions.assertThrows(DruidException.class, () -> apply(Map.of("maxRetries", 11L), schema(SqlTypeName.BIGINT)));
+    assertInvalidInput(() -> apply(Map.of("maxRetries", 11L), schema(SqlTypeName.BIGINT)));
+  }
+
+  private static void assertInvalidInput(final Executable executable)
+  {
+    Assertions.assertEquals(
+        DruidException.Category.INVALID_INPUT,
+        Assertions.assertThrows(DruidException.class, executable).getCategory()
+    );
   }
 
   @Test
