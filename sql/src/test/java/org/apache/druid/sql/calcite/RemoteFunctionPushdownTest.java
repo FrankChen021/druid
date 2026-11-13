@@ -108,18 +108,18 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
     final String where = "\nFROM \"events\"\n"
                          + "WHERE TIMESTAMP_TO_MILLIS(\"__time\") >= ? AND TIMESTAMP_TO_MILLIS(\"__time\") < ?";
     Assertions.assertEquals(
-        "SELECT \"__time\", MV_TO_ARRAY(\"a\") AS \"x\", CAST(\"m\" AS BIGINT) AS \"y\"" + where,
+        "SELECT TIMESTAMP_TO_MILLIS(\"__time\") AS \"__time\", MV_TO_ARRAY(\"a\") AS \"x\", CAST(\"m\" AS BIGINT) AS \"y\"" + where,
         remoteInputSource(explainInsert("SELECT __time, a AS x, m AS y FROM %s", "").path("dataSource"))
             .path("sql").asText()
     );
     Assertions.assertEquals(
-        "SELECT \"__time\", CAST(\"m\" AS BIGINT) AS \"a\", MV_TO_ARRAY(\"a\") AS \"m\"" + where,
+        "SELECT TIMESTAMP_TO_MILLIS(\"__time\") AS \"__time\", CAST(\"m\" AS BIGINT) AS \"a\", MV_TO_ARRAY(\"a\") AS \"m\"" + where,
         remoteInputSource(explainInsert("SELECT __time, m AS a, a AS m FROM %s", "").path("dataSource"))
             .path("sql").asText()
     );
     // A read without string columns has no projection left after flattening, so one is added for the names.
     Assertions.assertEquals(
-        "SELECT \"__time\", CAST(\"m\" AS BIGINT) AS \"y\"" + where,
+        "SELECT TIMESTAMP_TO_MILLIS(\"__time\") AS \"__time\", CAST(\"m\" AS BIGINT) AS \"y\"" + where,
         remoteInputSource(explainInsert("SELECT __time, m AS y FROM %s", "").path("dataSource")).path("sql").asText()
     );
   }
@@ -130,7 +130,7 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
     // Druid resolves a name in HAVING to a select alias before a column, so HAVING names the source columns in full.
     Assertions.assertEquals(
         """
-        SELECT TIME_SHIFT("__time", 'PT1H', 1) AS "__time", "a", COUNT(*) AS "c"
+        SELECT TIMESTAMP_TO_MILLIS(TIME_SHIFT("__time", 'PT1H', 1)) AS "__time", "a", COUNT(*) AS "c"
         FROM "events"
         GROUP BY TIME_SHIFT("__time", 'PT1H', 1), "a"
         HAVING TIME_SHIFT("events"."__time", 'PT1H', 1) >= TIMESTAMP '2000-01-02 00:00:00.000'\
@@ -178,7 +178,7 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
     final JsonNode inputSource = remoteInputSource(query.path("dataSource"));
     Assertions.assertEquals(
         """
-        SELECT "__time", MV_TO_ARRAY("a") AS "a", CAST("m" AS BIGINT) * 2 AS "m2"
+        SELECT TIMESTAMP_TO_MILLIS("__time") AS "__time", MV_TO_ARRAY("a") AS "a", CAST("m" AS BIGINT) * 2 AS "m2"
         FROM "events"
         WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ? AND CAST("m" AS BIGINT) > 3\
         """,
@@ -197,7 +197,8 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
         ImmutableList.copyOf(inputSource.path("context").fieldNames())
     );
     Assertions.assertTrue(inputSource.path("context").path("useApproximateCountDistinct").asBoolean());
-    Assertions.assertEquals("[\"__time\"]", inputSource.path("timestampColumns").toString());
+    // The source returns timestamps as epoch milliseconds, so the reader parses no timestamp text.
+    Assertions.assertTrue(inputSource.path("timestampColumns").isEmpty(), inputSource.toString());
     // Nothing is left to evaluate on the target.
     Assertions.assertTrue(query.path("filter").isMissingNode(), query.toString());
     Assertions.assertTrue(query.path("virtualColumns").isEmpty(), query.toString());
@@ -211,7 +212,7 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
     final JsonNode query = explainInsert("SELECT __time, UPPER(a) AS ua FROM %s WHERE m > 3", "");
     Assertions.assertEquals(
         """
-        SELECT "__time", MV_TO_ARRAY("a") AS "a", CAST("m" AS BIGINT) AS "m"
+        SELECT TIMESTAMP_TO_MILLIS("__time") AS "__time", MV_TO_ARRAY("a") AS "a", CAST("m" AS BIGINT) AS "m"
         FROM "events"
         WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ? AND CAST("m" AS BIGINT) > 3\
         """,
@@ -227,14 +228,14 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
     final JsonNode length = explainInsert("SELECT __time, CHAR_LENGTH(a) AS l FROM %s", "");
     Assertions.assertTrue(
         remoteInputSource(length.path("dataSource")).path("sql").asText()
-                                                    .startsWith("SELECT \"__time\", MV_TO_ARRAY(\"a\")"),
+                                                    .startsWith("SELECT TIMESTAMP_TO_MILLIS(\"__time\") AS \"__time\", MV_TO_ARRAY(\"a\")"),
         length.toString()
     );
     Assertions.assertTrue(length.path("virtualColumns").toString().contains("strlen"), length.toString());
     // An equality filter on a string column is sent as MV_CONTAINS, so the column is still read with all its values.
     Assertions.assertEquals(
         """
-        SELECT "__time", MV_TO_ARRAY("a") AS "a"
+        SELECT TIMESTAMP_TO_MILLIS("__time") AS "__time", MV_TO_ARRAY("a") AS "a"
         FROM "events"
         WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ? AND MV_CONTAINS("a", 'x')\
         """,
@@ -331,7 +332,7 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
     final JsonNode inputSource = remoteInputSource(query.path("dataSource"));
     Assertions.assertEquals(
         """
-        SELECT TIME_FLOOR("__time", 'PT1H') AS "__time", "a", SUM(CAST("m" AS BIGINT)) AS "m"
+        SELECT TIMESTAMP_TO_MILLIS(TIME_FLOOR("__time", 'PT1H')) AS "__time", "a", SUM(CAST("m" AS BIGINT)) AS "m"
         FROM "events"
         WHERE TIMESTAMP_TO_MILLIS("__time") >= 946684800000 AND TIMESTAMP_TO_MILLIS("__time") < 946771200000 AND "a" <> 'z'
         GROUP BY TIME_FLOOR("__time", 'PT1H'), "a"
@@ -403,7 +404,7 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
     );
     Assertions.assertEquals(
         """
-        SELECT "__time", MV_TO_ARRAY("user") AS "user", CAST("value" AS BIGINT) AS "value"
+        SELECT TIMESTAMP_TO_MILLIS("__time") AS "__time", MV_TO_ARRAY("user") AS "user", CAST("value" AS BIGINT) AS "value"
         FROM "events"
         WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ? AND "user" <> 'bot'\
         """,

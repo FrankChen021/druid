@@ -543,30 +543,20 @@ public class RemotePushdownProgram implements Program
     for (int i = chain.size() - 2; i >= 0; i--) {
       source = chain.get(i).copy(chain.get(i).getTraitSet(), List.of(source));
     }
-    // Grouping returns one row per value of a multi-value string, so only plain reads return multi-value rows.
     source = flatten(source);
     final RelDataType rowType = top.getRowType();
     final String sql = toSql(
-        withFieldNames(timeRangeParameters ? withMultiValueArrays(source) : source, rowType.getFieldNames()),
+        withFieldNames(withResultEncodings(source, timeRangeParameters), rowType.getFieldNames()),
         remoteScan.getRowType()
     );
 
     final RowSignature signature = RowSignatures.fromRelDataType(rowType.getFieldNames(), rowType);
-    final List<String> timestampColumns = new ArrayList<>();
-    for (final RelDataTypeField field : rowType.getFieldList()) {
-      final SqlTypeName typeName = field.getType().getSqlTypeName();
-      if (typeName == SqlTypeName.TIMESTAMP
-          || typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
-          || typeName == SqlTypeName.DATE) {
-        timestampColumns.add(field.getName());
-      }
-    }
-
+    // The source returns timestamps as epoch milliseconds, so there are no timestamp strings to parse.
     final RemoteInputSource inputSource = remote.withPlannedQuery(
         sql,
         timeRangeParameters,
         signature,
-        timestampColumns,
+        List.of(),
         sourceContext(),
         timeRangeParameters ? filteredTimeRange(source) : null
     );
@@ -739,31 +729,55 @@ public class RemotePushdownProgram implements Program
   }
 
   /**
-   * Wraps string outputs that are source columns, unchanged, in {@code MV_TO_ARRAY}. Druid SQL returns multi-value
-   * strings as JSON-encoded text, while arrays arrive as JSON arrays that the reader turns back into multi-value
-   * values. {@code MV_TO_ARRAY} only accepts columns, so computed strings, which here never derive from string
-   * columns, are returned as they are.
+   * Converts outputs to the forms that the reader reads cheaply and without loss:
+   * <ul>
+   * <li>Timestamps and dates are returned as epoch milliseconds with {@code TIMESTAMP_TO_MILLIS}, since Druid SQL
+   * would otherwise format them as ISO-8601 text that the reader must parse.</li>
+   * <li>With {@code multiValueArrays}, string outputs that are source columns, unchanged, are wrapped in
+   * {@code MV_TO_ARRAY}. Druid SQL returns multi-value strings as JSON-encoded text, while arrays arrive as JSON arrays
+   * that the reader turns back into multi-value values. {@code MV_TO_ARRAY} only accepts columns, so computed strings,
+   * which here never derive from string columns, are returned as they are. Grouping returns one row per value of a
+   * multi-value string, so only reads without aggregation need this.</li>
+   * </ul>
    */
-  private static RelNode withMultiValueArrays(final RelNode source)
+  private static RelNode withResultEncodings(final RelNode source, final boolean multiValueArrays)
   {
     final RelMetadataQuery metadataQuery = source.getCluster().getMetadataQuery();
     final RexBuilder rexBuilder = source.getCluster().getRexBuilder();
+    final RelDataType timestampType = source.getCluster().getTypeFactory().createSqlType(SqlTypeName.TIMESTAMP);
     final List<RexNode> projects = new ArrayList<>();
-    boolean wrapped = false;
+    boolean changed = false;
     for (final RelDataTypeField field : source.getRowType().getFieldList()) {
       final RexNode column = rexBuilder.makeInputRef(source, field.getIndex());
-      final Set<RelColumnOrigin> origins = metadataQuery.getColumnOrigins(source, field.getIndex());
+      final SqlTypeName typeName = field.getType().getSqlTypeName();
+      if (typeName == SqlTypeName.TIMESTAMP
+          || typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
+          || typeName == SqlTypeName.DATE) {
+        final RexNode timestamp = typeName == SqlTypeName.TIMESTAMP
+                                  ? column
+                                  : rexBuilder.makeCast(
+                                      rexBuilder.getTypeFactory()
+                                                .createTypeWithNullability(timestampType, field.getType().isNullable()),
+                                      column
+                                  );
+        projects.add(rexBuilder.makeCall(new TimestampToMillisOperatorConversion().calciteOperator(), timestamp));
+        changed = true;
+        continue;
+      }
+      final Set<RelColumnOrigin> origins = multiValueArrays
+                                           ? metadataQuery.getColumnOrigins(source, field.getIndex())
+                                           : null;
       if (SqlTypeUtil.isCharacter(field.getType())
           && origins != null
           && origins.size() == 1
           && !origins.iterator().next().isDerived()) {
         projects.add(rexBuilder.makeCall(MultiValueStringToArrayOperatorConversion.SQL_FUNCTION, column));
-        wrapped = true;
+        changed = true;
       } else {
         projects.add(column);
       }
     }
-    if (!wrapped) {
+    if (!changed) {
       return source;
     }
     return LogicalProject.create(source, List.of(), projects, source.getRowType().getFieldNames(), Set.of());

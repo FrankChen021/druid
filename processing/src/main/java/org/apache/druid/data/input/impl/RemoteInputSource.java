@@ -27,6 +27,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.druid.data.input.AbstractInputSource;
@@ -58,8 +59,6 @@ import org.joda.time.Interval;
 import org.joda.time.Period;
 
 import javax.annotation.Nullable;
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -67,6 +66,7 @@ import java.io.InterruptedIOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -107,6 +107,9 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
   public static final Set<String> SEGMENT_SOURCES = Set.of(SEGMENT_SOURCE_NONE, SEGMENT_SOURCE_REALTIME);
   static final int MAX_SPLITS = 10_000;
   static final int MAX_LINE_BYTES = 16 * 1024 * 1024;
+  private static final TypeReference<List<Object>> ROW_TYPE = new TypeReference<>()
+  {
+  };
   private static final Logger LOG = new Logger(RemoteInputSource.class);
 
   /**
@@ -630,8 +633,9 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
     private final RemoteHttpClient httpClient;
     @Nullable
     private RemoteHttpClient.Response response;
+    private final ObjectReader rowReader;
     @Nullable
-    private InputStream body;
+    private LineReader body;
     @Nullable
     private String sqlQueryId;
     private boolean sourceRunning;
@@ -646,6 +650,7 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
     {
       this.inputStats = inputStats;
       this.httpClient = connection.createClient(connection.getReadTimeout());
+      this.rowReader = mapper.readerFor(ROW_TYPE);
     }
 
     @Override
@@ -662,12 +667,11 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
           if (body == null) {
             open();
           }
-          final byte[] line = readLine(body);
-          if (line == null) {
+          if (!body.nextLine()) {
             throw new IOException("Remote Druid result ended without its completion marker");
           }
-          if (line.length == 0) {
-            if (body.read() != -1) {
+          if (body.lineLength() == 0) {
+            if (body.hasMoreData()) {
               throw new NonRetryableException("Remote Druid result has data after its completion marker");
             }
             done = true;
@@ -675,9 +679,9 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
             return false;
           }
           if (inputStats != null) {
-            inputStats.incrementProcessedBytes(line.length + 1);
+            inputStats.incrementProcessedBytes(body.lineLength() + 1);
           }
-          nextRow = toRow(mapper.readValue(line, new TypeReference<List<Object>>() {}));
+          nextRow = toRow(rowReader.readValue(body.buffer(), body.lineStart(), body.lineLength()));
           return true;
         }
         catch (IOException e) {
@@ -721,16 +725,19 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
       sqlQueryId = UUID.randomUUID().toString();
       final URI endpoint = sqlEndpoint();
       response = httpClient.execute(endpoint, "POST", mapper.writeValueAsBytes(makeRequest(sqlQueryId)));
-      body = new BufferedInputStream(response.body());
       if (response.status() != 200) {
-        throw new RemoteStatusException(endpoint, response.status(), RemoteStatusException.readMessage(body, mapper));
+        throw new RemoteStatusException(
+            endpoint,
+            response.status(),
+            RemoteStatusException.readMessage(response.body(), mapper)
+        );
       }
       sourceRunning = true;
-      final byte[] header = readLine(body);
-      if (header == null) {
+      body = new LineReader(response.body());
+      if (!body.nextLine()) {
         throw new IOException("Remote Druid result ended before its header");
       }
-      final List<Object> columns = mapper.readValue(header, new TypeReference<>() {});
+      final List<Object> columns = rowReader.readValue(body.buffer(), body.lineStart(), body.lineLength());
       // Rows are mapped by position, so the source must return the planned columns in the planned order.
       if (columns == null || !signature.getColumnNames().equals(columns)) {
         throw new NonRetryableException(
@@ -750,7 +757,7 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
         Object value = values.get(i);
         if (value instanceof String && timestampColumns.contains(column)) {
           try {
-            value = DateTimes.of((String) value).getMillis();
+            value = parseTimestamp((String) value);
           }
           catch (IllegalArgumentException e) {
             throw new NonRetryableException("Remote Druid result has an invalid timestamp in column[" + column + "]");
@@ -863,27 +870,172 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
   }
 
   /**
-   * Reads one newline-terminated line without the terminator, or returns null at end of stream.
+   * Parses a timestamp that the source returned as text. Druid SQL formats timestamps as
+   * {@code yyyy-MM-ddTHH:mm:ss.SSSZ} in UTC, which is parsed directly; other forms are parsed by {@link DateTimes#of}.
+   *
+   * @throws IllegalArgumentException if the text is not a timestamp
    */
-  @Nullable
-  static byte[] readLine(final InputStream in) throws IOException
+  static long parseTimestamp(final String text)
   {
-    final ByteArrayOutputStream line = new ByteArrayOutputStream();
-    int b;
-    while ((b = in.read()) != '\n') {
-      if (b == -1) {
-        if (line.size() == 0) {
-          return null;
-        }
-        throw new IOException("Remote Druid result ended in the middle of a row");
+    if (text.length() == 24
+        && text.charAt(4) == '-' && text.charAt(7) == '-' && text.charAt(10) == 'T' && text.charAt(13) == ':'
+        && text.charAt(16) == ':' && text.charAt(19) == '.' && text.charAt(23) == 'Z') {
+      final int year = digits(text, 0, 4);
+      final int month = digits(text, 5, 2);
+      final int day = digits(text, 8, 2);
+      final int hour = digits(text, 11, 2);
+      final int minute = digits(text, 14, 2);
+      final int second = digits(text, 17, 2);
+      final int millis = digits(text, 20, 3);
+      if (year >= 0 && month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth(year, month)
+          && hour >= 0 && hour < 24 && minute >= 0 && minute < 60 && second >= 0 && second < 60 && millis >= 0) {
+        return ((epochDay(year, month, day) * 24 + hour) * 60 + minute) * 60_000L + second * 1000L + millis;
       }
-      if (line.size() >= MAX_LINE_BYTES) {
-        throw new NonRetryableException("Remote Druid result row exceeds " + MAX_LINE_BYTES + " bytes");
-      }
-      line.write(b);
     }
-    checkInterrupted();
-    return line.toByteArray();
+    return DateTimes.of(text).getMillis();
+  }
+
+  /**
+   * Returns the decimal value of {@code length} digits starting at {@code start}, or -1 if any of them is not a digit.
+   */
+  private static int digits(final String text, final int start, final int length)
+  {
+    int value = 0;
+    for (int i = start; i < start + length; i++) {
+      final char c = text.charAt(i);
+      if (c < '0' || c > '9') {
+        return -1;
+      }
+      value = value * 10 + (c - '0');
+    }
+    return value;
+  }
+
+  private static int daysInMonth(final int year, final int month)
+  {
+    if (month == 2) {
+      return (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? 29 : 28;
+    }
+    return month == 4 || month == 6 || month == 9 || month == 11 ? 30 : 31;
+  }
+
+  /**
+   * Days since 1970-01-01 of a proleptic Gregorian date, after Howard Hinnant's {@code days_from_civil}.
+   */
+  private static long epochDay(final int year, final int month, final int day)
+  {
+    final int y = month <= 2 ? year - 1 : year;
+    final int era = (y >= 0 ? y : y - 399) / 400;
+    final int yearOfEra = y - era * 400;
+    final int dayOfYear = (153 * (month > 2 ? month - 3 : month + 9) + 2) / 5 + day - 1;
+    final int dayOfEra = yearOfEra * 365 + yearOfEra / 4 - yearOfEra / 100 + dayOfYear;
+    return era * 146097L + dayOfEra - 719468;
+  }
+
+  /**
+   * Reads newline-terminated lines from a stream into a reusable buffer, with bulk reads. A line is valid, as
+   * {@link #buffer()} from {@link #lineStart()} for {@link #lineLength()} bytes without the terminator, until the next
+   * call to {@link #nextLine()} or {@link #hasMoreData()}.
+   */
+  static final class LineReader
+  {
+    private static final int INITIAL_BUFFER_BYTES = 64 * 1024;
+
+    private final InputStream in;
+    private final int maxLineBytes;
+    private byte[] buffer;
+    // Unconsumed bytes are buffer[start, end).
+    private int start;
+    private int end;
+    private int lineStart;
+    private int lineLength;
+
+    LineReader(final InputStream in)
+    {
+      this(in, INITIAL_BUFFER_BYTES, MAX_LINE_BYTES);
+    }
+
+    LineReader(final InputStream in, final int initialBufferBytes, final int maxLineBytes)
+    {
+      this.in = in;
+      this.maxLineBytes = maxLineBytes;
+      this.buffer = new byte[Math.min(initialBufferBytes, maxLineBytes + 1)];
+    }
+
+    /**
+     * Advances to the next line, or returns false if the stream ends before another line starts.
+     *
+     * @throws IOException if the stream ends in the middle of a line, or a line exceeds the maximum length
+     */
+    boolean nextLine() throws IOException
+    {
+      int scan = start;
+      while (true) {
+        for (; scan < end; scan++) {
+          if (buffer[scan] == '\n') {
+            lineStart = start;
+            lineLength = scan - start;
+            start = scan + 1;
+            checkInterrupted();
+            return true;
+          }
+        }
+        if (end - start > maxLineBytes) {
+          throw new NonRetryableException("Remote Druid result row exceeds " + maxLineBytes + " bytes");
+        }
+        if (start > 0) {
+          // Move the partial line to the front, so that the rest of the buffer can be filled.
+          System.arraycopy(buffer, start, buffer, 0, end - start);
+          scan -= start;
+          end -= start;
+          start = 0;
+        }
+        if (end == buffer.length) {
+          // One more byte than the limit is enough to tell that a line is too long.
+          buffer = Arrays.copyOf(buffer, (int) Math.min(2L * buffer.length, maxLineBytes + 1L));
+        }
+        final int read = in.read(buffer, end, buffer.length - end);
+        if (read < 0) {
+          if (start == end) {
+            return false;
+          }
+          throw new IOException("Remote Druid result ended in the middle of a row");
+        }
+        end += read;
+      }
+    }
+
+    /**
+     * Returns whether any data follows the current line.
+     */
+    boolean hasMoreData() throws IOException
+    {
+      if (start < end) {
+        return true;
+      }
+      start = 0;
+      end = 0;
+      final int read = in.read(buffer, 0, buffer.length);
+      if (read > 0) {
+        end = read;
+      }
+      return read > 0;
+    }
+
+    byte[] buffer()
+    {
+      return buffer;
+    }
+
+    int lineStart()
+    {
+      return lineStart;
+    }
+
+    int lineLength()
+    {
+      return lineLength;
+    }
   }
 
   private static void checkInterrupted() throws InterruptedIOException

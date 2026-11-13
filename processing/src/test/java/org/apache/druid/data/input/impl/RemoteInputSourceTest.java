@@ -44,7 +44,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
@@ -411,6 +413,95 @@ public class RemoteInputSourceTest
     final List<InputRow> rows = read(source(false, null, null));
     Assertions.assertEquals(20_000, rows.size());
     Assertions.assertEquals("row-19999-padding-padding", rows.get(19_999).getRaw("a"));
+  }
+
+  @Test
+  public void testLineReaderAcrossRefillsAndLongLines() throws IOException
+  {
+    final String text = "[1]\n" + "x".repeat(50) + "\n\n" + "[2]\n";
+    // A stream that returns at most three bytes per read, and sometimes none, with a four-byte buffer, splits lines
+    // across refills and makes the buffer grow for the long line.
+    final InputStream trickle = new ByteArrayInputStream(StringUtils.toUtf8(text))
+    {
+      private boolean empty;
+
+      @Override
+      public synchronized int read(final byte[] bytes, final int offset, final int length)
+      {
+        // Every other read returns no bytes. InputStream does not do this for a nonzero length, but the reader should
+        // still make progress if a stream does.
+        empty = !empty;
+        return empty ? 0 : super.read(bytes, offset, Math.min(length, 3));
+      }
+    };
+    final RemoteInputSource.LineReader reader = new RemoteInputSource.LineReader(trickle, 4, 1000);
+    final List<String> lines = new ArrayList<>();
+    while (reader.nextLine()) {
+      lines.add(StringUtils.fromUtf8(reader.buffer(), reader.lineStart(), reader.lineLength()));
+    }
+    Assertions.assertEquals(List.of("[1]", "x".repeat(50), "", "[2]"), lines);
+  }
+
+  @Test
+  public void testLineReaderLimitsAndTrailingData() throws IOException
+  {
+    // A line may be exactly as long as the limit, but not longer.
+    final RemoteInputSource.LineReader exact = lineReader("12345\n", 5);
+    Assertions.assertTrue(exact.nextLine());
+    Assertions.assertEquals(5, exact.lineLength());
+    final IOException tooLong = Assertions.assertThrows(IOException.class, () -> lineReader("123456\n", 5).nextLine());
+    Assertions.assertTrue(tooLong.getMessage().contains("exceeds 5 bytes"), tooLong.getMessage());
+
+    final IOException truncated = Assertions.assertThrows(IOException.class, () -> lineReader("[1]", 100).nextLine());
+    Assertions.assertTrue(truncated.getMessage().contains("middle of a row"), truncated.getMessage());
+
+    final RemoteInputSource.LineReader marker = lineReader("[1]\n\n", 100);
+    Assertions.assertTrue(marker.nextLine());
+    Assertions.assertTrue(marker.nextLine());
+    Assertions.assertEquals(0, marker.lineLength());
+    Assertions.assertFalse(marker.hasMoreData());
+    final RemoteInputSource.LineReader trailing = lineReader("\nx", 100);
+    Assertions.assertTrue(trailing.nextLine());
+    Assertions.assertTrue(trailing.hasMoreData());
+  }
+
+  private static RemoteInputSource.LineReader lineReader(final String text, final int maxLineBytes)
+  {
+    return new RemoteInputSource.LineReader(new ByteArrayInputStream(StringUtils.toUtf8(text)), 2, maxLineBytes);
+  }
+
+  @Test
+  public void testParseTimestamp()
+  {
+    // Druid's own format is parsed directly, and agrees with the general parser.
+    for (final String text : List.of(
+        "1970-01-01T00:00:00.000Z",
+        "2020-02-29T23:59:59.999Z",
+        "2000-12-31T12:34:56.789Z",
+        "1969-12-31T23:59:59.999Z",
+        "0001-01-01T00:00:00.000Z",
+        "9999-12-31T23:59:59.999Z"
+    )) {
+      Assertions.assertEquals(DateTimes.of(text).getMillis(), RemoteInputSource.parseTimestamp(text), text);
+    }
+    // A sweep over the supported years, including dates before 1970 and leap days.
+    for (long day = DateTimes.of("0000-01-01").getMillis(); day < DateTimes.of("9999-12-31").getMillis();
+         day += 29L * 86_400_000 + 3_600_000 + 61_001) {
+      final String text = DateTimes.utc(day).toString();
+      Assertions.assertEquals(day, RemoteInputSource.parseTimestamp(text), text);
+    }
+    // Other forms fall back to the general parser.
+    for (final String text : List.of("2020-01-01T00:00:00Z", "2020-01-01T08:00:00.000+08:00", "2020-01-01")) {
+      Assertions.assertEquals(DateTimes.of(text).getMillis(), RemoteInputSource.parseTimestamp(text), text);
+    }
+    // Invalid dates in the fixed format are not computed, and the fallback rejects them.
+    for (final String text : List.of(
+        "2021-02-29T00:00:00.000Z",
+        "2020-13-01T00:00:00.000Z",
+        "2020-01-01T24:00:00.000Z"
+    )) {
+      Assertions.assertThrows(IllegalArgumentException.class, () -> RemoteInputSource.parseTimestamp(text), text);
+    }
   }
 
   @Test

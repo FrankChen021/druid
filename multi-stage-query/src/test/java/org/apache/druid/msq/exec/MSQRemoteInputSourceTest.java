@@ -435,6 +435,56 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
   }
 
   @Test
+  public void testDateAndTimestampOutputsInTargetTimeZone()
+  {
+    // The source returns DATE and TIMESTAMP outputs as epoch milliseconds, evaluated in the target's time zone.
+    sourceDefaultTimeZone = "America/Los_Angeles";
+    final Map<String, Object> context = new HashMap<>(DEFAULT_MSQ_CONTEXT);
+    context.put("sqlTimeZone", "Asia/Shanghai");
+    testIngestQuery()
+        .setSql(StringUtils.format(
+            """
+            INSERT INTO foo1
+            SELECT
+              CAST(CAST(__time AS DATE) AS TIMESTAMP) AS __time,
+              CAST(__time AS DATE) AS "day",
+              MAX(__time) AS latest,
+              COUNT(*) AS cnt
+            FROM %s
+            WHERE dim1 = 'abc'
+            GROUP BY 1, 2
+            PARTITIONED BY DAY
+            """,
+            remote("")
+        ))
+        .setQueryContext(context)
+        .setExpectedDataSource("foo1")
+        .setExpectedRowSignature(
+            RowSignature.builder()
+                        .add("__time", ColumnType.LONG)
+                        .add("day", ColumnType.LONG)
+                        .add("latest", ColumnType.LONG)
+                        .add("cnt", ColumnType.LONG)
+                        .build()
+        )
+        .setExpectedResultRows(List.<Object[]>of(
+            new Object[]{
+                DateTimes.of("2001-01-02T16:00:00Z").getMillis(),
+                DateTimes.of("2001-01-02T16:00:00Z").getMillis(),
+                DateTimes.of("2001-01-03T00:00:00Z").getMillis(),
+                1L
+            }
+        ))
+        .verifyResults();
+    // The DATE output is cast to TIMESTAMP on the source to be returned as milliseconds.
+    Assertions.assertTrue(
+        sourceSql(0).contains("TIMESTAMP_TO_MILLIS(CAST(CAST(\"__TIME\" AS DATE) AS TIMESTAMP(3))) AS \"DAY\""),
+        sourceSql(0)
+    );
+    Assertions.assertTrue(sourceSql(0).contains("TIMESTAMP_TO_MILLIS(MAX("), sourceSql(0));
+  }
+
+  @Test
   public void testBoundPasswordAndDiscoveredSchema()
   {
     expectedAuthorization = "Basic cmVhZGVyOnNlY3JldA==";
