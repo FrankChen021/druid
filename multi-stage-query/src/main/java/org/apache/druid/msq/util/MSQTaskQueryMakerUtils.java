@@ -54,6 +54,20 @@ public class MSQTaskQueryMakerUtils
                                                                                        .collect(Collectors.toSet());
 
   /**
+   * A {@code password => '...'} argument of a table function such as {@code REMOTE}, whose value is a SQL string
+   * literal in which a doubled quote stands for one quote.
+   */
+  private static final Pattern PASSWORD_ARGUMENT_PATTERN =
+      Pattern.compile("((?<![\\w\"])\"?password\"?\\s*=>\\s*)'(?:[^']|'')*'", Pattern.CASE_INSENSITIVE);
+
+  /**
+   * A {@code "password": "..."} member of an input source given as JSON, such as the remote input source in
+   * {@code EXTERN}, whose value is a JSON string.
+   */
+  private static final Pattern PASSWORD_JSON_PATTERN =
+      Pattern.compile("(\"password\"\\s*:\\s*)\"(?:[^\"\\\\]|\\\\.)*\"", Pattern.CASE_INSENSITIVE);
+
+  /**
    * This method masks the sensitive json keys that might be present in the SQL query matching the regex
    * {@code key(\s)+:(\s)+{sensitive_data}}
    * The regex pattern matches a json entry of form "key":{value} and replaces it with {@code "key":<masked>}
@@ -73,7 +87,8 @@ public class MSQTaskQueryMakerUtils
         maskedSqlQuery.replace(start, end, "<masked>");
       }
     }
-    return maskedSqlQuery.toString();
+    final String masked = PASSWORD_ARGUMENT_PATTERN.matcher(maskedSqlQuery).replaceAll("$1'<masked>'");
+    return PASSWORD_JSON_PATTERN.matcher(masked).replaceAll("$1\"<masked>\"");
   }
 
   /**

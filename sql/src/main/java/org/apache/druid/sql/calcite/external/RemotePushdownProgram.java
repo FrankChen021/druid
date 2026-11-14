@@ -1,0 +1,1040 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.druid.sql.calcite.external;
+
+import com.google.common.collect.ImmutableList;
+import org.apache.calcite.avatica.util.Casing;
+import org.apache.calcite.config.NullCollation;
+import org.apache.calcite.linq4j.tree.Expressions;
+import org.apache.calcite.plan.RelOptCostImpl;
+import org.apache.calcite.plan.RelOptLattice;
+import org.apache.calcite.plan.RelOptMaterialization;
+import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.plan.hep.HepPlanner;
+import org.apache.calcite.plan.hep.HepProgram;
+import org.apache.calcite.plan.hep.HepProgramBuilder;
+import org.apache.calcite.prepare.RelOptTableImpl;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelShuttleImpl;
+import org.apache.calcite.rel.core.Aggregate;
+import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.rel.core.Filter;
+import org.apache.calcite.rel.core.Join;
+import org.apache.calcite.rel.core.Project;
+import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.calcite.rel.logical.LogicalProject;
+import org.apache.calcite.rel.logical.LogicalTableScan;
+import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
+import org.apache.calcite.rel.metadata.RelColumnOrigin;
+import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
+import org.apache.calcite.rel.rules.CoreRules;
+import org.apache.calcite.rel.rules.FilterJoinRule.FilterIntoJoinRule.FilterIntoJoinRuleConfig;
+import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule.JoinConditionPushRuleConfig;
+import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexCorrelVariable;
+import org.apache.calcite.rex.RexDynamicParam;
+import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
+import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexOver;
+import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.rex.RexSubQuery;
+import org.apache.calcite.rex.RexUtil;
+import org.apache.calcite.rex.RexVisitorImpl;
+import org.apache.calcite.schema.impl.AbstractTable;
+import org.apache.calcite.sql.SqlBasicTypeNameSpec;
+import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDataTypeSpec;
+import org.apache.calcite.sql.SqlDialect;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlNumericLiteral;
+import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
+import org.apache.calcite.sql.util.SqlShuttle;
+import org.apache.calcite.tools.Program;
+import org.apache.calcite.tools.Programs;
+import org.apache.calcite.util.Util;
+import org.apache.druid.data.input.impl.RemoteInputSource;
+import org.apache.druid.error.InvalidInput;
+import org.apache.druid.java.util.common.Intervals;
+import org.apache.druid.query.QueryContexts;
+import org.apache.druid.segment.column.ColumnHolder;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.sql.calcite.expression.builtin.MultiValueStringOperatorConversions;
+import org.apache.druid.sql.calcite.expression.builtin.MultiValueStringToArrayOperatorConversion;
+import org.apache.druid.sql.calcite.expression.builtin.TimestampToMillisOperatorConversion;
+import org.apache.druid.sql.calcite.planner.CalciteRulesManager;
+import org.apache.druid.sql.calcite.planner.Calcites;
+import org.apache.druid.sql.calcite.planner.PlannerConfig;
+import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.sql.calcite.rule.logical.DruidJoinRule;
+import org.apache.druid.sql.calcite.table.ExternalTable;
+import org.apache.druid.sql.calcite.table.RowSignatures;
+import org.joda.time.Interval;
+
+import javax.annotation.Nullable;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Plans reads of remote Druid tables by pushing as much of the query as possible to the source cluster.
+ * <p>
+ * A {@code REMOTE(...)} table, or an {@code EXTERN} of a {@code remote} input source without {@code sql}, is a
+ * reference to a datasource on another Druid cluster and cannot be read as it is. This program runs before the Volcano
+ * planner, and only for queries that contain such a table. For each one, it:
+ * <ol>
+ * <li>Before expression reduction, {@link #filterPushdownProgram()} moves filters above joins that have a remote input
+ * into the join inputs, and filters above projections over a remote input below them, so that the remote side can
+ * absorb them and they are reduced like other filters. Joins of local inputs are not changed.</li>
+ * <li>Collects the longest chain of {@link Project}, {@link Filter}, and {@link Aggregate} operators directly above
+ * the remote scan that the source can evaluate. The chain stops at operators that must run on the target: joins,
+ * sorts, {@code LIMIT}, window functions, subqueries, {@code LOOKUP} calls, which depend on the cluster's lookups,
+ * planner-generated aggregates such as {@code SINGLE_VALUE} that older sources may not support, and, without
+ * aggregation, expressions over string columns, which the source evaluates differently for multi-value inputs.</li>
+ * <li>Converts the chain to one source SELECT in Druid SQL. With an {@code EXTEND} schema, numeric columns are cast
+ * to their declared types. Reads without aggregation filter {@code __time} on two parameters, so that they can be
+ * split into time ranges, and request plain string columns with {@code MV_TO_ARRAY}, so that multi-value strings
+ * survive. Reads with aggregation run as one query, with any requested intervals as literal filters.</li>
+ * <li>Replaces the chain with an ordinary {@link ExternalTableScan} of the same {@link RemoteInputSource}, now
+ * carrying the source SQL, its output signature, and the source query context. Ingestion then streams that SELECT's
+ * result from the source's SQL API, and the operators above the scan run on the target as usual.</li>
+ * </ol>
+ * Because the rewrite happens before native query generation, EXPLAIN shows the plan that runs, including the
+ * source SQL.
+ */
+public class RemotePushdownProgram implements Program
+{
+  /**
+   * Query context keys copied as given to the source.
+   */
+  private static final List<String> FORWARDED_CONTEXT_KEYS =
+      List.of(QueryContexts.TIMEOUT_KEY, QueryContexts.PRIORITY_KEY);
+
+  /**
+   * Druid SQL accepts Calcite's default syntax with double-quoted, case-sensitive identifiers and no charsets.
+   */
+  static final SqlDialect DIALECT = new SqlDialect(
+      SqlDialect.EMPTY_CONTEXT
+          .withDatabaseProduct(SqlDialect.DatabaseProduct.CALCITE)
+          .withIdentifierQuoteString("\"")
+          .withLiteralQuoteString("'")
+          .withLiteralEscapedQuoteString("''")
+          .withUnquotedCasing(Casing.UNCHANGED)
+          .withQuotedCasing(Casing.UNCHANGED)
+          .withCaseSensitive(true)
+          .withNullCollation(NullCollation.HIGH)
+  )
+  {
+    @Override
+    public boolean supportsCharSet()
+    {
+      return false;
+    }
+  };
+
+  private final PlannerContext plannerContext;
+
+  public RemotePushdownProgram(final PlannerContext plannerContext)
+  {
+    this.plannerContext = plannerContext;
+  }
+
+  @Override
+  public RelNode run(
+      final RelOptPlanner planner,
+      final RelNode rel,
+      final RelTraitSet requiredOutputTraits,
+      final List<RelOptMaterialization> materializations,
+      final List<RelOptLattice> lattices
+  )
+  {
+    validateRemoteScans(rel);
+    return containsRemoteScan(rel) ? rewrite(rel) : rel;
+  }
+
+  /**
+   * Returns a program that moves filters toward remote inputs, so that the remote reads can absorb them. It runs
+   * before expression reduction, so that the moved filters are reduced like any other; for example, a column fixed
+   * by an equality filter is replaced by its value in the projections above.
+   */
+  public static Program filterPushdownProgram()
+  {
+    return (planner, rel, requiredOutputTraits, materializations, lattices) -> {
+      if (!containsRemoteScan(rel)) {
+        return rel;
+      }
+      final HepProgramBuilder builder = HepProgram.builder();
+      builder.addMatchLimit(CalciteRulesManager.HEP_DEFAULT_MATCH_LIMIT);
+      // The rules run as a group until none applies, since moving a filter below a projection can place it above a
+      // join, and the other way around.
+      builder.addGroupBegin();
+      // Move filters above joins with a remote input into the join inputs. Joins of local inputs are left alone, as
+      // are join conditions that Druid cannot evaluate.
+      builder.addRuleInstance(
+          FilterIntoJoinRuleConfig.DEFAULT
+              .withOperandSupplier(
+                  b0 -> b0.operand(Filter.class)
+                          .oneInput(b1 -> b1.operand(Join.class)
+                                            .predicate(RemotePushdownProgram::hasRemoteInput)
+                                            .anyInputs())
+              )
+              .as(FilterIntoJoinRuleConfig.class)
+              .withPredicate(DruidJoinRule::isSupportedPredicate)
+              .toRule()
+      );
+      builder.addRuleInstance(
+          JoinConditionPushRuleConfig.DEFAULT
+              .withOperandSupplier(
+                  b0 -> b0.operand(Join.class).predicate(RemotePushdownProgram::hasRemoteInput).anyInputs()
+              )
+              .as(JoinConditionPushRuleConfig.class)
+              .withPredicate(DruidJoinRule::isSupportedPredicate)
+              .toRule()
+      );
+      // Move filters below projections over a remote input, so that they are pushed down even when a projection
+      // above the remote scan must run on the target.
+      builder.addRuleInstance(
+          FilterProjectTransposeRule.Config.DEFAULT
+              .withOperandSupplier(
+                  b0 -> b0.operand(Filter.class)
+                          .predicate(filter -> !RexUtil.containsCorrelation(filter.getCondition()))
+                          .oneInput(b1 -> b1.operand(Project.class)
+                                            .predicate(RemotePushdownProgram::containsRemoteScan)
+                                            .anyInputs())
+              )
+              .as(FilterProjectTransposeRule.Config.class)
+              .toRule()
+      );
+      builder.addGroupEnd();
+      return withMultiValueEqualities(
+          Programs.of(builder.build(), true, DefaultRelMetadataProvider.INSTANCE)
+                  .run(planner, rel, requiredOutputTraits, materializations, lattices)
+      );
+    };
+  }
+
+  /**
+   * Replaces equality filters on string columns of remote tables, such as {@code dim3 = 'b'}, with
+   * {@code MV_CONTAINS(dim3, 'b')}, which matches the same rows. Expression reduction would otherwise use the equality
+   * to replace the column by its value in the projections above, and a multi-value row such as {@code ['a', 'b']} would
+   * be read as just {@code 'b'}.
+   */
+  private static RelNode withMultiValueEqualities(final RelNode rel)
+  {
+    return rel.accept(new RelShuttleImpl()
+    {
+      @Override
+      public RelNode visit(final LogicalFilter filter)
+      {
+        final LogicalFilter visited = (LogicalFilter) super.visit(filter);
+        final RexBuilder rexBuilder = visited.getCluster().getRexBuilder();
+        final RexNode condition = visited.getCondition().accept(new RexShuttle()
+        {
+          @Override
+          public RexNode visitCall(final RexCall call)
+          {
+            final RexCall visitedCall = (RexCall) super.visitCall(call);
+            if (visitedCall.getKind() != SqlKind.EQUALS) {
+              return visitedCall;
+            }
+            final RexNode left = visitedCall.getOperands().get(0);
+            final RexNode right = visitedCall.getOperands().get(1);
+            final RexNode column = left instanceof RexInputRef ? left : right;
+            final RexNode value = column == left ? right : left;
+            if (column instanceof RexInputRef ref
+                && SqlTypeUtil.isCharacter(ref.getType())
+                && value instanceof RexLiteral literal
+                && SqlTypeUtil.isCharacter(literal.getType())
+                && !RexLiteral.isNullLiteral(literal)
+                && isRemoteColumn(visited.getInput(), ref.getIndex())) {
+              return rexBuilder.makeCall(
+                  MultiValueStringOperatorConversions.CONTAINS.calciteOperator(),
+                  column,
+                  value
+              );
+            }
+            return visitedCall;
+          }
+        });
+        return condition == visited.getCondition()
+               ? visited
+               : visited.copy(visited.getTraitSet(), visited.getInput(), condition);
+      }
+    });
+  }
+
+  /**
+   * Whether a field of {@code node} is a column of a remote table, passed through projections and filters unchanged.
+   */
+  private static boolean isRemoteColumn(final RelNode node, final int index)
+  {
+    final RelNode rel = node.stripped();
+    if (isRemoteScan(rel)) {
+      return true;
+    }
+    if (rel instanceof Project project) {
+      return project.getProjects().get(index) instanceof RexInputRef ref
+             && isRemoteColumn(project.getInput(), ref.getIndex());
+    }
+    if (rel instanceof Filter filter) {
+      return isRemoteColumn(filter.getInput(), index);
+    }
+    return false;
+  }
+
+  /**
+   * Checks the remote tables of {@code EXTERN} specs as {@code REMOTE} checks its own. A remote read that already has
+   * its SQL, which is read as it is and need not return {@code __time}, must declare the signature of its SQL: the
+   * reader requires the result to have exactly those columns, in that order.
+   */
+  private static void validateRemoteScans(final RelNode node)
+  {
+    final RelNode rel = node.stripped();
+    if (rel instanceof ExternalTableScan scan
+        && scan.getDruidTable().getDataSource() instanceof ExternalDataSource dataSource
+        && dataSource.getInputSource() instanceof RemoteInputSource remote) {
+      if (remote.getSql() == null) {
+        RemoteOperatorConversion.validateSignature(dataSource.getSignature());
+      } else if (!remote.getSignature().equals(dataSource.getSignature())) {
+        throw InvalidInput.exception(
+            "A remote read with sql must declare its signature %s, but declares %s",
+            remote.getSignature(),
+            dataSource.getSignature()
+        );
+      }
+    }
+    for (final RelNode input : rel.getInputs()) {
+      validateRemoteScans(input);
+    }
+  }
+
+  private static boolean hasRemoteInput(final Join join)
+  {
+    return containsRemoteScan(join.getLeft()) || containsRemoteScan(join.getRight());
+  }
+
+  private static boolean containsRemoteScan(final RelNode node)
+  {
+    final RelNode rel = node.stripped();
+    if (isRemoteScan(rel)) {
+      return true;
+    }
+    for (final RelNode input : rel.getInputs()) {
+      if (containsRemoteScan(input)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private RelNode rewrite(final RelNode node)
+  {
+    final List<RelNode> chain = pushableChain(node);
+    if (chain != null) {
+      return pushDown(chain);
+    }
+
+    boolean changed = false;
+    final List<RelNode> newInputs = new ArrayList<>(node.getInputs().size());
+    for (final RelNode input : node.getInputs()) {
+      final RelNode newInput = rewrite(input);
+      changed |= newInput != input;
+      newInputs.add(newInput);
+    }
+    return changed ? node.copy(node.getTraitSet(), newInputs) : node;
+  }
+
+  /**
+   * Returns the operators from {@code node} down to a remote scan, top first, if all of them can run on the source.
+   */
+  @Nullable
+  private static List<RelNode> pushableChain(final RelNode node)
+  {
+    final List<RelNode> chain = new ArrayList<>();
+    RelNode current = node;
+    while (!isRemoteScan(current)) {
+      if (!isPushable(current)) {
+        return null;
+      }
+      chain.add(current);
+      current = current.getInput(0);
+    }
+    chain.add(current);
+    if (chain.stream().noneMatch(rel -> rel instanceof Aggregate)
+        && chain.stream().anyMatch(RemotePushdownProgram::computesFromString)) {
+      // Rewriting starts again below this node, so the expression over a string column runs on the target.
+      return null;
+    }
+    return chain;
+  }
+
+  /**
+   * Whether a projection computes a value from a string column. Without aggregation, a multi-value input would reach
+   * the expression as several values: the source returns a string result as JSON-encoded text and fails to coerce
+   * other results, while the target evaluates the expression as Druid does for multi-value strings.
+   */
+  private static boolean computesFromString(final RelNode node)
+  {
+    if (!(node instanceof Project project)) {
+      return false;
+    }
+    final List<RelDataTypeField> inputFields = project.getInput().getRowType().getFieldList();
+    for (final RexNode expression : project.getProjects()) {
+      if (expression instanceof RexInputRef) {
+        continue;
+      }
+      for (final int index : RelOptUtil.InputFinder.bits(expression)) {
+        if (SqlTypeUtil.isCharacter(inputFields.get(index).getType())) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private static boolean isRemoteScan(final RelNode node)
+  {
+    return node instanceof ExternalTableScan scan
+           && scan.getDruidTable().getDataSource() instanceof ExternalDataSource dataSource
+           && dataSource.getInputSource() instanceof RemoteInputSource remote
+           // A read that already has its SQL, such as one written in an EXTERN spec, is read as it is.
+           && remote.getSql() == null;
+  }
+
+  private static boolean isPushable(final RelNode node)
+  {
+    final List<RexNode> expressions;
+    if (node instanceof Project project) {
+      expressions = project.getProjects();
+    } else if (node instanceof Filter filter) {
+      expressions = List.of(filter.getCondition());
+    } else if (node instanceof Aggregate aggregate) {
+      if (aggregate.getGroupType() != Aggregate.Group.SIMPLE) {
+        return false;
+      }
+      for (final AggregateCall call : aggregate.getAggCallList()) {
+        if (!call.getCollation().getFieldCollations().isEmpty() || call.rexList != null && !call.rexList.isEmpty()) {
+          return false;
+        }
+        // Planner-generated aggregates, such as SINGLE_VALUE for scalar subqueries, may not exist in older sources.
+        final SqlKind kind = call.getAggregation().getKind();
+        if (kind == SqlKind.SINGLE_VALUE || kind == SqlKind.SUM0) {
+          return false;
+        }
+      }
+      expressions = List.of();
+    } else {
+      return false;
+    }
+
+    for (final RexNode expression : expressions) {
+      if (!isPushable(expression)) {
+        return false;
+      }
+    }
+    return hasSupportedTypes(node.getRowType());
+  }
+
+  private static boolean isPushable(final RexNode expression)
+  {
+    final boolean[] pushable = {true};
+    expression.accept(new RexVisitorImpl<Void>(true)
+    {
+      @Override
+      public Void visitCall(final RexCall call)
+      {
+        // Lookups are configured per cluster, so the source might resolve them differently.
+        if ("LOOKUP".equalsIgnoreCase(call.getOperator().getName())) {
+          pushable[0] = false;
+        }
+        return super.visitCall(call);
+      }
+
+      @Override
+      public Void visitOver(final RexOver over)
+      {
+        pushable[0] = false;
+        return null;
+      }
+
+      @Override
+      public Void visitSubQuery(final RexSubQuery subQuery)
+      {
+        pushable[0] = false;
+        return null;
+      }
+
+      @Override
+      public Void visitCorrelVariable(final RexCorrelVariable correlVariable)
+      {
+        pushable[0] = false;
+        return null;
+      }
+
+      @Override
+      public Void visitDynamicParam(final RexDynamicParam dynamicParam)
+      {
+        pushable[0] = false;
+        return null;
+      }
+    });
+    return pushable[0];
+  }
+
+  private static boolean hasSupportedTypes(final RelDataType rowType)
+  {
+    final RowSignature signature = RowSignatures.fromRelDataType(rowType.getFieldNames(), rowType);
+    for (final String column : signature.getColumnNames()) {
+      final ColumnType type = signature.getColumnType(column).orElse(null);
+      if (type == null || !(type.isPrimitive() || type.isPrimitiveArray())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private RelNode pushDown(final List<RelNode> chain)
+  {
+    final ExternalTableScan remoteScan = (ExternalTableScan) chain.get(chain.size() - 1);
+    final RemoteInputSource remote =
+        (RemoteInputSource) ((ExternalDataSource) remoteScan.getDruidTable().getDataSource()).getInputSource();
+    final RelNode top = chain.get(0);
+    // Without aggregation, results for disjoint time ranges can be read independently and concatenated.
+    final boolean timeRangeParameters = chain.stream().noneMatch(node -> node instanceof Aggregate);
+
+    RelNode source = sourceLeaf(remoteScan, remote, timeRangeParameters);
+    for (int i = chain.size() - 2; i >= 0; i--) {
+      source = chain.get(i).copy(chain.get(i).getTraitSet(), List.of(source));
+    }
+    source = flatten(source);
+    final RelDataType rowType = top.getRowType();
+    final String sql = toSql(
+        withFieldNames(withResultEncodings(source, timeRangeParameters), rowType.getFieldNames()),
+        remoteScan.getRowType()
+    );
+
+    final RowSignature signature = RowSignatures.fromRelDataType(rowType.getFieldNames(), rowType);
+    // The source returns timestamps as epoch milliseconds, so there are no timestamp strings to parse.
+    final RemoteInputSource inputSource = remote.withPlannedQuery(
+        sql,
+        timeRangeParameters,
+        signature,
+        List.of(),
+        sourceContext(),
+        timeRangeParameters ? filteredTimeRange(source) : null
+    );
+    final ExternalTable table = new RemoteSqlTable(
+        new ExternalDataSource(inputSource, null, signature),
+        signature,
+        plannerContext,
+        rowType
+    );
+    return new ExternalTableScan(remoteScan.getCluster(), plannerContext.getJsonMapper(), table);
+  }
+
+  /**
+   * Creates the source table scan, filtered to the requested time range.
+   */
+  private RelNode sourceLeaf(
+      final ExternalTableScan remoteScan,
+      final RemoteInputSource remote,
+      final boolean timeRangeParameters
+  )
+  {
+    final RelDataType declaredRowType = remoteScan.getRowType();
+    // A discovered schema has the source's own types, so only declared types need casts.
+    final boolean cast = remote.isDeclaredSchema();
+    final RelDataType tableRowType = cast
+                                     ? sourceTableRowType(declaredRowType, remoteScan.getCluster().getTypeFactory())
+                                     : declaredRowType;
+    final RelOptTableImpl table = RelOptTableImpl.create(
+        null,
+        tableRowType,
+        ImmutableList.of(remote.getDataSource()),
+        Expressions.constant(new AbstractTable()
+        {
+          @Override
+          public RelDataType getRowType(final RelDataTypeFactory typeFactory)
+          {
+            return tableRowType;
+          }
+        })
+    );
+    final RelNode scan = LogicalTableScan.create(remoteScan.getCluster(), table, ImmutableList.of());
+    final RelNode filtered = withTimeRange(scan, remote, timeRangeParameters);
+    return cast ? withDeclaredTypes(filtered, declaredRowType) : filtered;
+  }
+
+  /**
+   * The source table as the source SQL sees it: declared numeric columns, other than {@code __time}, have type {@code
+   * ANY}, so that the casts to their declared types are real conversions that rule simplification keeps.
+   */
+  private static RelDataType sourceTableRowType(final RelDataType declaredRowType, final RelDataTypeFactory typeFactory)
+  {
+    final RelDataTypeFactory.Builder builder = typeFactory.builder();
+    for (final RelDataTypeField field : declaredRowType.getFieldList()) {
+      builder.add(
+          field.getName(),
+          isCastToDeclaredType(field)
+          ? typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.ANY), true)
+          : field.getType()
+      );
+    }
+    return builder.build();
+  }
+
+  private static boolean isCastToDeclaredType(final RelDataTypeField field)
+  {
+    return SqlTypeUtil.isNumeric(field.getType()) && !ColumnHolder.TIME_COLUMN_NAME.equals(field.getName());
+  }
+
+  /**
+   * Filters the source table to the requested time range.
+   */
+  private static RelNode withTimeRange(
+      final RelNode scan,
+      final RemoteInputSource remote,
+      final boolean timeRangeParameters
+  )
+  {
+    if (!timeRangeParameters && remote.getIntervals() == null) {
+      return scan;
+    }
+    final int timeColumn = scan.getRowType().getFieldNames().indexOf(ColumnHolder.TIME_COLUMN_NAME);
+    if (timeColumn < 0) {
+      throw InvalidInput.exception("REMOTE tables must include the [%s] column", ColumnHolder.TIME_COLUMN_NAME);
+    }
+
+    final RexBuilder rexBuilder = scan.getCluster().getRexBuilder();
+    final RelDataType bigint = rexBuilder.getTypeFactory().createSqlType(SqlTypeName.BIGINT);
+    final RexNode condition;
+    if (timeRangeParameters) {
+      condition = timeRange(
+          rexBuilder,
+          rexBuilder.makeInputRef(scan, timeColumn),
+          rexBuilder.makeDynamicParam(bigint, 0),
+          rexBuilder.makeDynamicParam(bigint, 1)
+      );
+    } else {
+      final List<RexNode> ranges = new ArrayList<>();
+      for (final Interval interval : remote.getIntervals()) {
+        if (Intervals.isEternity(interval)) {
+          return scan;
+        }
+        ranges.add(timeRange(
+            rexBuilder,
+            rexBuilder.makeInputRef(scan, timeColumn),
+            rexBuilder.makeExactLiteral(BigDecimal.valueOf(interval.getStartMillis()), bigint),
+            rexBuilder.makeExactLiteral(BigDecimal.valueOf(interval.getEndMillis()), bigint)
+        ));
+      }
+      condition = RexUtil.composeDisjunction(rexBuilder, ranges);
+    }
+    return LogicalFilter.create(scan, condition);
+  }
+
+  /**
+   * Casts declared numeric columns, so that the source evaluates pushed-down operators with the declared types even if
+   * its own column types differ. {@code __time} and string columns are used as they are on the source. The result has
+   * the declared row type, so the pushed-down operators above it are unchanged.
+   */
+  private static RelNode withDeclaredTypes(final RelNode input, final RelDataType declaredRowType)
+  {
+    final RexBuilder rexBuilder = input.getCluster().getRexBuilder();
+    final List<RexNode> projects = new ArrayList<>();
+    boolean cast = false;
+    for (final RelDataTypeField field : declaredRowType.getFieldList()) {
+      final RexNode column = rexBuilder.makeInputRef(input, field.getIndex());
+      if (isCastToDeclaredType(field)) {
+        projects.add(rexBuilder.makeAbstractCast(field.getType(), column, false));
+        cast = true;
+      } else {
+        projects.add(column);
+      }
+    }
+    return cast ? LogicalProject.create(input, List.of(), projects, declaredRowType.getFieldNames(), Set.of()) : input;
+  }
+
+  /**
+   * Merges adjacent filters and projections, and moves filters below projections, so that the source SQL nests no
+   * more subqueries than its aggregation needs.
+   */
+  private static RelNode flatten(final RelNode source)
+  {
+    final HepProgramBuilder builder = HepProgram.builder();
+    builder.addMatchLimit(CalciteRulesManager.HEP_DEFAULT_MATCH_LIMIT);
+    builder.addRuleInstance(CoreRules.FILTER_PROJECT_TRANSPOSE);
+    builder.addRuleInstance(CoreRules.FILTER_MERGE);
+    builder.addRuleInstance(CoreRules.PROJECT_MERGE);
+    builder.addRuleInstance(CoreRules.PROJECT_REMOVE);
+    final HepPlanner planner = new HepPlanner(builder.build(), null, true, null, RelOptCostImpl.FACTORY);
+    planner.setRoot(source);
+    return planner.findBestExp();
+  }
+
+  /**
+   * Compares {@code __time} in epoch milliseconds. Comparing with timestamps would convert the bounds through the
+   * session time zone, which is ambiguous when clocks are set back.
+   */
+  private static RexNode timeRange(
+      final RexBuilder rexBuilder,
+      final RexNode time,
+      final RexNode startMillis,
+      final RexNode endMillis
+  )
+  {
+    final RexNode millis = rexBuilder.makeCall(new TimestampToMillisOperatorConversion().calciteOperator(), time);
+    return rexBuilder.makeCall(
+        SqlStdOperatorTable.AND,
+        rexBuilder.makeCall(SqlStdOperatorTable.GREATER_THAN_OR_EQUAL, millis, startMillis),
+        rexBuilder.makeCall(SqlStdOperatorTable.LESS_THAN, millis, endMillis)
+    );
+  }
+
+  /**
+   * Converts outputs to the forms that the reader reads cheaply and without loss:
+   * <ul>
+   * <li>Timestamps and dates are returned as epoch milliseconds with {@code TIMESTAMP_TO_MILLIS}, since Druid SQL
+   * would otherwise format them as ISO-8601 text that the reader must parse.</li>
+   * <li>With {@code multiValueArrays}, string outputs that are source columns, unchanged, are wrapped in
+   * {@code MV_TO_ARRAY}. Druid SQL returns multi-value strings as JSON-encoded text, while arrays arrive as JSON arrays
+   * that the reader turns back into multi-value values. {@code MV_TO_ARRAY} only accepts columns, so computed strings,
+   * which here never derive from string columns, are returned as they are. Grouping returns one row per value of a
+   * multi-value string, so only reads without aggregation need this.</li>
+   * </ul>
+   */
+  private static RelNode withResultEncodings(final RelNode source, final boolean multiValueArrays)
+  {
+    final RelMetadataQuery metadataQuery = source.getCluster().getMetadataQuery();
+    final RexBuilder rexBuilder = source.getCluster().getRexBuilder();
+    final RelDataType timestampType = source.getCluster().getTypeFactory().createSqlType(SqlTypeName.TIMESTAMP);
+    final List<RexNode> projects = new ArrayList<>();
+    boolean changed = false;
+    for (final RelDataTypeField field : source.getRowType().getFieldList()) {
+      final RexNode column = rexBuilder.makeInputRef(source, field.getIndex());
+      final SqlTypeName typeName = field.getType().getSqlTypeName();
+      if (typeName == SqlTypeName.TIMESTAMP
+          || typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
+          || typeName == SqlTypeName.DATE) {
+        final RexNode timestamp = typeName == SqlTypeName.TIMESTAMP
+                                  ? column
+                                  : rexBuilder.makeCast(
+                                      rexBuilder.getTypeFactory()
+                                                .createTypeWithNullability(timestampType, field.getType().isNullable()),
+                                      column
+                                  );
+        projects.add(rexBuilder.makeCall(new TimestampToMillisOperatorConversion().calciteOperator(), timestamp));
+        changed = true;
+        continue;
+      }
+      final Set<RelColumnOrigin> origins = multiValueArrays
+                                           ? metadataQuery.getColumnOrigins(source, field.getIndex())
+                                           : null;
+      if (SqlTypeUtil.isCharacter(field.getType())
+          && origins != null
+          && origins.size() == 1
+          && !origins.iterator().next().isDerived()) {
+        projects.add(rexBuilder.makeCall(MultiValueStringToArrayOperatorConversion.SQL_FUNCTION, column));
+        changed = true;
+      } else {
+        projects.add(column);
+      }
+    }
+    if (!changed) {
+      return source;
+    }
+    return LogicalProject.create(source, List.of(), projects, source.getRowType().getFieldNames(), Set.of());
+  }
+
+  /**
+   * Returns the {@code __time} range that the filters of a read without aggregation allow, so that the read is split
+   * only over that range, or null if the filters do not bound {@code __time}. Only top-level conjuncts that compare the
+   * source {@code __time} with a timestamp literal are used, so the range always covers every matching row; the source
+   * SQL still applies the filters themselves.
+   */
+  @Nullable
+  private Interval filteredTimeRange(final RelNode source)
+  {
+    final RexBuilder rexBuilder = source.getCluster().getRexBuilder();
+    final RelMetadataQuery metadataQuery = source.getCluster().getMetadataQuery();
+    long start = Long.MIN_VALUE;
+    long end = Long.MAX_VALUE;
+    boolean bounded = false;
+    for (RelNode node = source; node.getInputs().size() == 1; node = node.getInput(0)) {
+      if (!(node instanceof Filter filter)) {
+        continue;
+      }
+      final RexNode condition = RexUtil.expandSearch(rexBuilder, null, filter.getCondition());
+      for (final RexNode conjunct : RelOptUtil.conjunctions(condition)) {
+        if (!(conjunct instanceof RexCall call) || call.getOperands().size() != 2) {
+          continue;
+        }
+        final boolean timeFirst = isSourceTime(metadataQuery, filter.getInput(), call.getOperands().get(0));
+        final RexNode other = call.getOperands().get(timeFirst ? 1 : 0);
+        if (!(timeFirst || isSourceTime(metadataQuery, filter.getInput(), call.getOperands().get(1)))
+            || !(other instanceof RexLiteral)
+            || other.getType().getSqlTypeName() != SqlTypeName.TIMESTAMP) {
+          continue;
+        }
+        final long millis = Calcites.calciteDateTimeLiteralToJoda(other, plannerContext.getTimeZone()).getMillis();
+        final SqlKind kind = timeFirst ? call.getKind() : call.getKind().reverse();
+        switch (kind) {
+          case GREATER_THAN -> start = Math.max(start, millis + 1);
+          case GREATER_THAN_OR_EQUAL -> start = Math.max(start, millis);
+          case LESS_THAN -> end = Math.min(end, millis);
+          case LESS_THAN_OR_EQUAL -> end = Math.min(end, millis + 1);
+          case EQUALS -> {
+            start = Math.max(start, millis);
+            end = Math.min(end, millis + 1);
+          }
+          default -> {
+            continue;
+          }
+        }
+        bounded = true;
+      }
+    }
+    if (!bounded) {
+      return null;
+    }
+    final long clampedStart = Math.max(start, Intervals.ETERNITY.getStartMillis());
+    final long clampedEnd = Math.min(end, Intervals.ETERNITY.getEndMillis());
+    return Intervals.utc(clampedStart, Math.max(clampedStart, clampedEnd));
+  }
+
+  private static boolean isSourceTime(final RelMetadataQuery metadataQuery, final RelNode input, final RexNode node)
+  {
+    if (!(node instanceof RexInputRef ref)) {
+      return false;
+    }
+    final Set<RelColumnOrigin> origins = metadataQuery.getColumnOrigins(input, ref.getIndex());
+    if (origins == null || origins.size() != 1) {
+      return false;
+    }
+    final RelColumnOrigin origin = origins.iterator().next();
+    return !origin.isDerived()
+           && ColumnHolder.TIME_COLUMN_NAME.equals(
+               origin.getOriginTable().getRowType().getFieldNames().get(origin.getOriginColumnOrdinal())
+           );
+  }
+
+  /**
+   * Names the outputs of the source fragment as the replaced operators named them. Flattening drops projections that
+   * only rename columns, but the reader requires the source to return the planned names.
+   */
+  private static RelNode withFieldNames(final RelNode source, final List<String> names)
+  {
+    if (source.getRowType().getFieldNames().equals(names)) {
+      return source;
+    }
+    if (source instanceof Project project) {
+      return LogicalProject.create(project.getInput(), List.of(), project.getProjects(), names, Set.of());
+    }
+    final RexBuilder rexBuilder = source.getCluster().getRexBuilder();
+    final List<RexNode> projects = new ArrayList<>();
+    for (int i = 0; i < names.size(); i++) {
+      projects.add(rexBuilder.makeInputRef(source, i));
+    }
+    return LogicalProject.create(source, List.of(), projects, names, Set.of());
+  }
+
+  /**
+   * Converts the source fragment to Druid SQL, listing source columns explicitly, since {@code SELECT *} on the source
+   * table would return every remote column rather than the declared ones.
+   */
+  static String toSql(final RelNode source, final RelDataType tableRowType)
+  {
+    final SqlNode sqlNode = new RelToSqlConverter(DIALECT).visitRoot(source).asStatement();
+    final SqlNode expanded = sqlNode.accept(new SqlShuttle()
+    {
+      @Override
+      public SqlNode visit(final SqlCall call)
+      {
+        if (call instanceof SqlSelect select && isTableReference(select.getFrom())) {
+          final SqlNodeList selectList = select.getSelectList();
+          if (selectList == null || (selectList.size() == 1 && isStar(selectList.get(0)))) {
+            final SqlNodeList columns = new SqlNodeList(SqlParserPos.ZERO);
+            for (final String column : tableRowType.getFieldNames()) {
+              columns.add(new SqlIdentifier(column, SqlParserPos.QUOTED_ZERO));
+            }
+            select.setSelectList(columns);
+          }
+        }
+        if (call instanceof SqlSelect select && select.getGroup() != null) {
+          select.setGroupBy(withoutOrdinals(select.getGroup()));
+        }
+        if (call instanceof SqlSelect select && select.getHaving() != null) {
+          // Druid resolves a name in HAVING to a select alias before a column of the same name, so qualify the
+          // columns, which are what the converter means, to keep them from referring to an alias.
+          select.setHaving(qualifyColumns(select.getHaving(), fromName(select.getFrom())));
+        }
+        return super.visit(call);
+      }
+
+      @Override
+      public SqlNode visit(final SqlIdentifier identifier)
+      {
+        // Calcite leaves "safe" identifiers unquoted, but an unquoted column such as `user` would be parsed by the
+        // source as the USER function. Quote every name so the source reads exactly the columns planned here.
+        if (identifier.isStar()) {
+          return identifier;
+        }
+        return new SqlIdentifier(
+            identifier.names,
+            null,
+            SqlParserPos.QUOTED_ZERO,
+            Collections.nCopies(identifier.names.size(), SqlParserPos.QUOTED_ZERO)
+        );
+      }
+    });
+    return expanded.toSqlString(DIALECT).getSql();
+  }
+
+  private static boolean isTableReference(@Nullable final SqlNode from)
+  {
+    if (from instanceof SqlIdentifier) {
+      return true;
+    }
+    return from instanceof SqlCall call && call.getKind() == SqlKind.AS && call.operand(0) instanceof SqlIdentifier;
+  }
+
+  /**
+   * Casts numeric constants among grouping keys, which Druid would otherwise read as positions in the select list.
+   */
+  private static SqlNodeList withoutOrdinals(final SqlNodeList group)
+  {
+    final SqlNodeList keys = new SqlNodeList(group.getParserPosition());
+    for (final SqlNode key : group) {
+      if (key instanceof SqlNumericLiteral literal) {
+        final SqlTypeName type = literal.isExact() && literal.getScale() == 0 ? SqlTypeName.BIGINT : SqlTypeName.DOUBLE;
+        keys.add(SqlStdOperatorTable.CAST.createCall(
+            SqlParserPos.ZERO,
+            literal,
+            new SqlDataTypeSpec(new SqlBasicTypeNameSpec(type, SqlParserPos.ZERO), SqlParserPos.ZERO)
+        ));
+      } else {
+        keys.add(key);
+      }
+    }
+    return keys;
+  }
+
+  /**
+   * Returns the name that qualifies the columns of a FROM item: the alias of an aliased table or subquery, or the
+   * table name.
+   */
+  private static String fromName(final SqlNode from)
+  {
+    if (from instanceof SqlCall call && call.getKind() == SqlKind.AS) {
+      return ((SqlIdentifier) call.operand(1)).getSimple();
+    }
+    if (from instanceof SqlIdentifier identifier) {
+      return Util.last(identifier.names);
+    }
+    throw new IllegalStateException("Unexpected FROM item in pushed-down SQL: " + from);
+  }
+
+  private static SqlNode qualifyColumns(final SqlNode node, final String tableName)
+  {
+    return node.accept(new SqlShuttle()
+    {
+      @Override
+      public SqlNode visit(final SqlIdentifier identifier)
+      {
+        return identifier.isSimple()
+               ? new SqlIdentifier(List.of(tableName, identifier.getSimple()), SqlParserPos.ZERO)
+               : identifier;
+      }
+    });
+  }
+
+  private static boolean isStar(final SqlNode node)
+  {
+    return node instanceof SqlIdentifier identifier && identifier.isStar();
+  }
+
+  private Map<String, Object> sourceContext()
+  {
+    final Map<String, Object> context = new HashMap<>();
+    for (final String key : FORWARDED_CONTEXT_KEYS) {
+      final Object value = plannerContext.queryContextMap().get(key);
+      if (value != null) {
+        context.put(key, value);
+      }
+    }
+    // Plan aggregations as the target would, using its effective settings rather than only those in the context.
+    final PlannerConfig plannerConfig = plannerContext.getPlannerConfig();
+    context.put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_COUNT_DISTINCT, plannerConfig.isUseApproximateCountDistinct());
+    context.put(PlannerConfig.CTX_KEY_USE_APPROXIMATE_TOPN, plannerConfig.isUseApproximateTopN());
+    context.put(
+        PlannerConfig.CTX_KEY_USE_GROUPING_SET_FOR_EXACT_DISTINCT,
+        plannerConfig.isUseGroupingSetForExactDistinct()
+    );
+    // Evaluate time functions and CURRENT_TIMESTAMP on the source as the target would.
+    context.put(PlannerContext.CTX_SQL_TIME_ZONE, plannerContext.getTimeZone().getID());
+    context.put(PlannerContext.CTX_SQL_CURRENT_TIMESTAMP, plannerContext.getLocalNow().toString());
+    return context;
+  }
+
+  /**
+   * An external table whose row type is the pushed-down fragment's, so that operators above it are unchanged.
+   */
+  private static class RemoteSqlTable extends ExternalTable
+  {
+    private final RelDataType rowType;
+
+    RemoteSqlTable(
+        final ExternalDataSource dataSource,
+        final RowSignature signature,
+        final PlannerContext plannerContext,
+        final RelDataType rowType
+    )
+    {
+      super(dataSource, signature, plannerContext.getJsonMapper(), dataSource.getInputSource()::getTypes);
+      this.rowType = rowType;
+    }
+
+    @Override
+    public RelDataType getRowType(final RelDataTypeFactory typeFactory)
+    {
+      return rowType;
+    }
+  }
+}

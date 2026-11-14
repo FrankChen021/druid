@@ -33,6 +33,7 @@ import org.apache.druid.msq.sql.MSQTaskSqlEngine;
 import org.apache.druid.sql.SqlStatementFactory;
 import org.apache.druid.sql.SqlToolbox;
 import org.apache.druid.sql.calcite.external.ExternalOperatorConversion;
+import org.apache.druid.sql.calcite.external.RemoteOperatorConversion;
 import org.apache.druid.sql.guice.SqlBindings;
 
 import java.util.List;
@@ -62,6 +63,7 @@ public class MSQSqlModule implements DruidModule
 
     // Set up the EXTERN macro.
     SqlBindings.addOperatorConversion(binder, ExternalOperatorConversion.class);
+    SqlBindings.addOperatorConversion(binder, RemoteOperatorConversion.class);
   }
 
   @Provides
