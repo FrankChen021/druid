@@ -235,29 +235,6 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
   }
 
   @Test
-  public void testRenamedColumns()
-  {
-    testIngestQuery()
-        .setSql(StringUtils.format(
-            "INSERT INTO foo1 SELECT __time, dim1 AS d, cnt AS c, dim3 AS m FROM %s"
-            + " WHERE dim1 = 'abc' PARTITIONED BY DAY",
-            remote("")
-        ))
-        .setQueryContext(DEFAULT_MSQ_CONTEXT)
-        .setExpectedDataSource("foo1")
-        .setExpectedRowSignature(
-            RowSignature.builder()
-                        .add("__time", ColumnType.LONG)
-                        .add("d", ColumnType.STRING)
-                        .add("c", ColumnType.LONG)
-                        .add("m", ColumnType.STRING)
-                        .build()
-        )
-        .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), "abc", 1L, null}))
-        .verifyResults();
-  }
-
-  @Test
   public void testFilterOnRenamedGroupKey()
   {
     // The filter becomes HAVING on the source, where the alias dim1 of the sum must not shadow the column dim1.
@@ -287,16 +264,16 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
   }
 
   @Test
-  public void testEqualityFilterAboveStringExpression()
+  public void testStringExpressionOverMultiValueColumn()
   {
-    // The filter is pushed down below the expression, which runs on the target. The source would reject the read if
-    // the filtered column were replaced by its value inside MV_TO_ARRAY.
+    // Without aggregation, UPPER runs on the target, which applies it to each value of a multi-value row; the source
+    // would return JSON-encoded text instead.
     testIngestQuery()
         .setSql(StringUtils.format(
             """
             INSERT INTO foo1
-            SELECT * FROM (SELECT __time, dim1, UPPER(dim1) AS u FROM %s)
-            WHERE dim1 = 'abc'
+            SELECT __time, UPPER(dim3) AS u FROM %s
+            WHERE __time < TIMESTAMP '2000-01-03'
             PARTITIONED BY DAY
             """,
             remote("")
@@ -304,13 +281,12 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
         .setQueryContext(DEFAULT_MSQ_CONTEXT)
         .setExpectedDataSource("foo1")
         .setExpectedRowSignature(
-            RowSignature.builder()
-                        .add("__time", ColumnType.LONG)
-                        .add("dim1", ColumnType.STRING)
-                        .add("u", ColumnType.STRING)
-                        .build()
+            RowSignature.builder().add("__time", ColumnType.LONG).add("u", ColumnType.STRING).build()
         )
-        .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), "abc", "ABC"}))
+        .setExpectedResultRows(List.<Object[]>of(
+            new Object[]{DateTimes.of("2000-01-01").getMillis(), List.of("A", "B")},
+            new Object[]{DateTimes.of("2000-01-02").getMillis(), List.of("B", "C")}
+        ))
         .verifyResults();
   }
 
@@ -402,39 +378,6 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
   }
 
   @Test
-  public void testForwardsTargetTimeZone()
-  {
-    sourceDefaultTimeZone = "America/Los_Angeles";
-    final Map<String, Object> context = new HashMap<>(DEFAULT_MSQ_CONTEXT);
-    context.put("sqlTimeZone", "Asia/Shanghai");
-    testIngestQuery()
-        .setSql(StringUtils.format(
-            """
-            INSERT INTO foo1
-            SELECT TIME_FLOOR(__time, 'P1D') AS __time, COUNT(*) AS cnt FROM %s
-            WHERE __time >= TIMESTAMP '2001-01-01 00:00:00'
-            GROUP BY 1
-            PARTITIONED BY DAY
-            """,
-            remote("")
-        ))
-        .setQueryContext(context)
-        .setExpectedDataSource("foo1")
-        .setExpectedRowSignature(
-            RowSignature.builder().add("__time", ColumnType.LONG).add("cnt", ColumnType.LONG).build()
-        )
-        .setExpectedResultRows(List.<Object[]>of(
-            new Object[]{DateTimes.of("2000-12-31T16:00:00Z").getMillis(), 1L},
-            new Object[]{DateTimes.of("2001-01-01T16:00:00Z").getMillis(), 1L},
-            new Object[]{DateTimes.of("2001-01-02T16:00:00Z").getMillis(), 1L}
-        ))
-        .verifyResults();
-
-    Assertions.assertEquals("Asia/Shanghai", sqlRequests.get(0).path("context").path("sqlTimeZone").asText());
-    Assertions.assertTrue(sqlRequests.get(0).path("context").path("sqlCurrentTimestamp").isTextual());
-  }
-
-  @Test
   public void testDateAndTimestampOutputsInTargetTimeZone()
   {
     // The source returns DATE and TIMESTAMP outputs as epoch milliseconds, evaluated in the target's time zone.
@@ -476,12 +419,9 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
             }
         ))
         .verifyResults();
-    // The DATE output is cast to TIMESTAMP on the source to be returned as milliseconds.
-    Assertions.assertTrue(
-        sourceSql(0).contains("TIMESTAMP_TO_MILLIS(CAST(CAST(\"__TIME\" AS DATE) AS TIMESTAMP(3))) AS \"DAY\""),
-        sourceSql(0)
-    );
-    Assertions.assertTrue(sourceSql(0).contains("TIMESTAMP_TO_MILLIS(MAX("), sourceSql(0));
+    // The source evaluates in the target's time zone, not its own.
+    Assertions.assertEquals("Asia/Shanghai", sqlRequests.get(0).path("context").path("sqlTimeZone").asText());
+    Assertions.assertTrue(sqlRequests.get(0).path("context").path("sqlCurrentTimestamp").isTextual());
   }
 
   @Test

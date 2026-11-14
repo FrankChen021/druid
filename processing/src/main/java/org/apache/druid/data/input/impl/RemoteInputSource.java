@@ -757,7 +757,7 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
         Object value = values.get(i);
         if (value instanceof String && timestampColumns.contains(column)) {
           try {
-            value = parseTimestamp((String) value);
+            value = DateTimes.of((String) value).getMillis();
           }
           catch (IllegalArgumentException e) {
             throw new NonRetryableException("Remote Druid result has an invalid timestamp in column[" + column + "]");
@@ -867,69 +867,6 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
       return status.isRetryable();
     }
     return !Thread.currentThread().isInterrupted();
-  }
-
-  /**
-   * Parses a timestamp that the source returned as text. Druid SQL formats timestamps as
-   * {@code yyyy-MM-ddTHH:mm:ss.SSSZ} in UTC, which is parsed directly; other forms are parsed by {@link DateTimes#of}.
-   *
-   * @throws IllegalArgumentException if the text is not a timestamp
-   */
-  static long parseTimestamp(final String text)
-  {
-    if (text.length() == 24
-        && text.charAt(4) == '-' && text.charAt(7) == '-' && text.charAt(10) == 'T' && text.charAt(13) == ':'
-        && text.charAt(16) == ':' && text.charAt(19) == '.' && text.charAt(23) == 'Z') {
-      final int year = digits(text, 0, 4);
-      final int month = digits(text, 5, 2);
-      final int day = digits(text, 8, 2);
-      final int hour = digits(text, 11, 2);
-      final int minute = digits(text, 14, 2);
-      final int second = digits(text, 17, 2);
-      final int millis = digits(text, 20, 3);
-      if (year >= 0 && month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth(year, month)
-          && hour >= 0 && hour < 24 && minute >= 0 && minute < 60 && second >= 0 && second < 60 && millis >= 0) {
-        return ((epochDay(year, month, day) * 24 + hour) * 60 + minute) * 60_000L + second * 1000L + millis;
-      }
-    }
-    return DateTimes.of(text).getMillis();
-  }
-
-  /**
-   * Returns the decimal value of {@code length} digits starting at {@code start}, or -1 if any of them is not a digit.
-   */
-  private static int digits(final String text, final int start, final int length)
-  {
-    int value = 0;
-    for (int i = start; i < start + length; i++) {
-      final char c = text.charAt(i);
-      if (c < '0' || c > '9') {
-        return -1;
-      }
-      value = value * 10 + (c - '0');
-    }
-    return value;
-  }
-
-  private static int daysInMonth(final int year, final int month)
-  {
-    if (month == 2) {
-      return (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? 29 : 28;
-    }
-    return month == 4 || month == 6 || month == 9 || month == 11 ? 30 : 31;
-  }
-
-  /**
-   * Days since 1970-01-01 of a proleptic Gregorian date, after Howard Hinnant's {@code days_from_civil}.
-   */
-  private static long epochDay(final int year, final int month, final int day)
-  {
-    final int y = month <= 2 ? year - 1 : year;
-    final int era = (y >= 0 ? y : y - 399) / 400;
-    final int yearOfEra = y - era * 400;
-    final int dayOfYear = (153 * (month > 2 ? month - 3 : month + 9) + 2) / 5 + day - 1;
-    final int dayOfEra = yearOfEra * 365 + yearOfEra / 4 - yearOfEra / 100 + dayOfYear;
-    return era * 146097L + dayOfEra - 719468;
   }
 
   /**

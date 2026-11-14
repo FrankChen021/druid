@@ -19,7 +19,6 @@
 
 package org.apache.druid.data.input.impl;
 
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,15 +37,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -205,35 +204,26 @@ public class RemoteInputSourceTableTest
   }
 
   @Test
-  public void testParserRefillsCheckInterruptionInsideStringsAndWhitespace() throws IOException
+  public void testBoundedClientsBoundConnectionSetup()
   {
-    for (final String response : List.of("[\"" + "x".repeat(100_000) + "\"]", "[]" + " ".repeat(100_000))) {
-      final InputStream interrupted = new ByteArrayInputStream(StringUtils.toUtf8(response))
+    final List<Integer> connectTimeouts = new ArrayList<>();
+    final RemoteAuthentication recording = (connectTimeout, readTimeout, sslContext) -> {
+      connectTimeouts.add(connectTimeout);
+      return new RemoteHttpClient()
       {
         @Override
-        public synchronized int read(final byte[] bytes, final int offset, final int length)
+        public Response execute(final URI endpoint, final String method, @Nullable final byte[] body)
         {
-          final int read = super.read(bytes, offset, length);
-          if (pos >= 8192) {
-            Thread.currentThread().interrupt();
-          }
-          return read;
+          throw new UnsupportedOperationException();
         }
       };
-      try (final InputStream in = new RemoteMetadataClient.InterruptibleInputStream(interrupted);
-           final JsonParser parser = mapper.getFactory().createParser(in)) {
-        // No token-level interruption checks: the stream must stop Jackson's internal skipping/refill loop.
-        Assertions.assertThrows(InterruptedIOException.class, () -> {
-          parser.nextToken();
-          parser.skipChildren();
-          parser.nextToken();
-        });
-        Assertions.assertTrue(Thread.currentThread().isInterrupted());
-      }
-      finally {
-        Thread.interrupted();
-      }
-    }
+    };
+    final RemoteConnection connection =
+        new RemoteConnection(URI.create("http://localhost"), recording, 600_000, 900_000, 0, null);
+    // Schema discovery and cancels bound their waits, so a long configured connect timeout is bounded too.
+    connection.createClient(30_000).close();
+    connection.createClient(900_000).close();
+    Assertions.assertEquals(List.of(30_000, 600_000), connectTimeouts);
   }
 
   @Test
@@ -244,25 +234,28 @@ public class RemoteInputSourceTableTest
         URI.create("https://source.example/druid/v2"),
         connection(URI.create("https://source.example/druid/v2/sql/")).getEndpoint()
     );
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
+    assertInvalid(
+        "Provide authentication separately from the endpoint",
         () -> connection(URI.create("http://secret@localhost/druid/v2"))
     );
-    Assertions.assertThrows(IllegalArgumentException.class, () -> connection(URI.create("//localhost:8082")));
-    Assertions.assertThrows(IllegalArgumentException.class, () -> config(-1));
+    assertInvalid("An HTTP(S) endpoint is required", () -> connection(URI.create("//localhost:8082")));
+    assertInvalid("maxRetries must be between 0 and 10", () -> config(-1));
     final HttpInputSourceConfig httpConfig = new HttpInputSourceConfig(null, null);
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> inputSource(config, "unknown", null, null, null, httpConfig)
-    );
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
+    assertInvalid("Remote engine must be one of", () -> inputSource(config, "unknown", null, null, null, httpConfig));
+    assertInvalid(
+        "splitDuration must be a positive period",
         () -> inputSource(config, null, Period.ZERO, null, null, httpConfig)
     );
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
+    assertInvalid(
+        "splitDuration must be a positive period",
         () -> inputSource(config, null, Period.months(1).withDays(-30), null, null, httpConfig)
     );
+  }
+
+  private static void assertInvalid(final String message, final Executable executable)
+  {
+    final IllegalArgumentException e = Assertions.assertThrows(IllegalArgumentException.class, executable);
+    Assertions.assertTrue(e.getMessage().contains(message), e.getMessage());
   }
 
   @Test
@@ -273,19 +266,6 @@ public class RemoteInputSourceTableTest
     Assertions.assertFalse(sourceContext("native", null).containsKey("includeSegmentSource"));
     Assertions.assertThrows(IllegalArgumentException.class, () -> marker("native", "NONE"));
     Assertions.assertThrows(IllegalArgumentException.class, () -> marker(null, "ALL"));
-  }
-
-  @Test
-  public void testSchemaIsDeclaredUnlessDiscovered() throws IOException
-  {
-    // EXTERN specs carry their signature, so a spec without the flag has a declared schema.
-    Assertions.assertTrue(marker(null, null).isDeclaredSchema());
-    final RemoteInputSource discovered =
-        inputSource(config, null, null, null, false, new HttpInputSourceConfig(null, null));
-    Assertions.assertFalse(
-        ((RemoteInputSource) mapper.readValue(mapper.writeValueAsString(discovered), InputSource.class))
-            .isDeclaredSchema()
-    );
   }
 
   /**
@@ -312,6 +292,14 @@ public class RemoteInputSourceTableTest
     Assertions.assertTrue(json.contains("\"type\":\"remote\""), json);
     Assertions.assertFalse(json.contains("\"sql\""), json);
     Assertions.assertEquals(table, mapper.readValue(json, InputSource.class));
+    // EXTERN specs carry their signature, so a spec without the flag has a declared schema.
+    Assertions.assertTrue(marker(null, null).isDeclaredSchema());
+    final RemoteInputSource discovered =
+        inputSource(config, null, null, null, false, new HttpInputSourceConfig(null, null));
+    Assertions.assertFalse(
+        ((RemoteInputSource) mapper.readValue(mapper.writeValueAsString(discovered), InputSource.class))
+            .isDeclaredSchema()
+    );
   }
 
   @Test
@@ -371,12 +359,12 @@ public class RemoteInputSourceTableTest
   public void testHttpProtocolRestrictions()
   {
     // The configured protocols apply, and only HTTP(S) is accepted even if others are allowed.
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
+    assertInvalid(
+        "Only [https] protocols are allowed",
         () -> inputSource(config, null, null, null, null, new HttpInputSourceConfig(Set.of("https"), null))
     );
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
+    assertInvalid(
+        "Remote Druid supports HTTP(S) endpoints",
         () -> inputSource(
             connection(URI.create("file://localhost/tmp/data")),
             null,

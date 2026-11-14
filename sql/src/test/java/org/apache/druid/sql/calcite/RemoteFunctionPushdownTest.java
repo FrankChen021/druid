@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Verifies that EXPLAIN shows the remote Druid SQL that runs on the source cluster and the target-side remainder.
@@ -59,11 +60,16 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
 
   private JsonNode explain(final String sql)
   {
+    return explain(sql, ImmutableMap.of("sqlQueryId", "dummy"));
+  }
+
+  private JsonNode explain(final String sql, final Map<String, Object> context)
+  {
     skipVectorize();
     final List<String> plans = new ArrayList<>();
     testQuery(
         PLANNER_CONFIG_NATIVE_QUERY_EXPLAIN,
-        ImmutableMap.of("sqlQueryId", "dummy"),
+        context,
         Collections.emptyList(),
         "EXPLAIN PLAN FOR " + sql,
         CalciteTests.SUPER_USER_AUTH_RESULT,
@@ -205,32 +211,21 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
   }
 
   @Test
-  public void testStringExpressionsWithoutAggregationRunOnTarget()
+  public void testStringColumnsWithoutAggregation()
   {
-    // The source would return UPPER of a multi-value string as JSON-encoded text, so the column is read as an array
-    // and the expression is evaluated on the target, while the filter below it is still pushed down.
-    final JsonNode query = explainInsert("SELECT __time, UPPER(a) AS ua FROM %s WHERE m > 3", "");
+    // Any expression over a string column runs on the target, whatever its type, since the source evaluates it
+    // differently for multi-value rows. The column is read as an array, and the filter below is still pushed down.
+    final JsonNode upper = explainInsert("SELECT __time, UPPER(a) AS ua FROM %s WHERE m > 3", "");
     Assertions.assertEquals(
         """
         SELECT TIMESTAMP_TO_MILLIS("__time") AS "__time", MV_TO_ARRAY("a") AS "a", CAST("m" AS BIGINT) AS "m"
         FROM "events"
         WHERE TIMESTAMP_TO_MILLIS("__time") >= ? AND TIMESTAMP_TO_MILLIS("__time") < ? AND CAST("m" AS BIGINT) > 3\
         """,
-        remoteInputSource(query.path("dataSource")).path("sql").asText()
+        remoteInputSource(upper.path("dataSource")).path("sql").asText()
     );
-    Assertions.assertTrue(query.path("virtualColumns").toString().contains("upper"), query.toString());
-  }
-
-  @Test
-  public void testMultiValueSafeReadsWithoutAggregation()
-  {
-    // Any expression over a string column runs on the target, whatever its type.
+    Assertions.assertTrue(upper.path("virtualColumns").toString().contains("upper"), upper.toString());
     final JsonNode length = explainInsert("SELECT __time, CHAR_LENGTH(a) AS l FROM %s", "");
-    Assertions.assertTrue(
-        remoteInputSource(length.path("dataSource")).path("sql").asText()
-                                                    .startsWith("SELECT TIMESTAMP_TO_MILLIS(\"__time\") AS \"__time\", MV_TO_ARRAY(\"a\")"),
-        length.toString()
-    );
     Assertions.assertTrue(length.path("virtualColumns").toString().contains("strlen"), length.toString());
     // An equality filter on a string column is sent as MV_CONTAINS, so the column is still read with all its values.
     Assertions.assertEquals(
@@ -242,18 +237,11 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
         remoteInputSource(explainInsert("SELECT __time, a FROM %s WHERE a = 'x'", "").path("dataSource"))
             .path("sql").asText()
     );
-  }
-
-  @Test
-  public void testFilterAboveProjectedJoinIsPushedDown()
-  {
-    final JsonNode query = explainInsert(
-        "SELECT * FROM (SELECT r.__time, r.a, r.m, f.dim2 FROM %s r INNER JOIN foo f ON r.a = f.dim1) WHERE m > 1",
-        ""
+    // So is an equality with the empty string, which multi-value rows can contain too.
+    Assertions.assertTrue(
+        remoteInputSource(explainInsert("SELECT __time, a FROM %s WHERE a = ''", "").path("dataSource"))
+            .path("sql").asText().endsWith("AND MV_CONTAINS(\"a\", '')")
     );
-    final List<JsonNode> remotes = findByType(query, "remote");
-    Assertions.assertEquals(1, remotes.size(), query.toString());
-    Assertions.assertTrue(remotes.get(0).path("sql").asText().endsWith("CAST(\"m\" AS BIGINT) > 1"), query.toString());
   }
 
   @Test
@@ -358,6 +346,17 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
     final String sql = inputSource.path("sql").asText();
     Assertions.assertTrue(sql.contains("CAST(\"m\" AS BIGINT) > 1"), sql);
     Assertions.assertFalse(sql.contains("foo"), sql);
+    // A filter above a projection of the join reaches the remote side too.
+    final JsonNode projected = explainInsert(
+        "SELECT * FROM (SELECT r.__time, r.a, r.m, f.dim2 FROM %s r INNER JOIN foo f ON r.a = f.dim1) WHERE m > 1",
+        ""
+    );
+    final List<JsonNode> remotes = findByType(projected, "remote");
+    Assertions.assertEquals(1, remotes.size(), projected.toString());
+    Assertions.assertTrue(
+        remotes.get(0).path("sql").asText().endsWith("CAST(\"m\" AS BIGINT) > 1"),
+        projected.toString()
+    );
   }
 
   @Test
@@ -379,14 +378,45 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
   @Test
   public void testLookupStaysOnTarget()
   {
-    final JsonNode query = explainInsert("SELECT __time, LOOKUP(a, 'lookyloo') AS l FROM %s", "");
-    final JsonNode inputSource = remoteInputSource(query.path("dataSource"));
-    Assertions.assertFalse(inputSource.path("sql").asText().contains("LOOKUP"), inputSource.toString());
-    final List<JsonNode> virtualColumns = findByType(query.path("virtualColumns"), "expression");
-    Assertions.assertTrue(
-        virtualColumns.stream().anyMatch(column -> column.path("expression").asText().contains("lookyloo")),
-        query.toString()
+    // Lookups depend on the cluster, so an aggregation over one is not pushed down either.
+    final JsonNode query = explainInsert(
+        "SELECT TIME_FLOOR(__time, 'P1D') AS __time, LOOKUP(a, 'lookyloo') AS l, COUNT(*) AS c FROM %s GROUP BY 1, 2",
+        ""
     );
+    final String sql = findByType(query, "remote").get(0).path("sql").asText();
+    Assertions.assertFalse(sql.contains("LOOKUP"), sql);
+    Assertions.assertFalse(sql.contains("GROUP BY"), sql);
+    Assertions.assertTrue(query.toString().contains("lookyloo"), query.toString());
+  }
+
+  @Test
+  public void testOrderingAndGroupingSetsStayOnTarget()
+  {
+    final String limited =
+        findByType(explainInsert("SELECT * FROM (SELECT __time, a FROM %s ORDER BY m LIMIT 10)", ""), "remote")
+            .get(0).path("sql").asText();
+    Assertions.assertFalse(limited.contains("ORDER BY") || limited.contains("LIMIT"), limited);
+    final String groupingSets = findByType(
+        explainInsert(
+            "SELECT TIME_FLOOR(__time, 'P1D') AS __time, a, COUNT(*) AS c FROM %s GROUP BY GROUPING SETS ((1, a), (1))",
+            ""
+        ),
+        "remote"
+    ).get(0).path("sql").asText();
+    Assertions.assertFalse(groupingSets.contains("GROUP BY"), groupingSets);
+  }
+
+  @Test
+  public void testForwardsTimeoutAndPriority()
+  {
+    final JsonNode context = remoteInputSource(
+        explain(
+            StringUtils.format("INSERT INTO dst SELECT * FROM %s PARTITIONED BY DAY", remote("")),
+            ImmutableMap.of("sqlQueryId", "dummy", "timeout", 12345, "priority", 7)
+        ).path("dataSource")
+    ).path("context");
+    Assertions.assertEquals(12345, context.path("timeout").asInt(), context.toString());
+    Assertions.assertEquals(7, context.path("priority").asInt(), context.toString());
   }
 
   @Test
@@ -497,10 +527,12 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
   @Test
   public void testExternRemoteTableRequiresSupportedColumns()
   {
-    for (final String columns : List.of(
+    for (final Map.Entry<String, String> columns : Map.of(
         "[{\"name\":\"m\",\"type\":\"long\"}]",
-        "[{\"name\":\"__time\",\"type\":\"long\"},{\"name\":\"u\",\"type\":\"COMPLEX<hyperUnique>\"}]"
-    )) {
+        "requires an __time column of type BIGINT",
+        "[{\"name\":\"__time\",\"type\":\"long\"},{\"name\":\"u\",\"type\":\"COMPLEX<hyperUnique>\"}]",
+        "supports only primitive and primitive-array columns"
+    ).entrySet()) {
       final DruidException e = Assertions.assertThrows(
           DruidException.class,
           () -> explain(
@@ -514,11 +546,11 @@ public class RemoteFunctionPushdownTest extends CalciteIngestionDmlTest
                   ))
                   PARTITIONED BY DAY
                   """,
-                  columns
+                  columns.getKey()
               )
           )
       );
-      Assertions.assertTrue(e.getMessage().contains("A remote table"), e.getMessage());
+      Assertions.assertTrue(e.getMessage().contains(columns.getValue()), e.getMessage());
     }
     didTest = true;
   }

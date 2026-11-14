@@ -109,11 +109,12 @@ public class RemoteConnection
   }
 
   /**
-   * Creates an authenticated transport for this connection with the given read timeout in milliseconds.
+   * Creates an authenticated transport for this connection with the given read timeout in milliseconds. Connection
+   * setup, including the TLS handshake, is bounded by the connect timeout or the read timeout, whichever is shorter.
    */
   public RemoteHttpClient createClient(final int readTimeout)
   {
-    return authentication.createClient(connectTimeout, readTimeout, tlsContext.get());
+    return authentication.createClient(Math.min(connectTimeout, readTimeout), readTimeout, tlsContext.get());
   }
 
   @Override

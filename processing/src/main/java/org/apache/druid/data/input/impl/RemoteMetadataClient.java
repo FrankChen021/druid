@@ -40,7 +40,6 @@ import org.joda.time.Interval;
 import javax.annotation.Nullable;
 
 import java.io.File;
-import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -229,7 +228,7 @@ class RemoteMetadataClient implements AutoCloseable
           }
         }
         sourceRunning = false;
-        try (final InputStream in = new InterruptibleInputStream(Files.newInputStream(file.toPath()));
+        try (final InputStream in = Files.newInputStream(file.toPath());
              final JsonParser parser = responseFactory().createParser(in)) {
           require(parser.nextToken() == JsonToken.START_ARRAY);
           skipValue(parser);
@@ -336,31 +335,6 @@ class RemoteMetadataClient implements AutoCloseable
   {
     if (Thread.currentThread().isInterrupted()) {
       throw new InterruptedIOException("Remote Druid read interrupted");
-    }
-  }
-
-  /**
-   * Checks cancellation during parser refills, including a single long string or whitespace token.
-   */
-  static class InterruptibleInputStream extends FilterInputStream
-  {
-    InterruptibleInputStream(final InputStream in)
-    {
-      super(in);
-    }
-
-    @Override
-    public int read() throws IOException
-    {
-      checkInterrupted();
-      return in.read();
-    }
-
-    @Override
-    public int read(final byte[] bytes, final int offset, final int length) throws IOException
-    {
-      checkInterrupted();
-      return in.read(bytes, offset, Math.min(length, 8192));
     }
   }
 

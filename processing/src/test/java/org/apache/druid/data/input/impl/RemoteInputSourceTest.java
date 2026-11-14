@@ -258,13 +258,6 @@ public class RemoteInputSourceTest
   }
 
   @Test
-  public void testEmptyResult() throws IOException
-  {
-    sqlResponses.add(new Response(200, HEADER + "\n"));
-    Assertions.assertTrue(read(source(false, null, null)).isEmpty());
-  }
-
-  @Test
   public void testTimeRangeSplits() throws IOException
   {
     final List<Interval> daily = splits(source(true, null, Period.days(1)));
@@ -304,6 +297,17 @@ public class RemoteInputSourceTest
   }
 
   @Test
+  public void testLimitsTheNumberOfSplits()
+  {
+    // 2020-01-01 to 2020-01-03T05:00 is more than 10,000 one-second ranges.
+    final IOException e = Assertions.assertThrows(
+        IOException.class,
+        () -> splits(source(true, null, Period.seconds(1)))
+    );
+    Assertions.assertTrue(e.getMessage().contains("would exceed 10000 splits"), e.getMessage());
+  }
+
+  @Test
   public void testRejectedTimeBoundaryIsInvalidInput()
   {
     timeBoundaryStatus = 401;
@@ -322,7 +326,8 @@ public class RemoteInputSourceTest
     Assertions.assertThrows(IllegalStateException.class, () -> read(unbound));
     final InputSource bound = unbound.withSplit(new InputSplit<>(Intervals.of("2020-01-01/2020-01-02")));
     sqlResponses.add(new Response(200, HEADER + "\n"));
-    read(bound);
+    // An empty range returns just the header and the completion marker.
+    Assertions.assertTrue(read(bound).isEmpty());
     final JsonNode parameters = sqlRequests.get(0).path("parameters");
     Assertions.assertEquals("BIGINT", parameters.get(0).path("type").asText());
     Assertions.assertEquals(DateTimes.of("2020-01-01").getMillis(), parameters.get(0).path("value").asLong());
@@ -346,7 +351,10 @@ public class RemoteInputSourceTest
       // The interrupt survives the cancel, which is still sent.
       Assertions.assertTrue(Thread.interrupted());
     }
-    Assertions.assertEquals(1, canceledQueries.size());
+    Assertions.assertEquals(
+        List.of(sqlRequests.get(0).path("context").path("sqlQueryId").asText()),
+        canceledQueries
+    );
   }
 
   @Test
@@ -390,6 +398,7 @@ public class RemoteInputSourceTest
     for (final Map.Entry<String, String> response : corrupt.entrySet()) {
       sqlRequests.clear();
       sqlResponses.clear();
+      canceledQueries.clear();
       sqlResponses.add(new Response(200, response.getKey()));
       // Would succeed if the read were retried.
       sqlResponses.add(new Response(200, HEADER + "\n"));
@@ -398,6 +407,12 @@ public class RemoteInputSourceTest
       Assertions.assertEquals(DruidException.Category.RUNTIME_FAILURE, e.getCategory(), response.getKey());
       Assertions.assertTrue(e.getMessage().contains(response.getValue()), response.getKey() + " -> " + e.getMessage());
       Assertions.assertEquals(1, sqlRequests.size(), response.getKey());
+      // The source may still be running the query, so it is canceled.
+      Assertions.assertEquals(
+          List.of(sqlRequests.get(0).path("context").path("sqlQueryId").asText()),
+          canceledQueries,
+          response.getKey()
+      );
     }
   }
 
@@ -468,40 +483,6 @@ public class RemoteInputSourceTest
   private static RemoteInputSource.LineReader lineReader(final String text, final int maxLineBytes)
   {
     return new RemoteInputSource.LineReader(new ByteArrayInputStream(StringUtils.toUtf8(text)), 2, maxLineBytes);
-  }
-
-  @Test
-  public void testParseTimestamp()
-  {
-    // Druid's own format is parsed directly, and agrees with the general parser.
-    for (final String text : List.of(
-        "1970-01-01T00:00:00.000Z",
-        "2020-02-29T23:59:59.999Z",
-        "2000-12-31T12:34:56.789Z",
-        "1969-12-31T23:59:59.999Z",
-        "0001-01-01T00:00:00.000Z",
-        "9999-12-31T23:59:59.999Z"
-    )) {
-      Assertions.assertEquals(DateTimes.of(text).getMillis(), RemoteInputSource.parseTimestamp(text), text);
-    }
-    // A sweep over the supported years, including dates before 1970 and leap days.
-    for (long day = DateTimes.of("0000-01-01").getMillis(); day < DateTimes.of("9999-12-31").getMillis();
-         day += 29L * 86_400_000 + 3_600_000 + 61_001) {
-      final String text = DateTimes.utc(day).toString();
-      Assertions.assertEquals(day, RemoteInputSource.parseTimestamp(text), text);
-    }
-    // Other forms fall back to the general parser.
-    for (final String text : List.of("2020-01-01T00:00:00Z", "2020-01-01T08:00:00.000+08:00", "2020-01-01")) {
-      Assertions.assertEquals(DateTimes.of(text).getMillis(), RemoteInputSource.parseTimestamp(text), text);
-    }
-    // Invalid dates in the fixed format are not computed, and the fallback rejects them.
-    for (final String text : List.of(
-        "2021-02-29T00:00:00.000Z",
-        "2020-13-01T00:00:00.000Z",
-        "2020-01-01T24:00:00.000Z"
-    )) {
-      Assertions.assertThrows(IllegalArgumentException.class, () -> RemoteInputSource.parseTimestamp(text), text);
-    }
   }
 
   @Test

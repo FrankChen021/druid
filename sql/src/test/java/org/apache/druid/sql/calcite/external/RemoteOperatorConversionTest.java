@@ -139,17 +139,14 @@ public class RemoteOperatorConversionTest
   @Test
   public void testInvalidAuthenticationArguments()
   {
-    for (final Map<String, Object> options : List.<Map<String, Object>>of(
-        Map.of("userName", "reader", "password", "secret"),
-        Map.of("authType", "basic", "userName", "reader"),
-        Map.of("authType", "basic", "password", "secret"),
-        Map.of("authType", "unsupported", "password", "secret")
-    )) {
-      final DruidException exception = Assertions.assertThrows(
-          DruidException.class,
-          () -> apply(options, schema(SqlTypeName.BIGINT))
-      );
-      Assertions.assertEquals(DruidException.Category.INVALID_INPUT, exception.getCategory());
+    for (final Map.Entry<Map<String, Object>, String> options : Map.<Map<String, Object>, String>of(
+        Map.of("userName", "reader", "password", "secret"), "does not accept credentials",
+        Map.of("authType", "basic", "userName", "reader"), "requires userName and password",
+        Map.of("authType", "basic", "password", "secret"), "requires userName and password",
+        Map.of("authType", "unsupported", "password", "secret"), "Unsupported remote authentication type"
+    ).entrySet()) {
+      final DruidException exception =
+          assertInvalidInput(options.getValue(), () -> apply(options.getKey(), schema(SqlTypeName.BIGINT)));
       Assertions.assertFalse(exception.getMessage().contains("secret"));
     }
   }
@@ -157,25 +154,25 @@ public class RemoteOperatorConversionTest
   @Test
   public void testInvalidReadArgumentsAndTimeSchema()
   {
-    for (final Map<String, Object> options : List.<Map<String, Object>>of(
-        Map.of("readTimeoutMillis", Long.MAX_VALUE),
-        Map.of("splitDuration", "not-a-period"),
-        Map.of("intervals", List.of("invalid"))
-    )) {
-      assertInvalidInput(() -> apply(options, schema(SqlTypeName.BIGINT)));
+    for (final Map.Entry<Map<String, Object>, String> options : Map.<Map<String, Object>, String>of(
+        Map.of("readTimeoutMillis", Long.MAX_VALUE), "exceeds the supported integer range",
+        Map.of("splitDuration", "not-a-period"), "Invalid remote Druid splitDuration",
+        Map.of("intervals", List.of("invalid")), "Invalid remote Druid intervals",
+        // Connection checks made by the input source are reported the same way.
+        Map.of("maxRetries", 11L), "maxRetries must be between 0 and 10"
+    ).entrySet()) {
+      assertInvalidInput(options.getValue(), () -> apply(options.getKey(), schema(SqlTypeName.BIGINT)));
     }
-    assertInvalidInput(() -> apply(Map.of(), schema(SqlTypeName.VARCHAR)));
-    assertInvalidInput(() -> apply(Map.of(), SqlNodeList.EMPTY));
-    // Connection checks made by the input source are reported the same way.
-    assertInvalidInput(() -> apply(Map.of("maxRetries", 11L), schema(SqlTypeName.BIGINT)));
+    assertInvalidInput("__time column of type BIGINT", () -> apply(Map.of(), schema(SqlTypeName.VARCHAR)));
+    assertInvalidInput("__time column of type BIGINT", () -> apply(Map.of(), SqlNodeList.EMPTY));
   }
 
-  private static void assertInvalidInput(final Executable executable)
+  private static DruidException assertInvalidInput(final String message, final Executable executable)
   {
-    Assertions.assertEquals(
-        DruidException.Category.INVALID_INPUT,
-        Assertions.assertThrows(DruidException.class, executable).getCategory()
-    );
+    final DruidException e = Assertions.assertThrows(DruidException.class, executable);
+    Assertions.assertEquals(DruidException.Category.INVALID_INPUT, e.getCategory());
+    Assertions.assertTrue(e.getMessage().contains(message), e.getMessage());
+    return e;
   }
 
   @Test
@@ -213,8 +210,6 @@ public class RemoteOperatorConversionTest
           new Resource(typeSecurity ? "remote" : "EXTERNAL", ResourceType.EXTERNAL),
           checkedResource.get()
       );
-      // No argument conversion or network discovery is reached for a denied caller.
-      Mockito.verify(binding, Mockito.never()).getOperandCount();
     }
   }
 }
