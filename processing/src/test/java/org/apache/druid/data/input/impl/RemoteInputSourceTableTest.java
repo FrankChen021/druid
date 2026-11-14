@@ -342,6 +342,17 @@ public class RemoteInputSourceTableTest
   }
 
   @Test
+  public void testMalformedMetadataIsNotRetried()
+  {
+    config = config(2);
+    metadataResponse.set("[{\"columns\":");
+    final IOException e = Assertions.assertThrows(IOException.class, () -> source(null).discoverSchema());
+    Assertions.assertTrue(e.getMessage().contains("Invalid remote Druid response"), e.getMessage());
+    // The whole body arrived, so asking again would return the same response.
+    Assertions.assertEquals(1, requests.size());
+  }
+
+  @Test
   public void testRejectedMetadataQueryIsReportedWithoutRetryOrCancel()
   {
     status.set(401);

@@ -240,7 +240,8 @@ class RemoteMetadataClient implements AutoCloseable
           throw new NonRetryableException("Remote Druid response exceeds JSON parser limits");
         }
         catch (JsonProcessingException e) {
-          throw new IOException("Incomplete remote Druid response");
+          // The whole body was received, so a request for the same metadata would return the same response.
+          throw new NonRetryableException("Invalid remote Druid response: " + e.getOriginalMessage());
         }
         return file;
       }

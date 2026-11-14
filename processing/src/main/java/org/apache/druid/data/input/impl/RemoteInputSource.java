@@ -684,16 +684,17 @@ public class RemoteInputSource extends AbstractInputSource implements Splittable
         throw new IOException("Remote Druid result ended before its header");
       }
       final List<Object> columns = mapper.readValue(header, new TypeReference<>() {});
-      if (columns.size() != signature.size()) {
+      // Rows are mapped by position, so the source must return the planned columns in the planned order.
+      if (columns == null || !signature.getColumnNames().equals(columns)) {
         throw new NonRetryableException(
-            "Remote Druid result has " + columns.size() + " columns, but " + signature.size() + " were planned"
+            "Remote Druid result has columns " + columns + ", but " + signature.getColumnNames() + " were planned"
         );
       }
     }
 
-    private Map<String, Object> toRow(final List<Object> values) throws IOException
+    private Map<String, Object> toRow(@Nullable final List<Object> values) throws IOException
     {
-      if (values.size() != signature.size()) {
+      if (values == null || values.size() != signature.size()) {
         throw new NonRetryableException("Remote Druid result row has an unexpected number of columns");
       }
       final Map<String, Object> row = new LinkedHashMap<>();

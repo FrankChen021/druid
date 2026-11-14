@@ -362,7 +362,11 @@ public class RemoteInputSourceTest
     final String row = "[\"2020-01-01T00:00:00.000Z\",\"x\",true,[]]\n";
     final Map<String, String> corrupt = new LinkedHashMap<>();
     corrupt.put("<html>proxy error</html>\n", "Unexpected character");
-    corrupt.put("[\"__time\",\"a\"]\n\n", "2 columns, but 4 were planned");
+    corrupt.put("[\"__time\",\"a\"]\n\n", "columns [__time, a], but [__time, a, flag, arr] were planned");
+    // Rows are mapped by position, so the same columns in another order are rejected too.
+    corrupt.put("[\"__time\",\"flag\",\"a\",\"arr\"]\n\n", "columns [__time, flag, a, arr], but");
+    corrupt.put("null\n\n", "columns null, but");
+    corrupt.put(HEADER + "null\n\n", "unexpected number of columns");
     corrupt.put(HEADER + row + "\n" + row, "data after its completion marker");
     corrupt.put(HEADER + "[\"2020-01-01T00:00:00.000Z\",\"x\"]\n\n", "unexpected number of columns");
     corrupt.put(HEADER + "[\"not a time\",\"x\",true,[]]\n\n", "invalid timestamp in column[__time]");

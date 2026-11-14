@@ -208,7 +208,7 @@ public class RemotePushdownProgram implements Program
   /**
    * Checks the remote tables of {@code EXTERN} specs as {@code REMOTE} checks its own. A remote read that already has
    * its SQL, which is read as it is and need not return {@code __time}, must declare the signature of its SQL: the
-   * reader maps result columns by that signature, so other names would read as nulls.
+   * reader requires the result to have exactly those columns, in that order.
    */
   private static void validateRemoteScans(final RelNode node)
   {
