@@ -32,8 +32,8 @@ public class SystemConfigurationTableTest
   @Test
   public void testNativeRepresentation()
   {
-    final SystemConfigurationTable table = new SystemConfigurationTable();
-    final DruidTable nativeTable = table.asNativeTable();
+    final SystemConfigurationTable table = new SystemConfigurationTable(true);
+    final DruidTable nativeTable = table.asDataSourceTable();
     Assertions.assertEquals(new SystemTableDataSource("configuration"), nativeTable.getDataSource());
     Assertions.assertEquals(ConfigurationTableDescriptor.ROW_SIGNATURE, nativeTable.getRowSignature());
     Assertions.assertEquals(Schema.TableType.SYSTEM_TABLE, table.getJdbcTableType());
@@ -47,8 +47,15 @@ public class SystemConfigurationTableTest
   {
     final DruidException error = Assertions.assertThrows(
         DruidException.class,
-        () -> new SystemConfigurationTable().scan(null)
+        () -> new SystemConfigurationTable(true).scan(null)
     );
-    Assertions.assertTrue(error.getMessage().contains("useNativeQueryForSystemTables=true"));
+    Assertions.assertTrue(error.getMessage().contains("druid.query.enableDruidEngineForSystemTables=true"));
+    Assertions.assertTrue(error.getMessage().contains("useDruidEngineForSystemTables=true"));
+  }
+
+  @Test
+  public void testNoDataSourceRepresentationWhenServerPropertyIsOff()
+  {
+    Assertions.assertNull(new SystemConfigurationTable(false).asDataSourceTable());
   }
 }

@@ -43,12 +43,11 @@ import org.apache.druid.java.util.common.HumanReadableBytes;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.metadata.DynamicConfigProvider;
 import org.apache.druid.metadata.PasswordProvider;
-import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.filter.EqualityFilter;
-import org.apache.druid.query.filter.SelectorDimFilter;
+import org.apache.druid.query.filter.Filter;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.filter.SelectorFilter;
 import org.apache.druid.server.DruidNode;
-import org.apache.druid.server.security.AuthenticationResult;
-import org.apache.druid.server.security.AuthorizerMapper;
 import org.joda.time.Duration;
 import org.joda.time.Period;
 
@@ -73,6 +72,8 @@ import java.util.Set;
  */
 public class ConfigurationTableDataProvider implements SystemTableDataProvider
 {
+  private static final Set<String> PUSHDOWN_COLUMNS = Set.of("server", "service_name");
+
   private final Injector injector;
   private final ObjectMapper mapper;
   private final ObjectMapper accessorMapper;
@@ -80,7 +81,6 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
   private final DruidNode node;
   private final String nodeRoles;
   private final DruidServerConfig serverConfig;
-  private final AuthorizerMapper authorizerMapper;
 
   @Inject
   public ConfigurationTableDataProvider(
@@ -89,8 +89,7 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
       final Properties properties,
       @Self final DruidNode node,
       @Self final Set<NodeRole> nodeRoles,
-      final DruidServerConfig serverConfig,
-      final AuthorizerMapper authorizerMapper
+      final DruidServerConfig serverConfig
   )
   {
     this.injector = injector;
@@ -104,33 +103,23 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
     this.node = node;
     this.nodeRoles = nodeRoles.stream().map(NodeRole::getJsonName).sorted().toList().toString();
     this.serverConfig = serverConfig;
-    this.authorizerMapper = authorizerMapper;
   }
 
   @Override
-  public List<SystemTablePushdownFilter> getPushdownFilters()
+  public Set<String> getPushdownColumns()
   {
-    return List.of(new SystemTablePushdownFilter("server", null), new SystemTablePushdownFilter("service_name", null));
+    return PUSHDOWN_COLUMNS;
   }
 
   @Override
-  public Iterable<Object[]> getRows(final List<DimFilter> filters, final AuthenticationResult authenticationResult)
+  public Iterable<Object[]> getRows(final List<Filter> filters)
   {
-    ConfigurationTableDescriptor.authorize(authenticationResult, authorizerMapper);
-    for (final DimFilter filter : filters) {
-      final String column;
-      final Object value;
-      if (filter instanceof SelectorDimFilter selector && selector.getExtractionFn() == null) {
-        column = selector.getDimension();
-        value = selector.getValue();
-      } else if (filter instanceof EqualityFilter equality) {
-        column = equality.getColumn();
-        value = equality.getMatchValue();
-      } else {
-        continue;
-      }
-      if (("server".equals(column) && !node.getHostAndPortToUse().equals(value))
-          || ("service_name".equals(column) && !node.getServiceName().equals(value))) {
+    // Access is checked when the query is authorized, with the descriptor's row authorizer.
+    for (final Filter filter : filters) {
+      final String server = getStringEqualityValue(filter, "server");
+      final String serviceName = getStringEqualityValue(filter, "service_name");
+      if ((server != null && !server.equals(node.getHostAndPortToUse()))
+          || (serviceName != null && !serviceName.equals(node.getServiceName()))) {
         return List.of();
       }
     }
@@ -374,6 +363,24 @@ public class ConfigurationTableDataProvider implements SystemTableDataProvider
       return enumValue.name();
     }
     return value instanceof Character ? value.toString() : value;
+  }
+
+  /**
+   * Returns the value that the filter requires the column to equal, or null if it isn't such a filter.
+   */
+  @Nullable
+  private static String getStringEqualityValue(final Filter filter, final String column)
+  {
+    if (filter instanceof SelectorFilter selector && column.equals(selector.getDimension())) {
+      return selector.getValue();
+    } else if (filter instanceof EqualityFilter equality
+               && column.equals(equality.getColumn())
+               // Other match types compare values as that type, such as "01" equal to "1" as LONG.
+               && ColumnType.STRING.equals(equality.getMatchValueType())
+               && equality.getMatchValue() instanceof String value) {
+      return value;
+    }
+    return null;
   }
 
   private Object[] row(

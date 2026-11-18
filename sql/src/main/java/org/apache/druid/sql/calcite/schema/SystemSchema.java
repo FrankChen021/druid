@@ -365,7 +365,7 @@ public class SystemSchema extends AbstractTableSchema
       case SERVER_SEGMENTS_TABLE -> new ServerSegmentsTable(serverView, authorizerMapper, authenticationResult);
       case TASKS_TABLE -> new TasksTable(overlordClient, authorizerMapper, authenticationResult);
       case SUPERVISOR_TABLE -> new SupervisorsTable(overlordClient, authorizerMapper, authenticationResult);
-      case ConfigurationTableDescriptor.TABLE_NAME -> new SystemConfigurationTable();
+      case ConfigurationTableDescriptor.TABLE_NAME -> new SystemConfigurationTable(SystemTableModule.isEnabled(properties));
       case SystemServerPropertiesTable.TABLE_NAME -> new SystemServerPropertiesTable(
           druidNodeDiscoveryProvider,
           authorizerMapper,

@@ -43,9 +43,10 @@ import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.HumanReadableBytes;
 import org.apache.druid.metadata.MetadataRuleManagerConfig;
 import org.apache.druid.metadata.PasswordProvider;
+import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.query.filter.EqualityFilter;
-import org.apache.druid.query.filter.SelectorDimFilter;
 import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.filter.SelectorFilter;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.server.coordinator.config.HttpLoadQueuePeonConfig;
 import org.apache.druid.server.log.NoopRequestLoggerProvider;
@@ -59,6 +60,7 @@ import org.apache.druid.server.security.ForbiddenException;
 import org.apache.druid.server.security.ResourceType;
 import org.apache.druid.server.system.table.ConfigurationTableDataProvider;
 import org.apache.druid.server.system.table.ConfigurationTableDescriptor;
+import org.apache.druid.server.system.table.SystemTableRowAuthorizer;
 import org.joda.time.Duration;
 import org.joda.time.Period;
 import org.junit.jupiter.api.Assertions;
@@ -76,14 +78,13 @@ public class ConfigurationTableDataProviderTest
   private static final AuthenticationResult AUTH = new AuthenticationResult("test", AuthConfig.ALLOW_ALL_NAME, null, null);
   private final ObjectMapper mapper = new DefaultObjectMapper();
   private final Properties properties = new Properties();
-  private final AuthorizerMapper allowAll = authorizers((authentication, resource, action) -> Access.OK);
 
   @Test
   public void testUninitializedBindingsAreListedWithoutConstructingConfigs()
   {
     final JsonConfigProvider<ExampleConfig> configProvider = JsonConfigProvider.of("druid.example", ExampleConfig.class);
     final Injector injector = injector(binder -> binder.bind(ExampleConfig.class).toProvider(configProvider));
-    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final List<Object[]> rows = rows(provider(injector));
     Assertions.assertNull(configProvider.getInitializedConfig());
     Assertions.assertEquals("NOT_INITIALIZED", find(rows, "druid.example.threads")[8]);
     Assertions.assertEquals("NOT_INITIALIZED", find(rows, "druid.example.nested.renamed")[8]);
@@ -94,10 +95,10 @@ public class ConfigurationTableDataProviderTest
   public void testInitializedNullNestedBeanHasAvailableNullLeaves()
   {
     final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.nullNested", NullNestedConfig.class));
-    final List<Object[]> before = rows(provider(injector, allowAll));
+    final List<Object[]> before = rows(provider(injector));
     Assertions.assertEquals("NOT_INITIALIZED", find(before, "druid.nullNested.nested.renamed")[8]);
     injector.getInstance(NullNestedConfig.class);
-    assertValue(rows(provider(injector, allowAll)), "druid.nullNested.nested.renamed", null, null, String.class);
+    assertValue(rows(provider(injector)), "druid.nullNested.nested.renamed", null, null, String.class);
   }
 
   @Test
@@ -105,12 +106,12 @@ public class ConfigurationTableDataProviderTest
   {
     properties.setProperty("druid.cache.type", "caffeine");
     final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.cache", CacheProvider.class));
-    final Object[] before = find(rows(provider(injector, allowAll)), "druid.cache.type");
+    final Object[] before = find(rows(provider(injector)), "druid.cache.type");
     Assertions.assertEquals("caffeine", before[6]);
     Assertions.assertNull(before[7]);
     Assertions.assertEquals("NOT_INITIALIZED", before[8]);
     injector.getInstance(CacheProvider.class);
-    assertValue(rows(provider(injector, allowAll)), "druid.cache.type", "caffeine", "caffeine", String.class);
+    assertValue(rows(provider(injector)), "druid.cache.type", "caffeine", "caffeine", String.class);
   }
 
   @Test
@@ -124,7 +125,7 @@ public class ConfigurationTableDataProviderTest
         NoopRequestLoggerProvider.class
     ));
     injector.getInstance(RequestLoggerProvider.class);
-    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final List<Object[]> rows = rows(provider(injector));
     assertValue(rows, "druid.request.logging.type", null, "noop", String.class);
     Assertions.assertTrue(rows.stream().noneMatch(row -> "druid.request.logging".equals(row[3])));
   }
@@ -135,7 +136,7 @@ public class ConfigurationTableDataProviderTest
     properties.setProperty("druid.json.names", "[\"alpha\",\"beta\"]");
     final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.json", JsonValuesConfig.class));
     injector.getInstance(JsonValuesConfig.class);
-    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final List<Object[]> rows = rows(provider(injector));
     Assertions.assertEquals(ColumnType.STRING, ConfigurationTableDescriptor.ROW_SIGNATURE.getColumnType("effective_value").orElseThrow());
     assertTextValue(rows, "names", "[\"alpha\",\"beta\"]");
     Assertions.assertEquals("[\"alpha\",\"beta\"]", find(rows, "druid.json.names")[6]);
@@ -154,11 +155,11 @@ public class ConfigurationTableDataProviderTest
   {
     final JsonConfigProvider<JsonValuesConfig> configProvider = JsonConfigProvider.of("druid.json", JsonValuesConfig.class);
     final Injector injector = injector(binder -> binder.bind(JsonValuesConfig.class).toProvider(configProvider));
-    final List<Object[]> before = rows(provider(injector, allowAll));
+    final List<Object[]> before = rows(provider(injector));
     Assertions.assertNull(configProvider.getInitializedConfig());
     Assertions.assertEquals("NOT_INITIALIZED", find(before, "druid.json.names")[8]);
     configProvider.get();
-    final List<Object[]> after = rows(provider(injector, allowAll));
+    final List<Object[]> after = rows(provider(injector));
     final Object[] hidden = find(after, "druid.json.passwords");
     Assertions.assertEquals("REDACTED", hidden[8]);
     Assertions.assertNull(hidden[7]);
@@ -182,7 +183,7 @@ public class ConfigurationTableDataProviderTest
     properties.setProperty("druid.example.threads", "0");
     final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.example", ExampleConfig.class));
     injector.getInstance(ExampleConfig.class);
-    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final List<Object[]> rows = rows(provider(injector));
     final Object[] threads = find(rows, "druid.example.threads");
     Assertions.assertEquals("0", threads[6]);
     Assertions.assertEquals("1", threads[7]);
@@ -209,7 +210,7 @@ public class ConfigurationTableDataProviderTest
     injector.getInstance(HttpLoadQueuePeonConfig.class);
     injector.getInstance(MetadataRuleManagerConfig.class);
     injector.getInstance(CaffeineCacheConfig.class);
-    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final List<Object[]> rows = rows(provider(injector));
     assertValue(rows, "druid.coordinator.loadqueuepeon.http.hostTimeout", "PT2M", "PT120S", Duration.class);
     assertValue(rows, "druid.coordinator.loadqueuepeon.http.repeatDelay", null, "PT60S", Duration.class);
     assertValue(rows, "druid.manager.rules.pollDuration", "P1M", "P1M", Period.class);
@@ -222,7 +223,7 @@ public class ConfigurationTableDataProviderTest
   {
     final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.values", ValueConfig.class));
     injector.getInstance(ValueConfig.class);
-    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final List<Object[]> rows = rows(provider(injector));
     assertValue(rows, "druid.values.duration", null, "PT0S", Duration.class);
     assertValue(rows, "druid.values.period", null, "PT0S", Period.class);
     assertValue(rows, "druid.values.bytes", null, "-1 B", HumanReadableBytes.class);
@@ -236,7 +237,7 @@ public class ConfigurationTableDataProviderTest
   {
     final JsonConfigProvider<ValueConfig> configProvider = JsonConfigProvider.of("druid.values", ValueConfig.class);
     final Injector injector = injector(binder -> binder.bind(ValueConfig.class).toProvider(configProvider));
-    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final List<Object[]> rows = rows(provider(injector));
     Assertions.assertNull(configProvider.getInitializedConfig());
     for (final String name : List.of("duration", "period", "bytes")) {
       final Object[] row = find(rows, "druid.values." + name);
@@ -273,7 +274,7 @@ public class ConfigurationTableDataProviderTest
     properties.setProperty("druid.example.password", "secret");
     final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.example", ExampleConfig.class));
     injector.getInstance(ExampleConfig.class);
-    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final List<Object[]> rows = rows(provider(injector));
     for (final String name : List.of("password", "credentials")) {
       final Object[] row = find(rows, "druid.example." + name);
       Assertions.assertNull(row[6]);
@@ -291,7 +292,7 @@ public class ConfigurationTableDataProviderTest
   {
     final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.example", ExampleConfig.class));
     injector.getInstance(ExampleConfig.class);
-    final Object[] row = find(rows(provider(injector, allowAll)), "druid.example.broken");
+    final Object[] row = find(rows(provider(injector)), "druid.example.broken");
     Assertions.assertEquals("ERROR", row[8]);
     Assertions.assertEquals("Unable to read configuration property", row[9]);
     Assertions.assertFalse(java.util.Arrays.toString(row).contains("secret"));
@@ -308,7 +309,7 @@ public class ConfigurationTableDataProviderTest
     final Injector injector = injector(Modules.override(original).with(replacement));
     injector.getInstance(ExampleConfig.class);
     injector.getInstance(Key.get(ExampleConfig.class, Names.named("other")));
-    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final List<Object[]> rows = rows(provider(injector));
     Assertions.assertTrue(rows.stream().noneMatch(row -> ((String) row[3]).startsWith("druid.old")));
     final List<Object[]> threads = rows.stream().filter(row -> row[3].equals("druid.new.threads")).toList();
     Assertions.assertEquals(1, threads.size());
@@ -324,7 +325,7 @@ public class ConfigurationTableDataProviderTest
     });
     injector.getInstance(Key.get(DruidHttpClientConfig.class, Client.class));
     injector.getInstance(Key.get(DruidHttpClientConfig.class, EscalatedClient.class));
-    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final List<Object[]> rows = rows(provider(injector));
     Assertions.assertFalse(rows.isEmpty());
     Assertions.assertEquals(rows.size(), rows.stream().map(row -> row[3]).distinct().count());
     Assertions.assertTrue(rows.stream().noneMatch(row -> "CONFLICT".equals(row[8])));
@@ -341,7 +342,7 @@ public class ConfigurationTableDataProviderTest
     injector.getInstance(ExampleConfig.class);
     injector.getInstance(DifferentConfig.class);
     injector.getInstance(Key.get(ExampleConfig.class, Names.named("other")));
-    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final List<Object[]> rows = rows(provider(injector));
     final Object[] row = find(rows, "druid.shared.threads");
     Assertions.assertEquals(1, rows.stream().filter(r -> "druid.shared.threads".equals(r[3])).count());
     Assertions.assertNull(row[4]);
@@ -361,7 +362,7 @@ public class ConfigurationTableDataProviderTest
     });
     injector.getInstance(ExampleConfig.class);
     injector.getInstance(DifferentConfig.class);
-    final List<Object[]> rows = rows(provider(injector, allowAll));
+    final List<Object[]> rows = rows(provider(injector));
     final Object[] row = find(rows, "druid.shared.threads");
     Assertions.assertEquals(1, rows.stream().filter(r -> "druid.shared.threads".equals(r[3])).count());
     Assertions.assertNull(row[4]);
@@ -389,7 +390,7 @@ public class ConfigurationTableDataProviderTest
     final Injector child = parent.createChildInjector(
         binder -> JsonConfigProvider.bind(binder, "druid.child", NestedConfig.class)
     );
-    final List<Object[]> rows = rows(provider(child, allowAll));
+    final List<Object[]> rows = rows(provider(child));
     Assertions.assertEquals(1, rows.stream().filter(row -> row[3].equals("druid.parent.threads")).count());
     Assertions.assertEquals(1, rows.stream().filter(row -> row[3].equals("druid.child.renamed")).count());
   }
@@ -398,24 +399,22 @@ public class ConfigurationTableDataProviderTest
   public void testFiltersPruneNodes()
   {
     final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.example", ExampleConfig.class));
-    final ConfigurationTableDataProvider provider = provider(injector, allowAll);
-    Assertions.assertFalse(provider.getRows(List.of(new SelectorDimFilter("server", "other", null)), AUTH).iterator().hasNext());
-    Assertions.assertFalse(provider.getRows(List.of(new EqualityFilter("service_name", ColumnType.STRING, "broker", null)), AUTH).iterator().hasNext());
-    Assertions.assertTrue(provider.getRows(List.of(new SelectorDimFilter("service_name", "overlord", null)), AUTH).iterator().hasNext());
+    final ConfigurationTableDataProvider provider = provider(injector);
+    Assertions.assertFalse(provider.getRows(List.of(new SelectorFilter("server", "other"))).iterator().hasNext());
+    Assertions.assertFalse(provider.getRows(List.of(new EqualityFilter("service_name", ColumnType.STRING, "broker", null))).iterator().hasNext());
+    Assertions.assertTrue(provider.getRows(List.of(new SelectorFilter("service_name", "overlord"))).iterator().hasNext());
   }
 
   @Test
-  public void testConfigReadRequiredAtProviderAndBrokerEvenForEmptyRows()
+  public void testConfigReadRequired()
   {
+    final AuthorizerMapper allowAll = authorizers((authentication, resource, action) -> Access.OK);
     final AuthorizerMapper stateOnly = authorizers(
         (authentication, resource, action) -> ResourceType.STATE.equals(resource.getType()) ? Access.OK : Access.DENIED
     );
-    final Injector injector = injector(binder -> JsonConfigProvider.bind(binder, "druid.example", ExampleConfig.class));
-    Assertions.assertThrows(ForbiddenException.class, () -> rows(provider(injector, stateOnly)));
-    Assertions.assertThrows(
-        ForbiddenException.class,
-        () -> new ConfigurationTableDescriptor().getRowAuthorizer().filterAuthorizedRows(List.of(), AUTH, stateOnly)
-    );
+    final SystemTableRowAuthorizer authorizer = new ConfigurationTableDescriptor().getRowAuthorizer();
+    Assertions.assertEquals(SystemTableAccess.ALL_ROWS, authorizer.authorize(AUTH, allowAll));
+    Assertions.assertThrows(ForbiddenException.class, () -> authorizer.authorize(AUTH, stateOnly));
   }
 
   private Injector injector(final Module module)
@@ -429,7 +428,7 @@ public class ConfigurationTableDataProviderTest
     }, module);
   }
 
-  private ConfigurationTableDataProvider provider(final Injector injector, final AuthorizerMapper authorizers)
+  private ConfigurationTableDataProvider provider(final Injector injector)
   {
     return new ConfigurationTableDataProvider(
         injector,
@@ -437,8 +436,7 @@ public class ConfigurationTableDataProviderTest
         properties,
         new DruidNode("overlord", "localhost", false, 8080, null, true, false),
         Set.of(NodeRole.OVERLORD),
-        new DruidServerConfig(null, null),
-        authorizers
+        new DruidServerConfig(null, null)
     );
   }
 
@@ -457,7 +455,7 @@ public class ConfigurationTableDataProviderTest
   private static List<Object[]> rows(final ConfigurationTableDataProvider provider)
   {
     final List<Object[]> rows = new ArrayList<>();
-    provider.getRows(List.of(), AUTH).forEach(rows::add);
+    provider.getRows(List.of()).forEach(rows::add);
     return rows;
   }
 

@@ -19,8 +19,9 @@
 
 package org.apache.druid.testing.embedded.query;
 
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.query.QueryContexts;
-import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.query.context.QueryContextParameters;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.testing.embedded.EmbeddedBroker;
 import org.apache.druid.testing.embedded.EmbeddedCoordinator;
@@ -32,7 +33,7 @@ import org.apache.druid.testing.embedded.EmbeddedRouter;
 import org.apache.druid.testing.embedded.junit5.EmbeddedClusterTestBase;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.Map;
 import java.util.Set;
@@ -55,6 +56,7 @@ public class NativeSysConfigurationQueryTest extends EmbeddedClusterTestBase
     return EmbeddedDruidCluster.withEmbeddedDerbyAndZookeeper()
                                .useLatchableEmitter()
                                .addCommonProperty("druid.centralizedDatasourceSchema.enabled", "true")
+                               .addCommonProperty("druid.query.enableDruidEngineForSystemTables", "true")
                                .addServer(coordinator)
                                .addServer(overlord)
                                .addServer(broker)
@@ -64,11 +66,8 @@ public class NativeSysConfigurationQueryTest extends EmbeddedClusterTestBase
   }
 
   @ParameterizedTest(name = "plannerStrategy = {0}")
-  @ValueSource(strings = {
-      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED,
-      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
-  })
-  public void testConfigurationFansOutToAllNodes(final String plannerStrategy)
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testConfigurationFansOutToAllNodes(final QueryContexts.PlannerStrategy plannerStrategy)
   {
     final String result = cluster.runSql(
         "SELECT COUNT(DISTINCT server), COUNT(DISTINCT service_name) FROM sys.configuration "
@@ -79,11 +78,8 @@ public class NativeSysConfigurationQueryTest extends EmbeddedClusterTestBase
   }
 
   @ParameterizedTest(name = "plannerStrategy = {0}")
-  @ValueSource(strings = {
-      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED,
-      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
-  })
-  public void testTaskLockDefaultsAndExplicitValues(final String plannerStrategy)
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testTaskLockDefaultsAndExplicitValues(final QueryContexts.PlannerStrategy plannerStrategy)
   {
     final String result = cluster.runSql(
         "SELECT property, effective_value, value_status FROM sys.configuration "
@@ -100,11 +96,8 @@ public class NativeSysConfigurationQueryTest extends EmbeddedClusterTestBase
   }
 
   @ParameterizedTest(name = "plannerStrategy = {0}")
-  @ValueSource(strings = {
-      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED,
-      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
-  })
-  public void testJsonCollectionsAndReadableBytes(final String plannerStrategy)
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testJsonCollectionsAndReadableBytes(final QueryContexts.PlannerStrategy plannerStrategy)
   {
     final String result = cluster.runSql(
         "SELECT JSON_VALUE(PARSE_JSON(effective_value), '$[0]'), "
@@ -143,11 +136,8 @@ public class NativeSysConfigurationQueryTest extends EmbeddedClusterTestBase
   }
 
   @ParameterizedTest(name = "plannerStrategy = {0}")
-  @ValueSource(strings = {
-      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_COUPLED,
-      QueryContexts.NATIVE_QUERY_SQL_PLANNING_MODE_DECOUPLED
-  })
-  public void testHttpPropertiesAppearOnceAndBindingColumnIsAbsent(final String plannerStrategy)
+  @EnumSource(QueryContexts.PlannerStrategy.class)
+  public void testHttpPropertiesAppearOnceAndBindingColumnIsAbsent(final QueryContexts.PlannerStrategy plannerStrategy)
   {
     final String[] counts = cluster.runSql(
         "SELECT COUNT(*), COUNT(DISTINCT property) FROM sys.configuration "
@@ -166,14 +156,14 @@ public class NativeSysConfigurationQueryTest extends EmbeddedClusterTestBase
     );
   }
 
-  private static Map<String, Object> nativeQueryContext(final String plannerStrategy)
+  private static Map<String, Object> nativeQueryContext(final QueryContexts.PlannerStrategy plannerStrategy)
   {
-    return Map.of(
-        QueryContexts.ENGINE,
+    return QueryContext.ofMap(
+        QueryContextParameters.ENGINE,
         NativeSqlEngine.NAME,
-        PlannerContext.CTX_USE_NATIVE_QUERY_FOR_SYSTEM_TABLES,
+        QueryContextParameters.USE_DRUID_ENGINE_FOR_SYSTEM_TABLES,
         true,
-        QueryContexts.CTX_NATIVE_QUERY_SQL_PLANNING_MODE,
+        QueryContextParameters.PLANNER_STRATEGY,
         plannerStrategy
     );
   }

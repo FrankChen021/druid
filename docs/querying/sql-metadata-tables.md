@@ -434,8 +434,9 @@ WHERE deprecation IS NOT NULL
 ### CONFIGURATION table
 
 The `sys.configuration` table lists properties registered through `JsonConfigProvider` on each discovered Druid
-process, including properties absent from runtime property files. It requires the native SQL engine and
-`useNativeQueryForSystemTables=true`. There is no SQL-layer fallback for this table. The user must have `READ`
+process, including properties absent from runtime property files. It requires
+[native query execution](#native-query-execution): the native SQL engine, the `druid.query.enableDruidEngineForSystemTables`
+server property, and `useDruidEngineForSystemTables=true`. There is no SQL-layer fallback for this table. The user must have `READ`
 permission on the `CONFIG` resource, in addition to any configured system-table permissions.
 
 |Column|Type|Notes|
@@ -454,7 +455,7 @@ permission on the `CONFIG` resource, in addition to any configured system-table 
 For example:
 
 ```sql
-SET useNativeQueryForSystemTables = 'true';
+SET useDruidEngineForSystemTables = 'true';
 SELECT server, property, configured_value, effective_value, value_status
 FROM sys.configuration
 WHERE property LIKE 'druid.indexer.tasklock.%'

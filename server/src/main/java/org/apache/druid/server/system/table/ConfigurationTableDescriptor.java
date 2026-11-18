@@ -20,6 +20,7 @@
 package org.apache.druid.server.system.table;
 
 import org.apache.druid.discovery.NodeRole;
+import org.apache.druid.query.SystemTableAccess;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.DruidNode;
@@ -75,13 +76,16 @@ public class ConfigurationTableDescriptor implements SystemTableDescriptor
   @Override
   public SystemTableRowAuthorizer getRowAuthorizer()
   {
-    return (rows, authenticationResult, authorizerMapper) -> {
+    return (authenticationResult, authorizerMapper) -> {
       authorize(authenticationResult, authorizerMapper);
-      return rows;
+      return SystemTableAccess.ALL_ROWS;
     };
   }
 
-  /** Checks both the original SQL user and, at the provider, the internal native-query caller. */
+  /**
+   * Requires {@code CONFIG READ}. The query lifecycle applies it to the SQL user on the Broker, and to the caller of
+   * the node scan on every service that serves rows.
+   */
   public static void authorize(final AuthenticationResult authenticationResult, final AuthorizerMapper authorizerMapper)
   {
     final AuthorizationResult result = AuthorizationUtils.authorizeAllResourceActions(

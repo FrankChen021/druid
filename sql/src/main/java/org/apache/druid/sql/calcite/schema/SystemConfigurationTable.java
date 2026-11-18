@@ -32,13 +32,23 @@ import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.druid.error.InvalidInput;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.SystemTableDataSource;
+import org.apache.druid.server.system.module.SystemTableModule;
 import org.apache.druid.server.system.table.ConfigurationTableDescriptor;
 import org.apache.druid.sql.calcite.table.DruidTable;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 
+import javax.annotation.Nullable;
+
 /** SQL catalog entry for the native-only configuration table. */
-public class SystemConfigurationTable extends AbstractTable implements ScannableTable, NativeSystemTable
+public class SystemConfigurationTable extends AbstractTable implements ScannableTable, SystemTableDataSourceTable
 {
+  private final boolean enableDruidEngineForSystemTables;
+
+  public SystemConfigurationTable(final boolean enableDruidEngineForSystemTables)
+  {
+    this.enableDruidEngineForSystemTables = enableDruidEngineForSystemTables;
+  }
+
   @Override
   public RelDataType getRowType(final RelDataTypeFactory typeFactory)
   {
@@ -55,13 +65,19 @@ public class SystemConfigurationTable extends AbstractTable implements Scannable
   public Enumerable<Object[]> scan(final DataContext root)
   {
     throw InvalidInput.exception(
-        "sys.configuration requires the native SQL engine and query context useNativeQueryForSystemTables=true"
+        "sys.configuration requires the native SQL engine, the server property %s=true on all services, and the"
+        + " query context parameter useDruidEngineForSystemTables=true",
+        SystemTableModule.ENABLE_DRUID_ENGINE_FOR_SYSTEM_TABLES_PROPERTY
     );
   }
 
+  @Nullable
   @Override
-  public DruidTable asNativeTable()
+  public DruidTable asDataSourceTable()
   {
+    if (!enableDruidEngineForSystemTables) {
+      return null;
+    }
     return new DruidTable(ConfigurationTableDescriptor.ROW_SIGNATURE)
     {
       @Override
