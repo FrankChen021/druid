@@ -867,9 +867,9 @@ WHERE a = 'keep'
 PARTITIONED BY DAY
 ```
 
-The password is part of the planned input source, so it is stored in the ingestion task specification and shown by
-`EXPLAIN`, and SQL request logging records it, in the SQL text or in the bound `parameters`. Binding it with `?`, as above,
-keeps it out of the SQL text that the task stores. Restrict access to task specifications, reports, and request logs,
+Druid masks literal `REMOTE` passwords in the SQL text stored by MSQ tasks and shown in Dart query listings. The planned
+input source still carries the credential for execution, and `EXPLAIN` can show it. SQL request logging records the
+password in the SQL text or in the bound `parameters`. Restrict access to task specifications, reports, and request logs,
 and use a dedicated source account that can only read the datasources to copy. References to server-side secrets,
 such as environment variables, are not supported, since a query could send them to an endpoint of its choice.
 

@@ -72,6 +72,7 @@ import org.apache.druid.server.QueryResponse;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.Resource;
 import org.apache.druid.server.security.ResourceAction;
+import org.apache.druid.sql.calcite.external.SqlSensitiveLiteralMasker;
 import org.apache.druid.sql.calcite.planner.querygen.DruidQueryGenerator;
 import org.apache.druid.sql.calcite.rel.DruidConvention;
 import org.apache.druid.sql.calcite.rel.DruidQuery;
@@ -129,10 +130,10 @@ public abstract class QueryHandler extends SqlStatementHandler.BaseStatementHand
     }
 
     final SqlValidator validator = planner.getValidator();
-    SqlResourceCollectorShuttle resourceCollectorShuttle = new SqlResourceCollectorShuttle(
-        validator,
-        handlerContext.plannerContext()
-    );
+    final PlannerContext plannerContext = handlerContext.plannerContext();
+    plannerContext.setMaskedSql(SqlSensitiveLiteralMasker.mask(plannerContext.getSql(), validatedQueryNode, validator));
+
+    final SqlResourceCollectorShuttle resourceCollectorShuttle = new SqlResourceCollectorShuttle(validator, plannerContext);
     validatedQueryNode.accept(resourceCollectorShuttle);
     resourceActions = resourceCollectorShuttle.getResourceActions();
     return validatedQueryNode;

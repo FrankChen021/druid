@@ -179,7 +179,7 @@ public class RemoteOperatorConversion extends DruidUserDefinedTableMacroConversi
           new Parameter("dataSource", ParameterType.VARCHAR, false),
           new Parameter("authType", ParameterType.VARCHAR, true),
           new Parameter("userName", ParameterType.VARCHAR, true),
-          new Parameter("password", ParameterType.VARCHAR, true),
+          new Parameter("password", ParameterType.VARCHAR, true, true),
           new Parameter("intervals", ParameterType.VARCHAR_ARRAY, true),
           new Parameter("connectTimeout", ParameterType.BIGINT, true),
           new Parameter("readTimeout", ParameterType.BIGINT, true),

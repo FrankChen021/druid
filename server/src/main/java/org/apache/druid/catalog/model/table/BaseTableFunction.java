@@ -36,12 +36,19 @@ public abstract class BaseTableFunction implements TableFunction
     private final String name;
     private final ParameterType type;
     private final boolean optional;
+    private final boolean sensitive;
 
-    public Parameter(String name, ParameterType type, boolean optional)
+    public Parameter(final String name, final ParameterType type, final boolean optional)
+    {
+      this(name, type, optional, false);
+    }
+
+    public Parameter(final String name, final ParameterType type, final boolean optional, final boolean sensitive)
     {
       this.name = name;
       this.type = type;
       this.optional = optional;
+      this.sensitive = sensitive;
     }
 
     @Override
@@ -60,6 +67,12 @@ public abstract class BaseTableFunction implements TableFunction
     public boolean isOptional()
     {
       return optional;
+    }
+
+    @Override
+    public boolean isSensitive()
+    {
+      return sensitive;
     }
 
     @Override

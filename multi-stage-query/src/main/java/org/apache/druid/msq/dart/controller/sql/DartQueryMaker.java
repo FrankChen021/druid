@@ -219,7 +219,7 @@ public class DartQueryMaker implements QueryMaker
     final ControllerHolder controllerHolder = new ControllerHolder(
         controller,
         plannerContext.getSqlQueryId(),
-        plannerContext.getSql(),
+        plannerContext.getMaskedSql(),
         plannerContext.getAuthenticationResult(),
         DateTimes.nowUtc()
     );

@@ -20,18 +20,29 @@
 package org.apache.druid.sql.calcite;
 
 import com.sun.net.httpserver.HttpServer;
+import org.apache.calcite.avatica.ColumnMetaData;
+import org.apache.calcite.avatica.remote.TypedValue;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.query.QueryContext;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.sql.calcite.external.Externals;
+import org.apache.druid.sql.calcite.parser.DruidSqlParser;
+import org.apache.druid.sql.calcite.planner.DruidPlanner;
+import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.util.CalciteTests;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Verifies who may use a remote Druid table through {@code REMOTE}, and how the source rejecting the configured
@@ -100,6 +111,87 @@ public class RemoteFunctionAuthTest extends CalciteIngestionDmlTest
         .expectTarget("dst", TARGET_SIGNATURE)
         .expectResources(dataSourceRead("dst"), dataSourceWrite("dst"), externalRead("remote"))
         .verify();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"\n", "\r\n", "\r"})
+  public void testRedactsNamedLiteralsInStoredSql(final String lineEnding)
+  {
+    final String sql = """
+        SET sqlTimeZone = 'UTC';
+        INSERT INTO dst
+        SELECT l.__time, l.a
+        FROM TABLE(REMOTE(
+            password => 'left''secret',
+            userName => 'reader',
+            endpoint => 'https://source.example', dataSource => 'events', authType => 'basic'
+        )) EXTEND (__time BIGINT, a VARCHAR) AS l
+        INNER JOIN TABLE(REMOTE(
+            endpoint => 'https://source.example', dataSource => 'events',
+            authType => 'basic', userName => 'reader', password => 'right-secret'
+        )) EXTEND (__time BIGINT, a VARCHAR) AS r ON l.a = r.a
+        WHERE l.a = 'left''secret'
+        PARTITIONED BY DAY
+        """.replace("\n", lineEnding);
+    final String expected = sql.replace("password => 'left''secret'", "password => '<masked>'")
+                               .replace("password => 'right-secret'", "password => '<masked>'");
+    assertRedactedSql(sql, expected, List.of());
+  }
+
+  @Test
+  public void testRedactsPositionalLiteralInStoredSql()
+  {
+    final String sql = insertFrom("""
+        TABLE(REMOTE('https://source.example', 'events', 'basic', 'reader', 'positional-secret'))
+          EXTEND (__time BIGINT, a VARCHAR)
+        """);
+    assertRedactedSql(sql, sql.replace("'positional-secret'", "'<masked>'"), List.of());
+  }
+
+  @Test
+  public void testRedactsUnicodeLiteralWithEscapeClauseInStoredSql()
+  {
+    final String sql = insertFrom("""
+        TABLE(REMOTE(
+            endpoint => 'https://source.example', dataSource => 'events',
+            authType => 'basic', userName => 'reader',
+            password => U&'secrem0074' /* escape character follows */
+              UESCAPE 'm'
+        )) EXTEND (__time BIGINT, a VARCHAR)
+        """);
+    final String expected = sql.replace("U&'secrem0074' /* escape character follows */\n      UESCAPE 'm'", "'<masked>'");
+    assertRedactedSql(sql, expected, List.of());
+  }
+
+  @Test
+  public void testKeepsDynamicParameterInStoredSql()
+  {
+    final String sql = insertFrom("""
+        TABLE(REMOTE('https://source.example', 'events', 'basic', 'reader', ?))
+          EXTEND (__time BIGINT, a VARCHAR)
+        """);
+    assertRedactedSql(sql, sql, List.of(TypedValue.ofLocal(ColumnMetaData.Rep.STRING, "bound-secret")));
+  }
+
+  private void assertRedactedSql(final String sql, final String expected, final List<TypedValue> parameters)
+  {
+    didTest = true;
+    try (final DruidPlanner planner = queryFramework().plannerFixture(new PlannerConfig(), null).plannerFactory()
+                                                    .createPlanner(
+                                                        queryFramework().engine(),
+                                                        sql,
+                                                        DruidSqlParser.parse(sql, true).getMainStatement(),
+                                                        CalciteTests.SUPER_USER_AUTH_RESULT,
+                                                        Set.of(),
+                                                        QueryContext.empty(),
+                                                        null
+                                                    )) {
+      planner.getPlannerContext().setParameters(parameters);
+      planner.validate();
+      Assertions.assertEquals(expected, planner.getPlannerContext().getMaskedSql());
+      Assertions.assertEquals(sql, planner.getPlannerContext().getSql());
+      DruidSqlParser.parse(planner.getPlannerContext().getMaskedSql(), true);
+    }
   }
 
   @Test

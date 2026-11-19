@@ -29,13 +29,26 @@ public class FunctionParameterImpl implements FunctionParameter
   private final String name;
   private final RelDataType type;
   private final boolean isOptional;
+  private final boolean sensitive;
 
-  public FunctionParameterImpl(int ordinal, String name, RelDataType type, boolean isOptional)
+  public FunctionParameterImpl(final int ordinal, final String name, final RelDataType type, final boolean isOptional)
+  {
+    this(ordinal, name, type, isOptional, false);
+  }
+
+  public FunctionParameterImpl(
+      final int ordinal,
+      final String name,
+      final RelDataType type,
+      final boolean isOptional,
+      final boolean sensitive
+  )
   {
     this.ordinal = ordinal;
     this.name = name;
     this.type = type;
     this.isOptional = isOptional;
+    this.sensitive = sensitive;
   }
 
   public FunctionParameterImpl(int ordinal, String name, RelDataType type)
@@ -65,6 +78,11 @@ public class FunctionParameterImpl implements FunctionParameter
   public boolean isOptional()
   {
     return isOptional;
+  }
+
+  boolean isSensitive()
+  {
+    return sensitive;
   }
 
   @Override

@@ -5138,6 +5138,13 @@ SqlNode StringLiteral() :
             }
             String s = SqlParserUtil.parseString(token.image);
             unicodeEscapeChar = SqlParserUtil.checkUnicodeEscapeChar(s);
+
+            // Include UESCAPE and its argument in the literal's source span. SQL redaction replaces the entire
+            // Unicode literal with an ordinary quoted string, which does not allow a trailing UESCAPE clause.
+            // Extend the last fragment so both a single literal and a continued literal cover the full clause.
+            final int lastIndex = frags.size() - 1;
+            final SqlLiteral lastFragment = frags.get(lastIndex);
+            frags.set(lastIndex, lastFragment.clone(lastFragment.getParserPosition().plus(getPos())));
         }
     ]
     {
