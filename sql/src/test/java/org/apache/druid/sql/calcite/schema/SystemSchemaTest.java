@@ -588,7 +588,8 @@ public class SystemSchemaTest extends CalciteTestBase
             "tasks",
             "supervisors",
             "server_properties",
-            "query_context_parameters"
+            "query_context_parameters",
+            "configuration"
         ),
         schema.getTableNames()
     );
@@ -601,7 +602,8 @@ public class SystemSchemaTest extends CalciteTestBase
             "tasks",
             "supervisors",
             "server_properties",
-            "query_context_parameters"
+            "query_context_parameters",
+            "configuration"
         ),
         schema.tables().getNames(LikePattern.any())
     );
