@@ -65,8 +65,8 @@ public class JsonReader extends IntermediateRowParsingReader<InputEntity>
   private final ObjectFlattener<JsonNode> flattener;
   private final ObjectMapper mapper;
   private final InputEntity source;
-  private final InputRowSchema inputRowSchema;
-  private final JsonFactory jsonFactory;
+  protected final InputRowSchema inputRowSchema;
+  protected final JsonFactory jsonFactory;
 
   JsonReader(
       InputRowSchema inputRowSchema,

@@ -294,6 +294,7 @@ accessor
 ad-hoc
 aggregator
 aggregators
+allowOptimizedReader
 ambari
 analytics
 arrayElement

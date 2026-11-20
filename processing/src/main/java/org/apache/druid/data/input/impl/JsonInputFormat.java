@@ -24,11 +24,13 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonParser.Feature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.druid.data.input.ColumnsFilter;
 import org.apache.druid.data.input.InputEntity;
 import org.apache.druid.data.input.InputEntityReader;
 import org.apache.druid.data.input.InputFormat;
 import org.apache.druid.data.input.InputRowSchema;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.common.parsers.JSONPathSpec;
 import org.apache.druid.utils.CompressionUtils;
 
@@ -42,6 +44,7 @@ import java.util.Objects;
 public class JsonInputFormat extends NestedInputFormat
 {
   public static final String TYPE_KEY = "json";
+  private static final Logger LOG = new Logger(JsonInputFormat.class);
   private final Map<String, Boolean> featureSpec;
   private final ObjectMapper objectMapper;
   private final Boolean keepNullColumns;
@@ -74,16 +77,44 @@ public class JsonInputFormat extends NestedInputFormat
    */
   private final boolean useJsonNodeReader;
 
+  /**
+   * If true, allow {@link SchemaDirectedJsonReader} to be used when parsing non-newline delimited JSON. This
+   * experimental reader only extracts the columns required by the {@link InputRowSchema}, and is used only when the
+   * schema has fixed dimensions, an inclusion-based {@link ColumnsFilter}, and no flatten fields. Otherwise,
+   * {@link JsonReader} is used.
+   */
+  private final boolean allowOptimizedReader;
+
   @JsonCreator
-  public JsonInputFormat(
+  public static JsonInputFormat create(
       @JsonProperty("flattenSpec") @Nullable JSONPathSpec flattenSpec,
       @JsonProperty("featureSpec") @Nullable Map<String, Boolean> featureSpec,
       @JsonProperty("keepNullColumns") @Nullable Boolean keepNullColumns,
       @JsonProperty("assumeNewlineDelimited") @Nullable Boolean assumeNewlineDelimited,
-      @JsonProperty("useJsonNodeReader") @Nullable Boolean useJsonNodeReader
+      @JsonProperty("useJsonNodeReader") @Nullable Boolean useJsonNodeReader,
+      @JsonProperty("allowOptimizedReader") @Nullable Boolean allowOptimizedReader
   )
   {
-    this(flattenSpec, featureSpec, keepNullColumns, true, assumeNewlineDelimited, useJsonNodeReader);
+    return new JsonInputFormat(
+        flattenSpec,
+        featureSpec,
+        keepNullColumns,
+        true,
+        assumeNewlineDelimited,
+        useJsonNodeReader,
+        allowOptimizedReader
+    );
+  }
+
+  public JsonInputFormat(
+      @Nullable JSONPathSpec flattenSpec,
+      @Nullable Map<String, Boolean> featureSpec,
+      @Nullable Boolean keepNullColumns,
+      @Nullable Boolean assumeNewlineDelimited,
+      @Nullable Boolean useJsonNodeReader
+  )
+  {
+    this(flattenSpec, featureSpec, keepNullColumns, true, assumeNewlineDelimited, useJsonNodeReader, null);
   }
 
   public JsonInputFormat(
@@ -93,6 +124,19 @@ public class JsonInputFormat extends NestedInputFormat
       boolean lineSplittable,
       Boolean assumeNewlineDelimited,
       Boolean useJsonNodeReader
+  )
+  {
+    this(flattenSpec, featureSpec, keepNullColumns, lineSplittable, assumeNewlineDelimited, useJsonNodeReader, null);
+  }
+
+  public JsonInputFormat(
+      @Nullable JSONPathSpec flattenSpec,
+      Map<String, Boolean> featureSpec,
+      Boolean keepNullColumns,
+      boolean lineSplittable,
+      Boolean assumeNewlineDelimited,
+      Boolean useJsonNodeReader,
+      @Nullable Boolean allowOptimizedReader
   )
   {
     super(flattenSpec);
@@ -106,6 +150,7 @@ public class JsonInputFormat extends NestedInputFormat
     this.lineSplittable = lineSplittable;
     this.assumeNewlineDelimited = assumeNewlineDelimited != null && assumeNewlineDelimited;
     this.useJsonNodeReader = useJsonNodeReader != null && useJsonNodeReader;
+    this.allowOptimizedReader = allowOptimizedReader != null && allowOptimizedReader;
     if (this.assumeNewlineDelimited && this.useJsonNodeReader) {
       throw new IAE("useJsonNodeReader cannot be set to true when assumeNewlineDelimited is true.");
     }
@@ -153,6 +198,13 @@ public class JsonInputFormat extends NestedInputFormat
     return useJsonNodeReader;
   }
 
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+  public boolean isAllowOptimizedReader()
+  {
+    return allowOptimizedReader;
+  }
+
   @Override
   public boolean isSplittable()
   {
@@ -163,11 +215,24 @@ public class JsonInputFormat extends NestedInputFormat
   public InputEntityReader createReader(InputRowSchema inputRowSchema, InputEntity source, File temporaryDirectory)
   {
     if (this.lineSplittable || this.assumeNewlineDelimited) {
+      logOptimizedReaderNotUsed("the input is read line by line, which is the case for batch ingestion or when"
+                                + " assumeNewlineDelimited is set");
       return new JsonLineReader(inputRowSchema, source, getFlattenSpec(), objectMapper, isKeepNullColumns());
     } else if (this.useJsonNodeReader) {
+      logOptimizedReaderNotUsed("useJsonNodeReader is set");
       return new JsonNodeReader(inputRowSchema, source, getFlattenSpec(), objectMapper, isKeepNullColumns());
+    } else if (this.allowOptimizedReader && SchemaDirectedJsonReader.isSupported(inputRowSchema, getFlattenSpec())) {
+      return new SchemaDirectedJsonReader(inputRowSchema, source, objectMapper, isKeepNullColumns());
     } else {
+      logOptimizedReaderNotUsed("it requires explicitly listed dimensions and a flattenSpec without fields");
       return new JsonReader(inputRowSchema, source, getFlattenSpec(), objectMapper, isKeepNullColumns());
+    }
+  }
+
+  private void logOptimizedReaderNotUsed(String reason)
+  {
+    if (this.allowOptimizedReader) {
+      LOG.info("allowOptimizedReader is set, but the optimized JSON reader is not used because %s.", reason);
     }
   }
 
@@ -190,7 +255,8 @@ public class JsonInputFormat extends NestedInputFormat
         keepNullColumns,
         lineSplittable,
         assumeNewlineDelimited,
-        useJsonNodeReader
+        useJsonNodeReader,
+        allowOptimizedReader
     );
   }
 
@@ -210,6 +276,7 @@ public class JsonInputFormat extends NestedInputFormat
     return lineSplittable == that.lineSplittable
            && assumeNewlineDelimited == that.assumeNewlineDelimited
            && useJsonNodeReader == that.useJsonNodeReader
+           && allowOptimizedReader == that.allowOptimizedReader
            && Objects.equals(featureSpec, that.featureSpec)
            && Objects.equals(keepNullColumns, that.keepNullColumns);
   }
@@ -223,7 +290,8 @@ public class JsonInputFormat extends NestedInputFormat
         keepNullColumns,
         lineSplittable,
         assumeNewlineDelimited,
-        useJsonNodeReader
+        useJsonNodeReader,
+        allowOptimizedReader
     );
   }
 
@@ -236,6 +304,7 @@ public class JsonInputFormat extends NestedInputFormat
            ", lineSplittable=" + lineSplittable +
            ", assumeNewlineDelimited=" + assumeNewlineDelimited +
            ", useJsonNodeReader=" + useJsonNodeReader +
+           ", allowOptimizedReader=" + allowOptimizedReader +
            '}';
   }
 

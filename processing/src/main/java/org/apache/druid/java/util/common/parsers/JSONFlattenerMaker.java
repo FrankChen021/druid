@@ -231,7 +231,7 @@ public class JSONFlattenerMaker implements ObjectFlatteners.FlattenerMaker<JsonN
    * @return the original string, or a fixed version that can round-trip properly
    */
   @Nullable
-  static String charsetFix(@Nullable String s, CharsetEncoder enc)
+  public static String charsetFix(@Nullable String s, CharsetEncoder enc)
   {
     if (s != null && !isBmp(s) && !enc.canEncode(s)) {
       // Note: the check isBmp isn't necessary for correct behavior, but it improves performance in the common case
