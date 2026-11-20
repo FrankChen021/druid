@@ -167,7 +167,7 @@ public class MSQTaskQueryMaker implements QueryMaker
     final MSQControllerTask controllerTask = new MSQControllerTask(
         taskId,
         querySpec,
-        MSQTaskQueryMakerUtils.maskSensitiveJsonKeys(plannerContext.getSql()),
+        MSQTaskQueryMakerUtils.maskSensitiveJsonKeys(plannerContext.getMaskedSql()),
         plannerContext.queryContext().asMap(),
         resultsContext.getSqlResultsContext(),
         resultsContext.getSqlTypeNames(),

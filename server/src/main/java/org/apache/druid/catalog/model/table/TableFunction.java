@@ -72,6 +72,14 @@ public interface TableFunction
     String name();
     ParameterType type();
     boolean isOptional();
+
+    /**
+     * Whether literal values supplied for this parameter should be masked in stored SQL text.
+     */
+    default boolean isSensitive()
+    {
+      return false;
+    }
   }
 
   List<ParameterDefn> parameters();

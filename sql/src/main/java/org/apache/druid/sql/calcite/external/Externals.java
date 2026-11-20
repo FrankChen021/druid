@@ -102,7 +102,8 @@ public class Externals
           i,
           paramDefn.name(),
           paramType,
-          paramDefn.isOptional()
+          paramDefn.isOptional(),
+          paramDefn.isSensitive()
       ));
     }
     return params.build();

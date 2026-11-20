@@ -71,6 +71,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -314,6 +316,18 @@ public class MSQTestOverlordServiceClient extends NoopOverlordClient
   {
     MSQTestTaskDetails details = taskDetailsByQueryId.get(id);
     return details.report;
+  }
+
+  /**
+   * The controller tasks submitted so far, as the Overlord would store them.
+   */
+  public List<MSQControllerTask> getControllerTasks()
+  {
+    return taskDetailsByTaskId.values()
+                              .stream()
+                              .map(details -> details.controllerTask)
+                              .filter(Objects::nonNull)
+                              .collect(Collectors.toList());
   }
 
   @Nullable

@@ -275,6 +275,11 @@ public class PlannerContext
   private ExplainAttributes explainAttributes;
   private PlannerLookupCache lookupCache;
 
+  /**
+   * The SQL with sensitive table-function literals masked, for storage and display.
+   */
+  private String maskedSql;
+
   private PlannerContext(
       final PlannerToolbox plannerToolbox,
       final String sql,
@@ -290,6 +295,7 @@ public class PlannerContext
     this.plannerToolbox = plannerToolbox;
     this.expressionParser = new ExpressionParserImpl(plannerToolbox.exprMacroTable());
     this.sql = sql;
+    this.maskedSql = sql;
     this.sqlNode = sqlNode;
     this.engine = engine;
     this.rootSchema = rootSchema;
@@ -578,6 +584,19 @@ public class PlannerContext
   public String getSql()
   {
     return sql;
+  }
+
+  /**
+   * SQL text for storage and display, with sensitive table-function literals masked after validation.
+   */
+  public String getMaskedSql()
+  {
+    return maskedSql;
+  }
+
+  void setMaskedSql(final String maskedSql)
+  {
+    this.maskedSql = maskedSql;
   }
 
   public SqlNode getSqlNode()

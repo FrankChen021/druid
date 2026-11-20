@@ -77,6 +77,11 @@ public class BaseUserDefinedTableMacro extends SqlUserDefinedTableMacro
     this.macro = tableMacro;
   }
 
+  List<FunctionParameter> getParameters()
+  {
+    return macro.getParameters();
+  }
+
   /**
    * Copy of Calcite method {@link SqlUserDefinedTableMacro#getTable} to add array and named parameter handling.
    */
