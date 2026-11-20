@@ -107,6 +107,17 @@ public class ScalarInArrayOperatorConversion extends DirectOperatorConversion
       scalarExtractionFn = null;
     }
 
+    final List<Object> parameterValues = plannerContext.getScalarInArrayDynamicParameters().get(arrayOperand);
+    if (parameterValues != null) {
+      return makeInFilter(
+          plannerContext,
+          scalarColumn,
+          scalarExtractionFn,
+          parameterValues,
+          Calcites.getColumnTypeForRelDataType(arrayOperand.getType().getComponentType())
+      );
+    }
+
     if (Calcites.isLiteral(arrayOperand, true, true)) {
       final RelDataType elementType = arrayOperand.getType().getComponentType();
       final List<RexNode> arrayElements = ((RexCall) arrayOperand).getOperands();

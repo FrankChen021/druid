@@ -262,6 +262,8 @@ public class PlannerContext
   private List<TypedValue> parameters = Collections.emptyList();
   // positions of the dynamic parameters that SqlParameterizerShuttle replaced with their bound values
   private final Set<SqlParserPos> boundParameterPositions = new HashSet<>();
+  // values of dynamic parameters synthesized for large IN lists
+  private final ScalarInArrayDynamicParameters scalarInArrayDynamicParameters;
   // set of datasources and views which must be authorized, initialized to null so we can detect if it has been set.
   private Set<ResourceAction> resourceActions;
   // result of authorizing set of resources against authentication identity
@@ -291,6 +293,9 @@ public class PlannerContext
     this.expressionParser = new ExpressionParserImpl(plannerToolbox.exprMacroTable());
     this.sql = sql;
     this.sqlNode = sqlNode;
+    this.scalarInArrayDynamicParameters = new ScalarInArrayDynamicParameters(
+        () -> ScalarInArrayDynamicParameters.firstAvailableIndex(sqlNode, parameters.size())
+    );
     this.engine = engine;
     this.rootSchema = rootSchema;
     this.authenticationResult = authenticationResult;
@@ -702,6 +707,11 @@ public class PlannerContext
   public boolean isBoundParameter(SqlNode node)
   {
     return boundParameterPositions.contains(node.getParserPosition());
+  }
+
+  public ScalarInArrayDynamicParameters getScalarInArrayDynamicParameters()
+  {
+    return scalarInArrayDynamicParameters;
   }
 
   public void setAuthorizationResult(AuthorizationResult access)

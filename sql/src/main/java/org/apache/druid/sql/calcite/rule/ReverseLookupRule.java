@@ -426,6 +426,15 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
               call.getOperator().equals(MultiValueStringOperatorConversions.CONTAINS.calciteOperator())
               || call.getOperator().equals(MultiValueStringOperatorConversions.OVERLAP.calciteOperator())
               || call.getOperator().equals(ScalarInArrayOperatorConversion.SQL_FUNCTION);
+          final List<Object> parameterValues =
+              plannerContext.getScalarInArrayDynamicParameters().getStringValues(matchLiteral);
+          if (parameterValues != null) {
+            final Set<String> elements = new HashSet<>();
+            for (final Object value : parameterValues) {
+              elements.add((String) value);
+            }
+            return elements;
+          }
           return toStringSet(matchLiteral, matchNulls);
         }
       }
@@ -500,7 +509,10 @@ public class ReverseLookupRule extends RelOptRule implements SubstitutionRule
         literal = RexUtil.removeNullabilityCast(rexBuilder.getTypeFactory(), literal);
 
         // Check that the call is of the form: LOOKUP(...) <op> <literal>
-        if (isLookupCall(lookupCall) && Calcites.isLiteral(literal, true, true)) {
+        final boolean isLiteral =
+            Calcites.isLiteral(literal, true, true)
+            || plannerContext.getScalarInArrayDynamicParameters().getStringValues(literal) != null;
+        if (isLookupCall(lookupCall) && isLiteral) {
           return (RexCall) rexBuilder.makeCall(call.getOperator(), lookupCall, literal);
         } else {
           return null;
