@@ -27,6 +27,7 @@ import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.remote.TypedValue;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.StringUtils;
+import org.apache.druid.msq.indexing.MSQControllerTask;
 import org.apache.druid.msq.test.MSQTestBase;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContext;
@@ -458,6 +459,34 @@ public class MSQRemoteInputSourceTest extends MSQTestBase
 
     // A discovered schema has the source's own types, so no casts are needed.
     Assertions.assertFalse(sourceSql(0).contains("CAST(\"CNT\""), sourceSql(0));
+  }
+
+  @Test
+  public void testLiteralPasswordIsMaskedInStoredSql() throws IOException
+  {
+    // The source still receives the real password.
+    expectedAuthorization = "Basic cmVhZGVyOnNlY3JldA==";
+    final String remote = StringUtils.format(
+        """
+        TABLE(REMOTE(endpoint => 'http://localhost:%d/druid/v2/', dataSource => 'foo',
+                    authType => 'basic', userName => 'reader', password => 'secret'))
+        """,
+        server.getAddress().getPort()
+    );
+    testIngestQuery()
+        .setSql(StringUtils.format("INSERT INTO foo1 SELECT * FROM %s WHERE dim1 = 'abc' PARTITIONED BY DAY", remote))
+        .setExpectedDataSource("foo1")
+        .setExpectedRowSignature(RowSignature.builder().add("__time", ColumnType.LONG)
+                                             .add("cnt", ColumnType.LONG).add("dim1", ColumnType.STRING).build())
+        .setExpectedResultRows(List.<Object[]>of(new Object[]{DateTimes.of("2001-01-03").getMillis(), 1L, "abc"}))
+        .verifyResults();
+
+    // The task stores the SQL with the password masked.
+    final List<MSQControllerTask> tasks = indexingServiceClient.getControllerTasks();
+    Assertions.assertEquals(1, tasks.size());
+    final String storedSql = objectMapper.readTree(objectMapper.writeValueAsString(tasks.get(0))).path("sqlQuery").asText();
+    Assertions.assertTrue(storedSql.contains("password => '<masked>'"), storedSql);
+    Assertions.assertFalse(storedSql.contains("secret"), storedSql);
   }
 
 }

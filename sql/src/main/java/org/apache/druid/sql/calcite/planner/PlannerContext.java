@@ -275,7 +275,9 @@ public class PlannerContext
   private ExplainAttributes explainAttributes;
   private PlannerLookupCache lookupCache;
 
-  // The SQL that sensitive information is masked
+  /**
+   * The SQL with sensitive table-function literals masked, for storage and display.
+   */
   private String maskedSql;
 
   private PlannerContext(

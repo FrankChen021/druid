@@ -29,10 +29,18 @@ public class RemoteAuthenticationTest
 {
   private final ObjectMapper mapper = new DefaultObjectMapper();
 
+  /**
+   * Guards against a query using the remote input source to exfiltrate secrets from the server that runs it.
+   * The query chooses the remote URL, and a password provider other than the default resolves its value on the server.
+   * An environment provider would therefore make the worker send its own environment variable, such as a cloud
+   * credential, as the Basic password to a host the query's author controls.
+   * <p>
+   * Basic authentication must accept only a plain password given in the request.
+   * The environment provider stands in for every non-default provider, since one type check rejects them all.
+   */
   @Test
   public void testBasicAuthenticationRejectsPasswordProviders()
   {
-    // A server-side provider would let a query send the server's secrets to an endpoint of its choice.
     final JsonMappingException e = Assertions.assertThrows(
         JsonMappingException.class,
         () -> mapper.readValue(

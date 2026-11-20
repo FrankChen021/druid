@@ -81,8 +81,10 @@ public interface RemoteAuthentication
       this.userName = Preconditions.checkNotNull(userName, "userName");
       this.password = Preconditions.checkNotNull(password, "password");
 
-      // Providers that resolve secrets on the server, such as environment variables, would let a query send those
-      // secrets to an endpoint of its choice, so only a password given in the request is accepted.
+      // Accept only a plain password given in the request, to keep a query from exfiltrating the server's secrets.
+      // The query chooses the remote URL, and providers other than the default resolve their value on the server.
+      // For example, {"type": "environment", "variable": "AWS_SECRET_ACCESS_KEY"} would make the worker read its own
+      // environment variable and send it in the Authorization header to a host the query's author controls.
       Preconditions.checkArgument(
           password instanceof DefaultPasswordProvider,
           "Remote Druid Basic authentication accepts only a plain password"

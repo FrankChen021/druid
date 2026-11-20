@@ -117,7 +117,8 @@ public class RemoteFunctionAuthTest extends CalciteIngestionDmlTest
   @ValueSource(strings = {"\n", "\r\n", "\r"})
   public void testRedactsNamedLiteralsInStoredSql(final String lineEnding)
   {
-    final String sql = """
+    final String sql = StringUtils.replace(
+        """
         SET sqlTimeZone = 'UTC';
         INSERT INTO dst
         SELECT l.__time, l.a
@@ -132,9 +133,15 @@ public class RemoteFunctionAuthTest extends CalciteIngestionDmlTest
         )) EXTEND (__time BIGINT, a VARCHAR) AS r ON l.a = r.a
         WHERE l.a = 'left''secret'
         PARTITIONED BY DAY
-        """.replace("\n", lineEnding);
-    final String expected = sql.replace("password => 'left''secret'", "password => '<masked>'")
-                               .replace("password => 'right-secret'", "password => '<masked>'");
+        """,
+        "\n",
+        lineEnding
+    );
+    final String expected = StringUtils.replace(
+        StringUtils.replace(sql, "password => 'left''secret'", "password => '<masked>'"),
+        "password => 'right-secret'",
+        "password => '<masked>'"
+    );
     assertRedactedSql(sql, expected, List.of());
   }
 
@@ -145,7 +152,7 @@ public class RemoteFunctionAuthTest extends CalciteIngestionDmlTest
         TABLE(REMOTE('https://source.example', 'events', 'basic', 'reader', 'positional-secret'))
           EXTEND (__time BIGINT, a VARCHAR)
         """);
-    assertRedactedSql(sql, sql.replace("'positional-secret'", "'<masked>'"), List.of());
+    assertRedactedSql(sql, StringUtils.replace(sql, "'positional-secret'", "'<masked>'"), List.of());
   }
 
   @Test
@@ -159,7 +166,8 @@ public class RemoteFunctionAuthTest extends CalciteIngestionDmlTest
               UESCAPE 'm'
         )) EXTEND (__time BIGINT, a VARCHAR)
         """);
-    final String expected = sql.replace("U&'secrem0074' /* escape character follows */\n      UESCAPE 'm'", "'<masked>'");
+    final String expected =
+        StringUtils.replace(sql, "U&'secrem0074' /* escape character follows */\n      UESCAPE 'm'", "'<masked>'");
     assertRedactedSql(sql, expected, List.of());
   }
 

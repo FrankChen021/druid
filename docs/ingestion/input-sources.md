@@ -867,9 +867,10 @@ WHERE a = 'keep'
 PARTITIONED BY DAY
 ```
 
-Druid masks literal `REMOTE` passwords in the SQL text stored by MSQ tasks and shown in Dart query listings. The planned
-input source still carries the credential for execution, and `EXPLAIN` can show it. SQL request logging records the
-password in the SQL text or in the bound `parameters`. Restrict access to task specifications, reports, and request logs,
+Druid masks literal `REMOTE` passwords in the SQL text stored by MSQ tasks and shown in Dart query listings. The same
+text elsewhere in the query, such as in a filter or a comment, is not masked. A password bound with `?`, as above, is
+never part of the SQL text. The planned input source still carries the credential for execution, and `EXPLAIN` can show
+it. SQL request logging records the password in the SQL text or in the bound `parameters`. Restrict access to task specifications, reports, and request logs,
 and use a dedicated source account that can only read the datasources to copy. References to server-side secrets,
 such as environment variables, are not supported, since a query could send them to an endpoint of its choice.
 
