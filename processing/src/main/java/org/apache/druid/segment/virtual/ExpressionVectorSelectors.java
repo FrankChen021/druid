@@ -31,6 +31,7 @@ import org.apache.druid.math.expr.vector.VectorProcessors;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
 import org.apache.druid.query.groupby.DeferExpressionDimensions;
 import org.apache.druid.query.groupby.epinephelinae.vector.GroupByVectorColumnSelector;
+import org.apache.druid.segment.DimensionDictionarySelector;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnType;
 import org.apache.druid.segment.column.RowSignature;
@@ -116,6 +117,24 @@ public class ExpressionVectorSelectors
           factory.getReadableVectorInspector(),
           eval.value()
       );
+    }
+
+    if (plan.is(ExpressionPlan.Trait.SINGLE_INPUT_SCALAR)
+        && Types.is(plan.getSingleInputType(), ValueType.STRING)
+        && plan.getOutputType() != null
+        && plan.getOutputType().is(ExprType.STRING)
+        && !plan.getAnalysis().isNonDeterministic()) {
+      final SingleValueDimensionVectorSelector selector = factory.makeSingleValueDimensionSelector(
+          DefaultDimensionSpec.of(plan.getSingleInputName())
+      );
+      if (selector.getValueCardinality() != DimensionDictionarySelector.CARDINALITY_UNKNOWN
+          && selector.nameLookupPossibleInAdvance()) {
+        return new SingleStringInputDictionaryEncodedExpressionVectorObjectSelector(
+            factory.getReadableVectorInspector(),
+            selector,
+            plan.getExpression()
+        );
+      }
     }
 
     final Expr.VectorInputBinding bindings = createVectorBindings(plan.getAnalysis(), factory);
